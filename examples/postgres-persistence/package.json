@@ -1,14 +1,12 @@
 {
-  "name": "@relate/example-account-review",
+  "name": "@relate/example-postgres-persistence",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "dependencies": {
     "relate": "workspace:*",
-    "@relate/node": "workspace:*",
+    "@relate/runtime": "workspace:*",
+    "zod": "4.6.5",
     "@relate/postgres": "workspace:*"
-  },
-  "devDependencies": {
-    "@relate/cli": "workspace:*"
   }
 }
