@@ -1,3 +1,12 @@
+## Commit messages
+
+Use Conventional Commits: `<type>[optional scope]: <description>` (for example,
+`docs: update license documentation` or `feat(runtime): add durable reads`).
+Mark breaking changes with `!` after the type or scope, or a `BREAKING CHANGE:`
+footer.
+
+## Implementation approach
+
 We are building the OSS external version of relate here, using what we have
 designed and learnt from the `relate-internal` package. Here is our plan of
 action:

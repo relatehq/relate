@@ -54,5 +54,4 @@ work to own. No root `docs/` or `experiments/` directory is included.
 
 ## License
 
-The open-source license has not been selected. No license grant is made by this
-scaffold; add the chosen license before public release.
+Relate is licensed under the [Apache License 2.0](LICENSE).
