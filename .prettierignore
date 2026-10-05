@@ -1,0 +1,13 @@
+**/node_modules/
+**/dist/
+**/.next/
+**/.next-internal/
+**/.source/
+**/.source-internal/
+**/next-env.d.ts
+**/*.tsbuildinfo
+**/coverage/
+**/playwright-report/
+**/test-results/
+pnpm-lock.yaml
+**/*.tgz

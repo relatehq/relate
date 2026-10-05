@@ -3,3 +3,5 @@ packages:
   - connectors/*
   - apps/*
   - examples/*
+allowBuilds:
+  esbuild: true

@@ -2,35 +2,47 @@
 
 A business graph, defined in TypeScript.
 
-This repository is a package and directory scaffold only. No runtime, CLI,
-client, application, or connector is implemented or published here yet.
+The first embedded Customer read is implemented across `relate`,
+`@relate/protocol`, `@relate/runtime`, and `@relate/postgres`. It includes
+source refresh, authorized durable fallback, and structured evidence. Packages
+remain private and unpublished; the other packages and applications remain
+scaffolds.
 
 ## Workspace
 
-Use pnpm 12.4.2 and Node.js 22.18 or newer for repository tooling. This is not
-runtime compatibility certification.
+Use pnpm 12.9.1 and Node.js 26.9.0 (`.node-version`) for repository tooling.
+Node 26 is the development baseline, with the latest published Node 26 type
+definitions. This is not runtime compatibility certification.
 
 ```sh
 pnpm install
 pnpm packages
+pnpm check
+pnpm example:customer
 ```
 
 - `packages/relate`: main authoring API, portable app definitions, and compiler.
 - `packages/runtime`: execution engine with internal domain modules.
-- `packages/protocol` and `packages/client`: public contracts and HTTP consumption.
-- `packages/http` and `packages/mcp`: transport adapters over runtime capabilities.
+- `packages/protocol` and `packages/client`: public contracts and HTTP
+  consumption.
+- `packages/http` and `packages/mcp`: transport adapters over runtime
+  capabilities.
 - `packages/postgres`: durable storage and physical database migrations.
 - `packages/node`: Node hosting and application lifecycle.
 - `packages/cli` and `packages/create-relate`: commands and project generation.
 - `connectors/`: independently installable provider integrations.
 - `apps/docs` and `apps/inspector`: documentation and public-API inspection.
-- `examples/`: complete application placeholders.
+- `examples/customer-directory`: runnable embedded read; other examples remain
+  placeholders.
 - `dev/`: reusable harnesses, independent simulators, services, and fixtures.
 - `tests/`: integration, conformance, and installed-package verification.
 
-All packages are private during scaffolding. Workspace dependencies express the
-intended relationships; exports, binaries, third-party dependencies, build tools,
-and executable commands will be added with their implementations.
+All packages remain private. The four implemented packages expose compiled Node
+ESM and TypeScript declarations. `pnpm check` runs typechecking, dependency
+boundaries, focused unit/integration tests, and installed-tarball compatibility.
+The database tests create and remove an owned scratch Postgres cluster. See
+[the Customer directory](examples/customer-directory/README.md) for
+prerequisites, contracts, and current limits.
 
 Future platform hosts belong in dedicated packages when they have integration
 work to own. No root `docs/` or `experiments/` directory is included.
