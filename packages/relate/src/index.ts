@@ -1,0 +1,130 @@
+import { z } from 'zod';
+import type { Policy } from './model.js';
+
+export interface FieldReference<S extends z.ZodType = z.ZodType> {
+  readonly sourceDefinitionId: string;
+  readonly field: string;
+  readonly schema: S;
+}
+
+export interface SourceDefinition {
+  readonly definitionId: string;
+  readonly idField: string;
+  readonly schema: z.ZodObject;
+}
+
+export function defineSource<S extends Record<string, z.ZodType>>(definition: {
+  definitionId: string;
+  idField: Extract<keyof S, string>;
+  schema: z.ZodObject<S>;
+}) {
+  const fields = Object.fromEntries(
+    Object.entries(definition.schema.shape).map(([field, schema]) => [
+      field,
+      Object.freeze({
+        sourceDefinitionId: definition.definitionId,
+        field,
+        schema,
+      }),
+    ]),
+  ) as { readonly [K in keyof S]: FieldReference<S[K]> };
+
+  return Object.freeze({ ...definition, fields: Object.freeze(fields) });
+}
+
+export interface Property<S extends z.ZodType = z.ZodType> {
+  readonly definitionId: string;
+  readonly access: string;
+  readonly schema: S;
+  readonly origin:
+    | { readonly kind: 'native' }
+    | { readonly kind: 'object-id' }
+    | {
+        readonly kind: 'source';
+        readonly sourceDefinitionId: string;
+        readonly field: string;
+      };
+}
+
+export interface ObjectIdProperty extends Property<z.ZodString> {
+  readonly origin: { readonly kind: 'object-id' };
+}
+
+export function objectId(options: {
+  definitionId: string;
+  access: string;
+}): ObjectIdProperty {
+  return Object.freeze({
+    ...options,
+    schema: z.string(),
+    origin: Object.freeze({ kind: 'object-id' as const }),
+  });
+}
+
+export function native<S extends z.ZodType>(
+  schema: S,
+  options: { definitionId: string; access: string },
+): Property<S> {
+  return Object.freeze({
+    ...options,
+    schema,
+    origin: { kind: 'native' as const },
+  });
+}
+
+export function from<S extends z.ZodType>(
+  field: FieldReference<S>,
+  options: { definitionId: string; access: string },
+): Property<S> {
+  return Object.freeze({
+    ...options,
+    schema: field.schema,
+    origin: {
+      kind: 'source' as const,
+      sourceDefinitionId: field.sourceDefinitionId,
+      field: field.field,
+    },
+  });
+}
+
+export function source(resource: SourceDefinition) {
+  return Object.freeze({ resource });
+}
+
+export interface ObjectDefinition {
+  readonly definitionId: string;
+  readonly name: string;
+  readonly membership: ReturnType<typeof source>;
+  readonly properties: Readonly<Record<string, Property>>;
+}
+
+export function defineObject<const P extends Record<string, Property>>(
+  definition: Omit<ObjectDefinition, 'properties'> & {
+    properties: P;
+  },
+) {
+  if (
+    Object.values(definition.properties).filter(
+      (p) => p.origin.kind === 'object-id',
+    ).length !== 1
+  )
+    throw new Error('Each object must have exactly one objectId() property');
+
+  return Object.freeze({
+    ...definition,
+    properties: Object.freeze({ ...definition.properties }),
+  });
+}
+
+export interface GraphDefinition {
+  readonly definitionId: string;
+  readonly objects: readonly ObjectDefinition[];
+  readonly fieldGroups: readonly string[];
+  readonly policies: Readonly<Record<string, Policy>>;
+}
+
+export function defineGraph<const G extends GraphDefinition>(graph: G): G {
+  return graph;
+}
+
+export type { Policy } from './model.js';

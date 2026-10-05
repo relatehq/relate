@@ -166,6 +166,9 @@ importers:
 
   .:
     devDependencies:
+      '@hono/node-server':
+        specifier: 2.1.3
+        version: 2.1.3(hono@4.13.13)
       '@relate/postgres':
         specifier: workspace:*
         version: link:packages/postgres
@@ -190,6 +193,9 @@ importers:
       eslint:
         specifier: 10.12.0
         version: 10.12.0
+      hono:
+        specifier: 4.13.13
+        version: 4.13.13
       pg:
         specifier: 8.23.1
         version: 8.23.1
@@ -223,27 +229,20 @@ importers:
         specifier: workspace:*
         version: link:../../packages/protocol
 
-  examples/account-review:
+  examples/hello-world:
     dependencies:
-      '@relate/node':
+      '@relate/runtime':
         specifier: workspace:*
-        version: link:../../packages/node
-      '@relate/postgres':
-        specifier: workspace:*
-        version: link:../../packages/postgres
+        version: link:../../packages/runtime
       relate:
         specifier: workspace:*
         version: link:../../packages/relate
-    devDependencies:
-      '@relate/cli':
-        specifier: workspace:*
-        version: link:../../packages/cli
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
-  examples/customer-directory:
+  examples/postgres-persistence:
     dependencies:
-      '@relate/node':
-        specifier: workspace:*
-        version: link:../../packages/node
       '@relate/postgres':
         specifier: workspace:*
         version: link:../../packages/postgres
@@ -256,26 +255,6 @@ importers:
       zod:
         specifier: 4.6.5
         version: 4.6.5
-    devDependencies:
-      '@relate/cli':
-        specifier: workspace:*
-        version: link:../../packages/cli
-
-  examples/customer-update:
-    dependencies:
-      '@relate/node':
-        specifier: workspace:*
-        version: link:../../packages/node
-      '@relate/postgres':
-        specifier: workspace:*
-        version: link:../../packages/postgres
-      relate:
-        specifier: workspace:*
-        version: link:../../packages/relate
-    devDependencies:
-      '@relate/cli':
-        specifier: workspace:*
-        version: link:../../packages/cli
 
   packages/cli:
     dependencies:
@@ -558,6 +537,12 @@ packages:
   '@eslint/plugin-kit@0.7.3':
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+
+  '@hono/node-server@2.1.3':
+    resolution: {integrity: sha512-TA//nWMqPhbfdfneACk6t5a9eqbS9lABEPyKn0/xZTah3H3U2XaVg85rJFl0/Fyit0I552YDHgXGVSf3GwqbUw==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      hono: ^4
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -942,6 +927,10 @@ packages:
   hashery@1.5.1:
     resolution: {integrity: sha512-iZyKG96/JwPz1N55vj2Ie2vXbhu440zfUfJvSwEqEbeLluk7NnapfGqa7LH0mOsnDxTF85Mx8/dyR6HfqcbmbQ==}
     engines: {node: '>=20'}
+
+  hono@4.13.13:
+    resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
+    engines: {node: '>=16.9.0'}
 
   hookified@1.15.1:
     resolution: {integrity: sha512-MvG/clsADq1GPM2KGo2nyfaWVyn9naPiXrqIe4jYjXNZQt238kWyOGrsyc/DmRAQ+Re6yeo6yX/yoNCG5KAEVg==}
@@ -1477,6 +1466,10 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
+  '@hono/node-server@2.1.3(hono@4.13.13)':
+    dependencies:
+      hono: 4.13.13
+
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -1848,6 +1841,8 @@ snapshots:
   hashery@1.5.1:
     dependencies:
       hookified: 1.15.1
+
+  hono@4.13.13: {}
 
   hookified@1.15.1: {}
 

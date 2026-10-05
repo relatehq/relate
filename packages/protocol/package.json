@@ -3,5 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Transport-neutral public request/result schemas, discovery, errors, and evidence."
+  "description": "Transport-neutral public request/result schemas, discovery, errors, and evidence.",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  }
 }

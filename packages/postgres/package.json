@@ -6,6 +6,18 @@
   "description": "Durable Relate storage, transactions, and physical database migrations.",
   "dependencies": {
     "relate": "workspace:*",
-    "@relate/runtime": "workspace:*"
+    "@relate/runtime": "workspace:*",
+    "pg": "8.23.1"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   }
 }

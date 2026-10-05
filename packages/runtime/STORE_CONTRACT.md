@@ -1,0 +1,89 @@
+# Writing a store
+
+Implement `ObservationStore` from `@relate/runtime/storage` and pass your
+instance as `createRuntime({ model, graphId, sources, store })`. The runtime
+handles source fetching, validation and authorization; a store handles identity,
+ordering and retention. A store must not perform source I/O or decide caller
+permissions.
+
+```ts
+import type { ObservationStore } from '@relate/runtime/storage';
+import {
+  compareObservation,
+  OrderingConflict,
+  RetentionError,
+} from '@relate/runtime/storage';
+```
+
+The interface is the contract for the current read slice. Future action or
+history APIs may extend it; implementing this interface does not imply support
+for those features.
+
+## Methods and guarantees
+
+| Member                                 | Required behavior                                                                                                                                                                                                                                                                |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `durability`                           | `volatile` for process-local storage; `persistent` when acknowledged retention survives normal client/process restart. This declares a storage guarantee, not the outcome of an individual write.                                                                                |
+| `install(graphId, definitionRevision)` | Atomically pin a graph instance to its revision. Repeating the same installation succeeds. A different revision rejects without replacing the installed revision.                                                                                                                |
+| `beginFetch()`                         | Allocate a unique, increasing integer encoded as a decimal string. Tokens must be comparable across every client sharing retained data, including after reconnect/restart for persistent stores. Gaps are allowed. Allocate before source I/O; do not use response arrival time. |
+| `load(scope, objectId)`                | Return the latest accepted whole object in precisely this scope and revision, or `undefined` if absent/mismatched. Operational failures reject; they must not masquerade as absence.                                                                                             |
+| `accept(scope, input)`                 | Atomically check installation and membership, compare ordering, and retain the winning whole observation and identity. Return `{ object, acceptance }`, including the current winner when the incoming observation loses.                                                        |
+
+Every operation is scoped by installed graph ID/revision, object definition,
+source definition, connection ID and authorization partition. No data may cross
+these boundaries. Only `shared-service` is supported today.
+
+`accept` must serialize competing writes to the same scoped `sourceRecordId`,
+including simultaneous first adoptions. When `adopt` is true it may allocate a
+new nonempty, opaque string `objectId`; repeated adoption reuses that ID. IDs
+must be unique within the scope. When `adopt` is false, existing membership is
+required. If `input.objectId` is supplied it must match that source alias.
+Deletion retains the identity and a tombstone observation.
+
+Use the exported `compareObservation(previous, incoming)` inside the atomic
+operation. It compares source versions before fetch-start tokens and returns:
+
+- `changed`: replace the retained observation.
+- `unchanged`: replace it too, advancing observation time and ordering evidence.
+- `superseded` or `replay`: preserve the existing observation and return it.
+
+Propagate `OrderingConflict` without changing state. Never commit the raw
+record, mapped values, observation time or ordering token separately. If an
+adapter also records history, commit that history in the same transaction.
+History querying is not part of this interface; Postgres currently records value
+changes as an adapter feature, while the memory store retains only the latest
+observation.
+
+Inputs and returned objects must not expose mutable references to retained
+state. Load and acceptance results are independent snapshots. Reads after a
+successful acceptance must observe that write or a later accepted winner.
+
+## Failure and lifecycle
+
+Reject `accept` with `RetentionError('failed', { cause })` when you know nothing
+was committed. Use `RetentionError('unconfirmed', { cause })` when a commit may
+have succeeded, such as a lost acknowledgement. The runtime may read back to
+resolve uncertainty. Do not return success for a queued, incomplete write. An
+ordering conflict is a distinct error and must remain distinguishable.
+
+`retention: 'confirmed'` in field evidence means this store accepted the value.
+`retentionDurability` reports the store's guarantee separately: `volatile` does
+not survive losing the store instance; `persistent` survives normal process
+restart. A failed/unconfirmed write is not made durable by that capability.
+Neither capability promises backup, disaster recovery or infinite retention.
+
+The host owns adapter setup and shutdown. For example, it calls Postgres
+`migrate()` before use and `close()` afterward. The runtime does not close a
+supplied store because it may be shared. The default memory store is isolated
+per runtime; an explicit `createMemoryStore()` can be shared by several
+runtimes. It needs no migration or close method and is released when no longer
+referenced.
+
+## Verification
+
+The reusable suite in `tests/support/store-contract.ts` runs against memory and
+Postgres. Use it as the starting point for an adapter's conformance tests. It
+checks revision/scope isolation, atomic concurrent adoption, membership checks,
+ordering, tombstones, refreshed evidence and snapshot isolation. Add tests for
+your adapter's transactions, multiple clients, restart behavior and ambiguous
+commit outcomes. Interface compatibility alone does not establish correctness.

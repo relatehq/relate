@@ -3,5 +3,27 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Ontology authoring, portable application definitions, model contracts, and compilation."
+  "description": "Ontology authoring, portable application definitions, model contracts, and compilation.",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./compiler": {
+      "types": "./dist/compiler.d.ts",
+      "import": "./dist/compiler.js"
+    },
+    "./model": {
+      "types": "./dist/model.d.ts",
+      "import": "./dist/model.js"
+    }
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
 }

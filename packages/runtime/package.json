@@ -7,5 +7,21 @@
   "dependencies": {
     "relate": "workspace:*",
     "@relate/protocol": "workspace:*"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "STORE_CONTRACT.md"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./storage": {
+      "types": "./dist/storage.d.ts",
+      "import": "./dist/storage.js"
+    }
   }
 }
