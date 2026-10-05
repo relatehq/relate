@@ -1,0 +1,14 @@
+{
+  "name": "@relate/example-account-review",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "relate": "workspace:*",
+    "@relate/node": "workspace:*",
+    "@relate/postgres": "workspace:*"
+  },
+  "devDependencies": {
+    "@relate/cli": "workspace:*"
+  }
+}

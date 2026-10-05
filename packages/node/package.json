@@ -1,0 +1,14 @@
+{
+  "name": "@relate/node",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Node application composition, hosting, worker scheduling, and process lifecycle.",
+  "dependencies": {
+    "relate": "workspace:*",
+    "@relate/runtime": "workspace:*",
+    "@relate/postgres": "workspace:*",
+    "@relate/http": "workspace:*",
+    "@relate/mcp": "workspace:*"
+  }
+}

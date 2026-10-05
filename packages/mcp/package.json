@@ -1,0 +1,11 @@
+{
+  "name": "@relate/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server adapter and a separate MCP client entry point.",
+  "dependencies": {
+    "@relate/runtime": "workspace:*",
+    "@relate/protocol": "workspace:*"
+  }
+}

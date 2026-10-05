@@ -1,0 +1,13 @@
+{
+  "name": "relate-workspace",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "packages": "pnpm -r list --depth -1"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "@relate/client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HTTP client for browser and server consumers.",
+  "dependencies": {
+    "@relate/protocol": "workspace:*"
+  }
+}

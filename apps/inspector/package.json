@@ -1,0 +1,11 @@
+{
+  "name": "@relate/inspector",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Graph inspection through public client APIs.",
+  "dependencies": {
+    "@relate/client": "workspace:*",
+    "@relate/protocol": "workspace:*"
+  }
+}

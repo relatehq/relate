@@ -1,0 +1,11 @@
+{
+  "name": "@relate/http",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Direct HTTP API over narrow runtime consumer capabilities.",
+  "dependencies": {
+    "@relate/runtime": "workspace:*",
+    "@relate/protocol": "workspace:*"
+  }
+}

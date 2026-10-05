@@ -1,0 +1,11 @@
+{
+  "name": "@relate/postgres",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Durable Relate storage, transactions, and physical database migrations.",
+  "dependencies": {
+    "relate": "workspace:*",
+    "@relate/runtime": "workspace:*"
+  }
+}
