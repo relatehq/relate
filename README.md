@@ -141,6 +141,7 @@ const relate = createRuntime({
     connect(billing, billingDb),
   ],
 });
+
 const { objects } = relate.as({
   id: 'ana',
   roles: ['sales'],
