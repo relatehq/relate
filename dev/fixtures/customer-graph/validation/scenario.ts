@@ -71,8 +71,7 @@ export async function scenario() {
 
     // Ana records a review. The implementation sets the author; she cannot choose it.
     const request = {
-      target: northwind,
-      input: { note: 'Follow up on the open invoice' },
+      input: { customer: northwind, note: 'Follow up on the open invoice' },
       idempotencyKey: 'review-2026-10',
     };
     const receipt = await relate.as(ana).actions.addAccountReview(request);
@@ -123,10 +122,14 @@ export async function scenario() {
       }),
     );
 
-    // Several objects in one commit. The implementation read the invoices as Ana.
+    // Several native objects in one commit; source queries run as Ana.
     const escalation = await relate.as(ana).actions.escalateAccount({
-      target: northwind,
-      input: { note: 'Escalated', assignee: 'sam', dueDate: '2026-10-20' },
+      input: {
+        customer: northwind,
+        note: 'Escalated',
+        assignee: 'sam',
+        dueDate: '2026-10-20',
+      },
       idempotencyKey: 'escalate-2026-10',
     });
 
@@ -150,6 +153,25 @@ export async function scenario() {
         },
       ],
     );
+    // Dependent read: the invoice supplies the customer ID for the next lookup.
+    const invoiceReview = await relate.as(ana).actions.reviewInvoice({
+      input: { invoice: openInvoice, note: 'Check payment timing' },
+      idempotencyKey: 'invoice-review-2026-10',
+    });
+
+    assert.equal(invoiceReview.state, 'succeeded');
+    const invoiceReviewRecord = await relate
+      .as(ana)
+      .objects.AccountReview.get(invoiceReview.output.reviewId, {
+        select: ['customer', 'author', 'note'],
+      });
+
+    assert.equal(invoiceReviewRecord.status, 'ok');
+    assert.deepEqual(invoiceReviewRecord.data, {
+      customer: northwind,
+      author: 'ana',
+      note: 'Northwind Studio: Check payment timing',
+    });
   } finally {
     await relate.close();
   }

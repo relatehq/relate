@@ -22,6 +22,7 @@ export const crmCustomers = defineSource({
     id: z.string(),
     display_name: z.string(),
     organization: z.string(),
+    status: z.enum(['active', 'inactive']),
     revenue: z.number(),
   }),
 });
@@ -51,6 +52,10 @@ export const Customer = defineObject({
     }),
     organization: from(crmCustomers.fields.organization, {
       id: 'business.customer.organization',
+      access: ordinary,
+    }),
+    status: from(crmCustomers.fields.status, {
+      id: 'business.customer.status',
       access: ordinary,
     }),
     revenue: from(crmCustomers.fields.revenue, {
@@ -169,3 +174,6 @@ export const ReviewTasks = defineRelationship({
   reverse: { name: 'review', cardinality: 'one' },
   via: Task.properties.review,
 });
+
+/** Shared object names for graph assembly and server-context inference. */
+export const objects = { Customer, Invoice, AccountReview, Task };

@@ -40,3 +40,10 @@ export const fin: Principal<typeof access> = {
   roles: ['employee', 'finance'],
   claims: { organization: 'org_north' },
 };
+
+/** Used by the cross-organization acceptance cases; not an elevated principal. */
+export const sara: Principal<typeof access> = {
+  id: 'sara',
+  roles: ['employee', 'account-manager'],
+  claims: { organization: 'org_south' },
+};

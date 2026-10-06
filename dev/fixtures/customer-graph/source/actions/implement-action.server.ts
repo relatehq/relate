@@ -1,6 +1,6 @@
-/** Server-only, application-scoped binder; not global state or authorization. */
+/** Server-only binding. Object names and access provide types, not grants. */
 import { createActionImplementer } from '../../validation/target.js';
 import { access } from '../access.js';
+import { objects } from '../model.js';
 
-// Feature implementation modules share the application's role/claim vocabulary.
-export const implementAction = createActionImplementer(access);
+export const implementAction = createActionImplementer({ access, objects });

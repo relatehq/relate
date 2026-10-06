@@ -138,50 +138,43 @@ type NativeObject = ObjectDefinition<
   NativeMembership
 >;
 
-type Reads<Target extends ObjectDefinition = ObjectDefinition> = Record<
-  string,
-  RelationshipDefinition<Target>
->;
+declare const referenceType: unique symbol;
+
+export type ObjectReference<O extends ObjectDefinition> = {
+  readonly id: string;
+  readonly [referenceType]: O['id'];
+};
+
+/** An ID on the wire, a typed reference after parsing; not an access grant. */
+export declare function referenceInput<O extends ObjectDefinition>(
+  object: O,
+): z.ZodType<ObjectReference<O>, string>;
 
 export interface ActionDefinition<
-  Target extends ObjectDefinition = ObjectDefinition,
   Input extends z.ZodType = z.ZodType,
   Output extends z.ZodType = z.ZodType,
   Creates extends readonly NativeObject[] = readonly NativeObject[],
-  R extends Reads = Reads,
 > {
   readonly id: string;
-  readonly target: Target;
   readonly input: Input;
   readonly output: Output;
   readonly creates: Creates;
-  readonly reads: R;
-  /** Omission denies discovery and execution; graph assembly cannot override. */
   readonly policy?: ActionPolicy;
 }
 
-/** The serializable contract. Its implementation is supplied separately, server-side. */
 export declare function defineAction<
   const Id extends string,
-  Target extends ObjectDefinition,
   Input extends z.ZodType,
   Output extends z.ZodType,
   const Creates extends readonly NativeObject[],
-  const R extends Reads<NoInfer<Target>> = {},
 >(definition: {
   id: Id;
-  target: Target;
   input: Input;
   output: Output;
   creates: Creates;
-  /**
-   * Relationships from the target whose records the implementation needs. They are
-   * read as the actor before the implementation runs; nothing else is readable.
-   */
-  reads?: R;
-  /** Declarative execution permission, colocated with the action contract. */
+  /** Omission denies discovery and execution. */
   policy?: ActionPolicy;
-}): ActionDefinition<Target, Input, Output, Creates, R> & { readonly id: Id };
+}): ActionDefinition<Input, Output, Creates> & { readonly id: Id };
 
 // Access
 
@@ -266,7 +259,7 @@ export interface GraphDefinition<
 
 /**
  * Keys are the API names consumers call. Relationship endpoints, action
- * targets and created objects must all be registered here.
+ * created objects must all be registered here. Input references need runtime validation.
  */
 export declare function defineGraph<
   const O extends Record<string, ObjectDefinition>,
@@ -277,7 +270,6 @@ export declare function defineGraph<
   const A extends Record<
     string,
     ActionDefinition<
-      NoInfer<O>[keyof O],
       z.ZodType,
       z.ZodType,
       readonly Extract<NoInfer<O>[keyof O], NativeObject>[]
@@ -293,87 +285,81 @@ export declare function defineGraph<
   policies: readonly Policy[];
 }): GraphDefinition<O, R, A, Access>;
 
-// Implementations: a synchronous edit builder produces a sealed plan.
-// These declarations describe the accepted shape, not an implementation.
-
+// Async implementation context: declarations only, no executor.
 type NativeValues<O extends ObjectDefinition> = {
   readonly [
     K in keyof O['properties'] as O['properties'][K] extends NativeOrigin
       ? K
       : never
-  ]: z.output<O['properties'][K]['schema']>;
+  ]: z.input<O['properties'][K]['schema']>;
 };
 
-/**
- * Detached before-state, fetched as the actor before planning. No ambient
- * reads or read-your-writes. This array is an interim fixture surface: richer
- * selection, freshness and completeness contracts remain open.
- */
-type ActionContext<V extends AccessVocabulary, A extends ActionDefinition> = {
-  readonly actor: Pick<Principal<V>, 'id' | 'claims'>;
-  readonly target: { readonly id: string };
-  readonly input: z.output<A['input']>;
-  readonly reads: {
-    readonly [K in keyof A['reads']]: readonly ObjectRecord<
-      A['reads'][K]['to']
-    >[];
-  };
+type ObjectRegistry = Record<string, ObjectDefinition>;
+
+type QueryOptions<
+  O extends ObjectDefinition,
+  K extends Names<O>,
+> = PageOptions<K> & {
+  /** Equality-only fixture sketch; query execution must not silently omit unknown matches. */
+  where: Partial<{
+    readonly [N in Names<O>]: z.output<O['properties'][N]['schema']>;
+  }>;
 };
 
-declare const actionPlan: unique symbol;
-
-/**
- * Opaque sealed result, constructed only by this invocation's builder.
- * Its eventual serialized representation contains data, never callbacks or
- * object definitions. The format and runtime provenance checks are still open.
- * The brand is a type boundary, not authorization or a security mechanism.
- */
-export interface ActionPlan<A extends ActionDefinition> {
-  readonly [actionPlan]: A;
-}
-
-export interface Changes<A extends ActionDefinition> {
-  /**
-   * Records a complete creation without writing. Allocates its native ID now;
-   * the object exists only after commit. Only declared native types are valid.
-   */
-  create<O extends A['creates'][number]>(
-    object: O,
-    values: NativeValues<NoInfer<O>>,
-  ): { readonly id: string };
-  /**
-   * Seals edits and output into an immutable plan. Later builder use rejects
-   * at runtime. The runtime validates output and proposed values before commit.
-   */
-  build(output: z.input<A['output']>): ActionPlan<A>;
-}
-
-export type ImplementationFunction<
-  G extends GraphDefinition,
+export type ActionObjects<
+  O extends ObjectRegistry,
   A extends ActionDefinition,
-> = (
-  context: ActionContext<G['access'], A> & { readonly changes: Changes<A> },
-) => ActionPlan<A>;
+> = {
+  readonly [N in keyof O]: {
+    get<K extends Names<O[N]> = Names<O[N]>>(
+      id: string,
+      options?: ReadOptions<K>,
+    ): Promise<ObjectResult<O[N], K>>;
+    query<K extends Names<O[N]> = Names<O[N]>>(
+      options: QueryOptions<O[N], K>,
+    ): Promise<Page<O[N], K>>;
+  } & (O[N] extends A['creates'][number]
+    ? {
+        /** Writes inside the runtime-owned native transaction; not an independent commit. */
+        create(values: NativeValues<O[N]>): Promise<{ readonly id: string }>;
+      }
+    : {});
+};
 
-/** An action-bound implementation, independent of graph registration names. */
+type ActionContext<
+  V extends AccessVocabulary,
+  A extends ActionDefinition,
+  O extends ObjectRegistry,
+> = {
+  readonly actor: Pick<Principal<V>, 'id' | 'claims'>;
+  readonly input: z.output<A['input']>;
+  readonly objects: ActionObjects<O, A>;
+};
+
 export interface ActionImplementation<
   A extends ActionDefinition,
   V extends AccessVocabulary,
+  O extends ObjectRegistry,
 > {
   readonly action: A;
   readonly access: V;
+  readonly objects: O;
   readonly implementation: (
-    context: ActionContext<V, A> & { readonly changes: Changes<A> },
-  ) => ActionPlan<A>;
+    context: ActionContext<V, A, O>,
+  ) => Promise<z.input<A['output']>>;
 }
 
-/** Server-only binder. The vocabulary supplies types, never permissions. */
-export declare function createActionImplementer<V extends AccessVocabulary>(
-  access: V,
-): <A extends ActionDefinition>(
+/** Shared vocabulary and object names for inference, never authorization grants. */
+export declare function createActionImplementer<
+  V extends AccessVocabulary,
+  const O extends ObjectRegistry,
+>(options: {
+  access: V;
+  objects: O;
+}): <A extends ActionDefinition>(
   action: A,
-  implementation: ActionImplementation<NoInfer<A>, V>['implementation'],
-) => ActionImplementation<A, V>;
+  implementation: ActionImplementation<NoInfer<A>, V, O>['implementation'],
+) => ActionImplementation<A, V, O>;
 
 type Named = { readonly action: { readonly id: string } };
 
@@ -539,7 +525,6 @@ export interface Consumer<G extends GraphDefinition> {
   };
   readonly actions: {
     readonly [N in keyof G['actions']]: (request: {
-      target: string;
       input: z.input<G['actions'][N]['input']>;
       /** Reusing a key with different input fails. */
       idempotencyKey: string;
@@ -595,7 +580,8 @@ export declare function createRuntime<
   const T extends readonly {
     [K in keyof NoInfer<G>['actions']]: ActionImplementation<
       NoInfer<G>['actions'][K],
-      NoInfer<G>['access']
+      NoInfer<G>['access'],
+      NoInfer<G>['objects']
     >;
   }[keyof G['actions']][],
 >(options: {

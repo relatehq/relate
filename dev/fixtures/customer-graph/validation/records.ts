@@ -7,12 +7,14 @@ export const customers: Record<string, z.input<typeof crmCustomers.schema>> = {
     id: 'crm_456',
     display_name: 'Northwind Studio',
     organization: 'org_north',
+    status: 'active',
     revenue: 2_000_000,
   },
   crm_789: {
     id: 'crm_789',
     display_name: 'Southbank Supply',
     organization: 'org_south',
+    status: 'active',
     revenue: 750_000,
   },
 };
@@ -25,6 +27,13 @@ export const invoices: Record<
     id: 'inv_1',
     crm_customer_id: 'crm_456',
     total_minor: 250_000,
+    currency: 'EUR',
+    status: 'open',
+  },
+  inv_south: {
+    id: 'inv_south',
+    crm_customer_id: 'crm_789',
+    total_minor: 120_000,
     currency: 'EUR',
     status: 'open',
   },

@@ -4,83 +4,86 @@ The application we want developers to write, before the packages can run it.
 This fixture is type-checked by `pnpm typecheck` and never executed. CRM owns
 customers, billing owns invoices, and Relate owns account reviews and tasks.
 
-## Start with the authoring source
+## Current authoring direction
 
-The selected Actions API is **B: bind each implementation to its action**, using
-one application-scoped access-configured binder. There is one active example;
-the earlier [binding spike](../handler-binding-spike/README.md) is historical
-comparison evidence.
+Actions declare input/output schemas, creation capabilities and colocated
+execution policies. Adjacent `.server.ts` implementations are asynchronous:
+query objects when needed, branch, perform supported writes, and return output.
+There is no special action target, upfront read declaration or change builder.
 
 ```text
 source/
-  access.ts                         shared roles, field groups and claim types
-  model.ts                          sources, objects and relationships
-  graph.ts                          registration and object policies
-  app.server.ts                     runtime composition and implementation registration
+  access.ts                         shared role/claim vocabulary
+  model.ts                          objects, shared object registry, relationships
+  graph.ts                          assembly and object policies
+  app.ts                            server runtime composition
   actions/
-    implement-action.server.ts      configures the server binder once with access
-    add-account-review.ts           shared action contract and execution policy
-    add-account-review.server.ts    action-bound implementation
-    escalate-account.ts             shared action contract and execution policy
-    escalate-account.server.ts      action-bound implementation
+    implement-action.server.ts      binder configured with access and objects
+    add-account-review.ts           input reference and action contract
+    add-account-review.server.ts    authorized lookup and native creation
+    escalate-account.ts             escalation contract
+    escalate-account.server.ts      conditional query, native read/write/read
+    review-invoice.ts               invoice reference input
+    review-invoice.server.ts        lookup using an ID from an earlier result
 validation/
-  target.ts                         declarations for APIs not implemented yet
-  rejections.ts                     positive and negative TypeScript probes
-  scenario.ts                       intended embedded outcomes, not executed yet
-  setup.ts                          simulated connections and sample principals
-  records.ts                        sample provider data
+  target.ts                         temporary declaration-only API shim
+  rejections.ts                     positive and negative type probes
+  scenario.ts                       intended outcomes, never executed
+  setup.ts                          simulated connections and principals
+  records.ts                        provider data
 ```
 
-Read an action's `.ts` file and its adjacent `.server.ts` implementation first.
-Declarative execution policy lives with the action contract. Graph assembly
-registers actions without overriding their policies. Missing action policies
-mean denied discovery and execution. Object policies still live in `graph.ts`.
+`referenceInput(Customer)` accepts an ID in the request and supplies a typed
+`{ id }` reference after parsing. It does not load the object or authorize
+access. For example, invocation input is
+`{ customer: customerId, note: 'Follow up' }`.
 
-`implement-action.server.ts` exports
-`implementAction = createActionImplementer(access)`. This local binder supplies
-role/claim types, not permissions or a global current user. Each implementation
-binds directly to its action, without importing the graph. `app.server.ts`
-passes the implementations directly to
-`createRuntime({ graph, actionImplementations: [addAccountReview, escalateAccount], connections })`.
-The runtime signature checks completeness, uniqueness and compatibility; there
-is no separate implementation-registration wrapper.
+`createActionImplementer({ access, objects })` binds implementations to
+contracts. The registry is exported once from `model.ts` and shared by graph
+assembly and the binder so `objects.Customer` is inferred without a graph import
+cycle. It is a type/installation context, not a read allowlist or a permission
+grant. The runtime must validate object identities and vocabulary compatibility
+at installation.
 
-The builder records complete creations with `changes.create(Object, values)` and
-seals them with `changes.build(output)`. Native IDs are assigned during
-planning; no business writes occur. Planning is synchronous. Literal action IDs
-allow registration checks for missing, duplicate and foreign implementations.
+`createRuntime({ graph, actionImplementations, connections })` checks action
+registration. `creates` limits native creation capability; runtime policies
+still must authorize the values and relationships. Source-owned objects have no
+native `create` operation. Source-backed reads are not part of the native
+transaction.
+
+The intended native execution contract is one runtime-owned transaction:
+interleaved native reads see earlier writes, success commits effects and
+receipt, and failure rolls back native effects. This is a proposed guarantee,
+not proven by declaration types. There is no author-facing commit call or
+mandatory preview.
+
+## Examples and limits
+
+- Add a review after checking the referenced customer is readable.
+- Escalate only active customers. Query open invoices only on that branch, page
+  through results, and create tasks. Read the new review inside the invocation.
+  A later query or write failure must roll back earlier native writes.
+- Review an invoice by first reading its customer reference, then reading that
+  customer's name. The second ID is not known upfront.
+
+Queries use selected fields, equality filters and ordinary pagination. This is a
+minimal query sketch, not a finished query language. Partial object reads remain
+explicit in types; the examples reject missing required evidence. Query filters
+must not silently exclude rows because filter evidence is unavailable. Native
+read-your-writes must still respect field/object authorization.
+
+[Read cases](./read-cases.md), [execution cases](./acceptance-cases.md), and
+[authorization cases](./authorization-cases.md) specify required outcomes.
+[Open questions](./open-questions.md) identifies guarantees and syntax still to
+resolve. Role-only child policies do not yet satisfy organization isolation.
+
 The
-[internal decision](../../../../relate-internal/docs/internal/action-planning.md)
-records the builder/plan rationale and primary research.
+[current internal decision](../../../../relate-internal/docs/internal/action-authoring.md)
+records the minimal-API principle and superseded alternatives. The separate
+action-target spike has been removed. Historical research remains in the
+internal design docs, not as multiple active APIs in this fixture.
 
-## Validation is separate from authoring
-
-`source/` contains the application code; `validation/` contains this fixture's
-scaffolding and checks. The temporary exception is that authoring imports
-`validation/target.ts`, which re-exports existing helpers and declares the APIs
-that packages still owe. It is not a proposed public import path. Replace those
-imports with real package exports when implemented; do not add runtime code just
-to make this fixture execute.
-
-`source/app.server.ts` accepts connections. The validation setup supplies sample
-connectors and principals; production hosts supply actual connections and
-trusted authenticated principals. Shared modules do not import `.server.ts`
-files. The suffix communicates intent; bundle enforcement is still open.
-
-`validation/scenario.ts`, `validation/rejections.ts` and
-[acceptance-cases.md](./acceptance-cases.md) describe intended behavior. Change
-those expectations only when the contract changes. Typechecking is not proof of
-runtime authorization, atomicity, approval binding or recovery.
-
-## Remaining work
-
-[open-questions.md](./open-questions.md) separates settled choices, unresolved
-contracts and deferred directions. It includes action-specific authorization,
-policy checks on proposed values, read completeness, concurrency, plan
-serialization, registration compatibility, identity and external uncertainty.
-
-The TypeScript source covers native creation and declared relationship reads.
-The acceptance cases specify additional behavior without inventing unimplemented
-update, conditional-write or connector APIs. Membership uses `host.adopt` for
-fixture setup; production discovery is through synchronization. Billing's CRM
-key shortcut remains an explicit interim assumption in `source/model.ts`.
+`validation/target.ts` is a temporary import path, not public API packaging.
+Authoring source imports no test data. Exact transport errors, transaction
+isolation/retries, query coverage and preview eligibility remain open. Do not
+implement runtime behavior merely to make these declarations execute.
