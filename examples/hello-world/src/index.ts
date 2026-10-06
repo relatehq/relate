@@ -25,7 +25,9 @@ const people = defineSource({
 
 const Person = defineObject({
   id: 'example.person',
-  name: 'Person',
+  label: 'Person',
+  pluralLabel: 'People',
+  description: 'People available from the connected directory.',
   membership: source(people),
   properties: {
     id: objectId({

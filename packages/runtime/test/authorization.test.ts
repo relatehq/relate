@@ -31,7 +31,7 @@ it.each([
     });
     const Customer = defineObject({
       id: 'customer',
-      name: 'Customer',
+      label: 'Customer',
       membership: source(records),
       properties: {
         id: objectId({

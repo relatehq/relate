@@ -22,13 +22,18 @@ it('compiles named object registries without changing stable persisted identity'
   expect(compile({ ...customerGraph, objects: { Customer } })).toEqual(
     original,
   );
-  expect(
-    compile({
-      ...customerGraph,
-      objects: { Accounts: Customer },
-      policies: { Accounts: customerGraph.policies.Customer },
-    }),
-  ).toEqual(original);
+  const renamed = compile({
+    ...customerGraph,
+    objects: { Accounts: Customer },
+    policies: { Accounts: customerGraph.policies.Customer },
+  });
+
+  expect(renamed.manifest.objects[0]).toEqual({
+    ...original.manifest.objects[0],
+    apiName: 'Accounts',
+  });
+  expect(renamed.manifest.policies).toEqual(original.manifest.policies);
+  expect(renamed.definitionRevision).not.toBe(original.definitionRevision);
   expect(() =>
     compile({ ...customerGraph, objects: { Customer, Duplicate: Customer } }),
   ).toThrow();
@@ -186,7 +191,7 @@ it('supports explicit optional and nullable scalar values', () => {
   });
   const object = defineObject({
     id: 'test.object',
-    name: 'Test',
+    label: 'Test',
     membership: source(resource),
     properties: {
       id: objectId({

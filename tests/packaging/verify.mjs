@@ -67,7 +67,7 @@ assert.deepEqual(paginated, ['first', 'last']);
 assert.deepEqual(pageRequests, [undefined, 'next']);
 const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: { portfolio: z.string() } });
 const crm = defineSource({ id: 'crm', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
-const Customer = defineObject({ id: 'customer', name: 'Customer', membership: source(crm), properties: {
+const Customer = defineObject({ id: 'customer', label: 'Customer', membership: source(crm), properties: {
   id: objectId({ id: 'customer.id', access: access.groups.ordinary }),
   name: from(crm.fields.name, { id: 'customer.name', access: access.groups.ordinary }),
 } });
@@ -119,7 +119,7 @@ const idValue: string = identity.schema.parse('generated');
 // @ts-expect-error Relate owns the ID validator
 objectId(z.string(), { id: 'customer.identity', access: access.groups.ordinary });
 // @ts-expect-error objects infer identity from objectId(), not a key selector
-defineObject({ id: 'customer', name: 'Customer', key: 'id', membership: source(crm), properties: { id: identity } });
+defineObject({ id: 'customer', label: 'Customer', key: 'id', membership: source(crm), properties: { id: identity } });
 export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 `,
   );

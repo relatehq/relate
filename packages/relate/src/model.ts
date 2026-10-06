@@ -58,7 +58,7 @@ const propertySchema = z.strictObject({
 });
 
 export const manifestSchema = z.strictObject({
-  formatVersion: z.literal(1),
+  formatVersion: z.literal(2),
   graphDefinitionId: text,
   fieldGroups: z.array(text),
   roles: z.array(text),
@@ -73,7 +73,10 @@ export const manifestSchema = z.strictObject({
   objects: z.array(
     z.strictObject({
       id: text,
-      name: text,
+      apiName: text,
+      label: text.refine((value) => value.trim().length > 0),
+      pluralLabel: text.refine((value) => value.trim().length > 0),
+      description: z.string().optional(),
       sourceDefinitionId: text,
       properties: z.array(propertySchema),
     }),
@@ -186,9 +189,14 @@ export function validateManifest(input: unknown): Manifest {
   for (const object of manifest.objects) {
     register(object.id);
 
-    if (names.has(object.name)) throw new Error('Duplicate object name');
+    if (
+      !object.apiName.trim() ||
+      unsafe.has(object.apiName) ||
+      names.has(object.apiName)
+    )
+      throw new Error('Invalid or duplicate object API name');
 
-    names.add(object.name);
+    names.add(object.apiName);
     const resource = manifest.sources.find(
       (s) => s.id === object.sourceDefinitionId,
     );

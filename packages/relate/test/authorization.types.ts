@@ -31,7 +31,7 @@ const crm = defineSource({
 });
 const Customer = defineObject({
   id: 'customer',
-  name: 'Customer',
+  label: 'Customer',
   membership: source(crm),
   properties: {
     id: objectId({
@@ -50,7 +50,7 @@ const Customer = defineObject({
 });
 const Other = defineObject({
   id: 'other',
-  name: 'Other',
+  label: 'Other',
   membership: source(crm),
   properties: {
     id: objectId({ id: 'other.id', access: access.groups.ordinary }),

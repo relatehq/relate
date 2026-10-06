@@ -65,7 +65,9 @@ const access = defineAccess({
 
 const Customer = defineObject({
   id: 'customer',
-  name: 'Customer',
+  label: 'Customer',
+  pluralLabel: 'Customers',
+  description: 'Customer accounts with CRM and billing information.',
   membership: source(crm),
   properties: {
     id: objectId({ id: 'customer.id' }),
@@ -81,7 +83,8 @@ const Customer = defineObject({
 
 const Invoice = defineObject({
   id: 'invoice',
-  name: 'Invoice',
+  label: 'Invoice',
+  pluralLabel: 'Invoices',
   membership: source(billing),
   properties: {
     id: objectId({ id: 'invoice.id' }),

@@ -34,7 +34,7 @@ it('enforces multiple predicates across two reference hops without exposing evid
   });
   const Credit = defineObject({
     id: 'credit',
-    name: 'Credit',
+    label: 'Credit',
     membership: source(credits),
     properties: {
       id: objectId({ id: 'credit.id', access: access.groups.ordinary }),

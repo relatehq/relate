@@ -30,7 +30,7 @@ export const customers = defineSource({
 
 export const Customer = defineObject({
   id: 'business.customer',
-  name: 'Customer',
+  label: 'Customer',
   membership: source(customers),
   properties: {
     id: objectId({ id: 'customer.id' }),
@@ -60,7 +60,7 @@ export const invoices = defineSource({
 
 export const Invoice = defineObject({
   id: 'business.invoice',
-  name: 'Invoice',
+  label: 'Invoice',
   membership: source(invoices),
   properties: {
     id: objectId({ id: 'invoice.id' }),

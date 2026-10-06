@@ -87,7 +87,7 @@ if (owner.status === 'ok') {
 // Display names, registry keys and identity property names do not define the brand.
 const Renamed = defineObject({
   ...Customer,
-  name: 'Account',
+  label: 'Account',
   properties: { key: Customer.properties.id },
 });
 const renamed: ObjectData<typeof Renamed> = { key: customerId };

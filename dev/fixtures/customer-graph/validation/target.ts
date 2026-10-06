@@ -87,7 +87,9 @@ export interface ObjectDefinition<
     SourceMembership | NativeMembership,
 > {
   readonly id: Id;
-  readonly name: string;
+  readonly label?: string;
+  readonly pluralLabel?: string;
+  readonly description?: string;
   readonly membership: M;
   readonly properties: P;
 }
@@ -98,7 +100,9 @@ export declare function defineObject<
   M extends SourceMembership | NativeMembership,
 >(definition: {
   id: Id;
-  name: string;
+  label?: string;
+  pluralLabel?: string;
+  description?: string;
   membership: M;
   properties: P;
 }): DefinedObject<Id, P, M>;

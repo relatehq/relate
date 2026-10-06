@@ -28,7 +28,9 @@ export const customers = defineSource({
 
 export const Customer = defineObject({
   id: 'business.customer',
-  name: 'Customer',
+  label: 'Client account',
+  pluralLabel: 'Client accounts',
+  description: 'Customers visible to their assigned portfolio team.',
   membership: source(customers),
   properties: {
     id: objectId({ id: 'customer.id', access: access.groups.ordinary }),
