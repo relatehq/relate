@@ -10,6 +10,17 @@ export interface ReadRequest {
   readonly timeoutMs?: number;
 }
 
+/** Exhaustion and continuation are mutually exclusive, including on the wire. */
+export type PageMeta =
+  | { readonly exhausted: true; readonly continuationCursor?: never }
+  | { readonly exhausted: false; readonly continuationCursor: string };
+
+/** Empty pages can still have a continuation. Records retain their evidence. */
+export interface Page<T> {
+  readonly data: readonly T[];
+  readonly meta: PageMeta;
+}
+
 export type Refresh =
   'not-needed' | 'succeeded' | 'unavailable' | 'invalid' | 'superseded';
 

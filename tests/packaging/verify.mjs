@@ -48,6 +48,20 @@ import { compile } from 'relate/compiler';
 import { createRuntime, createMemoryStore } from '@relate/runtime';
 import { createPostgresStore } from '@relate/postgres';
 import { assertFields, ReadError } from '@relate/protocol';
+import { createQuery } from '@relate/runtime';
+const pageRequests = [];
+const query = createQuery(async (cursor) => {
+  pageRequests.push(cursor);
+  return cursor === undefined
+    ? { data: ['first'], meta: { exhausted: false, continuationCursor: 'next' } }
+    : { data: ['last'], meta: { exhausted: true } };
+});
+assert.equal(pageRequests.length, 0);
+assert.deepEqual((await query).data, ['first']);
+const paginated = [];
+for await (const record of query) paginated.push(record);
+assert.deepEqual(paginated, ['first', 'last']);
+assert.deepEqual(pageRequests, [undefined, 'next']);
 const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: { portfolio: z.string() } });
 const crm = defineSource({ id: 'crm', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
 const Customer = defineObject({ id: 'customer', name: 'Customer', membership: source(crm), properties: {
@@ -113,6 +127,13 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
     ),
   );
   await writeFile(
+    join(consumer, 'pagination.types.ts'),
+    await readFile(
+      resolve(root, 'packages/runtime/test/pagination.types.ts'),
+      'utf8',
+    ),
+  );
+  await writeFile(
     join(consumer, 'authorization.types.ts'),
     await readFile(
       resolve(root, 'packages/relate/test/authorization.types.ts'),
@@ -126,6 +147,7 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
       '--noEmit',
       '--strict',
       '--noUncheckedIndexedAccess',
+      '--exactOptionalPropertyTypes',
       '--skipLibCheck',
       '--target',
       'ES2022',
@@ -135,6 +157,7 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
       'NodeNext',
       'types.ts',
       'assert-fields.types.ts',
+      'pagination.types.ts',
       'authorization.types.ts',
     ],
     { cwd: consumer },

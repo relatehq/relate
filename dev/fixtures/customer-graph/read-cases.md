@@ -7,16 +7,17 @@ implementation executes.
 
 Consumers and action implementations share `get`, `query` and `traverse`.
 `query()` and `query({ select, limit, cursor })` enumerate without a filter;
-`where` adds equality filters. Both surfaces must return the same authorized
-results and field evidence for the same context and data. Action-native reads
-add visibility of the invocation's earlier native writes.
+`where` adds equality filters. `await` yields one page; `for await` yields
+records across pages. Both surfaces must return the same authorized results and
+field evidence for the same context and data. Action-native reads add visibility
+of the invocation's earlier native writes.
 
-Traversal uses the shared relationship registry: to-many returns a page and
-to-one returns an `ok`/`not-found` object result, with selection typed against
-the target. These rules apply inside actions as well as to consumers. Native
-queries and traversals must see earlier authorized native writes, including new
-relationships established by those writes. Source reads have no implied
-native-transaction snapshot. See
+Traversal uses the shared relationship registry: to-many returns an awaitable,
+async-iterable handle and to-one returns an `ok`/`not-found` object result, with
+selection typed against the target. These rules apply inside actions as well as
+to consumers. Native queries and traversals must see earlier authorized native
+writes, including new relationships established by those writes. Source reads
+have no implied native-transaction snapshot. See
 [shared read enforcement](./authorization-cases.md#shared-read-enforcement) for
 filtering and pagination authorization requirements.
 
@@ -54,3 +55,20 @@ preparation phase.
 Tracing records operations performed on the actual path. It does not reveal the
 inactive branch's unexecuted invoice query or all possible failure paths by
 statically inspecting TypeScript.
+
+## Implemented pagination infrastructure
+
+`@relate/protocol` owns `Page<T>`/`PageMeta`; `@relate/runtime` implements
+`createQuery`/`QueryResult<T>`. Its unit tests verify lazy/shared first-page
+execution, single-page awaiting, iteration through empty pages, preserved
+records/evidence, early exit, malformed metadata, unchanged/cyclic cursors,
+resumption and error propagation. Type probes verify selected fields and to-many
+iteration while to-one remains a promise. The escalation now uses `for await`.
+
+These are helper-level checks, not execution of the table's native actions.
+Query ordering/scope, scan progress and budgets, authorization across pages,
+concurrent changes and transactional rollback require their own operation-level
+integration evidence; the generic helper tests do not establish them. A new
+token alone cannot prove a new scan position. Exactly 1,000 results remains
+valid only on exhaustion; failure while checking subsequent pages must still
+fail the action.
