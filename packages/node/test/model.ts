@@ -4,7 +4,6 @@ import {
   defineGraph,
   defineObject,
   defineSource,
-  equals,
   from,
   objectId,
   source,
@@ -52,16 +51,16 @@ export const graph = defineGraph({
   id: 'customer-read',
   objects: { Customer },
   access,
-  policies: [
-    access.policy(Customer, {
+  policies: {
+    Customer: {
       read: {
         gate: access.role('employee'),
-        where: equals(Customer.properties.portfolio, access.claims.portfolio),
+        where: { portfolio: { eq: access.claims.portfolio } },
         evidenceMaxAgeMs: 30_000,
       },
       groups: { financial: access.role('finance') },
-    }),
-  ],
+    },
+  },
 });
 
 export const ana = {

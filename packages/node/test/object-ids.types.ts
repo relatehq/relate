@@ -1,6 +1,5 @@
 import { createRuntime } from '@relate/node';
-import { assertFields } from '@relate/protocol';
-import { defineObject, referenceInput } from 'relate';
+import { assertFields, defineObject, referenceInput } from 'relate';
 import type { ObjectData, ObjectId } from 'relate';
 import type { z } from 'zod';
 import {

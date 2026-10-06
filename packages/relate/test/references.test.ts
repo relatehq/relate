@@ -6,7 +6,6 @@ import {
   Customer,
   graph,
   Invoice,
-  objects,
 } from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
 
 it('lowers source references and nested predicates to stable definition paths', () => {
@@ -88,8 +87,6 @@ it('rejects unknown targets, incompatible keys, and invalid nested paths in port
 });
 
 it('rejects erased invalid nested authoring input before it can become permission', () => {
-  const { policy } = access.forObjects(objects);
-
   for (const where of [
     undefined,
     null,
@@ -100,18 +97,34 @@ it('rejects erased invalid nested authoring input before it can become permissio
     { status: { eq: access.claims.portfolio, ignored: true } },
   ]) {
     expect(() =>
-      policy(Invoice, {
-        read: { gate: access.role('employee'), evidenceMaxAgeMs: 1000, where },
+      compile({
+        ...graph,
+        policies: {
+          ...graph.policies,
+          Invoice: {
+            read: {
+              gate: access.role('employee'),
+              evidenceMaxAgeMs: 1000,
+              where,
+            },
+          },
+        },
       } as never),
     ).toThrow();
   }
 
   expect(() =>
-    access.forObjects({ Invoice }).policy(Invoice, {
-      read: {
-        gate: access.role('employee'),
-        evidenceMaxAgeMs: 1000,
-        where: { customer: { portfolio: { eq: access.claims.portfolio } } },
+    compile({
+      ...graph,
+      objects: { Invoice },
+      policies: {
+        Invoice: {
+          read: {
+            gate: access.role('employee'),
+            evidenceMaxAgeMs: 1000,
+            where: { customer: { portfolio: { eq: access.claims.portfolio } } },
+          },
+        },
       },
     } as never),
   ).toThrow('Unknown reference target');

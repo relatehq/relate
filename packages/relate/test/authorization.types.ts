@@ -3,7 +3,7 @@ import {
   defineAccess,
   defineObject,
   defineSource,
-  equals,
+  defineGraph,
   from,
   native,
   objectId,
@@ -61,15 +61,26 @@ const Other = defineObject({
   },
 });
 
-access.policy(Customer, {
-  read: {
-    gate: access.role('employee'),
-    where: equals(Customer.properties.portfolio, access.claims.portfolio),
-    evidenceMaxAgeMs: 1000,
+const base = { id: 'test', objects: { Customer }, access };
+const gate = access.role('employee');
+const evidenceMaxAgeMs = 1000;
+
+defineGraph({
+  ...base,
+  policies: {
+    Customer: {
+      read: {
+        gate,
+        evidenceMaxAgeMs,
+        where: {
+          portfolio: { eq: access.claims.portfolio },
+          balance: { eq: access.claims.limit },
+        },
+      },
+      groups: { financial: access.role('finance') },
+    },
   },
-  groups: { financial: access.role('finance') },
 });
-equals(Customer.properties.balance, access.claims.limit);
 // @ts-expect-error role names come from the declaration
 access.role('employe');
 // @ts-expect-error claim names come from the declaration
@@ -80,38 +91,38 @@ access.groups.financal;
 from(crm.fields.balance, { id: 'bad', access: 'financial' });
 // @ts-expect-error object identity must remain ordinary
 objectId({ id: 'bad.id', access: access.groups.financial });
+
+// prettier-ignore
 // @ts-expect-error number claim cannot compare to string property
-equals(Customer.properties.portfolio, access.claims.limit);
+defineGraph({ ...base, policies: { Customer: { read: { gate, evidenceMaxAgeMs, where: { portfolio: { eq: access.claims.limit } } } } } });
+
+// prettier-ignore
 // @ts-expect-error string claim cannot compare to number property
-equals(Customer.properties.balance, access.claims.portfolio);
+defineGraph({ ...base, policies: { Customer: { read: { gate, evidenceMaxAgeMs, where: { balance: { eq: access.claims.portfolio } } } } } });
+
+// prettier-ignore
 // @ts-expect-error boolean claim cannot compare to string property
-equals(Customer.properties.portfolio, access.claims.enabled);
+defineGraph({ ...base, policies: { Customer: { read: { gate, evidenceMaxAgeMs, where: { portfolio: { eq: access.claims.enabled } } } } } });
+
+// prettier-ignore
 // @ts-expect-error nullable claim cannot compare to required string
-equals(Customer.properties.portfolio, access.claims.nullable);
-// @ts-expect-error raw claim names are not typed claim references
-equals(Customer.properties.portfolio, { claim: 'portfolio' });
-access.policy(Customer, {
-  read: {
-    gate: access.role('employee'),
-    evidenceMaxAgeMs: 1000,
-    // @ts-expect-error the predicate must refer to a property of this object
-    where: equals(Other.properties.portfolio, access.claims.portfolio),
-  },
-});
-access.policy(Customer, {
-  read: { gate: access.role('employee'), evidenceMaxAgeMs: 1000 },
-  groups: {
-    // @ts-expect-error policy group names come from the declaration
-    financal: access.role('finance'),
-  },
-});
-access.policy(Customer, {
-  read: { gate: access.role('employee'), evidenceMaxAgeMs: 1000 },
-  groups: {
-    // @ts-expect-error ordinary fields are governed by the object rule
-    ordinary: access.role('employee'),
-  },
-});
+defineGraph({ ...base, policies: { Customer: { read: { gate, evidenceMaxAgeMs, where: { portfolio: { eq: access.claims.nullable } } } } } });
+
+// prettier-ignore
+// @ts-expect-error raw claim names are not typed references
+defineGraph({ ...base, policies: { Customer: { read: { gate, evidenceMaxAgeMs, where: { portfolio: { eq: { claim: 'portfolio' } } } } } } });
+
+// prettier-ignore
+// @ts-expect-error unknown roles cannot widen the access vocabulary
+defineGraph({ ...base, policies: { Customer: { read: { gate: { kind: 'role', role: 'admin' } } } } });
+
+// prettier-ignore
+// @ts-expect-error policy group names come from the declaration
+defineGraph({ ...base, policies: { Customer: { read: { gate }, groups: { financal: gate } } } });
+
+// prettier-ignore
+// @ts-expect-error ordinary fields are governed by the object rule
+defineGraph({ ...base, policies: { Customer: { read: { gate }, groups: { ordinary: gate } } } });
 
 const ordinaryOnly = defineAccess({
   roles: ['employee'],
@@ -119,13 +130,17 @@ const ordinaryOnly = defineAccess({
   claims: {},
 });
 
-ordinaryOnly.policy(Customer, {
-  read: { gate: ordinaryOnly.role('employee'), evidenceMaxAgeMs: 1000 },
-  groups: {
-    // @ts-expect-error an ordinary-only declaration has no restricted groups
-    financial: ordinaryOnly.role('employee'),
-  },
-});
+// prettier-ignore
+// @ts-expect-error an ordinary-only declaration has no restricted groups
+defineGraph({ ...base, access: ordinaryOnly, policies: { Customer: { read: { gate }, groups: { financial: gate } } } });
+
+const extracted = { Customer: { read: { gate } }, Other: { read: { gate } } };
+
+// prettier-ignore
+// @ts-expect-error unknown extracted policy keys cannot widen objects
+defineGraph({ ...base, policies: extracted });
+
+defineGraph({ ...base, objects: { Customer, Other }, policies: extracted });
 
 // Native authoring also accepts the ordinary default.
 native(z.string(), { id: 'note' });

@@ -34,7 +34,7 @@ export function invoiceReadContract(
 
     function fixture(
       model: Omit<typeof graph, 'policies'> & {
-        policies: readonly Policy[];
+        policies: Readonly<Record<string, Policy>>;
       } = graph,
     ) {
       let now = 1_000;
@@ -256,12 +256,12 @@ export function invoiceReadContract(
     it('withholds an unresolved reference even when the owner has a role-only policy', async () => {
       const f = fixture({
         ...graph,
-        policies: [
-          graph.policies[0]!,
-          access.policy(Invoice, {
-            read: { gate: access.role('employee'), evidenceMaxAgeMs: 10_000 },
-          }),
-        ],
+        policies: {
+          Customer: graph.policies.Customer,
+          Invoice: {
+            read: { gate: access.role('employee') },
+          },
+        },
       });
       const id = await f.relate.host.adopt(Invoice, 'inv_1');
 
@@ -279,7 +279,13 @@ export function invoiceReadContract(
     });
 
     it('evaluates explicit related attributes privately without delegating to the target policy', async () => {
-      const f = fixture({ ...graph, policies: [graph.policies[1]!] });
+      const f = fixture({
+        ...graph,
+        policies: {
+          Customer: { read: 'deny' },
+          Invoice: graph.policies.Invoice,
+        },
+      });
       const customerId = await f.relate.host.adopt(Customer, 'crm_456');
       const id = await f.relate.host.adopt(Invoice, 'inv_1');
       const result = await f.relate
@@ -365,16 +371,16 @@ export function invoiceReadContract(
       });
     });
     it('cannot reuse looser cached permission after a stricter target check is denied', async () => {
-      const customerPolicy = graph.policies[0]!;
+      const customerPolicy = graph.policies.Customer!;
       const f = fixture({
         ...graph,
-        policies: [
-          {
+        policies: {
+          Customer: {
             ...customerPolicy,
             read: { ...customerPolicy.read, evidenceMaxAgeMs: 500 },
           },
-          graph.policies[1]!,
-        ],
+          Invoice: graph.policies.Invoice,
+        },
       });
 
       await f.relate.host.adopt(Customer, 'crm_456');

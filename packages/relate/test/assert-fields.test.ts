@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { assertFields, ReadError } from '@relate/protocol';
+import { assertFields } from 'relate';
+import { ReadError } from '@relate/protocol';
 import type { ReadResult } from '@relate/protocol';
 
 function result(data: Record<string, unknown>) {

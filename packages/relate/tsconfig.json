@@ -6,5 +6,9 @@
     "composite": true
   },
   "include": ["src/**/*.ts"],
-  "references": []
+  "references": [
+    {
+      "path": "../protocol"
+    }
+  ]
 }

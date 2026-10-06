@@ -23,7 +23,11 @@ it('compiles named object registries without changing stable persisted identity'
     original,
   );
   expect(
-    compile({ ...customerGraph, objects: { Accounts: Customer } }),
+    compile({
+      ...customerGraph,
+      objects: { Accounts: Customer },
+      policies: { Accounts: customerGraph.policies.Customer },
+    }),
   ).toEqual(original);
   expect(() =>
     compile({ ...customerGraph, objects: { Customer, Duplicate: Customer } }),
@@ -48,7 +52,9 @@ it('produces deterministic frozen portable contracts and preserves definition ID
   const { name, ...rest } = Customer.properties;
   const renamed = compile({
     ...customerGraph,
-    objects: [{ ...Customer, properties: { ...rest, displayName: name } }],
+    objects: {
+      Customer: { ...Customer, properties: { ...rest, displayName: name } },
+    },
   });
 
   expect(
@@ -60,7 +66,7 @@ it('produces deterministic frozen portable contracts and preserves definition ID
 it('rejects missing, empty and duplicate IDs, unknown classifications and broken references', () => {
   expect(() => compile({ ...customerGraph, id: '' })).toThrow();
   expect(() =>
-    compile({ ...customerGraph, objects: [Customer, Customer] }),
+    compile({ ...customerGraph, objects: { Customer, Duplicate: Customer } }),
   ).toThrow();
 
   for (const access of [
@@ -72,15 +78,15 @@ it('rejects missing, empty and duplicate IDs, unknown classifications and broken
     expect(() =>
       compile({
         ...customerGraph,
-        objects: [
-          {
+        objects: {
+          Customer: {
             ...Customer,
             properties: {
               ...Customer.properties,
               name: { ...Customer.properties.name, access },
             },
           },
-        ],
+        },
       } as never),
     ).toThrow();
   }
@@ -88,8 +94,8 @@ it('rejects missing, empty and duplicate IDs, unknown classifications and broken
   expect(() =>
     compile({
       ...customerGraph,
-      objects: [
-        {
+      objects: {
+        Customer: {
           ...Customer,
           properties: {
             ...Customer.properties,
@@ -99,36 +105,31 @@ it('rejects missing, empty and duplicate IDs, unknown classifications and broken
             },
           },
         },
-      ],
+      },
     }),
   ).toThrow();
   expect(() =>
     compile({
       ...customerGraph,
-      policies: [
-        {
-          ...customerGraph.policies[0]!,
+      policies: {
+        Customer: {
+          ...customerGraph.policies.Customer!,
           read: {
             gate: access.role('employee'),
             where: {
-              kind: 'equals',
-              property: {
-                ...Customer.properties.portfolio,
-                id: 'missing',
-              },
-              claim: access.claims.portfolio,
+              missing: { eq: access.claims.portfolio },
             },
             evidenceMaxAgeMs: 100,
           },
         },
-      ],
+      },
     }),
   ).toThrow();
   expect(() =>
     compile({
       ...customerGraph,
-      objects: [
-        {
+      objects: {
+        Customer: {
           ...Customer,
           properties: {
             ...Customer.properties,
@@ -142,7 +143,7 @@ it('rejects missing, empty and duplicate IDs, unknown classifications and broken
             },
           },
         },
-      ],
+      },
     }),
   ).toThrow();
 });
@@ -161,15 +162,15 @@ it.each([
   expect(() =>
     compile({
       ...customerGraph,
-      objects: [
-        {
+      objects: {
+        Customer: {
           ...Customer,
           properties: {
             ...Customer.properties,
             name: { ...Customer.properties.name, schema },
           },
         },
-      ],
+      },
     }),
   ).toThrow(/Unsupported schema/);
 });
@@ -200,9 +201,9 @@ it('supports explicit optional and nullable scalar values', () => {
   });
   const result = compile({
     id: 'test.graph',
-    objects: [object],
+    objects: { object },
     access,
-    policies: [],
+    policies: { object: { read: 'deny' } },
   });
 
   expect(
@@ -222,9 +223,9 @@ it('requires exactly one explicit objectId during authoring, compilation and man
     const object = { ...Customer, properties };
 
     expect(() => defineObject(object)).toThrow(/exactly one objectId/);
-    expect(() => compile({ ...customerGraph, objects: [object] })).toThrow(
-      /exactly one objectId/,
-    );
+    expect(() =>
+      compile({ ...customerGraph, objects: { Customer: object } }),
+    ).toThrow(/exactly one objectId/);
   }
 
   for (const count of [0, 2]) {
@@ -260,12 +261,12 @@ it('rejects invalid object ID schemas, classifications and native substitutes', 
     expect(() =>
       compile({
         ...customerGraph,
-        objects: [
-          {
+        objects: {
+          Customer: {
             ...Customer,
             properties: { ...Customer.properties, id: replacement },
           },
-        ],
+        },
       }),
     ).toThrow();
   }

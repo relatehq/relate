@@ -91,31 +91,29 @@ export const relationships = { CustomerInvoices };
 
 export const objects = { Customer, Invoice };
 
-const { policy } = access.forObjects(objects);
-
 export const graph = defineGraph({
   id: 'invoice-read',
   objects,
   relationships,
   access,
-  policies: [
-    policy(Customer, {
+  policies: {
+    Customer: {
       read: {
         gate: access.role('employee'),
         where: { portfolio: { eq: access.claims.portfolio } },
         evidenceMaxAgeMs: 30_000,
       },
       groups: { financial: access.role('finance') },
-    }),
-    policy(Invoice, {
+    },
+    Invoice: {
       read: {
         gate: access.role('employee'),
         where: { customer: { portfolio: { eq: access.claims.portfolio } } },
         evidenceMaxAgeMs: 10_000,
       },
       groups: { financial: access.role('finance') },
-    }),
-  ],
+    },
+  },
 });
 
 export const ana = {

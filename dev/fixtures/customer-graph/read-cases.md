@@ -40,13 +40,13 @@ filtering and pagination authorization requirements.
 
 Object reads keep the existing best-available evidence model. The examples use
 the implemented
-[`assertFields`](../../../packages/protocol/README.md#require-values-after-a-read)
-helper from `@relate/protocol` to check selected optional fields before using
-them. It checks the actual result, throws `ReadError('incomplete')` for missing
-required values, and narrows only the checked fields. Valid `null` and stale
-values pass; business rules such as a non-null manager or an active customer
-remain explicit checks. The surrounding typed object/action API remains a
-declaration-only fixture.
+[`assertFields`](../../../packages/relate/README.md#require-values-after-a-read)
+helper from `relate` to check selected optional fields before using them. It
+checks the actual result, throws `ReadError('incomplete')` for missing required
+values, and narrows only the checked fields. Valid `null` and stale values pass;
+business rules such as a non-null manager or an active customer remain explicit
+checks. The surrounding typed object/action API remains a declaration-only
+fixture.
 
 Strict freshness, filter evidence, snapshot coverage and query budgets need
 concrete operation-level contracts; none is inferred from a mandatory

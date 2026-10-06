@@ -1,8 +1,7 @@
-import { referenceInput } from 'relate';
+import { assertFields, referenceInput } from 'relate';
 import { expect, it, vi } from 'vitest';
 import { createRuntime, connect } from '@relate/node';
 import { createMemoryStore, SourceAccessDenied } from '@relate/runtime';
-import { assertFields } from '@relate/protocol';
 import { graph, Customer, customers, ana, finance } from './model.js';
 
 function fixture() {
@@ -309,7 +308,7 @@ it('waits for an in-flight read at close and leaves borrowed storage usable', as
 
 it('denies objects with no policy even when they have been adopted', async () => {
   const relate = createRuntime({
-    graph: { ...graph, policies: [] },
+    graph: { ...graph, policies: { Customer: { read: 'deny' } } },
     connections: [
       connect(customers, {
         connectionId: 'crm',

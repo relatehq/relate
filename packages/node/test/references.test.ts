@@ -45,14 +45,13 @@ it('enforces multiple predicates across two reference hops without exposing evid
       }),
     },
   });
-  const creditAccess = access.forObjects({ ...graph.objects, Credit });
   const relate = createRuntime({
     graph: {
       ...graph,
       objects: { ...graph.objects, Credit },
-      policies: [
+      policies: {
         ...graph.policies,
-        creditAccess.policy(Credit, {
+        Credit: {
           read: {
             gate: access.role('employee'),
             where: {
@@ -63,8 +62,8 @@ it('enforces multiple predicates across two reference hops without exposing evid
             },
             evidenceMaxAgeMs: 1000,
           },
-        }),
-      ],
+        },
+      },
     },
     connections: [
       connect(customers, {

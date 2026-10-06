@@ -1,5 +1,5 @@
 import { createRuntime, connect } from '@relate/node';
-import { assertFields } from '@relate/protocol';
+import { assertFields } from 'relate';
 import { defineObject, referenceInput } from 'relate';
 import { graph, Customer, customers, ana } from './model.js';
 

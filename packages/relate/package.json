@@ -25,6 +25,7 @@
     }
   },
   "dependencies": {
+    "@relate/protocol": "workspace:*",
     "zod": "4.6.5"
   }
 }

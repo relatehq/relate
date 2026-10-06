@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineAccess, equals } from 'relate';
+import { defineAccess } from 'relate';
 import { compile } from 'relate/compiler';
 import { validateManifest } from 'relate/model';
 import {
@@ -21,8 +21,7 @@ it('lowers object and property references into a portable policy', () => {
       read: {
         role: 'employee',
         where: {
-          propertyDefinitionId: 'business.customer.portfolio',
-          claim: 'portfolio',
+          all: [{ path: ['business.customer.portfolio'], claim: 'portfolio' }],
         },
         evidenceMaxAgeMs: 30_000,
       },
@@ -38,10 +37,11 @@ it('rejects duplicate and unregistered policy objects before lowering', () => {
   expect(() =>
     compile({
       ...customerGraph,
-      policies: [...customerGraph.policies, ...customerGraph.policies],
+      objects: { Customer, Duplicate: Customer },
+      policies: { ...customerGraph.policies, Duplicate: { read: 'deny' } },
     }),
-  ).toThrow(/Duplicate policy object/);
-  expect(() => compile({ ...customerGraph, objects: [] })).toThrow(
+  ).toThrow(/Duplicate object definition/);
+  expect(() => compile({ ...customerGraph, objects: {} })).toThrow(
     /Unknown policy object/,
   );
 });
@@ -65,7 +65,7 @@ it('validates role, claim, group and comparison contracts in loaded manifests', 
       (m) => {
         const where = m.policies[Customer.id]!.read.where!;
 
-        if ('claim' in where) where.claim = 'portoflio';
+        if ('all' in where) where.all[0]!.claim = 'portoflio';
       },
       /Unknown policy claim/,
     ],
@@ -118,9 +118,12 @@ it('validates role, claim, group and comparison contracts in loaded manifests', 
 });
 
 it('checks erased JavaScript inputs and conflicting claim references', () => {
-  const policy = customerGraph.policies[0]!;
+  const policy = customerGraph.policies.Customer!;
   const compileRead = (read: unknown) =>
-    compile({ ...customerGraph, policies: [{ ...policy, read }] } as never);
+    compile({
+      ...customerGraph,
+      policies: { Customer: { ...policy, read } },
+    } as never);
 
   expect(() =>
     compileRead({ ...policy.read, gate: { kind: 'role', role: 'employe' } }),
@@ -129,8 +132,7 @@ it('checks erased JavaScript inputs and conflicting claim references', () => {
     compileRead({
       ...policy.read,
       where: {
-        ...policy.read.where,
-        claim: { ...access.claims.portfolio, name: 'portoflio' },
+        portfolio: { eq: { ...access.claims.portfolio, name: 'portoflio' } },
       },
     }),
   ).toThrow(/Unknown policy claim/);
@@ -143,7 +145,7 @@ it('checks erased JavaScript inputs and conflicting claim references', () => {
   expect(() =>
     compileRead({
       ...policy.read,
-      where: equals(Customer.properties.revenue, foreign.claims.portfolio),
+      where: { revenue: { eq: foreign.claims.portfolio } },
     }),
   ).toThrow(/Conflicting policy reference/);
   const numeric = defineAccess({
@@ -156,33 +158,87 @@ it('checks erased JavaScript inputs and conflicting claim references', () => {
     compile({
       ...customerGraph,
       access: numeric,
-      policies: [
-        {
+      policies: {
+        Customer: {
           ...policy,
           groups: {},
           read: {
             ...policy.read,
             where: {
-              kind: 'equals',
-              property: Customer.properties.portfolio,
-              claim: numeric.claims.portfolio,
+              portfolio: { eq: numeric.claims.portfolio },
             },
           },
         },
-      ],
+      },
     }),
   ).toThrow(/Incompatible policy claim/);
 });
 
 it('does not silently lower unsupported authoring operators', () => {
-  const policy = customerGraph.policies[0]!;
+  const policy = customerGraph.policies.Customer!;
 
   for (const read of [
     { ...policy.read, gate: { kind: 'any', role: 'employee' } },
     { ...policy.read, where: { ...policy.read.where, kind: 'not-equals' } },
   ]) {
     expect(() =>
-      compile({ ...customerGraph, policies: [{ ...policy, read }] } as never),
-    ).toThrow(/Unsupported policy/);
+      compile({
+        ...customerGraph,
+        policies: { Customer: { ...policy, read } },
+      } as never),
+    ).toThrow(/Unsupported policy|Unknown policy dependency/);
+  }
+});
+
+it('requires explicit authoring coverage and lowers deny to runtime default-deny', () => {
+  expect(() => compile({ ...customerGraph, policies: {} })).toThrow(
+    'Missing policy: Customer',
+  );
+  expect(() =>
+    compile({ ...customerGraph, policies: { Customer: {} } } as never),
+  ).toThrow('Invalid policy read rule');
+  expect(() =>
+    compile({
+      ...customerGraph,
+      policies: { Customer: { read: 'deny', groups: {} } },
+    } as never),
+  ).toThrow('Denied reads cannot grant field groups');
+  const denied = compile({
+    ...customerGraph,
+    policies: { Customer: { read: 'deny' } },
+  });
+
+  expect(denied.manifest.policies).toEqual({});
+  expect(validateManifest(JSON.parse(JSON.stringify(denied.manifest)))).toEqual(
+    denied.manifest,
+  );
+});
+
+it('requires keyed registries even for untyped callers', () => {
+  expect(() =>
+    compile({ ...customerGraph, objects: [Customer] } as never),
+  ).toThrow('keyed registries');
+  expect(() => compile({ ...customerGraph, policies: [] } as never)).toThrow(
+    'keyed registries',
+  );
+});
+
+it('rejects erased freshness mistakes and empty or malformed predicates', () => {
+  const gate = access.role('employee');
+
+  for (const read of [
+    { gate, evidenceMaxAgeMs: 1000 },
+    { gate, where: { portfolio: { eq: access.claims.portfolio } } },
+    { gate, where: {}, evidenceMaxAgeMs: 1000 },
+    { gate, where: undefined, evidenceMaxAgeMs: 1000 },
+    {
+      gate,
+      where: { portfolio: { eq: access.claims.portfolio } },
+      evidenceMaxAgeMs: -1,
+    },
+  ]) {
+    expect(() =>
+      compile({ ...customerGraph, policies: { Customer: { read } } } as never),
+    ).toThrow();
   }
 });

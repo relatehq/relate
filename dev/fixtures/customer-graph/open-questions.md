@@ -12,9 +12,10 @@ why ordinary inputs and async object operations are insufficient. See the
   supported native objects and return output asynchronously.
 - Contracts and colocated action policies remain beside server implementations.
   Object policies stay on the graph; no policy placement redesign here.
-- Nested object read predicates use `access.forObjects(objects).policy`, with
-  explicit role gates and evidence age bounds. Permission delegation is
-  deferred.
+- Object policies are keyed by the `defineGraph.objects` registry, with an
+  explicit read decision for each object (`read: 'deny'` for denial). Nested
+  predicates infer in the graph call and use role gates and evidence age bounds.
+  Permission delegation is deferred.
 - Native create rules check proposed values against roles, claims and
   `access.actor.id`; no rule means no create permission. Declarative integrity
   checks Task customer references independently of permission. Imperative

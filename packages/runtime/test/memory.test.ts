@@ -1,7 +1,8 @@
 import { expect, it } from 'vitest';
 import { compile } from 'relate/compiler';
 import { createMemoryStore, createRuntime } from '@relate/runtime';
-import { assertFields, ReadError } from '@relate/protocol';
+import { assertFields } from 'relate';
+import { ReadError } from '@relate/protocol';
 import {
   Customer,
   customerGraph,

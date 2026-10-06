@@ -23,34 +23,151 @@ without building another silo.
 
 Created by [Viable Systems](https://viablesystems.ai).
 
-## A small example
+## Example
 
-CRM owns customers, billing owns invoices, and Relate owns account reviews. With
-sources, relationships, and access policies defined in TypeScript, callers work
-through one typed graph:
+A CRM API owns customers. Stripe knows their revenue. A billing database owns
+invoices. Relate composes them into one graph, with access rules attached.
+
+**1. Describe the sources.** Each system keeps ownership of its records.
 
 ```ts
-const { objects, actions } = relate.as(principal);
-
-// Read a customer from CRM using its Relate ID.
-const customer = await objects.Customer.get(customerId, { select: ['name'] });
-
-// Follow the relationship to invoices in billing.
-const invoices = await objects.Customer.traverse.invoices(customerId, {
-  select: ['status'],
+const crm = defineSource({
+  id: 'crm.customers',
+  idField: 'id',
+  schema: z.object({ id: z.string(), name: z.string(), region: z.string() }),
 });
-
-// Record a review through an authorized action.
-const review = await actions.addAccountReview({
-  input: { customer: customerId, note: 'Follow up on the open invoice' },
-  idempotencyKey: 'review-2026-10',
+const stripe = defineSource({
+  id: 'stripe.customers',
+  idField: 'id',
+  schema: z.object({ id: z.string(), crm_id: z.string(), mrr: z.number() }),
+});
+const billing = defineSource({
+  id: 'billing.invoices',
+  idField: 'id',
+  schema: z.object({
+    id: z.string(),
+    customer_id: z.string(),
+    status: z.string(),
+  }),
 });
 ```
 
-This is an API preview from the
-[customer graph fixture](dev/fixtures/customer-graph), which contains the model,
-connections, policies, and action implementation. The full flow is type-checked
-but not yet executable.
+**2. Compose objects and relationships.** One `Customer`, two systems.
+
+```ts
+const access = defineAccess({
+  roles: ['sales', 'finance'],
+  fieldGroups: ['ordinary', 'financial'],
+  claims: { region: z.string() },
+});
+
+const Customer = defineObject({
+  id: 'customer',
+  name: 'Customer',
+  membership: source(crm),
+  properties: {
+    id: objectId({ id: 'customer.id' }),
+    name: from(crm.fields.name, { id: 'customer.name' }),
+    region: from(crm.fields.region, { id: 'customer.region' }),
+    mrr: from(stripe.fields.mrr, {
+      id: 'customer.mrr',
+      match: stripe.fields.crm_id, // preview: enrichment from a second source
+      access: access.groups.financial,
+    }),
+  },
+});
+
+const Invoice = defineObject({
+  id: 'invoice',
+  name: 'Invoice',
+  membership: source(billing),
+  properties: {
+    id: objectId({ id: 'invoice.id' }),
+    customer: reference(Customer, {
+      id: 'invoice.customer',
+      from: billing.fields.customer_id,
+    }),
+    status: from(billing.fields.status, { id: 'invoice.status' }),
+  },
+});
+
+const CustomerInvoices = defineRelationship({
+  id: 'customer.invoices',
+  from: Customer,
+  to: Invoice,
+  forward: { name: 'invoices', cardinality: 'many' },
+  reverse: { name: 'customer', cardinality: 'one' },
+  via: Invoice.properties.customer,
+});
+```
+
+**3. Set permissions.** Sales see their region. Only finance sees revenue.
+
+```ts
+const graph = defineGraph({
+  id: 'business',
+  objects: { Customer, Invoice },
+  relationships: { CustomerInvoices },
+  access,
+  policies: {
+    Customer: {
+      read: {
+        gate: access.role('sales'),
+        where: { region: { eq: access.claims.region } },
+        evidenceMaxAgeMs: 30_000,
+      },
+      groups: { financial: access.role('finance') },
+    },
+    Invoice: {
+      read: {
+        gate: access.role('sales'),
+        where: { customer: { region: { eq: access.claims.region } } },
+        evidenceMaxAgeMs: 30_000,
+      },
+    },
+  },
+});
+```
+
+**4. Use it from code.** Reads are typed, filtered by the caller, and carry
+freshness evidence.
+
+```ts
+const relate = createRuntime({
+  graph,
+  connections: [
+    connect(crm, crmApi),
+    connect(stripe, stripeApi),
+    connect(billing, billingDb),
+  ],
+});
+const { objects } = relate.as({
+  id: 'ana',
+  roles: ['sales'],
+  claims: { region: 'emea' },
+});
+
+await objects.Customer.get(id, { select: ['name', 'mrr'] }); // mrr withheld: Ana is not finance
+await objects.Customer.traverse.invoices(id, { select: ['status'] }); // CRM → billing
+```
+
+**5. Or hand it to an agent.** The same graph, the same rules, over MCP
+(preview):
+
+```ts
+serveMcp(relate, { principal: (req) => authenticate(req) });
+```
+
+The agent gets `get`, `query`, `traverse`, and action tools for each object. It
+sees only what the authenticated caller may see.
+
+Writes go through typed, authorized, idempotent actions. See the
+[customer graph fixture](dev/fixtures/customer-graph) for actions and
+Relate-owned records.
+
+> **Status:** single-source objects, references, traversal, policies, and
+> Postgres storage run today. Multi-source enrichment, actions, and MCP are API
+> previews.
 
 ## Get started
 

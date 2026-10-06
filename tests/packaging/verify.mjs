@@ -48,8 +48,10 @@ import { defineAccess, defineGraph, defineObject, defineSource, source, objectId
 import { compile } from 'relate/compiler';
 import { createRuntime, createMemoryStore, SourceAccessDenied } from '@relate/runtime';
 import { createPostgresStore } from '@relate/postgres';
-import { assertFields, ReadError } from '@relate/protocol';
+import { assertFields } from 'relate';
+import { ReadError } from '@relate/protocol';
 import { createQuery } from '@relate/runtime';
+assert.equal('assertFields' in (await import('@relate/protocol')), false);
 const pageRequests = [];
 const query = createQuery(async (cursor) => {
   pageRequests.push(cursor);
@@ -69,11 +71,11 @@ const Customer = defineObject({ id: 'customer', name: 'Customer', membership: so
   id: objectId({ id: 'customer.id', access: access.groups.ordinary }),
   name: from(crm.fields.name, { id: 'customer.name', access: access.groups.ordinary }),
 } });
-const model = compile(defineGraph({ id: 'graph', objects: [Customer], access, policies: [] }));
+const model = compile(defineGraph({ id: 'graph', objects: { Customer }, access, policies: { Customer: { read: 'deny' } } }));
 assert.equal(model.manifest.objects[0].id, 'customer');
 assert.equal(typeof createRuntime, 'function');
 assert.equal(createMemoryStore().durability, 'volatile');
-const memoryModel = compile(defineGraph({ id: 'graph', objects: [Customer], access, policies: [access.policy(Customer, { read: { gate: access.role('reader'), evidenceMaxAgeMs: 30000 } })] }));
+const memoryModel = compile(defineGraph({ id: 'graph', objects: { Customer }, access, policies: { Customer: { read: { gate: access.role('reader') } } } }));
 const runtime = createRuntime({ model: memoryModel, graphId: 'smoke', sources: { crm: { connectionId: 'fixture', authorization: 'shared-service', connector: { async fetch(id) { return { state: 'present', record: { id, name: 'Ada' } }; } } } } });
 const objectIdValue = await runtime.adopt('customer', '1');
 const read = await runtime.read({ id: 'reader', roles: ['reader'], claims: {} }, 'customer', objectIdValue);
@@ -110,7 +112,7 @@ const crm = defineSource({ id: 'crm', idField: 'id', schema: z.object({ id: z.st
 from(crm.fields.name, { id: 'customer.name', access: access.groups.ordinary });
 // @ts-expect-error source references preserve field names
 crm.fields.missing;
-// @ts-expect-error every field requires explicit classification
+// Omitted field classification defaults to ordinary.
 from(crm.fields.name, { id: 'customer.name' });
 const identity = objectId({ id: 'customer.identity', access: access.groups.ordinary });
 const idValue: string = identity.schema.parse('generated');
@@ -124,7 +126,7 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
   await writeFile(
     join(consumer, 'assert-fields.types.ts'),
     await readFile(
-      resolve(root, 'packages/protocol/test/assert-fields.types.ts'),
+      resolve(root, 'packages/relate/test/assert-fields.types.ts'),
       'utf8',
     ),
   );
@@ -169,6 +171,19 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
       ),
     );
   }
+
+  await writeFile(
+    join(consumer, 'references.types.ts'),
+    (
+      await readFile(
+        resolve(root, 'packages/relate/test/references.types.ts'),
+        'utf8',
+      )
+    ).replaceAll(
+      '../../../dev/fixtures/customer-graph/invoice-read/model.js',
+      './invoice-model.js',
+    ),
+  );
 
   await writeFile(
     join(consumer, 'traversal-smoke.mjs'),
@@ -221,6 +236,7 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
       'assert-fields.types.ts',
       'pagination.types.ts',
       'authorization.types.ts',
+      'references.types.ts',
       'typed-read.types.ts',
       'hello-world.ts',
       'traversal.types.ts',

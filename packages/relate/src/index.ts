@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import type { AccessDefinition, FieldGroup, Policy } from './authorization.js';
+import type {
+  AccessDefinition,
+  ExactPolicyInput,
+  FieldGroup,
+  Policies,
+  Policy,
+} from './authorization.js';
 
 declare const objectIdBrand: unique symbol;
 
@@ -258,24 +264,33 @@ export type ObjectData<
 
 export interface GraphDefinition {
   readonly id: string;
-  readonly objects: readonly ObjectDefinition[] | ObjectRegistry;
+  readonly objects: ObjectRegistry;
   readonly relationships?: RelationshipRegistry;
   readonly access: AccessDefinition;
-  readonly policies: readonly Policy[];
+  readonly policies: Readonly<Record<string, Policy>>;
 }
 
-export function defineGraph<const G extends GraphDefinition>(graph: G): G {
+export function defineGraph<const G extends GraphDefinition>(
+  graph: G & {
+    readonly policies: Policies<NoInfer<G['objects']>, NoInfer<G['access']>> &
+      ExactPolicyInput<
+        G['policies'],
+        Policies<NoInfer<G['objects']>, NoInfer<G['access']>>
+      >;
+  },
+): G {
   return graph;
 }
 
-export { defineAccess, equals } from './authorization.js';
+export { defineAccess } from './authorization.js';
+export { assertFields } from './results.js';
 
 export type {
   AccessDefinition,
   Claim,
-  Equality,
   FieldGroup,
   Policy,
+  Policies,
   PolicyWhere,
   RoleGate,
 } from './authorization.js';
