@@ -1,8 +1,10 @@
 import { assertFields } from 'relate';
-import { implementAction } from './implement-action.server.js';
+import { implementAction } from '../../validation/target.js';
+import { graph } from '../graph.js';
 import { ReviewInvoice } from './review-invoice.js';
 
 export const reviewInvoice = implementAction(
+  graph,
   ReviewInvoice,
   async ({ actor, input, objects }) => {
     // The second lookup's ID is only known after the first lookup finishes.

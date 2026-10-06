@@ -22,9 +22,10 @@ why ordinary inputs and async object operations are insufficient. See the
   validation remains a documented alternative, not an exposed API.
 - Consumers and actions share `get`, `query` and `traverse`. `query()`
   enumerates without a filter; there is no separate `list` operation.
-- The shared binder receives access, objects and relationships for inference.
-  Graph assembly reuses both registries; runtime installation validates
-  compatibility.
+- `implementAction(graph, contract, fn)` infers access, objects and
+  relationships from the graph. Contracts remain independent of server
+  implementations, so no separate binder is needed. Runtime installation
+  validates compatibility.
 - `creates` is a capability, not authorization. CRM/billing objects stay
   source-owned; their native create methods are unavailable.
 - Proposed execution: runtime-owned native transaction, native read-your-writes,
