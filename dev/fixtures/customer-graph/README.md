@@ -30,7 +30,6 @@ source/
   graph.ts                          assembly and object policies
   app.ts                            server runtime composition
   actions/
-    implement-action.server.ts      binder with access, objects and relationships
     add-account-review.ts           input reference and action contract
     add-account-review.server.ts    authorized lookup and native creation
     escalate-account.ts             escalation contract
@@ -61,13 +60,16 @@ traversal directions preserve the corresponding object brand. Action output
 schemas use `referenceInput(AccountReview)` and `referenceInput(Task)` too, so
 receipt IDs remain typed. Storage and JSON still contain ordinary strings.
 
-`createActionImplementer({ access, objects, relationships })` binds
-implementations to contracts. Both registries are exported once from `model.ts`
-and shared by graph assembly and the binder, so object operations and named
-traversals are inferred without a graph import cycle. These are
-type/installation context, not read allowlists or permission grants. The runtime
-must validate object and relationship identities and vocabulary compatibility at
-installation.
+`implementAction(graph, AddAccountReview, fn)` binds a server implementation to
+its contract and infers the access vocabulary, object operations and named
+traversals directly from the graph. No separate binder or registry wiring is
+needed: `graph.ts` imports only action contracts, which depend on model/access
+definitions, so server implementations can import the graph without an import or
+type-inference cycle. `app.ts` registers the implementations separately.
+
+Graph context supplies types, not permission grants. Runtime installation still
+must validate action contracts, object and relationship identities, and
+vocabulary compatibility when installing implementations.
 
 `defineGraph` infers object policies from its `objects` and `access` inputs.
 Every object key needs an explicit `read` decision; use `read: 'deny'` where

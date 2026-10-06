@@ -10,7 +10,7 @@ import {
   defineRelationship,
   createRuntime,
   defineGraph,
-  createActionImplementer,
+  implementAction,
 } from './target.js';
 import { graph } from '../source/graph.js';
 import { access } from '../source/access.js';
@@ -23,7 +23,6 @@ import {
 } from '../source/model.js';
 import { AddAccountReview } from '../source/actions/add-account-review.js';
 import { EscalateAccount } from '../source/actions/escalate-account.js';
-import { implementAction } from '../source/actions/implement-action.server.js';
 import { addAccountReview } from '../source/actions/add-account-review.server.js';
 import { escalateAccount } from '../source/actions/escalate-account.server.js';
 import { reviewInvoice } from '../source/actions/review-invoice.server.js';
@@ -140,7 +139,7 @@ defineAction({
   creates: [Invoice],
 });
 
-implementAction(AddAccountReview, async (context) => {
+implementAction(graph, AddAccountReview, async (context) => {
   const { input, actor, objects } = context;
   const id: ObjectId<typeof Customer.id> = input.customer;
   const portfolio: string = actor.claims.portfolio;
@@ -190,8 +189,8 @@ implementAction(AddAccountReview, async (context) => {
   return { reviewId: review.id };
 });
 // @ts-expect-error output follows the action schema
-implementAction(AddAccountReview, async () => ({ reviewId: 1 }));
-implementAction(EscalateAccount, async ({ objects }) => {
+implementAction(graph, AddAccountReview, async () => ({ reviewId: 1 }));
+implementAction(graph, EscalateAccount, async ({ objects }) => {
   const sameReads: Expect<
     Equal<typeof objects.Invoice, typeof consumer.objects.Invoice>
   > = true;
@@ -318,6 +317,7 @@ createRuntime({
   actionImplementations: dynamic,
 });
 const foreign = implementAction(
+  graph,
   { ...AddAccountReview, id: 'foreign' as const },
   async () => ({ reviewId }),
 );
@@ -329,6 +329,7 @@ createRuntime({
   actionImplementations: [foreign, escalateAccount, reviewInvoice],
 });
 const mismatch = implementAction(
+  graph,
   { ...EscalateAccount, id: AddAccountReview.id },
   async () => ({ reviewId, taskIds: [] }),
 );
@@ -348,21 +349,22 @@ const Echo = defineAction({
   policy: { execute: access.role('employee') },
 });
 
-implementAction(Echo, async ({ input }) => input.text);
+implementAction(graph, Echo, async ({ input }) => input.text);
 createRuntime({
   graph: { ...graph, actions: {} },
   actionImplementations: [],
   connections: [],
 });
-// Vocabulary mismatch and missing object registry must not install successfully.
-const differentBinder = createActionImplementer({
-  access,
-  objects: { ...objects, Other: Customer },
-  relationships,
-});
-const differentObjects = differentBinder(AddAccountReview, async () => ({
-  reviewId,
-}));
+// Implementations bound to another graph must satisfy installation compatibility.
+const differentObjects = implementAction(
+  defineGraph({
+    ...graph,
+    objects: { ...objects, Other: Customer },
+    policies: { ...graph.policies, Other: { read: 'deny' } },
+  }),
+  AddAccountReview,
+  async () => ({ reviewId }),
+);
 
 createRuntime({
   graph,
@@ -370,29 +372,34 @@ createRuntime({
   // @ts-expect-error graph cannot supply an implementation's extra object binding
   actionImplementations: [differentObjects, escalateAccount, reviewInvoice],
 });
-createActionImplementer({
-  access,
+defineGraph({
+  ...graph,
   objects: { Customer },
+  actions: {},
+  policies: { Customer: { read: 'deny' } },
   // @ts-expect-error relationship endpoint Invoice is not in the object registry
   relationships: { CustomerInvoices },
 });
-const differentRelationshipBinder = createActionImplementer({
-  access,
-  objects,
-  relationships: {
-    ...relationships,
-    Other: {
-      ...CustomerInvoices,
-      id: 'other-customer-invoices',
-      forward: { name: 'otherInvoices', cardinality: 'many' },
+const differentRelationships = implementAction(
+  defineGraph({
+    ...graph,
+    policies: {
+      Customer: graph.policies.Customer,
+      Invoice: graph.policies.Invoice,
+      AccountReview: graph.policies.AccountReview,
+      Task: graph.policies.Task,
     },
-  },
-});
-const differentRelationships = differentRelationshipBinder(
-  AddAccountReview,
-  async () => ({
-    reviewId,
+    relationships: {
+      ...relationships,
+      Other: {
+        ...CustomerInvoices,
+        id: 'other-customer-invoices',
+        forward: { name: 'otherInvoices', cardinality: 'many' },
+      },
+    },
   }),
+  AddAccountReview,
+  async () => ({ reviewId }),
 );
 
 createRuntime({

@@ -3,7 +3,8 @@ import { referenceInput } from 'relate';
 import type { ObjectId } from 'relate';
 import { AccountReview, Customer, Invoice } from '../source/model.js';
 import { AddAccountReview } from '../source/actions/add-account-review.js';
-import { implementAction } from '../source/actions/implement-action.server.js';
+import { implementAction } from './target.js';
+import { graph } from '../source/graph.js';
 import { ana, createFixtureApp } from './setup.js';
 
 const customerId = referenceInput(Customer).parse('c');
@@ -25,7 +26,7 @@ consumer.actions.addAccountReview({
   idempotencyKey: 'three',
 });
 
-implementAction(AddAccountReview, async ({ input, objects }) => {
+implementAction(graph, AddAccountReview, async ({ input, objects }) => {
   const id: ObjectId<typeof Customer.id> = input.customer;
 
   objects.Customer.get(id);
@@ -70,9 +71,9 @@ implementAction(AddAccountReview, async ({ input, objects }) => {
 });
 
 // @ts-expect-error action implementations cannot return another object's ID
-implementAction(AddAccountReview, async () => ({ reviewId: invoiceId }));
+implementAction(graph, AddAccountReview, async () => ({ reviewId: invoiceId }));
 // @ts-expect-error action implementations cannot return raw IDs
-implementAction(AddAccountReview, async () => ({ reviewId: 'r' }));
+implementAction(graph, AddAccountReview, async () => ({ reviewId: 'r' }));
 
 const receipt = await consumer.actions.addAccountReview({
   input: { customer: customerId, note: 'n' },

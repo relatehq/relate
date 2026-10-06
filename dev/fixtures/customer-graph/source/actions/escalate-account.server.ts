@@ -1,9 +1,11 @@
 import type { ObjectId } from 'relate';
 import { assertFields } from 'relate';
-import { implementAction } from './implement-action.server.js';
+import { implementAction } from '../../validation/target.js';
+import { graph } from '../graph.js';
 import { EscalateAccount } from './escalate-account.js';
 
 export const escalateAccount = implementAction(
+  graph,
   EscalateAccount,
   async ({ actor, input, objects }) => {
     const customer = await objects.Customer.get(input.customer, {

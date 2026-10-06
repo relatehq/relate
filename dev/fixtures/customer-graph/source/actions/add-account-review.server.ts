@@ -1,7 +1,9 @@
-import { implementAction } from './implement-action.server.js';
+import { implementAction } from '../../validation/target.js';
+import { graph } from '../graph.js';
 import { AddAccountReview } from './add-account-review.js';
 
 export const addAccountReview = implementAction(
+  graph,
   AddAccountReview,
   async ({ actor, input, objects }) => {
     const customer = await objects.Customer.get(input.customer, {

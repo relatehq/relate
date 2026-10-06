@@ -464,22 +464,20 @@ export interface ActionImplementation<
   ) => Promise<z.input<A['output']>>;
 }
 
-/** Shared vocabulary, objects and relationships for inference, never grants. */
-export declare function createActionImplementer<
-  V extends AccessVocabulary,
-  const O extends ObjectRegistry,
-  const R extends Record<
-    string,
-    RelationshipDefinition<NoInfer<O>[keyof O], NoInfer<O>[keyof O]>
-  >,
->(options: {
-  access: V;
-  objects: O;
-  relationships: R;
-}): <A extends ActionDefinition>(
+/** Graph vocabulary, objects and relationships provide inference, never grants. */
+export declare function implementAction<
+  G extends GraphDefinition,
+  A extends ActionDefinition,
+>(
+  graph: G,
   action: A,
-  implementation: ActionImplementation<NoInfer<A>, V, O, R>['implementation'],
-) => ActionImplementation<A, V, O, R>;
+  implementation: ActionImplementation<
+    NoInfer<A>,
+    NoInfer<G>['access'],
+    NoInfer<G>['objects'],
+    NoInfer<G>['relationships']
+  >['implementation'],
+): ActionImplementation<A, G['access'], G['objects'], G['relationships']>;
 
 type Named = { readonly action: { readonly id: string } };
 
