@@ -59,6 +59,17 @@ pnpm example:hello-world
 It defines a source and object, adopts a record, and performs an authorized read
 using an in-memory store. No database or credentials are needed.
 
+For the [Postgres example](examples/postgres-persistence), copy `.env.example`
+to `.env` and configure separate `relate` and `relate_test` databases on your
+local server. The example values use Postgres on port 5433. Relate manages its
+schema and migrations, not database or server provisioning.
+
+`pnpm example:postgres`, `pnpm test:integration`, and `pnpm test` load the root
+`.env` using dotenvx. Existing shell variables take precedence. `DATABASE_URL`
+is for the persistent example; `RELATE_TEST_DATABASE_URL` is exclusively for
+integration tests, which reset that database's `relate` schema. Keep `.env`
+untracked. `pnpm test:unit` needs no database or environment file.
+
 ## License
 
 Relate is licensed under the [Apache License 2.0](LICENSE).

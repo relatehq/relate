@@ -8,13 +8,15 @@ Run from the repository root:
 
 ```sh
 pnpm install
-DATABASE_URL=postgresql://localhost/relate_example pnpm example:postgres
+# On first setup, copy .env.example to .env and configure existing databases.
+pnpm example:postgres
 ```
 
-Supply an existing Postgres database using `DATABASE_URL`; the URL includes the
-database name. The connection role needs permission to create the `relate`
-schema and its tables. Relate explicitly applies its migrations with
-`store.migrate()`. It does not provision databases or manage the server.
+The command loads the repository's `.env` with dotenvx. Supply an existing
+Postgres database using `DATABASE_URL`; the URL includes the database name. The
+connection role needs permission to create the `relate` schema and its tables.
+Relate explicitly applies its migrations with `store.migrate()`. It does not
+provision databases or manage the server.
 
 The example starts an in-process Hono CRM simulator with a real HTTP listener.
 It adopts one customer, reads as an employee, changes the CRM name, refreshes as
@@ -59,8 +61,8 @@ permission, advance durable ordering, or create durable value history. A
 readback can resolve a lost commit acknowledgement. Public evidence excludes raw
 records, source record IDs, connection credentials, and hidden field details.
 
-With `RELATE_TEST_DATABASE_URL` set to a separate dedicated test database,
-`pnpm test:integration` verifies this behavior against Postgres, including a new
-plain Node process reading fallback after the source stops, concurrent
-observations, transaction rollback, uncertain retention, and authorization
-expiry.
+With `RELATE_TEST_DATABASE_URL` in `.env` set to a separate dedicated test
+database, `pnpm test:integration` verifies this behavior against Postgres,
+including a new plain Node process reading fallback after the source stops,
+concurrent observations, transaction rollback, uncertain retention, and
+authorization expiry.
