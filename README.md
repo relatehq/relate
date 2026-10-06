@@ -1,4 +1,9 @@
-# Relate
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/relate-logo-dark.svg">
+    <img alt="Relate" src="assets/brand/relate-logo-light.svg" height="48">
+  </picture>
+</h1>
 
 > [!WARNING]
 >
