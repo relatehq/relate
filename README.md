@@ -10,7 +10,7 @@
 > Relate is at a very early stage and is not ready for use. It is published only
 > for comment and discussion.
 
-A semantic business graph, defined in TypeScript.
+**A semantic business graph, defined in TypeScript.**
 
 Relate is an open-source toolkit for creating a shared, typed view of business
 data across APIs and databases. It brings identity, relationships,
@@ -36,11 +36,13 @@ const crm = defineSource({
   idField: 'id',
   schema: z.object({ id: z.string(), name: z.string(), region: z.string() }),
 });
+
 const stripe = defineSource({
   id: 'stripe.customers',
   idField: 'id',
   schema: z.object({ id: z.string(), crm_id: z.string(), mrr: z.number() }),
 });
+
 const billing = defineSource({
   id: 'billing.invoices',
   idField: 'id',
