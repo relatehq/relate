@@ -52,7 +52,7 @@ Declare roles, claim schemas, and field groups once, before defining objects:
 ```ts
 const access = defineAccess({
   roles: ['employee', 'finance'],
-  claims: { organization: z.string() },
+  claims: { portfolio: z.string() },
   fieldGroups: ['ordinary', 'financial'],
 });
 ```
@@ -69,10 +69,7 @@ const graph = defineGraph({
     access.policy(Customer, {
       read: {
         gate: access.role('employee'),
-        where: equals(
-          Customer.properties.organization,
-          access.claims.organization,
-        ),
+        where: equals(Customer.properties.portfolio, access.claims.portfolio),
         evidenceMaxAgeMs: 30_000,
       },
       groups: { financial: access.role('finance') },

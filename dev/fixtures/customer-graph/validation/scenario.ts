@@ -28,7 +28,7 @@ export async function scenario() {
     assert.equal(customer.meta.fields.name?.status, 'available');
     assert.equal(customer.meta.fields.revenue?.status, 'unavailable');
 
-    // Finance in the same organization also sees revenue.
+    // Finance in the same portfolio also sees revenue.
     const financial = await relate.as(fin).objects.Customer.get(northwind, {
       select: ['name', 'revenue'],
     });
@@ -40,7 +40,7 @@ export async function scenario() {
     });
     assert.equal(financial.meta.completeness, 'complete');
 
-    // Another organization's customer is indistinguishable from a missing one.
+    // Another portfolio's customer is indistinguishable from a missing one.
     assert.deepEqual(await relate.as(ana).objects.Customer.get(southbank), {
       status: 'not-found',
     });

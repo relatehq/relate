@@ -36,9 +36,9 @@ adopts.
 
 Hosts authenticate callers before supplying principal roles and claims. The
 example uses explicit local principals. Employees see ordinary Customer fields;
-Finance additionally sees revenue. Both must match the source-backed
-organization policy, whose evidence expires after 30 seconds. Business freshness
-defaults to 60 seconds and is independently configurable.
+Finance additionally sees revenue. Both must match the source-backed portfolio
+policy, whose evidence expires after 30 seconds. Business freshness defaults to
+60 seconds and is independently configurable.
 
 The `shared-service` binding explicitly uses one provider account's visibility.
 It does not implement delegated provider credentials. Connection identity is

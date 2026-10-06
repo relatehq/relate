@@ -14,15 +14,15 @@ it('lowers object and property references into a portable policy', () => {
 
   expect(manifest.roles).toEqual(['employee', 'finance']);
   expect(manifest.claims).toEqual({
-    organization: { type: 'string', optional: false, nullable: false },
+    portfolio: { type: 'string', optional: false, nullable: false },
   });
   expect(manifest.policies).toEqual({
     'business.customer': {
       read: {
         role: 'employee',
         where: {
-          propertyDefinitionId: 'business.customer.organization',
-          claim: 'organization',
+          propertyDefinitionId: 'business.customer.portfolio',
+          claim: 'portfolio',
         },
         evidenceMaxAgeMs: 30_000,
       },
@@ -63,25 +63,25 @@ it('validates role, claim, group and comparison contracts in loaded manifests', 
     ],
     [
       (m) => {
-        m.policies[Customer.id]!.read.where!.claim = 'organisation';
+        m.policies[Customer.id]!.read.where!.claim = 'portoflio';
       },
       /Unknown policy claim/,
     ],
     [
       (m) => {
-        m.claims.organization!.type = 'number';
+        m.claims.portfolio!.type = 'number';
       },
       /Incompatible policy claim/,
     ],
     [
       (m) => {
-        m.claims.organization!.nullable = true;
+        m.claims.portfolio!.nullable = true;
       },
       /Incompatible policy claim/,
     ],
     [
       (m) => {
-        m.claims.organization!.optional = true;
+        m.claims.portfolio!.optional = true;
       },
       /Incompatible policy claim/,
     ],
@@ -128,26 +128,26 @@ it('checks erased JavaScript inputs and conflicting claim references', () => {
       ...policy.read,
       where: {
         ...policy.read.where,
-        claim: { ...access.claims.organization, name: 'organisation' },
+        claim: { ...access.claims.portfolio, name: 'portoflio' },
       },
     }),
   ).toThrow(/Unknown policy claim/);
   const foreign = defineAccess({
     roles: [],
     fieldGroups: ['ordinary'],
-    claims: { organization: z.number() },
+    claims: { portfolio: z.number() },
   });
 
   expect(() =>
     compileRead({
       ...policy.read,
-      where: equals(Customer.properties.revenue, foreign.claims.organization),
+      where: equals(Customer.properties.revenue, foreign.claims.portfolio),
     }),
   ).toThrow(/Conflicting policy reference/);
   const numeric = defineAccess({
     roles: ['employee'],
     fieldGroups: ['ordinary', 'financial'],
-    claims: { organization: z.number() },
+    claims: { portfolio: z.number() },
   });
 
   expect(() =>
@@ -162,8 +162,8 @@ it('checks erased JavaScript inputs and conflicting claim references', () => {
             ...policy.read,
             where: {
               kind: 'equals',
-              property: Customer.properties.organization,
-              claim: numeric.claims.organization,
+              property: Customer.properties.portfolio,
+              claim: numeric.claims.portfolio,
             },
           },
         },

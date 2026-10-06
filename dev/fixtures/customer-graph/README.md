@@ -2,7 +2,10 @@
 
 The application we want developers to write, before the packages can run it.
 This fixture is type-checked by `pnpm typecheck` and never executed. CRM owns
-customers, billing owns invoices, and Relate owns account reviews and tasks.
+customers, billing owns invoices, and Relate owns account reviews and tasks. All
+users work within one company's instance. Access follows assigned customer
+portfolios: Ana and Fin handle North; Sara handles South. Finance access is a
+separate role, not permission to see every portfolio.
 
 ## Current authoring direction
 
@@ -29,6 +32,8 @@ validation/
   target.ts                         temporary declaration-only API shim
   rejections.ts                     positive and negative type probes
   policies.ts                       nested policy inference and rejection cases
+  write-policies.ts                 create and integrity type cases
+  check-write-policies.mjs          independent write-rule rejection check
   check-policies.mjs                independent unsuppressed rejection check
   scenario.ts                       intended outcomes, never executed
   setup.ts                          simulated connections and principals
@@ -57,7 +62,7 @@ const { policy } = access.forObjects(objects);
 policy(Invoice, {
   read: {
     gate: access.role('employee'),
-    where: { customer: { organization: { eq: access.claims.organization } } },
+    where: { customer: { portfolio: { eq: access.claims.portfolio } } },
     evidenceMaxAgeMs: 30_000,
   },
   groups: { financial: access.role('finance') },
@@ -66,17 +71,40 @@ policy(Invoice, {
 
 This is explicit related-attribute comparison, not delegation to Customer's
 entire policy. Binding supplies type context, not permissions. Customer uses a
-root organization condition; Invoice, AccountReview and Task use their direct
+root portfolio condition; Invoice, AccountReview and Task use their direct
 customer references. Validation also checks multi-hop paths. Task reference
-consistency remains a separate write/integrity requirement. Predicates require
-an evidence age bound; role-only policies do not. The declaration shim checks
-field names and claim types, including extracted conditions.
+consistency is expressed separately by declarative integrity rules. Predicates
+require an evidence age bound; role-only policies do not. The declaration shim
+checks field names and claim types, including extracted conditions.
 
 Run `node dev/fixtures/customer-graph/validation/check-policies.mjs` to verify
 negative policy cases independently, with suppression comments removed in
 memory. The
 [internal comparison](../../../../relate-internal/docs/internal/relationship-policy-research.md)
 retains the path-helper alternative and the removed spike's findings.
+
+Native object policies now include `create`. Review creation requires an
+account-manager, a customer in the caller's portfolio, and
+`author: { eq: access.actor.id }`. Task creation requires the same role and
+portfolio condition. Missing `create` denies native creation; read permission
+and action `creates` capabilities do not grant it.
+
+Task also declares reference consistency independently of permission:
+
+```ts
+integrity: ({ fields, same }) => [
+  same(fields.customer, fields.invoice.customer),
+  same(fields.customer, fields.review.customer),
+];
+```
+
+This callback builds inspectable constraints, not a runtime boolean validator.
+The fixture does not expose imperative `validate` or trusted evidence readers.
+Run `node dev/fixtures/customer-graph/validation/check-write-policies.mjs` for
+the selected write-rule type rejections. The
+[internal decision and archived spike](../../../../relate-internal/docs/internal/write-policy-spike.md)
+retain the alternatives and behavioral experiment. Runtime enforcement,
+validation timing and integrity evidence bounds remain unimplemented/open.
 
 `createRuntime({ graph, actionImplementations, connections })` checks action
 registration. `creates` limits native creation capability; runtime policies
@@ -90,9 +118,6 @@ receipt, and failure rolls back native effects. This is a proposed guarantee,
 not proven by declaration types. There is no author-facing commit call or
 mandatory preview.
 
-## Examples and limits
-
-- Add a review after checking the referenced customer is readable.
 ## Shared reads
 
 Consumers and action implementations share `get`, `query` and `traverse`. There
@@ -132,6 +157,9 @@ fields; see the
 [authorization requirements](./authorization-cases.md#shared-read-enforcement).
 The declarations establish typing, not enforcement or query execution.
 
+## Examples and limits
+
+- Add a review after checking the referenced customer is readable.
 - Escalate only active customers. Query open invoices only on that branch, page
   through results, and create tasks. Read the new review inside the invocation.
   A later query or write failure must roll back earlier native writes.
@@ -147,7 +175,7 @@ read-your-writes must still respect field/object authorization.
 [Read cases](./read-cases.md), [execution cases](./acceptance-cases.md), and
 [authorization cases](./authorization-cases.md) specify required outcomes.
 [Open questions](./open-questions.md) identifies guarantees and syntax still to
-resolve. Graph policies now express organization isolation through each child's
+resolve. Graph policies now express portfolio isolation through each child's
 customer reference; runtime enforcement is still unimplemented.
 
 The

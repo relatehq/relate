@@ -25,7 +25,7 @@ try {
     clock: () => now,
     sources: {
       'crm.customers': {
-        connectionId: 'crm-account-north',
+        connectionId: 'crm-primary',
         authorization: 'shared-service' as const,
         connector: crmConnector(crm.url),
       },

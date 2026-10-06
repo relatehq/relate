@@ -191,6 +191,13 @@ type CurrentAccess<
   C extends Record<string, z.ZodType>,
 > = ReturnType<typeof currentDefineAccess<R, G, C>>;
 
+/** Trusted actor operand. Actor identity is separate from user-supplied input. */
+export interface ActorField<S extends z.ZodType = z.ZodType> {
+  readonly kind: 'actor-field';
+  readonly name: 'id';
+  readonly schema: S;
+}
+
 /** Nested to-one equality predicates. References resolve through the registry. */
 export type PolicyWhere<
   Registry extends ObjectRegistry,
@@ -200,7 +207,11 @@ export type PolicyWhere<
     K in keyof O['properties']
   ]?: O['properties'][K] extends ReferenceProperty<infer Id>
     ? PolicyWhere<Registry, Extract<Registry[keyof Registry], { id: Id }>>
-    : { readonly eq: Claim<z.ZodType<z.output<O['properties'][K]['schema']>>> };
+    : {
+        readonly eq:
+          | Claim<z.ZodType<z.output<O['properties'][K]['schema']>>>
+          | ActorField<z.ZodType<z.output<O['properties'][K]['schema']>>>;
+      };
 };
 
 // Also reject surplus keys on extracted conditions, not only fresh literals.
@@ -212,6 +223,61 @@ export type ExactPolicyWhere<W, Shape> = {
     : never;
 };
 
+declare const integrityRoot: unique symbol;
+declare const referenceTarget: unique symbol;
+
+export interface ReferencePath<Root extends string, Target extends string> {
+  readonly path: readonly string[];
+  readonly [integrityRoot]: Root;
+  readonly [referenceTarget]: Target;
+}
+
+export type IntegrityFields<
+  Registry extends ObjectRegistry,
+  O extends ObjectDefinition,
+  Root extends string = O['id'],
+> = {
+  readonly [
+    K in keyof O['properties'] as O['properties'][K] extends ReferenceProperty
+      ? K
+      : never
+  ]: O['properties'][K] extends ReferenceProperty<infer Target>
+    ? ReferencePath<Root, Target> &
+        IntegrityFields<
+          Registry,
+          Extract<Registry[keyof Registry], { id: Target }>,
+          Root
+        >
+    : never;
+};
+
+export interface SameRecord<Root extends string> {
+  readonly kind: 'same-record';
+  readonly left: readonly string[];
+  readonly right: readonly string[];
+  readonly [integrityRoot]: Root;
+}
+
+export interface IntegrityContext<
+  Registry extends ObjectRegistry,
+  O extends ObjectDefinition,
+> {
+  readonly fields: IntegrityFields<Registry, O>;
+  same<Target extends string>(
+    left: ReferencePath<O['id'], Target>,
+    right: ReferencePath<O['id'], NoInfer<Target>>,
+  ): SameRecord<O['id']>;
+}
+
+export type IntegrityRule<
+  Registry extends ObjectRegistry,
+  O extends ObjectDefinition,
+> = (context: IntegrityContext<Registry, O>) => readonly SameRecord<O['id']>[];
+
+export type ObjectRule<Role extends string, W> =
+  | { gate: RoleGate<Role>; where?: never; evidenceMaxAgeMs?: never }
+  | { gate: RoleGate<Role>; where: W; evidenceMaxAgeMs: number };
+
 /** Object policies accept native objects; actions retain colocated policies. */
 export declare function defineAccess<
   const R extends readonly string[],
@@ -222,6 +288,7 @@ export declare function defineAccess<
   fieldGroups: G;
   claims: C;
 }): Omit<CurrentAccess<R, G, C>, 'policy'> & {
+  readonly actor: { readonly id: ActorField<z.ZodString> };
   /** Type/installation context only; this does not grant object access. */
   forObjects<Registry extends ObjectRegistry>(
     objects: Registry,
@@ -229,20 +296,26 @@ export declare function defineAccess<
     policy<
       O extends Registry[keyof Registry],
       const W extends PolicyWhere<Registry, NoInfer<O>>,
+      const CreateWhere extends PolicyWhere<Registry, NoInfer<O>>,
     >(
       object: O,
       rules: {
-        read:
-          | {
-              gate: RoleGate<R[number]>;
-              where?: never;
-              evidenceMaxAgeMs?: never;
-            }
-          | {
-              gate: RoleGate<R[number]>;
-              where: W & ExactPolicyWhere<W, PolicyWhere<Registry, NoInfer<O>>>;
-              evidenceMaxAgeMs: number;
-            };
+        read: ObjectRule<
+          R[number],
+          W & ExactPolicyWhere<W, PolicyWhere<Registry, NoInfer<O>>>
+        >;
+        /** Absence denies native creation; read access is not write authority. */
+        create?: O extends { membership: NativeMembership }
+          ? ObjectRule<
+              R[number],
+              CreateWhere &
+                ExactPolicyWhere<CreateWhere, PolicyWhere<Registry, NoInfer<O>>>
+            >
+          : never;
+        /** Builds inspectable constraints; it is not a per-record callback. */
+        integrity?: O extends { membership: NativeMembership }
+          ? IntegrityRule<Registry, NoInfer<O>>
+          : never;
         groups?: Partial<
           Record<Exclude<G[number], 'ordinary'>, RoleGate<R[number]>>
         > & { ordinary?: never };

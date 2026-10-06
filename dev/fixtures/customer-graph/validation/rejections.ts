@@ -52,7 +52,7 @@ export async function reads(id: string) {
 
   void selected;
   // @ts-expect-error unselected property
-  customer.data.organization;
+  customer.data.portfolio;
   // @ts-expect-error invalid selection
   await consumer.objects.Customer.get(id, { select: ['typo'] });
   // @ts-expect-error unknown object
@@ -132,10 +132,10 @@ defineAction({
 implementAction(AddAccountReview, async (context) => {
   const { input, actor, objects } = context;
   const id: string = input.customer.id;
-  const organization: string = actor.claims.organization;
+  const portfolio: string = actor.claims.portfolio;
 
   void id;
-  void organization;
+  void portfolio;
   // @ts-expect-error no target context
   context.target;
   // @ts-expect-error no prefetched reads context
@@ -381,7 +381,7 @@ const runtime = createFixtureApp();
 runtime.as({
   id: 'eve',
   roles: ['employee'],
-  // @ts-expect-error principal requires organization claim
+  // @ts-expect-error principal requires portfolio claim
   claims: {},
 });
 // @ts-expect-error consumer has no host adoption surface

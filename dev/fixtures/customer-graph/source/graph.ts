@@ -31,7 +31,7 @@ export const graph = defineGraph({
     policy(Customer, {
       read: {
         gate: access.role('employee'),
-        where: { organization: { eq: access.claims.organization } },
+        where: { portfolio: { eq: access.claims.portfolio } },
         evidenceMaxAgeMs: 30_000,
       },
       groups: { financial: access.role('finance') },
@@ -40,7 +40,7 @@ export const graph = defineGraph({
       read: {
         gate: access.role('employee'),
         where: {
-          customer: { organization: { eq: access.claims.organization } },
+          customer: { portfolio: { eq: access.claims.portfolio } },
         },
         evidenceMaxAgeMs: 30_000,
       },
@@ -50,21 +50,38 @@ export const graph = defineGraph({
       read: {
         gate: access.role('employee'),
         where: {
-          customer: { organization: { eq: access.claims.organization } },
+          customer: { portfolio: { eq: access.claims.portfolio } },
+        },
+        evidenceMaxAgeMs: 30_000,
+      },
+      create: {
+        gate: access.role('account-manager'),
+        where: {
+          customer: { portfolio: { eq: access.claims.portfolio } },
+          author: { eq: access.actor.id },
         },
         evidenceMaxAgeMs: 30_000,
       },
     }),
-    // Use Task's direct customer. Agreement with its review/invoice references
-    // is a separate write/integrity requirement, not implied by readability.
+    // Permission follows Task's customer; integrity separately requires all
+    // three references to identify that same customer.
     policy(Task, {
       read: {
         gate: access.role('employee'),
         where: {
-          customer: { organization: { eq: access.claims.organization } },
+          customer: { portfolio: { eq: access.claims.portfolio } },
         },
         evidenceMaxAgeMs: 30_000,
       },
+      create: {
+        gate: access.role('account-manager'),
+        where: { customer: { portfolio: { eq: access.claims.portfolio } } },
+        evidenceMaxAgeMs: 30_000,
+      },
+      integrity: ({ fields, same }) => [
+        same(fields.customer, fields.invoice.customer),
+        same(fields.customer, fields.review.customer),
+      ],
     }),
   ],
 });

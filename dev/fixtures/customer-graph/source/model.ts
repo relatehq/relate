@@ -21,7 +21,7 @@ export const crmCustomers = defineSource({
   schema: z.object({
     id: z.string(),
     display_name: z.string(),
-    organization: z.string(),
+    portfolio: z.string(),
     status: z.enum(['active', 'inactive']),
     revenue: z.number(),
   }),
@@ -50,8 +50,8 @@ export const Customer = defineObject({
       id: 'business.customer.name',
       access: ordinary,
     }),
-    organization: from(crmCustomers.fields.organization, {
-      id: 'business.customer.organization',
+    portfolio: from(crmCustomers.fields.portfolio, {
+      id: 'business.customer.portfolio',
       access: ordinary,
     }),
     status: from(crmCustomers.fields.status, {

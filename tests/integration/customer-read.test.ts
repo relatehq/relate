@@ -43,7 +43,7 @@ const connect = (
     clock,
     sources: {
       'crm.customers': {
-        connectionId: 'crm-account-north',
+        connectionId: 'crm-primary',
         authorization: 'shared-service',
         connector,
       },
@@ -84,7 +84,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
   expect(initial.meta.fields.revenue).toEqual({ status: 'unavailable' });
   expect(
     await runtime.read(
-      { ...employee, claims: { organization: 'other' } },
+      { ...employee, claims: { portfolio: 'other' } },
       Customer.id,
       key,
     ),
@@ -404,7 +404,7 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
     clock,
     sources: {
       'crm.customers': {
-        connectionId: 'crm-account-north',
+        connectionId: 'crm-primary',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
       },
@@ -425,7 +425,7 @@ it('withholds confirmed deletion and newly denied access even if retention fails
     },
   });
 
-  await crm.update({ organization: 'other' });
+  await crm.update({ portfolio: 'other' });
   expect(
     await failed.read(employee, Customer.id, key, { refresh: true }),
   ).toEqual({ status: 'not-found' });
@@ -504,7 +504,7 @@ it('keeps the later accepted observation when two real database clients race', a
     record: {
       id: 'crm_456',
       display_name: 'Northwind',
-      organization: 'org_north',
+      portfolio: 'portfolio_north',
       revenue: 2_000_000,
       private_unmapped: 'never return this',
     },
@@ -679,7 +679,7 @@ it('denies absent policies and rejects compiled model drift against an installed
     clock,
     sources: {
       'crm.customers': {
-        connectionId: 'crm-account-north',
+        connectionId: 'crm-primary',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
       },
@@ -697,7 +697,7 @@ it('denies absent policies and rejects compiled model drift against an installed
     clock,
     sources: {
       'crm.customers': {
-        connectionId: 'crm-account-north',
+        connectionId: 'crm-primary',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
       },
@@ -740,7 +740,7 @@ it.each(['source-failure', 'conflicting-version'] as const)(
           record: {
             id: 'crm_456',
             display_name: 'Northwind',
-            organization: 'org_north',
+            portfolio: 'portfolio_north',
             revenue: 2_000_000,
             private_unmapped: 'never return this',
           },
@@ -753,7 +753,7 @@ it.each(['source-failure', 'conflicting-version'] as const)(
     });
 
     await fetching;
-    await crm.update({ organization: 'other' });
+    await crm.update({ portfolio: 'other' });
     expect(
       await runtime.read(employee, Customer.id, key, {
         refresh: true,

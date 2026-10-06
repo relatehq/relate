@@ -48,7 +48,7 @@ import { compile } from 'relate/compiler';
 import { createRuntime, createMemoryStore } from '@relate/runtime';
 import { createPostgresStore } from '@relate/postgres';
 import { ReadError } from '@relate/protocol';
-const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: { organization: z.string() } });
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: { portfolio: z.string() } });
 const crm = defineSource({ id: 'crm', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
 const Customer = defineObject({ id: 'customer', name: 'Customer', membership: source(crm), properties: {
   id: objectId({ id: 'customer.id', access: access.groups.ordinary }),
@@ -87,7 +87,7 @@ import { defineAccess, defineSource, defineObject, objectId, source, from } from
 import type { ReadResult } from '@relate/protocol';
 import type { ObservationStore } from '@relate/runtime/storage';
 import type { RuntimeOptions } from '@relate/runtime';
-const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: { organization: z.string() } });
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: { portfolio: z.string() } });
 const crm = defineSource({ id: 'crm', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
 from(crm.fields.name, { id: 'customer.name', access: access.groups.ordinary });
 // @ts-expect-error source references preserve field names

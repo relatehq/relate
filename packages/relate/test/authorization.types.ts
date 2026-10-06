@@ -13,7 +13,7 @@ const access = defineAccess({
   roles: ['employee', 'finance'],
   fieldGroups: ['ordinary', 'financial'],
   claims: {
-    organization: z.string(),
+    portfolio: z.string(),
     limit: z.number(),
     enabled: z.boolean(),
     nullable: z.string().nullable(),
@@ -24,7 +24,7 @@ const crm = defineSource({
   idField: 'id',
   schema: z.object({
     id: z.string(),
-    organization: z.string(),
+    portfolio: z.string(),
     balance: z.number(),
   }),
 });
@@ -37,8 +37,8 @@ const Customer = defineObject({
       id: 'customer.id',
       access: access.groups.ordinary,
     }),
-    organization: from(crm.fields.organization, {
-      id: 'customer.organization',
+    portfolio: from(crm.fields.portfolio, {
+      id: 'customer.portfolio',
       access: access.groups.ordinary,
     }),
     balance: from(crm.fields.balance, {
@@ -53,8 +53,8 @@ const Other = defineObject({
   membership: source(crm),
   properties: {
     id: objectId({ id: 'other.id', access: access.groups.ordinary }),
-    organization: from(crm.fields.organization, {
-      id: 'other.organization',
+    portfolio: from(crm.fields.portfolio, {
+      id: 'other.portfolio',
       access: access.groups.ordinary,
     }),
   },
@@ -63,7 +63,7 @@ const Other = defineObject({
 access.policy(Customer, {
   read: {
     gate: access.role('employee'),
-    where: equals(Customer.properties.organization, access.claims.organization),
+    where: equals(Customer.properties.portfolio, access.claims.portfolio),
     evidenceMaxAgeMs: 1000,
   },
   groups: { financial: access.role('finance') },
@@ -72,7 +72,7 @@ equals(Customer.properties.balance, access.claims.limit);
 // @ts-expect-error role names come from the declaration
 access.role('employe');
 // @ts-expect-error claim names come from the declaration
-access.claims.organisation;
+access.claims.portoflio;
 // @ts-expect-error field groups come from the declaration
 access.groups.financal;
 // @ts-expect-error classifications require a declared reference
@@ -80,21 +80,21 @@ from(crm.fields.balance, { id: 'bad', access: 'financial' });
 // @ts-expect-error object identity must remain ordinary
 objectId({ id: 'bad.id', access: access.groups.financial });
 // @ts-expect-error number claim cannot compare to string property
-equals(Customer.properties.organization, access.claims.limit);
+equals(Customer.properties.portfolio, access.claims.limit);
 // @ts-expect-error string claim cannot compare to number property
-equals(Customer.properties.balance, access.claims.organization);
+equals(Customer.properties.balance, access.claims.portfolio);
 // @ts-expect-error boolean claim cannot compare to string property
-equals(Customer.properties.organization, access.claims.enabled);
+equals(Customer.properties.portfolio, access.claims.enabled);
 // @ts-expect-error nullable claim cannot compare to required string
-equals(Customer.properties.organization, access.claims.nullable);
+equals(Customer.properties.portfolio, access.claims.nullable);
 // @ts-expect-error raw claim names are not typed claim references
-equals(Customer.properties.organization, { claim: 'organization' });
+equals(Customer.properties.portfolio, { claim: 'portfolio' });
 access.policy(Customer, {
   read: {
     gate: access.role('employee'),
     evidenceMaxAgeMs: 1000,
     // @ts-expect-error the predicate must refer to a property of this object
-    where: equals(Other.properties.organization, access.claims.organization),
+    where: equals(Other.properties.portfolio, access.claims.portfolio),
   },
 });
 access.policy(Customer, {

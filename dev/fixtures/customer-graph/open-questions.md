@@ -15,6 +15,10 @@ why ordinary inputs and async object operations are insufficient. See the
 - Nested object read predicates use `access.forObjects(objects).policy`, with
   explicit role gates and evidence age bounds. Permission delegation is
   deferred.
+- Native create rules check proposed values against roles, claims and
+  `access.actor.id`; no rule means no create permission. Declarative integrity
+  checks Task customer references independently of permission. Imperative
+  validation remains a documented alternative, not an exposed API.
 - Consumers and actions share `get`, `query` and `traverse`. `query()`
   enumerates without a filter; there is no separate `list` operation.
 - The shared binder receives access, objects and relationships for inference.
@@ -30,22 +34,22 @@ why ordinary inputs and async object operations are insufficient. See the
 
 ## 1. Authorization and application invariants
 
-Related-attribute predicates now express organization isolation. How does the
+Related-attribute predicates now express portfolio isolation. How does the
 runtime resolve trusted policy evidence, handle missing/stale references and
 protect reference IDs without accidental policy recursion or data disclosure?
 How do action-local checks and reusable native write rules compose without
 bypasses? Which checks inspect newly written records, and when must final-state
 constraints hold? Keep hidden validation evidence out of implementation results,
 errors and traces. The [authorization cases](./authorization-cases.md) specify
-outcomes the declared predicates and future write rules must enforce.
-Collections, Boolean operators and cyclic/large-model inference remain open; the
-fixture selects to-one equality only.
+outcomes the declared predicates and integrity rules must enforce. Collections,
+Boolean operators and cyclic/large-model inference remain open; the fixture
+selects to-one equality only.
 
 Removing target does not eliminate invocation-specific authorization. A
-reference is not a grant. The examples explicitly read referenced objects;
-write-only operations and unused reference inputs still need a deliberate policy
-contract. Discovery, per-operation checks, final validation and receipt access
-are separate.
+reference is not a grant. The examples explicitly read referenced objects; the
+selected object create rules must still run for write-only operations,
+independently of whether action code first reads a reference. Discovery,
+per-operation checks, final validation and receipt access are separate.
 
 ## 2. Query and evidence semantics
 

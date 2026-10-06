@@ -13,7 +13,7 @@ import {
 export const access = defineAccess({
   roles: ['employee', 'finance'],
   fieldGroups: ['ordinary', 'financial'],
-  claims: { organization: z.string() },
+  claims: { portfolio: z.string() },
 });
 
 export const customers = defineSource({
@@ -22,7 +22,7 @@ export const customers = defineSource({
   schema: z.object({
     id: z.string(),
     display_name: z.string(),
-    organization: z.string(),
+    portfolio: z.string(),
     revenue: z.number(),
   }),
 });
@@ -40,8 +40,8 @@ export const Customer = defineObject({
       id: 'business.customer.name',
       access: access.groups.ordinary,
     }),
-    organization: from(customers.fields.organization, {
-      id: 'business.customer.organization',
+    portfolio: from(customers.fields.portfolio, {
+      id: 'business.customer.portfolio',
       access: access.groups.ordinary,
     }),
     revenue: from(customers.fields.revenue, {
@@ -59,10 +59,7 @@ export const customerGraph = defineGraph({
     access.policy(Customer, {
       read: {
         gate: access.role('employee'),
-        where: equals(
-          Customer.properties.organization,
-          access.claims.organization,
-        ),
+        where: equals(Customer.properties.portfolio, access.claims.portfolio),
         evidenceMaxAgeMs: 30_000,
       },
       groups: { financial: access.role('finance') },
@@ -74,7 +71,7 @@ export const customerGraph = defineGraph({
 export const employee = {
   id: 'ana',
   roles: ['employee'],
-  claims: { organization: 'org_north' },
+  claims: { portfolio: 'portfolio_north' },
 };
 
 export const finance = {

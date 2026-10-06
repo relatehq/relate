@@ -12,7 +12,7 @@ try {
     clock: () => config.now,
     sources: {
       'crm.customers': {
-        connectionId: 'crm-account-north',
+        connectionId: 'crm-primary',
         authorization: 'shared-service',
         connector: {
           async fetch(key, { signal }) {

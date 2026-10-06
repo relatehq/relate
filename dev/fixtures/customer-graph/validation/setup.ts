@@ -19,7 +19,7 @@ const lookup = <R>(records: Record<string, R>) => ({
 export const createFixtureApp = () =>
   createApp([
     connect(crmCustomers, {
-      connectionId: 'crm-account-north',
+      connectionId: 'crm-primary',
       connector: lookup(customers),
     }),
     connect(billingInvoices, {
@@ -32,18 +32,18 @@ export const createFixtureApp = () =>
 export const ana: Principal<typeof access> = {
   id: 'ana',
   roles: ['employee', 'account-manager'],
-  claims: { organization: 'org_north' },
+  claims: { portfolio: 'portfolio_north' },
 };
 
 export const fin: Principal<typeof access> = {
   id: 'fin',
   roles: ['employee', 'finance'],
-  claims: { organization: 'org_north' },
+  claims: { portfolio: 'portfolio_north' },
 };
 
-/** Used by the cross-organization acceptance cases; not an elevated principal. */
+/** Used by the cross-portfolio acceptance cases; not an elevated principal. */
 export const sara: Principal<typeof access> = {
   id: 'sara',
   roles: ['employee', 'account-manager'],
-  claims: { organization: 'org_south' },
+  claims: { portfolio: 'portfolio_south' },
 };

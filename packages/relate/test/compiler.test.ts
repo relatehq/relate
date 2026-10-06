@@ -87,10 +87,10 @@ it('rejects missing, empty and duplicate IDs, unknown classifications and broken
             where: {
               kind: 'equals',
               property: {
-                ...Customer.properties.organization,
+                ...Customer.properties.portfolio,
                 id: 'missing',
               },
-              claim: access.claims.organization,
+              claim: access.claims.portfolio,
             },
             evidenceMaxAgeMs: 100,
           },

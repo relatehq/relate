@@ -28,7 +28,7 @@ it('defaults to isolated memory and supports sharing an explicit store', async (
             record: {
               id: '1',
               display_name: 'Ada',
-              organization: 'org_north',
+              portfolio: 'portfolio_north',
               revenue: 10,
             },
           }),
@@ -87,7 +87,7 @@ it('enforces authorization, refresh and expired permission during memory fallbac
               record: {
                 id: '1',
                 display_name: name,
-                organization: 'org_north',
+                portfolio: 'portfolio_north',
                 revenue: 10,
               },
             };
