@@ -7,7 +7,7 @@ import { EscalateAccount } from './escalate-account.js';
 export const escalateAccount = implementAction(
   graph,
   EscalateAccount,
-  async ({ actor, input, objects }) => {
+  async ({ actor, input, objects, fail }) => {
     const customer = await objects.Customer.get(input.customer, {
       select: ['status'],
     });
@@ -15,7 +15,7 @@ export const escalateAccount = implementAction(
     assertFields(customer, ['status']);
 
     // Conditional read: inactive customers never trigger an invoice query.
-    if (customer.data.status !== 'active') throw new Error('Inactive customer');
+    if (customer.data.status !== 'active') fail('inactive', {});
 
     const review = await objects.AccountReview.create({
       customer: customer.id,
@@ -39,7 +39,7 @@ export const escalateAccount = implementAction(
       select: ['id'],
       limit: 100,
     })) {
-      if (taskIds.length >= 1_000) throw new Error('Too many invoices');
+      if (taskIds.length >= 1_000) fail('tooManyInvoices', { limit: 1_000 });
 
       const task = await objects.Task.create({
         customer: customer.id,

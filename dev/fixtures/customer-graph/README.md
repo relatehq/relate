@@ -18,10 +18,11 @@ Customer–Invoice traversal are executable in the Invoice read subset.
 
 ## Current authoring direction
 
-Actions declare input/output schemas, creation capabilities and colocated
-execution policies. Adjacent `.server.ts` implementations are asynchronous:
-query objects when needed, branch, perform supported writes, and return output.
-There is no special action target, upfront read declaration or change builder.
+Actions declare input/output schemas, optional domain-error schemas, creation
+capabilities and colocated execution policies. Adjacent `.server.ts`
+implementations are asynchronous: query objects when needed, branch, perform
+supported writes, and return output. There is no special action target, upfront
+read declaration or change builder.
 
 ```text
 source/
@@ -39,6 +40,7 @@ source/
 validation/
   target.ts                         temporary declaration-only API shim
   rejections.ts                     positive and negative type probes
+  action-errors.ts                  declared failure and Receipt type probes
   policies.ts                       nested policy inference and rejection cases
   write-policies.ts                 create and integrity type cases
   check-write-policies.mjs          independent write-rule rejection check
@@ -145,6 +147,14 @@ interleaved native reads see earlier writes, success commits effects and
 receipt, and failure rolls back native effects. This is a proposed guarantee,
 not proven by declaration types. There is no author-facing commit call or
 mandatory preview.
+
+Expected business failures use `errors: { code: schema }` on the shared contract
+and typed `fail(code, details)` in the implementation. Escalation declares
+`inactive` and `tooManyInvoices`; callers narrow the failed receipt's error
+kind, code and details. Runtime failures stay separate and do not expose raw
+exception messages. See [declared action failures](./action-errors.md) for the
+agreed contract and rollback, replay and uncertainty requirements. The
+declaration types are checked; execution and persistence remain unimplemented.
 
 ## Shared reads
 

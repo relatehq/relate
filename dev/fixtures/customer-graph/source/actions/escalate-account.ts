@@ -16,5 +16,9 @@ export const EscalateAccount = defineAction({
     taskIds: z.array(referenceInput(Task)),
   }),
   creates: [AccountReview, Task],
+  errors: {
+    inactive: z.object({}),
+    tooManyInvoices: z.object({ limit: z.number().int().positive() }),
+  },
   policy: { execute: access.role('account-manager') },
 });

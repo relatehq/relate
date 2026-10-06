@@ -24,6 +24,42 @@ exists. Source reads are outside native atomicity; observation retention is
 distinct from business writes. Exact isolation, transaction length and retry
 behavior are open.
 
+## Declared domain failures
+
+The [agreed failure contract](./action-errors.md) supplies typed `fail()` and
+failed Receipt errors. These cases require the future action executor; only
+their authoring/consumer types are checked today.
+
+1. An authorized escalation of an inactive customer returns
+   `{ state: 'failed', error: { kind: 'domain', code: 'inactive', details: {} } }`.
+   It makes no invoice query and creates no review or task.
+2. An active customer with 1,001 open invoices fails with `tooManyInvoices` and
+   `{ limit: 1000 }`. The review and all tasks created before the limit was hit
+   are rolled back. Exactly 1,000 open invoices can succeed.
+3. Failure details are validated and transformed exactly once. A
+   string-to-number detail transform receives a string from `fail()` and exposes
+   a number in the receipt. Unknown codes, invalid details and non-JSON outputs
+   are implementation faults, never fabricated domain failures.
+4. If action code catches the abort signal and returns success, the runtime
+   still rejects completion and rolls back native effects. No writes after
+   `fail()` may become committed effects.
+5. Retrying the same input/key after a lost failure response returns the
+   original recorded failure without running the implementation again. Making
+   the customer active does not change that receipt. A new key permits a new
+   attempt; changed input under the old key rejects. Receipt access remains
+   authorization-checked.
+6. A persisted failure receipt survives rollback of business writes. A crash or
+   storage failure before receipt finalization cannot be reported as a durably
+   recorded domain failure. Recovery must resolve the invocation bookkeeping
+   without publishing a success or duplicating committed effects.
+7. `Review unavailable`, a source failure and a denied object operation are
+   runtime failures, not declared business codes. Raw exception messages, stacks
+   and hidden policy evidence never appear in public receipts. Domain details
+   also must not disclose fields the caller may not receive.
+8. A provider write whose acknowledgement is lost remains `uncertain`, even if
+   later code calls `fail('inactive', {})`. Native rollback provides no evidence
+   that an external effect failed or was undone.
+
 ## Sequential operations and final-state validation
 
 The old one-mutation-per-record rule belonged to a sealed edit plan and is no
