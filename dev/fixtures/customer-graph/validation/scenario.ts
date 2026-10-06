@@ -45,15 +45,15 @@ export async function scenario() {
       status: 'not-found',
     });
 
-    const listed = await relate.as(ana).objects.Customer.list({
+    const customers = await relate.as(ana).objects.Customer.query({
       select: ['id', 'name'],
     });
 
     assert.deepEqual(
-      listed.data.map((row) => row.data),
+      customers.data.map((row) => row.data),
       [{ id: northwind, name: 'Northwind Studio' }],
     );
-    assert.equal(listed.meta.exhausted, true);
+    assert.equal(customers.meta.exhausted, true);
 
     // Billing's CRM key was translated: invoices hang off the Relate customer.
     const invoices = await relate
@@ -68,6 +68,19 @@ export async function scenario() {
       open.map((row) => row.data),
       [{ customer: northwind, status: 'open', totalMinor: 250_000 }],
     );
+
+    // Consumers can express the same filtered query used inside escalation.
+    const openInvoices = await relate.as(ana).objects.Invoice.query({
+      where: { customer: northwind, status: 'open' },
+      select: ['id'],
+      limit: 100,
+    });
+
+    assert.deepEqual(
+      openInvoices.data.map((row) => row.id),
+      [openInvoice],
+    );
+    assert.equal(openInvoices.meta.exhausted, true);
 
     // Ana records a review. The implementation sets the author; she cannot choose it.
     const request = {

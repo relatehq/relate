@@ -324,70 +324,74 @@ type NativeValues<O extends ObjectDefinition> = {
 
 type ObjectRegistry = Record<string, ObjectDefinition>;
 
+type RelationshipRegistry = Record<string, RelationshipDefinition>;
+
 type QueryOptions<
   O extends ObjectDefinition,
   K extends Names<O>,
 > = PageOptions<K> & {
   /** Equality-only fixture sketch; query execution must not silently omit unknown matches. */
-  where: Partial<{
+  readonly where?: Partial<{
     readonly [N in Names<O>]: z.output<O['properties'][N]['schema']>;
   }>;
 };
 
 export type ActionObjects<
   O extends ObjectRegistry,
+  R extends RelationshipRegistry,
   A extends ActionDefinition,
 > = {
-  readonly [N in keyof O]: {
-    get<K extends Names<O[N]> = Names<O[N]>>(
-      id: string,
-      options?: ReadOptions<K>,
-    ): Promise<ObjectResult<O[N], K>>;
-    query<K extends Names<O[N]> = Names<O[N]>>(
-      options: QueryOptions<O[N], K>,
-    ): Promise<Page<O[N], K>>;
-  } & (O[N] extends A['creates'][number]
-    ? {
-        /** Writes inside the runtime-owned native transaction; not an independent commit. */
-        create(values: NativeValues<O[N]>): Promise<{ readonly id: string }>;
-      }
-    : {});
+  readonly [N in keyof O]: ObjectOperations<R, O[N]> &
+    (O[N] extends A['creates'][number]
+      ? {
+          /** Writes inside the runtime-owned native transaction; not an independent commit. */
+          create(values: NativeValues<O[N]>): Promise<{ readonly id: string }>;
+        }
+      : {});
 };
 
 type ActionContext<
   V extends AccessVocabulary,
   A extends ActionDefinition,
   O extends ObjectRegistry,
+  R extends RelationshipRegistry,
 > = {
   readonly actor: Pick<Principal<V>, 'id' | 'claims'>;
   readonly input: z.output<A['input']>;
-  readonly objects: ActionObjects<O, A>;
+  readonly objects: ActionObjects<O, R, A>;
 };
 
 export interface ActionImplementation<
   A extends ActionDefinition,
   V extends AccessVocabulary,
   O extends ObjectRegistry,
+  R extends RelationshipRegistry,
 > {
   readonly action: A;
   readonly access: V;
   readonly objects: O;
+  readonly relationships: R;
   readonly implementation: (
-    context: ActionContext<V, A, O>,
+    context: ActionContext<V, A, O, R>,
   ) => Promise<z.input<A['output']>>;
 }
 
-/** Shared vocabulary and object names for inference, never authorization grants. */
+/** Shared vocabulary, objects and relationships for inference, never grants. */
 export declare function createActionImplementer<
   V extends AccessVocabulary,
   const O extends ObjectRegistry,
+  const R extends Record<
+    string,
+    RelationshipDefinition<NoInfer<O>[keyof O], NoInfer<O>[keyof O]>
+  >,
 >(options: {
   access: V;
   objects: O;
+  relationships: R;
 }): <A extends ActionDefinition>(
   action: A,
-  implementation: ActionImplementation<NoInfer<A>, V, O>['implementation'],
-) => ActionImplementation<A, V, O>;
+  implementation: ActionImplementation<NoInfer<A>, V, O, R>['implementation'],
+) => ActionImplementation<A, V, O, R>;
 
 type Named = { readonly action: { readonly id: string } };
 
@@ -502,7 +506,7 @@ export type Receipt<A extends ActionDefinition> =
   | { readonly state: 'succeeded'; readonly output: z.output<A['output']> }
   | { readonly state: 'pending' | 'failed' | 'uncertain' };
 
-// Consumer
+// Shared reads
 
 type Edge<R extends RelationshipDefinition, O extends ObjectDefinition> =
   | (R['from']['id'] extends O['id']
@@ -512,12 +516,12 @@ type Edge<R extends RelationshipDefinition, O extends ObjectDefinition> =
       ? { traversal: R['reverse']; target: R['from'] }
       : never);
 
-type Edges<G extends GraphDefinition, O extends ObjectDefinition> = {
-  [K in keyof G['relationships']]: Edge<G['relationships'][K], O>;
-}[keyof G['relationships']];
+type Edges<R extends RelationshipRegistry, O extends ObjectDefinition> = {
+  [K in keyof R]: Edge<R[K], O>;
+}[keyof R];
 
-type Traversals<G extends GraphDefinition, O extends ObjectDefinition> = {
-  readonly [E in Edges<G, O> as E['traversal']['name']]: <
+type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
+  readonly [E in Edges<R, O> as E['traversal']['name']]: <
     K extends Names<E['target']> = Names<E['target']>,
   >(
     id: string,
@@ -531,25 +535,32 @@ type Traversals<G extends GraphDefinition, O extends ObjectDefinition> = {
   >;
 };
 
+/** Same read contract for consumers and actions; every call applies policy. */
 export interface ObjectOperations<
-  G extends GraphDefinition,
+  R extends RelationshipRegistry,
   O extends ObjectDefinition,
 > {
   get<K extends Names<O> = Names<O>>(
     id: string,
     options?: ReadOptions<K>,
   ): Promise<ObjectResult<O, K>>;
-  list<K extends Names<O> = Names<O>>(
-    options?: PageOptions<K>,
+  /** Omit `where` (or all options) to enumerate without a filter. */
+  query<K extends Names<O> = Names<O>>(
+    options?: QueryOptions<O, K>,
   ): Promise<Page<O, K>>;
   /** Both directions of every relationship that touches this object. */
-  readonly traverse: Traversals<G, O>;
+  readonly traverse: Traversals<R, O>;
 }
+
+// Consumer
 
 /** Everything one authenticated caller may do. Policy applies to every call. */
 export interface Consumer<G extends GraphDefinition> {
   readonly objects: {
-    readonly [K in keyof G['objects']]: ObjectOperations<G, G['objects'][K]>;
+    readonly [K in keyof G['objects']]: ObjectOperations<
+      G['relationships'],
+      G['objects'][K]
+    >;
   };
   readonly actions: {
     readonly [N in keyof G['actions']]: (request: {
@@ -609,7 +620,8 @@ export declare function createRuntime<
     [K in keyof NoInfer<G>['actions']]: ActionImplementation<
       NoInfer<G>['actions'][K],
       NoInfer<G>['access'],
-      NoInfer<G>['objects']
+      NoInfer<G>['objects'],
+      NoInfer<G>['relationships']
     >;
   }[keyof G['actions']][],
 >(options: {

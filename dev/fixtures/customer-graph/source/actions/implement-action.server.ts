@@ -1,6 +1,10 @@
-/** Server-only binding. Object names and access provide types, not grants. */
+/** Server-only binding. Shared model context provides types, not grants. */
 import { createActionImplementer } from '../../validation/target.js';
 import { access } from '../access.js';
-import { objects } from '../model.js';
+import { objects, relationships } from '../model.js';
 
-export const implementAction = createActionImplementer({ access, objects });
+export const implementAction = createActionImplementer({
+  access,
+  objects,
+  relationships,
+});

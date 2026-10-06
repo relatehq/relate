@@ -177,3 +177,6 @@ export const ReviewTasks = defineRelationship({
 
 /** Shared object names for graph assembly and server-context inference. */
 export const objects = { Customer, Invoice, AccountReview, Task };
+
+/** Shared relationships for graph assembly and action traversal inference. */
+export const relationships = { CustomerInvoices, CustomerReviews, ReviewTasks };

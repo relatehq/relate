@@ -5,6 +5,21 @@ requirements, not passing runtime tests. Upfront required-read declarations have
 been removed. Reads happen through authorized runtime object operations as the
 implementation executes.
 
+Consumers and action implementations share `get`, `query` and `traverse`.
+`query()` and `query({ select, limit, cursor })` enumerate without a filter;
+`where` adds equality filters. Both surfaces must return the same authorized
+results and field evidence for the same context and data. Action-native reads
+add visibility of the invocation's earlier native writes.
+
+Traversal uses the shared relationship registry: to-many returns a page and
+to-one returns an `ok`/`not-found` object result, with selection typed against
+the target. These rules apply inside actions as well as to consumers. Native
+queries and traversals must see earlier authorized native writes, including new
+relationships established by those writes. Source reads have no implied
+native-transaction snapshot. See
+[shared read enforcement](./authorization-cases.md#shared-read-enforcement) for
+filtering and pagination authorization requirements.
+
 | Case                                                            | Required outcome                                                                                                                                                 |
 | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Active customer with one open and one paid invoice              | Execute a query with customer/status filters and create one task. Do not load all invoices to filter in JavaScript.                                              |

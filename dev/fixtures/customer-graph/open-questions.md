@@ -15,8 +15,11 @@ why ordinary inputs and async object operations are insufficient. See the
 - Nested object read predicates use `access.forObjects(objects).policy`, with
   explicit role gates and evidence age bounds. Permission delegation is
   deferred.
-- The shared binder receives access and the object registry for inference. Graph
-  assembly reuses the registry; runtime installation validates compatibility.
+- Consumers and actions share `get`, `query` and `traverse`. `query()`
+  enumerates without a filter; there is no separate `list` operation.
+- The shared binder receives access, objects and relationships for inference.
+  Graph assembly reuses both registries; runtime installation validates
+  compatibility.
 - `creates` is a capability, not authorization. CRM/billing objects stay
   source-owned; their native create methods are unavailable.
 - Proposed execution: runtime-owned native transaction, native read-your-writes,
@@ -47,10 +50,10 @@ are separate.
 ## 2. Query and evidence semantics
 
 The fixture sketches equality filters and paginated results. Native/reference
-filter typing, joins, related-object traversal during actions, aggregate
-pushdown, strict freshness and field requirements need concrete examples. Do not
-fetch all rows to implement every filter locally. Unsupported pushdown needs
-honest bounded fallback or rejection, not silently dropped predicates.
+filter typing, joins, aggregate pushdown, strict freshness and field
+requirements need concrete examples. Do not fetch all rows to implement every
+filter locally. Unsupported pushdown needs honest bounded fallback or rejection,
+not silently dropped predicates.
 
 Queries must distinguish no matching visible records from unknown filter
 evidence or failed enumeration. Define snapshot/pagination consistency,
@@ -84,10 +87,11 @@ validation.
 
 Installation must verify action IDs/contracts, input reference types, access
 vocabulary and object registry identity, including structurally identical
-objects with different policies/refinements. Literal registration tuples remain
-checked; dynamic registries and large-graph diagnostics/performance remain open.
-Read capability restrictions, if needed, must not become eager fetch
-declarations.
+objects with different policies/refinements. Relationship registries must agree
+on registered identities, endpoints, reference properties, traversal names and
+cardinality. Literal registration tuples remain checked; dynamic registries and
+large-graph diagnostics/performance remain open. Read capability restrictions,
+if needed, must not become eager fetch declarations.
 
 ## 5. Optional preview, external writes and observability
 

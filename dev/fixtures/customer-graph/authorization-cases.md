@@ -25,7 +25,7 @@ this setup must not require an undocumented authorization bypass.
 
 ## Required authorization outcomes
 
-- Ana's direct get/list/query and traversals expose no Southbank children. Known
+- Ana's direct get/query and traversals expose no Southbank children. Known
   hidden IDs must not reveal more than unknown IDs.
 - Sara can read Southbank's ordinary fields; finance still gates financial
   fields.
@@ -53,6 +53,33 @@ Future execution tests should deliberately attempt to create a review as another
 user, link a Northwind task to a Southbank invoice/customer/review, and supply
 missing or wrong-type IDs. All must reject under the applicable policy/integrity
 rules without partial native commits or hidden-value disclosure.
+## Shared read enforcement
+
+Consumers and action implementations use the same `get`, `query` and `traverse`
+contract. Runtime implementation must share policy enforcement across these
+entry points; invoking an action does not elevate the caller's read access.
+
+- Apply object and field policies to direct reads, filtered and unfiltered
+  queries, both traversal directions, and native read-your-writes. Traversal
+  must not bypass checks on the starting object, relationship reference or
+  target.
+- Caller-supplied filters require permission to read their fields, even when
+  those fields are absent from `select`. Reject unauthorized filters without
+  consulting or disclosing hidden values. For example, Ana cannot probe
+  `totalMinor` through invoice matches; Fin may filter it on permitted invoices.
+  Runtime-only policy evidence is separate from caller-supplied filtering.
+- Unknown or unavailable filter evidence is not a non-match. This fixture
+  requires rejection when a query cannot establish matches; a future explicit
+  incomplete-query result must not imply complete enumeration.
+- Use the same cursor, page-size and exhaustion rules on both surfaces. Empty
+  pages may be non-final. Continuations must remain bound to the query/traversal
+  and authorized caller context, and must enforce current access on every page.
+  Pagination metadata and errors must not expose hidden records or values.
+
+These are required runtime behaviors, not implemented guarantees. Exact errors,
+snapshot consistency and enforcement mechanics remain implementation/design
+work; sharing TypeScript interfaces alone does not establish them.
+
 
 Also reject inconsistent customer references across otherwise readable task,
 invoice and review records. Readability alone does not establish consistency or

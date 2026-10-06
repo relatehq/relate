@@ -14,11 +14,11 @@ There is no special action target, upfront read declaration or change builder.
 ```text
 source/
   access.ts                         shared role/claim vocabulary
-  model.ts                          objects, shared object registry, relationships
+  model.ts                          objects, shared object/relationship registries
   graph.ts                          assembly and object policies
   app.ts                            server runtime composition
   actions/
-    implement-action.server.ts      binder configured with access and objects
+    implement-action.server.ts      binder with access, objects and relationships
     add-account-review.ts           input reference and action contract
     add-account-review.server.ts    authorized lookup and native creation
     escalate-account.ts             escalation contract
@@ -40,12 +40,13 @@ validation/
 access. For example, invocation input is
 `{ customer: customerId, note: 'Follow up' }`.
 
-`createActionImplementer({ access, objects })` binds implementations to
-contracts. The registry is exported once from `model.ts` and shared by graph
-assembly and the binder so `objects.Customer` is inferred without a graph import
-cycle. It is a type/installation context, not a read allowlist or a permission
-grant. The runtime must validate object identities and vocabulary compatibility
-at installation.
+`createActionImplementer({ access, objects, relationships })` binds
+implementations to contracts. Both registries are exported once from `model.ts`
+and shared by graph assembly and the binder, so object operations and named
+traversals are inferred without a graph import cycle. These are
+type/installation context, not read allowlists or permission grants. The runtime
+must validate object and relationship identities and vocabulary compatibility at
+installation.
 
 `access.forObjects(objects)` binds the same registry once in `graph.ts` and
 returns `policy`. Object rules use nested predicates:
@@ -92,6 +93,45 @@ mandatory preview.
 ## Examples and limits
 
 - Add a review after checking the referenced customer is readable.
+## Shared reads
+
+Consumers and action implementations share `get`, `query` and `traverse`. There
+is no `list`: `query()` enumerates without a filter, and query options may
+contain selection, pagination and equality filters.
+
+```ts
+const { objects } = relate.as(principal);
+
+await objects.Customer.query();
+await objects.Invoice.query({
+  where: { customer: customerId, status: 'open' },
+  select: ['id'],
+  limit: 100,
+});
+
+// To-many returns a page; follow its cursor until meta.exhausted is true.
+await objects.Customer.traverse.invoices(customerId, {
+  select: ['status', 'totalMinor'],
+  limit: 100,
+});
+
+// To-one returns an object result: ok or not-found.
+await objects.Invoice.traverse.customer(invoiceId, { select: ['name'] });
+```
+
+The same calls work on the `objects` supplied to an action implementation.
+Traversal names and cardinality come from the shared relationship definitions;
+selected fields belong to the target object. Actions additionally expose their
+permitted native writes. Native reads, including queries and traversals, see the
+invocation's earlier native writes under the runtime-owned transaction. Source
+reads do not join that transaction.
+
+Authorization, field evidence and pagination follow the same contract on both
+surfaces. Shared runtime enforcement must protect filters as well as returned
+fields; see the
+[authorization requirements](./authorization-cases.md#shared-read-enforcement).
+The declarations establish typing, not enforcement or query execution.
+
 - Escalate only active customers. Query open invoices only on that branch, page
   through results, and create tasks. Read the new review inside the invocation.
   A later query or write failure must roll back earlier native writes.

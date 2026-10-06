@@ -6,12 +6,10 @@ import { access } from './access.js';
 import {
   AccountReview,
   Customer,
-  CustomerInvoices,
-  CustomerReviews,
   Invoice,
-  ReviewTasks,
   Task,
   objects,
+  relationships,
 } from './model.js';
 
 // Bind the shared registry for related-field inference, not permission grants.
@@ -22,7 +20,7 @@ const { policy } = access.forObjects(objects);
 export const graph = defineGraph({
   id: 'business.graph',
   objects,
-  relationships: { CustomerInvoices, CustomerReviews, ReviewTasks },
+  relationships,
   actions: {
     addAccountReview: AddAccountReview,
     escalateAccount: EscalateAccount,

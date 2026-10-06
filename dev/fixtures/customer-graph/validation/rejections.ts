@@ -12,7 +12,13 @@ import {
 } from './target.js';
 import { graph } from '../source/graph.js';
 import { access } from '../source/access.js';
-import { objects, Customer, Invoice, AccountReview } from '../source/model.js';
+import {
+  objects,
+  relationships,
+  Customer,
+  Invoice,
+  AccountReview,
+} from '../source/model.js';
 import { AddAccountReview } from '../source/actions/add-account-review.js';
 import { EscalateAccount } from '../source/actions/escalate-account.js';
 import { implementAction } from '../source/actions/implement-action.server.js';
@@ -58,6 +64,36 @@ export async function reads(id: string) {
   void cardinality;
   // @ts-expect-error single relationship has no page limit
   await consumer.objects.Invoice.traverse.customer(id, { limit: 10 });
+
+  await consumer.objects.Invoice.query();
+  await consumer.objects.Invoice.query({ select: ['id'], limit: 10 });
+  const invoices = await consumer.objects.Invoice.query({
+    where: { customer: id, status: 'open' },
+    select: ['id'],
+  });
+  const querySelection: Expect<
+    Equal<(typeof invoices.data)[number]['data'], { readonly id?: string }>
+  > = true;
+
+  void querySelection;
+  await consumer.objects.Invoice.query({
+    // @ts-expect-error filter value must match field schema
+    where: { status: 42 },
+  });
+  await consumer.objects.Invoice.query({
+    // @ts-expect-error unknown filter property
+    where: { missing: 'x' },
+  });
+  // @ts-expect-error invalid query selection
+  await consumer.objects.Invoice.query({ select: ['typo'] });
+  // @ts-expect-error query replaces list
+  consumer.objects.Invoice.list();
+  // @ts-expect-error consumers cannot create native records directly
+  consumer.objects.AccountReview.create({
+    customer: id,
+    author: 'ana',
+    note: 'n',
+  });
 }
 
 void consumer.actions.addAccountReview({
@@ -145,6 +181,13 @@ implementAction(AddAccountReview, async (context) => {
 // @ts-expect-error output follows the action schema
 implementAction(AddAccountReview, async () => ({ reviewId: 1 }));
 implementAction(EscalateAccount, async ({ objects }) => {
+  const sameReads: Expect<
+    Equal<typeof objects.Invoice, typeof consumer.objects.Invoice>
+  > = true;
+
+  void sameReads;
+  await objects.Invoice.query();
+  await objects.Invoice.query({ select: ['id'], limit: 100 });
   await objects.Invoice.query({
     where: { status: 'open' },
     select: ['id'],
@@ -160,6 +203,40 @@ implementAction(EscalateAccount, async ({ objects }) => {
     where: { missing: 'x' },
     select: ['id'],
   });
+  const invoices = await objects.Customer.traverse.invoices('c', {
+    select: ['status'],
+    limit: 100,
+    cursor: 'next',
+  });
+  const many: Expect<
+    Equal<(typeof invoices.data)[number]['data'], { readonly status?: string }>
+  > = true;
+  const customer = await objects.Invoice.traverse.customer('i', {
+    select: ['name'],
+  });
+  const one: Expect<Equal<typeof customer.status, 'ok' | 'not-found'>> = true;
+
+  void many;
+  void one;
+
+  if (customer.status === 'ok') {
+    const selection: Expect<
+      Equal<typeof customer.data, { readonly name?: string }>
+    > = true;
+
+    void selection;
+    // @ts-expect-error unselected target property
+    customer.data.revenue;
+  }
+
+  // @ts-expect-error single relationship has no pagination
+  await objects.Invoice.traverse.customer('i', { limit: 10 });
+  // @ts-expect-error selection belongs to the target object
+  await objects.Customer.traverse.invoices('c', { select: ['name'] });
+  // @ts-expect-error unknown traversal
+  objects.Customer.traverse.tasks('c');
+  // @ts-expect-error query replaces list in actions too
+  objects.Invoice.list();
   // @ts-expect-error only runtime owns commit
   objects.commit();
 
@@ -243,6 +320,7 @@ createRuntime({
 const differentBinder = createActionImplementer({
   access,
   objects: { ...objects, Other: Customer },
+  relationships,
 });
 const differentObjects = differentBinder(AddAccountReview, async () => ({
   reviewId: 'r',
@@ -253,6 +331,41 @@ createRuntime({
   connections: [],
   // @ts-expect-error graph cannot supply an implementation's extra object binding
   actionImplementations: [differentObjects, escalateAccount, reviewInvoice],
+});
+createActionImplementer({
+  access,
+  objects: { Customer },
+  // @ts-expect-error relationship endpoint Invoice is not in the object registry
+  relationships: { CustomerInvoices },
+});
+const differentRelationshipBinder = createActionImplementer({
+  access,
+  objects,
+  relationships: {
+    ...relationships,
+    Other: {
+      ...CustomerInvoices,
+      id: 'other-customer-invoices',
+      forward: { name: 'otherInvoices', cardinality: 'many' },
+    },
+  },
+});
+const differentRelationships = differentRelationshipBinder(
+  AddAccountReview,
+  async () => ({
+    reviewId: 'r',
+  }),
+);
+
+createRuntime({
+  graph,
+  connections: [],
+  actionImplementations: [
+    // @ts-expect-error graph cannot supply an implementation's extra relationship binding
+    differentRelationships,
+    escalateAccount,
+    reviewInvoice,
+  ],
 });
 defineGraph({
   ...graph,
