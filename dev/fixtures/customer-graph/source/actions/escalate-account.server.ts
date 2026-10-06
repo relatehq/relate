@@ -1,5 +1,5 @@
 import type { ObjectId } from 'relate';
-import { assertFields } from '@relate/protocol';
+import { assertFields } from 'relate';
 import { implementAction } from './implement-action.server.js';
 import { EscalateAccount } from './escalate-account.js';
 

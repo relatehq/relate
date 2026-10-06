@@ -5,7 +5,7 @@ unpublished while implementation is in progress.
 
 ```ts
 import { connect, createRuntime } from '@relate/node';
-import { assertFields } from '@relate/protocol';
+import { assertFields } from 'relate';
 
 const relate = createRuntime({
   graph, // defineGraph({ objects: { Customer }, access, policies, ... })

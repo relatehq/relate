@@ -5,7 +5,7 @@ Invoice reads. Private and unpublished while implementation is in progress.
 
 - `relate`: `defineSource`, `source`, `defineObject`, `objectId`, `native`,
   `from`, `reference`, `referenceInput`, `defineRelationship`, `defineAccess`,
-  `equals`, `defineGraph`.
+  `defineGraph`, `assertFields`.
 - `relate/compiler`: `compile`, with deterministic SHA-256 definition revisions.
 - `relate/model`: portable manifest validation and types for runtime
   integrations.
@@ -19,9 +19,10 @@ definition revision.
 This slice supports a single membership source per object, scalar string/number/
 boolean fields (including optional/nullable wrappers), a generated canonical
 string object ID, explicit ordinary/restricted field groups, role gates, and
-root and nested property-to-claim equality predicates. An absent policy denies
-access. Source schemas use ordinary `z.object` definitions. Unmapped JSON fields
-are retained privately.
+root and nested property-to-claim equality predicates. Each registered object
+requires a read policy; use `read: 'deny'` for intentional denial. Source
+schemas use ordinary `z.object` definitions. Unmapped JSON fields are retained
+privately.
 
 Refinements, transforms, defaults, nested values, other native fields, and
 custom handlers are rejected rather than silently compiled away. Policies in
@@ -33,10 +34,10 @@ definition revision; incompatible activation requires an explicit migration.
 See [the runnable example](../../examples/hello-world/README.md).
 
 Named object registries (`objects: { Customer }`) preserve consumer API names
-and property inference through `@relate/node`. Existing object arrays still
-compile to the same portable manifest. Registry names do not replace stable
-definition IDs. `ObjectData` and `PropertyNames` expose selected property types;
-selected values remain optional because reads can withhold unavailable fields.
+and property inference through `@relate/node`. Objects and policies use matching
+registry keys. Registry names do not replace stable definition IDs. `ObjectData`
+and `PropertyNames` expose selected property types; selected values remain
+optional because reads can withhold unavailable fields.
 
 Each object declares exactly one `objectId({ id })` property, conventionally
 named `id`. Relate owns its string schema and generates its value on adoption.
@@ -79,44 +80,55 @@ const access = defineAccess({
 
 Properties default to `ordinary` when `access` is omitted from `objectId`,
 `from`, `native`, or `reference`. Set `access: access.groups.financial` for a
-restricted field. The access declaration must still include `ordinary`.
-Bind a policy to its object and compare property and claim references:
+restricted field. The access declaration must still include `ordinary`. Key
+policies by the objects registered in the same `defineGraph` call:
 
 ```ts
 const graph = defineGraph({
   id: 'business.graph',
-  objects: [Customer],
+  objects: { Customer, Invoice },
   access,
-  policies: [
-    access.policy(Customer, {
+  policies: {
+    Customer: {
       read: {
         gate: access.role('employee'),
-        where: equals(Customer.properties.portfolio, access.claims.portfolio),
+        where: { portfolio: { eq: access.claims.portfolio } },
         evidenceMaxAgeMs: 30_000,
       },
       groups: { financial: access.role('finance') },
-    }),
-  ],
+    },
+    Invoice: { read: 'deny' },
+  },
 });
 ```
 
 TypeScript catches misspelled role, claim, and group names, incompatible claim
-value types, and predicates referring to another object's properties. Object IDs
-must use the ordinary group. An absent object policy denies access; restricted
-groups require their own role gate in addition to the object rule.
+value types, unknown object keys, and missing policies or read decisions. Nested
+predicates infer from the same object registry, including predicates extracted
+into variables. Object IDs must use the ordinary group. Restricted groups
+require their own role gate in addition to the object rule. A denied read cannot
+have field-group grants.
 
 `compile()` lowers references into portable IDs and records. It validates roles,
-claims, field groups, property dependencies, comparison types, and duplicate
-policies; `validateManifest()` also validates loaded JSON. Claim schemas support
-the same unrefined scalars as properties. Hosts supply authenticated principals;
-claim declarations do not authenticate or populate claims. Missing claims deny
-access, and supplied claim values are checked against their declared schema.
+claims, field groups, property dependencies, comparison types, policy coverage,
+and duplicate object definition IDs; `validateManifest()` also validates loaded
+JSON. Claim schemas support the same unrefined scalars as properties. Hosts
+supply authenticated principals; claim declarations do not authenticate or
+populate claims. Missing claims deny access, and supplied claim values are
+checked against their declared schema.
 
-Migration from the earlier authoring API: replace string `access` values with
-group references, move `fieldGroups` into `defineAccess`, and replace ID-keyed
-policy records with an array of `access.policy(Object, ...)` definitions.
-Recompile existing models: the manifest now also requires role declarations and
-claim schemas, so older manifests and definition revisions are incompatible.
+Migration: replace object arrays with `objects: { Customer, Invoice }`, and
+policy-call arrays with `policies: { Customer: { read: ... }, Invoice: ... }`.
+Remove `access.forObjects`, `access.policy`, and `equals`; direct comparisons
+use `where: { portfolio: { eq: access.claims.portfolio } }`. Role-only reads
+omit `evidenceMaxAgeMs`; predicate reads require it. Use `read: 'deny'` instead
+of omitting an object's policy.
+
+The compiler lowers explicit denial to an absent manifest policy. Runtime and
+loaded manifests retain default-deny behavior. Registry aliases map to stable
+object IDs; renaming an alias and its policy key does not change the manifest.
+Recompile models after migration: direct predicates now use the same portable
+path representation as nested predicates, which changes definition revisions.
 
 ## Source-backed references
 
@@ -133,17 +145,24 @@ current graph, connection, source and object type; the returned value is its
 canonical Relate ID. An unmapped key never adopts a target or becomes a guessed
 ID. Additional source aliases and exact-match enrichment are not implemented.
 
-Bind the object registry once to author nested read predicates:
+Nested predicates use the target object inferred from the reference property:
 
 ```ts
-const { policy } = access.forObjects({ Customer, Invoice });
-const invoicePolicy = policy(Invoice, {
-  read: {
-    gate: access.role('employee'),
-    where: { customer: { portfolio: { eq: access.claims.portfolio } } },
-    evidenceMaxAgeMs: 30_000,
+const graph = defineGraph({
+  id: 'invoice-graph',
+  objects: { Customer, Invoice },
+  access,
+  policies: {
+    Customer: { read: 'deny' },
+    Invoice: {
+      read: {
+        gate: access.role('employee'),
+        where: { customer: { portfolio: { eq: access.claims.portfolio } } },
+        evidenceMaxAgeMs: 30_000,
+      },
+      groups: { financial: access.role('finance') },
+    },
   },
-  groups: { financial: access.role('finance') },
 });
 ```
 
@@ -183,3 +202,109 @@ records are not implemented. The compiler validates registered endpoints,
 reference ownership and direction names. Names must be unique among traversals
 on the same object; reference properties and traversal names use separate
 namespaces. Existing graphs can omit the relationship registry.
+
+## Require values after a read
+
+`assertFields(result, fields)` is an optional presence check on a result you
+already have. Use it when an operation cannot proceed without particular values.
+Ordinary reads remain partial and best-available by default.
+
+```ts
+import { assertFields } from 'relate';
+
+const customer = await runtime.read(principal, 'customer', customerId, {
+  select: ['name', 'status'],
+});
+
+assertFields(customer, ['name', 'status']);
+// The result is now narrowed to status: 'ok', with both values present.
+// This runtime's values remain Json; presence does not infer a string schema.
+console.log(customer.data.name, customer.data.status);
+```
+
+The helper checks `status: 'ok'`, then verifies that each named field is an own
+property of `data` with a value other than `undefined`. It returns nothing on
+success and throws `ReadError` with code `incomplete` on failure, including a
+`not-found` result. The error does not distinguish hidden, absent, unselected,
+or unavailable values. It contains no field values or provider details.
+
+It does not fetch, refresh, change the result, or bypass authorization. Use it
+on results produced by an authorized, schema-validating read; it is not a
+validator for arbitrary external JSON. Evidence and unchecked fields remain
+unchanged, including any partial/degraded state.
+
+### Type narrowing and nullable fields
+
+For a result with schema-specific types, the assertion preserves those types and
+removes only `undefined` from the requested fields. For example, given a typed
+customer result whose data has these fields:
+
+```ts
+type CustomerData = {
+  name?: string;
+  manager?: string | null;
+  status?: 'active' | 'inactive';
+};
+
+// Given a typed ok/not-found result with CustomerData:
+assertFields(customer, ['name', 'manager']);
+customer.data.name; // string
+customer.data.manager; // string | null
+customer.data.status; // 'active' | 'inactive' | undefined
+
+if (customer.data.manager === null) {
+  throw new Error('Assign a manager first');
+}
+// manager is now string: this action needs an assigned manager.
+```
+
+`null` passes because a nullable schema can legitimately mean “no manager
+assigned.” `false`, `0`, and `''` also pass. Invalid nulls must be rejected by
+schema validation before this assertion. The helper does not read the schema or
+invent a stronger non-null contract.
+
+Inline field arrays and `as const` tuples narrow the named properties. A dynamic
+array is still checked at runtime, but cannot establish specific fields in the
+type system: it could be empty or contain only some possible names. Likewise,
+checking a variable that is either `'name'` or `'status'` does not establish
+both. An empty array asserts only `status: 'ok'`.
+
+The current embedded runtime returns partial JSON records. The customer graph
+[action fixture](../../dev/fixtures/customer-graph/source/actions/review-invoice.server.ts)
+demonstrates schema-specific narrowing with this implemented helper, but its
+typed object operations and action execution remain proposed APIs.
+
+### Presence, freshness, and completeness
+
+| Returned value                | Presence assertion               | Meaning                                                                  |
+| ----------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
+| Fresh `'Acme'`                | Passes                           | A value was supplied and its evidence is fresh.                          |
+| Stale `'Acme'`                | Passes                           | A value was supplied; an action may separately require fresher evidence. |
+| `null` from a nullable schema | Passes                           | An explicit null value was supplied.                                     |
+| Missing or `undefined`        | Throws `ReadError('incomplete')` | No usable value was supplied for this field.                             |
+
+An action requiring freshness can inspect the checked field's evidence:
+
+```ts
+assertFields(customer, ['name']);
+const evidence = customer.meta.fields.name;
+
+if (evidence?.status !== 'available' || evidence.freshness !== 'fresh') {
+  throw new Error('A fresh customer name is required');
+}
+```
+
+Freshness reflects the read's age policy and observation evidence; it does not
+promise an upstream snapshot. Set an appropriate `maxAgeMs` on the read when
+needed. The existing `stale: 'omit'` option omits stale values, which then fail
+the presence assertion. The helper itself introduces no freshness policy.
+
+`requireComplete: true` is different: it rejects unavailable evidence across the
+read selection, but a known absent optional field still counts as complete
+evidence. `assertFields` requires actual values for its named fields and allows
+other fields to remain unavailable. Neither presence nor complete evidence alone
+guarantees freshness.
+
+Reads still happen when your implementation needs them. A later lookup can use
+an ID from an earlier result, and assertions run on the results actually
+returned. No upfront required-read declaration or preparation phase is needed.

@@ -5,7 +5,6 @@ import {
   defineGraph,
   defineObject,
   defineSource,
-  equals,
   from,
   objectId,
   source,
@@ -52,17 +51,17 @@ it.each([
     const graph = defineGraph({
       id: 'graph',
       access,
-      objects: [Customer],
-      policies: [
-        access.policy(Customer, {
+      objects: { Customer },
+      policies: {
+        Customer: {
           read: {
             gate: access.role('employee'),
-            where: equals(Customer.properties.scope, access.claims.scope),
+            where: { scope: { eq: access.claims.scope } },
             evidenceMaxAgeMs: 1000,
           },
           groups: { financial: access.role('finance') },
-        }),
-      ],
+        },
+      },
     });
     const options = {
       model: compile(graph),
@@ -115,7 +114,7 @@ it.each([
 
     const denied = createRuntime({
       ...options,
-      model: compile({ ...graph, policies: [] }),
+      model: compile({ ...graph, policies: { Customer: { read: 'deny' } } }),
     });
     const deniedId = await denied.adopt('customer', '1');
 

@@ -1,4 +1,4 @@
-import { assertFields } from '@relate/protocol';
+import { assertFields } from 'relate';
 import type { Json, ReadResult } from '@relate/protocol';
 
 type CustomerResult =

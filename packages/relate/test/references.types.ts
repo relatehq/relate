@@ -1,9 +1,8 @@
-import { referenceInput } from 'relate';
+import { defineGraph, referenceInput } from 'relate';
 import {
   access,
   Customer,
   Invoice,
-  objects,
 } from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
 import { createRuntime } from '@relate/node';
 import {
@@ -11,45 +10,72 @@ import {
   ana,
 } from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
 
-const { policy } = access.forObjects(objects);
 const gate = access.role('employee');
 const evidenceMaxAgeMs = 1000;
 const portfolio = access.claims.portfolio;
-
-policy(Invoice, {
-  read: {
-    gate,
-    evidenceMaxAgeMs,
-    where: { customer: { portfolio: { eq: portfolio } } },
-  },
-});
-policy(Customer, { read: { gate } });
-policy(Invoice, {
-  read: {
-    gate,
-    evidenceMaxAgeMs,
-    // @ts-expect-error unknown nested property
-    where: { customer: { portoflio: { eq: portfolio } } },
-  },
-});
-policy(Invoice, {
-  // @ts-expect-error incompatible claim
-  read: { gate, evidenceMaxAgeMs, where: { totalMinor: { eq: portfolio } } },
-});
 const typo = {
   customer: { portfolio: { eq: portfolio }, portoflio: { eq: portfolio } },
 };
+const valid = { customer: { portfolio: { eq: portfolio } } };
 
-// @ts-expect-error extracted surplus fields must not disappear structurally
-policy(Invoice, { read: { gate, evidenceMaxAgeMs, where: typo } });
-policy(Invoice, {
-  // @ts-expect-error predicates require a freshness bound
-  read: { gate, where: { customer: { portfolio: { eq: portfolio } } } },
+// Inference comes from objects declared in this same call.
+defineGraph({
+  id: 'inference',
+  objects: { Customer, Invoice },
+  access,
+  policies: {
+    Customer: { read: 'deny' },
+    Invoice: { read: { gate, evidenceMaxAgeMs, where: valid } },
+  },
 });
+
+// prettier-ignore
+defineGraph({ ...graph, policies: { ...graph.policies, Invoice: { read: { gate, evidenceMaxAgeMs, where: { customer: { portfolio: { eq: portfolio } } } } } } });
+
+// prettier-ignore
+// @ts-expect-error unknown nested property
+defineGraph({ ...graph, policies: { ...graph.policies, Invoice: { read: { gate, evidenceMaxAgeMs, where: { customer: { portoflio: { eq: portfolio } } } } } } });
+
+// prettier-ignore
+// @ts-expect-error incompatible claim
+defineGraph({ ...graph, policies: { ...graph.policies, Invoice: { read: { gate, evidenceMaxAgeMs, where: { totalMinor: { eq: portfolio } } } } } });
+
+// prettier-ignore
+// @ts-expect-error extracted surplus fields must not disappear structurally
+defineGraph({ ...graph, policies: { ...graph.policies, Invoice: { read: { gate, evidenceMaxAgeMs, where: typo } } } });
+
+// prettier-ignore
+// @ts-expect-error predicates require a freshness bound
+defineGraph({ ...graph, policies: { ...graph.policies, Invoice: { read: { gate, where: valid } } } });
+
+// prettier-ignore
 // @ts-expect-error role-only rules have no evidence bound
-policy(Customer, { read: { gate, evidenceMaxAgeMs } });
-// @ts-expect-error unregistered policy object
-access.forObjects({ Customer }).policy(Invoice, { read: { gate } });
+defineGraph({ ...graph, policies: { ...graph.policies, Customer: { read: { gate, evidenceMaxAgeMs } } } });
+
+// prettier-ignore
+// @ts-expect-error unregistered policy object cannot widen the registry
+defineGraph({ id: 'invalid', objects: { Customer }, access, policies: { Customer: { read: 'deny' }, Invoice: { read: { gate } } } });
+
+// prettier-ignore
+// @ts-expect-error every registered object needs an explicit policy
+defineGraph({ id: 'invalid', objects: { Customer, Invoice }, access, policies: { Customer: { read: 'deny' } } });
+
+// prettier-ignore
+// @ts-expect-error every object policy needs an explicit read decision
+defineGraph({ ...graph, policies: { ...graph.policies, Customer: {} } });
+
+// prettier-ignore
+// @ts-expect-error object arrays are not registries
+defineGraph({ ...graph, objects: [Customer, Invoice] });
+
+// prettier-ignore
+// @ts-expect-error deny does not grant field groups
+defineGraph({ ...graph, policies: { ...graph.policies, Customer: { read: 'deny', groups: { financial: gate } } } });
+
+// prettier-ignore
+// @ts-expect-error reference targets must come from the same object registry
+defineGraph({ id: 'invalid', objects: { Invoice }, access, policies: { Invoice: { read: { gate, evidenceMaxAgeMs, where: valid } } } });
+
 const relate = createRuntime({ graph, connections: [] });
 
 async function read() {

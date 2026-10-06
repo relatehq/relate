@@ -41,7 +41,7 @@ source-backed fields. Other connector errors remain temporary unavailability
 with authorized fallback.
 
 Use
-[`assertFields` from `@relate/protocol`](../protocol/README.md#require-values-after-a-read)
+[`assertFields` from `relate`](../relate/README.md#require-values-after-a-read)
 to require specific values on an existing result. It narrows an `ok` result and
 the checked fields, preserves valid `null` and stale values, and throws
 `ReadError('incomplete')` when required values are missing. Other fields and the

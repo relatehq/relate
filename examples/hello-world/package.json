@@ -6,7 +6,6 @@
   "dependencies": {
     "relate": "workspace:*",
     "zod": "4.6.5",
-    "@relate/node": "workspace:*",
-    "@relate/protocol": "workspace:*"
+    "@relate/node": "workspace:*"
   }
 }

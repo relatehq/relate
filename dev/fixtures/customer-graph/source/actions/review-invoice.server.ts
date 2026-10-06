@@ -1,4 +1,4 @@
-import { assertFields } from '@relate/protocol';
+import { assertFields } from 'relate';
 import { implementAction } from './implement-action.server.js';
 import { ReviewInvoice } from './review-invoice.js';
 

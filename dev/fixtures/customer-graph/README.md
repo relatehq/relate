@@ -69,29 +69,39 @@ type/installation context, not read allowlists or permission grants. The runtime
 must validate object and relationship identities and vocabulary compatibility at
 installation.
 
-`access.forObjects(objects)` binds the same registry once in `graph.ts` and
-returns `policy`. Object rules use nested predicates:
+`defineGraph` infers object policies from its `objects` and `access` inputs.
+Every object key needs an explicit `read` decision; use `read: 'deny'` where
+access is intentionally denied. Object rules use nested predicates:
 
 ```ts
-const { policy } = access.forObjects(objects);
-
-policy(Invoice, {
-  read: {
-    gate: access.role('employee'),
-    where: { customer: { portfolio: { eq: access.claims.portfolio } } },
-    evidenceMaxAgeMs: 30_000,
+defineGraph({
+  id: 'example',
+  objects: { Customer, Invoice },
+  relationships: {},
+  actions: {},
+  access,
+  policies: {
+    Customer: { read: 'deny' },
+    Invoice: {
+      read: {
+        gate: access.role('employee'),
+        where: { customer: { portfolio: { eq: access.claims.portfolio } } },
+        evidenceMaxAgeMs: 30_000,
+      },
+      groups: { financial: access.role('finance') },
+    },
   },
-  groups: { financial: access.role('finance') },
 });
 ```
 
 This is explicit related-attribute comparison, not delegation to Customer's
-entire policy. Binding supplies type context, not permissions. Customer uses a
-root portfolio condition; Invoice, AccountReview and Task use their direct
-customer references. Validation also checks multi-hop paths. Task reference
-consistency is expressed separately by declarative integrity rules. Predicates
-require an evidence age bound; role-only policies do not. The declaration shim
-checks field names and claim types, including extracted conditions.
+entire policy. Registry membership supplies type context, not permissions.
+Customer uses a root portfolio condition; Invoice, AccountReview and Task use
+their direct customer references. Validation also checks multi-hop paths. Task
+reference consistency is expressed separately by declarative integrity rules.
+Predicates require an evidence age bound; role-only policies do not. The
+declaration shim checks field names and claim types, including extracted
+conditions.
 
 Run `node dev/fixtures/customer-graph/validation/check-policies.mjs` to verify
 negative policy cases independently, with suppression comments removed in

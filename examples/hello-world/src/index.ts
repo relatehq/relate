@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  assertFields,
   defineAccess,
   defineGraph,
   defineObject,
@@ -9,7 +10,6 @@ import {
   source,
 } from 'relate';
 import { connect, createRuntime } from '@relate/node';
-import { assertFields } from '@relate/protocol';
 
 const access = defineAccess({
   roles: ['reader'],
@@ -41,11 +41,11 @@ const graph = defineGraph({
   id: 'example.graph',
   objects: { Person },
   access,
-  policies: [
-    access.policy(Person, {
-      read: { gate: access.role('reader'), evidenceMaxAgeMs: 30_000 },
-    }),
-  ],
+  policies: {
+    Person: {
+      read: { gate: access.role('reader') },
+    },
+  },
 });
 
 const relate = createRuntime({

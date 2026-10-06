@@ -240,9 +240,6 @@ importers:
       '@relate/node':
         specifier: workspace:*
         version: link:../../packages/node
-      '@relate/protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
       relate:
         specifier: workspace:*
         version: link:../../packages/relate
@@ -334,6 +331,9 @@ importers:
 
   packages/relate:
     dependencies:
+      '@relate/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       zod:
         specifier: 4.6.5
         version: 4.6.5

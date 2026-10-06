@@ -173,10 +173,6 @@ export declare function defineAction<
 
 // Access
 
-export interface Policy {
-  readonly kind: 'object-policy';
-}
-
 export interface ActionPolicy {
   readonly execute: RoleGate;
 }
@@ -211,13 +207,19 @@ export type PolicyWhere<
 };
 
 // Also reject surplus keys on extracted conditions, not only fresh literals.
-export type ExactPolicyWhere<W, Shape> = {
-  [K in keyof W]: K extends keyof Shape
-    ? K extends 'eq'
-      ? W[K]
-      : ExactPolicyWhere<W[K], NonNullable<Shape[K]>>
-    : never;
-};
+type ExactPolicyInput<Input, Shape> = Shape extends Claim | ActorField
+  ? Input
+  : Input extends (...args: never[]) => unknown
+    ? Input
+    : Input extends object
+      ? Shape extends object
+        ? {
+            [K in keyof Input]: K extends keyof Shape
+              ? ExactPolicyInput<Input[K], NonNullable<Shape[K]>>
+              : never;
+          }
+        : never
+      : Input;
 
 declare const integrityRoot: unique symbol;
 declare const referenceTarget: unique symbol;
@@ -283,40 +285,35 @@ export declare function defineAccess<
   roles: R;
   fieldGroups: G;
   claims: C;
-}): Omit<CurrentAccess<R, G, C>, 'policy'> & {
+}): CurrentAccess<R, G, C> & {
   readonly actor: { readonly id: ActorField<z.ZodString> };
-  /** Type/installation context only; this does not grant object access. */
-  forObjects<Registry extends ObjectRegistry>(
-    objects: Registry,
-  ): {
-    policy<
-      O extends Registry[keyof Registry],
-      const W extends PolicyWhere<Registry, NoInfer<O>>,
-      const CreateWhere extends PolicyWhere<Registry, NoInfer<O>>,
-    >(
-      object: O,
-      rules: {
-        read: ObjectRule<
-          R[number],
-          W & ExactPolicyWhere<W, PolicyWhere<Registry, NoInfer<O>>>
-        >;
-        /** Absence denies native creation; read access is not write authority. */
-        create?: O extends { membership: NativeMembership }
-          ? ObjectRule<
-              R[number],
-              CreateWhere &
-                ExactPolicyWhere<CreateWhere, PolicyWhere<Registry, NoInfer<O>>>
-            >
-          : never;
-        /** Builds inspectable constraints; it is not a per-record callback. */
-        integrity?: O extends { membership: NativeMembership }
-          ? IntegrityRule<Registry, NoInfer<O>>
-          : never;
-        groups?: Partial<
-          Record<Exclude<G[number], 'ordinary'>, RoleGate<R[number]>>
-        > & { ordinary?: never };
-      },
-    ): Policy;
+};
+
+export type Policies<
+  Registry extends ObjectRegistry,
+  Access extends AccessVocabulary,
+> = {
+  readonly [K in keyof Registry]: {
+    readonly read:
+      | 'deny'
+      | ObjectRule<Access['roles'][number], PolicyWhere<Registry, Registry[K]>>;
+    /** Absence denies native creation; read access is not write authority. */
+    readonly create?: Registry[K] extends { membership: NativeMembership }
+      ? | 'deny'
+        | ObjectRule<
+            Access['roles'][number],
+            PolicyWhere<Registry, Registry[K]>
+          >
+      : never;
+    readonly integrity?: Registry[K] extends { membership: NativeMembership }
+      ? IntegrityRule<Registry, Registry[K]>
+      : never;
+    readonly groups?: Partial<
+      Record<
+        Exclude<Access['fieldGroups'][number], 'ordinary'>,
+        RoleGate<Access['roles'][number]>
+      >
+    > & { readonly ordinary?: never };
   };
 };
 
@@ -351,7 +348,7 @@ export interface GraphDefinition<
   readonly relationships: R;
   readonly actions: A;
   readonly access: Access;
-  readonly policies: readonly Policy[];
+  readonly policies: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -373,14 +370,15 @@ export declare function defineGraph<
     >
   >,
   Access extends AccessVocabulary,
+  const P extends Policies<NoInfer<O>, NoInfer<Access>>,
 >(graph: {
   id: string;
   objects: O;
   relationships: R;
   actions: A;
   access: Access;
-  policies: readonly Policy[];
-}): GraphDefinition<O, R, A, Access>;
+  policies: P & ExactPolicyInput<P, Policies<NoInfer<O>, NoInfer<Access>>>;
+}): GraphDefinition<O, R, A, Access> & { readonly policies: P };
 
 // Async implementation context: declarations only, no executor.
 type NativeValues<O extends ObjectDefinition> = {

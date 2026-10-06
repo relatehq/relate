@@ -600,13 +600,13 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
   });
   const optionalModel = compile({
     id: 'optional.graph',
-    objects: [object],
+    objects: { object },
     access,
-    policies: [
-      access.policy(object, {
-        read: { gate: access.role('employee'), evidenceMaxAgeMs: 1_000 },
-      }),
-    ],
+    policies: {
+      object: {
+        read: { gate: access.role('employee') },
+      },
+    },
   });
   let record: { id: string; note?: string | null } = {
     id: 'source-1',
@@ -671,7 +671,10 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
 
 it('denies absent policies and rejects compiled model drift against an installed graph', async () => {
   const key = await runtime.adopt(Customer.id, 'crm_456');
-  const deniedModel = compile({ ...customerGraph, policies: [] });
+  const deniedModel = compile({
+    ...customerGraph,
+    policies: { Customer: { read: 'deny' } },
+  });
   const denied = createRuntime({
     model: deniedModel,
     graphId: randomUUID(),
