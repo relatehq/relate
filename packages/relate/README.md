@@ -44,6 +44,12 @@ named `id`. Relate owns its string schema and generates its value on adoption.
 There is no object-level `key` selector. `defineObject`, the compiler, and
 manifest validation reject missing or multiple ID properties.
 
+`defineObject` creates a frozen copy of each property and binds it to the
+returned object through `.owner`. It leaves the input properties unchanged;
+reusing them in another definition creates separate bound copies. Use properties
+from the returned object, such as `Invoice.properties.customer`, when defining
+relationships.
+
 `id` identifies a graph, source, object, or property definition and stays stable
 across renames. `objectId` identifies a Relate record; `sourceRecordId`
 identifies its external record. Sources declare `idField` to select the external
@@ -187,21 +193,35 @@ See the executable
 ```ts
 const CustomerInvoices = defineRelationship({
   id: 'business.customer-invoices',
-  from: Customer,
-  to: Invoice,
-  forward: { name: 'invoices', cardinality: 'many' },
-  reverse: { name: 'customer', cardinality: 'one' },
   via: Invoice.properties.customer,
+  forward: 'invoices',
+  reverse: 'customer',
 });
 // Include relationships: { CustomerInvoices } in defineGraph(...).
 ```
 
-The reference on `to` must target `from`. This source-backed slice supports
-forward-to-many and reverse-to-one traversal; native or independent relationship
-records are not implemented. The compiler validates registered endpoints,
-reference ownership and direction names. Names must be unique among traversals
-on the same object; reference properties and traversal names use separate
-namespaces. Existing graphs can omit the relationship registry.
+`via` determines both endpoints: its target is `Customer` (`from`), and its
+owner is `Invoice` (`to`). The reference also determines traversal cardinality:
+
+- `Customer.traverse.invoices` returns many invoices, with pagination.
+- `Invoice.traverse.customer` returns at most one customer, without pagination.
+
+Authors provide only the relationship ID, bound reference and traversal names.
+TypeScript rejects scalar properties and references that have not been bound by
+`defineObject`, and preserves the target fields and branded IDs in both
+directions. A to-one traversal can return `not-found` when the reference is
+unresolved or access is denied.
+
+The compiler validates that the exact endpoint objects and bound reference are
+registered in the graph. Names must be unique among traversals on the same
+object; reference properties and traversal names use separate namespaces.
+Existing graphs can omit the relationship registry. Native references and
+independent relationship records are not implemented.
+
+Migration: remove authored `from` and `to`, and replace each
+`{ name, cardinality }` traversal with its name string. Keep the existing
+relationship ID and `via`. The compiled manifest format and runtime traversal
+behavior are unchanged.
 
 ## Require values after a read
 
