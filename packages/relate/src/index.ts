@@ -167,7 +167,12 @@ export function source(resource: SourceDefinition) {
 
 export interface ObjectDefinition {
   readonly id: string;
-  readonly name: string;
+  /** Singular UI label; defaults to the humanized registry key during compilation. */
+  readonly label?: string;
+  /** Collection UI label; defaults to the singular label without inflection. */
+  readonly pluralLabel?: string;
+  /** Explanatory text for people, documentation, and agents. */
+  readonly description?: string;
   readonly membership: ReturnType<typeof source>;
   readonly properties: Readonly<Record<string, Property>>;
 }

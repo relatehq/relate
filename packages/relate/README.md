@@ -39,6 +39,44 @@ registry keys. Registry names do not replace stable definition IDs. `ObjectData`
 and `PropertyNames` expose selected property types; selected values remain
 optional because reads can withhold unavailable fields.
 
+## Object names and display metadata
+
+The object registry key is the canonical public API name. For example,
+`objects: { AccountReview }` compiles to `apiName: 'AccountReview'` and names
+`consumer.objects.AccountReview` in the typed SDK. API and SDK integrations must
+use this machine name, never a display label. Separate route and SDK name
+overrides are not part of the contract.
+
+Objects optionally declare presentation metadata:
+
+```ts
+const AccountReview = defineObject({
+  id: 'business.account-review',
+  label: 'Account review',
+  pluralLabel: 'Account reviews',
+  description: 'An assessment of a customer account and its next steps.',
+  // membership and properties…
+});
+```
+
+`label` defaults to a humanized registry key (`AccountReview` becomes
+`Account Review`). `pluralLabel` defaults to the resolved singular label; Relate
+does not guess plurals. Supply explicit collection labels such as `People` where
+needed. `description` stays absent when omitted. Supplied labels must be
+nonblank; different object types may share display labels.
+
+Compilation resolves labels and preserves `apiName`, `label`, `pluralLabel`, and
+any `description` in the portable manifest. Display changes preserve API
+addressing and definition IDs. Registry key changes rename the public API but
+preserve definition IDs. Both changes affect the definition revision; the
+existing installed-graph revision checks still apply.
+
+Migration: replace object-level `name` with `label`, optionally add
+`pluralLabel` and `description`, and recompile. Manifest format 2 replaces
+object `name` with `apiName` and the resolved display labels. Format 1 manifests
+are rejected; their discarded registry keys cannot be recovered safely from
+display labels. Property and relationship names retain their existing meaning.
+
 Each object declares exactly one `objectId({ id })` property, conventionally
 named `id`. Relate owns its string schema and generates its value on adoption.
 There is no object-level `key` selector. `defineObject`, the compiler, and
@@ -132,7 +170,8 @@ of omitting an object's policy.
 
 The compiler lowers explicit denial to an absent manifest policy. Runtime and
 loaded manifests retain default-deny behavior. Registry aliases map to stable
-object IDs; renaming an alias and its policy key does not change the manifest.
+object IDs; renaming a registry key and its policy key changes the manifest's
+`apiName` and definition revision, while preserving durable definition IDs.
 Recompile models after migration: direct predicates now use the same portable
 path representation as nested predicates, which changes definition revisions.
 

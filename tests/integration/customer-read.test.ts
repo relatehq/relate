@@ -585,7 +585,7 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
   });
   const object = defineObject({
     id: 'optional.object',
-    name: 'Optional',
+    label: 'Optional',
     membership: source(resource),
     properties: {
       customerId: objectId({

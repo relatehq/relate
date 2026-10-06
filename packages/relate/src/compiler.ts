@@ -90,6 +90,17 @@ function paths(
   });
 }
 
+// Presentation only: this value never determines API addressing or identity.
+function humanize(apiName: string): string {
+  const words = apiName
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim();
+
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export function compile(graph: GraphDefinition): CompiledModel {
   if (Array.isArray(graph.objects) || Array.isArray(graph.policies))
     throw new Error('Objects and policies must be keyed registries');
@@ -264,7 +275,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
   }
 
   const manifest = validateManifest({
-    formatVersion: 1,
+    formatVersion: 2,
     graphDefinitionId: graph.id,
     fieldGroups: [...graph.access.fieldGroups].sort(),
     roles: [...graph.access.roles].sort(),
@@ -277,10 +288,13 @@ export function compile(graph: GraphDefinition): CompiledModel {
     sources: [...resources.values()].sort((a, b) =>
       a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     ),
-    objects: objects
-      .map((o) => ({
+    objects: Object.entries(graph.objects)
+      .map(([apiName, o]) => ({
         id: o.id,
-        name: o.name,
+        apiName,
+        label: o.label ?? humanize(apiName),
+        pluralLabel: o.pluralLabel ?? o.label ?? humanize(apiName),
+        ...(o.description !== undefined ? { description: o.description } : {}),
         sourceDefinitionId: o.membership.resource.id,
         properties: Object.entries(o.properties)
           .map(([name, p]) => ({

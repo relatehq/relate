@@ -42,7 +42,7 @@ export const billingInvoices = defineSource({
 
 export const Customer = defineObject({
   id: 'business.customer',
-  name: 'Customer',
+  label: 'Customer',
   membership: source(crmCustomers),
   properties: {
     id: objectId({ id: 'business.customer.key', access: ordinary }),
@@ -67,7 +67,7 @@ export const Customer = defineObject({
 
 export const Invoice = defineObject({
   id: 'business.invoice',
-  name: 'Invoice',
+  label: 'Invoice',
   membership: source(billingInvoices),
   properties: {
     id: objectId({ id: 'business.invoice.key', access: ordinary }),
@@ -99,7 +99,9 @@ export const Invoice = defineObject({
 // Relate owns reviews; they exist only because an action created them.
 export const AccountReview = defineObject({
   id: 'business.account-review',
-  name: 'Account review',
+  label: 'Account review',
+  pluralLabel: 'Account reviews',
+  description: 'An assessment of a customer account and its next steps.',
   membership: nativeMembership(),
   properties: {
     id: objectId({ id: 'business.account-review.key', access: ordinary }),
@@ -121,7 +123,7 @@ export const AccountReview = defineObject({
 // A follow-up owned by Relate, pointing at records of every kind.
 export const Task = defineObject({
   id: 'business.task',
-  name: 'Task',
+  label: 'Task',
   membership: nativeMembership(),
   properties: {
     id: objectId({ id: 'business.task.key', access: ordinary }),

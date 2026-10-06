@@ -28,7 +28,7 @@ export const customers = defineSource({
 
 export const Customer = defineObject({
   id: 'business.customer',
-  name: 'Customer',
+  label: 'Customer',
   membership: source(customers),
   properties: {
     id: objectId({
