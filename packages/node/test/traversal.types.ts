@@ -1,10 +1,11 @@
 import { createRuntime } from '@relate/node';
-import { defineRelationship, referenceInput } from 'relate';
+import { defineRelationship, reference, referenceInput } from 'relate';
 import {
   graph,
   ana,
   Customer,
   Invoice,
+  invoices,
 } from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
 
 const relate = createRuntime({ graph, connections: [] });
@@ -44,10 +45,27 @@ if (customer.status === 'ok') {
 
 // prettier-ignore
 // @ts-expect-error a scalar cannot serve as the relationship reference
-defineRelationship({ id: 'invalid', from: Customer, to: Invoice, forward: { name: 'invoices', cardinality: 'many' }, reverse: { name: 'customer', cardinality: 'one' }, via: Invoice.properties.status });
+defineRelationship({ id: 'invalid', forward: 'invoices', reverse: 'customer', via: Invoice.properties.status });
+
+const unbound = reference(Customer, {
+  id: 'unbound',
+  from: invoices.fields.customer_id,
+});
+
 // prettier-ignore
-// @ts-expect-error the reference must target the from object
-defineRelationship({ id: 'invalid', from: Invoice, to: Invoice, forward: { name: 'invoices', cardinality: 'many' }, reverse: { name: 'customer', cardinality: 'one' }, via: Invoice.properties.customer });
+// @ts-expect-error a reference must be bound by defineObject before use
+defineRelationship({ id: 'invalid', forward: 'invoices', reverse: 'customer', via: unbound });
+// prettier-ignore
+// @ts-expect-error cardinality is inferred rather than authored
+defineRelationship({ id: 'invalid', forward: { name: 'invoices', cardinality: 'one' }, reverse: 'customer', via: Invoice.properties.customer });
+// prettier-ignore
+// @ts-expect-error endpoints are inferred rather than authored
+defineRelationship({ id: 'invalid', from: Invoice, forward: 'invoices', reverse: 'customer', via: Invoice.properties.customer });
+
+const owner: typeof Invoice = Invoice.properties.customer.owner;
+const target: typeof Customer = Invoice.properties.customer.target;
+
+void [owner, target];
 void [amount, cursor];
 
 for await (const invoice of objects.Customer.traverse.invoices(customerId, {

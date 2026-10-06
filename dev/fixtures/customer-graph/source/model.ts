@@ -150,28 +150,22 @@ export const Task = defineObject({
 
 export const CustomerInvoices = defineRelationship({
   id: 'business.customer-invoices',
-  from: Customer,
-  to: Invoice,
-  forward: { name: 'invoices', cardinality: 'many' },
-  reverse: { name: 'customer', cardinality: 'one' },
+  forward: 'invoices',
+  reverse: 'customer',
   via: Invoice.properties.customer,
 });
 
 export const CustomerReviews = defineRelationship({
   id: 'business.customer-reviews',
-  from: Customer,
-  to: AccountReview,
-  forward: { name: 'reviews', cardinality: 'many' },
-  reverse: { name: 'customer', cardinality: 'one' },
+  forward: 'reviews',
+  reverse: 'customer',
   via: AccountReview.properties.customer,
 });
 
 export const ReviewTasks = defineRelationship({
   id: 'business.review-tasks',
-  from: AccountReview,
-  to: Task,
-  forward: { name: 'tasks', cardinality: 'many' },
-  reverse: { name: 'review', cardinality: 'one' },
+  forward: 'tasks',
+  reverse: 'review',
   via: Task.properties.review,
 });
 

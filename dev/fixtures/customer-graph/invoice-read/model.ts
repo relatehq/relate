@@ -80,10 +80,8 @@ export const Invoice = defineObject({
 
 export const CustomerInvoices = defineRelationship({
   id: 'business.customer-invoices',
-  from: Customer,
-  to: Invoice,
-  forward: { name: 'invoices', cardinality: 'many' },
-  reverse: { name: 'customer', cardinality: 'one' },
+  forward: 'invoices',
+  reverse: 'customer',
   via: Invoice.properties.customer,
 });
 
