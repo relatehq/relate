@@ -28,8 +28,17 @@ most one source fetch in this slice.
 
 Only explicit shared service-account source bindings are supported. Delegated
 credential partitions, automatic sync workers, arbitrary predicates, lists,
-relationships and actions are not implemented. Consumer results remain partial
-JSON records; generated selection inference is not implemented.
+relationships and actions are not implemented. Engine results remain partial
+JSON records. `@relate/node` composes this engine with authored definitions and
+provides typed `relate.as(principal).objects.Customer.get(...)` reads.
+
+Connectors throw `SourceAccessDenied` for an explicit provider permission
+denial. The affected read returns `not-found` rather than falling back to
+retained data. This is not a deletion or a persisted revocation: retained
+observations remain, and a cached read does not perform a provider authorization
+check. Applications requiring a current provider check must request refresh of
+source-backed fields. Other connector errors remain temporary unavailability
+with authorized fallback.
 
 Use
 [`assertFields` from `@relate/protocol`](../protocol/README.md#require-values-after-a-read)

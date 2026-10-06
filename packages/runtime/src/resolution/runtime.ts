@@ -1,3 +1,6 @@
+import { createTraversal } from './traversal.js';
+import { validateReadRequest } from './request.js';
+import { refreshObservation } from './refresh.js';
 import { createMemoryStore } from '../memory.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
@@ -6,7 +9,6 @@ import { ReadError } from '@relate/protocol';
 import type {
   ReadRequest,
   ReadResult,
-  Refresh,
   FieldEvidence,
   Json,
 } from '@relate/protocol';
@@ -16,17 +18,12 @@ import type {
   StoredObject,
 } from '../storage.js';
 import {
-  compareObservation,
-  OrderingConflict,
-  RetentionError,
-} from '../storage.js';
-import { allowsField, allowsObject } from '../authorization/index.js';
+  allowsField,
+  conditions,
+  createAuthorization,
+} from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
-import {
-  boundedFetch,
-  observation,
-  InvalidObservation,
-} from '../observations/index.js';
+import { boundedFetch, observation } from '../observations/index.js';
 import type { SourceConnector } from '../observations/index.js';
 
 export interface SourceBinding {
@@ -41,6 +38,8 @@ export interface RuntimeOptions {
   readonly store?: ObservationStore;
   readonly sources: Readonly<Record<string, SourceBinding>>;
   readonly clock?: () => number;
+  /** Share a 32-byte key across trusted runtimes to preserve cursor validity. */
+  readonly cursorKey?: Uint8Array;
 }
 
 export function createRuntime(options: RuntimeOptions) {
@@ -89,7 +88,220 @@ export function createRuntime(options: RuntimeOptions) {
     partition: 'shared-service',
   });
 
-  return {
+  async function readObject(
+    principal: Principal,
+    objectDefinitionId: string,
+    objectId: string,
+    request: ReadRequest = {},
+    requiredReference?: string,
+    captureAuthorization?: (check: () => Promise<boolean>) => void,
+  ): Promise<ReadResult> {
+    validateReadRequest(request);
+    const maxAge = request.maxAgeMs ?? 60_000;
+
+    const object = manifest.objects.find((o) => o.id === objectDefinitionId);
+    const policy = Object.hasOwn(manifest.policies, objectDefinitionId)
+      ? manifest.policies[objectDefinitionId]
+      : undefined;
+
+    if (!object || !policy || !principal.roles.includes(policy.read.role))
+      return { status: 'not-found' };
+
+    await install();
+    const scope = scopeFor(objectDefinitionId, object.sourceDefinitionId);
+    let stored: StoredObject | undefined;
+
+    try {
+      stored = await store.load(scope, objectId);
+    } catch {
+      throw new ReadError('unavailable');
+    }
+
+    if (!stored || stored.observation.state === 'deleted')
+      return { status: 'not-found' };
+
+    const select = [
+      ...new Set([
+        ...(request.select ??
+          object.properties
+            .filter((p) => allowsField(principal, policy, p.access))
+            .map((p) => p.name)),
+        ...(requiredReference ? [requiredReference] : []),
+      ]),
+    ];
+    const visible = object.properties.filter(
+      (p) =>
+        select.includes(p.name) && allowsField(principal, policy, p.access),
+    );
+    const needsSource = visible.some(
+      (p) => p.origin.kind === 'source' || p.origin.kind === 'reference',
+    );
+    const sourcePermission =
+      conditions(policy).some((condition) =>
+        object.properties.some(
+          (p) => p.id === condition.path[0] && p.origin.kind !== 'object-id',
+        ),
+      ) || visible.some((p) => p.origin.kind === 'reference');
+    const resolved = await refreshObservation({
+      store,
+      scope,
+      stored,
+      object,
+      resource: manifest.sources.find(
+        (s) => s.id === object.sourceDefinitionId,
+      )!,
+      connector: sources[object.sourceDefinitionId]!.connector,
+      clock,
+      request,
+      needsSource,
+      sourcePermission,
+      evidenceMaxAgeMs: policy.read.where
+        ? policy.read.evidenceMaxAgeMs
+        : 60_000,
+    });
+
+    if (!resolved) return { status: 'not-found' };
+
+    const { candidate, refresh, retention, ordering, warnings } = resolved;
+
+    const evidence = createAuthorization({
+      manifest,
+      principal,
+      clock,
+      async resolve(target, key, maxAgeMs) {
+        const targetScope = scopeFor(target.id, target.sourceDefinitionId);
+        const retained = await store.resolve(targetScope, key);
+
+        if (!retained || retained.observation.state !== 'present')
+          return undefined;
+
+        return refreshObservation({
+          store,
+          scope: targetScope,
+          stored: retained,
+          object: target,
+          resource: manifest.sources.find(
+            (s) => s.id === target.sourceDefinitionId,
+          )!,
+          connector: sources[target.sourceDefinitionId]!.connector,
+          clock,
+          request: { ...request, maxAgeMs, select: [] },
+          needsSource: true,
+          sourcePermission: true,
+          evidenceMaxAgeMs: maxAgeMs,
+        });
+      },
+    });
+
+    if (!(await evidence.allows(object, resolved)))
+      return { status: 'not-found' };
+
+    const data: Record<string, Json> = {},
+      fields: Record<string, FieldEvidence> = {};
+
+    for (const name of select) {
+      const property = visible.find((p) => p.name === name);
+
+      if (!property) {
+        fields[name] = { status: 'unavailable' };
+        continue;
+      }
+
+      const native = property.origin.kind === 'object-id';
+      const stale =
+        !native &&
+        (clock() < candidate.observation.observedAt ||
+          clock() - candidate.observation.observedAt > maxAge);
+
+      if (stale && request.stale === 'omit') {
+        fields[name] = { status: 'unavailable' };
+        continue;
+      }
+
+      let value = native
+        ? candidate.objectId
+        : candidate.observation.values[name];
+
+      if (property.origin.kind === 'reference') {
+        value = await evidence.reference(object, resolved, property);
+
+        if (value === undefined) {
+          fields[name] = { status: 'unavailable' };
+          continue;
+        }
+      }
+
+      if (value !== undefined) data[name] = value;
+
+      fields[name] = {
+        status: value === undefined ? 'absent' : 'available',
+        freshness: stale ? 'stale' : 'fresh',
+        observedAt: new Date(candidate.observation.observedAt).toISOString(),
+        source: native ? 'native' : 'source',
+        ...(!native
+          ? {
+              sourceDefinitionId: object.sourceDefinitionId,
+              orderingBasis: candidate.observation.version
+                ? ('source-version' as const)
+                : ('fetch-start' as const),
+            }
+          : {}),
+        retention: native ? 'confirmed' : retention,
+        retentionDurability: store.durability,
+        ordering: native ? 'confirmed' : ordering,
+        refresh: native ? 'not-needed' : refresh,
+      };
+    }
+
+    // Related-source I/O may outlast an evidence window; recheck before disclosure.
+    if (!(await evidence.allows(object, resolved)))
+      return { status: 'not-found' };
+
+    const complete = Object.values(fields).every(
+      (f) => f.status !== 'unavailable',
+    );
+
+    if (!complete && request.requireComplete) throw new ReadError('incomplete');
+
+    captureAuthorization?.(async () => {
+      if (!(await evidence.allows(object, resolved))) return false;
+
+      for (const property of visible) {
+        if (
+          property.origin.kind === 'reference' &&
+          Object.hasOwn(data, property.name) &&
+          (await evidence.reference(object, resolved, property)) !==
+            data[property.name]
+        )
+          return false;
+      }
+
+      return true;
+    });
+
+    return {
+      status: 'ok',
+      data,
+      meta: {
+        completeness: complete ? 'complete' : 'partial',
+        definitionRevision: revision,
+        degraded:
+          !complete ||
+          warnings.length > 0 ||
+          Object.values(fields).some(
+            (f) =>
+              f.status !== 'unavailable' &&
+              (f.freshness === 'stale' ||
+                f.refresh === 'invalid' ||
+                f.refresh === 'unavailable'),
+          ),
+        fields,
+        warnings,
+      },
+    };
+  }
+
+  const runtime = {
     /** Trusted host ingestion operation. Ordinary reads cannot establish membership. */
     async adopt(
       objectDefinitionId: string,
@@ -131,305 +343,27 @@ export function createRuntime(options: RuntimeOptions) {
         )
       ).object.objectId;
     },
-    async read(
+    read(
       principal: Principal,
       objectDefinitionId: string,
       objectId: string,
       request: ReadRequest = {},
-    ): Promise<ReadResult> {
-      const maxAge = request.maxAgeMs ?? 60_000,
-        timeout = request.timeoutMs ?? 3_000;
-
-      if (
-        !Number.isFinite(maxAge) ||
-        maxAge < 0 ||
-        !Number.isFinite(timeout) ||
-        timeout <= 0 ||
-        timeout > 10_000 ||
-        (request.stale !== undefined &&
-          !['allow', 'omit'].includes(request.stale)) ||
-        (request.select !== undefined &&
-          (!Array.isArray(request.select) ||
-            request.select.length > 100 ||
-            request.select.some(
-              (p) =>
-                typeof p !== 'string' ||
-                ['__proto__', 'constructor', 'prototype'].includes(p),
-            ))) ||
-        (request.refresh !== undefined &&
-          typeof request.refresh !== 'boolean') ||
-        (request.requireComplete !== undefined &&
-          typeof request.requireComplete !== 'boolean')
-      )
-        throw new ReadError('invalid-request');
-
-      const object = manifest.objects.find((o) => o.id === objectDefinitionId);
-      const policy = Object.hasOwn(manifest.policies, objectDefinitionId)
-        ? manifest.policies[objectDefinitionId]
-        : undefined;
-
-      if (!object || !policy || !principal.roles.includes(policy.read.role))
-        return { status: 'not-found' };
-
-      await install();
-      const scope = scopeFor(objectDefinitionId, object.sourceDefinitionId);
-      let stored: StoredObject | undefined;
-
-      try {
-        stored = await store.load(scope, objectId);
-      } catch {
-        throw new ReadError('unavailable');
-      }
-
-      if (!stored || stored.observation.state === 'deleted')
-        return { status: 'not-found' };
-
-      const select = [
-        ...new Set(
-          request.select ??
-            object.properties
-              .filter((p) => allowsField(principal, policy, p.access))
-              .map((p) => p.name),
-        ),
-      ];
-      const visible = object.properties.filter(
-        (p) =>
-          select.includes(p.name) && allowsField(principal, policy, p.access),
-      );
-      const needsSource = visible.some((p) => p.origin.kind === 'source');
-      const dependency = object.properties.find(
-        (p) => p.id === policy.read.where?.propertyDefinitionId,
-      );
-      const sourcePermission = dependency?.origin.kind === 'source';
-      const age = clock() - stored.observation.observedAt;
-      let refresh: Refresh = 'not-needed';
-      let retention: 'confirmed' | 'failed' | 'unconfirmed' = 'confirmed';
-      let ordering: 'confirmed' | 'unconfirmed' = 'confirmed';
-      const warnings: Extract<
-        ReadResult,
-        { status: 'ok' }
-      >['meta']['warnings'] = [];
-      let candidate = stored;
-      let permissionCandidate = stored;
-
-      if (
-        (needsSource && (request.refresh || age > maxAge || age < 0)) ||
-        (sourcePermission &&
-          (request.refresh || age > policy.read.evidenceMaxAgeMs || age < 0))
-      ) {
-        try {
-          const token = await store.beginFetch(),
-            observedAt = clock();
-          const fetched = await boundedFetch(
-            sources[object.sourceDefinitionId]!.connector,
-            stored.sourceRecordId,
-            timeout,
-          );
-          const incoming = observation(
-            fetched,
-            manifest.sources.find((s) => s.id === object.sourceDefinitionId)!,
-            object,
-            stored.sourceRecordId,
-            token,
-            observedAt,
-          );
-          // Even when retention fails, a confirmed deletion cannot return old data.
-          const known = compareObservation(stored.observation, incoming);
-
-          if (known === 'superseded' || known === 'replay') {
-            // Re-read the winner because another process may have advanced it further.
-            const winner = await store.load(scope, objectId);
-
-            if (!winner) return { status: 'not-found' };
-
-            candidate = winner;
-            permissionCandidate = candidate;
-            refresh = 'superseded';
-          } else {
-            refresh = 'succeeded';
-
-            try {
-              candidate = (
-                await store.accept(scope, {
-                  sourceRecordId: stored.sourceRecordId,
-                  objectId,
-                  adopt: false,
-                  observation: incoming,
-                })
-              ).object;
-              permissionCandidate = candidate;
-
-              if (candidate.observation.token !== incoming.token)
-                refresh = 'superseded';
-            } catch (error) {
-              if (error instanceof OrderingConflict) throw error;
-
-              retention =
-                error instanceof RetentionError ? error.outcome : 'unconfirmed';
-              candidate = { ...stored, observation: incoming };
-
-              try {
-                const latest = await store.load(scope, objectId);
-
-                if (!latest) return { status: 'not-found' };
-
-                permissionCandidate = latest;
-                const acceptance = compareObservation(
-                  latest.observation,
-                  incoming,
-                );
-
-                if (acceptance === 'superseded' || acceptance === 'replay') {
-                  candidate = latest;
-                  retention = 'confirmed';
-                  refresh =
-                    acceptance === 'superseded' ? 'superseded' : 'succeeded';
-                }
-              } catch (checkError) {
-                if (checkError instanceof OrderingConflict) throw checkError;
-
-                ordering = 'unconfirmed';
-              }
-
-              if (retention !== 'confirmed')
-                warnings.push(
-                  retention === 'failed'
-                    ? 'observation_not_retained'
-                    : 'retention_unconfirmed',
-                );
-
-              if (ordering === 'unconfirmed')
-                warnings.push('ordering_unconfirmed');
-            }
-          }
-        } catch (error) {
-          refresh =
-            error instanceof InvalidObservation ||
-            error instanceof OrderingConflict
-              ? 'invalid'
-              : 'unavailable';
-          // A failed refresh must not restore an earlier snapshot after another
-          // request retained a newer value, deletion, or permission change.
-          candidate = permissionCandidate;
-
-          try {
-            const winner = await store.load(scope, objectId);
-
-            if (!winner) return { status: 'not-found' };
-
-            candidate = winner;
-          } catch {
-            // Preserve the latest known durable snapshot; freshness still applies.
-          }
-
-          permissionCandidate = candidate;
-          retention = 'confirmed';
-          ordering = 'confirmed';
-          warnings.length = 0;
-        }
-      }
-
-      if (
-        candidate.observation.state === 'deleted' ||
-        !allowsObject(
-          principal,
-          policy,
-          object,
-          permissionCandidate,
-          clock(),
-          manifest.claims,
-        )
-      )
-        return { status: 'not-found' };
-
-      // A transient result may revoke access but may never establish fresh permission.
-      if (
-        !allowsObject(
-          principal,
-          policy,
-          object,
-          candidate,
-          clock(),
-          manifest.claims,
-        )
-      )
-        return { status: 'not-found' };
-
-      const data: Record<string, Json> = {},
-        fields: Record<string, FieldEvidence> = {};
-
-      for (const name of select) {
-        const property = visible.find((p) => p.name === name);
-
-        if (!property) {
-          fields[name] = { status: 'unavailable' };
-          continue;
-        }
-
-        const native = property.origin.kind === 'object-id';
-        const stale =
-          !native &&
-          (clock() < candidate.observation.observedAt ||
-            clock() - candidate.observation.observedAt > maxAge);
-
-        if (stale && request.stale === 'omit') {
-          fields[name] = { status: 'unavailable' };
-          continue;
-        }
-
-        const value = native
-          ? candidate.objectId
-          : candidate.observation.values[name];
-
-        if (value !== undefined) data[name] = value;
-
-        fields[name] = {
-          status: value === undefined ? 'absent' : 'available',
-          freshness: stale ? 'stale' : 'fresh',
-          observedAt: new Date(candidate.observation.observedAt).toISOString(),
-          source: native ? 'native' : 'source',
-          ...(!native
-            ? {
-                sourceDefinitionId: object.sourceDefinitionId,
-                orderingBasis: candidate.observation.version
-                  ? ('source-version' as const)
-                  : ('fetch-start' as const),
-              }
-            : {}),
-          retention: native ? 'confirmed' : retention,
-          retentionDurability: store.durability,
-          ordering: native ? 'confirmed' : ordering,
-          refresh: native ? 'not-needed' : refresh,
-        };
-      }
-
-      const complete = Object.values(fields).every(
-        (f) => f.status !== 'unavailable',
-      );
-
-      if (!complete && request.requireComplete)
-        throw new ReadError('incomplete');
-
-      return {
-        status: 'ok',
-        data,
-        meta: {
-          completeness: complete ? 'complete' : 'partial',
-          definitionRevision: revision,
-          degraded:
-            !complete ||
-            warnings.length > 0 ||
-            Object.values(fields).some(
-              (f) =>
-                f.status !== 'unavailable' &&
-                (f.freshness === 'stale' ||
-                  f.refresh === 'invalid' ||
-                  f.refresh === 'unavailable'),
-            ),
-          fields,
-          warnings,
-        },
-      };
+    ) {
+      return readObject(principal, objectDefinitionId, objectId, request);
     },
+  };
+
+  return {
+    ...runtime,
+    traverse: createTraversal({
+      manifest,
+      graphId: options.graphId,
+      revision,
+      store,
+      clock,
+      scopeFor,
+      read: readObject,
+      ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+    }),
   };
 }

@@ -2,52 +2,218 @@ import { accepts } from 'relate/model';
 import type { Manifest, Policy } from 'relate/model';
 import type { StoredObject } from '../storage.js';
 
+type ObjectType = Manifest['objects'][number];
+
+type Property = ObjectType['properties'][number];
+
 export interface Principal {
   readonly id: string;
   readonly roles: readonly string[];
   readonly claims: Readonly<Record<string, string | number | boolean | null>>;
 }
 
-export function allowsObject(
-  principal: Principal,
-  policy: Policy,
-  object: Manifest['objects'][number],
-  candidate: StoredObject,
-  now: number,
-  claims: Manifest['claims'],
-): boolean {
-  if (
-    !principal.roles.includes(policy.read.role) ||
-    candidate.observation.state !== 'present'
-  )
-    return false;
+export function conditions(policy: Policy) {
+  const where = policy.read.where;
 
-  const condition = policy.read.where;
+  return !where
+    ? []
+    : 'all' in where
+      ? where.all
+      : [{ path: [where.propertyDefinitionId], claim: where.claim }];
+}
 
-  if (!condition) return true;
+interface AuthorizationEvidence {
+  readonly candidate: StoredObject;
+  readonly permissionCandidate: StoredObject;
+}
 
-  const property = object.properties.find(
-    (p) => p.id === condition.propertyDefinitionId,
-  )!;
+/** Private evidence evaluation never projects dependency values into the response. */
+export function createAuthorization(options: {
+  manifest: Manifest;
+  principal: Principal;
+  clock: () => number;
+  resolve(
+    object: ObjectType,
+    sourceKey: string,
+    maxAgeMs: number,
+  ): Promise<AuthorizationEvidence | undefined>;
+}) {
+  const { manifest, principal, clock } = options;
+  const fresh = (stored: StoredObject, maxAgeMs: number) =>
+    stored.observation.state === 'present' &&
+    clock() >= stored.observation.observedAt &&
+    clock() - stored.observation.observedAt <= maxAgeMs;
+  // Request-local only. A stricter bound refreshes and replaces earlier evidence,
+  // so a later denial cannot leave a looser cached permission usable.
+  const cache = new Map<
+    string,
+    { age: number; result: Promise<AuthorizationEvidence | undefined> }
+  >();
+  const resolve = (target: ObjectType, key: string, age: number) => {
+    const cacheKey = JSON.stringify([target.id, key]);
+    const previous = cache.get(cacheKey);
 
-  if (
-    property.origin.kind === 'source' &&
-    (now < candidate.observation.observedAt ||
-      now - candidate.observation.observedAt > policy.read.evidenceMaxAgeMs)
-  )
-    return false;
+    if (!previous || age < previous.age) {
+      cache.set(cacheKey, {
+        age,
+        result: options.resolve(target, key, age).catch(() => undefined),
+      });
+    }
 
-  const value =
-    property.origin.kind === 'object-id'
-      ? candidate.objectId
-      : candidate.observation.values[property.name];
+    return cache.get(cacheKey)!.result;
+  };
+  const policyFor = (object: ObjectType) =>
+    Object.hasOwn(manifest.policies, object.id)
+      ? manifest.policies[object.id]
+      : undefined;
 
-  return (
-    Object.hasOwn(principal.claims, condition.claim) &&
-    principal.claims[condition.claim] !== undefined &&
-    accepts(claims[condition.claim]!, principal.claims[condition.claim]) &&
-    value === principal.claims[condition.claim]
-  );
+  async function targetFor(
+    property: Property,
+    stored: StoredObject,
+    age: number,
+    authorizeTarget = false,
+  ) {
+    if (property.origin.kind !== 'reference' || !fresh(stored, age))
+      return undefined;
+
+    const targetId = property.origin.targetObjectDefinitionId;
+    const key = stored.observation.values[property.name];
+    const target = manifest.objects.find((o) => o.id === targetId)!;
+
+    if (typeof key !== 'string' || !key.trim()) return undefined;
+
+    const policy = policyFor(target);
+
+    if (
+      authorizeTarget &&
+      (!policy || !principal.roles.includes(policy.read.role))
+    )
+      return undefined;
+
+    const evidence = await resolve(
+      target,
+      key,
+      authorizeTarget && policy?.read.where
+        ? Math.min(age, policy.read.evidenceMaxAgeMs)
+        : age,
+    );
+
+    return evidence && { target, evidence };
+  }
+
+  async function matches(
+    object: ObjectType,
+    stored: StoredObject,
+    path: string[],
+    claim: string,
+    age: number,
+  ): Promise<boolean> {
+    if (stored.observation.state !== 'present') return false;
+
+    const property = object.properties.find((p) => p.id === path[0])!;
+
+    if (property.origin.kind === 'reference') {
+      const resolved = await targetFor(property, stored, age);
+
+      if (!resolved) return false;
+
+      for (const snapshot of new Set([
+        resolved.evidence.permissionCandidate,
+        resolved.evidence.candidate,
+      ])) {
+        if (
+          !(await matches(resolved.target, snapshot, path.slice(1), claim, age))
+        )
+          return false;
+      }
+
+      return true;
+    }
+
+    if (property.origin.kind !== 'object-id' && !fresh(stored, age))
+      return false;
+
+    const value =
+      property.origin.kind === 'object-id'
+        ? stored.objectId
+        : stored.observation.values[property.name];
+
+    return (
+      Object.hasOwn(principal.claims, claim) &&
+      principal.claims[claim] !== undefined &&
+      accepts(manifest.claims[claim]!, principal.claims[claim]) &&
+      value !== undefined &&
+      value === principal.claims[claim]
+    );
+  }
+
+  async function allows(
+    object: ObjectType,
+    evidence: AuthorizationEvidence,
+  ): Promise<boolean> {
+    const policy = policyFor(object);
+
+    if (!policy || !principal.roles.includes(policy.read.role)) return false;
+
+    for (const stored of new Set([
+      evidence.permissionCandidate,
+      evidence.candidate,
+    ])) {
+      if (stored.observation.state !== 'present') return false;
+
+      for (const condition of conditions(policy)) {
+        if (
+          !(await matches(
+            object,
+            stored,
+            condition.path,
+            condition.claim,
+            policy.read.evidenceMaxAgeMs,
+          ))
+        )
+          return false;
+      }
+    }
+
+    return true;
+  }
+
+  return {
+    allows,
+    async reference(
+      object: ObjectType,
+      evidence: AuthorizationEvidence,
+      property: Property,
+    ): Promise<string | undefined> {
+      const policy = policyFor(object)!;
+      // Both the retained and transient references must be authorized. A failed
+      // retention cannot introduce an unconfirmed identity into the graph result.
+      const retained = await targetFor(
+        property,
+        evidence.permissionCandidate,
+        policy.read.where ? policy.read.evidenceMaxAgeMs : 60_000,
+        true,
+      );
+      const current = await targetFor(
+        property,
+        evidence.candidate,
+        policy.read.where ? policy.read.evidenceMaxAgeMs : 60_000,
+        true,
+      );
+
+      if (
+        !retained ||
+        !current ||
+        retained.evidence.candidate.objectId !==
+          current.evidence.candidate.objectId ||
+        !(await allows(retained.target, retained.evidence)) ||
+        !(await allows(current.target, current.evidence))
+      )
+        return undefined;
+
+      return current.evidence.candidate.objectId;
+    },
+  };
 }
 
 export function allowsField(

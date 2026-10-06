@@ -8,11 +8,19 @@ export type SourceRecord =
   | { state: 'deleted'; version?: SourceVersion };
 
 export interface SourceConnector {
-  /** Deletion must be affirmative authoritative evidence; permission denial is an error. */
+  /** Deletion requires affirmative evidence. Throw SourceAccessDenied for explicit provider denial. */
   fetch(
     sourceRecordId: string,
     options: { signal: AbortSignal },
   ): Promise<SourceRecord>;
+}
+
+/** Provider permission denial must never be treated as temporary unavailability. */
+export class SourceAccessDenied extends Error {
+  constructor() {
+    super('Source access denied');
+    this.name = 'SourceAccessDenied';
+  }
 }
 
 export class InvalidObservation extends Error {}
@@ -107,7 +115,8 @@ export function observation(
 
   for (const property of object.properties) {
     if (
-      property.origin.kind === 'source' &&
+      (property.origin.kind === 'source' ||
+        property.origin.kind === 'reference') &&
       Object.hasOwn(result.record, property.origin.field)
     )
       values[property.name] = result.record[property.origin.field]!;

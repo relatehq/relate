@@ -3,11 +3,12 @@ import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { execFile as callback } from 'node:child_process';
 import { promisify } from 'node:util';
+import assert from 'node:assert/strict';
 
 const execFile = promisify(callback);
 const root = process.cwd();
 const temp = await mkdtemp(join(tmpdir(), 'relate-package-check-'));
-const packages = ['protocol', 'relate', 'runtime', 'postgres'];
+const packages = ['protocol', 'relate', 'runtime', 'postgres', 'node'];
 
 try {
   const tarballs = join(temp, 'tarballs');
@@ -45,7 +46,7 @@ import assert from 'node:assert/strict';
 import { z } from 'zod';
 import { defineAccess, defineGraph, defineObject, defineSource, source, objectId, from } from 'relate';
 import { compile } from 'relate/compiler';
-import { createRuntime, createMemoryStore } from '@relate/runtime';
+import { createRuntime, createMemoryStore, SourceAccessDenied } from '@relate/runtime';
 import { createPostgresStore } from '@relate/postgres';
 import { assertFields, ReadError } from '@relate/protocol';
 import { createQuery } from '@relate/runtime';
@@ -83,6 +84,7 @@ assert.equal(read.meta.fields.name.retentionDurability, 'volatile');
 const store = createPostgresStore({ connectionString: 'postgresql://unused@127.0.0.1:1/unused' });
 await store.close();
 assert.equal(new ReadError('incomplete').code, 'incomplete');
+assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
 assert.equal((await import('relate/model')).validateManifest(model.manifest).graphDefinitionId, 'graph');
 assert.equal(typeof (await import('@relate/runtime/storage')).compareObservation, 'function');
 await assert.rejects(import('relate/dist/compiler.js'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
@@ -140,11 +142,70 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
       'utf8',
     ),
   );
+
+  for (const name of ['model.ts', 'typed-read.types.ts']) {
+    await writeFile(
+      join(consumer, name),
+      await readFile(resolve(root, 'packages/node/test', name), 'utf8'),
+    );
+  }
+
+  await writeFile(
+    join(consumer, 'invoice-model.ts'),
+    await readFile(
+      resolve(root, 'dev/fixtures/customer-graph/invoice-read/model.ts'),
+      'utf8',
+    ),
+  );
+  await writeFile(
+    join(consumer, 'traversal.types.ts'),
+    (
+      await readFile(
+        resolve(root, 'packages/node/test/traversal.types.ts'),
+        'utf8',
+      )
+    ).replaceAll(
+      '../../../dev/fixtures/customer-graph/invoice-read/model.js',
+      './invoice-model.js',
+    ),
+  );
+  await writeFile(
+    join(consumer, 'traversal-smoke.mjs'),
+    `
+import assert from 'node:assert/strict';
+import { connect, createRuntime } from '@relate/node';
+import { graph, ana, Customer, Invoice, customers, invoices } from './built/invoice-model.js';
+const relate = createRuntime({ graph, connections: [
+  connect(customers, { connectionId: 'crm', connector: { fetch: async (id) => ({ state: 'present', record: { id, name: 'Northwind', portfolio: 'north', revenue: 100 } }) } }),
+  connect(invoices, { connectionId: 'billing', connector: { fetch: async (id) => ({ state: 'present', record: { id, customer_id: 'crm_1', status: 'open', total_minor: 12500 } }) } }),
+] });
+try {
+  const customerId = await relate.host.adopt(Customer, 'crm_1');
+  const invoiceId = await relate.host.adopt(Invoice, 'inv_1');
+  const objects = relate.as(ana).objects;
+  const page = await objects.Customer.traverse.invoices(customerId);
+  assert.equal(page.data[0]?.id, invoiceId);
+  const customer = await objects.Invoice.traverse.customer(invoiceId, { select: ['name'] });
+  assert.equal(customer.status, 'ok');
+  if (customer.status === 'ok') assert.equal(customer.id, customerId);
+  const ids = [];
+  for await (const invoice of objects.Customer.traverse.invoices(customerId)) ids.push(invoice.id);
+  assert.deepEqual(ids, [invoiceId]);
+} finally { await relate.close(); }
+console.log('Installed typed traversal and iteration run in plain Node ESM.');
+`,
+  );
+
+  await writeFile(
+    join(consumer, 'hello-world.ts'),
+    await readFile(resolve(root, 'examples/hello-world/src/index.ts'), 'utf8'),
+  );
   await execFile(
     process.execPath,
     [
       resolve(root, 'node_modules/typescript/bin/tsc'),
-      '--noEmit',
+      '--outDir',
+      'built',
       '--strict',
       '--noUncheckedIndexedAccess',
       '--exactOptionalPropertyTypes',
@@ -159,10 +220,31 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
       'assert-fields.types.ts',
       'pagination.types.ts',
       'authorization.types.ts',
+      'typed-read.types.ts',
+      'hello-world.ts',
+      'traversal.types.ts',
     ],
     { cwd: consumer },
   );
   console.log('Installed NodeNext consumer types pass.');
+  const traversal = await execFile(process.execPath, ['traversal-smoke.mjs'], {
+    cwd: consumer,
+  });
+
+  process.stdout.write(traversal.stdout);
+  const hello = await execFile(process.execPath, ['built/hello-world.js'], {
+    cwd: consumer,
+  });
+  const read = JSON.parse(hello.stdout);
+
+  assert.equal(read.status, 'ok');
+  assert.equal(typeof read.id, 'string');
+  assert.notEqual(read.id, '1');
+  assert.deepEqual(read.data, { name: 'Ada' });
+  assert.equal(read.meta.fields.name.retentionDurability, 'volatile');
+  console.log(
+    'Hello world runs through the typed API from installed tarballs in plain Node ESM.',
+  );
 } catch (error) {
   if (error.stdout) process.stderr.write(error.stdout);
 

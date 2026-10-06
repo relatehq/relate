@@ -9,6 +9,20 @@ import {
   customerGraph,
 } from '../../../examples/postgres-persistence/src/model.js';
 
+it('compiles named object registries without changing stable persisted identity', () => {
+  const original = compile(customerGraph);
+
+  expect(compile({ ...customerGraph, objects: { Customer } })).toEqual(
+    original,
+  );
+  expect(
+    compile({ ...customerGraph, objects: { Accounts: Customer } }),
+  ).toEqual(original);
+  expect(() =>
+    compile({ ...customerGraph, objects: { Customer, Duplicate: Customer } }),
+  ).toThrow();
+});
+
 it('produces deterministic frozen portable contracts and preserves definition IDs across renames', () => {
   const model = compile(customerGraph);
 

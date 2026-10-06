@@ -78,6 +78,78 @@ export function storeContract(
       ).rejects.toBeInstanceOf(RetentionError);
     });
 
+    it('resolves only existing scoped identities without adoption and returns isolated snapshots', async () => {
+      expect(await store.resolve(scope, 'external-1')).toBeUndefined();
+      const { object } = await adopt(observation(await store.beginFetch()));
+
+      expect(await store.resolve(scope, 'external-1')).toEqual(object);
+
+      for (const field of [
+        'graphId',
+        'definitionRevision',
+        'objectDefinitionId',
+        'sourceDefinitionId',
+        'connectionId',
+        'partition',
+      ] as const) {
+        expect(
+          await store.resolve({ ...scope, [field]: 'other' }, 'external-1'),
+        ).toBeUndefined();
+      }
+
+      const resolved = (await store.resolve(scope, 'external-1'))!;
+
+      resolved.observation.values.name = 'changed';
+      expect(await store.resolve(scope, 'external-1')).toEqual(object);
+      expect(await store.resolve(scope, object.objectId)).toBeUndefined();
+    });
+
+    it('scans only adopted scoped identities with stable bounded continuations', async () => {
+      const saved = await Promise.all(
+        ['one', 'two', 'three'].map(async (sourceRecordId) =>
+          store.accept(scope, {
+            sourceRecordId,
+            adopt: true,
+            observation: observation(await store.beginFetch()),
+          }),
+        ),
+      );
+      const expected = saved.map((r) => r.object.objectId).sort();
+      const first = await store.scan(scope, { limit: 2 });
+
+      expect(first.objects.map((o) => o.objectId)).toEqual(
+        expected.slice(0, 2),
+      );
+      expect(first.hasMore).toBe(true);
+      const last = await store.scan(scope, {
+        limit: 2,
+        after: first.objects[1]!.objectId,
+      });
+
+      expect(last.objects.map((o) => o.objectId)).toEqual(expected.slice(2));
+      expect(last.hasMore).toBe(false);
+      first.objects[0]!.observation.values.name = 'mutation';
+      expect(
+        (await store.load(scope, expected[0]!))?.observation.values.name,
+      ).toBe('Ada');
+
+      for (const field of [
+        'graphId',
+        'definitionRevision',
+        'objectDefinitionId',
+        'sourceDefinitionId',
+        'connectionId',
+        'partition',
+      ] as const) {
+        expect(
+          await store.scan({ ...scope, [field]: 'other' }, { limit: 2 }),
+        ).toEqual({ objects: [], hasMore: false });
+      }
+
+      for (const limit of [0, 101, 1.5])
+        await expect(store.scan(scope, { limit })).rejects.toThrow();
+    });
+
     it('allocates ordered tokens and one identity for concurrent adoptions', async () => {
       const tokens = await Promise.all(
         Array.from({ length: 10 }, () => store.beginFetch()),

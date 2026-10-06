@@ -14,7 +14,19 @@ const roleGate = z.strictObject({ role: text });
 const policySchema = z.strictObject({
   read: roleGate.extend({
     where: z
-      .strictObject({ propertyDefinitionId: text, claim: text })
+      .union([
+        z.strictObject({ propertyDefinitionId: text, claim: text }),
+        z.strictObject({
+          all: z
+            .array(
+              z.strictObject({
+                path: z.array(text).min(1).max(16),
+                claim: text,
+              }),
+            )
+            .min(1),
+        }),
+      ])
       .optional(),
     evidenceMaxAgeMs: z.number().finite().nonnegative(),
   }),
@@ -30,6 +42,12 @@ const propertySchema = z.strictObject({
   schema: scalarSchema,
   origin: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('native') }),
+    z.strictObject({
+      kind: z.literal('reference'),
+      sourceDefinitionId: text,
+      field: text,
+      targetObjectDefinitionId: text,
+    }),
     z.strictObject({ kind: z.literal('object-id') }),
     z.strictObject({
       kind: z.literal('source'),
@@ -60,6 +78,18 @@ export const manifestSchema = z.strictObject({
       properties: z.array(propertySchema),
     }),
   ),
+  relationships: z
+    .array(
+      z.strictObject({
+        id: text,
+        fromObjectDefinitionId: text,
+        toObjectDefinitionId: text,
+        referencePropertyDefinitionId: text,
+        forward: z.strictObject({ name: text, cardinality: z.literal('many') }),
+        reverse: z.strictObject({ name: text, cardinality: z.literal('one') }),
+      }),
+    )
+    .optional(),
   policies: z.record(text, policySchema),
 });
 
@@ -190,6 +220,22 @@ export function validateManifest(input: unknown): Manifest {
           property.access !== 'ordinary'
         )
           throw new Error('objectId() must be an ordinary required string');
+      } else if (property.origin.kind === 'reference') {
+        const key = resource.fields[property.origin.field];
+        const targetId = property.origin.targetObjectDefinitionId;
+
+        if (
+          property.origin.sourceDefinitionId !== resource.id ||
+          !key ||
+          key.type !== 'string' ||
+          key.optional ||
+          key.nullable ||
+          property.schema.type !== 'string' ||
+          property.schema.optional ||
+          property.schema.nullable ||
+          !manifest.objects.some((o) => o.id === targetId)
+        )
+          throw new Error('Invalid source reference target or key');
       } else if (
         property.origin.sourceDefinitionId !== resource.id ||
         !resource.fields[property.origin.field] ||
@@ -207,18 +253,50 @@ export function validateManifest(input: unknown): Manifest {
       throw new Error('Each object must have exactly one objectId() property');
   }
 
+  const traversalNames = new Set<string>();
+
+  for (const relationship of manifest.relationships ?? []) {
+    register(relationship.id);
+    const from = manifest.objects.find(
+      (o) => o.id === relationship.fromObjectDefinitionId,
+    );
+    const to = manifest.objects.find(
+      (o) => o.id === relationship.toObjectDefinitionId,
+    );
+    const via = to?.properties.find(
+      (p) => p.id === relationship.referencePropertyDefinitionId,
+    );
+
+    if (
+      !from ||
+      !to ||
+      !via ||
+      via.origin.kind !== 'reference' ||
+      via.origin.targetObjectDefinitionId !== from.id
+    )
+      throw new Error('Invalid relationship endpoints or reference');
+
+    for (const [object, traversal] of [
+      [from, relationship.forward],
+      [to, relationship.reverse],
+    ] as const) {
+      const key = JSON.stringify([object.id, traversal.name]);
+
+      if (
+        !traversal.name.trim() ||
+        unsafe.has(traversal.name) ||
+        traversalNames.has(key)
+      )
+        throw new Error('Invalid or duplicate traversal name');
+
+      traversalNames.add(key);
+    }
+  }
+
   for (const [typeId, policy] of Object.entries(manifest.policies)) {
     const object = manifest.objects.find((o) => o.id === typeId);
 
     if (!object) throw new Error('Unknown policy object');
-
-    if (
-      policy.read.where &&
-      !object.properties.some(
-        (p) => p.id === policy.read.where!.propertyDefinitionId,
-      )
-    )
-      throw new Error('Unknown policy dependency');
 
     if (
       ![
@@ -229,19 +307,48 @@ export function validateManifest(input: unknown): Manifest {
       throw new Error('Unknown policy role');
 
     if (policy.read.where) {
-      const claim = manifest.claims[policy.read.where.claim];
-      const property = object.properties.find(
-        (p) => p.id === policy.read.where!.propertyDefinitionId,
-      )!;
+      const conditions =
+        'all' in policy.read.where
+          ? policy.read.where.all
+          : [
+              {
+                path: [policy.read.where.propertyDefinitionId],
+                claim: policy.read.where.claim,
+              },
+            ];
 
-      if (!claim) throw new Error('Unknown policy claim');
+      for (const condition of conditions) {
+        let current = object;
 
-      if (
-        claim.type !== property.schema.type ||
-        (claim.nullable && !property.schema.nullable) ||
-        (claim.optional && !property.schema.optional)
-      )
-        throw new Error('Incompatible policy claim');
+        for (const [index, id] of condition.path.entries()) {
+          const property = current.properties.find((p) => p.id === id);
+
+          if (!property) throw new Error('Unknown policy dependency');
+
+          if (index < condition.path.length - 1) {
+            if (property.origin.kind !== 'reference')
+              throw new Error('Policy path must traverse a reference');
+
+            const targetId = property.origin.targetObjectDefinitionId;
+
+            current = manifest.objects.find((o) => o.id === targetId)!;
+          } else {
+            if (property.origin.kind === 'reference')
+              throw new Error('Policy path must end at a scalar');
+
+            const claim = manifest.claims[condition.claim];
+
+            if (!claim) throw new Error('Unknown policy claim');
+
+            if (
+              claim.type !== property.schema.type ||
+              (claim.nullable && !property.schema.nullable) ||
+              (claim.optional && !property.schema.optional)
+            )
+              throw new Error('Incompatible policy claim');
+          }
+        }
+      }
     }
 
     if (

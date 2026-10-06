@@ -38,6 +38,33 @@ export function createMemoryStore(): ObservationStore {
 
       return object && structuredClone(object);
     },
+    async resolve(scope, sourceRecordId) {
+      if (graphs.get(scope.graphId) !== scope.definitionRevision)
+        return undefined;
+
+      const object = scopes.get(scopeKey(scope))?.get(sourceRecordId);
+
+      return object && structuredClone(object);
+    },
+    async scan(scope, { after, limit }) {
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+        throw new Error('Invalid scan limit');
+
+      if (graphs.get(scope.graphId) !== scope.definitionRevision)
+        return { objects: [], hasMore: false };
+
+      const candidates = [...(scopes.get(scopeKey(scope))?.values() ?? [])]
+        .filter((o) => !after || o.objectId > after)
+        .sort((a, b) =>
+          a.objectId < b.objectId ? -1 : a.objectId > b.objectId ? 1 : 0,
+        )
+        .slice(0, limit + 1);
+
+      return {
+        objects: structuredClone(candidates.slice(0, limit)),
+        hasMore: candidates.length > limit,
+      };
+    },
     async accept(scope, input) {
       // No await in this operation: compare and replace are atomic within this store.
       if (graphs.get(scope.graphId) !== scope.definitionRevision)

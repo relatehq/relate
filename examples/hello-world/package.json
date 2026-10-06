@@ -5,7 +5,8 @@
   "type": "module",
   "dependencies": {
     "relate": "workspace:*",
-    "@relate/runtime": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@relate/node": "workspace:*",
+    "@relate/protocol": "workspace:*"
   }
 }

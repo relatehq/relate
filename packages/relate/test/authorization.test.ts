@@ -63,7 +63,9 @@ it('validates role, claim, group and comparison contracts in loaded manifests', 
     ],
     [
       (m) => {
-        m.policies[Customer.id]!.read.where!.claim = 'portoflio';
+        const where = m.policies[Customer.id]!.read.where!;
+
+        if ('claim' in where) where.claim = 'portoflio';
       },
       /Unknown policy claim/,
     ],

@@ -57,6 +57,23 @@ export type ReadResult =
       };
     };
 
+export interface ObjectRecord {
+  readonly id: string;
+  readonly data: Extract<ReadResult, { status: 'ok' }>['data'];
+  readonly meta: Extract<ReadResult, { status: 'ok' }>['meta'];
+}
+
+export type ObjectResult =
+  { readonly status: 'not-found' } | ({ readonly status: 'ok' } & ObjectRecord);
+
+/** Pages enumerate adopted graph members, not provider-wide coverage. */
+export type PageResult = Page<ObjectRecord>;
+
+export interface TraversalRequest extends ReadRequest {
+  readonly limit?: number;
+  readonly cursor?: string;
+}
+
 export class ReadError extends Error {
   constructor(readonly code: 'incomplete' | 'invalid-request' | 'unavailable') {
     super(code);

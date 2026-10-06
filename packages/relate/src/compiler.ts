@@ -35,6 +35,8 @@ function portable(schema: z.ZodType): ScalarSchema {
 }
 
 export function compile(graph: GraphDefinition): CompiledModel {
+  // Registry names are consumer API names; stable definition IDs own persistence.
+  const objects = Object.values(graph.objects);
   const resources = new Map<
     string,
     {
@@ -44,7 +46,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
     }
   >();
 
-  for (const object of graph.objects) {
+  for (const object of objects) {
     if (
       Object.values(object.properties).some(
         (property) => property.access?.kind !== 'field-group',
@@ -86,7 +88,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
     )
       throw new Error('Unsupported policy gate');
 
-    const object = graph.objects.find((o) => o.id === policy.object.id);
+    const object = objects.find((o) => o.id === policy.object.id);
 
     if (!object) throw new Error('Unknown policy object');
 
@@ -97,26 +99,71 @@ export function compile(graph: GraphDefinition): CompiledModel {
     const where = policy.read.where;
 
     if (where) {
-      if (where.kind !== 'equals' || where.claim.kind !== 'claim')
-        throw new Error('Unsupported policy predicate');
+      const conditions =
+        where.kind === 'all'
+          ? where.conditions
+          : where.kind === 'equals'
+            ? [{ path: [where.property], claim: where.claim }]
+            : [];
 
-      const property = Object.values(object.properties).find(
-        (p) => p.id === where.property.id,
-      );
-      const claim = graph.access.claims[where.claim.name];
+      if (!conditions.length) throw new Error('Unsupported policy predicate');
 
-      if (!property) throw new Error('Unknown policy dependency');
+      for (const condition of conditions) {
+        let current = object;
 
-      if (!claim) throw new Error('Unknown policy claim');
+        for (const [index, reference] of condition.path.entries()) {
+          const property = Object.values(current.properties).find(
+            (p) => p.id === reference.id,
+          );
 
-      if (
-        canonicalJson(portable(property.schema)) !==
-          canonicalJson(portable(where.property.schema)) ||
-        canonicalJson(portable(claim.schema)) !==
-          canonicalJson(portable(where.claim.schema))
-      )
-        throw new Error('Conflicting policy reference');
+          if (!property) throw new Error('Unknown policy dependency');
+
+          if (
+            canonicalJson(property.origin) !==
+              canonicalJson(reference.origin) ||
+            canonicalJson(portable(property.schema)) !==
+              canonicalJson(portable(reference.schema))
+          )
+            throw new Error('Conflicting policy reference');
+
+          if (index < condition.path.length - 1) {
+            if (property.origin.kind !== 'reference')
+              throw new Error('Invalid policy path');
+
+            const targetId = property.origin.targetObjectDefinitionId;
+            const target = objects.find((o) => o.id === targetId);
+
+            if (!target) throw new Error('Unknown reference target');
+
+            current = target;
+          }
+        }
+
+        const claim = graph.access.claims[condition.claim.name];
+
+        if (condition.claim.kind !== 'claim')
+          throw new Error('Unsupported policy predicate');
+
+        if (!claim) throw new Error('Unknown policy claim');
+
+        if (
+          canonicalJson(portable(claim.schema)) !==
+          canonicalJson(portable(condition.claim.schema))
+        )
+          throw new Error('Conflicting policy reference');
+      }
     }
+  }
+
+  const relationships = Object.values(graph.relationships ?? {});
+
+  for (const relationship of relationships) {
+    if (
+      !objects.includes(relationship.from) ||
+      !objects.includes(relationship.to) ||
+      !Object.values(relationship.to.properties).includes(relationship.via)
+    )
+      throw new Error('Unregistered relationship endpoint or reference');
   }
 
   const manifest = validateManifest({
@@ -133,7 +180,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
     sources: [...resources.values()].sort((a, b) =>
       a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     ),
-    objects: graph.objects
+    objects: objects
       .map((o) => ({
         id: o.id,
         name: o.name,
@@ -149,6 +196,20 @@ export function compile(graph: GraphDefinition): CompiledModel {
           .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
       }))
       .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+    ...(relationships.length
+      ? {
+          relationships: relationships
+            .map((r) => ({
+              id: r.id,
+              fromObjectDefinitionId: r.from.id,
+              toObjectDefinitionId: r.to.id,
+              referencePropertyDefinitionId: r.via.id,
+              forward: r.forward,
+              reverse: r.reverse,
+            }))
+            .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+        }
+      : {}),
     policies: Object.fromEntries(
       graph.policies.map((policy) => [
         policy.object.id,
@@ -157,10 +218,20 @@ export function compile(graph: GraphDefinition): CompiledModel {
             role: policy.read.gate.role,
             ...(policy.read.where
               ? {
-                  where: {
-                    propertyDefinitionId: policy.read.where.property.id,
-                    claim: policy.read.where.claim.name,
-                  },
+                  where:
+                    policy.read.where.kind === 'equals'
+                      ? {
+                          propertyDefinitionId: policy.read.where.property.id,
+                          claim: policy.read.where.claim.name,
+                        }
+                      : {
+                          all: policy.read.where.conditions.map(
+                            (condition) => ({
+                              path: condition.path.map((p) => p.id),
+                              claim: condition.claim.name,
+                            }),
+                          ),
+                        },
                 }
               : {}),
             evidenceMaxAgeMs: policy.read.evidenceMaxAgeMs,

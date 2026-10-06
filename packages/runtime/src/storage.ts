@@ -44,6 +44,16 @@ export interface ObservationStore {
     scope: StorageScope,
     objectId: string,
   ): Promise<StoredObject | undefined>;
+  /** Lookup only: resolve an existing source identity in the exact scope. Never adopts. */
+  resolve(
+    scope: StorageScope,
+    sourceRecordId: string,
+  ): Promise<StoredObject | undefined>;
+  /** Bounded ordered enumeration of adopted identities, including tombstones. No source I/O. */
+  scan(
+    scope: StorageScope,
+    options: { after?: string; limit: number },
+  ): Promise<{ objects: readonly StoredObject[]; hasMore: boolean }>;
   /** Atomically registers membership when adopt=true, orders and retains the complete observation. */
   accept(
     scope: StorageScope,
