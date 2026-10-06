@@ -1,11 +1,20 @@
 # Customer graph acceptance fixture
 
-The application we want developers to write, before the packages can run it.
-This fixture is type-checked by `pnpm typecheck` and never executed. CRM owns
-customers, billing owns invoices, and Relate owns account reviews and tasks. All
-users work within one company's instance. Access follows assigned customer
-portfolios: Ana and Fin handle North; Sara handles South. Finance access is a
-separate role, not permission to see every portfolio.
+The full application we want developers to write. The `source/` fixture is
+type-checked by `pnpm typecheck` and never executed. Its implemented read subset
+lives in [`invoice-read/`](./invoice-read/README.md). CRM owns customers,
+billing owns invoices, and Relate owns account reviews and tasks. All users work
+within one company's instance. Access follows assigned customer portfolios: Ana
+and Fin handle North; Sara handles South. Finance access is a separate role, not
+permission to see every portfolio.
+
+The first read slice is now executable through `@relate/node`: named object
+registries, `connect`, `host.adopt` and principal-bound typed `get`. See
+[hello world](../../../examples/hello-world/README.md) and
+[`typed-read.test.ts`](../../../packages/node/test/typed-read.test.ts). The full
+fixture still uses declarations for native objects, native references, queries
+and actions. Source-backed references, nested read policies and bidirectional
+Customer–Invoice traversal are executable in the Invoice read subset.
 
 ## Current authoring direction
 
@@ -197,7 +206,8 @@ read-your-writes must still respect field/object authorization.
 [authorization cases](./authorization-cases.md) specify required outcomes.
 [Open questions](./open-questions.md) identifies guarantees and syntax still to
 resolve. Graph policies now express portfolio isolation through each child's
-customer reference; runtime enforcement is still unimplemented.
+customer reference. Invoice read enforcement is implemented; native writes,
+native queries and actions remain declaration-only.
 
 The
 [current internal decision](../../../../relate-internal/docs/internal/action-authoring.md)

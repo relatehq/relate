@@ -3,12 +3,18 @@ import { readdir, readFile } from 'node:fs/promises';
 import { resolve, dirname, relative, sep } from 'node:path';
 
 const root = process.cwd();
-const owners = ['relate', 'protocol', 'runtime', 'postgres'];
+const owners = ['relate', 'protocol', 'runtime', 'postgres', 'node'];
 const allowed = {
   relate: new Set(['zod']),
   protocol: new Set(),
   runtime: new Set(['relate/model', '@relate/protocol']),
   postgres: new Set(['relate/model', '@relate/runtime/storage', 'pg']),
+  node: new Set([
+    'relate',
+    'relate/compiler',
+    '@relate/runtime',
+    '@relate/protocol',
+  ]),
 };
 const graph = new Map();
 

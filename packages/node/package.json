@@ -4,12 +4,21 @@
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
-  "description": "Node application composition, hosting, worker scheduling, and process lifecycle.",
+  "description": "Node application composition for typed, authorized object reads.",
   "dependencies": {
     "relate": "workspace:*",
     "@relate/runtime": "workspace:*",
-    "@relate/postgres": "workspace:*",
-    "@relate/http": "workspace:*",
-    "@relate/mcp": "workspace:*"
+    "@relate/protocol": "workspace:*"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   }
 }

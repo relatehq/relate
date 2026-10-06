@@ -172,6 +172,9 @@ importers:
       '@hono/node-server':
         specifier: 2.1.3
         version: 2.1.3(hono@4.13.13)
+      '@relate/node':
+        specifier: workspace:*
+        version: link:packages/node
       '@relate/postgres':
         specifier: workspace:*
         version: link:packages/postgres
@@ -234,9 +237,12 @@ importers:
 
   examples/hello-world:
     dependencies:
-      '@relate/runtime':
+      '@relate/node':
         specifier: workspace:*
-        version: link:../../packages/runtime
+        version: link:../../packages/node
+      '@relate/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       relate:
         specifier: workspace:*
         version: link:../../packages/relate
@@ -302,15 +308,9 @@ importers:
 
   packages/node:
     dependencies:
-      '@relate/http':
+      '@relate/protocol':
         specifier: workspace:*
-        version: link:../http
-      '@relate/mcp':
-        specifier: workspace:*
-        version: link:../mcp
-      '@relate/postgres':
-        specifier: workspace:*
-        version: link:../postgres
+        version: link:../protocol
       '@relate/runtime':
         specifier: workspace:*
         version: link:../runtime

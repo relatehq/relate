@@ -1,10 +1,11 @@
 # relate
 
-TypeScript authoring and compiled-model contracts for the first Customer read.
-Private and unpublished while implementation is in progress.
+TypeScript authoring and compiled-model contracts for authorized Customer and
+Invoice reads. Private and unpublished while implementation is in progress.
 
 - `relate`: `defineSource`, `source`, `defineObject`, `objectId`, `native`,
-  `from`, `defineAccess`, `equals`, `defineGraph`.
+  `from`, `reference`, `defineRelationship`, `defineAccess`, `equals`,
+  `defineGraph`.
 - `relate/compiler`: `compile`, with deterministic SHA-256 definition revisions.
 - `relate/model`: portable manifest validation and types for runtime
   integrations.
@@ -17,20 +18,25 @@ definition revision.
 
 This slice supports a single membership source per object, scalar string/number/
 boolean fields (including optional/nullable wrappers), a generated canonical
-string object ID, explicit ordinary/restricted field groups, role gates, and a
-property-to- trusted-claim equality predicate. An absent policy denies access.
-Source schemas use ordinary `z.object` definitions. Unmapped JSON fields are
-retained privately.
+string object ID, explicit ordinary/restricted field groups, role gates, and
+root and nested property-to-claim equality predicates. An absent policy denies
+access. Source schemas use ordinary `z.object` definitions. Unmapped JSON fields
+are retained privately.
 
 Refinements, transforms, defaults, nested values, other native fields, and
 custom handlers are rejected rather than silently compiled away. Policies in
 this slice are fully declarative, so no executable handler registry is needed
-yet. Release artifacts, schema evolution, relationships, actions, and additional
-source bindings remain future implementation work. The installed graph is pinned
-to one definition revision; incompatible activation requires an explicit
-migration.
+yet. Release artifacts, schema evolution, actions, and additional source
+bindings remain future implementation work. The installed graph is pinned to one
+definition revision; incompatible activation requires an explicit migration.
 
 See [the runnable example](../../examples/hello-world/README.md).
+
+Named object registries (`objects: { Customer }`) preserve consumer API names
+and property inference through `@relate/node`. Existing object arrays still
+compile to the same portable manifest. Registry names do not replace stable
+definition IDs. `ObjectData` and `PropertyNames` expose selected property types;
+selected values remain optional because reads can withhold unavailable fields.
 
 Each object declares exactly one
 `objectId({ id, access: access.groups.ordinary })` property, conventionally
@@ -95,3 +101,70 @@ group references, move `fieldGroups` into `defineAccess`, and replace ID-keyed
 policy records with an array of `access.policy(Object, ...)` definitions.
 Recompile existing models: the manifest now also requires role declarations and
 claim schemas, so older manifests and definition revisions are incompatible.
+
+## Source-backed references
+
+```ts
+customer: reference(Customer, {
+  id: 'invoice.customer',
+  access: access.groups.ordinary,
+  from: invoices.fields.customer_id,
+});
+```
+
+The source field must be a required string containing the target membership
+source's record ID. Resolution looks up an already-adopted Customer within the
+current graph, connection, source and object type; the returned value is its
+canonical Relate ID. An unmapped key never adopts a target or becomes a guessed
+ID. Additional source aliases and exact-match enrichment are not implemented.
+
+Bind the object registry once to author nested read predicates:
+
+```ts
+const { policy } = access.forObjects({ Customer, Invoice });
+const invoicePolicy = policy(Invoice, {
+  read: {
+    gate: access.role('employee'),
+    where: { customer: { portfolio: { eq: access.claims.portfolio } } },
+    evidenceMaxAgeMs: 30_000,
+  },
+  groups: { financial: access.role('finance') },
+});
+```
+
+Nested predicates compare explicit related attributes privately. They do not
+inherit the target's read policy or field-group grants. All conditions must
+match; each source-backed hop and terminal value must have retained evidence
+within the rule's age bound. Missing, expired or unresolved evidence denies the
+owner read. The bound is independent of the caller's data freshness options.
+Paths support up to 16 properties. Role-only rules use `read: { gate }`.
+
+Disclosing a reference ID additionally requires a readable target and a current,
+retained reference. Otherwise that selected field is `unavailable`; its source
+key and private evidence never enter the response. Finance access grants
+financial fields only after the object's portfolio rule succeeds.
+
+See the executable
+[Invoice model](../../dev/fixtures/customer-graph/invoice-read/model.ts) and its
+[acceptance suite](../../tests/support/invoice-read-contract.ts).
+
+## Relationships
+
+```ts
+const CustomerInvoices = defineRelationship({
+  id: 'business.customer-invoices',
+  from: Customer,
+  to: Invoice,
+  forward: { name: 'invoices', cardinality: 'many' },
+  reverse: { name: 'customer', cardinality: 'one' },
+  via: Invoice.properties.customer,
+});
+// Include relationships: { CustomerInvoices } in defineGraph(...).
+```
+
+The reference on `to` must target `from`. This source-backed slice supports
+forward-to-many and reverse-to-one traversal; native or independent relationship
+records are not implemented. The compiler validates registered endpoints,
+reference ownership and direction names. Names must be unique among traversals
+on the same object; reference properties and traversal names use separate
+namespaces. Existing graphs can omit the relationship registry.

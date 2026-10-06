@@ -124,6 +124,39 @@ export function createPostgresStore(
 
       return result.rows[0] ? rowObject(result.rows[0]) : undefined;
     },
+    async resolve(scope, sourceRecordId) {
+      const result = await pool.query(
+        `SELECT o.object_key,o.provider_key,o.observation FROM relate.objects o
+        JOIN relate.graphs g USING (graph_id)
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.provider_key=$6 AND g.definition_revision=$7`,
+        [...scopeValues(scope), sourceRecordId, scope.definitionRevision],
+      );
+
+      return result.rows[0] ? rowObject(result.rows[0]) : undefined;
+    },
+    async scan(scope, { after, limit }) {
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+        throw new Error('Invalid scan limit');
+
+      const result = await pool.query(
+        `SELECT o.object_key,o.provider_key,o.observation FROM relate.objects o
+        JOIN relate.graphs g USING (graph_id)
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5
+          AND g.definition_revision=$6 AND ($7::text IS NULL OR o.object_key COLLATE "C" > $7 COLLATE "C")
+        ORDER BY o.object_key COLLATE "C" LIMIT $8`,
+        [
+          ...scopeValues(scope),
+          scope.definitionRevision,
+          after ?? null,
+          limit + 1,
+        ],
+      );
+
+      return {
+        objects: result.rows.slice(0, limit).map(rowObject),
+        hasMore: result.rows.length > limit,
+      };
+    },
     async accept(scope, input) {
       const client = await pool.connect().catch((error) => {
         throw new RetentionError('failed', { cause: error });

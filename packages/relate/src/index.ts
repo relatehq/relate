@@ -37,6 +37,12 @@ export interface Property<S extends z.ZodType = z.ZodType> {
   readonly access: FieldGroup;
   readonly schema: S;
   readonly origin:
+    | {
+        readonly kind: 'reference';
+        readonly sourceDefinitionId: string;
+        readonly field: string;
+        readonly targetObjectDefinitionId: string;
+      }
     | { readonly kind: 'native' }
     | { readonly kind: 'object-id' }
     | {
@@ -87,6 +93,37 @@ export function from<S extends z.ZodType, const Id extends string>(
   });
 }
 
+/** A source key resolved through the target's existing membership identity. */
+export interface ReferenceProperty<
+  Target extends string = string,
+> extends Property<z.ZodString> {
+  readonly references: Target;
+  readonly origin: {
+    readonly kind: 'reference';
+    readonly sourceDefinitionId: string;
+    readonly field: string;
+    readonly targetObjectDefinitionId: Target;
+  };
+}
+
+export function reference<O extends ObjectDefinition, const Id extends string>(
+  target: O,
+  options: { id: Id; access: FieldGroup; from: FieldReference<z.ZodString> },
+): ReferenceProperty<O['id']> & { readonly id: Id } {
+  return Object.freeze({
+    id: options.id,
+    access: options.access,
+    schema: z.string(),
+    references: target.id,
+    origin: Object.freeze({
+      kind: 'reference' as const,
+      sourceDefinitionId: options.from.sourceDefinitionId,
+      field: options.from.field,
+      targetObjectDefinitionId: target.id,
+    }),
+  });
+}
+
 export function source(resource: SourceDefinition) {
   return Object.freeze({ resource });
 }
@@ -98,8 +135,12 @@ export interface ObjectDefinition {
   readonly properties: Readonly<Record<string, Property>>;
 }
 
-export function defineObject<const P extends Record<string, Property>>(
-  definition: Omit<ObjectDefinition, 'properties'> & {
+export function defineObject<
+  const Id extends string,
+  const P extends Record<string, Property>,
+>(
+  definition: Omit<ObjectDefinition, 'id' | 'properties'> & {
+    id: Id;
     properties: P;
   },
 ) {
@@ -116,9 +157,69 @@ export function defineObject<const P extends Record<string, Property>>(
   });
 }
 
+export interface Traversal {
+  readonly name: string;
+  readonly cardinality: 'one' | 'many';
+}
+
+export interface RelationshipDefinition<
+  From extends ObjectDefinition = ObjectDefinition,
+  To extends ObjectDefinition = ObjectDefinition,
+  Forward extends Traversal = Traversal,
+  Reverse extends Traversal = Traversal,
+> {
+  readonly id: string;
+  readonly from: From;
+  readonly to: To;
+  readonly forward: Forward;
+  readonly reverse: Reverse;
+  readonly via: ReferenceProperty<From['id']>;
+}
+
+export function defineRelationship<
+  From extends ObjectDefinition,
+  To extends ObjectDefinition,
+  const Forward extends { readonly name: string; readonly cardinality: 'many' },
+  const Reverse extends { readonly name: string; readonly cardinality: 'one' },
+>(definition: {
+  id: string;
+  from: From;
+  to: To;
+  forward: Forward;
+  reverse: Reverse;
+  via: Extract<
+    NoInfer<To>['properties'][keyof NoInfer<To>['properties']],
+    ReferenceProperty<NoInfer<From>['id']>
+  >;
+}): RelationshipDefinition<From, To, Forward, Reverse> {
+  return Object.freeze({
+    ...definition,
+    forward: Object.freeze({ ...definition.forward }),
+    reverse: Object.freeze({ ...definition.reverse }),
+  });
+}
+
+export type RelationshipRegistry = Readonly<
+  Record<string, RelationshipDefinition>
+>;
+
+export type ObjectRegistry = Readonly<Record<string, ObjectDefinition>>;
+
+export type PropertyNames<O extends ObjectDefinition> = keyof O['properties'] &
+  string;
+
+/** Selected fields remain optional: selection never grants access or guarantees availability. */
+export type ObjectData<
+  O extends ObjectDefinition,
+  K extends PropertyNames<O> = PropertyNames<O>,
+> = {
+  readonly [N in K]?: z.output<O['properties'][N]['schema']>;
+};
+
 export interface GraphDefinition {
   readonly id: string;
-  readonly objects: readonly ObjectDefinition[];
+  readonly objects: readonly ObjectDefinition[] | ObjectRegistry;
+  readonly relationships?: RelationshipRegistry;
   readonly access: AccessDefinition;
   readonly policies: readonly Policy[];
 }
@@ -135,5 +236,6 @@ export type {
   Equality,
   FieldGroup,
   Policy,
+  PolicyWhere,
   RoleGate,
 } from './authorization.js';

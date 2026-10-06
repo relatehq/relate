@@ -8,8 +8,8 @@ import {
   objectId,
   source,
 } from 'relate';
-import { compile } from 'relate/compiler';
-import { createRuntime } from '@relate/runtime';
+import { connect, createRuntime } from '@relate/node';
+import { assertFields } from '@relate/protocol';
 
 const access = defineAccess({
   roles: ['reader'],
@@ -41,7 +41,7 @@ const Person = defineObject({
 
 const graph = defineGraph({
   id: 'example.graph',
-  objects: [Person],
+  objects: { Person },
   access,
   policies: [
     access.policy(Person, {
@@ -50,13 +50,12 @@ const graph = defineGraph({
   ],
 });
 
-const runtime = createRuntime({
-  model: compile(graph),
+const relate = createRuntime({
+  graph,
   graphId: 'hello-world',
-  sources: {
-    [people.id]: {
+  connections: [
+    connect(people, {
       connectionId: 'example',
-      authorization: 'shared-service',
       connector: {
         async fetch(sourceRecordId) {
           return sourceRecordId === '1'
@@ -64,16 +63,22 @@ const runtime = createRuntime({
             : { state: 'deleted' };
         },
       },
-    },
-  },
+    }),
+  ],
 });
 
-const id = await runtime.adopt(Person.id, '1');
+try {
+  const id = await relate.host.adopt(Person, '1');
+  const { objects } = relate.as({
+    id: 'example-reader',
+    roles: ['reader'],
+    claims: {},
+  });
+  const result = await objects.Person.get(id, { select: ['name'] });
 
-const result = await runtime.read(
-  { id: 'example-reader', roles: ['reader'], claims: {} },
-  Person.id,
-  id,
-);
-
-console.log(JSON.stringify(result, null, 2));
+  // Selection preserves field types, but a field may still be unavailable.
+  assertFields(result, ['name']);
+  console.log(JSON.stringify(result, null, 2));
+} finally {
+  await relate.close();
+}
