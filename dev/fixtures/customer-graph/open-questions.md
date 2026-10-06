@@ -12,6 +12,11 @@ why ordinary inputs and async object operations are insufficient. See the
   supported native objects and return output asynchronously.
 - Contracts and colocated action policies remain beside server implementations.
   Object policies stay on the graph; no policy placement redesign here.
+- Expected business failures use optional `errors: { code: schema }`
+  declarations and context-bound `fail(code, details): never`. Failed receipts
+  distinguish typed domain errors from runtime errors. Recorded failures replay
+  under the same key; new business attempts use new keys. See the
+  [agreed error contract](./action-errors.md).
 - Object policies are keyed by the `defineGraph.objects` registry, with an
   explicit read decision for each object (`read: 'deny'` for denial). Nested
   predicates infer in the graph call and use role gates and evidence age bounds.
@@ -79,8 +84,10 @@ Which native isolation level and constraint model support read/write/read and
 concurrent actions? How do remote reads interact with an open native
 transaction, timeouts and cancellation? Automatic retries must not rerun
 non-repeatable external operations. Establish whole-action failure and
-output-validation semantics before implementation. Decide when receipts are
-retained for failures and how an invocation resumes after a lost response.
+output-validation semantics before implementation. Declared failures must roll
+back native effects and retain a replayable receipt. How does receipt
+finalization survive a crash after rollback, and how does recovery handle an
+invocation whose final outcome was not recorded?
 
 Updates/deletes need normal sequential semantics, not the old duplicate-edit
 rejection rule. Reference integrity must include newly created records, while
@@ -124,10 +131,20 @@ concrete feature.
 
 ## 6. Errors, packaging and fixture shortcuts
 
-Denied, not-found, invalid, conflict, unsupported and uncertain outcomes need
-consistent embedded/HTTP/MCP contracts. Generic throws in examples are
-temporary, not selected public error codes. Receipt access, key expiry,
-cross-actor replay and actor-dependent output need explicit semantics.
+Declared domain errors, typed `fail()` and the failed Receipt shape are now
+agreed; see [declared action failures](./action-errors.md). Domain failures roll
+back native effects and, once recorded, replay under the same invocation key.
+They cannot replace an uncertain external outcome. Runtime error kinds remain
+separate from application declarations; generic throws never select a public
+domain code or expose raw messages.
+
+Denied, not-found, invalid, conflict, unsupported and unavailable failures still
+need precise runtime-code and embedded/HTTP/MCP mappings. Which pre-invocation
+rejections receive receipts? Receipt access, key expiry, cross-actor replay,
+actor-dependent output, schema evolution and receipt retention need explicit
+semantics. Runtime must enforce JSON-safe, authorized error details and contract
+compatibility, including declarations with identical TypeScript types but
+different refinements.
 
 The declaration shim is not a public package import. Server suffixes communicate
 intent but do not enforce bundle separation. Source references assume billing

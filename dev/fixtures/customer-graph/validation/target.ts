@@ -166,15 +166,19 @@ type NativeObject = ObjectDefinition<
   NativeMembership
 >;
 
+export type ActionErrors = Record<string, z.ZodType>;
+
 export interface ActionDefinition<
   Input extends z.ZodType = z.ZodType,
   Output extends z.ZodType = z.ZodType,
   Creates extends readonly NativeObject[] = readonly NativeObject[],
+  Errors extends ActionErrors = ActionErrors,
 > {
   readonly id: string;
   readonly input: Input;
   readonly output: Output;
   readonly creates: Creates;
+  readonly errors: Errors;
   readonly policy?: ActionPolicy;
 }
 
@@ -183,14 +187,17 @@ export declare function defineAction<
   Input extends z.ZodType,
   Output extends z.ZodType,
   const Creates extends readonly NativeObject[],
+  const Errors extends ActionErrors = {},
 >(definition: {
   id: Id;
   input: Input;
   output: Output;
   creates: Creates;
+  /** Expected business failures only; omission declares none. */
+  errors?: Errors;
   /** Omission denies discovery and execution. */
   policy?: ActionPolicy;
-}): ActionDefinition<Input, Output, Creates> & { readonly id: Id };
+}): ActionDefinition<Input, Output, Creates, Errors> & { readonly id: Id };
 
 // Access
 
@@ -451,6 +458,15 @@ type ActionContext<
   readonly actor: Pick<Principal<V>, 'id' | 'claims'>;
   readonly input: z.output<A['input']>;
   readonly objects: ActionObjects<O, R, A>;
+  /** Aborts the invocation; native writes must roll back even if caught. */
+  readonly fail: (
+    ...args: {
+      [Code in keyof A['errors'] & string]: [
+        code: Code,
+        details: z.input<A['errors'][Code]>,
+      ];
+    }[keyof A['errors'] & string]
+  ) => never;
 };
 
 export interface ActionImplementation<
@@ -586,9 +602,36 @@ export type PageOptions<K extends string> = ReadOptions<K> & {
   readonly cursor?: string;
 };
 
+/** Schema output after runtime validation, never an arbitrary thrown message. */
+export type DomainActionError<A extends ActionDefinition> = {
+  [Code in keyof A['errors'] & string]: {
+    readonly kind: 'domain';
+    readonly code: Code;
+    readonly details: z.output<A['errors'][Code]>;
+  };
+}[keyof A['errors'] & string];
+
+/** Runtime-owned failures require no per-action declaration. */
+export interface RuntimeActionError {
+  readonly kind: 'runtime';
+  readonly code:
+    | 'denied'
+    | 'not-found'
+    | 'invalid'
+    | 'conflict'
+    | 'unsupported'
+    | 'unavailable'
+    | 'internal';
+}
+
 export type Receipt<A extends ActionDefinition> =
   | { readonly state: 'succeeded'; readonly output: z.output<A['output']> }
-  | { readonly state: 'pending' | 'failed' | 'uncertain' };
+  | {
+      readonly state: 'failed';
+      readonly error: DomainActionError<A> | RuntimeActionError;
+    }
+  | { readonly state: 'pending' }
+  | { readonly state: 'uncertain' };
 
 // Shared reads
 
