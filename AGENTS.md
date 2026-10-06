@@ -5,6 +5,10 @@ Use Conventional Commits: `<type>[optional scope]: <description>` (for example,
 Mark breaking changes with `!` after the type or scope, or a `BREAKING CHANGE:`
 footer.
 
+Do not add AI attribution to commits or pull requests. No `Co-Authored-By`
+trailers for Claude, Codex, or any other agent, and no "Generated with" lines
+or other notes saying an agent wrote, committed, or reviewed the change.
+
 ## Implementation approach
 
 We are building the OSS external version of relate here, using what we have
