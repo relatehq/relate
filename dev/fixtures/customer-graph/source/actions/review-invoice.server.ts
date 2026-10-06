@@ -1,3 +1,4 @@
+import { assertFields } from '@relate/protocol';
 import { implementAction } from './implement-action.server.js';
 import { ReviewInvoice } from './review-invoice.js';
 
@@ -9,15 +10,13 @@ export const reviewInvoice = implementAction(
       select: ['customer'],
     });
 
-    if (invoice.status !== 'ok' || invoice.data.customer === undefined)
-      throw new Error('Invoice customer unavailable');
+    assertFields(invoice, ['customer']);
 
     const customer = await objects.Customer.get(invoice.data.customer, {
       select: ['name'],
     });
 
-    if (customer.status !== 'ok' || customer.data.name === undefined)
-      throw new Error('Customer unavailable');
+    assertFields(customer, ['name']);
 
     const review = await objects.AccountReview.create({
       customer: customer.id,

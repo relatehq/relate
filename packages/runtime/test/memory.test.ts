@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { compile } from 'relate/compiler';
 import { createMemoryStore, createRuntime } from '@relate/runtime';
+import { assertFields, ReadError } from '@relate/protocol';
 import {
   Customer,
   customerGraph,
@@ -101,14 +102,17 @@ it('enforces authorization, refresh and expired permission during memory fallbac
   expect(
     await runtime.read({ ...employee, roles: [] }, Customer.id, id),
   ).toEqual({ status: 'not-found' });
-  expect(
-    await runtime.read(employee, Customer.id, id, {
-      select: ['revenue'],
-    }),
-  ).toMatchObject({
+  const hidden = await runtime.read(employee, Customer.id, id, {
+    select: ['revenue'],
+  });
+
+  expect(hidden).toMatchObject({
     data: {},
     meta: { fields: { revenue: { status: 'unavailable' } } },
   });
+  expect(() => assertFields(hidden, ['revenue'])).toThrow(
+    new ReadError('incomplete'),
+  );
   name = 'Grace';
   now += 1_000;
   expect(
@@ -116,9 +120,12 @@ it('enforces authorization, refresh and expired permission during memory fallbac
   ).toMatchObject({ data: { name: 'Grace', revenue: 10 } });
   offline = true;
   now += 1_000;
-  expect(
-    await runtime.read(employee, Customer.id, id, { maxAgeMs: 0 }),
-  ).toMatchObject({
+  const fallback = await runtime.read(employee, Customer.id, id, {
+    maxAgeMs: 0,
+  });
+
+  assertFields(fallback, ['name']);
+  expect(fallback).toMatchObject({
     data: { name: 'Grace' },
     meta: {
       fields: {

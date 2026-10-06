@@ -47,7 +47,7 @@ import { defineAccess, defineGraph, defineObject, defineSource, source, objectId
 import { compile } from 'relate/compiler';
 import { createRuntime, createMemoryStore } from '@relate/runtime';
 import { createPostgresStore } from '@relate/postgres';
-import { ReadError } from '@relate/protocol';
+import { assertFields, ReadError } from '@relate/protocol';
 const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: { portfolio: z.string() } });
 const crm = defineSource({ id: 'crm', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
 const Customer = defineObject({ id: 'customer', name: 'Customer', membership: source(crm), properties: {
@@ -62,6 +62,8 @@ const memoryModel = compile(defineGraph({ id: 'graph', objects: [Customer], acce
 const runtime = createRuntime({ model: memoryModel, graphId: 'smoke', sources: { crm: { connectionId: 'fixture', authorization: 'shared-service', connector: { async fetch(id) { return { state: 'present', record: { id, name: 'Ada' } }; } } } } });
 const objectIdValue = await runtime.adopt('customer', '1');
 const read = await runtime.read({ id: 'reader', roles: ['reader'], claims: {} }, 'customer', objectIdValue);
+assertFields(read, ['name']);
+assert.throws(() => assertFields(read, ['missing']), { name: 'ReadError', code: 'incomplete' });
 assert.equal(read.data.name, 'Ada');
 assert.equal(read.meta.fields.name.retentionDurability, 'volatile');
 const store = createPostgresStore({ connectionString: 'postgresql://unused@127.0.0.1:1/unused' });
@@ -104,6 +106,13 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 `,
   );
   await writeFile(
+    join(consumer, 'assert-fields.types.ts'),
+    await readFile(
+      resolve(root, 'packages/protocol/test/assert-fields.types.ts'),
+      'utf8',
+    ),
+  );
+  await writeFile(
     join(consumer, 'authorization.types.ts'),
     await readFile(
       resolve(root, 'packages/relate/test/authorization.types.ts'),
@@ -116,6 +125,7 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
       resolve(root, 'node_modules/typescript/bin/tsc'),
       '--noEmit',
       '--strict',
+      '--noUncheckedIndexedAccess',
       '--skipLibCheck',
       '--target',
       'ES2022',
@@ -124,6 +134,7 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
       '--moduleResolution',
       'NodeNext',
       'types.ts',
+      'assert-fields.types.ts',
       'authorization.types.ts',
     ],
     { cwd: consumer },

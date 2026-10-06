@@ -31,6 +31,13 @@ credential partitions, automatic sync workers, arbitrary predicates, lists,
 relationships and actions are not implemented. Consumer results remain partial
 JSON records; generated selection inference is not implemented.
 
+Use
+[`assertFields` from `@relate/protocol`](../protocol/README.md#require-values-after-a-read)
+to require specific values on an existing result. It narrows an `ok` result and
+the checked fields, preserves valid `null` and stale values, and throws
+`ReadError('incomplete')` when required values are missing. Other fields and the
+read's evidence stay unchanged; freshness remains a separate requirement.
+
 ## Storage
 
 Omit `store` for an isolated in-memory store with no database setup:

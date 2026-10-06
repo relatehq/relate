@@ -37,10 +37,19 @@ filtering and pagination authorization requirements.
 | Implementation reads a just-created native review               | Its own transaction sees it, subject to authorization.                                                                                                           |
 | Source state changes during the invocation                      | No cross-source snapshot or source lock is implied by the native transaction.                                                                                    |
 
-Object reads keep the existing best-available evidence model. The examples check
-selected optional fields before using them. Strict freshness, filter evidence,
-snapshot coverage and query budgets need concrete operation-level contracts;
-none is inferred from a mandatory preparation phase.
+Object reads keep the existing best-available evidence model. The examples use
+the implemented
+[`assertFields`](../../../packages/protocol/README.md#require-values-after-a-read)
+helper from `@relate/protocol` to check selected optional fields before using
+them. It checks the actual result, throws `ReadError('incomplete')` for missing
+required values, and narrows only the checked fields. Valid `null` and stale
+values pass; business rules such as a non-null manager or an active customer
+remain explicit checks. The surrounding typed object/action API remains a
+declaration-only fixture.
+
+Strict freshness, filter evidence, snapshot coverage and query budgets need
+concrete operation-level contracts; none is inferred from a mandatory
+preparation phase.
 
 Tracing records operations performed on the actual path. It does not reveal the
 inactive branch's unexecuted invoice query or all possible failure paths by

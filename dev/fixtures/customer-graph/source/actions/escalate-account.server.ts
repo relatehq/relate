@@ -1,3 +1,4 @@
+import { assertFields } from '@relate/protocol';
 import { implementAction } from './implement-action.server.js';
 import { EscalateAccount } from './escalate-account.js';
 
@@ -8,8 +9,7 @@ export const escalateAccount = implementAction(
       select: ['status'],
     });
 
-    if (customer.status !== 'ok' || customer.data.status === undefined)
-      throw new Error('Customer status unavailable');
+    assertFields(customer, ['status']);
 
     // Conditional read: inactive customers never trigger an invoice query.
     if (customer.data.status !== 'active') throw new Error('Inactive customer');
