@@ -33,14 +33,12 @@ export const Customer = defineObject({
   name: 'Customer',
   membership: source(customers),
   properties: {
-    id: objectId({ id: 'customer.id', access: access.groups.ordinary }),
+    id: objectId({ id: 'customer.id' }),
     name: from(customers.fields.name, {
       id: 'customer.name',
-      access: access.groups.ordinary,
     }),
     portfolio: from(customers.fields.portfolio, {
       id: 'customer.portfolio',
-      access: access.groups.ordinary,
     }),
     revenue: from(customers.fields.revenue, {
       id: 'customer.revenue',
@@ -65,15 +63,13 @@ export const Invoice = defineObject({
   name: 'Invoice',
   membership: source(invoices),
   properties: {
-    id: objectId({ id: 'invoice.id', access: access.groups.ordinary }),
+    id: objectId({ id: 'invoice.id' }),
     customer: reference(Customer, {
       id: 'invoice.customer',
-      access: access.groups.ordinary,
       from: invoices.fields.customer_id,
     }),
     status: from(invoices.fields.status, {
       id: 'invoice.status',
-      access: access.groups.ordinary,
     }),
     totalMinor: from(invoices.fields.total_minor, {
       id: 'invoice.total',

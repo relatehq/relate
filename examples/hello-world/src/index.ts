@@ -30,11 +30,9 @@ const Person = defineObject({
   properties: {
     id: objectId({
       id: 'example.person.id',
-      access: access.groups.ordinary,
     }),
     name: from(people.fields.name, {
       id: 'example.person.name',
-      access: access.groups.ordinary,
     }),
   },
 });

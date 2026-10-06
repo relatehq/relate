@@ -49,7 +49,9 @@ export function compile(graph: GraphDefinition): CompiledModel {
   for (const object of objects) {
     if (
       Object.values(object.properties).some(
-        (property) => property.access?.kind !== 'field-group',
+        (property) =>
+          property.access !== undefined &&
+          property.access?.kind !== 'field-group',
       )
     )
       throw new Error('Invalid field group reference');
@@ -189,7 +191,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
           .map(([name, p]) => ({
             id: p.id,
             name,
-            access: p.access.name,
+            access: p.access === undefined ? 'ordinary' : p.access.name,
             schema: portable(p.schema),
             origin: p.origin,
           }))

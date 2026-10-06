@@ -2,7 +2,14 @@ import { expect, it } from 'vitest';
 import { z } from 'zod';
 import { validateManifest } from 'relate/model';
 import { compile } from 'relate/compiler';
-import { defineObject, defineSource, from, objectId, source } from 'relate';
+import {
+  defineObject,
+  defineSource,
+  from,
+  objectId,
+  reference,
+  source,
+} from 'relate';
 import {
   access,
   Customer,
@@ -56,7 +63,12 @@ it('rejects missing, empty and duplicate IDs, unknown classifications and broken
     compile({ ...customerGraph, objects: [Customer, Customer] }),
   ).toThrow();
 
-  for (const access of [undefined, 'unknown']) {
+  for (const access of [
+    null,
+    'unknown',
+    { kind: 'field-group' },
+    { kind: 'field-group', name: 'unknown' },
+  ]) {
     expect(() =>
       compile({
         ...customerGraph,
@@ -257,4 +269,67 @@ it('rejects invalid object ID schemas, classifications and native substitutes', 
       }),
     ).toThrow();
   }
+});
+
+it('defaults omitted property access to ordinary without changing the compiled contract', () => {
+  const resource = Customer.membership.resource;
+  const properties = {
+    ...Customer.properties,
+    id: objectId({ id: 'customer.id' }),
+    name: from(
+      {
+        sourceDefinitionId: resource.id,
+        field: 'display_name',
+        schema: z.string(),
+      },
+      { id: 'customer.name' },
+    ),
+    customer: reference(Customer, {
+      id: 'customer.reference',
+      from: {
+        sourceDefinitionId: resource.id,
+        field: resource.idField,
+        schema: z.string(),
+      },
+    }),
+    revenue: Customer.properties.revenue,
+  };
+  const graph = {
+    ...customerGraph,
+    objects: { Customer: { ...Customer, properties } },
+  };
+  const model = compile(graph);
+  const explicit = compile({
+    ...graph,
+    objects: {
+      Customer: {
+        ...Customer,
+        properties: Object.fromEntries(
+          Object.entries(properties).map(([name, property]) => [
+            name,
+            {
+              ...property,
+              access: property.access ?? access.groups.ordinary,
+            },
+          ]),
+        ),
+      },
+    },
+  });
+
+  expect(model).toEqual(explicit);
+  expect(
+    Object.fromEntries(
+      model.manifest.objects[0]!.properties.map((p) => [p.name, p.access]),
+    ),
+  ).toEqual({
+    id: 'ordinary',
+    name: 'ordinary',
+    portfolio: 'ordinary',
+    customer: 'ordinary',
+    revenue: 'financial',
+  });
+  expect(() =>
+    compile({ ...graph, access: { ...access, fieldGroups: ['financial'] } }),
+  ).toThrow();
 });
