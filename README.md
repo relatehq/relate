@@ -18,6 +18,47 @@ without building another silo.
 
 Created by [Viable Systems](https://viablesystems.ai).
 
+## A small example
+
+CRM owns customers, billing owns invoices, and Relate owns account reviews. With
+sources, relationships, and access policies defined in TypeScript, callers work
+through one typed graph:
+
+```ts
+const { objects, actions } = relate.as(principal);
+
+// Read a customer from CRM using its Relate ID.
+const customer = await objects.Customer.get(customerId, { select: ['name'] });
+
+// Follow the relationship to invoices in billing.
+const invoices = await objects.Customer.traverse.invoices(customerId, {
+  select: ['status'],
+});
+
+// Record a review through an authorized action.
+const review = await actions.addAccountReview({
+  input: { customer: customerId, note: 'Follow up on the open invoice' },
+  idempotencyKey: 'review-2026-10',
+});
+```
+
+This is an API preview from the
+[customer graph fixture](dev/fixtures/customer-graph), which contains the model,
+connections, policies, and action implementation. The full flow is type-checked
+but not yet executable.
+
+## Get started
+
+From a checkout, run the [smallest working example](examples/hello-world):
+
+```sh
+pnpm install
+pnpm example:hello-world
+```
+
+It defines a source and object, adopts a record, and performs an authorized read
+using an in-memory store. No database or credentials are needed.
+
 ## License
 
 Relate is licensed under the [Apache License 2.0](LICENSE).
