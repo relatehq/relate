@@ -132,6 +132,19 @@ const graph = defineGraph({
 });
 ```
 
+The keys in `objects` are the canonical API names: `Customer` becomes
+`apiName: 'Customer'` in the compiled model and `objects.Customer` in the SDK.
+An object's `id` is its stable definition identity and stays the same across
+renames. Changing a registry key renames the public API; changing a label only
+changes its presentation.
+
+`label`, `pluralLabel`, and `description` are optional metadata for UIs,
+documentation, and agents. The singular label defaults to the humanized API name
+(`AccountReview` → `Account Review`); the plural label defaults to that singular
+label without guessing plurals. Supply collection labels such as `Customers` or
+`People` explicitly. Descriptions stay absent when omitted. See
+[object naming and migration details](packages/relate/README.md#object-names-and-display-metadata).
+
 **4. Use it from code.** Reads are typed, filtered by the caller, and carry
 freshness evidence.
 
