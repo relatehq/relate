@@ -256,6 +256,8 @@ export function compile(graph: GraphDefinition): CompiledModel {
     if (
       !objects.includes(relationship.from) ||
       !objects.includes(relationship.to) ||
+      relationship.via.owner !== relationship.to ||
+      relationship.via.target !== relationship.from ||
       !Object.values(relationship.to.properties).includes(relationship.via)
     )
       throw new Error('Unregistered relationship endpoint or reference');

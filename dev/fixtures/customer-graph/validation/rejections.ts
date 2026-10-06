@@ -434,8 +434,10 @@ defineAction({
   },
 });
 defineRelationship({
-  ...CustomerInvoices,
-  // @ts-expect-error via must be a reference to the proper object
+  id: CustomerInvoices.id,
+  forward: 'invoices',
+  reverse: 'customer',
+  // @ts-expect-error via must be a bound reference
   via: Invoice.properties.status,
 });
 connect(crmCustomers, {

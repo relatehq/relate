@@ -46,6 +46,7 @@ export interface ReferenceProperty<
 > extends Property<z.ZodString> {
   /** The referenced object definition's `id`. Values are its object IDs. */
   readonly references: Target;
+  readonly target: ObjectDefinition;
 }
 
 /**
@@ -59,7 +60,7 @@ export declare function reference<
 >(
   target: T,
   options: Options<Id> & { from: FieldReference<z.ZodString> },
-): ReferenceProperty<T['id']> & { readonly id: Id };
+): ReferenceProperty<T['id']> & { readonly id: Id; readonly target: T };
 
 export declare function reference<
   T extends ObjectDefinition,
@@ -67,7 +68,8 @@ export declare function reference<
 >(
   target: T,
   options: Options<Id>,
-): ReferenceProperty<T['id']> & NativeOrigin & { readonly id: Id };
+): ReferenceProperty<T['id']> &
+  NativeOrigin & { readonly id: Id; readonly target: T };
 
 export interface NativeMembership {
   readonly kind: 'native';
@@ -99,7 +101,21 @@ export declare function defineObject<
   name: string;
   membership: M;
   properties: P;
-}): ObjectDefinition<Id, P, M>;
+}): DefinedObject<Id, P, M>;
+
+type DefinedObject<
+  Id extends string,
+  P extends Record<string, Property>,
+  M extends SourceMembership | NativeMembership,
+> = ObjectDefinition<
+  Id,
+  {
+    readonly [K in keyof P]: Omit<P[K], 'owner'> & {
+      readonly owner: DefinedObject<Id, P, M>;
+    };
+  },
+  M
+>;
 
 export interface Traversal {
   readonly name: string;
@@ -117,27 +133,28 @@ export interface RelationshipDefinition<
   readonly to: To;
   readonly forward: Forward;
   readonly reverse: Reverse;
-  readonly via: ReferenceProperty<From['id']>;
+  readonly via: ReferenceProperty<From['id']> & {
+    readonly target: From;
+    readonly owner: To;
+  };
 }
 
-type Properties<O extends ObjectDefinition> =
-  O['properties'][keyof O['properties']];
-
-/** Declared outside both objects; owns both traversal names. */
+/** Declared outside both objects; derives endpoints from a bound reference. */
 export declare function defineRelationship<
-  From extends ObjectDefinition,
-  To extends ObjectDefinition,
-  const Forward extends Traversal,
-  const Reverse extends Traversal,
+  Via extends ReferenceProperty & { readonly owner: ObjectDefinition },
+  const Forward extends string,
+  const Reverse extends string,
 >(definition: {
   id: string;
-  from: From;
-  to: To;
   forward: Forward;
   reverse: Reverse;
-  /** A reference on `to` that points at `from`. */
-  via: Extract<Properties<NoInfer<To>>, ReferenceProperty<NoInfer<From>['id']>>;
-}): RelationshipDefinition<From, To, Forward, Reverse>;
+  via: Via;
+}): RelationshipDefinition<
+  Via['target'],
+  Via['owner'],
+  { readonly name: Forward; readonly cardinality: 'many' },
+  { readonly name: Reverse; readonly cardinality: 'one' }
+>;
 
 type NativeObject = ObjectDefinition<
   string,

@@ -398,8 +398,9 @@ export function traversalContract(
         },
       });
       const CustomerInvoices = defineRelationship({
-        ...graph.relationships.CustomerInvoices,
-        to: RestrictedInvoice,
+        id: graph.relationships.CustomerInvoices.id,
+        forward: 'invoices',
+        reverse: 'customer',
         via: RestrictedInvoice.properties.customer,
       });
 

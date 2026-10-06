@@ -130,8 +130,10 @@ export function from<S extends z.ZodType, const Id extends string>(
 /** A source key resolved through the target's existing membership identity. */
 export interface ReferenceProperty<
   Target extends string = string,
+  TargetObject extends ObjectDefinition = ObjectDefinition,
 > extends Property<z.ZodString> {
   readonly references: Target;
+  readonly target: TargetObject;
   readonly origin: {
     readonly kind: 'reference';
     readonly sourceDefinitionId: string;
@@ -143,12 +145,13 @@ export interface ReferenceProperty<
 export function reference<O extends ObjectDefinition, const Id extends string>(
   target: O,
   options: { id: Id; access?: FieldGroup; from: FieldReference<z.ZodString> },
-): ReferenceProperty<O['id']> & { readonly id: Id } {
+): ReferenceProperty<O['id'], O> & { readonly id: Id } {
   return Object.freeze({
     id: options.id,
     access: options.access,
     schema: z.string(),
     references: target.id,
+    target,
     origin: Object.freeze({
       kind: 'reference' as const,
       sourceDefinitionId: options.from.sourceDefinitionId,
@@ -169,6 +172,24 @@ export interface ObjectDefinition {
   readonly properties: Readonly<Record<string, Property>>;
 }
 
+export type BoundProperty<
+  P extends Property = Property,
+  Owner extends ObjectDefinition = ObjectDefinition,
+> = P & { readonly owner: Owner };
+
+export type DefinedObject<
+  Id extends string,
+  P extends Record<string, Property>,
+> = Omit<ObjectDefinition, 'id' | 'properties'> & {
+  readonly id: Id;
+  readonly properties: {
+    readonly [K in keyof P]: BoundProperty<
+      Omit<P[K], 'owner'>,
+      DefinedObject<Id, P>
+    >;
+  };
+};
+
 export function defineObject<
   const Id extends string,
   const P extends Record<string, Property>,
@@ -177,7 +198,7 @@ export function defineObject<
     id: Id;
     properties: P;
   },
-) {
+): DefinedObject<Id, P> {
   if (
     Object.values(definition.properties).filter(
       (p) => p.origin.kind === 'object-id',
@@ -185,10 +206,24 @@ export function defineObject<
   )
     throw new Error('Each object must have exactly one objectId() property');
 
-  return Object.freeze({
+  const object = {
     ...definition,
-    properties: Object.freeze({ ...definition.properties }),
-  });
+    properties: {} as Record<string, Property>,
+  };
+
+  object.properties = Object.freeze(
+    Object.fromEntries(
+      Object.entries(definition.properties).map(([name, property]) => [
+        name,
+        // Keep the owner back-reference out of enumeration and serialization.
+        Object.freeze(
+          Object.defineProperty({ ...property }, 'owner', { value: object }),
+        ),
+      ]),
+    ),
+  );
+
+  return Object.freeze(object) as DefinedObject<Id, P>;
 }
 
 export interface Traversal {
@@ -207,29 +242,31 @@ export interface RelationshipDefinition<
   readonly to: To;
   readonly forward: Forward;
   readonly reverse: Reverse;
-  readonly via: ReferenceProperty<From['id']>;
+  readonly via: BoundProperty<ReferenceProperty<From['id'], From>, To>;
 }
 
 export function defineRelationship<
-  From extends ObjectDefinition,
-  To extends ObjectDefinition,
-  const Forward extends { readonly name: string; readonly cardinality: 'many' },
-  const Reverse extends { readonly name: string; readonly cardinality: 'one' },
+  Via extends BoundProperty<ReferenceProperty>,
+  const Forward extends string,
+  const Reverse extends string,
 >(definition: {
   id: string;
-  from: From;
-  to: To;
   forward: Forward;
   reverse: Reverse;
-  via: Extract<
-    NoInfer<To>['properties'][keyof NoInfer<To>['properties']],
-    ReferenceProperty<NoInfer<From>['id']>
-  >;
-}): RelationshipDefinition<From, To, Forward, Reverse> {
+  via: Via;
+}): RelationshipDefinition<
+  Via['target'],
+  Via['owner'],
+  { readonly name: Forward; readonly cardinality: 'many' },
+  { readonly name: Reverse; readonly cardinality: 'one' }
+> {
   return Object.freeze({
-    ...definition,
-    forward: Object.freeze({ ...definition.forward }),
-    reverse: Object.freeze({ ...definition.reverse }),
+    id: definition.id,
+    from: definition.via.target,
+    to: definition.via.owner,
+    via: definition.via,
+    forward: Object.freeze({ name: definition.forward, cardinality: 'many' }),
+    reverse: Object.freeze({ name: definition.reverse, cardinality: 'one' }),
   });
 }
 
