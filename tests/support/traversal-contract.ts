@@ -4,7 +4,12 @@ import { connect, createRuntime } from '@relate/node';
 import { SourceAccessDenied } from '@relate/runtime';
 import type { SourceConnector } from '@relate/runtime';
 import type { Mock } from 'vitest';
-import { defineObject, defineRelationship, reference } from 'relate';
+import {
+  defineObject,
+  defineRelationship,
+  reference,
+  referenceInput,
+} from 'relate';
 import { RetentionError } from '@relate/runtime/storage';
 import type { ObservationStore } from '@relate/runtime/storage';
 import {
@@ -145,12 +150,18 @@ export function traversalContract(
         const objects = relate.as(principal).objects;
 
         expect(await objects.Customer.traverse.invoices(south)).toEqual(
-          await objects.Customer.traverse.invoices('unknown'),
+          await objects.Customer.traverse.invoices(
+            referenceInput(Customer).parse('unknown'),
+          ),
         );
         expect(await objects.Invoice.traverse.customer(invoiceId)).toEqual({
           status: 'not-found',
         });
-        expect(await objects.Invoice.traverse.customer('unknown')).toEqual({
+        expect(
+          await objects.Invoice.traverse.customer(
+            referenceInput(Invoice).parse('unknown'),
+          ),
+        ).toEqual({
           status: 'not-found',
         });
       },
@@ -159,12 +170,38 @@ export function traversalContract(
     it('never adopts missing endpoints and never contacts providers for an unknown starting ID', async () => {
       const objects = relate.as(ana).objects;
 
-      await objects.Customer.traverse.invoices('unknown');
-      await objects.Invoice.traverse.customer('unknown');
+      await objects.Customer.traverse.invoices(
+        referenceInput(Customer).parse('unknown'),
+      );
+      await objects.Invoice.traverse.customer(
+        referenceInput(Invoice).parse('unknown'),
+      );
       expect(fetchInvoice).not.toHaveBeenCalled();
       const id = await adoptInvoice('inv_1', 'not-adopted');
 
       expect(await objects.Invoice.traverse.customer(id)).toEqual({
+        status: 'not-found',
+      });
+    });
+
+    it('does not treat a parsed ID as proof of object type or authorization', async () => {
+      await relate.host.adopt(Customer, 'north');
+      const customerId = await relate.host.adopt(Customer, 'south');
+      const invoiceId = await adoptInvoice('inv_1', 'north');
+      const objects = relate.as(ana).objects;
+
+      expect(await objects.Invoice.get(invoiceId)).toMatchObject({
+        status: 'ok',
+      });
+      // Parsing external input declares an expected type; the engine must verify it.
+      expect(
+        await objects.Customer.get(referenceInput(Customer).parse(invoiceId)),
+      ).toEqual({
+        status: 'not-found',
+      });
+      expect(
+        await objects.Customer.get(referenceInput(Customer).parse(customerId)),
+      ).toEqual({
         status: 'not-found',
       });
     });
@@ -218,11 +255,14 @@ export function traversalContract(
         }),
       ).rejects.toMatchObject({ code: 'invalid-request' });
       await expect(
-        objects.Customer.traverse.invoices('unknown', {
-          limit: 1,
-          select: ['status'],
-          cursor,
-        }),
+        objects.Customer.traverse.invoices(
+          referenceInput(Customer).parse('unknown'),
+          {
+            limit: 1,
+            select: ['status'],
+            cursor,
+          },
+        ),
       ).rejects.toMatchObject({ code: 'invalid-request' });
       await expect(
         objects.Customer.traverse.invoices(north, {

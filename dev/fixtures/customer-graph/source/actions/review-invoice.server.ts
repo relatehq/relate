@@ -6,7 +6,7 @@ export const reviewInvoice = implementAction(
   ReviewInvoice,
   async ({ actor, input, objects }) => {
     // The second lookup's ID is only known after the first lookup finishes.
-    const invoice = await objects.Invoice.get(input.invoice.id, {
+    const invoice = await objects.Invoice.get(input.invoice, {
       select: ['customer'],
     });
 

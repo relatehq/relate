@@ -1,6 +1,6 @@
 import { createRuntime, connect } from '@relate/node';
 import { assertFields } from '@relate/protocol';
-import { defineObject } from 'relate';
+import { defineObject, referenceInput } from 'relate';
 import { graph, Customer, customers, ana } from './model.js';
 
 const relate = createRuntime({
@@ -12,8 +12,9 @@ const relate = createRuntime({
     }),
   ],
 });
+const id = referenceInput(Customer).parse('id');
 const consumer = relate.as(ana);
-const selected = await consumer.objects.Customer.get('id', {
+const selected = await consumer.objects.Customer.get(id, {
   select: ['name'],
 });
 
@@ -34,7 +35,7 @@ if (selected.status === 'ok') {
 
 assertFields(selected, ['name']);
 const name: string = selected.data.name;
-const both = await consumer.objects.Customer.get('id', {
+const both = await consumer.objects.Customer.get(id, {
   select: ['name', 'revenue'],
 });
 
@@ -46,14 +47,14 @@ const unasserted: string = both.data.name;
 // @ts-expect-error unknown object
 consumer.objects.Invoice;
 // @ts-expect-error unknown selection
-consumer.objects.Customer.get('id', { select: ['missing'] });
+consumer.objects.Customer.get(id, { select: ['missing'] });
 // @ts-expect-error host ingestion is unavailable to consumers
 consumer.host.adopt(Customer, 'external');
 const Other = defineObject({ ...Customer, id: 'other' });
 
 // @ts-expect-error unregistered object
 relate.host.adopt(Other, 'external');
-const all = await consumer.objects.Customer.get('id');
+const all = await consumer.objects.Customer.get(id);
 
 if (all.status === 'ok') {
   const allRevenue: number | undefined = all.data.revenue;

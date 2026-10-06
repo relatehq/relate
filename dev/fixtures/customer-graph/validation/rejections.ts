@@ -1,7 +1,9 @@
+import type { ObjectId } from 'relate';
 import { crmCustomers, CustomerInvoices } from '../source/model.js';
 /** Compile-time acceptance only. These declarations are never executed. */
 import { z } from 'zod';
 import {
+  referenceInput,
   defineAction,
   defineAccess,
   connect,
@@ -36,7 +38,11 @@ type Equal<A, B> =
 
 const consumer = createFixtureApp().as(ana);
 
-export async function reads(id: string) {
+const customerId = referenceInput(Customer).parse('c');
+const invoiceId = referenceInput(Invoice).parse('i');
+const reviewId = referenceInput(AccountReview).parse('r');
+
+export async function reads(id: ObjectId<typeof Customer.id>) {
   const customer = await consumer.objects.Customer.get(id, {
     select: ['name', 'revenue'],
   });
@@ -57,13 +63,13 @@ export async function reads(id: string) {
   await consumer.objects.Customer.get(id, { select: ['typo'] });
   // @ts-expect-error unknown object
   consumer.objects.Account;
-  const owner = await consumer.objects.Invoice.traverse.customer(id);
+  const owner = await consumer.objects.Invoice.traverse.customer(invoiceId);
   const cardinality: Expect<Equal<typeof owner.status, 'ok' | 'not-found'>> =
     true;
 
   void cardinality;
   // @ts-expect-error single relationship has no page limit
-  await consumer.objects.Invoice.traverse.customer(id, { limit: 10 });
+  await consumer.objects.Invoice.traverse.customer(invoiceId, { limit: 10 });
 
   await consumer.objects.Invoice.query();
   await consumer.objects.Invoice.query({ select: ['id'], limit: 10 });
@@ -72,7 +78,10 @@ export async function reads(id: string) {
     select: ['id'],
   });
   const querySelection: Expect<
-    Equal<(typeof invoices.data)[number]['data'], { readonly id?: string }>
+    Equal<
+      (typeof invoices.data)[number]['data'],
+      { readonly id?: ObjectId<typeof Invoice.id> }
+    >
   > = true;
 
   void querySelection;
@@ -97,7 +106,7 @@ export async function reads(id: string) {
 }
 
 void consumer.actions.addAccountReview({
-  input: { customer: 'c', note: 'n' },
+  input: { customer: customerId, note: 'n' },
   idempotencyKey: 'k',
 });
 void consumer.actions.addAccountReview({
@@ -108,11 +117,13 @@ void consumer.actions.addAccountReview({
 void consumer.actions.addAccountReview({
   // @ts-expect-error target removed from invocation
   target: 'c',
-  input: { customer: 'c', note: 'n' },
+  input: { customer: customerId, note: 'n' },
   idempotencyKey: 'k',
 });
 // @ts-expect-error idempotency remains required
-void consumer.actions.addAccountReview({ input: { customer: 'c', note: 'n' } });
+void consumer.actions.addAccountReview({
+  input: { customer: customerId, note: 'n' },
+});
 defineAction({
   ...AddAccountReview,
   // @ts-expect-error target removed from definition
@@ -131,7 +142,7 @@ defineAction({
 
 implementAction(AddAccountReview, async (context) => {
   const { input, actor, objects } = context;
-  const id: string = input.customer.id;
+  const id: ObjectId<typeof Customer.id> = input.customer;
   const portfolio: string = actor.claims.portfolio;
 
   void id;
@@ -206,7 +217,7 @@ implementAction(EscalateAccount, async ({ objects }) => {
 
   for await (const invoice of objects.Invoice.query({ select: ['id'] })) {
     const selected: Expect<
-      Equal<typeof invoice.data, { readonly id?: string }>
+      Equal<typeof invoice.data, { readonly id?: ObjectId<typeof Invoice.id> }>
     > = true;
 
     void selected;
@@ -214,7 +225,7 @@ implementAction(EscalateAccount, async ({ objects }) => {
     invoice.data.status;
   }
 
-  for await (const invoice of objects.Customer.traverse.invoices('c', {
+  for await (const invoice of objects.Customer.traverse.invoices(customerId, {
     select: ['status'],
   })) {
     const selected: Expect<
@@ -227,10 +238,10 @@ implementAction(EscalateAccount, async ({ objects }) => {
   }
 
   // @ts-expect-error to-one traversal remains a promise, not an iterable
-  for await (const customer of objects.Invoice.traverse.customer('i'))
+  for await (const customer of objects.Invoice.traverse.customer(invoiceId))
     void customer;
 
-  const invoices = await objects.Customer.traverse.invoices('c', {
+  const invoices = await objects.Customer.traverse.invoices(customerId, {
     select: ['status'],
     limit: 100,
     cursor: 'next',
@@ -238,7 +249,7 @@ implementAction(EscalateAccount, async ({ objects }) => {
   const many: Expect<
     Equal<(typeof invoices.data)[number]['data'], { readonly status?: string }>
   > = true;
-  const customer = await objects.Invoice.traverse.customer('i', {
+  const customer = await objects.Invoice.traverse.customer(invoiceId, {
     select: ['name'],
   });
   const one: Expect<Equal<typeof customer.status, 'ok' | 'not-found'>> = true;
@@ -257,17 +268,17 @@ implementAction(EscalateAccount, async ({ objects }) => {
   }
 
   // @ts-expect-error single relationship has no pagination
-  await objects.Invoice.traverse.customer('i', { limit: 10 });
+  await objects.Invoice.traverse.customer(invoiceId, { limit: 10 });
   // @ts-expect-error selection belongs to the target object
-  await objects.Customer.traverse.invoices('c', { select: ['name'] });
+  await objects.Customer.traverse.invoices(customerId, { select: ['name'] });
   // @ts-expect-error unknown traversal
-  objects.Customer.traverse.tasks('c');
+  objects.Customer.traverse.tasks(customerId);
   // @ts-expect-error query replaces list in actions too
   objects.Invoice.list();
   // @ts-expect-error only runtime owns commit
   objects.commit();
 
-  return { reviewId: 'r', taskIds: [] };
+  return { reviewId, taskIds: [] };
 });
 
 const implementations = [
@@ -308,7 +319,7 @@ createRuntime({
 });
 const foreign = implementAction(
   { ...AddAccountReview, id: 'foreign' as const },
-  async () => ({ reviewId: 'r' }),
+  async () => ({ reviewId }),
 );
 
 createRuntime({
@@ -319,7 +330,7 @@ createRuntime({
 });
 const mismatch = implementAction(
   { ...EscalateAccount, id: AddAccountReview.id },
-  async () => ({ reviewId: 'r', taskIds: [] }),
+  async () => ({ reviewId, taskIds: [] }),
 );
 
 createRuntime({
@@ -350,7 +361,7 @@ const differentBinder = createActionImplementer({
   relationships,
 });
 const differentObjects = differentBinder(AddAccountReview, async () => ({
-  reviewId: 'r',
+  reviewId,
 }));
 
 createRuntime({
@@ -380,7 +391,7 @@ const differentRelationshipBinder = createActionImplementer({
 const differentRelationships = differentRelationshipBinder(
   AddAccountReview,
   async () => ({
-    reviewId: 'r',
+    reviewId,
   }),
 );
 

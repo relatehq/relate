@@ -6,7 +6,7 @@ import { AccountReview, Invoice } from '../model.js';
 export const ReviewInvoice = defineAction({
   id: 'business.review-invoice',
   input: z.object({ invoice: referenceInput(Invoice), note: z.string() }),
-  output: z.object({ reviewId: z.string() }),
+  output: z.object({ reviewId: referenceInput(AccountReview) }),
   creates: [AccountReview],
   policy: { execute: access.role('account-manager') },
 });

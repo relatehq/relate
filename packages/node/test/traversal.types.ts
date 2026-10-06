@@ -1,5 +1,5 @@
 import { createRuntime } from '@relate/node';
-import { defineRelationship } from 'relate';
+import { defineRelationship, referenceInput } from 'relate';
 import {
   graph,
   ana,
@@ -9,7 +9,9 @@ import {
 
 const relate = createRuntime({ graph, connections: [] });
 const objects = relate.as(ana).objects;
-const page = await objects.Customer.traverse.invoices('id', {
+const customerId = referenceInput(Customer).parse('customer');
+const invoiceId = referenceInput(Invoice).parse('invoice');
+const page = await objects.Customer.traverse.invoices(customerId, {
   select: ['status', 'totalMinor'],
   limit: 2,
 });
@@ -17,18 +19,18 @@ const amount: number | undefined = page.data[0]?.data.totalMinor;
 const cursor: string | undefined = page.meta.continuationCursor;
 
 // @ts-expect-error names belong to the target type
-objects.Customer.traverse.invoices('id', { select: ['portfolio'] });
+objects.Customer.traverse.invoices(customerId, { select: ['portfolio'] });
 // @ts-expect-error reverse selections belong to Customer
-objects.Invoice.traverse.customer('id', { select: ['totalMinor'] });
+objects.Invoice.traverse.customer(invoiceId, { select: ['totalMinor'] });
 // @ts-expect-error traversal name is not an invoice operation
-objects.Invoice.traverse.invoices('id');
+objects.Invoice.traverse.invoices(invoiceId);
 // @ts-expect-error to-one traversal does not paginate
-objects.Invoice.traverse.customer('id', { limit: 1 });
+objects.Invoice.traverse.customer(invoiceId, { limit: 1 });
 // @ts-expect-error unknown traversal
-objects.Customer.traverse.unknown('id');
+objects.Customer.traverse.unknown(customerId);
 // @ts-expect-error unselected properties are not exposed
 page.data[0]?.data.customer;
-const customer = await objects.Invoice.traverse.customer('id', {
+const customer = await objects.Invoice.traverse.customer(invoiceId, {
   select: ['name'],
 });
 
@@ -48,7 +50,7 @@ defineRelationship({ id: 'invalid', from: Customer, to: Invoice, forward: { name
 defineRelationship({ id: 'invalid', from: Invoice, to: Invoice, forward: { name: 'invoices', cardinality: 'many' }, reverse: { name: 'customer', cardinality: 'one' }, via: Invoice.properties.customer });
 void [amount, cursor];
 
-for await (const invoice of objects.Customer.traverse.invoices('id', {
+for await (const invoice of objects.Customer.traverse.invoices(customerId, {
   select: ['status'],
 })) {
   const status: string | undefined = invoice.data.status;

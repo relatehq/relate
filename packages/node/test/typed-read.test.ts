@@ -1,3 +1,4 @@
+import { referenceInput } from 'relate';
 import { expect, it, vi } from 'vitest';
 import { createRuntime, connect } from '@relate/node';
 import { createMemoryStore, SourceAccessDenied } from '@relate/runtime';
@@ -140,7 +141,11 @@ it('grants financial fields only within the caller portfolio and never leaks hid
 it('never adopts or contacts the source when reading unknown IDs', async () => {
   const { relate, calls } = fixture();
 
-  expect(await relate.as(ana).objects.Customer.get('crm_456')).toEqual({
+  expect(
+    await relate
+      .as(ana)
+      .objects.Customer.get(referenceInput(Customer).parse('crm_456')),
+  ).toEqual({
     status: 'not-found',
   });
   expect(calls()).toBe(0);

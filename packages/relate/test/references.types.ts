@@ -1,3 +1,4 @@
+import { referenceInput } from 'relate';
 import {
   access,
   Customer,
@@ -54,7 +55,9 @@ const relate = createRuntime({ graph, connections: [] });
 async function read() {
   const invoice = await relate
     .as(ana)
-    .objects.Invoice.get('id', { select: ['customer', 'totalMinor'] });
+    .objects.Invoice.get(referenceInput(Invoice).parse('id'), {
+      select: ['customer', 'totalMinor'],
+    });
 
   if (invoice.status === 'ok') {
     const customer: string | undefined = invoice.data.customer;

@@ -2,6 +2,7 @@ import type {
   GraphDefinition,
   ObjectData,
   ObjectDefinition,
+  ObjectId,
   ObjectRegistry,
   PropertyNames,
   RelationshipDefinition,
@@ -29,7 +30,7 @@ export type ObjectResult<
   | { readonly status: 'not-found' }
   | {
       readonly status: 'ok';
-      readonly id: string;
+      readonly id: ObjectId<O['id']>;
       readonly data: ObjectData<O, K>;
       readonly meta: Omit<Ok['meta'], 'fields'> & {
         readonly fields: { readonly [N in K]?: FieldEvidence };
@@ -67,7 +68,7 @@ type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
   readonly [E in Edges<R, O> as E['traversal']['name']]: <
     K extends PropertyNames<E['target']> = PropertyNames<E['target']>,
   >(
-    id: string,
+    id: ObjectId<O['id']>,
     options?: E['traversal']['cardinality'] extends 'many'
       ? PageOptions<K>
       : ReadOptions<K>,
@@ -82,7 +83,7 @@ export interface ObjectOperations<
 > {
   readonly traverse: Traversals<R, O>;
   get<K extends PropertyNames<O> = PropertyNames<O>>(
-    id: string,
+    id: ObjectId<O['id']>,
     options?: ReadOptions<K>,
   ): Promise<ObjectResult<O, K>>;
 }
@@ -105,10 +106,10 @@ export interface Relate<
 > {
   as(principal: Principal): Consumer<G>;
   readonly host: {
-    adopt(
-      object: G['objects'][keyof G['objects']],
+    adopt<O extends G['objects'][keyof G['objects']]>(
+      object: O,
       sourceRecordId: string,
-    ): Promise<string>;
+    ): Promise<ObjectId<O['id']>>;
   };
   /** Stop new operations and await in-flight operations. Borrowed stores remain open. */
   close(): Promise<void>;

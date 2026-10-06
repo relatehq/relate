@@ -34,6 +34,15 @@ Registry keys name the consumer API; stable definition IDs identify persisted
 objects. Adoption accepts the registered object definition, not another object
 that happens to have the same ID.
 
+Adoption returns `ObjectId<typeof Customer.id>`. `get` and traversal arguments
+require the starting object's branded ID; result IDs and reference fields carry
+their own or referenced object's brand. An Invoice ID cannot be passed to
+`Customer.get`. The values remain strings in memory, storage, and JSON. For IDs
+received from a route or decoded JSON, use
+`referenceInput(Customer).parse(rawValue)` from `relate`. This validates a
+nonblank string and declares its expected type; runtime membership and access
+checks still apply. Provider source keys belong in `host.adopt`, not `get`.
+
 `get` preserves selected property types and returns `ok` or `not-found`. An `ok`
 result includes the canonical `id`, selected `data`, and existing read evidence.
 Selected fields stay optional because authorization or availability can withhold
