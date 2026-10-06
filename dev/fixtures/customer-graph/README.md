@@ -49,10 +49,17 @@ validation/
   records.ts                        provider data
 ```
 
-`referenceInput(Customer)` accepts an ID in the request and supplies a typed
-`{ id }` reference after parsing. It does not load the object or authorize
-access. For example, invocation input is
-`{ customer: customerId, note: 'Follow up' }`.
+`referenceInput(Customer)` parses a nonblank string into
+`ObjectId<'business.customer'>`, with no `{ id }` wrapper. Typed invocation
+input is `{ customer: customerId, note: 'Follow up' }`, and implementations use
+`objects.Customer.get(input.customer)` directly. External request data goes
+through schema parsing; typed calls require branded IDs. Parsing does not load
+the object, establish its actual type or existence, or authorize access.
+
+Own IDs, reference fields, create values and results, query filters, and both
+traversal directions preserve the corresponding object brand. Action output
+schemas use `referenceInput(AccountReview)` and `referenceInput(Task)` too, so
+receipt IDs remain typed. Storage and JSON still contain ordinary strings.
 
 `createActionImplementer({ access, objects, relationships })` binds
 implementations to contracts. Both registries are exported once from `model.ts`

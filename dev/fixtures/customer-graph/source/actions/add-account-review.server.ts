@@ -4,7 +4,7 @@ import { AddAccountReview } from './add-account-review.js';
 export const addAccountReview = implementAction(
   AddAccountReview,
   async ({ actor, input, objects }) => {
-    const customer = await objects.Customer.get(input.customer.id, {
+    const customer = await objects.Customer.get(input.customer, {
       select: ['id'],
     });
 

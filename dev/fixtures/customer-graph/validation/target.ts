@@ -12,6 +12,8 @@ import type {
   FieldGroup,
   FieldReference,
   Property,
+  PropertyValue,
+  ObjectId,
   RoleGate,
   defineAccess as currentDefineAccess,
   source,
@@ -25,7 +27,7 @@ import type {
 import type { QueryResult } from '@relate/runtime';
 import type { ObservationStore } from '@relate/runtime/storage';
 
-export { defineSource, from, objectId, source } from 'relate';
+export { defineSource, from, objectId, source, referenceInput } from 'relate';
 
 // Definitions
 
@@ -142,18 +144,6 @@ type NativeObject = ObjectDefinition<
   Record<string, Property>,
   NativeMembership
 >;
-
-declare const referenceType: unique symbol;
-
-export type ObjectReference<O extends ObjectDefinition> = {
-  readonly id: string;
-  readonly [referenceType]: O['id'];
-};
-
-/** An ID on the wire, a typed reference after parsing; not an access grant. */
-export declare function referenceInput<O extends ObjectDefinition>(
-  object: O,
-): z.ZodType<ObjectReference<O>, string>;
 
 export interface ActionDefinition<
   Input extends z.ZodType = z.ZodType,
@@ -398,7 +388,9 @@ type NativeValues<O extends ObjectDefinition> = {
     K in keyof O['properties'] as O['properties'][K] extends NativeOrigin
       ? K
       : never
-  ]: z.input<O['properties'][K]['schema']>;
+  ]: O['properties'][K] extends ReferenceProperty
+    ? PropertyValue<O, K>
+    : z.input<O['properties'][K]['schema']>;
 };
 
 type ObjectRegistry = Record<string, ObjectDefinition>;
@@ -411,7 +403,7 @@ type QueryOptions<
 > = PageOptions<K> & {
   /** Equality-only fixture sketch; query execution must not silently omit unknown matches. */
   readonly where?: Partial<{
-    readonly [N in Names<O>]: z.output<O['properties'][N]['schema']>;
+    readonly [N in Names<O>]: PropertyValue<O, N>;
   }>;
 };
 
@@ -424,7 +416,9 @@ export type ActionObjects<
     (O[N] extends A['creates'][number]
       ? {
           /** Writes inside the runtime-owned native transaction; not an independent commit. */
-          create(values: NativeValues<O[N]>): Promise<{ readonly id: string }>;
+          create(
+            values: NativeValues<O[N]>,
+          ): Promise<{ readonly id: ObjectId<O[N]['id']> }>;
         }
       : {});
 };
@@ -548,9 +542,9 @@ export interface ObjectRecord<
   O extends ObjectDefinition,
   K extends Names<O> = Names<O>,
 > {
-  readonly id: string;
+  readonly id: ObjectId<O['id']>;
   readonly data: {
-    readonly [N in K]?: z.output<O['properties'][N]['schema']>;
+    readonly [N in K]?: PropertyValue<O, N>;
   };
   readonly meta: Omit<Ok['meta'], 'fields'> & {
     readonly fields: { readonly [N in K]?: FieldEvidence };
@@ -597,7 +591,7 @@ type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
   readonly [E in Edges<R, O> as E['traversal']['name']]: <
     K extends Names<E['target']> = Names<E['target']>,
   >(
-    id: string,
+    id: ObjectId<O['id']>,
     options?: E['traversal']['cardinality'] extends 'many'
       ? PageOptions<K>
       : ReadOptions<K>,
@@ -612,7 +606,7 @@ export interface ObjectOperations<
   O extends ObjectDefinition,
 > {
   get<K extends Names<O> = Names<O>>(
-    id: string,
+    id: ObjectId<O['id']>,
     options?: ReadOptions<K>,
   ): Promise<ObjectResult<O, K>>;
   /** Omit `where` (or all options) to enumerate without a filter. */
@@ -674,7 +668,10 @@ export interface Relate<G extends GraphDefinition> {
      * backfills and repair. Adopting the same record twice is idempotent and
      * returns the same object ID.
      */
-    adopt(object: Sourced<G>, sourceRecordId: string): Promise<string>;
+    adopt<O extends Sourced<G>>(
+      object: O,
+      sourceRecordId: string,
+    ): Promise<ObjectId<O['id']>>;
   };
   close(): Promise<void>;
 }

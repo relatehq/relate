@@ -3,6 +3,7 @@ import { compile } from 'relate/compiler';
 import type {
   GraphDefinition,
   ObjectDefinition,
+  ObjectId,
   ObjectRegistry,
   SourceDefinition,
 } from 'relate';
@@ -187,15 +188,18 @@ export function createRuntime<
       }) as Consumer<G>;
     },
     host: Object.freeze({
-      adopt: (
-        object: G['objects'][keyof G['objects']],
+      adopt: <O extends G['objects'][keyof G['objects']]>(
+        object: O,
         sourceRecordId: string,
       ) =>
         run(async () => {
           if (!registered.has(object))
             throw new Error('Unregistered adoption target');
 
-          return engine.adopt(object.id, sourceRecordId);
+          // Adoption establishes the canonical ID for this registered definition.
+          return (await engine.adopt(object.id, sourceRecordId)) as ObjectId<
+            O['id']
+          >;
         }),
     }),
     async close() {

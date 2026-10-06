@@ -11,7 +11,10 @@ export const EscalateAccount = defineAction({
     assignee: z.string(),
     dueDate: z.string(),
   }),
-  output: z.object({ reviewId: z.string(), taskIds: z.array(z.string()) }),
+  output: z.object({
+    reviewId: referenceInput(AccountReview),
+    taskIds: z.array(referenceInput(Task)),
+  }),
   creates: [AccountReview, Task],
   policy: { execute: access.role('account-manager') },
 });

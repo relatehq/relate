@@ -1,6 +1,33 @@
 import { z } from 'zod';
 import type { AccessDefinition, FieldGroup, Policy } from './authorization.js';
 
+declare const objectIdBrand: unique symbol;
+
+/** A canonical record ID, scoped to its stable object definition ID. */
+export type ObjectId<DefinitionId extends string> = string & {
+  readonly [objectIdBrand]: DefinitionId;
+};
+
+/**
+ * A string on the wire and in memory; no wrapper, lookup, or access grant.
+ * Typed calls require an already branded ID. Use `.parse(unknown)` at external
+ * boundaries to validate a nonblank string and declare its expected object type.
+ * Parsing cannot establish existence, actual object type, or authorization.
+ */
+export function referenceInput<
+  O extends Pick<ObjectDefinition, 'id' | 'properties'>,
+>(object: O): z.ZodType<ObjectId<O['id']>, ObjectId<O['id']>> {
+  // The object supplies compile-time identity; the runtime still checks membership.
+  void object;
+
+  return z
+    .string()
+    .regex(/\S/, 'Object ID must not be blank') as unknown as z.ZodType<
+    ObjectId<O['id']>,
+    ObjectId<O['id']>
+  >;
+}
+
 export interface FieldReference<S extends z.ZodType = z.ZodType> {
   readonly sourceDefinitionId: string;
   readonly field: string;
@@ -208,12 +235,24 @@ export type ObjectRegistry = Readonly<Record<string, ObjectDefinition>>;
 export type PropertyNames<O extends ObjectDefinition> = keyof O['properties'] &
   string;
 
+/** Identity is contextual: own IDs use the owner, references use their target. */
+export type PropertyValue<
+  O extends Pick<ObjectDefinition, 'id' | 'properties'>,
+  N extends keyof O['properties'],
+> = O['properties'][N] extends {
+  readonly references: infer Target extends string;
+}
+  ? ObjectId<Target>
+  : O['properties'][N] extends ObjectIdProperty
+    ? ObjectId<O['id']>
+    : z.output<O['properties'][N]['schema']>;
+
 /** Selected fields remain optional: selection never grants access or guarantees availability. */
 export type ObjectData<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,
 > = {
-  readonly [N in K]?: z.output<O['properties'][N]['schema']>;
+  readonly [N in K]?: PropertyValue<O, N>;
 };
 
 export interface GraphDefinition {

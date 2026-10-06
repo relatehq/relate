@@ -157,18 +157,19 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
       'utf8',
     ),
   );
-  await writeFile(
-    join(consumer, 'traversal.types.ts'),
-    (
-      await readFile(
-        resolve(root, 'packages/node/test/traversal.types.ts'),
-        'utf8',
-      )
-    ).replaceAll(
-      '../../../dev/fixtures/customer-graph/invoice-read/model.js',
-      './invoice-model.js',
-    ),
-  );
+
+  for (const name of ['traversal.types.ts', 'object-ids.types.ts']) {
+    await writeFile(
+      join(consumer, name),
+      (
+        await readFile(resolve(root, 'packages/node/test', name), 'utf8')
+      ).replaceAll(
+        '../../../dev/fixtures/customer-graph/invoice-read/model.js',
+        './invoice-model.js',
+      ),
+    );
+  }
+
   await writeFile(
     join(consumer, 'traversal-smoke.mjs'),
     `
@@ -223,6 +224,7 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
       'typed-read.types.ts',
       'hello-world.ts',
       'traversal.types.ts',
+      'object-ids.types.ts',
     ],
     { cwd: consumer },
   );

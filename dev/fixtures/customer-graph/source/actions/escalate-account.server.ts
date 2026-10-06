@@ -1,3 +1,4 @@
+import type { ObjectId } from 'relate';
 import { assertFields } from '@relate/protocol';
 import { implementAction } from './implement-action.server.js';
 import { EscalateAccount } from './escalate-account.js';
@@ -5,7 +6,7 @@ import { EscalateAccount } from './escalate-account.js';
 export const escalateAccount = implementAction(
   EscalateAccount,
   async ({ actor, input, objects }) => {
-    const customer = await objects.Customer.get(input.customer.id, {
+    const customer = await objects.Customer.get(input.customer, {
       select: ['status'],
     });
 
@@ -27,7 +28,7 @@ export const escalateAccount = implementAction(
     if (written.status !== 'ok' || written.data.customer !== customer.id)
       throw new Error('Review unavailable');
 
-    const taskIds: string[] = [];
+    const taskIds: ObjectId<'business.task'>[] = [];
 
     // Unknown filter evidence must reject, not silently drop matches. Relate
     // follows pages; a later failure must roll back the action's native writes.

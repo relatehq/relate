@@ -4,8 +4,8 @@ TypeScript authoring and compiled-model contracts for authorized Customer and
 Invoice reads. Private and unpublished while implementation is in progress.
 
 - `relate`: `defineSource`, `source`, `defineObject`, `objectId`, `native`,
-  `from`, `reference`, `defineRelationship`, `defineAccess`, `equals`,
-  `defineGraph`.
+  `from`, `reference`, `referenceInput`, `defineRelationship`, `defineAccess`,
+  `equals`, `defineGraph`.
 - `relate/compiler`: `compile`, with deterministic SHA-256 definition revisions.
 - `relate/model`: portable manifest validation and types for runtime
   integrations.
@@ -50,6 +50,21 @@ identifies its external record. Sources declare `idField` to select the external
 ID field from their validated schema. These identities are separate: adopting an
 external record generates a Relate object ID and retains the mapping. Existing
 definition ID strings are preserved.
+
+Consumer IDs use `ObjectId<'business.customer'>`, a branded string keyed by the
+stable object definition ID. `ObjectData` and `PropertyValue` infer this brand
+for own ID properties and the target brand for reference properties. Selected
+fields remain optional. Source keys, definition IDs, storage, and protocol JSON
+remain strings; the compiled-model engine keeps its dynamic string interface.
+
+For external input, use `referenceInput(Customer).parse(rawValue)`. The schema
+accepts a nonblank string without changing its contents and returns a branded
+ID, with no wrapper. Its TypeScript input and output types both carry the brand,
+so typed callers cannot pass another object's ID or a raw string. Zod's
+`parse(unknown)` is the explicit external boundary. The schema also works in
+object/array schemas and for ID outputs, and its JSON Schema remains a string.
+Parsing declares the expected type; it proves neither membership, existence, nor
+authorization. Reads continue to check those at runtime.
 
 ## Typed policies
 
