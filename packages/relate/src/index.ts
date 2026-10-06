@@ -61,7 +61,8 @@ export function defineSource<S extends Record<string, z.ZodType>>(definition: {
 
 export interface Property<S extends z.ZodType = z.ZodType> {
   readonly id: string;
-  readonly access: FieldGroup;
+  /** Defaults to the ordinary field group. */
+  readonly access?: FieldGroup | undefined;
   readonly schema: S;
   readonly origin:
     | {
@@ -85,7 +86,7 @@ export interface ObjectIdProperty extends Property<z.ZodString> {
 
 export function objectId<const Id extends string>(options: {
   id: Id;
-  access: FieldGroup<'ordinary'>;
+  access?: FieldGroup<'ordinary'>;
 }): ObjectIdProperty & { readonly id: Id } {
   return Object.freeze({
     ...options,
@@ -96,7 +97,7 @@ export function objectId<const Id extends string>(options: {
 
 export function native<S extends z.ZodType, const Id extends string>(
   schema: S,
-  options: { id: Id; access: FieldGroup },
+  options: { id: Id; access?: FieldGroup },
 ): Property<S> & { readonly id: Id } {
   return Object.freeze({
     ...options,
@@ -107,7 +108,7 @@ export function native<S extends z.ZodType, const Id extends string>(
 
 export function from<S extends z.ZodType, const Id extends string>(
   field: FieldReference<S>,
-  options: { id: Id; access: FieldGroup },
+  options: { id: Id; access?: FieldGroup },
 ): Property<S> & { readonly id: Id } {
   return Object.freeze({
     ...options,
@@ -135,7 +136,7 @@ export interface ReferenceProperty<
 
 export function reference<O extends ObjectDefinition, const Id extends string>(
   target: O,
-  options: { id: Id; access: FieldGroup; from: FieldReference<z.ZodString> },
+  options: { id: Id; access?: FieldGroup; from: FieldReference<z.ZodString> },
 ): ReferenceProperty<O['id']> & { readonly id: Id } {
   return Object.freeze({
     id: options.id,

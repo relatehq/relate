@@ -5,6 +5,7 @@ import {
   defineSource,
   equals,
   from,
+  native,
   objectId,
   source,
 } from 'relate';
@@ -125,3 +126,6 @@ ordinaryOnly.policy(Customer, {
     financial: ordinaryOnly.role('employee'),
   },
 });
+
+// Native authoring also accepts the ordinary default.
+native(z.string(), { id: 'note' });

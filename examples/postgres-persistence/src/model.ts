@@ -34,15 +34,12 @@ export const Customer = defineObject({
   properties: {
     id: objectId({
       id: 'business.customer.key',
-      access: access.groups.ordinary,
     }),
     name: from(customers.fields.display_name, {
       id: 'business.customer.name',
-      access: access.groups.ordinary,
     }),
     portfolio: from(customers.fields.portfolio, {
       id: 'business.customer.portfolio',
-      access: access.groups.ordinary,
     }),
     revenue: from(customers.fields.revenue, {
       id: 'business.customer.revenue',

@@ -38,8 +38,7 @@ compile to the same portable manifest. Registry names do not replace stable
 definition IDs. `ObjectData` and `PropertyNames` expose selected property types;
 selected values remain optional because reads can withhold unavailable fields.
 
-Each object declares exactly one
-`objectId({ id, access: access.groups.ordinary })` property, conventionally
+Each object declares exactly one `objectId({ id })` property, conventionally
 named `id`. Relate owns its string schema and generates its value on adoption.
 There is no object-level `key` selector. `defineObject`, the compiler, and
 manifest validation reject missing or multiple ID properties.
@@ -78,7 +77,9 @@ const access = defineAccess({
 });
 ```
 
-Classify properties with `access.groups.ordinary` or `access.groups.financial`.
+Properties default to `ordinary` when `access` is omitted from `objectId`,
+`from`, `native`, or `reference`. Set `access: access.groups.financial` for a
+restricted field. The access declaration must still include `ordinary`.
 Bind a policy to its object and compare property and claim references:
 
 ```ts
@@ -122,7 +123,6 @@ claim schemas, so older manifests and definition revisions are incompatible.
 ```ts
 customer: reference(Customer, {
   id: 'invoice.customer',
-  access: access.groups.ordinary,
   from: invoices.fields.customer_id,
 });
 ```
