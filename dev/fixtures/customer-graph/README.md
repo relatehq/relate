@@ -28,6 +28,8 @@ source/
 validation/
   target.ts                         temporary declaration-only API shim
   rejections.ts                     positive and negative type probes
+  policies.ts                       nested policy inference and rejection cases
+  check-policies.mjs                independent unsuppressed rejection check
   scenario.ts                       intended outcomes, never executed
   setup.ts                          simulated connections and principals
   records.ts                        provider data
@@ -44,6 +46,36 @@ assembly and the binder so `objects.Customer` is inferred without a graph import
 cycle. It is a type/installation context, not a read allowlist or a permission
 grant. The runtime must validate object identities and vocabulary compatibility
 at installation.
+
+`access.forObjects(objects)` binds the same registry once in `graph.ts` and
+returns `policy`. Object rules use nested predicates:
+
+```ts
+const { policy } = access.forObjects(objects);
+
+policy(Invoice, {
+  read: {
+    gate: access.role('employee'),
+    where: { customer: { organization: { eq: access.claims.organization } } },
+    evidenceMaxAgeMs: 30_000,
+  },
+  groups: { financial: access.role('finance') },
+});
+```
+
+This is explicit related-attribute comparison, not delegation to Customer's
+entire policy. Binding supplies type context, not permissions. Customer uses a
+root organization condition; Invoice, AccountReview and Task use their direct
+customer references. Validation also checks multi-hop paths. Task reference
+consistency remains a separate write/integrity requirement. Predicates require
+an evidence age bound; role-only policies do not. The declaration shim checks
+field names and claim types, including extracted conditions.
+
+Run `node dev/fixtures/customer-graph/validation/check-policies.mjs` to verify
+negative policy cases independently, with suppression comments removed in
+memory. The
+[internal comparison](../../../../relate-internal/docs/internal/relationship-policy-research.md)
+retains the path-helper alternative and the removed spike's findings.
 
 `createRuntime({ graph, actionImplementations, connections })` checks action
 registration. `creates` limits native creation capability; runtime policies
@@ -75,7 +107,8 @@ read-your-writes must still respect field/object authorization.
 [Read cases](./read-cases.md), [execution cases](./acceptance-cases.md), and
 [authorization cases](./authorization-cases.md) specify required outcomes.
 [Open questions](./open-questions.md) identifies guarantees and syntax still to
-resolve. Role-only child policies do not yet satisfy organization isolation.
+resolve. Graph policies now express organization isolation through each child's
+customer reference; runtime enforcement is still unimplemented.
 
 The
 [current internal decision](../../../../relate-internal/docs/internal/action-authoring.md)

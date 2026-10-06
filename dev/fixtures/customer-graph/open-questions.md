@@ -12,6 +12,9 @@ why ordinary inputs and async object operations are insufficient. See the
   supported native objects and return output asynchronously.
 - Contracts and colocated action policies remain beside server implementations.
   Object policies stay on the graph; no policy placement redesign here.
+- Nested object read predicates use `access.forObjects(objects).policy`, with
+  explicit role gates and evidence age bounds. Permission delegation is
+  deferred.
 - The shared binder receives access and the object registry for inference. Graph
   assembly reuses the registry; runtime installation validates compatibility.
 - `creates` is a capability, not authorization. CRM/billing objects stay
@@ -24,12 +27,16 @@ why ordinary inputs and async object operations are insufficient. See the
 
 ## 1. Authorization and application invariants
 
-How do object policies follow customer references for organization isolation?
+Related-attribute predicates now express organization isolation. How does the
+runtime resolve trusted policy evidence, handle missing/stale references and
+protect reference IDs without accidental policy recursion or data disclosure?
 How do action-local checks and reusable native write rules compose without
 bypasses? Which checks inspect newly written records, and when must final-state
 constraints hold? Keep hidden validation evidence out of implementation results,
 errors and traces. The [authorization cases](./authorization-cases.md) specify
-outcomes the current role-only child policies do not yet satisfy.
+outcomes the declared predicates and future write rules must enforce.
+Collections, Boolean operators and cyclic/large-model inference remain open; the
+fixture selects to-one equality only.
 
 Removing target does not eliminate invocation-specific authorization. A
 reference is not a grant. The examples explicitly read referenced objects;

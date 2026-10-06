@@ -9,7 +9,6 @@
 import type { z } from 'zod';
 import type {
   Claim,
-  Equality,
   FieldGroup,
   FieldReference,
   Property,
@@ -20,7 +19,7 @@ import type {
 import type { FieldEvidence, ReadRequest, ReadResult } from '@relate/protocol';
 import type { ObservationStore } from '@relate/runtime/storage';
 
-export { defineSource, equals, from, objectId, source } from 'relate';
+export { defineSource, from, objectId, source } from 'relate';
 
 // Definitions
 
@@ -192,11 +191,28 @@ type CurrentAccess<
   C extends Record<string, z.ZodType>,
 > = ReturnType<typeof currentDefineAccess<R, G, C>>;
 
-/**
- * As today, except: policies accept natively owned objects, the evidence
- * window is only stated alongside the predicate it limits, and actions are
- * denied until an action policy allows them.
- */
+/** Nested to-one equality predicates. References resolve through the registry. */
+export type PolicyWhere<
+  Registry extends ObjectRegistry,
+  O extends ObjectDefinition,
+> = {
+  readonly [
+    K in keyof O['properties']
+  ]?: O['properties'][K] extends ReferenceProperty<infer Id>
+    ? PolicyWhere<Registry, Extract<Registry[keyof Registry], { id: Id }>>
+    : { readonly eq: Claim<z.ZodType<z.output<O['properties'][K]['schema']>>> };
+};
+
+// Also reject surplus keys on extracted conditions, not only fresh literals.
+export type ExactPolicyWhere<W, Shape> = {
+  [K in keyof W]: K extends keyof Shape
+    ? K extends 'eq'
+      ? W[K]
+      : ExactPolicyWhere<W[K], NonNullable<Shape[K]>>
+    : never;
+};
+
+/** Object policies accept native objects; actions retain colocated policies. */
 export declare function defineAccess<
   const R extends readonly string[],
   const G extends readonly string[],
@@ -206,21 +222,33 @@ export declare function defineAccess<
   fieldGroups: G;
   claims: C;
 }): Omit<CurrentAccess<R, G, C>, 'policy'> & {
-  policy<O extends ObjectDefinition>(
-    object: O,
-    rules: {
-      read:
-        | { gate: RoleGate<R[number]> }
-        | {
-            gate: RoleGate<R[number]>;
-            where: Equality<Properties<NoInfer<O>>>;
-            evidenceMaxAgeMs: number;
-          };
-      groups?: Partial<
-        Record<Exclude<G[number], 'ordinary'>, RoleGate<R[number]>>
-      > & { ordinary?: never };
-    },
-  ): Policy;
+  /** Type/installation context only; this does not grant object access. */
+  forObjects<Registry extends ObjectRegistry>(
+    objects: Registry,
+  ): {
+    policy<
+      O extends Registry[keyof Registry],
+      const W extends PolicyWhere<Registry, NoInfer<O>>,
+    >(
+      object: O,
+      rules: {
+        read:
+          | {
+              gate: RoleGate<R[number]>;
+              where?: never;
+              evidenceMaxAgeMs?: never;
+            }
+          | {
+              gate: RoleGate<R[number]>;
+              where: W & ExactPolicyWhere<W, PolicyWhere<Registry, NoInfer<O>>>;
+              evidenceMaxAgeMs: number;
+            };
+        groups?: Partial<
+          Record<Exclude<G[number], 'ordinary'>, RoleGate<R[number]>>
+        > & { ordinary?: never };
+      },
+    ): Policy;
+  };
 };
 
 interface AccessVocabulary {

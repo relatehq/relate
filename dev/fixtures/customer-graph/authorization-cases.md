@@ -1,10 +1,10 @@
 # Authorization cases exposed by the authoring exploration
 
-Status: **required outcomes; policy authoring remains open**. The graph's
-role-only child policies do not satisfy these cases. Do not describe this file
-as passing tests or make the scenario pass by inventing implicit policy
-inheritance. Object policies remain on the graph; action policies stay
-colocated.
+Status: **required runtime outcomes; nested read-policy authoring selected**.
+The graph now expresses organization conditions through customer references.
+These declarations do not execute authorization and this file is not a passing
+behavioral test. No implicit permission inheritance is introduced. Object
+policies remain on the graph; action policies stay colocated.
 
 ## Concrete setup
 
@@ -62,8 +62,9 @@ application requirements, not hardcoded universal review/task semantics.
 
 ## Decisions still needed
 
-1. Related-object organization predicates for graph policies, protecting direct
-   reads and queries as well as traversal. No implicit policy inheritance.
+1. Enforcement of the declared related-object organization predicates for direct
+   reads, queries and traversal. Trusted evidence authority, missing/stale
+   references and reference-ID disclosure remain open; delegation is deferred.
 2. Composition of action-local checks and object write rules, and immediate
    versus final-state validation for interleaved writes.
 3. Trusted access to hidden validation evidence without exposing it through
@@ -73,5 +74,6 @@ application requirements, not hardcoded universal review/task semantics.
 5. Current receipt authorization and cross-actor idempotency when both actors
    are permitted but effects contain actor-specific values.
 
-See [open questions](./open-questions.md). Authorization syntax is the next
-design exercise, not solved by changing the execution shape.
+See [open questions](./open-questions.md). Read predicates now have an authoring
+shape; write authorization and evidence semantics remain design work. Neither is
+solved by changing execution shape.

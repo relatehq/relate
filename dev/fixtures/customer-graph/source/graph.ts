@@ -1,7 +1,7 @@
 import { ReviewInvoice } from './actions/review-invoice.js';
 import { AddAccountReview } from './actions/add-account-review.js';
 import { EscalateAccount } from './actions/escalate-account.js';
-import { defineGraph, equals } from '../validation/target.js';
+import { defineGraph } from '../validation/target.js';
 import { access } from './access.js';
 import {
   AccountReview,
@@ -13,6 +13,9 @@ import {
   Task,
   objects,
 } from './model.js';
+
+// Bind the shared registry for related-field inference, not permission grants.
+const { policy } = access.forObjects(objects);
 
 // Object policies live here; action policies live on the action definitions.
 // Either kind without a policy is denied to everyone.
@@ -27,26 +30,43 @@ export const graph = defineGraph({
   },
   access,
   policies: [
-    access.policy(Customer, {
+    policy(Customer, {
       read: {
         gate: access.role('employee'),
-        where: equals(
-          Customer.properties.organization,
-          access.claims.organization,
-        ),
+        where: { organization: { eq: access.claims.organization } },
         evidenceMaxAgeMs: 30_000,
       },
       groups: { financial: access.role('finance') },
     }),
-    // Open: limiting invoices to the caller's organization needs a predicate
-    // through the relationship, which policies cannot express yet.
-    access.policy(Invoice, {
-      read: { gate: access.role('employee') },
+    policy(Invoice, {
+      read: {
+        gate: access.role('employee'),
+        where: {
+          customer: { organization: { eq: access.claims.organization } },
+        },
+        evidenceMaxAgeMs: 30_000,
+      },
       groups: { financial: access.role('finance') },
     }),
-    // The same organization-isolation gap also applies to reviews and tasks.
-    // See authorization-cases.md; these role-only rules do not satisfy it yet.
-    access.policy(AccountReview, { read: { gate: access.role('employee') } }),
-    access.policy(Task, { read: { gate: access.role('employee') } }),
+    policy(AccountReview, {
+      read: {
+        gate: access.role('employee'),
+        where: {
+          customer: { organization: { eq: access.claims.organization } },
+        },
+        evidenceMaxAgeMs: 30_000,
+      },
+    }),
+    // Use Task's direct customer. Agreement with its review/invoice references
+    // is a separate write/integrity requirement, not implied by readability.
+    policy(Task, {
+      read: {
+        gate: access.role('employee'),
+        where: {
+          customer: { organization: { eq: access.claims.organization } },
+        },
+        evidenceMaxAgeMs: 30_000,
+      },
+    }),
   ],
 });
