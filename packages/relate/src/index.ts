@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Policy } from './model.js';
+import type { AccessDefinition, FieldGroup, Policy } from './authorization.js';
 
 export interface FieldReference<S extends z.ZodType = z.ZodType> {
   readonly sourceDefinitionId: string;
@@ -8,13 +8,13 @@ export interface FieldReference<S extends z.ZodType = z.ZodType> {
 }
 
 export interface SourceDefinition {
-  readonly definitionId: string;
+  readonly id: string;
   readonly idField: string;
   readonly schema: z.ZodObject;
 }
 
 export function defineSource<S extends Record<string, z.ZodType>>(definition: {
-  definitionId: string;
+  id: string;
   idField: Extract<keyof S, string>;
   schema: z.ZodObject<S>;
 }) {
@@ -22,7 +22,7 @@ export function defineSource<S extends Record<string, z.ZodType>>(definition: {
     Object.entries(definition.schema.shape).map(([field, schema]) => [
       field,
       Object.freeze({
-        sourceDefinitionId: definition.definitionId,
+        sourceDefinitionId: definition.id,
         field,
         schema,
       }),
@@ -33,8 +33,8 @@ export function defineSource<S extends Record<string, z.ZodType>>(definition: {
 }
 
 export interface Property<S extends z.ZodType = z.ZodType> {
-  readonly definitionId: string;
-  readonly access: string;
+  readonly id: string;
+  readonly access: FieldGroup;
   readonly schema: S;
   readonly origin:
     | { readonly kind: 'native' }
@@ -50,10 +50,10 @@ export interface ObjectIdProperty extends Property<z.ZodString> {
   readonly origin: { readonly kind: 'object-id' };
 }
 
-export function objectId(options: {
-  definitionId: string;
-  access: string;
-}): ObjectIdProperty {
+export function objectId<const Id extends string>(options: {
+  id: Id;
+  access: FieldGroup<'ordinary'>;
+}): ObjectIdProperty & { readonly id: Id } {
   return Object.freeze({
     ...options,
     schema: z.string(),
@@ -61,10 +61,10 @@ export function objectId(options: {
   });
 }
 
-export function native<S extends z.ZodType>(
+export function native<S extends z.ZodType, const Id extends string>(
   schema: S,
-  options: { definitionId: string; access: string },
-): Property<S> {
+  options: { id: Id; access: FieldGroup },
+): Property<S> & { readonly id: Id } {
   return Object.freeze({
     ...options,
     schema,
@@ -72,10 +72,10 @@ export function native<S extends z.ZodType>(
   });
 }
 
-export function from<S extends z.ZodType>(
+export function from<S extends z.ZodType, const Id extends string>(
   field: FieldReference<S>,
-  options: { definitionId: string; access: string },
-): Property<S> {
+  options: { id: Id; access: FieldGroup },
+): Property<S> & { readonly id: Id } {
   return Object.freeze({
     ...options,
     schema: field.schema,
@@ -92,7 +92,7 @@ export function source(resource: SourceDefinition) {
 }
 
 export interface ObjectDefinition {
-  readonly definitionId: string;
+  readonly id: string;
   readonly name: string;
   readonly membership: ReturnType<typeof source>;
   readonly properties: Readonly<Record<string, Property>>;
@@ -117,14 +117,23 @@ export function defineObject<const P extends Record<string, Property>>(
 }
 
 export interface GraphDefinition {
-  readonly definitionId: string;
+  readonly id: string;
   readonly objects: readonly ObjectDefinition[];
-  readonly fieldGroups: readonly string[];
-  readonly policies: Readonly<Record<string, Policy>>;
+  readonly access: AccessDefinition;
+  readonly policies: readonly Policy[];
 }
 
 export function defineGraph<const G extends GraphDefinition>(graph: G): G {
   return graph;
 }
 
-export type { Policy } from './model.js';
+export { defineAccess, equals } from './authorization.js';
+
+export type {
+  AccessDefinition,
+  Claim,
+  Equality,
+  FieldGroup,
+  Policy,
+  RoleGate,
+} from './authorization.js';

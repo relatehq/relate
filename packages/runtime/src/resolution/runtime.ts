@@ -57,7 +57,7 @@ export function createRuntime(options: RuntimeOptions) {
   );
 
   for (const resource of manifest.sources) {
-    const binding = sources[resource.definitionId];
+    const binding = sources[resource.id];
 
     if (
       !binding ||
@@ -95,9 +95,7 @@ export function createRuntime(options: RuntimeOptions) {
       objectDefinitionId: string,
       sourceRecordId: string,
     ): Promise<string> {
-      const object = manifest.objects.find(
-        (o) => o.definitionId === objectDefinitionId,
-      );
+      const object = manifest.objects.find((o) => o.id === objectDefinitionId);
 
       if (!object || !sourceRecordId.trim())
         throw new Error('Invalid adoption target');
@@ -112,9 +110,7 @@ export function createRuntime(options: RuntimeOptions) {
       );
       const incoming = observation(
         fetched,
-        manifest.sources.find(
-          (s) => s.definitionId === object.sourceDefinitionId,
-        )!,
+        manifest.sources.find((s) => s.id === object.sourceDefinitionId)!,
         object,
         sourceRecordId,
         token,
@@ -167,9 +163,7 @@ export function createRuntime(options: RuntimeOptions) {
       )
         throw new ReadError('invalid-request');
 
-      const object = manifest.objects.find(
-        (o) => o.definitionId === objectDefinitionId,
-      );
+      const object = manifest.objects.find((o) => o.id === objectDefinitionId);
       const policy = Object.hasOwn(manifest.policies, objectDefinitionId)
         ? manifest.policies[objectDefinitionId]
         : undefined;
@@ -204,7 +198,7 @@ export function createRuntime(options: RuntimeOptions) {
       );
       const needsSource = visible.some((p) => p.origin.kind === 'source');
       const dependency = object.properties.find(
-        (p) => p.definitionId === policy.read.where?.propertyDefinitionId,
+        (p) => p.id === policy.read.where?.propertyDefinitionId,
       );
       const sourcePermission = dependency?.origin.kind === 'source';
       const age = clock() - stored.observation.observedAt;
@@ -233,9 +227,7 @@ export function createRuntime(options: RuntimeOptions) {
           );
           const incoming = observation(
             fetched,
-            manifest.sources.find(
-              (s) => s.definitionId === object.sourceDefinitionId,
-            )!,
+            manifest.sources.find((s) => s.id === object.sourceDefinitionId)!,
             object,
             stored.sourceRecordId,
             token,
@@ -339,12 +331,28 @@ export function createRuntime(options: RuntimeOptions) {
 
       if (
         candidate.observation.state === 'deleted' ||
-        !allowsObject(principal, policy, object, permissionCandidate, clock())
+        !allowsObject(
+          principal,
+          policy,
+          object,
+          permissionCandidate,
+          clock(),
+          manifest.claims,
+        )
       )
         return { status: 'not-found' };
 
       // A transient result may revoke access but may never establish fresh permission.
-      if (!allowsObject(principal, policy, object, candidate, clock()))
+      if (
+        !allowsObject(
+          principal,
+          policy,
+          object,
+          candidate,
+          clock(),
+          manifest.claims,
+        )
+      )
         return { status: 'not-found' };
 
       const data: Record<string, Json> = {},

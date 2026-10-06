@@ -14,6 +14,7 @@ const execFile = promisify(execFileCallback);
 
 import { createPostgresStore } from '@relate/postgres';
 import {
+  access,
   Customer,
   customerGraph,
   employee,
@@ -64,10 +65,10 @@ afterEach(async () => {
 });
 
 it('refreshes, retains, restarts, and serves only currently authorized fallback with honest evidence', async () => {
-  const key = await runtime.adopt(Customer.definitionId, 'crm_456');
+  const key = await runtime.adopt(Customer.id, 'crm_456');
 
-  expect(await runtime.adopt(Customer.definitionId, 'crm_456')).toBe(key);
-  const initial = await runtime.read(employee, Customer.definitionId, key, {
+  expect(await runtime.adopt(Customer.id, 'crm_456')).toBe(key);
+  const initial = await runtime.read(employee, Customer.id, key, {
     select: ['id', 'name', 'revenue'],
   });
 
@@ -84,14 +85,14 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
   expect(
     await runtime.read(
       { ...employee, claims: { organization: 'other' } },
-      Customer.definitionId,
+      Customer.id,
       key,
     ),
   ).toEqual({ status: 'not-found' });
 
   await crm.update({ display_name: 'Northwind Studio' });
   now += 1_000;
-  const refreshed = await runtime.read(finance, Customer.definitionId, key, {
+  const refreshed = await runtime.read(finance, Customer.id, key, {
     select: ['name', 'revenue'],
     refresh: true,
   });
@@ -131,7 +132,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
       graphId,
       now,
       principal: employee,
-      type: Customer.definitionId,
+      type: Customer.id,
       key,
     }),
   ]);
@@ -141,7 +142,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
     data: { name: 'Northwind Studio' },
     meta: { fields: { name: { freshness: 'stale', retention: 'confirmed' } } },
   });
-  const fallback = await runtime.read(employee, Customer.definitionId, key, {
+  const fallback = await runtime.read(employee, Customer.id, key, {
     select: ['name'],
     maxAgeMs: 1_000,
   });
@@ -163,7 +164,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
     },
   });
   expect(
-    await runtime.read(employee, Customer.definitionId, key, {
+    await runtime.read(employee, Customer.id, key, {
       select: ['name'],
       maxAgeMs: 1_000,
       stale: 'omit',
@@ -174,7 +175,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
     meta: { completeness: 'partial' },
   });
   await expect(
-    runtime.read(employee, Customer.definitionId, key, {
+    runtime.read(employee, Customer.id, key, {
       select: ['name'],
       maxAgeMs: 1_000,
       stale: 'omit',
@@ -182,16 +183,16 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
     }),
   ).rejects.toMatchObject({ code: 'incomplete' });
   expect(
-    await runtime.read({ ...employee, roles: [] }, Customer.definitionId, key),
+    await runtime.read({ ...employee, roles: [] }, Customer.id, key),
   ).toEqual({ status: 'not-found' });
   now += 30_001;
-  expect(await runtime.read(employee, Customer.definitionId, key)).toEqual({
+  expect(await runtime.read(employee, Customer.id, key)).toEqual({
     status: 'not-found',
   });
 });
 
 it('keeps raw inputs private and commits value history only when mapped values change', async () => {
-  const key = await runtime.adopt(Customer.definitionId, 'crm_456');
+  const key = await runtime.adopt(Customer.id, 'crm_456');
   const db = new pg.Client({ connectionString: databaseUrl });
 
   await db.connect();
@@ -206,11 +207,11 @@ it('keeps raw inputs private and commits value history only when mapped values c
 
     expect(await changes()).toHaveLength(1);
     now += 100;
-    await runtime.read(employee, Customer.definitionId, key, { refresh: true });
+    await runtime.read(employee, Customer.id, key, { refresh: true });
     expect(await changes()).toHaveLength(1);
     await crm.update({ private_unmapped: 'new private source data' });
     now += 100;
-    const result = await runtime.read(finance, Customer.definitionId, key, {
+    const result = await runtime.read(finance, Customer.id, key, {
       refresh: true,
     });
 
@@ -227,7 +228,7 @@ it('keeps raw inputs private and commits value history only when mapped values c
     expect(retained.observedAt).toBe(now);
     await crm.update({ display_name: 'Changed' });
     now += 100;
-    await runtime.read(employee, Customer.definitionId, key, { refresh: true });
+    await runtime.read(employee, Customer.id, key, { refresh: true });
     expect(await changes()).toHaveLength(2);
   } finally {
     await db.end();
@@ -235,7 +236,7 @@ it('keeps raw inputs private and commits value history only when mapped values c
 });
 
 it('returns fresh authorized transient values when retention fails without changing durable fallback', async () => {
-  const key = await runtime.adopt(Customer.definitionId, 'crm_456');
+  const key = await runtime.adopt(Customer.id, 'crm_456');
 
   await crm.update({ display_name: 'Transient name' });
   now += 100;
@@ -245,7 +246,7 @@ it('returns fresh authorized transient values when retention fails without chang
       throw new RetentionError('failed');
     },
   });
-  const result = await failing.read(employee, Customer.definitionId, key, {
+  const result = await failing.read(employee, Customer.id, key, {
     select: ['name'],
     refresh: true,
   });
@@ -268,7 +269,7 @@ it('returns fresh authorized transient values when retention fails without chang
   });
   await crm.stop();
   expect(
-    await runtime.read(employee, Customer.definitionId, key, {
+    await runtime.read(employee, Customer.id, key, {
       select: ['name'],
       refresh: true,
     }),
@@ -276,7 +277,7 @@ it('returns fresh authorized transient values when retention fails without chang
 });
 
 it('distinguishes an unconfirmed commit, successful readback, and unavailable ordering evidence', async () => {
-  const key = await runtime.adopt(Customer.definitionId, 'crm_456');
+  const key = await runtime.adopt(Customer.id, 'crm_456');
 
   await crm.update({ display_name: 'Committed despite lost acknowledgement' });
   now += 100;
@@ -289,7 +290,7 @@ it('distinguishes an unconfirmed commit, successful readback, and unavailable or
   });
 
   expect(
-    await lostAck.read(employee, Customer.definitionId, key, {
+    await lostAck.read(employee, Customer.id, key, {
       select: ['name'],
       refresh: true,
     }),
@@ -316,7 +317,7 @@ it('distinguishes an unconfirmed commit, successful readback, and unavailable or
   });
 
   expect(
-    await uncertain.read(employee, Customer.definitionId, key, {
+    await uncertain.read(employee, Customer.id, key, {
       select: ['name'],
       refresh: true,
     }),
@@ -339,12 +340,12 @@ it('distinguishes an unconfirmed commit, successful readback, and unavailable or
   });
 
   expect(
-    await failed.read(employee, Customer.definitionId, key, { refresh: true }),
+    await failed.read(employee, Customer.id, key, { refresh: true }),
   ).toEqual({ status: 'not-found' });
 });
 
 it('does not leak hidden fields or adopt records from a read and scopes fallback to graph and connection', async () => {
-  const key = await runtime.adopt(Customer.definitionId, 'crm_456');
+  const key = await runtime.adopt(Customer.id, 'crm_456');
   let calls = 0;
   const counted = connect(store, {
     fetch: async (...args) => {
@@ -355,16 +356,16 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
   });
 
   expect(
-    await counted.read({ ...employee, roles: [] }, Customer.definitionId, key, {
+    await counted.read({ ...employee, roles: [] }, Customer.id, key, {
       refresh: true,
     }),
   ).toEqual({ status: 'not-found' });
   expect(
-    await counted.read(employee, Customer.definitionId, 'crm_456', {
+    await counted.read(employee, Customer.id, 'crm_456', {
       refresh: true,
     }),
   ).toEqual({ status: 'not-found' });
-  const hidden = await counted.read(employee, Customer.definitionId, key, {
+  const hidden = await counted.read(employee, Customer.id, key, {
     select: ['revenue', 'unknown'],
     refresh: false,
   });
@@ -393,7 +394,7 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
     },
   });
 
-  expect(await other.read(employee, Customer.definitionId, key)).toEqual({
+  expect(await other.read(employee, Customer.id, key)).toEqual({
     status: 'not-found',
   });
   const otherGraph = createRuntime({
@@ -410,13 +411,13 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
     },
   });
 
-  expect(await otherGraph.read(employee, Customer.definitionId, key)).toEqual({
+  expect(await otherGraph.read(employee, Customer.id, key)).toEqual({
     status: 'not-found',
   });
 });
 
 it('withholds confirmed deletion and newly denied access even if retention fails', async () => {
-  const key = await runtime.adopt(Customer.definitionId, 'crm_456');
+  const key = await runtime.adopt(Customer.id, 'crm_456');
   const failed = connect({
     ...store,
     accept: async () => {
@@ -426,28 +427,28 @@ it('withholds confirmed deletion and newly denied access even if retention fails
 
   await crm.update({ organization: 'other' });
   expect(
-    await failed.read(employee, Customer.definitionId, key, { refresh: true }),
+    await failed.read(employee, Customer.id, key, { refresh: true }),
   ).toEqual({ status: 'not-found' });
   await crm.update({}, true);
   expect(
-    await failed.read(employee, Customer.definitionId, key, { refresh: true }),
+    await failed.read(employee, Customer.id, key, { refresh: true }),
   ).toEqual({ status: 'not-found' });
   expect(
-    await runtime.read(employee, Customer.definitionId, key, { refresh: true }),
+    await runtime.read(employee, Customer.id, key, { refresh: true }),
   ).toEqual({ status: 'not-found' });
   await crm.stop();
-  expect(await runtime.read(employee, Customer.definitionId, key)).toEqual({
+  expect(await runtime.read(employee, Customer.id, key)).toEqual({
     status: 'not-found',
   });
 });
 
 it('bounds source waits and rejects malformed observations without overwriting retained data', async () => {
-  const key = await runtime.adopt(Customer.definitionId, 'crm_456');
+  const key = await runtime.adopt(Customer.id, 'crm_456');
   const hanging = connect(store, { fetch: () => new Promise(() => {}) });
   const start = Date.now();
 
   expect(
-    await hanging.read(employee, Customer.definitionId, key, {
+    await hanging.read(employee, Customer.id, key, {
       select: ['name'],
       refresh: true,
       timeoutMs: 20,
@@ -460,7 +461,7 @@ it('bounds source waits and rejects malformed observations without overwriting r
   expect(Date.now() - start).toBeLessThan(2_000);
   await crm.update({ display_name: null });
   expect(
-    await runtime.read(employee, Customer.definitionId, key, {
+    await runtime.read(employee, Customer.id, key, {
       select: ['name'],
       refresh: true,
     }),
@@ -472,7 +473,7 @@ it('bounds source waits and rejects malformed observations without overwriting r
 });
 
 it('keeps the later accepted observation when two real database clients race', async () => {
-  const key = await runtime.adopt(Customer.definitionId, 'crm_456');
+  const key = await runtime.adopt(Customer.id, 'crm_456');
   let release!: (value: Awaited<ReturnType<SourceConnector['fetch']>>) => void;
   let started!: () => void;
   const fetching = new Promise<void>((resolve) => {
@@ -487,7 +488,7 @@ it('keeps the later accepted observation when two real database clients race', a
       });
     },
   });
-  const pending = slow.read(employee, Customer.definitionId, key, {
+  const pending = slow.read(employee, Customer.id, key, {
     select: ['name'],
     refresh: true,
   });
@@ -496,7 +497,7 @@ it('keeps the later accepted observation when two real database clients race', a
   await crm.update({ display_name: 'Newer accepted name' });
   now += 100;
   expect(
-    await runtime.read(employee, Customer.definitionId, key, { refresh: true }),
+    await runtime.read(employee, Customer.id, key, { refresh: true }),
   ).toMatchObject({ data: { name: 'Newer accepted name' } });
   release({
     state: 'present',
@@ -523,7 +524,7 @@ it('keeps the later accepted observation when two real database clients race', a
 });
 
 it('rolls back raw retention, projection and history together on a database write failure', async () => {
-  const key = await runtime.adopt(Customer.definitionId, 'crm_456');
+  const key = await runtime.adopt(Customer.id, 'crm_456');
   const db = new pg.Client({ connectionString: databaseUrl });
 
   await db.connect();
@@ -537,7 +538,7 @@ it('rolls back raw retention, projection and history together on a database writ
     );
     await crm.update({ display_name: 'Not committed' });
     expect(
-      await runtime.read(employee, Customer.definitionId, key, {
+      await runtime.read(employee, Customer.id, key, {
         select: ['name'],
         refresh: true,
       }),
@@ -575,7 +576,7 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
     await import('relate');
   const { z } = await import('zod');
   const resource = defineSource({
-    definitionId: 'optional.source',
+    id: 'optional.source',
     idField: 'id',
     schema: z.object({
       id: z.string(),
@@ -583,30 +584,29 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
     }),
   });
   const object = defineObject({
-    definitionId: 'optional.object',
+    id: 'optional.object',
     name: 'Optional',
     membership: source(resource),
     properties: {
       customerId: objectId({
-        definitionId: 'optional.key',
-        access: 'ordinary',
+        id: 'optional.key',
+        access: access.groups.ordinary,
       }),
       note: from(resource.fields.note, {
-        definitionId: 'optional.note',
-        access: 'ordinary',
+        id: 'optional.note',
+        access: access.groups.ordinary,
       }),
     },
   });
   const optionalModel = compile({
-    definitionId: 'optional.graph',
+    id: 'optional.graph',
     objects: [object],
-    fieldGroups: ['ordinary'],
-    policies: {
-      [object.definitionId]: {
-        read: { role: 'employee', evidenceMaxAgeMs: 1_000 },
-        groups: {},
-      },
-    },
+    access,
+    policies: [
+      access.policy(object, {
+        read: { gate: access.role('employee'), evidenceMaxAgeMs: 1_000 },
+      }),
+    ],
   });
   let record: { id: string; note?: string | null } = {
     id: 'source-1',
@@ -618,25 +618,25 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
     store,
     clock,
     sources: {
-      [resource.definitionId]: {
+      [resource.id]: {
         connectionId: 'optional-account',
         authorization: 'shared-service',
         connector: { fetch: async () => ({ state: 'present', record }) },
       },
     },
   });
-  const key = await optional.adopt(object.definitionId, record.id);
+  const key = await optional.adopt(object.id, record.id);
 
   expect(key).not.toBe(record.id);
-  expect(await optional.adopt(object.definitionId, record.id)).toBe(key);
+  expect(await optional.adopt(object.id, record.id)).toBe(key);
   expect(
-    await optional.read(employee, object.definitionId, key, {
+    await optional.read(employee, object.id, key, {
       select: ['customerId'],
     }),
   ).toMatchObject({ data: { customerId: key } });
 
   expect(
-    await optional.read(employee, object.definitionId, key, {
+    await optional.read(employee, object.id, key, {
       select: ['note'],
     }),
   ).toMatchObject({
@@ -648,7 +648,7 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
   });
   record = { id: 'source-1' };
   expect(
-    await optional.read(employee, object.definitionId, key, {
+    await optional.read(employee, object.id, key, {
       select: ['note'],
       refresh: true,
     }),
@@ -657,7 +657,7 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
     meta: { completeness: 'complete', fields: { note: { status: 'absent' } } },
   });
   expect(
-    await optional.read(employee, object.definitionId, key, {
+    await optional.read(employee, object.id, key, {
       select: ['missing'],
     }),
   ).toMatchObject({
@@ -670,8 +670,8 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
 });
 
 it('denies absent policies and rejects compiled model drift against an installed graph', async () => {
-  const key = await runtime.adopt(Customer.definitionId, 'crm_456');
-  const deniedModel = compile({ ...customerGraph, policies: {} });
+  const key = await runtime.adopt(Customer.id, 'crm_456');
+  const deniedModel = compile({ ...customerGraph, policies: [] });
   const denied = createRuntime({
     model: deniedModel,
     graphId: randomUUID(),
@@ -686,10 +686,10 @@ it('denies absent policies and rejects compiled model drift against an installed
     },
   });
 
-  expect(await denied.read(employee, Customer.definitionId, key)).toEqual({
+  expect(await denied.read(employee, Customer.id, key)).toEqual({
     status: 'not-found',
   });
-  const changed = compile({ ...customerGraph, definitionId: 'another.graph' });
+  const changed = compile({ ...customerGraph, id: 'another.graph' });
   const incompatible = createRuntime({
     model: changed,
     graphId,
@@ -704,9 +704,9 @@ it('denies absent policies and rejects compiled model drift against an installed
     },
   });
 
-  await expect(
-    incompatible.read(employee, Customer.definitionId, key),
-  ).rejects.toThrow('explicit migration required');
+  await expect(incompatible.read(employee, Customer.id, key)).rejects.toThrow(
+    'explicit migration required',
+  );
   expect(() =>
     createRuntime({
       model: { ...model, definitionRevision: 'wrong' },
@@ -720,7 +720,7 @@ it('denies absent policies and rejects compiled model drift against an installed
 it.each(['source-failure', 'conflicting-version'] as const)(
   'rechecks the retained winner when %s races with an authorization change',
   async (failure) => {
-    const key = await runtime.adopt(Customer.definitionId, 'crm_456');
+    const key = await runtime.adopt(Customer.id, 'crm_456');
     let complete!: () => void;
     let started!: () => void;
     const fetching = new Promise<void>((resolve) => {
@@ -748,14 +748,14 @@ it.each(['source-failure', 'conflicting-version'] as const)(
         };
       },
     });
-    const pending = slow.read(employee, Customer.definitionId, key, {
+    const pending = slow.read(employee, Customer.id, key, {
       refresh: true,
     });
 
     await fetching;
     await crm.update({ organization: 'other' });
     expect(
-      await runtime.read(employee, Customer.definitionId, key, {
+      await runtime.read(employee, Customer.id, key, {
         refresh: true,
       }),
     ).toEqual({ status: 'not-found' });

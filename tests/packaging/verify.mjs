@@ -43,21 +43,22 @@ try {
   const program = `
 import assert from 'node:assert/strict';
 import { z } from 'zod';
-import { defineGraph, defineObject, defineSource, source, objectId, from } from 'relate';
+import { defineAccess, defineGraph, defineObject, defineSource, source, objectId, from } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime, createMemoryStore } from '@relate/runtime';
 import { createPostgresStore } from '@relate/postgres';
 import { ReadError } from '@relate/protocol';
-const crm = defineSource({ definitionId: 'crm', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
-const Customer = defineObject({ definitionId: 'customer', name: 'Customer', membership: source(crm), properties: {
-  id: objectId({ definitionId: 'customer.id', access: 'ordinary' }),
-  name: from(crm.fields.name, { definitionId: 'customer.name', access: 'ordinary' }),
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: { organization: z.string() } });
+const crm = defineSource({ id: 'crm', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
+const Customer = defineObject({ id: 'customer', name: 'Customer', membership: source(crm), properties: {
+  id: objectId({ id: 'customer.id', access: access.groups.ordinary }),
+  name: from(crm.fields.name, { id: 'customer.name', access: access.groups.ordinary }),
 } });
-const model = compile(defineGraph({ definitionId: 'graph', objects: [Customer], fieldGroups: ['ordinary'], policies: {} }));
-assert.equal(model.manifest.objects[0].definitionId, 'customer');
+const model = compile(defineGraph({ id: 'graph', objects: [Customer], access, policies: [] }));
+assert.equal(model.manifest.objects[0].id, 'customer');
 assert.equal(typeof createRuntime, 'function');
 assert.equal(createMemoryStore().durability, 'volatile');
-const memoryModel = compile(defineGraph({ definitionId: 'graph', objects: [Customer], fieldGroups: ['ordinary'], policies: { customer: { read: { role: 'reader', evidenceMaxAgeMs: 30000 }, groups: {} } } }));
+const memoryModel = compile(defineGraph({ id: 'graph', objects: [Customer], access, policies: [access.policy(Customer, { read: { gate: access.role('reader'), evidenceMaxAgeMs: 30000 } })] }));
 const runtime = createRuntime({ model: memoryModel, graphId: 'smoke', sources: { crm: { connectionId: 'fixture', authorization: 'shared-service', connector: { async fetch(id) { return { state: 'present', record: { id, name: 'Ada' } }; } } } } });
 const objectIdValue = await runtime.adopt('customer', '1');
 const read = await runtime.read({ id: 'reader', roles: ['reader'], claims: {} }, 'customer', objectIdValue);
@@ -82,24 +83,32 @@ console.log('Installed tarballs load and compile through plain Node ESM.');
     join(consumer, 'types.ts'),
     `
 import { z } from 'zod';
-import { defineSource, defineObject, objectId, source, from } from 'relate';
+import { defineAccess, defineSource, defineObject, objectId, source, from } from 'relate';
 import type { ReadResult } from '@relate/protocol';
 import type { ObservationStore } from '@relate/runtime/storage';
 import type { RuntimeOptions } from '@relate/runtime';
-const crm = defineSource({ definitionId: 'crm', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
-from(crm.fields.name, { definitionId: 'customer.name', access: 'ordinary' });
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: { organization: z.string() } });
+const crm = defineSource({ id: 'crm', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
+from(crm.fields.name, { id: 'customer.name', access: access.groups.ordinary });
 // @ts-expect-error source references preserve field names
 crm.fields.missing;
 // @ts-expect-error every field requires explicit classification
-from(crm.fields.name, { definitionId: 'customer.name' });
-const identity = objectId({ definitionId: 'customer.identity', access: 'ordinary' });
+from(crm.fields.name, { id: 'customer.name' });
+const identity = objectId({ id: 'customer.identity', access: access.groups.ordinary });
 const idValue: string = identity.schema.parse('generated');
 // @ts-expect-error Relate owns the ID validator
-objectId(z.string(), { definitionId: 'customer.identity', access: 'ordinary' });
+objectId(z.string(), { id: 'customer.identity', access: access.groups.ordinary });
 // @ts-expect-error objects infer identity from objectId(), not a key selector
-defineObject({ definitionId: 'customer', name: 'Customer', key: 'id', membership: source(crm), properties: { id: identity } });
+defineObject({ id: 'customer', name: 'Customer', key: 'id', membership: source(crm), properties: { id: identity } });
 export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 `,
+  );
+  await writeFile(
+    join(consumer, 'authorization.types.ts'),
+    await readFile(
+      resolve(root, 'packages/relate/test/authorization.types.ts'),
+      'utf8',
+    ),
   );
   await execFile(
     process.execPath,
@@ -115,6 +124,7 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
       '--moduleResolution',
       'NodeNext',
       'types.ts',
+      'authorization.types.ts',
     ],
     { cwd: consumer },
   );

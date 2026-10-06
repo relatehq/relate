@@ -37,9 +37,9 @@ it('defaults to isolated memory and supports sharing an explicit store', async (
     },
   };
   const first = createRuntime(options);
-  const id = await first.adopt(Customer.definitionId, '1');
+  const id = await first.adopt(Customer.id, '1');
 
-  expect(await first.read(employee, Customer.definitionId, id)).toMatchObject({
+  expect(await first.read(employee, Customer.id, id)).toMatchObject({
     status: 'ok',
     data: { id, name: 'Ada' },
     meta: {
@@ -48,19 +48,19 @@ it('defaults to isolated memory and supports sharing an explicit store', async (
       },
     },
   });
-  expect(
-    await createRuntime(options).read(employee, Customer.definitionId, id),
-  ).toEqual({ status: 'not-found' });
+  expect(await createRuntime(options).read(employee, Customer.id, id)).toEqual({
+    status: 'not-found',
+  });
   const store = createMemoryStore();
   const sharedId = await createRuntime({ ...options, store }).adopt(
-    Customer.definitionId,
+    Customer.id,
     '1',
   );
 
   expect(
     await createRuntime({ ...options, store }).read(
       employee,
-      Customer.definitionId,
+      Customer.id,
       sharedId,
     ),
   ).toMatchObject({ status: 'ok', data: { id: sharedId } });
@@ -96,13 +96,13 @@ it('enforces authorization, refresh and expired permission during memory fallbac
       },
     },
   });
-  const id = await runtime.adopt(Customer.definitionId, '1');
+  const id = await runtime.adopt(Customer.id, '1');
 
   expect(
-    await runtime.read({ ...employee, roles: [] }, Customer.definitionId, id),
+    await runtime.read({ ...employee, roles: [] }, Customer.id, id),
   ).toEqual({ status: 'not-found' });
   expect(
-    await runtime.read(employee, Customer.definitionId, id, {
+    await runtime.read(employee, Customer.id, id, {
       select: ['revenue'],
     }),
   ).toMatchObject({
@@ -112,12 +112,12 @@ it('enforces authorization, refresh and expired permission during memory fallbac
   name = 'Grace';
   now += 1_000;
   expect(
-    await runtime.read(finance, Customer.definitionId, id, { refresh: true }),
+    await runtime.read(finance, Customer.id, id, { refresh: true }),
   ).toMatchObject({ data: { name: 'Grace', revenue: 10 } });
   offline = true;
   now += 1_000;
   expect(
-    await runtime.read(employee, Customer.definitionId, id, { maxAgeMs: 0 }),
+    await runtime.read(employee, Customer.id, id, { maxAgeMs: 0 }),
   ).toMatchObject({
     data: { name: 'Grace' },
     meta: {
@@ -132,7 +132,7 @@ it('enforces authorization, refresh and expired permission during memory fallbac
     },
   });
   now += 30_001;
-  expect(await runtime.read(employee, Customer.definitionId, id)).toEqual({
+  expect(await runtime.read(employee, Customer.id, id)).toEqual({
     status: 'not-found',
   });
 });

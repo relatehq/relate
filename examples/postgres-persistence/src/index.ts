@@ -32,13 +32,13 @@ try {
     },
   };
   let runtime = createRuntime({ ...options, store });
-  const objectId = await runtime.adopt(Customer.definitionId, 'crm_456');
+  const objectId = await runtime.adopt(Customer.id, 'crm_456');
   const show = (event: string, result: unknown) =>
     console.log(JSON.stringify({ event, result }, null, 2));
 
   show(
     'employee-read',
-    await runtime.read(employee, Customer.definitionId, objectId, {
+    await runtime.read(employee, Customer.id, objectId, {
       select: ['id', 'name', 'revenue'],
     }),
   );
@@ -46,7 +46,7 @@ try {
   now += 1_000;
   show(
     'finance-refresh',
-    await runtime.read(finance, Customer.definitionId, objectId, {
+    await runtime.read(finance, Customer.id, objectId, {
       refresh: true,
     }),
   );
@@ -57,7 +57,7 @@ try {
   now += 2_000;
   show(
     'durable-fallback',
-    await runtime.read(employee, Customer.definitionId, objectId, {
+    await runtime.read(employee, Customer.id, objectId, {
       select: ['name'],
       maxAgeMs: 1_000,
     }),
@@ -65,7 +65,7 @@ try {
   now += 30_001;
   show(
     'expired-permission',
-    await runtime.read(employee, Customer.definitionId, objectId),
+    await runtime.read(employee, Customer.id, objectId),
   );
 } finally {
   await store.close();

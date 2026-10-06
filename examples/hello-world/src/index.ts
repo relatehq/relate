@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  defineAccess,
   defineGraph,
   defineObject,
   defineSource,
@@ -10,42 +11,50 @@ import {
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/runtime';
 
+const access = defineAccess({
+  roles: ['reader'],
+  fieldGroups: ['ordinary'],
+  claims: {},
+});
+
 const people = defineSource({
-  definitionId: 'example.people',
+  id: 'example.people',
   idField: 'id',
   schema: z.object({ id: z.string(), name: z.string() }),
 });
 
 const Person = defineObject({
-  definitionId: 'example.person',
+  id: 'example.person',
   name: 'Person',
   membership: source(people),
   properties: {
-    id: objectId({ definitionId: 'example.person.id', access: 'ordinary' }),
+    id: objectId({
+      id: 'example.person.id',
+      access: access.groups.ordinary,
+    }),
     name: from(people.fields.name, {
-      definitionId: 'example.person.name',
-      access: 'ordinary',
+      id: 'example.person.name',
+      access: access.groups.ordinary,
     }),
   },
 });
 
 const graph = defineGraph({
-  definitionId: 'example.graph',
+  id: 'example.graph',
   objects: [Person],
-  fieldGroups: ['ordinary'],
-  policies: {
-    [Person.definitionId]: {
-      read: { role: 'reader', evidenceMaxAgeMs: 30_000 },
-      groups: {},
-    },
-  },
+  access,
+  policies: [
+    access.policy(Person, {
+      read: { gate: access.role('reader'), evidenceMaxAgeMs: 30_000 },
+    }),
+  ],
 });
 
 const runtime = createRuntime({
   model: compile(graph),
   graphId: 'hello-world',
   sources: {
-    [people.definitionId]: {
+    [people.id]: {
       connectionId: 'example',
       authorization: 'shared-service',
       connector: {
@@ -59,11 +68,11 @@ const runtime = createRuntime({
   },
 });
 
-const id = await runtime.adopt(Person.definitionId, '1');
+const id = await runtime.adopt(Person.id, '1');
 
 const result = await runtime.read(
   { id: 'example-reader', roles: ['reader'], claims: {} },
-  Person.definitionId,
+  Person.id,
   id,
 );
 

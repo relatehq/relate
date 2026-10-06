@@ -38,13 +38,20 @@ export function compile(graph: GraphDefinition): CompiledModel {
   const resources = new Map<
     string,
     {
-      definitionId: string;
+      id: string;
       idField: string;
       fields: Record<string, ScalarSchema>;
     }
   >();
 
   for (const object of graph.objects) {
+    if (
+      Object.values(object.properties).some(
+        (property) => property.access?.kind !== 'field-group',
+      )
+    )
+      throw new Error('Invalid field group reference');
+
     const resource = object.membership.resource;
 
     // Object-level refinements would otherwise be lost during field extraction.
@@ -52,7 +59,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
       throw new Error('Unsupported source record refinement');
 
     const compiled = {
-      definitionId: resource.definitionId,
+      id: resource.id,
       idField: resource.idField,
       fields: Object.fromEntries(
         Object.entries(resource.schema.shape).map(([name, schema]) => [
@@ -61,54 +68,112 @@ export function compile(graph: GraphDefinition): CompiledModel {
         ]),
       ),
     };
-    const prior = resources.get(resource.definitionId);
+    const prior = resources.get(resource.id);
 
     if (prior && canonicalJson(prior) !== canonicalJson(compiled))
       throw new Error('Conflicting source definitions');
 
-    resources.set(resource.definitionId, compiled);
+    resources.set(resource.id, compiled);
+  }
+
+  const policyObjects = new Set<string>();
+
+  for (const policy of graph.policies) {
+    if (
+      [policy.read.gate, ...Object.values(policy.groups)].some(
+        (gate) => gate.kind !== 'role',
+      )
+    )
+      throw new Error('Unsupported policy gate');
+
+    const object = graph.objects.find((o) => o.id === policy.object.id);
+
+    if (!object) throw new Error('Unknown policy object');
+
+    if (policyObjects.has(object.id))
+      throw new Error('Duplicate policy object');
+
+    policyObjects.add(object.id);
+    const where = policy.read.where;
+
+    if (where) {
+      if (where.kind !== 'equals' || where.claim.kind !== 'claim')
+        throw new Error('Unsupported policy predicate');
+
+      const property = Object.values(object.properties).find(
+        (p) => p.id === where.property.id,
+      );
+      const claim = graph.access.claims[where.claim.name];
+
+      if (!property) throw new Error('Unknown policy dependency');
+
+      if (!claim) throw new Error('Unknown policy claim');
+
+      if (
+        canonicalJson(portable(property.schema)) !==
+          canonicalJson(portable(where.property.schema)) ||
+        canonicalJson(portable(claim.schema)) !==
+          canonicalJson(portable(where.claim.schema))
+      )
+        throw new Error('Conflicting policy reference');
+    }
   }
 
   const manifest = validateManifest({
     formatVersion: 1,
-    graphDefinitionId: graph.definitionId,
-    fieldGroups: [...graph.fieldGroups].sort(),
+    graphDefinitionId: graph.id,
+    fieldGroups: [...graph.access.fieldGroups].sort(),
+    roles: [...graph.access.roles].sort(),
+    claims: Object.fromEntries(
+      Object.entries(graph.access.claims).map(([name, claim]) => [
+        name,
+        portable(claim.schema),
+      ]),
+    ),
     sources: [...resources.values()].sort((a, b) =>
-      a.definitionId < b.definitionId
-        ? -1
-        : a.definitionId > b.definitionId
-          ? 1
-          : 0,
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     ),
     objects: graph.objects
       .map((o) => ({
-        definitionId: o.definitionId,
+        id: o.id,
         name: o.name,
-        sourceDefinitionId: o.membership.resource.definitionId,
+        sourceDefinitionId: o.membership.resource.id,
         properties: Object.entries(o.properties)
           .map(([name, p]) => ({
-            definitionId: p.definitionId,
+            id: p.id,
             name,
-            access: p.access,
+            access: p.access.name,
             schema: portable(p.schema),
             origin: p.origin,
           }))
-          .sort((a, b) =>
-            a.definitionId < b.definitionId
-              ? -1
-              : a.definitionId > b.definitionId
-                ? 1
-                : 0,
-          ),
+          .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
       }))
-      .sort((a, b) =>
-        a.definitionId < b.definitionId
-          ? -1
-          : a.definitionId > b.definitionId
-            ? 1
-            : 0,
-      ),
-    policies: graph.policies,
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+    policies: Object.fromEntries(
+      graph.policies.map((policy) => [
+        policy.object.id,
+        {
+          read: {
+            role: policy.read.gate.role,
+            ...(policy.read.where
+              ? {
+                  where: {
+                    propertyDefinitionId: policy.read.where.property.id,
+                    claim: policy.read.where.claim.name,
+                  },
+                }
+              : {}),
+            evidenceMaxAgeMs: policy.read.evidenceMaxAgeMs,
+          },
+          groups: Object.fromEntries(
+            Object.entries(policy.groups).map(([name, gate]) => [
+              name,
+              { role: gate.role },
+            ]),
+          ),
+        },
+      ]),
+    ),
   });
 
   return deepFreeze({

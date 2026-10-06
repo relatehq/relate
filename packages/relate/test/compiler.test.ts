@@ -4,6 +4,7 @@ import { validateManifest } from 'relate/model';
 import { compile } from 'relate/compiler';
 import { defineObject, defineSource, from, objectId, source } from 'relate';
 import {
+  access,
   Customer,
   customerGraph,
 } from '../../../examples/postgres-persistence/src/model.js';
@@ -14,7 +15,11 @@ it('produces deterministic frozen portable contracts and preserves definition ID
   expect(
     compile({
       ...customerGraph,
-      fieldGroups: [...customerGraph.fieldGroups].reverse(),
+      access: {
+        ...access,
+        fieldGroups: [...access.fieldGroups].reverse(),
+        roles: [...access.roles].reverse(),
+      },
     }),
   ).toEqual(model);
   expect(JSON.parse(JSON.stringify(model))).toEqual(model);
@@ -26,15 +31,13 @@ it('produces deterministic frozen portable contracts and preserves definition ID
   });
 
   expect(
-    renamed.manifest.objects[0]!.properties.find(
-      (p) => p.definitionId === name.definitionId,
-    )?.name,
+    renamed.manifest.objects[0]!.properties.find((p) => p.id === name.id)?.name,
   ).toBe('displayName');
   expect(renamed.definitionRevision).not.toBe(model.definitionRevision);
 });
 
 it('rejects missing, empty and duplicate IDs, unknown classifications and broken references', () => {
-  expect(() => compile({ ...customerGraph, definitionId: '' })).toThrow();
+  expect(() => compile({ ...customerGraph, id: '' })).toThrow();
   expect(() =>
     compile({ ...customerGraph, objects: [Customer, Customer] }),
   ).toThrow();
@@ -66,7 +69,7 @@ it('rejects missing, empty and duplicate IDs, unknown classifications and broken
             ...Customer.properties,
             name: {
               ...Customer.properties.name,
-              definitionId: Customer.definitionId,
+              id: Customer.id,
             },
           },
         },
@@ -76,16 +79,23 @@ it('rejects missing, empty and duplicate IDs, unknown classifications and broken
   expect(() =>
     compile({
       ...customerGraph,
-      policies: {
-        [Customer.definitionId]: {
-          ...customerGraph.policies[Customer.definitionId]!,
+      policies: [
+        {
+          ...customerGraph.policies[0]!,
           read: {
-            role: 'employee',
-            where: { propertyDefinitionId: 'missing', claim: 'organization' },
+            gate: access.role('employee'),
+            where: {
+              kind: 'equals',
+              property: {
+                ...Customer.properties.organization,
+                id: 'missing',
+              },
+              claim: access.claims.organization,
+            },
             evidenceMaxAgeMs: 100,
           },
         },
-      },
+      ],
     }),
   ).toThrow();
   expect(() =>
@@ -140,7 +150,7 @@ it.each([
 
 it('supports explicit optional and nullable scalar values', () => {
   const resource = defineSource({
-    definitionId: 'test.source',
+    id: 'test.source',
     idField: 'id',
     schema: z.object({
       id: z.string(),
@@ -148,22 +158,25 @@ it('supports explicit optional and nullable scalar values', () => {
     }),
   });
   const object = defineObject({
-    definitionId: 'test.object',
+    id: 'test.object',
     name: 'Test',
     membership: source(resource),
     properties: {
-      id: objectId({ definitionId: 'test.key', access: 'ordinary' }),
+      id: objectId({
+        id: 'test.key',
+        access: access.groups.ordinary,
+      }),
       note: from(resource.fields.note, {
-        definitionId: 'test.note',
-        access: 'ordinary',
+        id: 'test.note',
+        access: access.groups.ordinary,
       }),
     },
   });
   const result = compile({
-    definitionId: 'test.graph',
+    id: 'test.graph',
     objects: [object],
-    fieldGroups: ['ordinary'],
-    policies: {},
+    access,
+    policies: [],
   });
 
   expect(
@@ -175,8 +188,8 @@ it('supports explicit optional and nullable scalar values', () => {
 it('requires exactly one explicit objectId during authoring, compilation and manifest validation', () => {
   const { id, ...withoutId } = Customer.properties;
   const extra = objectId({
-    definitionId: 'customer.second-id',
-    access: 'ordinary',
+    id: 'customer.second-id',
+    access: access.groups.ordinary,
   });
 
   for (const properties of [withoutId, { ...Customer.properties, extra }]) {
@@ -201,7 +214,7 @@ it('requires exactly one explicit objectId during authoring, compilation and man
       object.properties.push(identity, {
         ...identity,
         name: 'extra',
-        definitionId: 'customer.second-id',
+        id: 'customer.second-id',
       });
 
     expect(() => validateManifest(manifest)).toThrow(/exactly one objectId/);
@@ -215,7 +228,7 @@ it('rejects invalid object ID schemas, classifications and native substitutes', 
     { ...Customer.properties.id, schema: z.number() },
     { ...Customer.properties.id, schema: z.string().optional() },
     { ...Customer.properties.id, schema: z.string().nullable() },
-    { ...Customer.properties.id, access: 'financial' },
+    { ...Customer.properties.id, access: access.groups.financial },
     { ...Customer.properties.id, origin: { kind: 'native' as const } },
   ]) {
     expect(() =>

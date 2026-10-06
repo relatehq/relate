@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const id = z.string().min(1);
+const text = z.string().min(1);
 
 export const scalarSchema = z.strictObject({
   type: z.enum(['string', 'number', 'boolean']),
@@ -10,53 +10,57 @@ export const scalarSchema = z.strictObject({
 
 export type ScalarSchema = z.infer<typeof scalarSchema>;
 
-const roleGate = z.strictObject({ role: id });
+const roleGate = z.strictObject({ role: text });
 const policySchema = z.strictObject({
   read: roleGate.extend({
-    where: z.strictObject({ propertyDefinitionId: id, claim: id }).optional(),
+    where: z
+      .strictObject({ propertyDefinitionId: text, claim: text })
+      .optional(),
     evidenceMaxAgeMs: z.number().finite().nonnegative(),
   }),
-  groups: z.record(id, roleGate),
+  groups: z.record(text, roleGate),
 });
 
 export type Policy = z.infer<typeof policySchema>;
 
 const propertySchema = z.strictObject({
-  definitionId: id,
-  name: id,
-  access: id,
+  id: text,
+  name: text,
+  access: text,
   schema: scalarSchema,
   origin: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('native') }),
     z.strictObject({ kind: z.literal('object-id') }),
     z.strictObject({
       kind: z.literal('source'),
-      sourceDefinitionId: id,
-      field: id,
+      sourceDefinitionId: text,
+      field: text,
     }),
   ]),
 });
 
 export const manifestSchema = z.strictObject({
   formatVersion: z.literal(1),
-  graphDefinitionId: id,
-  fieldGroups: z.array(id),
+  graphDefinitionId: text,
+  fieldGroups: z.array(text),
+  roles: z.array(text),
+  claims: z.record(text, scalarSchema),
   sources: z.array(
     z.strictObject({
-      definitionId: id,
-      idField: id,
-      fields: z.record(id, scalarSchema),
+      id: text,
+      idField: text,
+      fields: z.record(text, scalarSchema),
     }),
   ),
   objects: z.array(
     z.strictObject({
-      definitionId: id,
-      name: id,
-      sourceDefinitionId: id,
+      id: text,
+      name: text,
+      sourceDefinitionId: text,
       properties: z.array(propertySchema),
     }),
   ),
-  policies: z.record(id, policySchema),
+  policies: z.record(text, policySchema),
 });
 
 export type Manifest = z.infer<typeof manifestSchema>;
@@ -123,8 +127,21 @@ export function validateManifest(input: unknown): Manifest {
   )
     throw new Error('Invalid field groups');
 
+  if (
+    new Set(manifest.roles).size !== manifest.roles.length ||
+    manifest.roles.some((role) => !role.trim() || unsafe.has(role))
+  )
+    throw new Error('Invalid roles');
+
+  if (
+    Object.keys(manifest.claims).some(
+      (name) => !name.trim() || unsafe.has(name),
+    )
+  )
+    throw new Error('Invalid claims');
+
   for (const resource of manifest.sources) {
-    register(resource.definitionId);
+    register(resource.id);
     const key = resource.fields[resource.idField];
 
     if (!key || key.type !== 'string' || key.optional || key.nullable)
@@ -137,13 +154,13 @@ export function validateManifest(input: unknown): Manifest {
   const names = new Set<string>();
 
   for (const object of manifest.objects) {
-    register(object.definitionId);
+    register(object.id);
 
     if (names.has(object.name)) throw new Error('Duplicate object name');
 
     names.add(object.name);
     const resource = manifest.sources.find(
-      (s) => s.definitionId === object.sourceDefinitionId,
+      (s) => s.id === object.sourceDefinitionId,
     );
 
     if (!resource) throw new Error('Unknown membership source');
@@ -151,7 +168,7 @@ export function validateManifest(input: unknown): Manifest {
     const propertyNames = new Set<string>();
 
     for (const property of object.properties) {
-      register(property.definitionId);
+      register(property.id);
 
       if (propertyNames.has(property.name) || unsafe.has(property.name))
         throw new Error('Invalid property name');
@@ -174,7 +191,7 @@ export function validateManifest(input: unknown): Manifest {
         )
           throw new Error('objectId() must be an ordinary required string');
       } else if (
-        property.origin.sourceDefinitionId !== resource.definitionId ||
+        property.origin.sourceDefinitionId !== resource.id ||
         !resource.fields[property.origin.field] ||
         canonicalJson(resource.fields[property.origin.field]) !==
           canonicalJson(property.schema)
@@ -191,17 +208,41 @@ export function validateManifest(input: unknown): Manifest {
   }
 
   for (const [typeId, policy] of Object.entries(manifest.policies)) {
-    const object = manifest.objects.find((o) => o.definitionId === typeId);
+    const object = manifest.objects.find((o) => o.id === typeId);
 
     if (!object) throw new Error('Unknown policy object');
 
     if (
       policy.read.where &&
       !object.properties.some(
-        (p) => p.definitionId === policy.read.where!.propertyDefinitionId,
+        (p) => p.id === policy.read.where!.propertyDefinitionId,
       )
     )
       throw new Error('Unknown policy dependency');
+
+    if (
+      ![
+        policy.read.role,
+        ...Object.values(policy.groups).map((gate) => gate.role),
+      ].every((role) => manifest.roles.includes(role))
+    )
+      throw new Error('Unknown policy role');
+
+    if (policy.read.where) {
+      const claim = manifest.claims[policy.read.where.claim];
+      const property = object.properties.find(
+        (p) => p.id === policy.read.where!.propertyDefinitionId,
+      )!;
+
+      if (!claim) throw new Error('Unknown policy claim');
+
+      if (
+        claim.type !== property.schema.type ||
+        (claim.nullable && !property.schema.nullable) ||
+        (claim.optional && !property.schema.optional)
+      )
+        throw new Error('Incompatible policy claim');
+    }
 
     if (
       Object.keys(policy.groups).some(

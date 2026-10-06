@@ -1,10 +1,11 @@
+import { accepts } from 'relate/model';
 import type { Manifest, Policy } from 'relate/model';
 import type { StoredObject } from '../storage.js';
 
 export interface Principal {
   readonly id: string;
   readonly roles: readonly string[];
-  readonly claims: Readonly<Record<string, string>>;
+  readonly claims: Readonly<Record<string, string | number | boolean | null>>;
 }
 
 export function allowsObject(
@@ -13,6 +14,7 @@ export function allowsObject(
   object: Manifest['objects'][number],
   candidate: StoredObject,
   now: number,
+  claims: Manifest['claims'],
 ): boolean {
   if (
     !principal.roles.includes(policy.read.role) ||
@@ -25,7 +27,7 @@ export function allowsObject(
   if (!condition) return true;
 
   const property = object.properties.find(
-    (p) => p.definitionId === condition.propertyDefinitionId,
+    (p) => p.id === condition.propertyDefinitionId,
   )!;
 
   if (
@@ -42,6 +44,8 @@ export function allowsObject(
 
   return (
     Object.hasOwn(principal.claims, condition.claim) &&
+    principal.claims[condition.claim] !== undefined &&
+    accepts(claims[condition.claim]!, principal.claims[condition.claim]) &&
     value === principal.claims[condition.claim]
   );
 }

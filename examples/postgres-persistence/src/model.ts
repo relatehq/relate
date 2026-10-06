@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import {
+  defineAccess,
+  equals,
   defineGraph,
   defineObject,
   defineSource,
@@ -8,8 +10,14 @@ import {
   source,
 } from 'relate';
 
+export const access = defineAccess({
+  roles: ['employee', 'finance'],
+  fieldGroups: ['ordinary', 'financial'],
+  claims: { organization: z.string() },
+});
+
 export const customers = defineSource({
-  definitionId: 'crm.customers',
+  id: 'crm.customers',
   idField: 'id',
   schema: z.object({
     id: z.string(),
@@ -20,43 +28,46 @@ export const customers = defineSource({
 });
 
 export const Customer = defineObject({
-  definitionId: 'business.customer',
+  id: 'business.customer',
   name: 'Customer',
   membership: source(customers),
   properties: {
-    id: objectId({ definitionId: 'business.customer.key', access: 'ordinary' }),
+    id: objectId({
+      id: 'business.customer.key',
+      access: access.groups.ordinary,
+    }),
     name: from(customers.fields.display_name, {
-      definitionId: 'business.customer.name',
-      access: 'ordinary',
+      id: 'business.customer.name',
+      access: access.groups.ordinary,
     }),
     organization: from(customers.fields.organization, {
-      definitionId: 'business.customer.organization',
-      access: 'ordinary',
+      id: 'business.customer.organization',
+      access: access.groups.ordinary,
     }),
     revenue: from(customers.fields.revenue, {
-      definitionId: 'business.customer.revenue',
-      access: 'financial',
+      id: 'business.customer.revenue',
+      access: access.groups.financial,
     }),
   },
 });
 
 export const customerGraph = defineGraph({
-  definitionId: 'business.graph',
+  id: 'business.graph',
   objects: [Customer],
-  fieldGroups: ['ordinary', 'financial'],
-  policies: {
-    [Customer.definitionId]: {
+  access,
+  policies: [
+    access.policy(Customer, {
       read: {
-        role: 'employee',
-        where: {
-          propertyDefinitionId: Customer.properties.organization.definitionId,
-          claim: 'organization',
-        },
+        gate: access.role('employee'),
+        where: equals(
+          Customer.properties.organization,
+          access.claims.organization,
+        ),
         evidenceMaxAgeMs: 30_000,
       },
-      groups: { financial: { role: 'finance' } },
-    },
-  },
+      groups: { financial: access.role('finance') },
+    }),
+  ],
 });
 
 // Hosts supply authenticated context; request bodies cannot choose these claims.
