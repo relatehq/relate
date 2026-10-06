@@ -122,3 +122,16 @@ guarantees freshness.
 Reads still happen when your implementation needs them. A later lookup can use
 an ID from an earlier result, and assertions run on the results actually
 returned. No upfront required-read declaration or preparation phase is needed.
+
+## Pages
+
+`Page<T>` preserves each record's data and evidence in `data`. Its `meta` is a
+`PageMeta` discriminated union: `{ exhausted: true }` omits the continuation,
+while `{ exhausted: false, continuationCursor: string }` requires one. Types
+also reject a cursor on the exhausted variant. Runtime validation rejects empty
+tokens and contradictory metadata; these types alone do not validate JSON.
+
+An empty page can have a continuation. Consumers must follow exhaustion, not
+record count. The implemented pagination helper in
+[`@relate/runtime`](../runtime/README.md#pagination) handles this contract;
+collection query execution remains unimplemented.

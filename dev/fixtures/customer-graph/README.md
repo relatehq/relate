@@ -134,15 +134,36 @@ await objects.Invoice.query({
   limit: 100,
 });
 
-// To-many returns a page; follow its cursor until meta.exhausted is true.
+// Await to-many for one page; iterate it for all records.
 await objects.Customer.traverse.invoices(customerId, {
   select: ['status', 'totalMinor'],
   limit: 100,
 });
 
+for await (const invoice of objects.Invoice.query({
+  where: { customer: customerId, status: 'open' },
+  select: ['id'],
+  limit: 100,
+})) {
+  console.log(invoice.id);
+}
+
 // To-one returns an object result: ok or not-found.
 await objects.Invoice.traverse.customer(invoiceId, { select: ['name'] });
 ```
+
+`query()` and to-many traversals return an awaitable, async-iterable handle:
+`await` returns one page; `for await` yields object records, preserving
+evidence, across all pages. Empty non-final pages are followed. Pagination
+validation and cycle detection belong to Relate; application bounds such as the
+escalation's 1,000 tasks stay explicit. Breaking stops further page requests.
+`limit` is a page size, not a total-result bound.
+
+The shared `Page`/`PageMeta` types and `createQuery` helper are implemented in
+`@relate/protocol` and `@relate/runtime`. The fixture's `query` operation and
+action executor remain declarations; pagination tests do not prove native
+transaction rollback. See the
+[helper contract](../../../packages/runtime/README.md#pagination).
 
 The same calls work on the `objects` supplied to an action implementation.
 Traversal names and cardinality come from the shared relationship definitions;

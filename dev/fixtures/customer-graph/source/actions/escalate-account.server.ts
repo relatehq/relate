@@ -28,42 +28,26 @@ export const escalateAccount = implementAction(
       throw new Error('Review unavailable');
 
     const taskIds: string[] = [];
-    let cursor: string | undefined;
 
-    do {
-      // Filtering belongs to the query. Unknown filter evidence must not silently
-      // drop matches. Failure later in pagination rolls back all native writes.
-      const page = await objects.Invoice.query({
-        where: { customer: customer.id, status: 'open' },
-        select: ['id'],
-        limit: 100,
-        ...(cursor ? { cursor } : {}),
+    // Unknown filter evidence must reject, not silently drop matches. Relate
+    // follows pages; a later failure must roll back the action's native writes.
+    for await (const invoice of objects.Invoice.query({
+      where: { customer: customer.id, status: 'open' },
+      select: ['id'],
+      limit: 100,
+    })) {
+      if (taskIds.length >= 1_000) throw new Error('Too many invoices');
+
+      const task = await objects.Task.create({
+        customer: customer.id,
+        review: review.id,
+        invoice: invoice.id,
+        assignee: input.assignee,
+        dueDate: input.dueDate,
       });
 
-      for (const invoice of page.data) {
-        if (taskIds.length >= 1_000) throw new Error('Too many invoices');
-
-        const task = await objects.Task.create({
-          customer: customer.id,
-          review: review.id,
-          invoice: invoice.id,
-          assignee: input.assignee,
-          dueDate: input.dueDate,
-        });
-
-        taskIds.push(task.id);
-      }
-
-      if (page.meta.exhausted) break;
-
-      if (
-        !page.meta.continuationCursor ||
-        page.meta.continuationCursor === cursor
-      )
-        throw new Error('Incomplete invoice query');
-
-      cursor = page.meta.continuationCursor;
-    } while (true);
+      taskIds.push(task.id);
+    }
 
     return { reviewId: review.id, taskIds };
   },

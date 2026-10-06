@@ -203,6 +203,33 @@ implementAction(EscalateAccount, async ({ objects }) => {
     where: { missing: 'x' },
     select: ['id'],
   });
+
+  for await (const invoice of objects.Invoice.query({ select: ['id'] })) {
+    const selected: Expect<
+      Equal<typeof invoice.data, { readonly id?: string }>
+    > = true;
+
+    void selected;
+    // @ts-expect-error iteration preserves selection
+    invoice.data.status;
+  }
+
+  for await (const invoice of objects.Customer.traverse.invoices('c', {
+    select: ['status'],
+  })) {
+    const selected: Expect<
+      Equal<typeof invoice.data, { readonly status?: string }>
+    > = true;
+
+    void selected;
+    // @ts-expect-error traversal iteration preserves target selection
+    invoice.data.totalMinor;
+  }
+
+  // @ts-expect-error to-one traversal remains a promise, not an iterable
+  for await (const customer of objects.Invoice.traverse.customer('i'))
+    void customer;
+
   const invoices = await objects.Customer.traverse.invoices('c', {
     select: ['status'],
     limit: 100,

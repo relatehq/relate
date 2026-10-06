@@ -16,7 +16,13 @@ import type {
   defineAccess as currentDefineAccess,
   source,
 } from 'relate';
-import type { FieldEvidence, ReadRequest, ReadResult } from '@relate/protocol';
+import type {
+  FieldEvidence,
+  Page as ResultPage,
+  ReadRequest,
+  ReadResult,
+} from '@relate/protocol';
+import type { QueryResult } from '@relate/runtime';
 import type { ObservationStore } from '@relate/runtime/storage';
 
 export { defineSource, from, objectId, source } from 'relate';
@@ -559,16 +565,10 @@ export type ObjectResult<
   | ({ readonly status: 'ok' } & ObjectRecord<O, K>);
 
 /** A page may be empty without being the last one. Continue until exhausted. */
-export interface Page<
+export type Page<
   O extends ObjectDefinition,
   K extends Names<O> = Names<O>,
-> {
-  readonly data: readonly ObjectRecord<O, K>[];
-  readonly meta: {
-    readonly continuationCursor: string | null;
-    readonly exhausted: boolean;
-  };
-}
+> = ResultPage<ObjectRecord<O, K>>;
 
 export type PageOptions<K extends string> = ReadOptions<K> & {
   readonly limit?: number;
@@ -601,11 +601,9 @@ type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
     options?: E['traversal']['cardinality'] extends 'many'
       ? PageOptions<K>
       : ReadOptions<K>,
-  ) => Promise<
-    E['traversal']['cardinality'] extends 'many'
-      ? Page<E['target'], K>
-      : ObjectResult<E['target'], K>
-  >;
+  ) => E['traversal']['cardinality'] extends 'many'
+    ? QueryResult<ObjectRecord<E['target'], K>>
+    : Promise<ObjectResult<E['target'], K>>;
 };
 
 /** Same read contract for consumers and actions; every call applies policy. */
@@ -620,7 +618,7 @@ export interface ObjectOperations<
   /** Omit `where` (or all options) to enumerate without a filter. */
   query<K extends Names<O> = Names<O>>(
     options?: QueryOptions<O, K>,
-  ): Promise<Page<O, K>>;
+  ): QueryResult<ObjectRecord<O, K>>;
   /** Both directions of every relationship that touches this object. */
   readonly traverse: Traversals<R, O>;
 }

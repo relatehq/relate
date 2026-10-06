@@ -53,11 +53,16 @@ per-operation checks, final validation and receipt access are separate.
 
 ## 2. Query and evidence semantics
 
-The fixture sketches equality filters and paginated results. Native/reference
-filter typing, joins, aggregate pushdown, strict freshness and field
-requirements need concrete examples. Do not fetch all rows to implement every
-filter locally. Unsupported pushdown needs honest bounded fallback or rejection,
-not silently dropped predicates.
+The fixture sketches equality filters. Pagination authoring is agreed: await one
+page or iterate object records through the same query/to-many handle.
+`Page.meta` discriminates exhaustion from a required continuation. The runtime
+helper validates pages and detects iterator cursor cycles; collection execution
+is still unimplemented. See the
+[shared helper contract](../../../packages/runtime/README.md#pagination).
+Native/reference filter typing, joins, aggregate pushdown, strict freshness and
+field requirements need concrete examples. Do not fetch all rows to implement
+every filter locally. Unsupported pushdown needs honest bounded fallback or
+rejection, not silently dropped predicates.
 
 Queries must distinguish no matching visible records from unknown filter
 evidence or failed enumeration. Define snapshot/pagination consistency,
