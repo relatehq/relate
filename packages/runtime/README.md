@@ -124,6 +124,13 @@ final create-policy validation. Successful native effects and receipt evidence
 commit atomically. `@relate/node` binds typed implementations and caller
 methods; it does not own transaction or authorization semantics.
 
+`actionTimeoutMs` bounds the native callback after lock acquisition: 60,000 ms
+by default, with host-configured integer values from 1 to 60,000. Expiry revokes
+object/native transaction access and rejects the callback so the adapter rolls
+back and releases its resources even if the handler never returns. Late handler
+completion cannot save a receipt or commit. This budget ends before COMMIT and
+does not include installation, lock/pool waiting or database cleanup.
+
 Memory serializes native transactions per graph using isolated working copies;
 Postgres provides the same behavior with adapter-owned transactions. Source
 observation retention stays separate. Current execution returns confirmed

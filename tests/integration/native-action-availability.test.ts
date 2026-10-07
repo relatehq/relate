@@ -50,11 +50,16 @@ const createReview: ActionHandler = async (context) => {
   return { reviewId: review.id };
 };
 
-function app(handler = createReview, storage: ObservationStore = store) {
+function app(
+  handler = createReview,
+  storage: ObservationStore = store,
+  actionTimeoutMs = 60_000,
+) {
   return createRuntime({
     model,
     graphId,
     store: storage,
+    actionTimeoutMs,
     sources: {
       [customers.id]: {
         connectionId: 'crm',
@@ -202,16 +207,17 @@ it('maps a real advisory lock timeout to unavailable and leaves the key retryabl
   }
 });
 
-it('reports an idle-terminated transaction as unavailable with confirmed rollback', async () => {
+it('interrupts a never-returning handler when its session dies and releases the pool slot', async () => {
   const nativePool = new pg.Pool({
     connectionString: testDatabaseUrl(),
+    max: 1,
     idle_in_transaction_session_timeout: 100,
   });
   const runtime = app(
     async (context) => {
       const output = await createReview(context);
 
-      await delay(300);
+      await new Promise<void>(() => {});
 
       return output;
     },
@@ -225,10 +231,115 @@ it('reports an idle-terminated transaction as unavailable with confirmed rollbac
       runtime.invoke(ana, AddAccountReview.id, request(customer)),
     ).rejects.toMatchObject({ name: 'ActionError', code: 'unavailable' });
     await expectEmpty();
+    expect(nativePool.totalCount).toBe(0);
+    const recovered = app(createReview, {
+      ...store,
+      native: createNativePostgresStore(nativePool),
+    });
+
+    await expect(
+      recovered.invoke(ana, AddAccountReview.id, request(customer)),
+    ).resolves.toMatchObject({ state: 'succeeded' });
   } finally {
     await nativePool.end();
   }
 });
+
+it('returns the pool slot and rolls back a never-returning handler at its execution deadline', async () => {
+  const nativePool = new pg.Pool({
+    connectionString: testDatabaseUrl(),
+    max: 1,
+  });
+  const storage = { ...store, native: createNativePostgresStore(nativePool) };
+  const runtime = app(
+    async (context) => {
+      await createReview(context);
+      await new Promise<void>(() => {});
+    },
+    storage,
+    500,
+  );
+
+  try {
+    const customer = await runtime.adopt(Customer.id, 'northwind');
+
+    await expect(
+      runtime.invoke(ana, AddAccountReview.id, request(customer)),
+    ).rejects.toMatchObject({ code: 'unavailable' });
+    await expectEmpty();
+    expect(nativePool.totalCount).toBe(1);
+    expect(nativePool.idleCount).toBe(1);
+    await expect(
+      app(createReview, storage).invoke(
+        ana,
+        AddAccountReview.id,
+        request(customer),
+      ),
+    ).resolves.toMatchObject({ state: 'succeeded' });
+  } finally {
+    await nativePool.end();
+  }
+});
+
+it.each(['success', 'lost-ack'])(
+  'preserves COMMIT %s when acknowledgement outlasts the execution budget',
+  async (outcome) => {
+    const nativePool = new pg.Pool({ connectionString: testDatabaseUrl() });
+
+    nativePool.on('connect', (client) => {
+      const query = client.query.bind(client);
+
+      client.query = ((...args: Parameters<typeof query>) => {
+        if (args[0] === 'COMMIT')
+          return (query('COMMIT') as Promise<pg.QueryResult>).then(
+            async (result) => {
+              await delay(700);
+
+              if (outcome === 'lost-ack')
+                throw Object.assign(new Error('lost acknowledgement'), {
+                  code: 'ECONNRESET',
+                });
+
+              return result;
+            },
+          );
+
+        return query(...args);
+      }) as typeof client.query;
+    });
+    const runtime = app(
+      createReview,
+      { ...store, native: createNativePostgresStore(nativePool) },
+      500,
+    );
+
+    try {
+      const customer = await runtime.adopt(Customer.id, 'northwind');
+      const invocation = runtime.invoke(
+        ana,
+        AddAccountReview.id,
+        request(customer),
+      );
+
+      if (outcome === 'success')
+        await expect(invocation).resolves.toMatchObject({ state: 'succeeded' });
+      else
+        await expect(invocation).rejects.toMatchObject({ code: 'uncertain' });
+
+      expect(
+        (
+          await store.native!.loadInvocation(
+            scope(),
+            AddAccountReview.id,
+            'review',
+          )
+        )?.receipt.state,
+      ).toBe('succeeded');
+    } finally {
+      await nativePool.end();
+    }
+  },
+);
 
 it('does not return success when COMMIT acknowledges ROLLBACK', async () => {
   await store.install(graphId, model.definitionRevision);

@@ -111,6 +111,21 @@ errors remain `internal`; neither code exposes exception details. Source-read
 fallback and authorization withholding retain their normal read semantics. Do
 not automatically retry `uncertain`: its effects may already be committed.
 
+Native execution has a 60-second budget after the graph lock is acquired. Hosts
+can lower it through `createRuntime({ ..., actionTimeoutMs: 5_000 })`; accepted
+values are integer milliseconds from 1 through 60,000. It covers the key claim,
+reference checks, handler, outstanding object operations and receipt
+preparation. Expiry revokes the invocation's object operations and rejects the
+transaction callback, rolling back native writes and its key with
+`ActionError('unavailable')`. A handler that later resumes cannot perform
+further native writes.
+
+This is an execution budget, not an end-to-end request timeout: installation,
+pool/lock waiting, database rollback and COMMIT have their own storage bounds.
+The execution timer stops before COMMIT; delayed or lost acknowledgements retain
+their normal success/uncertain semantics. JavaScript handler code itself cannot
+be forcibly stopped, and independently retained source refreshes may finish.
+
 ## Deliberate limits of this slice
 
 - A committed graph/action/idempotency key cannot execute again. Duplicate keys

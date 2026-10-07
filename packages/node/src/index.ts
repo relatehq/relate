@@ -63,6 +63,7 @@ export interface AppOptions<
   /** Borrowed storage: the caller owns migrations and closing it. */
   readonly store?: RuntimeOptions['store'];
   readonly clock?: RuntimeOptions['clock'];
+  readonly actionTimeoutMs?: RuntimeOptions['actionTimeoutMs'];
   readonly cursorKey?: Uint8Array;
 }
 
@@ -146,6 +147,9 @@ export function createRuntime<
     graphId: options.graphId ?? options.graph.id,
     sources,
     actionHandlers: handlers,
+    ...(options.actionTimeoutMs !== undefined
+      ? { actionTimeoutMs: options.actionTimeoutMs }
+      : {}),
     ...(options.store ? { store: options.store } : {}),
     ...(options.clock ? { clock: options.clock } : {}),
     ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),

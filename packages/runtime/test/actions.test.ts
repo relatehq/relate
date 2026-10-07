@@ -11,6 +11,20 @@ import {
   ana,
 } from '../../../tests/support/native-action-model.js';
 
+it.each([0, -1, 1.5, NaN, Infinity, 60_001])(
+  'rejects an invalid action timeout of %s',
+  (actionTimeoutMs) => {
+    expect(() =>
+      createRuntime({
+        model: compile(graph),
+        graphId: 'timeouts',
+        sources: {},
+        actionTimeoutMs,
+      }),
+    ).toThrow('actionTimeoutMs');
+  },
+);
+
 it.each(['capability', 'policy'])(
   'enforces native create %s below the typed application facade',
   async (missing) => {

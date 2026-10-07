@@ -20,6 +20,7 @@ import type {
   ObservationStore,
 } from '../storage.js';
 import type { Principal } from '../authorization/index.js';
+import { createActionDeadline } from './deadline.js';
 
 type Action = NonNullable<Manifest['actions']>[number];
 
@@ -70,6 +71,7 @@ export function createActionExecutor(options: {
   scope: NativeScope;
   store: ObservationStore;
   clock(): number;
+  timeoutMs: number;
   install(): Promise<void>;
   handlers: Readonly<Record<string, ActionHandler>>;
   read(
@@ -116,157 +118,174 @@ export function createActionExecutor(options: {
 
     if (!handler || !store.native) throw new ActionError('unsupported');
 
+    let deadline: ReturnType<typeof createActionDeadline> | undefined;
+
     try {
       await options.install();
 
       return await store.native.transaction(
         options.scope,
         async (transaction) => {
-          await transaction.claim(action.id, key);
-          const created: NativeRecord[] = [];
-          let accepting = true;
-          let failure: unknown;
-          let aborted = false;
-          const pending: Promise<unknown>[] = [];
-          const run = <T>(operation: () => Promise<T>): Promise<T> => {
-            if (!accepting) return Promise.reject(new ActionError('invalid'));
+          deadline = createActionDeadline(transaction, options.timeoutMs);
 
-            const promise = Promise.resolve()
-              .then(async () => {
-                if (aborted) throw failure;
+          return deadline.run(async (transaction, check) => {
+            await transaction.claim(action.id, key);
+            const created: NativeRecord[] = [];
+            let accepting = true;
+            let failure: unknown;
+            let aborted = false;
+            const pending: Promise<unknown>[] = [];
+            const run = <T>(operation: () => Promise<T>): Promise<T> => {
+              if (!accepting) return Promise.reject(new ActionError('invalid'));
 
-                return operation();
-              })
-              .catch((error: unknown) => {
-                if (!aborted) failure = error;
+              const promise = Promise.resolve()
+                .then(async () => {
+                  check();
 
-                aborted = true;
-                throw error;
+                  if (aborted) throw failure;
+
+                  const result = await operation();
+
+                  check();
+
+                  return result;
+                })
+                .catch((error: unknown) => {
+                  if (!aborted) failure = error;
+
+                  aborted = true;
+                  throw error;
+                });
+
+              pending.push(promise);
+              // Prevent unhandled rejection when implementation neglects to await; finalization still fails.
+              void promise.catch(() => {});
+
+              return promise;
+            };
+            const checkReferences = async (
+              shape: Action['input'],
+              values: Record<string, Json>,
+            ) => {
+              for (const [name, field] of Object.entries(shape))
+                if (field.references) {
+                  check();
+                  const result = await options.read(
+                    actor,
+                    field.references,
+                    values[name] as string,
+                    { select: [] },
+                    transaction,
+                  );
+
+                  if (result.status !== 'ok') throw new ActionError('denied');
+                }
+            };
+
+            await checkReferences(action.input, input);
+            let output: Record<string, Json>;
+
+            try {
+              const result = await handler({
+                actor: structuredClone(actor),
+                input: structuredClone(input),
+                read: (type, id, request = {}) =>
+                  run(() =>
+                    options.read(actor, type, id, request, transaction),
+                  ),
+                create: (type, values) =>
+                  run(async () => {
+                    const object = manifest.objects.find((o) => o.id === type);
+
+                    if (
+                      !object ||
+                      object.sourceDefinitionId ||
+                      !action.creates.includes(type)
+                    )
+                      throw new ActionError('denied');
+
+                    const properties = object.properties.filter(
+                      (p) => p.origin.kind !== 'object-id',
+                    );
+
+                    if (
+                      !values ||
+                      typeof values !== 'object' ||
+                      Array.isArray(values) ||
+                      Object.keys(values).some(
+                        (name) => !properties.some((p) => p.name === name),
+                      )
+                    )
+                      throw new ActionError('invalid');
+
+                    const shape = Object.fromEntries(
+                      properties.map((p) => [
+                        p.name,
+                        {
+                          ...p.schema,
+                          ...(p.origin.kind === 'native-reference'
+                            ? { references: p.origin.targetObjectDefinitionId }
+                            : {}),
+                        },
+                      ]),
+                    );
+                    const parsed = parse(shape, values);
+                    const record: NativeRecord = {
+                      objectDefinitionId: object.id,
+                      objectId: randomUUID(),
+                      createdAt: options.clock(),
+                      values: Object.fromEntries(
+                        properties
+                          .filter((p) => Object.hasOwn(parsed, p.name))
+                          .map((p) => [p.id, parsed[p.name]!]),
+                      ),
+                    };
+
+                    await options.validate(actor, object, record, transaction);
+                    await transaction.insert(record);
+                    created.push(record);
+
+                    return { id: record.objectId };
+                  }),
               });
 
-            pending.push(promise);
-            // Prevent unhandled rejection when implementation neglects to await; finalization still fails.
-            void promise.catch(() => {});
+              output = parse(action.output, result);
+            } finally {
+              accepting = false;
+              await Promise.allSettled(pending);
+            }
 
-            return promise;
-          };
-          const checkReferences = async (
-            shape: Action['input'],
-            values: Record<string, Json>,
-          ) => {
-            for (const [name, field] of Object.entries(shape))
-              if (field.references) {
-                const result = await options.read(
-                  actor,
-                  field.references,
-                  values[name] as string,
-                  { select: [] },
-                  transaction,
-                );
+            if (aborted) throw failure;
 
-                if (result.status !== 'ok') throw new ActionError('denied');
-              }
-          };
+            // Recheck after arbitrary implementation awaits and all native writes.
+            await checkReferences(action.input, input);
 
-          await checkReferences(action.input, input);
-          let output: Record<string, Json>;
+            for (const record of created)
+              await options.validate(
+                actor,
+                manifest.objects.find(
+                  (o) => o.id === record.objectDefinitionId,
+                )!,
+                record,
+                transaction,
+              );
 
-          try {
-            const result = await handler({
-              actor: structuredClone(actor),
-              input: structuredClone(input),
-              read: (type, id, request = {}) =>
-                run(() => options.read(actor, type, id, request, transaction)),
-              create: (type, values) =>
-                run(async () => {
-                  const object = manifest.objects.find((o) => o.id === type);
+            await checkReferences(action.output, output);
+            const receipt: SucceededReceipt = {
+              invocationId: randomUUID(),
+              state: 'succeeded',
+              output,
+            };
 
-                  if (
-                    !object ||
-                    object.sourceDefinitionId ||
-                    !action.creates.includes(type)
-                  )
-                    throw new ActionError('denied');
-
-                  const properties = object.properties.filter(
-                    (p) => p.origin.kind !== 'object-id',
-                  );
-
-                  if (
-                    !values ||
-                    typeof values !== 'object' ||
-                    Array.isArray(values) ||
-                    Object.keys(values).some(
-                      (name) => !properties.some((p) => p.name === name),
-                    )
-                  )
-                    throw new ActionError('invalid');
-
-                  const shape = Object.fromEntries(
-                    properties.map((p) => [
-                      p.name,
-                      {
-                        ...p.schema,
-                        ...(p.origin.kind === 'native-reference'
-                          ? { references: p.origin.targetObjectDefinitionId }
-                          : {}),
-                      },
-                    ]),
-                  );
-                  const parsed = parse(shape, values);
-                  const record: NativeRecord = {
-                    objectDefinitionId: object.id,
-                    objectId: randomUUID(),
-                    createdAt: options.clock(),
-                    values: Object.fromEntries(
-                      properties
-                        .filter((p) => Object.hasOwn(parsed, p.name))
-                        .map((p) => [p.id, parsed[p.name]!]),
-                    ),
-                  };
-
-                  await options.validate(actor, object, record, transaction);
-                  await transaction.insert(record);
-                  created.push(record);
-
-                  return { id: record.objectId };
-                }),
+            await transaction.saveInvocation({
+              actionDefinitionId: action.id,
+              idempotencyKey: key,
+              input,
+              receipt,
             });
 
-            output = parse(action.output, result);
-          } finally {
-            accepting = false;
-            await Promise.allSettled(pending);
-          }
-
-          if (aborted) throw failure;
-
-          // Recheck after arbitrary implementation awaits and all native writes.
-          await checkReferences(action.input, input);
-
-          for (const record of created)
-            await options.validate(
-              actor,
-              manifest.objects.find((o) => o.id === record.objectDefinitionId)!,
-              record,
-              transaction,
-            );
-
-          await checkReferences(action.output, output);
-          const receipt: SucceededReceipt = {
-            invocationId: randomUUID(),
-            state: 'succeeded',
-            output,
-          };
-
-          await transaction.saveInvocation({
-            actionDefinitionId: action.id,
-            idempotencyKey: key,
-            input,
-            receipt,
+            return receipt;
           });
-
-          return receipt;
         },
       );
     } catch (error) {
@@ -284,6 +303,9 @@ export function createActionExecutor(options: {
         throw new ActionError('unavailable');
 
       throw new ActionError('internal');
+    } finally {
+      // An adapter can fail while the callback is suspended (for example a dead PG session).
+      deadline?.close();
     }
   };
 }
