@@ -1,8 +1,12 @@
 # Inspector foundation and live model graph
 
 **Status:** architecture and one-screen scope agreed on 2026-10-07;
-configuration and protocol signatures below are proposed. This is a
-specification, not an implemented or published inspector.
+configuration and protocol signatures below are proposed. Structured semantic
+diagnostics are a required dependency of the error experience; source-location
+capture remains an open implementation choice. Type diagnostics are decided as a
+non-blocking follow-up: the protocol reserves their shape, the first
+implementation shows Manifest validity only. This is a specification, not an
+implemented or published inspector.
 
 ## Outcome and scope
 
@@ -298,7 +302,8 @@ apps/inspector/
 The package exposes separate browser-safe `@relate/inspector/protocol` and
 server-only `@relate/inspector/server` entry points. Their exact export names
 are proposed. DTOs may depend on `relate/model`, which contains portable
-validation, but never on `relate/compiler` or `@relate/node`.
+validation, and the proposed platform-neutral `relate/diagnostics` contract, but
+never on `relate/compiler` or `@relate/node`.
 
 Do not put an inspector DTO importing `Manifest` into `@relate/protocol` without
 revisiting the dependency graph: `relate` already depends on that package. Keep
@@ -309,6 +314,8 @@ Allowed direction:
 ```text
 CLI -> inspector/server, inspector/protocol, node, relate/compiler
 browser -> inspector/protocol -> relate/model
+browser -> inspector/protocol -> relate/diagnostics
+relate authoring, compiler, model -> relate/diagnostics
 node -> relate/compiler, runtime
 runtime -> relate/model, protocol
 ```
@@ -317,6 +324,243 @@ When consumer screens exist, the browser also uses `@relate/client`. It never
 uses the dev channel as a shortcut around consumer authorization. Server-side
 inspection adapters can accept narrow host capabilities; the prohibition on
 runtime imports applies to browser code.
+
+## Structured diagnostics: required compiler work
+
+The current compiler and Manifest validator throw plain errors such as
+`Unknown policy role` and `Invalid native reference`. Their stacks identify
+Relate's validation code, not the authored definition that failed. Source maps
+cannot reconstruct that missing association. Syntax/import errors and semantic
+model errors therefore require different diagnostic paths.
+
+The inspector must not ship the semantic-error experience by parsing those
+messages or displaying `relate/dist/compiler.js` as the user's error location.
+Structured issues are work owned by `packages/relate`, required alongside the
+inspector's error rendering. The following contracts are proposed and not
+implemented exports.
+
+### Portable issue and exception contract
+
+Introduce a platform-neutral `relate/diagnostics` subpath in the existing
+`relate` package. It owns issue types and validation error classes. It imports
+no compiler, Node APIs, filesystem helpers or inspector code. This lets both
+authoring helpers and the browser share the contract without importing the
+Node-dependent compiler.
+
+```ts
+// Proposed exports from relate/diagnostics.
+// Representative codes; implementation must enumerate supported validations.
+type ModelIssueCode =
+  | 'policy.unknown-role'
+  | 'relationship.invalid-endpoints'
+  | 'object.object-id-count'
+  | 'reference.invalid-target'
+  | 'definition.duplicate-id'
+  | 'manifest.invalid-shape';
+
+type IssuePath = {
+  root: 'graph' | 'definition' | 'manifest';
+  segments: readonly (string | number)[];
+};
+
+type SourceSite = {
+  file: string;
+  line: number; // one-based
+  column: number; // one-based
+  precision: 'declaration' | 'expression';
+};
+
+type ModelIssue = {
+  code: ModelIssueCode;
+  message: string;
+  definitionId?: string;
+  path?: IssuePath;
+  site?: SourceSite;
+};
+
+class CompileError extends Error {
+  readonly issues: readonly ModelIssue[];
+
+  constructor(issues: readonly ModelIssue[]) {
+    if (issues.length === 0) throw new Error('CompileError needs an issue');
+    super(issues.map((issue) => issue.message).join('\n'));
+    this.name = 'CompileError';
+    this.issues = Object.freeze([...issues]);
+  }
+}
+```
+
+`CompileError` covers expected authored-definition and compilation validation
+failures. `relate/compiler` may re-export the same class, not define a second
+copy. `relate/model` uses a separate `ManifestValidationError` with the same
+`issues` contract for invalid serialized input. Unexpected implementation
+exceptions remain internal failures; do not relabel every thrown exception as a
+user model mistake.
+
+Codes are stable machine-readable identifiers; consumers must not branch on
+message text. Messages name the failing registry entry and offending value.
+Supply definition IDs and paths whenever known; optionality covers cases such as
+a malformed root or a definition whose ID is invalid. IDs must be unambiguous
+before the UI uses them for highlighting.
+
+### Concrete semantic-error examples
+
+Suppose a model assembled through JavaScript or dynamic configuration gives
+`Invoice.read` the role `finanse`, while the graph declares `finance`.
+TypeScript can catch many mistakes in typed authoring, but runtime validation
+must still provide this context when invalid definitions reach it:
+
+```ts
+const issue: ModelIssue = {
+  code: 'policy.unknown-role',
+  message: "Policy Invoice.read uses unknown role 'finanse'",
+  definitionId: 'example.invoice',
+  path: {
+    root: 'graph',
+    segments: ['policies', 'Invoice', 'read', 'gate'],
+  },
+  site: {
+    file: 'src/relate/graph.ts',
+    line: 24,
+    column: 22,
+    precision: 'declaration',
+  },
+};
+```
+
+The message and path point to the policy. A declaration site at line 24 might
+identify `defineGraph(...)`, not the nested role expression. The UI must label
+that link **Graph declared here**, not underline it as the exact bad field. Only
+`precision: 'expression'` permits an exact-expression location claim.
+
+Other required examples:
+
+| Invalid definition                                               | Issue code and contextual message                                                                               | Path and graph behavior                                                                                                                                         |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CustomerInvoices` references an unregistered Invoice object     | `relationship.invalid-endpoints`: `Relationship CustomerInvoices targets unregistered object 'example.invoice'` | Graph path `['relationships', 'CustomerInvoices']`; highlight edge `example.customer-invoices` only if its ID is unambiguous and present in the last good graph |
+| Customer has no `objectId()` property                            | `object.object-id-count`: `Object 'example.customer' requires exactly one objectId() property; found 0`         | Definition path `['properties']`; highlight node `example.customer` if present                                                                                  |
+| AccountReview has a native reference to an unregistered Customer | `reference.invalid-target`: `Property AccountReview.customer references unregistered object 'example.customer'` | Graph path `['objects', 'AccountReview', 'properties', 'customer']`; identify the owning AccountReview node                                                     |
+
+Some errors happen **before `compile()` is called**. Today `defineObject` throws
+immediately when the object-ID count is invalid. Its proposed error must carry
+the supplied object ID and a definition-relative path, even though the graph
+registry has not been assembled. The worker catches structured validation errors
+during both module import and compilation; it must not misclassify this as a
+generic import-resolution failure.
+
+Do not fabricate the registry key `Customer` during that early failure: the
+author might later register that definition under a different API name.
+
+### Authoring paths and Manifest paths
+
+Paths name their root explicitly because authored objects and serialized
+manifests have different shapes. For the same policy mistake:
+
+```ts
+// CompileError: addresses the graph supplied to compile(graph).
+const authoredPath: IssuePath = {
+  root: 'graph',
+  segments: ['policies', 'Invoice', 'read', 'gate'],
+};
+
+// ManifestValidationError: addresses the JSON supplied to validateManifest().
+const manifestPath: IssuePath = {
+  root: 'manifest',
+  segments: ['policies', 'example.invoice', 'read', 'role'],
+};
+```
+
+`model.ts` owns structured schema and semantic validation of JSON, including
+conversion of schema-validator issues into the public issue vocabulary. It
+cannot know where a `defineGraph()` call occurred. When compilation lowers the
+graph to a Manifest, the compiler retains enough correspondence to map Manifest
+paths back to authored definitions and registry keys. If a path cannot be
+translated, retain its explicit Manifest root; never present it as an authored
+path. Duplicate or invalid IDs must not create a guessed mapping.
+
+### Source provenance and code frames
+
+`defineSource`, `defineObject`, `defineRelationship`, `defineGraph` and action
+definitions need an optional provenance mechanism owned by `relate`. An internal
+side table keyed by definition object is a candidate. Source paths, stacks and
+capture metadata must stay outside the Manifest and its hash. Moving a file,
+enabling capture or changing source maps must not change `definitionRevision`
+for an otherwise identical model.
+
+**Open mechanism:** development-only capture of declaration stacks, explicit
+source metadata or build-time instrumentation. A stack captured with
+`new Error().stack` is a candidate, not an agreed guarantee of exact locations.
+Validate wrappers, shared definition factories, generated definitions and linked
+packages before selecting it. Do not add unconditional stack-capture cost or
+Node imports to the ordinary portable authoring path.
+
+The host must enable any capture before evaluating the user's modules. Raw
+capture metadata stays in the child; the Node tooling resolves usable sites
+through source maps there. The compiler associates issues with their authored
+definitions and may attach a resolved site through a host-provided resolver. The
+exact resolver/capture API remains proposed; the compiler must also work without
+it.
+
+The CLI diagnostic adapter reads bounded excerpts from the corresponding build
+attempt's source content, normalizes project-relative paths and produces `frame`
+when a site and matching source are available. If the file has changed since
+that attempt and no matching source snapshot is available, omit the frame rather
+than point at different code. A missing source map, unreadable file or
+unresolvable site must not hide the semantic issue. No filesystem or source-map
+resolution belongs in the browser.
+
+Without provenance, the example remains actionable:
+
+```text
+policy.unknown-role
+Policy Invoice.read uses unknown role 'finanse'
+Graph path: policies.Invoice.read.gate
+Definition: example.invoice
+Source location unavailable
+```
+
+### Ownership of the complete diagnostic path
+
+| Owner                                                                   | Required responsibility                                                                                                                                | Must not own                                                                       |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `packages/relate/src/diagnostics.ts` (new, proposed subpath)            | Stable issue codes, path/site types, `CompileError` and `ManifestValidationError`                                                                      | Node dependencies, file excerpts or inspector DTOs                                 |
+| `packages/relate` authoring helpers                                     | Optional declaration provenance; structured early validation errors such as missing `objectId()`                                                       | Opening source files, starting hosts, importing the compiler                       |
+| `packages/relate/src/compiler.ts`                                       | Contextual issues, independent-issue collection, definition identity, authored paths and translation from lowered Manifest paths                       | HTTP/SSE, editor launching or parsing human error messages                         |
+| `packages/relate/src/model.ts`                                          | Structured shape/semantic issues for serialized Manifest input                                                                                         | Assuming an authored call site exists or importing Node tooling                    |
+| `packages/node`                                                         | Preserve structured compile failures through `createRuntime` and future app startup; perform the already-specified resource cleanup on startup failure | Inventing semantic diagnostics or replacing errors with generic strings            |
+| `packages/cli` worker and supervisor                                    | Enable provenance before user evaluation; own source-map resolution, attempt identity, safe excerpts and explicit issue serialization across IPC/SSE   | Model validation rules or forcing a usable site for every error                    |
+| `apps/inspector` protocol                                               | Validate serializable issue lists and optional frames in snapshots/events; share portable types from `relate/diagnostics`                              | Importing compiler/runtime modules into the browser                                |
+| `apps/inspector` graph UI                                               | Show all reported issues, navigate available sites, highlight known nodes/edges in the last good graph and clear recovered errors                      | Inferring IDs from messages or reading the local filesystem                        |
+| `packages/runtime`, `packages/postgres`                                 | Retain their execution/storage responsibilities; consume structured model validation where already applicable                                          | Compiler provenance, source mapping or changes to storage for diagnostics          |
+| `packages/protocol`, `packages/http`, `packages/client`, `packages/mcp` | Keep consumer errors/evidence separate; any future diagnostic exposure requires an authorized development/admin adapter                                | Broadcasting source frames or policy metadata through ordinary consumer operations |
+
+The CLI explicitly copies error fields into a validated plain-data payload. Do
+not rely on `JSON.stringify(error)`, exception prototypes surviving IPC, or
+`instanceof` across processes. `instanceof CompileError` is useful inside the
+worker; the supervisor/browser use validated discriminants and issue fields.
+
+### Multiple issues and failure recovery
+
+Use an issue list from the outset. Collect independent failures when the graph
+is available: a bad Invoice policy and an invalid CustomerReviews relationship
+should be reported together. Validate prerequisites first and skip dependent
+checks when those prerequisites fail. An absent relationship endpoint must not
+produce a cascade of fabricated traversal failures. Deduplicate issues reported
+at authoring and Manifest-validation stages and return them in deterministic
+path/code order. Never return a partially valid `CompiledModel` as success.
+
+An exception thrown while importing definitions can stop module evaluation. In
+that case report the structured issues available from that exception; do not
+promise all errors across modules that never executed. Invalid root shapes can
+similarly prevent deeper validation. Unexpected worker failures remain distinct
+from semantic issues.
+
+If attempt 8 fails while generation 7 is displayed, keep generation 7 and mark
+the issue list as belonging to attempt 8. Highlight only unambiguous IDs present
+in generation 7; a new broken definition still appears in the list without a
+node highlight. On a successful newer attempt, clear all prior issues and
+highlights atomically with the new model. Discard late diagnostics from older
+attempts just as late model results are discarded.
 
 ## Processes, reload and events
 
@@ -349,6 +593,7 @@ The first scope publishes **compiled models**, not live runtime activations:
 ```ts
 // Proposed wire shapes, validated at runtime as well as typed in TypeScript.
 import type { Manifest } from 'relate/model';
+import type { ModelIssue, SourceSite } from 'relate/diagnostics'; // proposed
 
 type ModelSnapshot = {
   generation: number;
@@ -371,7 +616,9 @@ type DevEvent = {
   | {
       type: 'snapshot';
       model: ModelSnapshot | null;
-      diagnostic: Diagnostic | null;
+      failure: { attempt: number; diagnostics: readonly Diagnostic[] } | null;
+      // Follow-up scope; absent until the type checker ships.
+      typecheck?: { revision: number; diagnostics: readonly Diagnostic[] };
     }
   | {
       type: 'model';
@@ -380,15 +627,52 @@ type DevEvent = {
       diff: ManifestDiff;
       durationMs: number;
     }
-  | { type: 'diagnostic'; attempt: number; diagnostic: Diagnostic }
+  | { type: 'diagnostics'; attempt: number; diagnostics: readonly Diagnostic[] }
+  | {
+      // Follow-up scope; see "Type diagnostics: a non-blocking side channel".
+      type: 'typecheck';
+      revision: number;
+      diagnostics: readonly Diagnostic[];
+    }
 );
 
-type Diagnostic = {
-  code: string;
-  message: string;
-  frame?: { file: string; line: number; column: number; excerpt: string };
+type Diagnostic = (
+  | ({ kind: 'compile' } & ModelIssue)
+  | {
+      kind: 'syntax' | 'import' | 'worker' | 'layout' | 'type';
+      code: string;
+      message: string;
+      site?: SourceSite;
+    }
+) & {
+  severity: 'error' | 'warning';
+  frame?: SourceSite & { excerpt: string };
 };
 ```
+
+Each structured compiler issue becomes one `kind: 'compile'` diagnostic with its
+code, message, identity and path preserved. Syntax/import tools supply their own
+codes and may supply precise frames. Worker exceptions are sanitized separately.
+Frame precision must match the associated site. Layout diagnostics use the same
+presentation shape locally; ELK failures do not become compiler failures or
+advance the supervisor's generation.
+
+`kind` answers "what failed" and groups diagnostics into the three states the UI
+must tell apart: `compile`, `syntax`, `import` and `type` mean the authored code
+has a problem; `worker` means the loader failed, not the code; connection loss
+is client state and is never a `Diagnostic`. Do not add kinds for loader failure
+reasons. A crashed, timed-out or out-of-memory child is one `worker` diagnostic
+whose `code` carries the reason, for example `worker.crash`, `worker.timeout` or
+`worker.oom`, with a sanitized message. Codes, not kinds, are the stable
+identifiers consumers branch on.
+
+`severity` answers "did this stop the model from publishing". Every diagnostic
+in `failure` or in a `diagnostics` event is `severity: 'error'`: the attempt
+failed and the last accepted graph stays on screen. `type` diagnostics are
+always `severity: 'warning'`: the model published and the warning rides beside
+it. The field is explicit rather than derived from `kind` so a future kind can
+choose either side without a protocol change, and so the UI never has to encode
+that mapping itself.
 
 Successful accepted evaluations advance `generation`, even if the definition
 hash is unchanged. Failed attempts do not advance it. Diff arrays contain stable
@@ -398,16 +682,91 @@ for rendering and do not have to patch a previous manifest successfully.
 Every SSE connection begins with an atomically captured snapshot and sequence,
 then receives subsequent events in order. Snapshot and subscription registration
 must not leave a race where an update is lost. On reconnect send a fresh
-snapshot, including the current diagnostic; durable event replay is unnecessary
-for this screen. Ignore duplicates and resynchronize on a sequence gap. A new
-`instanceId` resets sequence/generation comparisons. `/dev/snapshot` returns the
-same current state for explicit resynchronization.
+snapshot, including the current failure and its issue list; durable event replay
+is unnecessary for this screen. Ignore duplicates and resynchronize on a
+sequence gap. A new `instanceId` resets sequence/generation comparisons.
+`/dev/snapshot` returns the same current state for explicit resynchronization.
 
-Compile errors display next to the last accepted graph. An initial error shows
-an empty graph state with its diagnostic. Successful recovery clears the error.
-Display connection loss separately from invalid source code. Diagnostics should
-use source maps and project-relative paths; full diagnostic metadata is for
-authorized local development, never an unrestricted public endpoint.
+Compile issues display next to the last accepted graph. An initial failure shows
+an empty graph state with its issue list. Successful recovery clears the issues.
+The UI distinguishes three states and must not blur them: the authored code is
+invalid (`compile`, `syntax`, `import`, `type`), the loader failed (`worker`),
+and the connection dropped (client state, no diagnostic). A `worker` diagnostic
+must not read as a mistake in the user's code. Code frames are available only
+when source provenance can be resolved; a declaration frame must not claim
+exact-expression accuracy. Contextual messages and paths remain available
+without frames. Full diagnostic metadata is for authorized local development,
+never an unrestricted public endpoint.
+
+### Type diagnostics: a non-blocking side channel
+
+**Decision:** the first implementation shows Manifest validity, not type
+correctness. Type diagnostics are a specified follow-up with the protocol shape
+reserved above, so adding them later is additive and not a breaking change.
+
+esbuild strips types without checking them. Relate's authoring API relies on
+inference, so some authoring mistakes exist only as type errors: a property key
+that is not on the object, a reference typed against the wrong definition, an
+action input that does not match its schema. Those modules compile, the child
+imports them, and the graph updates as if nothing were wrong. The graph screen
+is partly protected because the compiler's runtime validation reports the
+semantic mistakes that matter to the Manifest, such as
+`reference.invalid-target`, with structured issues. Type checking adds the
+mistakes runtime validation cannot see, and it is not a correctness gate for the
+model graph. The developer's editor already shows these errors; the inspector's
+job is to put them beside the graph so a save that "worked" is not mistaken for
+a save that is right.
+
+When implemented, the CLI runs one type checker in watch mode beside the build
+pipeline, using the user's `tsconfig` and project references, with `noEmit` and
+no `transpileOnly` shortcut. Use the TypeScript compiler API or `tsc --watch`; a
+faster native checker is an implementation choice, not a contract. Reduce its
+output to the module set the build pipeline watches. The checker sees the whole
+program, and an error in an unrelated file is noise on this screen. Each
+reported error becomes one `kind: 'type'`, `severity: 'warning'` diagnostic
+whose `code` is the checker's diagnostic number, for example `ts.2322`, with the
+checker's message, a `site` of `expression` precision and a frame when the
+excerpt can be read.
+
+Type diagnostics travel on their own event and never share the build attempt's
+lifecycle:
+
+```ts
+// Follow-up scope. Reserved in DevEvent above.
+type TypecheckEvent = {
+  type: 'typecheck';
+  // Monotonic per instance; a new program version replaces all prior type
+  // diagnostics. Unrelated to `attempt` and `generation`.
+  revision: number;
+  diagnostics: readonly (Diagnostic & { kind: 'type'; severity: 'warning' })[];
+};
+```
+
+Rules that follow from the separate lifecycle:
+
+- A `typecheck` event is a complete replacement, never a delta. An empty list
+  means the program is clean at that revision.
+- Type diagnostics never appear in `failure` or in a `diagnostics` event, and a
+  successful attempt does not clear them. Only a newer `typecheck` revision
+  does. The build and the checker finish at different times, and clearing
+  warnings on publish would hide them for most of the edit cycle.
+- Type diagnostics never block publishing, never advance or hold back
+  `generation`, and are never treated as late by attempt ordering. Discard only
+  a `typecheck` event whose `revision` is older than the one displayed.
+- The reconnect snapshot carries the current type diagnostics and revision
+  alongside the current model and failure. A fresh connection sees the same
+  three states as a long-lived one.
+- The UI shows them as a separate warning count, such as a "3 type errors" pill,
+  visually distinct from the blocking error list. A type diagnostic may
+  highlight a node when its `site` resolves to a definition's declaration, under
+  the same unambiguous-ID rule as compile issues.
+- Type diagnostics carry file paths and excerpts from the user's project, so the
+  same loopback, Host/Origin and local-session restrictions apply.
+
+Checker latency is expected to be seconds on a real project, well above the
+build-to-graph path. That is acceptable because the channel is advisory. Do not
+delay the model event to wait for the checker, and do not run the checker inside
+the application-loading child, which is replaced on every attempt.
 
 Use a loopback host, same-origin browser requests, Host/Origin validation and a
 local session bootstrap. The UI receives model metadata and sanitized errors,
@@ -515,6 +874,34 @@ No reload latency or implementation-duration estimate is yet benchmarked.
   graph; avoid claiming that only root-file watching is sufficient.
 - Syntax/compile errors and worker crashes leave the host and last graph alive;
   correcting the source clears diagnostics and publishes the new model.
+- A crashed, timed-out and out-of-memory child each produce one `worker`
+  diagnostic with the matching `worker.*` code and `severity: 'error'`; the UI
+  presents it as a loader failure, not as an error in the user's code.
+- Protocol tests: every diagnostic in `failure` or a `diagnostics` event has
+  `severity: 'error'`; a `typecheck` event or snapshot field is accepted and
+  rendered as warnings without blocking the model, even before the checker
+  ships. Type warnings survive a successful attempt and are replaced only by a
+  newer `typecheck` revision.
+- `packages/relate/test`: invalid policies, native references and relationships
+  produce stable codes, contextual messages, correct IDs and rooted paths.
+  Missing `objectId()` also produces a structured issue during authoring/import.
+- `packages/relate/test`: direct invalid-Manifest input reports Manifest paths;
+  graph compilation translates applicable paths to authored registry keys.
+  Independent mistakes aggregate without cascades; failed imports do not claim
+  to report errors in modules that never executed.
+- `packages/relate/test`: provenance enabled/disabled, moved source files and
+  different source maps do not change an otherwise identical Manifest/revision.
+- `packages/node/test`: embedded runtime construction preserves structured
+  compilation failures. Future app-startup tests verify registered cleanup on
+  failure rather than replacing useful issues with a generic startup error.
+- CLI tests: normalize syntax, import, authoring and compilation failures;
+  preserve multiple issues through actual child-process serialization; discard
+  late diagnostics and omit frames when matching source content is unavailable.
+- Inspector browser tests: an error for an existing object highlights that node
+  without changing the camera; new/ambiguous IDs do not highlight the wrong
+  node. Reconnection restores the current failed attempt and all issues;
+  recovery clears them. Declaration links, exact-expression frames and missing
+  locations are visibly distinguishable within the same graph screen.
 - Rapid saves, slow compilation and slow ELK responses never restore an older
   model or layout over a newer accepted one.
 - Reconnect after missed events or host restart and recover from a snapshot.
