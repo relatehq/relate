@@ -75,11 +75,18 @@ const relate = createRuntime({
   connections: [
     connect(people, {
       connectionId: 'directory',
+      providerAccountId: 'example-account',
       connector: {
+        // This in-memory fixture is its own provider. Real adapters authenticate.
+        identify: async () => 'example-account',
         async fetch(id) {
           return id === '1'
-            ? { state: 'present', record: { id: '1', name: 'Ada' } }
-            : { state: 'deleted' };
+            ? {
+                providerAccountId: 'example-account',
+                state: 'present',
+                record: { id: '1', name: 'Ada' },
+              }
+            : { providerAccountId: 'example-account', state: 'deleted' };
         },
       },
     }),

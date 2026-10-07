@@ -51,3 +51,21 @@ CREATE TABLE relate.native_invocations (
   UNIQUE (graph_id, invocation_id)
 );
 `;
+
+// Legacy observations have no authenticated account provenance. Keep them for
+// explicit operator recovery, but never assign them to the next configured account.
+export const providerAccountMigration = `
+ALTER TABLE relate.objects ADD COLUMN provider_account_id text;
+ALTER TABLE relate.objects ADD CONSTRAINT objects_verified_account
+  CHECK (provider_account_id IS NOT NULL AND length(btrim(provider_account_id)) > 0) NOT VALID;
+DO $$
+DECLARE alias_constraint text;
+BEGIN
+  SELECT conname INTO STRICT alias_constraint FROM pg_constraint
+  WHERE conrelid = 'relate.objects'::regclass AND contype = 'u'
+    AND pg_get_constraintdef(oid) = 'UNIQUE (graph_id, object_type, source_id, connection_id, partition, provider_key)';
+  EXECUTE format('ALTER TABLE relate.objects DROP CONSTRAINT %I', alias_constraint);
+END $$;
+ALTER TABLE relate.objects ADD CONSTRAINT objects_account_alias
+  UNIQUE (graph_id, object_type, source_id, connection_id, partition, provider_account_id, provider_key);
+`;

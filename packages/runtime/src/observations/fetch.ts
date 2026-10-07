@@ -3,11 +3,15 @@ import type { Manifest } from 'relate/model';
 import type { Json } from '@relate/protocol';
 import type { Observation, SourceVersion } from '../storage.js';
 
-export type SourceRecord =
+/** Account identity must come from this response or its authenticated, immutable credential context. */
+export type SourceRecord = { readonly providerAccountId: string } & (
   | { state: 'present'; record: Record<string, Json>; version?: SourceVersion }
-  | { state: 'deleted'; version?: SourceVersion };
+  | { state: 'deleted'; version?: SourceVersion }
+);
 
 export interface SourceConnector {
+  /** Authenticate current credentials and return the provider's stable account ID, never a configured label. */
+  identify(options: { signal: AbortSignal }): Promise<string>;
   /** Deletion requires affirmative evidence. Throw SourceAccessDenied for explicit provider denial. */
   fetch(
     sourceRecordId: string,
@@ -29,15 +33,43 @@ export async function boundedFetch(
   connector: SourceConnector,
   sourceRecordId: string,
   timeoutMs: number,
+  providerAccountId: string,
 ): Promise<SourceRecord> {
+  const result = await boundedSourceCall(
+    (signal) => connector.fetch(sourceRecordId, { signal }),
+    timeoutMs,
+  );
+
+  // Missing identity is also a denial: it must not enable stale fallback.
+  if (result?.providerAccountId !== providerAccountId)
+    throw new SourceAccessDenied();
+
+  return result;
+}
+
+export async function verifyAccount(
+  connector: SourceConnector,
+  providerAccountId: string,
+  timeoutMs: number,
+): Promise<void> {
+  const actual = await boundedSourceCall(
+    (signal) => connector.identify({ signal }),
+    timeoutMs,
+  );
+
+  if (actual !== providerAccountId) throw new SourceAccessDenied();
+}
+
+async function boundedSourceCall<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   try {
     return await Promise.race([
-      Promise.resolve().then(() =>
-        connector.fetch(sourceRecordId, { signal: controller.signal }),
-      ),
+      Promise.resolve().then(() => operation(controller.signal)),
       new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
           controller.abort();

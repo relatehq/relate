@@ -21,13 +21,20 @@ import type {
   Principal,
   AuthorizationEvidence,
 } from '../authorization/index.js';
-import { boundedFetch, observation } from '../observations/index.js';
+import {
+  boundedFetch,
+  observation,
+  verifyAccount,
+  SourceAccessDenied,
+} from '../observations/index.js';
 import type { SourceConnector } from '../observations/index.js';
 import { validateReadRequest, summarize } from '../reads/index.js';
 import { refreshObservation } from './refresh.js';
 
 export interface SourceBinding {
   readonly connectionId: string;
+  /** Expected stable provider account ID, checked against authenticated connector evidence. */
+  readonly providerAccountId: string;
   readonly authorization: 'shared-service';
   readonly connector: SourceConnector;
 }
@@ -53,14 +60,35 @@ export function createSourceOperations(options: {
   const { manifest, revision, store, sources, clock, install, scopeFor } =
     options;
 
-  async function resolveEvidence(
+  async function accountAllowed(sourceId: string, request: ReadRequest = {}) {
+    const binding = sources[sourceId]!;
+
+    try {
+      await verifyAccount(
+        binding.connector,
+        binding.providerAccountId,
+        request.timeoutMs ?? 3_000,
+      );
+
+      return true;
+    } catch (error) {
+      if (error instanceof SourceAccessDenied) return false;
+
+      throw new ReadError('unavailable');
+    }
+  }
+
+  async function resolveSourceEvidence(
     target: Manifest['objects'][number],
     key: string,
     maxAgeMs: number,
     canonical = false,
     request: ReadRequest = {},
   ) {
-    if (!target.sourceDefinitionId) return undefined;
+    if (!target.sourceDefinitionId)
+      throw new Error(
+        'Source evidence resolution requires a source-backed object',
+      );
 
     const targetScope = scopeFor(target.id, target.sourceDefinitionId);
     const retained = canonical
@@ -68,6 +96,9 @@ export function createSourceOperations(options: {
       : await store.resolve(targetScope, key);
 
     if (!retained || retained.observation.state !== 'present') return undefined;
+
+    if (!(await accountAllowed(target.sourceDefinitionId, request)))
+      return undefined;
 
     const resolved = await refreshObservation({
       store,
@@ -84,6 +115,9 @@ export function createSourceOperations(options: {
       sourcePermission: true,
       evidenceMaxAgeMs: maxAgeMs,
     });
+
+    if (!(await accountAllowed(target.sourceDefinitionId, request)))
+      return undefined;
 
     return resolved?.candidate.observation.state === 'present' &&
       resolved.permissionCandidate.observation.state === 'present'
@@ -128,6 +162,9 @@ export function createSourceOperations(options: {
     }
 
     if (!stored || stored.observation.state === 'deleted')
+      return { status: 'not-found' };
+
+    if (!(await accountAllowed(sourceDefinitionId, request)))
       return { status: 'not-found' };
 
     const select = [
@@ -247,7 +284,10 @@ export function createSourceOperations(options: {
       };
     }
 
-    // Related-source I/O may outlast an evidence window; recheck before disclosure.
+    if (!(await accountAllowed(sourceDefinitionId, request)))
+      return { status: 'not-found' };
+
+    // Source and identity I/O may outlast an evidence window; recheck before disclosure.
     if (!(await evidence.allows(object, resolved)))
       return { status: 'not-found' };
 
@@ -257,6 +297,8 @@ export function createSourceOperations(options: {
       throw new ReadError('incomplete');
 
     captureAuthorization?.(async () => {
+      if (!(await accountAllowed(sourceDefinitionId, request))) return false;
+
       if (!(await evidence.allows(object, resolved))) return false;
 
       for (const property of visible) {
@@ -285,7 +327,7 @@ export function createSourceOperations(options: {
   }
 
   return {
-    resolve: resolveEvidence,
+    resolveSourceEvidence,
     /** Trusted host ingestion operation. Ordinary reads cannot establish membership. */
     async adopt(
       objectDefinitionId: string,
@@ -297,12 +339,17 @@ export function createSourceOperations(options: {
         throw new Error('Invalid adoption target');
 
       await install();
+
+      if (!(await accountAllowed(object.sourceDefinitionId)))
+        throw new SourceAccessDenied();
+
       const token = await store.beginFetch(),
         observedAt = clock();
       const fetched = await boundedFetch(
         sources[object.sourceDefinitionId]!.connector,
         sourceRecordId,
         3_000,
+        sources[object.sourceDefinitionId]!.providerAccountId,
       );
       const incoming = observation(
         fetched,

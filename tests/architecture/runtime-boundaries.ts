@@ -13,7 +13,6 @@ const dependencies: Record<string, readonly string[]> = {
     'authorization',
     'resolution',
     'traversal',
-    'reads',
     'storage',
     'memory',
   ],
@@ -45,7 +44,7 @@ const folders = new Set([
 ]);
 
 export function runtimeOwner(file: string): string {
-  const folder = file.split('/')[0]!;
+  const folder = file.replaceAll('\\', '/').split('/')[0]!;
   const owner = roots[file] ?? (folders.has(folder) ? folder : undefined);
 
   if (!owner) throw new Error(`Unowned runtime module: ${file}`);
@@ -58,6 +57,8 @@ export function assertRuntimeDependency(
   to: string,
   typeOnly: boolean,
 ): void {
+  from = from.replaceAll('\\', '/');
+  to = to.replaceAll('\\', '/');
   const owner = runtimeOwner(from),
     target = runtimeOwner(to);
 

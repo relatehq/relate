@@ -98,12 +98,15 @@ export function nativeActionContract(
         ],
         connections: [
           connect(customers, {
+            providerAccountId: 'example-account',
             connectionId: 'crm',
             connector: {
+              identify: async () => 'example-account',
               async fetch(id) {
                 if (sourceDenied) throw new SourceAccessDenied();
 
                 return {
+                  providerAccountId: 'example-account',
                   state: 'present',
                   record: {
                     id,
@@ -115,10 +118,16 @@ export function nativeActionContract(
             },
           }),
           connect(invoices, {
+            providerAccountId: 'example-account',
             connectionId: 'billing',
             connector: {
+              identify: async () => 'example-account',
               async fetch(id) {
-                return { state: 'present', record: { id } };
+                return {
+                  providerAccountId: 'example-account',
+                  state: 'present',
+                  record: { id },
+                };
               },
             },
           }),

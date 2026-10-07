@@ -6,6 +6,7 @@ export interface StorageScope {
   readonly objectDefinitionId: string;
   readonly sourceDefinitionId: string;
   readonly connectionId: string;
+  readonly providerAccountId: string;
   readonly partition: 'shared-service';
 }
 

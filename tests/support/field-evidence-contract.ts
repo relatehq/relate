@@ -84,10 +84,13 @@ export function fieldEvidenceContract(
         clock: () => 1_000,
         sources: {
           records: {
+            providerAccountId: 'example-account',
             connectionId: 'test',
             authorization: 'shared-service',
             connector: {
+              identify: async () => 'example-account',
               fetch: async () => ({
+                providerAccountId: 'example-account',
                 state: 'present',
                 record: { id: 'source-1', revenue: 250_000 },
               }),

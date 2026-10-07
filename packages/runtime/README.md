@@ -41,17 +41,27 @@ import { compile } from 'relate/compiler';
 import { createRuntime, SourceAccessDenied } from '@relate/runtime';
 import type { SourceConnector } from '@relate/runtime';
 
-// A connector fetches one source record by its external ID.
+// This provider returns account identity with every authenticated record response.
 const crm: SourceConnector = {
+  async identify({ signal }) {
+    const response = await fetch(`${CRM_URL}/account`, { signal });
+    if (response.status === 401 || response.status === 403)
+      throw new SourceAccessDenied();
+    if (!response.ok) throw new Error('Identity unavailable');
+    return (await response.json()).id;
+  },
   async fetch(sourceRecordId, { signal }) {
     const response = await fetch(`${CRM_URL}/customers/${sourceRecordId}`, {
       signal,
     });
 
-    if (response.status === 403) throw new SourceAccessDenied();
-    if (response.status === 404) return { state: 'deleted' };
+    if (response.status === 401 || response.status === 403)
+      throw new SourceAccessDenied();
+    if (!response.ok) throw new Error('CRM unavailable');
 
-    return { state: 'present', record: await response.json() };
+    // { providerAccountId, state: 'present', record } or
+    // { providerAccountId, state: 'deleted' } with affirmative deletion evidence.
+    return response.json();
   },
 };
 
@@ -61,6 +71,7 @@ const runtime = createRuntime({
   sources: {
     'crm.customers': {
       connectionId: 'crm-primary',
+      providerAccountId: 'provider-account-123',
       authorization: 'shared-service',
       connector: crm,
     },
@@ -82,6 +93,12 @@ if (result.status === 'ok') {
   result.meta.fields.name; // FieldEvidence: freshness, retention, ordering
 }
 ```
+
+Account identity is checked even for cached reads. Both `identify()` and fetch
+response identity must describe the authenticated provider account, never just
+repeat the configured expected ID. If identity cannot be verified, reads fail
+without cached data. See [the connector contract](./CONTRACT.md) for account
+rotation, stale fallback and adapter trust requirements.
 
 Explicitly selecting a known field without its field-group permission returns
 `{ status: 'forbidden' }`. If a permitted value cannot be supplied, for example

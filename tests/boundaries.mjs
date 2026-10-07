@@ -62,23 +62,12 @@ for (const owner of owners) {
             : ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)
               ? node.argument.literal
               : undefined;
+      // With verbatimModuleSyntax, inline type specifiers still emit an empty
+      // import/export declaration and load the target module at runtime.
       const typeOnly =
         ts.isImportTypeNode(node) ||
-        (ts.isImportDeclaration(node) &&
-          (node.importClause?.isTypeOnly ||
-            (!node.importClause?.name &&
-              node.importClause?.namedBindings &&
-              ts.isNamedImports(node.importClause.namedBindings) &&
-              node.importClause.namedBindings.elements.length > 0 &&
-              node.importClause.namedBindings.elements.every(
-                (item) => item.isTypeOnly,
-              )))) ||
-        (ts.isExportDeclaration(node) &&
-          (node.isTypeOnly ||
-            (node.exportClause &&
-              ts.isNamedExports(node.exportClause) &&
-              node.exportClause.elements.length > 0 &&
-              node.exportClause.elements.every((item) => item.isTypeOnly))));
+        (ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
+        (ts.isExportDeclaration(node) && node.isTypeOnly);
 
       if (
         ts.isCallExpression(node) &&
@@ -107,7 +96,7 @@ for (const owner of owners) {
         } else if (name.startsWith('node:')) {
           if (!(
             owner === 'postgres' ||
-            (owner === 'relate' && file.endsWith('/compiler.ts')) ||
+            (owner === 'relate' && file.endsWith(`${sep}compiler.ts`)) ||
             (owner === 'runtime' && name === 'node:crypto')
           ))
             throw new Error(`Platform dependency: ${file}: ${name}`);

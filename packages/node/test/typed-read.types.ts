@@ -8,8 +8,15 @@ const relate = createRuntime({
   graph,
   connections: [
     connect(customers, {
+      providerAccountId: 'example-account',
       connectionId: 'crm',
-      connector: { fetch: async () => ({ state: 'deleted' }) },
+      connector: {
+        identify: async () => 'example-account',
+        fetch: async () => ({
+          providerAccountId: 'example-account',
+          state: 'deleted',
+        }),
+      },
     }),
   ],
 });

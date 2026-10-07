@@ -6,7 +6,6 @@ import {
 import type { ActionHandler } from './actions/index.js';
 import type { NativeTransaction, StorageScope } from './storage.js';
 import { createTraversal } from './traversal/index.js';
-import { validateReadRequest } from './reads/index.js';
 import { createSourceOperations } from './resolution/index.js';
 import type { SourceBinding } from './resolution/index.js';
 import { createMemoryStore } from './memory.js';
@@ -60,6 +59,9 @@ export function createRuntime(options: RuntimeOptions) {
     if (
       !binding ||
       !binding.connectionId.trim() ||
+      typeof binding.providerAccountId !== 'string' ||
+      !binding.providerAccountId.trim() ||
+      typeof binding.connector.identify !== 'function' ||
       binding.authorization !== 'shared-service' ||
       typeof binding.connector.fetch !== 'function'
     )
@@ -84,6 +86,7 @@ export function createRuntime(options: RuntimeOptions) {
     objectDefinitionId,
     sourceDefinitionId,
     connectionId: sources[sourceDefinitionId]!.connectionId,
+    providerAccountId: sources[sourceDefinitionId]!.providerAccountId,
     partition: 'shared-service',
   });
 
@@ -108,7 +111,13 @@ export function createRuntime(options: RuntimeOptions) {
       return record ? nativeEvidence(target, record) : undefined;
     }
 
-    return source.resolve(target, key, maxAgeMs, canonical, request);
+    return source.resolveSourceEvidence(
+      target,
+      key,
+      maxAgeMs,
+      canonical,
+      request,
+    );
   }
 
   const source = createSourceOperations({
@@ -126,6 +135,7 @@ export function createRuntime(options: RuntimeOptions) {
     scope: nativeScope,
     store,
     clock,
+    install,
     resolve: resolveEvidence,
   });
 
@@ -151,19 +161,9 @@ export function createRuntime(options: RuntimeOptions) {
         transaction,
       );
 
-    validateReadRequest(request);
-    const policy = Object.hasOwn(manifest.policies, objectDefinitionId)
-      ? manifest.policies[objectDefinitionId]
-      : undefined;
-
-    if (!object || !policy || !principal.roles.includes(policy.read.role))
-      return { status: 'not-found' };
-
-    await install();
-
     return native.read(
       principal,
-      object,
+      objectDefinitionId,
       objectId,
       request,
       transaction,

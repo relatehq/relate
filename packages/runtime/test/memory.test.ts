@@ -22,10 +22,13 @@ it('defaults to isolated memory and supports sharing an explicit store', async (
     graphId: 'memory-test',
     sources: {
       'crm.customers': {
+        providerAccountId: 'example-account',
         connectionId: 'test',
         authorization: 'shared-service' as const,
         connector: {
+          identify: async () => 'example-account',
           fetch: async () => ({
+            providerAccountId: 'example-account',
             state: 'present' as const,
             record: {
               id: '1',
@@ -78,13 +81,16 @@ it('enforces authorization, refresh and expired permission during memory fallbac
     clock: () => now,
     sources: {
       'crm.customers': {
+        providerAccountId: 'example-account',
         connectionId: 'test',
         authorization: 'shared-service',
         connector: {
+          identify: async () => 'example-account',
           async fetch() {
             if (offline) throw new Error('offline');
 
             return {
+              providerAccountId: 'example-account',
               state: 'present',
               record: {
                 id: '1',
