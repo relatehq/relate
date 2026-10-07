@@ -35,6 +35,7 @@ it('isolates instances and preserves HTTP updates, denial, deletion, and source 
     expect(await read()).toMatchObject({ record: { display_name: 'Changed' } });
     await first.update({}, true);
     expect(await read()).toEqual({
+      providerAccountId: 'example-account',
       state: 'deleted',
       version: { domain: 'crm-v1', value: '3' },
     });

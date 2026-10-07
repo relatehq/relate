@@ -15,13 +15,19 @@ export async function startCrmSimulator() {
   let version = 1;
   let deleted = false;
   let access: 'granted' | 'denied' = 'granted';
+  let recordsUnavailable = false;
+  let providerAccountId = 'example-account';
   const app = new Hono();
 
+  app.get('/account', (context) => context.json({ id: providerAccountId }));
   app.get('/customers/crm_456', (context) => {
-    // Provider permission denial is a distinct response from deletion (404/deleted).
+    // Record access denial is distinct from deletion and temporary unavailability.
     if (access === 'denied') return context.json({}, 403);
 
+    if (recordsUnavailable) return context.json({}, 503);
+
     return context.json({
+      providerAccountId,
       state: deleted ? 'deleted' : 'present',
       ...(deleted ? {} : { record }),
       version: { domain: 'crm-v1', value: String(version) },
@@ -43,6 +49,13 @@ export async function startCrmSimulator() {
 
   return {
     url: `http://127.0.0.1:${address.port}`,
+    // Identity remains verifiable while the records service is unavailable.
+    setRecordsUnavailable(value: boolean) {
+      recordsUnavailable = value;
+    },
+    setAccount(id: string) {
+      providerAccountId = id;
+    },
     async update(patch: Record<string, unknown>, isDeleted = false) {
       if (stopping) throw new Error('CRM simulator is stopped');
 

@@ -55,12 +55,18 @@ const relate = createRuntime({
   graphId: 'hello-world',
   connections: [
     connect(people, {
+      providerAccountId: 'example-account',
       connectionId: 'example',
       connector: {
+        identify: async () => 'example-account',
         async fetch(sourceRecordId) {
           return sourceRecordId === '1'
-            ? { state: 'present', record: { id: '1', name: 'Ada' } }
-            : { state: 'deleted' };
+            ? {
+                providerAccountId: 'example-account',
+                state: 'present',
+                record: { id: '1', name: 'Ada' },
+              }
+            : { providerAccountId: 'example-account', state: 'deleted' };
         },
       },
     }),

@@ -25,6 +25,7 @@ try {
     clock: () => now,
     sources: {
       'crm.customers': {
+        providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         authorization: 'shared-service' as const,
         connector: crmConnector(crm.url),
@@ -58,8 +59,8 @@ try {
       refresh: true,
     }),
   );
-  // Denial is observed per read, not persisted: a cached read within maxAgeMs
-  // does not consult the provider and still returns the retained value.
+  // Record denial is not persisted: while data and permission evidence are fresh,
+  // a cached read verifies account identity but does not fetch the record.
   show(
     'provider-denied-cached',
     await runtime.read(employee, Customer.id, objectId, {
@@ -67,7 +68,7 @@ try {
     }),
   );
   crm.setAccess('granted');
-  await crm.stop();
+  crm.setRecordsUnavailable(true);
   await store.close();
   store = createPostgresStore({ connectionString: databaseUrl });
   runtime = createRuntime({ ...options, store });

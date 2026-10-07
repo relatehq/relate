@@ -28,11 +28,18 @@ import {
   createAuthorization,
 } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
-import { boundedFetch, observation } from '../observations/index.js';
+import {
+  boundedFetch,
+  observation,
+  verifyAccount,
+  SourceAccessDenied,
+} from '../observations/index.js';
 import type { SourceConnector } from '../observations/index.js';
 
 export interface SourceBinding {
   readonly connectionId: string;
+  /** Expected stable provider account ID, checked against authenticated connector evidence. */
+  readonly providerAccountId: string;
   readonly authorization: 'shared-service';
   readonly connector: SourceConnector;
 }
@@ -78,7 +85,10 @@ export function createRuntime(options: RuntimeOptions) {
     if (
       !binding ||
       !binding.connectionId.trim() ||
+      typeof binding.providerAccountId !== 'string' ||
+      !binding.providerAccountId.trim() ||
       binding.authorization !== 'shared-service' ||
+      typeof binding.connector.identify !== 'function' ||
       typeof binding.connector.fetch !== 'function'
     )
       throw new Error('Missing or unsupported source binding');
@@ -102,6 +112,7 @@ export function createRuntime(options: RuntimeOptions) {
     objectDefinitionId,
     sourceDefinitionId,
     connectionId: sources[sourceDefinitionId]!.connectionId,
+    providerAccountId: sources[sourceDefinitionId]!.providerAccountId,
     partition: 'shared-service',
   });
 
@@ -109,6 +120,24 @@ export function createRuntime(options: RuntimeOptions) {
     graphId: options.graphId,
     definitionRevision: revision,
   };
+
+  async function accountAllowed(sourceId: string, request: ReadRequest = {}) {
+    const binding = sources[sourceId]!;
+
+    try {
+      await verifyAccount(
+        binding.connector,
+        binding.providerAccountId,
+        request.timeoutMs ?? 3_000,
+      );
+
+      return true;
+    } catch (error) {
+      if (error instanceof SourceAccessDenied) return false;
+
+      throw new ReadError('unavailable');
+    }
+  }
 
   async function resolveEvidence(
     target: (typeof manifest.objects)[number],
@@ -133,6 +162,9 @@ export function createRuntime(options: RuntimeOptions) {
 
     if (!retained || retained.observation.state !== 'present') return undefined;
 
+    if (!(await accountAllowed(target.sourceDefinitionId, request)))
+      return undefined;
+
     const resolved = await refreshObservation({
       store,
       scope: targetScope,
@@ -148,6 +180,9 @@ export function createRuntime(options: RuntimeOptions) {
       sourcePermission: true,
       evidenceMaxAgeMs: maxAgeMs,
     });
+
+    if (!(await accountAllowed(target.sourceDefinitionId, request)))
+      return undefined;
 
     return resolved?.candidate.observation.state === 'present' &&
       resolved.permissionCandidate.observation.state === 'present'
@@ -206,6 +241,9 @@ export function createRuntime(options: RuntimeOptions) {
     }
 
     if (!stored || stored.observation.state === 'deleted')
+      return { status: 'not-found' };
+
+    if (!(await accountAllowed(sourceDefinitionId, request)))
       return { status: 'not-found' };
 
     const select = [
@@ -325,7 +363,10 @@ export function createRuntime(options: RuntimeOptions) {
       };
     }
 
-    // Related-source I/O may outlast an evidence window; recheck before disclosure.
+    if (!(await accountAllowed(sourceDefinitionId, request)))
+      return { status: 'not-found' };
+
+    // Source and identity I/O may outlast an evidence window; recheck before disclosure.
     if (!(await evidence.allows(object, resolved)))
       return { status: 'not-found' };
 
@@ -335,6 +376,8 @@ export function createRuntime(options: RuntimeOptions) {
       throw new ReadError('incomplete');
 
     captureAuthorization?.(async () => {
+      if (!(await accountAllowed(sourceDefinitionId, request))) return false;
+
       if (!(await evidence.allows(object, resolved))) return false;
 
       for (const property of visible) {
@@ -374,12 +417,17 @@ export function createRuntime(options: RuntimeOptions) {
         throw new Error('Invalid adoption target');
 
       await install();
+
+      if (!(await accountAllowed(object.sourceDefinitionId)))
+        throw new SourceAccessDenied();
+
       const token = await store.beginFetch(),
         observedAt = clock();
       const fetched = await boundedFetch(
         sources[object.sourceDefinitionId]!.connector,
         sourceRecordId,
         3_000,
+        sources[object.sourceDefinitionId]!.providerAccountId,
       );
       const incoming = observation(
         fetched,

@@ -68,6 +68,7 @@ export async function refreshObservation(options: {
         connector,
         stored.sourceRecordId,
         timeout,
+        scope.providerAccountId,
       );
       const incoming = observation(
         fetched,

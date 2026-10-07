@@ -50,12 +50,15 @@ export function traversalContract(
         clock: () => now,
         connections: [
           connect(customers, {
+            providerAccountId: 'example-account',
             connectionId: 'crm',
             connector: {
+              identify: async () => 'example-account',
               async fetch(id) {
                 if (unavailable.has(id)) throw new Error('offline');
 
                 return {
+                  providerAccountId: 'example-account',
                   state: 'present',
                   record: {
                     id,
@@ -68,8 +71,12 @@ export function traversalContract(
             },
           }),
           connect(invoices, {
+            providerAccountId: 'example-account',
             connectionId: 'billing',
-            connector: { fetch: fetchInvoice },
+            connector: {
+              identify: async () => 'example-account',
+              fetch: fetchInvoice,
+            },
           }),
         ],
       });
@@ -89,8 +96,12 @@ export function traversalContract(
         const record = records.get(id);
 
         return record
-          ? { state: 'present' as const, record: { id, ...record } }
-          : { state: 'deleted' as const };
+          ? {
+              providerAccountId: 'example-account',
+              state: 'present' as const,
+              record: { id, ...record },
+            }
+          : { providerAccountId: 'example-account', state: 'deleted' as const };
       });
       relate = start();
     });

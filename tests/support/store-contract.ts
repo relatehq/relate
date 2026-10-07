@@ -38,7 +38,8 @@ export function storeContract(
         definitionRevision: 'revision-1',
         objectDefinitionId: 'person',
         sourceDefinitionId: 'people',
-        connectionId: 'account-1',
+        connectionId: 'connection-1',
+        providerAccountId: 'account-1',
         partition: 'shared-service',
       };
       await store.install(scope.graphId, scope.definitionRevision);
@@ -60,6 +61,7 @@ export function storeContract(
         'objectDefinitionId',
         'sourceDefinitionId',
         'connectionId',
+        'providerAccountId',
       ] as const) {
         expect(
           await store.load({ ...scope, [field]: 'other' }, object.objectId),
@@ -90,6 +92,7 @@ export function storeContract(
         'objectDefinitionId',
         'sourceDefinitionId',
         'connectionId',
+        'providerAccountId',
         'partition',
       ] as const) {
         expect(
@@ -139,6 +142,7 @@ export function storeContract(
         'objectDefinitionId',
         'sourceDefinitionId',
         'connectionId',
+        'providerAccountId',
         'partition',
       ] as const) {
         expect(

@@ -12,9 +12,19 @@ try {
     clock: () => config.now,
     sources: {
       'crm.customers': {
+        providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         authorization: 'shared-service',
         connector: {
+          async identify({ signal }) {
+            const response = await fetch(`${config.crmUrl}/account`, {
+              signal,
+            });
+
+            if (!response.ok) throw new Error('Identity unavailable');
+
+            return (await response.json()).id;
+          },
           async fetch(key, { signal }) {
             const result = await fetch(
               `${config.crmUrl}/customers/${encodeURIComponent(key)}`,
