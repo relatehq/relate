@@ -562,6 +562,215 @@ node highlight. On a successful newer attempt, clear all prior issues and
 highlights atomically with the new model. Discard late diagnostics from older
 attempts just as late model results are discarded.
 
+## Terminal and local-server contract
+
+The terminal is a first-class client of the same supervisor state as the
+browser. The following behavior is specified for `relate dev`; these flags and
+commands are not implemented yet. All times below are illustrative output, not
+benchmarks.
+
+### Startup, reloads and errors
+
+```text
+$ pnpm relate dev
+  Relate dev
+  Project    /work/my-product
+  Config     relate.config.ts
+  Inspector  http://127.0.0.1:4318
+  Watching   application definitions
+  Loading    attempt 1
+
+  ready  gen 1  business  3 objects · 2 sources · 2 relationships  142ms
+  update src/relate/objects.ts  gen 2  +AccountReview.score  61ms
+  update src/relate/graph.ts    gen 3  ~policy Invoice.read  74ms
+  error  src/relate/graph.ts    attempt 4  1 issue; keeping gen 3
+    policy.unknown-role: Policy Invoice.read uses unknown role 'finanse'
+    src/relate/graph.ts:24:22 (graph declaration)
+    Graph path: policies.Invoice.read.gate
+  update src/relate/graph.ts    gen 4  ~policy Invoice.read  58ms
+```
+
+The banner prints the resolved project/config and the **actual bound URL** once.
+Start the stable listener and print its URL before evaluating user definitions,
+so a first-load failure still has a working inspector. Missing config, invalid
+flags, lock failure and listener failure are startup errors; report an
+actionable message and exit. Do not print an API URL in the graph-only scope:
+the consumer API is not running yet.
+
+Print one completion line for the initial accepted model, and one for each
+accepted reload or failed current attempt. Coalesce saves into one attempt and
+do not announce superseded results as successful reloads. For multiple changed
+files, print the first project-relative path plus `(+N files)`.
+
+The success line contains the accepted generation, a bounded diff summary and
+elapsed milliseconds. Use `+` for additions, `~` for changes and `-` for
+removals. Summarize at most three changes, followed by `(+N changes)` when
+necessary. Resolve display names through stable IDs in the old/new manifests.
+The typed diff identifies affected objects/relationships; compare their
+properties for summaries such as `+AccountReview.score`. For `otherChanged`,
+compare the remaining Manifest sections to identify policy/source/action
+changes. This shared summary calculation belongs in the CLI, not a parser of
+console output. When the hash is unchanged, print `model unchanged`; do not
+imply that executable code is unchanged or that a type check passed.
+
+`durationMs` measures from the start of the accepted build attempt, after
+debounce, through worker loading/compilation and acceptance by the supervisor.
+Use the same duration in the terminal and model event. It excludes browser
+delivery, ELK layout and rendering; measure those separately. A failed attempt
+has no new generation and explicitly names the last displayed generation, or
+`no model yet` on initial failure.
+
+Print structured diagnostic codes/messages and each available location in
+`path:line:column` form. Keep that token unobscured so editors/terminals can
+recognize it; hyperlinks can supplement but cannot replace plain text. Resolve
+terminal paths relative to the invoking working directory, or print an absolute
+path when needed for unambiguous clicking. Browser paths remain
+project-relative. Label declaration sites as declarations; print expression
+frames only at their reported precision. If no site exists, print the definition
+ID and rooted path without inventing a clickable location. Print multiple issues
+in their stable order, with optional bounded excerpts.
+
+The terminal and SSE adapter consume the same accepted model/failure state;
+neither reconstructs it from the other's text. A successful compile clears only
+the failed-attempt diagnostics. When the separate type-checking follow-up ships,
+report its own revision and warning count without delaying the reload line or
+clearing warnings on model publication.
+
+Output is append-only: do not clear the terminal or erase user logs on reload.
+TTY output may add color and symbols; redirected output uses plain text with no
+ANSI escapes, spinners or cursor controls. Standard output carries the banner,
+successful lifecycle lines and child stdout. Standard error carries warnings,
+failed-attempt diagnostics, startup errors and child stderr. Ordering is
+preserved within each stream; do not promise total ordering across both streams.
+
+### Port selection and browser opening
+
+```sh
+pnpm relate dev                 # default 4318, with bounded fallback
+pnpm relate dev --port 4500     # exactly 4500, or fail
+pnpm relate dev --open          # open the actual inspector URL once
+```
+
+- Bind to `127.0.0.1`. A remote bind/`--host` option is outside this scope.
+- Without `--port`, try **4318 through 4327 inclusive**. Attempt to bind each
+  candidate directly; do not probe, release and later rebind the same port.
+  Retry only address-in-use failures. Other bind errors fail with their cause.
+- If fallback is needed, print `Port 4318 is in use; using 4319` (with the
+  actual ports). If all candidates are occupied, list the attempted range and
+  suggest `--port <number>`. Never stop the process occupying a port.
+- An explicit `--port` must be an integer from 1 through 65535. Invalid values
+  fail before starting the server. An occupied explicit port fails; never
+  silently move an explicitly addressed server.
+- The selected port remains stable for the supervisor's lifetime. Replacing a
+  worker must not release or reacquire the public listening port.
+- Without `--open`, print the URL and do not launch a browser. With it, open
+  once after the listener and session bootstrap are ready, even if compilation
+  has failed. The error screen is useful in that case. Do not reopen after
+  reloads.
+- If browser launch fails, warn and keep serving; the printed URL remains
+  usable. A verified existing server may also be opened by a second `--open`
+  invocation.
+
+### One server per project
+
+For this command, project identity is the canonical real path of the directory
+containing the resolved config file. Configs in the same directory share one
+lock; a config in a different directory explicitly selects another project.
+Symlinked paths resolve to the same project, while separate worktrees are
+separate projects. Print the resolved project root in the banner so this rule is
+visible.
+
+Acquire a project lock **before** selecting a port, starting a watcher or
+spawning a child. Store the lock and owner metadata under
+`<projectRoot>/.relate/dev/`; this directory must be gitignored. Owner metadata
+includes the supervisor PID, process-start identity, an unguessable owner ID,
+config path, lifecycle state and actual URL once listening. Update metadata
+atomically. The locking primitive must provide exclusive acquisition; checking
+whether a metadata file exists and then writing it is insufficient.
+
+On a second invocation, verify the recorded owner using process identity and the
+local server's instance identity before treating it as a running server:
+
+```text
+Relate dev is already running for /work/my-product
+Inspector  http://127.0.0.1:4319
+Config     relate.config.ts
+PID        28417
+Use the existing server; stop it with Ctrl+C in its owning terminal to restart.
+```
+
+The second command starts no watcher or child and exits successfully. `--open`
+opens that verified URL. If a different config or explicit port was requested,
+report the mismatch and exit with an error; do not reconfigure or replace the
+existing owner. Never open an unverified URL read from stale metadata.
+
+Handle the startup window: if another owner is alive but has not published a
+URL, wait at most five seconds for its listening state, then report
+`already starting` with its PID/config and exit with an error. A missing URL or
+slow compilation is not proof of a stale lock.
+
+After a crash, recover a lock automatically only when its original owner is
+demonstrably gone. A PID alone is insufficient because it can be reused.
+Unreachable HTTP, elapsed time or incomplete metadata alone are also
+insufficient. If ownership cannot be established, report the lock path and
+reason and leave it intact. Stale-lock reclamation must itself be exclusive so
+two recovering commands cannot both start. The precise lock library and
+platform-specific process-identity mechanism remain implementation choices,
+validated on supported platforms before release.
+
+Shutdown stops accepting reloads, closes watchers, stops and reaps owned child
+processes, closes the listener, then releases only this supervisor's lock.
+Release the lock on startup failure too. Never remove a newer owner's metadata
+or kill an unrelated process. In the graph-only scope allow five seconds for
+owned children to stop, then terminate remaining owned children; a second Ctrl+C
+skips that grace period. Live execution will need its separately specified
+draining/uncertain-outcome rules before using forced shutdown.
+
+Normal completion, a successful duplicate invocation and graceful Ctrl+C exit
+with status 0. Invalid CLI arguments exit with status 2. Fatal startup or
+supervisor failures exit with status 1. Authored-code errors keep the dev host
+alive awaiting the next edit; they do not exit the command or release its lock.
+
+### Child stdout and stderr
+
+```text
+[app attempt 5 stdout] Loading customer definitions
+[app attempt 5 stderr] Fixture configuration is incomplete
+```
+
+Pipe child stdout/stderr and prefix **each line** with its attempt and stream.
+Forward stdout to the parent's stdout and stderr to its stderr. Use streaming
+UTF-8 decoding, handle partial lines, and flush a final unterminated line on
+child exit. Bound line and queue buffers so a noisy child cannot consume
+unbounded supervisor memory. Any truncation/drop must be explicit, with a count;
+never silently suppress user output. Logs already emitted by superseded attempts
+remain in history with their attempt IDs.
+
+Model results and structured diagnostics travel on a dedicated child IPC
+channel, never by parsing stdout. A user's `console.log`, including JSON-looking
+text, cannot become a model event. Printing to stderr does not itself fail an
+attempt; a structured failure or unexpected exit does. Render each structured
+failure once rather than also dumping the same exception as a second raw stack.
+Forwarded application logs are user-authored output, not a guarantee that all
+embedded secrets can be redacted automatically.
+
+The graph-only child loads definitions; it does not call deferred setup merely
+to produce logs. Browser log streaming and a log viewer are outside this scope.
+
+### Ownership
+
+`packages/cli` owns argument parsing, project identity, locks, port binding,
+browser launch, the terminal renderer, subprocess streams and shutdown. Its
+supervisor produces the common model/failure state consumed by both terminal and
+SSE adapters. CLI unit and process tests own these behavioral checks.
+
+`packages/relate` supplies structured semantic issues; it never prints a banner
+or chooses a port. `packages/node` retains application lifecycle ownership;
+embedding Relate does not acquire a dev-server lock or intercept console output.
+`apps/inspector` owns browser assets and its validated event contract, not
+terminal formatting or filesystem locks. Runtime, storage and consumer transport
+packages require no new responsibilities for this terminal contract.
+
 ## Processes, reload and events
 
 ```text
@@ -862,6 +1071,26 @@ No reload latency or implementation-duration estimate is yet benchmarked.
 
 ## Acceptance evidence for implementation
 
+- CLI process tests: startup prints the actual URL before the first model;
+  failed initial compilation leaves that URL available. Success/failure lines
+  agree with SSE generations, attempts and duration values. No consumer API URL
+  is advertised in graph-only mode.
+- CLI process tests: an occupied default port falls back within 4318–4327;
+  exhaustion and occupied explicit ports fail clearly. Reload retains the same
+  listener. `--open` uses the bound URL once; launch failure leaves the host up.
+- CLI process tests: simultaneous starts for the same real project create one
+  supervisor/watcher; aliases and alternate configs in that root share its lock.
+  Separate worktrees can run independently. Verify duplicate `--open`,
+  config/port mismatch, startup-in-progress, crash recovery, PID reuse and
+  concurrent stale-lock reclamation without disturbing unrelated processes.
+- CLI process tests: `console.log` and stderr are prefixed and forwarded across
+  split UTF-8 chunks, partial lines and child replacement. JSON-looking logs
+  cannot become protocol messages; stderr alone does not fail a build. Check
+  bounded buffering and explicit truncation under sustained child output.
+- CLI process tests: redirected output is readable plain text, reloads do not
+  erase log history, path/line/column tokens remain usable from a different
+  invocation directory, and shutdown releases the owned listener/lock and reaps
+  children. Verify the documented exit statuses.
 - Install the packed CLI/inspector in an independent fixture; one command serves
   the graph without a frontend build, database, credentials or provider calls.
 - A fixture representing a larger web app exposes its definition through a
