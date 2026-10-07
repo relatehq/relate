@@ -120,6 +120,20 @@ transaction callback, rolling back native writes and its key with
 `ActionError('unavailable')`. A handler that later resumes cannot perform
 further native writes.
 
+Postgres native connection acquisition and graph-lock waits each have a
+30-second budget. Because the lock wait is shorter than the default execution
+budget, an action that legitimately runs for 45 seconds can cause another action
+that starts waiting immediately to reject with `unavailable` after 30 seconds.
+The waiting action has not run its handler and can retry with the same key.
+Allowing callers to wait through the full execution budget would require raising
+both the adapter's lock and statement timeouts: the advisory-lock query is also
+subject to the statement timeout. Hosts can instead lower `actionTimeoutMs`.
+
+These budgets accumulate. A caller could spend nearly 30 seconds acquiring a
+native connection, nearly 30 seconds acquiring the graph lock, then 60 seconds
+executing before its execution deadline expires: roughly two minutes before
+database cleanup. This is not a hard two-minute limit for the entire request.
+
 This is an execution budget, not an end-to-end request timeout: installation,
 pool/lock waiting, database rollback and COMMIT have their own storage bounds.
 The execution timer stops before COMMIT; delayed or lost acknowledgements retain
