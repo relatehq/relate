@@ -15,8 +15,7 @@ import type {
 } from '../storage.js';
 import { allowsField, createAuthorization } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
-import { validateReadRequest } from '../resolution/request.js';
-import { summarize } from '../resolution/evidence.js';
+import { validateReadRequest, summarize } from '../reads/index.js';
 
 type ObjectType = Manifest['objects'][number];
 
@@ -30,7 +29,7 @@ export function nativeEvidence(object: ObjectType, record: NativeRecord) {
       values: Object.fromEntries(
         object.properties
           .filter((p) => Object.hasOwn(record.values, p.id))
-          .map((p) => [p.name, record.values[p.id]!]),
+          .map((p) => [p.id, record.values[p.id]!]),
       ),
       observedAt: record.createdAt,
       token: '0',

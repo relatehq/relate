@@ -117,3 +117,30 @@ collection queries, durable pending execution, receipt lookup and replay.
 - [STORE_CONTRACT.md](./STORE_CONTRACT.md): how to write and verify a storage
   adapter.
 - [Native actions](../node/NATIVE_ACTIONS.md): the end-to-end action path.
+
+## Internal ownership
+
+`pnpm check:boundaries` checks runtime dependencies as well as package imports.
+Cross-module imports use the owning module's `index.ts`, including type imports.
+New top-level modules need an explicit owner in the checker.
+
+| Module                          | Owns                                                       | Runtime dependencies                                            |
+| ------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------- |
+| `runtime.ts`                    | Validated composition, installation, source/native routing | Operation entry points, storage contracts, default memory store |
+| `resolution/`                   | Source reads, adoption, refresh and retention recovery     | Authorization, observations, read helpers, storage contracts    |
+| `actions/`                      | Native reads/creation, action execution and deadlines      | Authorization, read helpers, storage contracts                  |
+| `traversal/`                    | Reference traversal, bounded enumeration and cursors       | Authorization, read helpers, storage contracts                  |
+| `authorization/`                | Policy evaluation and reference visibility                 | Storage types only                                              |
+| `observations/`                 | Fetch validation, ID-keyed mapping and pure ordering       | Storage types only                                              |
+| `reads/`                        | Request validation and field-evidence summaries            | No other runtime modules                                        |
+| `storage.ts`                    | Adapter capabilities and errors                            | Pure observation ordering re-export only                        |
+| `memory.ts`, `native-memory.ts` | In-memory implementations                                  | Storage contracts and pure ordering                             |
+| `pagination.ts`                 | Lazy page/iterator consumption                             | No other runtime modules                                        |
+
+Composition injects read and evidence-resolution callbacks. Actions and
+traversal cannot import source resolution, and authorization cannot fetch data
+or import operation implementations. Pure ordering is the only observation
+implementation exposed to storage; storage never imports the fetch barrel. The
+checker rejects reverse dependencies, private cross-module imports and execution
+cycles, including literal dynamic imports. Type-only cycles between observation
+algorithms and storage contracts are allowed.

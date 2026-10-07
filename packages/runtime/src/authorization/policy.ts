@@ -22,7 +22,7 @@ export function conditions(policy: Policy) {
       : [{ path: [where.propertyDefinitionId], claim: where.claim }];
 }
 
-interface AuthorizationEvidence {
+export interface AuthorizationEvidence {
   readonly candidate: StoredObject;
   readonly permissionCandidate: StoredObject;
 }
@@ -89,7 +89,7 @@ export function createAuthorization(options: {
       return undefined;
 
     const targetId = property.origin.targetObjectDefinitionId;
-    const key = stored.observation.values[property.name];
+    const key = stored.observation.values[property.id];
     const target = manifest.objects.find((o) => o.id === targetId)!;
 
     if (typeof key !== 'string' || !key.trim()) return undefined;
@@ -162,7 +162,7 @@ export function createAuthorization(options: {
     const value =
       property.origin.kind === 'object-id'
         ? stored.objectId
-        : stored.observation.values[property.name];
+        : stored.observation.values[property.id];
 
     if (operand.actor === 'id')
       return value !== undefined && value === principal.id;

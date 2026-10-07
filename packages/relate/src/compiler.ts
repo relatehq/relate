@@ -371,7 +371,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
   }
 
   const manifest = validateManifest({
-    formatVersion: 2,
+    formatVersion: 3,
     graphDefinitionId: graph.id,
     fieldGroups: [...graph.access.fieldGroups].sort(),
     roles: [...graph.access.roles].sort(),

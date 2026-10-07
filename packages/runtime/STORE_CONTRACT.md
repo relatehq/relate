@@ -20,6 +20,30 @@ capability supplies native transactions; source-only adapters remain valid for
 read-only applications. History querying and consumer receipt lookup are
 separate.
 
+## Property identity
+
+`Observation.values` and `NativeRecord.values` are keyed by stable property
+**definition IDs**, including references. For example, the public `name` field
+with ID `business.customer.name` is retained as:
+
+```json
+{ "business.customer.name": "Northwind" }
+```
+
+`Observation.raw` retains provider field names. Consumer data and field evidence
+use the current API property names; only projection translates IDs to names.
+Authorization and reference lookup read ID-keyed values directly. Adapters must
+preserve these keys in snapshots and any value history they retain.
+
+Manifest format 3 establishes this storage contract. Recompilation changes the
+definition revision, so existing format-2 installations reject activation of the
+new model. Neither built-in store guesses whether a key is a name or an ID.
+Existing observations and Postgres value history require an explicit migration
+using the old pinned model's name-to-ID mapping before revision activation;
+model/data migration tooling is not implemented. Do not change the stored
+revision alone. `migrate()` only applies physical schema migrations and does not
+convert graph data. Native records already used property IDs.
+
 ## Methods and guarantees
 
 | Member                                 | Required behavior                                                                                                                                                                                                                                                                                                     |
