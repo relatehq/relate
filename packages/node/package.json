@@ -13,6 +13,7 @@
   "files": [
     "dist",
     "README.md",
+    "CONTRACT.md",
     "NATIVE_ACTIONS.md"
   ],
   "sideEffects": false,

@@ -1,145 +1,99 @@
 # @relate/runtime
 
-Embedded read and native-action execution with explicit source and storage
-contracts. Private and unpublished.
+The execution engine: authorized reads, traversal and native actions over a
+compiled model, with explicit storage and connector contracts. Private and
+unpublished.
 
-`createRuntime` composes a compiled model, installed graph ID, optional storage
-adapter, source bindings and an optional clock. Consumer `read` applies
-default-deny policy, field groups, selection, freshness and evidence. Trusted
-host `adopt` fetches a known source record ID and durably establishes
-membership. It is not a consumer-authorized creation action.
+## Responsibility
 
-`@relate/runtime/storage` is the supported adapter extension boundary. Storage
-owns atomic observation acceptance through `ObservationStore`; the runtime owns
-the shared pure ordering rule. Concrete adapters are injected, never imported.
-Modules separate authorization, observation validation/ordering and resolution.
+- `createRuntime({ model, graphId, sources, store?, actionHandlers?, … })`
+  returns an engine with the trusted host operation `adopt` and the consumer
+  operations `read`, `traverse` and `invoke`.
+- Default-deny policy evaluation, field groups, selection, freshness, stale
+  fallback and per-field evidence.
+- Observation validation and the pure ordering rule (`compareObservation`).
+  Storage owns atomic acceptance; the runtime owns the rule.
+- `createMemoryStore()` for volatile storage and `createQuery()` for lazy,
+  awaitable pagination.
+- `@relate/runtime/storage`: the adapter extension boundary. `ObservationStore`,
+  `NativeStore`, `NativeTransaction` and their errors are the contract that
+  `@relate/postgres` and custom stores implement.
 
-Reads retain successful source observations. Retention failure can return a
-validated authorized transient value with explicit durability/ordering warnings;
-it cannot renew permission evidence. Provider versions precede fetch-start
-ordering. Without provider versions, order is best effort and cannot prove
-upstream recency. Deletion and denial are never undone by fallback.
+The engine is addressed by definition IDs and returns partial JSON records. It
+does not compile graphs, is not the typed application API, and never imports a
+concrete store or connector.
 
-A deleted reference target does not delete a referring native object or clear
-its stored link. Reads withhold the unresolved reference with
-`status: 'unavailable'` field evidence; other fields remain readable when the
-object's own policy permits it. See
-[deleted references and future deletion policies](../node/NATIVE_ACTIONS.md#references-after-a-target-is-deleted)
-for the Task example, future edit rules, and deferred opt-in cascading deletes.
+## How it fits
 
-The source fetch wait defaults to 3 seconds (maximum 10 seconds), including
-non-cooperative connectors. The Postgres adapter separately bounds pool, lock,
-and statement waits; this is not a whole-request deadline guarantee. Connectors
-must honor cancellation to stop their own outstanding I/O. Each read uses at
-most one source fetch in this slice.
+- Depends on `relate/model` (manifest types) and `@relate/protocol` (results).
+  It never imports the authoring API.
+- Storage adapters implement `@relate/runtime/storage` and are injected.
+  Connectors implement `SourceConnector`; shared service authorization is the
+  only supported mode in this slice.
+- `@relate/node` composes this engine with an authored graph and adds types. The
+  planned `@relate/http` and `@relate/mcp` expose the same consumer operations
+  remotely.
 
-Only explicit shared service-account source bindings are supported. Delegated
-credential partitions, automatic sync workers and arbitrary collection
-predicates are not implemented. Source-backed traversal and synchronous native
-actions are implemented; see
-[native account reviews](../node/NATIVE_ACTIONS.md). Engine results remain
-partial JSON records. `@relate/node` composes this engine with authored
-definitions and provides typed `relate.as(principal).objects.Customer.get(...)`
-reads.
-
-Connectors throw `SourceAccessDenied` for an explicit provider permission
-denial. The affected read returns `not-found` rather than falling back to
-retained data. This is not a deletion or a persisted revocation: retained
-observations remain, and a cached read does not perform a provider authorization
-check. Applications requiring a current provider check must request refresh of
-source-backed fields. Other connector errors remain temporary unavailability
-with authorized fallback.
-
-Use
-[`assertFields` from `relate`](../relate/README.md#require-values-after-a-read)
-to require specific values on an existing result. It narrows an `ok` result and
-the checked fields, preserves valid `null` and stale values, and throws
-`ReadError('incomplete')` when required values are missing. Other fields and the
-read's evidence stay unchanged; freshness remains a separate requirement.
-
-## Storage
-
-Omit `store` for an isolated in-memory store with no database setup:
+## Public API
 
 ```ts
-const runtime = createRuntime({ model, graphId, sources });
-```
+import { compile } from 'relate/compiler';
+import { createRuntime, SourceAccessDenied } from '@relate/runtime';
+import type { SourceConnector } from '@relate/runtime';
 
-Supply `createMemoryStore()` from `@relate/runtime` to share memory between
-runtimes, or a Postgres/custom `ObservationStore` for persistent retention.
-Memory supports the same identity, ordering, authorization and fallback behavior
-within its lifetime. It does not retain data across process restarts.
+// A connector fetches one source record by its external ID.
+const crm: SourceConnector = {
+  async fetch(sourceRecordId, { signal }) {
+    const response = await fetch(`${CRM_URL}/customers/${sourceRecordId}`, {
+      signal,
+    });
 
-Field evidence separates write outcome (`retention`) from storage guarantee
-(`retentionDurability: 'volatile' | 'persistent'`). Both built-in stores run the
-same conformance suite. `pnpm test:unit` runs the memory and pure unit tests
-without Postgres.
+    if (response.status === 403) throw new SourceAccessDenied();
+    if (response.status === 404) return { state: 'deleted' };
 
-See [Writing a store](STORE_CONTRACT.md) for the public interface's behavioral
-contract, errors, lifecycle and adapter verification requirements.
+    return { state: 'present', record: await response.json() };
+  },
+};
 
-## Pagination
+const runtime = createRuntime({
+  model: compile(graph), // authored with `relate`
+  graphId: 'business',
+  sources: {
+    'crm.customers': {
+      connectionId: 'crm-primary',
+      authorization: 'shared-service',
+      connector: crm,
+    },
+  },
+  // store: omit for an isolated memory store, or inject a Postgres store.
+});
 
-`createQuery(readPage, { cursor? })` wraps an authorized page reader in a
-`QueryResult<T>`. Await the handle to obtain one `Page<T>`; use `for await` to
-iterate records across pages. This is implemented infrastructure for queries and
-to-many traversals. Collection query execution remains separate; the helper does
-not implement a query engine or action transactions.
+// Trusted host operation: establish membership for a known source record.
+const id = await runtime.adopt('business.customer', 'crm_456');
 
-```ts
-import { createQuery } from '@relate/runtime';
-import type { Page } from '@relate/protocol';
+// Consumer operation: the host has already authenticated the principal.
+const ana = { id: 'ana', roles: ['sales'], claims: { region: 'emea' } };
+const result = await runtime.read(ana, 'business.customer', id, {
+  select: ['name', 'region'],
+});
 
-// An operation supplies its authorized reader, bound to query options/context.
-declare const readPage: (cursor: string | undefined) => Promise<Page<Invoice>>;
-const query = createQuery(readPage);
-const page = await query; // One page; page.data remains available.
-
-for await (const invoice of query) {
-  // Each record, including its evidence, passes through unchanged.
+if (result.status === 'ok') {
+  result.data; // { name?: Json; region?: Json }: fields can be withheld
+  result.meta.fields.name; // FieldEvidence: freshness, retention, ordering
 }
 ```
 
-Execution is lazy. The first page request and any failure are shared across
-awaits and iterators on the same handle. Each iterator has independent
-continuation state; later pages are fetched on demand and may be fetched again
-on reiteration. There is no prefetch: `break` or a thrown business error stops
-further page requests. The handle supports `await`/`then` and async iteration,
-not the full `Promise` API.
+## Status
 
-The helper validates each page before exposing its records. Missing, empty,
-contradictory or unchanged continuations throw `ReadError('incomplete')`, as do
-cursor cycles within an iterator. Empty non-final pages are followed. Reader
-failures propagate unchanged; the reader must already sanitize errors and
-validate/authorize records. No operation is retried or committed by this helper.
-Separate explicit-page handles only know their own request cursor, not the
-history of earlier independent requests.
+Implemented: authorized reads, source-backed references, bidirectional traversal
+with pagination, and synchronous native actions with atomic receipts on memory
+and Postgres. Not implemented: automatic synchronization, delegated credentials,
+collection queries, durable pending execution, receipt lookup and replay.
 
-The page reader owns stable query/context binding, real scan progress, cursor
-scope, ordering, resource budgets and cancellation of its I/O. Different opaque
-tokens cannot prove progress or snapshot consistency. This helper introduces no
-cross-source snapshot or automatic native rollback; those belong to the query
-engine and action transaction owner. Page size and an application's total work
-bound remain separate.
+## Further reading
 
-## Native actions
-
-`invoke` runs a compiled action through its registered handler and optional
-`store.native` transaction capability. Runtime owns action gates, input/output
-validation, authorized get/create, reference membership, abort tracking and
-final create-policy validation. Successful native effects and receipt evidence
-commit atomically. `@relate/node` binds typed implementations and caller
-methods; it does not own transaction or authorization semantics.
-
-`actionTimeoutMs` bounds the native callback after lock acquisition: 60,000 ms
-by default, with host-configured integer values from 1 to 60,000. Expiry revokes
-object/native transaction access and rejects the callback so the adapter rolls
-back and releases its resources even if the handler never returns. Late handler
-completion cannot save a receipt or commit. This budget ends before COMMIT and
-does not include installation, lock/pool waiting or database cleanup.
-
-Memory serializes native transactions per graph using isolated working copies;
-Postgres provides the same behavior with adapter-owned transactions. Source
-observation retention stays separate. Current execution returns confirmed
-success or throws sanitized `ActionError`; durable pending execution and
-consumer receipt lookup/replay are subsequent slices.
+- [CONTRACT.md](./CONTRACT.md): read semantics, storage, pagination and native
+  action behavior in detail.
+- [STORE_CONTRACT.md](./STORE_CONTRACT.md): how to write and verify a storage
+  adapter.
+- [Native actions](../node/NATIVE_ACTIONS.md): the end-to-end action path.

@@ -212,7 +212,7 @@ The shared `Page`/`PageMeta` types and `createQuery` helper are implemented in
 `@relate/protocol` and `@relate/runtime`. The full fixture's `query` and
 escalation operations remain declarations; the separate native-action tests
 prove get/create rollback without claiming query support. See the
-[helper contract](../../../packages/runtime/README.md#pagination).
+[helper contract](../../../packages/runtime/CONTRACT.md#pagination).
 
 The same calls work on the `objects` supplied to an action implementation.
 Traversal names and cardinality come from the shared relationship definitions;

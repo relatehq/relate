@@ -1,67 +1,79 @@
 # @relate/postgres
 
-Durable Relate storage for embedded reads and native account-review actions.
-Private and unpublished.
+Durable Relate storage on PostgreSQL: the persistent `ObservationStore` and
+`NativeStore` adapter, with checksummed migrations. Private and unpublished.
 
-`createPostgresStore({ connectionString })` provides `migrate()`, the runtime's
-observation storage contract, the optional native transaction capability, and
-`close()`. Hosts explicitly migrate before use. Supply an existing database; the
-database name is part of the connection URL. Relate does not create databases or
-start/stop the server. The connecting role needs permission to create and
-migrate the `relate` schema.
+## Responsibility
 
-The adapter owns the `relate` schema; it never modifies provider tables.
+- `createPostgresStore({ connectionString })` returns a store with `migrate()`,
+  the runtime's observation storage contract, the optional `native` transaction
+  capability and `close()`.
+- Owns the `relate` schema: installed graph revisions, canonical identities and
+  source aliases, latest observations and mapped values, applied-value history,
+  native objects and action invocations. It never modifies provider tables.
+- Atomic observation acceptance under per-alias locks, native transactions
+  serialized per graph, explicit pool, lock and statement timeouts, and honest
+  failure signalling: `StorageUnavailable` for confirmed failure,
+  `NativeCommitUncertain` for a lost COMMIT acknowledgement.
 
-Checksummed migrations establish installed graph revisions, durable canonical
-identities/source aliases, latest whole source records and mapped values, and
-applied-value history. Scope includes graph, object type, source, connection and
-shared service-account partition. An installed graph rejects a different model
-revision pending explicit migration support.
+It does not create databases or start servers. Hosts supply an existing database
+and call `migrate()` explicitly.
 
-A database sequence assigns comparable fetch-start tokens before provider I/O.
-Per-alias transaction locks serialize acceptance across processes. Membership,
-raw retention, projection and value history commit atomically; unchanged values
-refresh observation evidence without creating value-change events. Provider
-versions take precedence over fetch-start order. Failed commits do not advance
-accepted state; lost commit acknowledgements remain unconfirmed until readback.
+## How it fits
 
-History currently records source adoption/refresh changes for this slice.
-History query APIs, cleanup/retention scheduling, erasure and model migrations
-are not implemented. Do not treat this initial schema as a production retention
-lifecycle.
+- Implements `@relate/runtime/storage`. Imports `relate/model` for canonical
+  JSON and `pg` for connections.
+- Injected into `@relate/runtime` or `@relate/node`; the runtime never imports
+  it. `createMemoryStore()` from `@relate/runtime` is the volatile alternative,
+  and both pass the same conformance suite.
+- Separate from connectors (see [`connectors/`](../../connectors/README.md)),
+  which talk to providers rather than storing Relate state.
 
-## Native transactions
+## Public API
 
-The additive second migration creates `native_objects` and `native_invocations`.
-Native values use stable property definition IDs. A native transaction
-serializes writes per graph, reserves the graph/action/key, and commits native
-inserts with successful receipt/input evidence. Errors roll back the entire
-transaction; a lost COMMIT acknowledgement throws `NativeCommitUncertain`
-instead of claiming failure. This is surfaced as a sanitized uncertain action
-rejection; consumer recovery follows in the next slice.
+```ts
+import { createPostgresStore } from '@relate/postgres';
+import { createRuntime } from '@relate/node';
 
-Native transactions use a separate five-connection pool from source
-observations, so queued native writers cannot starve their own authorization
-reads. Native connection acquisition, lock waits and statements each have a
-30-second timeout. The native idle-in-transaction timeout is 60 seconds as a
-backstop for abandoned sessions. The runtime separately bounds the complete
-native callback to at most 60 seconds, including handler and source awaits;
-callback expiry rolls back and releases the connection. A session failure also
-interrupts a suspended callback immediately and removes the broken pool client.
-Source-observation pool limits remain 2 seconds for connections/locks, 3 seconds
-for statements and 5 seconds for idle transactions. `close()` closes both pools.
+const store = createPostgresStore({
+  connectionString: process.env.DATABASE_URL!,
+});
 
-Known connection failures and lock/statement timeouts before COMMIT surface as
-`StorageUnavailable`, which actions map to sanitized
-`ActionError('unavailable')`. A known transaction rejection or COMMIT response
-of ROLLBACK also means confirmed failure; an ambiguous COMMIT connection loss
-remains `uncertain`. Native writes still serialize per graph: long handlers can
-exhaust a queued caller's 30-second lock budget. An already-running SQL
-statement may delay rollback until it finishes or hits its statement timeout.
-Shorter lock ownership remains future work.
+// Hosts migrate explicitly. Only the `relate` schema is created or changed.
+await store.migrate();
 
-Native transactions do not enlist provider I/O or source observation acceptance.
-There is no distributed snapshot guarantee.
+// The store is borrowed: Relate neither migrates nor closes it.
+const relate = createRuntime({ graph, connections, store });
 
-See [native account reviews](../node/NATIVE_ACTIONS.md) and
-[the adapter contract](../runtime/STORE_CONTRACT.md#native-write-capability).
+try {
+  const id = await relate.host.adopt(Customer, 'crm_456');
+  const customer = await relate
+    .as(ana)
+    .objects.Customer.get(id, { select: ['name'] });
+
+  // Retained fields report retentionDurability: 'persistent' in their evidence.
+  if (customer.status === 'ok') console.log(customer.meta.fields.name);
+} finally {
+  await relate.close();
+  await store.close();
+}
+```
+
+The same store works with the engine directly:
+`createRuntime({ model, graphId, sources, store })` from `@relate/runtime`.
+
+## Status
+
+Implemented: durable source observations with history, installed-revision
+pinning, and native transactions for the account-review action path. Not
+implemented: history query APIs, retention and cleanup scheduling, erasure, and
+model migrations between definition revisions.
+
+## Further reading
+
+- [CONTRACT.md](./CONTRACT.md): schema ownership, ordering, locking, timeouts
+  and native transaction semantics.
+- [STORE_CONTRACT.md](../runtime/STORE_CONTRACT.md): the adapter contract this
+  package implements.
+- [Postgres persistence example](../../examples/postgres-persistence/README.md):
+  adoption, refresh, restart and durable fallback against a real database.

@@ -7,7 +7,8 @@
   "description": "Ontology authoring, portable application definitions, model contracts, and compilation.",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CONTRACT.md"
   ],
   "sideEffects": false,
   "exports": {

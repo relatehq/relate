@@ -40,7 +40,7 @@ filtering and pagination authorization requirements.
 
 Object reads keep the existing best-available evidence model. The examples use
 the implemented
-[`assertFields`](../../../packages/relate/README.md#require-values-after-a-read)
+[`assertFields`](../../../packages/relate/CONTRACT.md#require-values-after-a-read)
 helper from `relate` to check selected optional fields before using them. It
 checks the actual result, throws `ReadError('incomplete')` for missing required
 values, and narrows only the checked fields. Valid `null` and stale values pass;
