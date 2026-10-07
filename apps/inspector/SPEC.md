@@ -30,14 +30,17 @@ Agreed foundation:
 - Prebuilt browser assets shipped with `@relate/inspector`.
 - Stable CLI/supervisor process with Hono, diagnostics and an SSE connection.
 - Replaceable child process for loading the user's application definitions.
-- Authoritative Manifest snapshots plus typed diffs; no browser page reload.
+- Authoritative Manifest snapshots plus typed diffs; no page reload on code
+  edits. Inspector upgrades may require an explicit page reload.
 - `defineApp` belongs in `@relate/node`; graph authoring stays in `relate`.
 - Browser code never imports the runtime, compiler, connectors or user modules.
 
 **Proposed scope decision:** the first graph-only worker compiles definitions
-without starting a live runtime. It needs no database, credentials or provider
-requests. Live runtime hosting remains the agreed extension of this process
-layout, with activation and storage questions explicitly open below.
+without starting a live runtime. Relate itself needs no database, credentials or
+provider requests for inspection; user imports may still require environment
+variables or perform side effects (see the environment contract below). Live
+runtime hosting remains the agreed extension of this process layout, with
+activation and storage questions explicitly open below.
 
 ## How the definitions connect
 
@@ -757,6 +760,31 @@ embedded secrets can be redacted automatically.
 The graph-only child loads definitions; it does not call deferred setup merely
 to produce logs. Browser log streaming and a log viewer are outside this scope.
 
+### Environment inherited by the child
+
+The CLI inherits its launching environment and passes it to each application
+child. It does not discover or automatically load `.env`, `.env.local`, or
+framework-specific environment files. The first scope uses the project's own
+environment loader rather than introducing `relate dev --env-file`. In this
+repository that is dotenvx:
+
+```sh
+pnpm exec dotenvx run -f .env -- pnpm relate dev
+```
+
+Environment-file paths follow the loader's working-directory rules. Variables
+are loaded before the supervisor starts; editing that file requires restarting
+this command. The same inherited environment reaches every replacement child. No
+values are substituted into browser assets or sent in session/model payloads.
+
+For example, importing an application-wide `env.ts` that immediately validates
+`CRM_API_KEY` can fail before `compile()` runs. Report that as an import
+failure, with the last good graph retained; do not bypass the application's
+validation or fabricate credentials. Prefer importing that module and validating
+runtime-only credentials inside `setup()`. The credential-free acceptance
+fixture demonstrates safe definition imports, not a guarantee about arbitrary
+application modules.
+
 ### Ownership
 
 `packages/cli` owns argument parsing, project identity, locks, port binding,
@@ -791,6 +819,46 @@ Node ESM/package exports and project resolution rules. For a workspace package
 exporting built JavaScript, its source-to-output build must also run in watch
 mode; document that requirement rather than silently overriding exports.
 Non-imported files used at evaluation time need an explicit watch-file option.
+
+### Why esbuild rather than native type stripping
+
+The repository pins Node 26, which can execute erasable TypeScript directly.
+Native stripping alone does not implement the project's module-resolution
+contract: an authored `import './graph.js'` must resolve to `graph.ts` during
+source evaluation, and tsconfig path aliases must resolve as configured. Node
+requires actual file extensions and does not read tsconfig path mappings. See
+[Node's TypeScript documentation](https://nodejs.org/api/typescript.html).
+
+Use esbuild's Node-targeted ESM bundling for the selected source entry,
+retaining source maps and respecting package exports. Its
+[metafile](https://esbuild.github.io/api/#metafile) supplies bundled input paths
+for dependency tracking. It is not a complete watch set: external packages,
+explicit runtime-read files, and paths needed to recover from failed resolution
+need handling too. Preserve the last successful dependency set across a failed
+build, and watch relevant config/resolution inputs so creating a previously
+missing module can recover without restarting. Native stripping plus a custom
+resolver/watcher remains possible, but adds machinery esbuild already supplies.
+
+### Bounded application evaluation
+
+The supervisor starts a **30,000 ms** wall-clock deadline when it spawns each
+application child. It covers child startup, module evaluation (including
+unsettled top-level await) and compilation until receipt of a valid model or
+structured failure. The supervisor owns the timer so an infinite loop in the
+child cannot block it. Bundling happens before spawning and is measured
+separately from this evaluation deadline.
+
+`relate dev --eval-timeout 60000` overrides the deadline in milliseconds;
+require an integer from 1 through 2147483647 (the timer limit). On expiry,
+reject that attempt, emit one
+`{ kind: 'worker', code: 'worker.timeout', severity: 'error' }` diagnostic and
+terminate the owned child. Force termination if it has not exited within two
+seconds; suppress a second crash diagnostic caused by that termination. Keep the
+inspector and last good graph available, reap the child, and allow the next edit
+to start a fresh attempt. Ignore late results and clear timers on every
+completion or cancellation path. A superseded attempt is cancelled, not reported
+as a timeout. This deadline does not promise to undo import-time external
+effects.
 
 Debounce saves, assign each attempt an ID, and publish only the newest
 successful candidate. Ignore a late result from an older build or child. Stop
@@ -977,11 +1045,115 @@ build-to-graph path. That is acceptable because the channel is advisory. Do not
 delay the model event to wait for the checker, and do not run the checker inside
 the application-loading child, which is replaced on every attempt.
 
-Use a loopback host, same-origin browser requests, Host/Origin validation and a
-local session bootstrap. The UI receives model metadata and sanitized errors,
-not provider credentials, arbitrary filesystem access or environment dumps. The
-Manifest can include policy structure, so this is trusted model inspection, not
-the consumer's authorized discovery response.
+## Local session and forwarded access
+
+The CLI owns authentication and request validation; the inspector owns the
+bootstrap exchange and session-expired presentation. The Manifest can include
+policy structure, so this is trusted model inspection, not the consumer's
+authorized discovery response.
+
+Generate a cryptographically random bootstrap token of at least 256 bits per
+supervisor instance. The terminal's Inspector URL and `--open` URL carry it in
+the fragment, for example `http://127.0.0.1:4318/#token=<token>` (the earlier
+banner omits the fragment for readability). Serve only the static bootstrap
+shell without a session. The browser removes the fragment with `replaceState`
+and exchanges the token in a same-origin POST to `/dev/session` for an opaque
+HttpOnly, SameSite=Strict session cookie. Use Secure cookies over HTTPS and a
+cookie name unique to the instance, since cookies are not isolated by port. The
+token is reusable for this instance so another tab can be opened; it and all
+sessions expire when that supervisor exits. A normal refresh uses the cookie.
+Opening the bare URL without a cookie shows instructions to use the terminal's
+link; merely visiting localhost must not grant a session.
+
+All metadata, snapshot, SSE and diagnostic endpoints require the session.
+Validate Host against the configured origins on every request and validate
+Origin on the bootstrap POST and any future mutating request. For requests
+carrying Origin, require an exact permitted same-origin match; do not enable
+cross-origin API access. Reject cross-site fetches, and use a restrictive CSP
+and `Referrer-Policy: no-referrer` on the shell. Never put the bootstrap token
+in query parameters, analytics, model events or request logs. Its deliberate
+terminal output is a local access capability. Keep any token material needed for
+duplicate-command `--open` in owner-only local storage, available only after
+verifying the running instance; do not add it to a public identity endpoint. The
+ordinary duplicate-server message may show the clean URL.
+
+Default to the printed loopback origin. Forwarded access is opt-in through a
+repeatable **exact origin** option, for example:
+
+```sh
+pnpm relate dev --allowed-origin https://my-private-forward.example
+```
+
+This changes accepted browser origins, not the loopback bind address. Require an
+explicit scheme and host, with an optional port normalized to the scheme
+default, and no wildcard, credentials, path, query or fragment; allow HTTP only
+for loopback origins and HTTPS for remote origins. The forwarding proxy must
+preserve the configured external Host; do not trust arbitrary `X-Forwarded-*`
+headers. Browser Origin must agree with that Host and the allowlist. Document
+this forwarding requirement rather than claiming every VS Code Remote or
+Codespaces proxy works automatically. A local forwarded port that changes the
+browser origin also needs its exact origin allowed. Open the forwarded origin
+with the terminal token fragment; `--open` continues to target the locally bound
+URL. Keep remote forwarding private/authenticated. Hosted third-party UIs
+connecting cross-origin remain outside scope.
+
+## Inspector upgrades and asset caching
+
+The inspector package and supervisor declare their supported protocol versions.
+Validate the small version envelope before decoding a model payload. If an open
+tab encounters an unsupported `protocolVersion`, stop applying events, retain
+its last graph as stale, and show **Inspector updated — reload to continue**. An
+explicit reload fetches the new shell; do not loop automatic page reloads. A
+compatible new supervisor instance needs snapshot resynchronization after
+re-authentication. If a restart invalidates the cookie, retain the graph as
+stale and direct the user to the new terminal link; do not keep retrying an
+unauthorized SSE connection.
+
+Serve content-hashed assets with
+`Cache-Control: public, max-age=31536000, immutable`, and HTML with
+`Cache-Control: no-cache` so it revalidates. Session and dev API responses use
+`no-store`. Missing asset paths must return 404, never the SPA HTML fallback.
+Catch dynamic-import/chunk failures and offer the same explicit recovery action:
+old lazy chunks may disappear during a package upgrade even with correct cache
+headers. Do not cache the app using a service worker in the first scope. The CLI
+owns response headers and asset routing; the inspector owns version checks and
+recovery UI. Code edits still update the graph without a page reload.
+
+## Telemetry: deferred, with an explicit opt-out
+
+Telemetry is a planned capability, not a permanent no-telemetry promise. It is
+outside the initial graph-only implementation. Before enabling collection,
+publish the event schema, destination, retention, identifier policy and default
+behavior; the initial scope does not settle the provider or default-on policy.
+The CLI help, README and inspector must explain what is collected and how to
+turn it off in the same release that introduces it.
+
+Reserve these equivalent ways to disable collection when telemetry ships:
+
+```sh
+RELATE_TELEMETRY_DISABLED=1 pnpm relate dev
+DO_NOT_TRACK=1 pnpm relate dev
+pnpm relate dev --no-telemetry
+```
+
+Any disable signal wins over other settings. An exported environment variable is
+the persistent shell/CI choice; the flag applies to that invocation. Resolve the
+decision before initializing telemetry, and pass only the effective boolean to
+the browser. Disabling covers CLI and browser events, crash uploads and queued
+delivery: do not initialize a collector, enqueue events or transmit old queued
+events while disabled. Restart an existing supervisor after changing its
+environment/flags; a duplicate invocation must not silently change its policy.
+No background upload process may outlive the supervisor.
+
+Candidate events are tool/version usage and aggregate timing/count metrics. Use
+an explicit field allowlist. Never collect source text, Manifest contents,
+object/property names, filesystem paths, environment values, console output, raw
+diagnostic messages/stacks, session tokens or application records. An
+identifier, if needed, requires its own documented lifecycle; do not describe
+pseudonymous data as anonymous. Telemetry failure must never block startup,
+reload or shutdown. The CLI owns the effective policy and transport; the
+inspector emits only approved events through that policy. Authoring/runtime
+packages must not acquire telemetry side effects merely by being imported.
 
 ## One graph screen
 
@@ -1071,6 +1243,33 @@ No reload latency or implementation-duration estimate is yet benchmarked.
 
 ## Acceptance evidence for implementation
 
+- CLI process tests: unresolved top-level await and a synchronous infinite loop
+  time out without blocking the supervisor. Verify the override, forced child
+  termination, one failure event, cancellation and recovery on the next edit.
+- Environment tests: externally loaded variables reach every replacement child;
+  missing import-time variables produce recoverable diagnostics. Environment
+  values never enter assets or session/model payloads, and setup stays deferred.
+- Installed-package NodeNext fixture: `import './graph.js'` resolves to authored
+  `graph.ts`; verify tsconfig aliases, package exports, missing-import recovery
+  and subsequent edits without relying on monorepo aliases.
+- Browser/process tests: bare unauthenticated requests cannot read metadata;
+  token exchange, cookie refresh, instance restart and duplicate `--open` work.
+  Reject wrong token/Host/Origin and untrusted forwarded headers. Exercise an
+  explicitly allowed HTTPS forwarding proxy and a local forwarded-port origin.
+- Browser/HTTP tests: an old SPA with an unsupported protocol offers one
+  explicit reload; compatible restarts resynchronize. Verify cache headers,
+  missing-chunk recovery, asset 404s, and nested base paths for sessions and
+  static assets.
+- Benchmark fixtures: representative 10-, 50- and 100-object graphs with
+  relationships and realistic property counts. Record cold load and repeated
+  edits, separately measuring build/compile, ELK and update-to-visible latency,
+  plus camera/selection preservation and main-thread responsiveness. Record
+  machine/browser and graph shape; establish budgets from measurements rather
+  than treating prototype timings as guarantees for this implementation.
+- Before telemetry ships: tests prove every opt-out prevents initialization,
+  queueing and uploads in both CLI/browser, including previously queued events.
+  Verify documented schemas against payloads and keep telemetry outages off the
+  reload path. Initial-scope CLI/browser assets contain no telemetry collector.
 - CLI process tests: startup prints the actual URL before the first model;
   failed initial compilation leaves that URL available. Success/failure lines
   agree with SSE generations, attempts and duration values. No consumer API URL
