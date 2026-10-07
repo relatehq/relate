@@ -1,133 +1,141 @@
 # @relate/node
 
-Application composition for typed, authorized object reads. Private and
-unpublished while implementation is in progress.
+Application composition for Node: compile an authored graph, bind connections
+and action implementations, and expose a typed, authorized consumer API. Private
+and unpublished while implementation is in progress.
 
-The [inspector foundation specification](../../apps/inspector/SPEC.md) proposes
-`defineApp` here as an inert descriptor containing a graph and deferred runtime
-setup. It explains how an inspector can compile the same graph that a larger
-application runs, without starting that application's server. `defineApp` and
-the illustrated `startApp` helper are not implemented exports; the callable API
-below remains `createRuntime`.
+## Responsibility
+
+- `createRuntime({ graph, connections, actionImplementations?, store?, … })`
+  compiles the graph with `relate/compiler`, validates connections against the
+  registered sources, binds action handlers, and starts a `@relate/runtime`
+  engine.
+- `relate.as(principal)` returns consumer operations whose names and types are
+  inferred from the graph's object registry: `objects.Customer.get`,
+  `objects.Customer.traverse.invoices`, `actions.addAccountReview`.
+- `relate.host.adopt(Customer, sourceRecordId)` is the trusted membership
+  operation; `relate.close()` drains in-flight work.
+- `connect(source, { connectionId, connector })` binds a source definition to a
+  connector.
+
+Authorization, transactions and evidence belong to the engine. This package adds
+types, composition and lifecycle. Storage defaults to isolated memory; an
+injected store is borrowed.
+
+## How it fits
+
+- Depends on `relate` and `relate/compiler`, `@relate/runtime` and
+  `@relate/protocol`.
+- The embedded entry point for applications today. The planned `@relate/http`,
+  `@relate/mcp` and `@relate/cli` build on a runtime composed here.
+
+## Public API
 
 ```ts
+import { z } from 'zod';
+import {
+  assertFields,
+  defineAccess,
+  defineGraph,
+  defineObject,
+  defineSource,
+  from,
+  objectId,
+  source,
+} from 'relate';
 import { connect, createRuntime } from '@relate/node';
-import { assertFields } from 'relate';
+
+const people = defineSource({
+  id: 'example.people',
+  idField: 'id',
+  schema: z.object({ id: z.string(), name: z.string() }),
+});
+const Person = defineObject({
+  id: 'example.person',
+  membership: source(people),
+  properties: {
+    id: objectId({ id: 'example.person.id' }),
+    name: from(people.fields.name, { id: 'example.person.name' }),
+  },
+});
+const access = defineAccess({
+  roles: ['reader'],
+  claims: {},
+  fieldGroups: ['ordinary'],
+});
+const graph = defineGraph({
+  id: 'example.graph',
+  objects: { Person },
+  access,
+  policies: { Person: { read: { gate: access.role('reader') } } },
+});
 
 const relate = createRuntime({
-  graph, // defineGraph({ objects: { Customer }, access, policies, ... })
+  graph,
   connections: [
-    connect(customers, {
-      connectionId: 'crm-primary',
-      connector,
+    connect(people, {
+      connectionId: 'directory',
+      connector: {
+        async fetch(id) {
+          return id === '1'
+            ? { state: 'present', record: { id: '1', name: 'Ada' } }
+            : { state: 'deleted' };
+        },
+      },
     }),
   ],
 });
 
 try {
-  const id = await relate.host.adopt(Customer, 'crm_456');
-  const { objects } = relate.as(principal);
-  const customer = await objects.Customer.get(id, { select: ['name'] });
-  assertFields(customer, ['name']);
-  console.log(customer.data.name); // string
+  const id = await relate.host.adopt(Person, '1'); // ObjectId<'example.person'>
+  const { objects } = relate.as({
+    id: 'reader-1',
+    roles: ['reader'],
+    claims: {},
+  });
+  const person = await objects.Person.get(id, { select: ['name'] });
+
+  assertFields(person, ['name']); // a selected field can still be withheld
+  console.log(person.data.name); // string
 } finally {
   await relate.close();
 }
 ```
 
-The host authenticates `principal`. `as` snapshots it and exposes only consumer
-operations; trusted adoption stays on `host`. Reads do not adopt records.
-Registry keys name the consumer API; stable definition IDs identify persisted
-objects. Adoption accepts the registered object definition, not another object
-that happens to have the same ID.
-
-Adoption returns `ObjectId<typeof Customer.id>`. `get` and traversal arguments
-require the starting object's branded ID; result IDs and reference fields carry
-their own or referenced object's brand. An Invoice ID cannot be passed to
-`Customer.get`. The values remain strings in memory, storage, and JSON. For IDs
-received from a route or decoded JSON, use
-`referenceInput(Customer).parse(rawValue)` from `relate`. This validates a
-nonblank string and declares its expected type; runtime membership and access
-checks still apply. Provider source keys belong in `host.adopt`, not `get`.
-
-`get` preserves selected property types and returns `ok` or `not-found`. An `ok`
-result includes the canonical `id`, selected `data`, and existing read evidence.
-Selected fields stay optional because authorization or availability can withhold
-them. `assertFields` narrows fields actually present. Omitting `select` requests
-all authorized fields. Refresh, stale fallback and strict completeness options
-are the same as the underlying engine.
-
-`connect` binds the actual source definition to a connector and stable
-`connectionId`. Connections use shared service authorization by default (the
-only supported mode). Missing, duplicate or unregistered connections fail at
-construction. Explicit provider denial must use `SourceAccessDenied` from
-`@relate/runtime`; ordinary errors mean temporary unavailability.
-
-Compilation belongs here; `@relate/runtime` still consumes portable compiled
-models. Named registries are supported by the compiler alongside existing array
-definitions. This API requires a named registry to infer consumer operations.
-Supported schemas and policy predicates remain those of `relate`.
-
-Storage defaults to isolated volatile memory; `graphId` defaults to the graph
-definition ID. An injected `store` is borrowed: the caller owns migrations and
-closing it. `close()` rejects new operations and waits for in-flight operations;
-it does not close borrowed storage or provider clients.
-
-Native account-review actions now execute with authorized creation, rollback and
-successful receipts; see [the walkthrough](./NATIVE_ACTIONS.md). Queries,
-automatic synchronization, servers and workers remain unimplemented. See the
-complete runnable [hello-world example](../../examples/hello-world/README.md).
-
-Source-backed references and nested read policies support Invoice reads:
+With relationships and actions registered in the graph, the same handle exposes
+traversal and action calls:
 
 ```ts
-const invoice = await relate.as(ana).objects.Invoice.get(invoiceId, {
-  select: ['customer', 'status', 'totalMinor'],
-});
-```
+const { objects, actions } = relate.as(ana);
 
-`customer` is the already-adopted Customer's Relate ID. Ana must match its
-portfolio; `totalMinor` additionally requires finance. Another portfolio or
-missing/expired policy evidence returns `not-found`. See the executable
-[model and acceptance cases](../../dev/fixtures/customer-graph/invoice-read/README.md).
-
-## Bidirectional traversal
-
-Register a `defineRelationship` in `graph.relationships`, using the Invoice's
-Customer reference for both directions. Traversal names and selected fields are
-inferred from that registry:
-
-```ts
-const objects = relate.as(ana).objects;
 const page = await objects.Customer.traverse.invoices(customerId, {
-  select: ['status', 'totalMinor'],
+  select: ['status'],
   limit: 25,
-});
-const customer = await objects.Invoice.traverse.customer(invoiceId, {
-  select: ['name'],
 });
 
 for await (const invoice of objects.Customer.traverse.invoices(customerId)) {
-  console.log(invoice.id, invoice.data);
+  console.log(invoice.id, invoice.data.status);
 }
+
+const receipt = await actions.addAccountReview({
+  input: { customer: customerId, note: 'Follow up' },
+  idempotencyKey: 'review-2026-10',
+});
 ```
 
-To-many traversal returns a lazy `QueryResult`: await one page or iterate
-records across continuations. To-one returns the same `ok`/`not-found` object
-shape as `get`. The starting object, reference field and destination must all be
-readable; finance does not override portfolio access. Hidden and missing
-starting objects produce the same empty final page or `not-found`, according to
-cardinality.
+## Status
 
-Pages enumerate adopted objects, with up to 100 candidates checked per request.
-They default to 25 returned records, capped at 100. Empty pages may have a
-continuation; final pages have `meta.exhausted: true` and omit the cursor.
-Unknown membership evidence on an otherwise readable object rejects with
-`ReadError('incomplete')`. This is live enumeration, not a snapshot or a claim
-of complete provider coverage.
+Implemented: typed reads, source-backed references, bidirectional traversal with
+pagination, and native actions with atomic receipts. Not implemented: collection
+queries, automatic synchronization, servers and workers. `defineApp` and
+`startApp` from the [inspector specification](../../apps/inspector/SPEC.md) are
+proposals, not exports.
 
-Cursors hide the scan boundary and bind the caller, graph revision, connections,
-starting object, traversal and options. They expire after 15 minutes. The
-default key is private to each runtime; supply the same secret 32-byte
-`cursorKey` to trusted runtimes sharing storage if continuations must survive
-restarts or move between instances. Every page rechecks current access.
+## Further reading
+
+- [CONTRACT.md](./CONTRACT.md): read, adoption, connection, traversal and cursor
+  semantics in detail.
+- [NATIVE_ACTIONS.md](./NATIVE_ACTIONS.md): the account-review action path end
+  to end.
+- [Hello world](../../examples/hello-world/README.md) and
+  [Postgres persistence](../../examples/postgres-persistence/README.md).

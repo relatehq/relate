@@ -12,6 +12,7 @@
   "files": [
     "dist",
     "README.md",
+    "CONTRACT.md",
     "STORE_CONTRACT.md"
   ],
   "sideEffects": false,

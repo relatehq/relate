@@ -1,35 +1,77 @@
 # @relate/protocol
 
-Transport-neutral Customer read requests, results, evidence, and errors. Private
-and unpublished. No runtime, database, or provider dependencies.
+Transport-neutral request, result, evidence and error shapes shared by every
+Relate consumer surface. Private and unpublished.
 
-Results distinguish `not-found` from `ok`, then represent each requested field
-as available, absent (a known optional value), or unavailable. Hidden, unknown
-and unobtainable fields share the public unavailable shape. Null remains a
-legitimate available value. Data is a partial JSON record, never typed as a
-complete model.
+## Responsibility
 
-Completeness, freshness, and durability are independent. Evidence reports source
-identity only for authorized exposed values and never includes raw provider
-errors or aliases. HTTP and MCP adapters are not implemented in this slice.
+- Requests: `ReadRequest` (`select`, `maxAgeMs`, `refresh`, `stale`,
+  `requireComplete`, `timeoutMs`) and `TraversalRequest` (`limit`, `cursor`).
+- Results: `ObjectResult` and `ObjectRecord` (`ok` with the canonical `id`,
+  partial `data` and `meta`, or `not-found`), `Page<T>` with `PageMeta`, and the
+  engine-level `ReadResult`.
+- Evidence: `FieldEvidence` for each selected field: availability, freshness,
+  source identity, retention, ordering and refresh outcome.
+- Errors and receipts: `ReadError` and `ActionError` with sanitized codes and no
+  private detail, and `SucceededReceipt`.
+- `Json`.
 
-Field evidence separates the retention outcome from `retentionDurability`:
-`volatile` for memory and `persistent` for storage that survives process
-restart. A confirmed retention outcome alone is not a persistence guarantee.
+These are types plus two error classes. The package has no runtime, database,
+provider or schema-library dependency and performs no validation itself.
 
-Consumer-side presence checking lives in `relate`. See
-[`assertFields`](../relate/README.md#require-values-after-a-read) for its value
-checks and TypeScript narrowing contract.
+## How it fits
 
-## Pages
+- Dependencies: none.
+- `relate` uses these shapes for `assertFields` and typed results.
+  `@relate/runtime` produces them. `@relate/node` re-exports typed
+  specializations of them.
+- The planned `@relate/http`, `@relate/client` and `@relate/mcp` carry exactly
+  these shapes over the wire, so embedded and remote consumers see the same
+  results and evidence.
 
-`Page<T>` preserves each record's data and evidence in `data`. Its `meta` is a
-`PageMeta` discriminated union: `{ exhausted: true }` omits the continuation,
-while `{ exhausted: false, continuationCursor: string }` requires one. Types
-also reject a cursor on the exhausted variant. Runtime validation rejects empty
-tokens and contradictory metadata; these types alone do not validate JSON.
+## Public API
 
-An empty page can have a continuation. Consumers must follow exhaustion, not
-record count. The implemented pagination helper in
-[`@relate/runtime`](../runtime/README.md#pagination) handles this contract;
-collection query execution remains unimplemented.
+```ts
+import { ReadError } from '@relate/protocol';
+import type { ObjectRecord, ObjectResult, Page } from '@relate/protocol';
+
+function customerName(result: ObjectResult): string | undefined {
+  if (result.status === 'not-found') return undefined;
+
+  // Selection never guarantees presence: authorization or availability can
+  // withhold a field. Evidence says why a value is what it is.
+  const evidence = result.meta.fields.name;
+
+  if (evidence?.status === 'available' && evidence.freshness === 'stale') {
+    // Served from retained observations; decide whether that is acceptable.
+  }
+
+  const name = result.data.name;
+
+  return typeof name === 'string' ? name : undefined;
+}
+
+function nextCursor(page: Page<ObjectRecord>): string | undefined {
+  // Follow exhaustion, not record count: an empty page can still continue.
+  return page.meta.exhausted ? undefined : page.meta.continuationCursor;
+}
+
+function isIncomplete(error: unknown): boolean {
+  return error instanceof ReadError && error.code === 'incomplete';
+}
+```
+
+## Status
+
+Results, pages, evidence and errors are implemented and used by the engine. HTTP
+and MCP encodings are not implemented. The types alone do not validate incoming
+JSON; the runtime validates what it produces and accepts.
+
+## Further reading
+
+- [CONTRACT.md](./CONTRACT.md): result and evidence semantics, durability versus
+  retention, and the page contract.
+- [`assertFields`](../relate/CONTRACT.md#require-values-after-a-read): the
+  consumer-side presence check and its narrowing rules.
+- [Pagination](../runtime/CONTRACT.md#pagination): the implemented helper that
+  follows the page contract.

@@ -143,7 +143,7 @@ documentation, and agents. The singular label defaults to the humanized API name
 (`AccountReview` → `Account Review`); the plural label defaults to that singular
 label without guessing plurals. Supply collection labels such as `Customers` or
 `People` explicitly. Descriptions stay absent when omitted. See
-[object naming and migration details](packages/relate/README.md#object-names-and-display-metadata).
+[object naming and migration details](packages/relate/CONTRACT.md#object-names-and-display-metadata).
 
 **4. Use it from code.** Reads are typed, filtered by the caller, and carry
 freshness evidence.

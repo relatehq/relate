@@ -7,7 +7,8 @@
   "description": "Transport-neutral public request/result schemas, discovery, errors, and evidence.",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CONTRACT.md"
   ],
   "sideEffects": false,
   "exports": {

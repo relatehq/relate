@@ -65,7 +65,7 @@ page or iterate object records through the same query/to-many handle.
 `Page.meta` discriminates exhaustion from a required continuation. The runtime
 helper validates pages and detects iterator cursor cycles; collection execution
 is still unimplemented. See the
-[shared helper contract](../../../packages/runtime/README.md#pagination).
+[shared helper contract](../../../packages/runtime/CONTRACT.md#pagination).
 Native/reference filter typing, joins, aggregate pushdown, strict freshness and
 field requirements need concrete examples. Do not fetch all rows to implement
 every filter locally. Unsupported pushdown needs honest bounded fallback or
