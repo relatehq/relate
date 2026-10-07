@@ -168,6 +168,14 @@ export function domainActionContract(
             if (!caught) throw error;
           }
 
+          // Work attempted after a swallowed failure must neither write nor cause
+          // an unhandled rejection when the handler neglects to await it.
+          void context.objects.AccountReview.create({
+            customer: context.input.customer,
+            author: context.actor.id,
+            note: 'Must not be written',
+          });
+
           return { reviewId: review.id };
         };
         const relate = app(handler);

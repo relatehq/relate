@@ -270,9 +270,17 @@ export function createActionExecutor(options: {
             let domain: FailedReceipt['error'] | undefined;
             const pending: Promise<unknown>[] = [];
             const run = <T>(operation: () => Promise<T>): Promise<T> => {
-              if (domain) return Promise.reject(domainSignal);
+              if (domain || !accepting) {
+                const rejected = Promise.reject(
+                  domain ? domainSignal : new ActionError('invalid'),
+                );
 
-              if (!accepting) return Promise.reject(new ActionError('invalid'));
+                // A caught fail() can leave fire-and-forget work behind. Revoke it
+                // without turning its ignored rejection into a process-level error.
+                void rejected.catch(() => {});
+
+                return rejected;
+              }
 
               const promise = Promise.resolve()
                 .then(async () => {
