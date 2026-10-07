@@ -131,10 +131,10 @@ operations, not caller-authorized receipt APIs. Never expose them through a
 consumer or transport directly.
 
 `transaction(scope, callback)` gives the runtime `load`, `insert`, `claim`,
-`findInvocation` and `saveInvocation`. Reads see the transaction's writes;
-independent readers do not see uncommitted records. Commit every insert and
-invocation receipt together only after the callback succeeds. Any callback error
-rolls back both native effects and the key reservation. Reject unfinished
+`findInvocation`, `saveInvocation` and `savepoint`. Reads see the transaction's
+writes; independent readers do not see uncommitted records. Commit every insert
+and invocation receipt together only after the callback succeeds. Any callback
+error rolls back both native effects and the key reservation. Reject unfinished
 claims. Invalidate the transaction handle before awaiting rollback and after
 completion; never expose mutable storage references.
 
@@ -154,7 +154,7 @@ an invocation by action and invocation ID in the transaction's graph/revision;
 missing and wrong-action IDs return `undefined`. Neither operation authorizes
 receipt disclosure. Runtime checks actor, input and current access.
 
-Save validated input, originating actor ID, successful receipt and runtime read
+Save validated input, originating actor ID, terminal receipt and runtime read
 dependencies under the new claim. Read dependencies use stable object/property
 definition IDs and canonical record IDs. Legacy actor/read provenance is null:
 preserve that evidence and its key, never infer ownership or make the key
@@ -175,3 +175,12 @@ classification belongs in the adapter, not the runtime.
 Source observation refreshes remain independent of this transaction. The shared
 `tests/support/native-action-contract.ts` suite verifies native behavior on
 memory and Postgres, including failure after insert but before receipt save.
+
+`savepoint(callback)` must roll back every change made by its callback on
+rejection, including any nested key claims, while retaining the outer
+transaction and its earlier claim. Successful callbacks keep their changes. The
+executor uses this to roll back native effects of a declared business failure
+and then save its failed receipt in the same outer transaction. A savepoint is
+not an independent commit. Adapters must preserve callback errors; rollback
+failures reject the whole transaction. Deadline revocation also guards
+savepoints and prevents late handler activity from committing.

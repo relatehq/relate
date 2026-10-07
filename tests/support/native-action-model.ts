@@ -56,13 +56,16 @@ export const AccountReview = defineObject({
     id: objectId({ id: 'review.id' }),
     customer: reference(Customer, { id: 'review.customer' }),
     author: native(z.string(), { id: 'review.author' }),
-    note: native(z.string(), { id: 'review.note' }),
+    note: native(z.string().min(1).max(4000), { id: 'review.note' }),
   },
 });
 
 export const AddAccountReview = defineAction({
   id: 'business.add-account-review',
-  input: z.object({ customer: referenceInput(Customer), note: z.string() }),
+  input: z.object({
+    customer: referenceInput(Customer),
+    note: z.string().min(1).max(4000),
+  }),
   output: z.object({ reviewId: referenceInput(AccountReview) }),
   creates: [AccountReview],
   policy: { execute: access.role('account-manager') },

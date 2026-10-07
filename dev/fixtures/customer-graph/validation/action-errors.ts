@@ -1,4 +1,5 @@
-/** Compile-time acceptance for declared failures, which are not executable yet. */
+/** Broader proposed receipt surface (pending/runtime failures/transformed details).
+ * Portable declared domain failures execute in the packages; see tests/support/domain-action-contract.ts. */
 import { z } from 'zod';
 import { defineAction, implementAction } from './target.js';
 import type { Consumer, DomainActionError, Receipt } from './target.js';

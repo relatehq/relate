@@ -100,11 +100,24 @@ export interface SucceededReceipt<Output = Json> {
   readonly output: Output;
 }
 
+export interface FailedReceipt<Code extends string = string, Details = Json> {
+  readonly invocationId: string;
+  readonly state: 'failed';
+  readonly error: {
+    readonly kind: 'domain';
+    readonly code: Code;
+    readonly details: Details;
+  };
+}
+
+export type ActionReceipt = SucceededReceipt | FailedReceipt;
+
 /** Request/execution rejection, not a persisted failed receipt. No private details. */
 export class ActionError extends Error {
   constructor(
     readonly code:
       | 'denied'
+      | 'not-found'
       | 'invalid'
       | 'conflict'
       | 'unsupported'

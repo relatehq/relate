@@ -54,11 +54,16 @@ const Reveal = defineAction({
   creates: [],
   policy: { execute: access.role('employee') },
 });
+const Reject = defineAction({
+  ...Reveal,
+  id: 'reject',
+  errors: { privateReason: z.object({ value: z.string() }) },
+});
 const Other = defineAction({ ...Reveal, id: 'other' });
 const graph = defineGraph({
   id: 'receipt-graph',
   objects: { Secret },
-  actions: { create: Create, reveal: Reveal, other: Other },
+  actions: { create: Create, reveal: Reveal, other: Other, reject: Reject },
   access,
   policies: {
     Secret: {
@@ -109,6 +114,16 @@ export function receiptRecoveryContract(
 
             return { value: record.data.value };
           }),
+          implementAction(graph, Reject, async ({ objects, input, fail }) => {
+            executions++;
+            const record = await objects.Secret.get(input.id, {
+              select: ['value'],
+            });
+
+            assertFields(record, ['value']);
+
+            return fail('privateReason', { value: record.data.value });
+          }),
           implementAction(graph, Other, async ({ objects, input }) => {
             executions++;
             const record = await objects.Secret.get(input.id, {
@@ -122,6 +137,42 @@ export function receiptRecoveryContract(
         ],
       });
     }
+
+    it('rechecks field access before disclosing scalar domain-failure details', async () => {
+      const relate = app();
+      const created = await relate.as(actor).actions.create({
+        input: { value: 'Private failure reason' },
+        idempotencyKey: 'create',
+      });
+      const request = {
+        input: { id: created.output.id },
+        idempotencyKey: 'reject',
+      };
+      const receipt = await relate.as(actor).actions.reject(request);
+
+      expect(receipt).toMatchObject({
+        state: 'failed',
+        error: {
+          code: 'privateReason',
+          details: { value: 'Private failure reason' },
+        },
+      });
+      const reduced = relate.as({ ...actor, roles: ['employee'] });
+
+      expect(
+        await reduced.objects.Secret.get(created.output.id, { select: ['id'] }),
+      ).toMatchObject({ status: 'ok' });
+      await expect(reduced.actions.reject(request)).rejects.toMatchObject({
+        code: 'denied',
+      });
+      await expect(
+        reduced.receipts.get(Reject, receipt.invocationId),
+      ).rejects.toMatchObject({ code: 'denied' });
+      await expect(
+        relate.as(actor).receipts.get(Reject, receipt.invocationId),
+      ).resolves.toEqual(receipt);
+      expect(executions).toBe(1);
+    });
 
     it('rechecks field access before disclosing saved scalar output, without rerunning the handler', async () => {
       const relate = app();

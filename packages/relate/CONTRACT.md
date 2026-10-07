@@ -21,9 +21,10 @@ field classifications, and policy dependencies, then returns an immutable,
 serializable manifest. Property renames preserve their IDs and change the
 definition revision.
 
-The current manifest format is **3**. Source observations, native values,
+The current manifest format is **4**. Source observations, native values,
 authorization evidence and persisted value history use stable property IDs;
-consumer results retain property names. Formats 1 and 2 must be recompiled.
+consumer results retain property names. Formats 1, 2 and 3 must be recompiled.
+Format 4 adds portable scalar bounds and declared action failure schemas.
 Recompilation also changes the installed revision, preventing an existing
 name-keyed store from being read as ID-keyed data. Existing installations need
 an explicit data/revision migration; see the
@@ -37,11 +38,11 @@ requires a read policy; use `read: 'deny'` for intentional denial. Source
 schemas use ordinary `z.object` definitions. Unmapped JSON fields are retained
 privately.
 
-Refinements, transforms, defaults, nested property values, and custom policy
-handlers are rejected rather than silently compiled away. Policies in this slice
-are fully declarative, so no executable handler registry is needed for
-authorization. Native scalar properties, native references, action contracts and
-create policies are supported; see the
+Arbitrary refinements, transforms, defaults, nested property values, and custom
+policy handlers are rejected rather than silently compiled away. Policies in
+this slice are fully declarative, so no executable handler registry is needed
+for authorization. Native scalar properties, native references, action contracts
+and create policies are supported; see the
 [native action walkthrough](../node/NATIVE_ACTIONS.md). Release artifacts,
 schema evolution, external actions and additional source bindings remain future
 implementation work. The installed graph is pinned to one definition revision;
@@ -173,7 +174,7 @@ have field-group grants.
 `compile()` lowers references into portable IDs and records. It validates roles,
 claims, field groups, property dependencies, comparison types, policy coverage,
 and duplicate object definition IDs; `validateManifest()` also validates loaded
-JSON. Claim schemas support the same unrefined scalars as properties. Hosts
+JSON. Claim schemas support the same portable scalars as properties. Hosts
 supply authenticated principals; claim declarations do not authenticate or
 populate claims. Missing claims deny access, and supplied claim values are
 checked against their declared schema.
@@ -386,3 +387,28 @@ presence nor complete evidence alone guarantees freshness.
 Reads still happen when your implementation needs them. A later lookup can use
 an ID from an earlier result, and assertions run on the results actually
 returned. No upfront required-read declaration or preparation phase is needed.
+
+## Portable scalar constraints
+
+String `.min(n)`, `.max(n)` and `.length(n)` and numeric `.min(n)`/`.gte(n)`,
+`.max(n)`/`.lte(n)`, `.gt(n)` and `.lt(n)` compile to JSON bounds. For example,
+`z.string().min(1).max(4000)` produces `minLength: 1, maxLength: 4000`. Lengths
+count Unicode code points, matching the supported Zod version; an emoji counts
+as one code point. Numbers must be finite. Optional and nullable wrappers retain
+their semantics. Chained bounds all apply, including exclusive bounds.
+
+These constraints apply consistently to action inputs/outputs, native
+properties, source fields, claims and declared error details. Discovery
+preserves the bounds; loading the manifest validates their shape and scalar
+type. Runtime validation uses this portable metadata, so an application cannot
+bypass a native property limit by supplying a valid action input and
+constructing an invalid value inside the handler. Unsupported checks (including
+regex, arbitrary refinements, formats, integer checks, transforms, defaults and
+coercion) still reject compilation.
+
+Actions may declare `errors: { inactive: z.object({}) }`. Their implementation
+can call `fail('inactive', {})`; callers receive a typed failed receipt after
+native rollback. Error details use the same portable object fields and required
+`referenceInput` fields as action input/output. Empty objects are supported. See
+[native action outcomes](../node/NATIVE_ACTIONS.md#declared-business-failures)
+for persistence, replay and disclosure rules.

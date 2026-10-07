@@ -65,6 +65,24 @@ export function createNativeMemoryStore(
         );
         const claimed = new Set<string>();
         const result = await operation({
+          async savepoint(operation) {
+            check();
+            const snapshot = structuredClone(state);
+            const claims = new Set(claimed);
+
+            try {
+              return await operation();
+            } catch (error) {
+              check();
+              state.records = snapshot.records;
+              state.invocations = snapshot.invocations;
+              claimed.clear();
+
+              for (const key of claims) claimed.add(key);
+
+              throw error;
+            }
+          },
           async load(type, id) {
             check();
             const value = state.records.get(recordKey(type, id));

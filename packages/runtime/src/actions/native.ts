@@ -101,17 +101,19 @@ export function createNativeOperations(options: {
         const target = manifest.objects.find((o) => o.id === targetId)!;
         const id = record.values[property.id];
 
-        if (
-          typeof id !== 'string' ||
-          !(await options.resolve(
-            target,
-            id,
-            rule.evidenceMaxAgeMs,
-            true,
-            transaction,
-          ))
-        )
-          throw new ActionError('denied');
+        const targetEvidence =
+          typeof id === 'string'
+            ? await options.resolve(
+                target,
+                id,
+                rule.evidenceMaxAgeMs,
+                true,
+                transaction,
+              )
+            : undefined;
+
+        if (!targetEvidence || !(await auth.allows(target, targetEvidence)))
+          throw new ActionError('not-found');
       }
 
       const policy: Policy = { read: rule, groups: {} };

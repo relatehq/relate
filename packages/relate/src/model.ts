@@ -6,6 +6,12 @@ export const scalarSchema = z.strictObject({
   type: z.enum(['string', 'number', 'boolean']),
   optional: z.boolean(),
   nullable: z.boolean(),
+  minLength: z.number().int().nonnegative().optional(),
+  maxLength: z.number().int().nonnegative().optional(),
+  minimum: z.number().finite().optional(),
+  maximum: z.number().finite().optional(),
+  exclusiveMinimum: z.number().finite().optional(),
+  exclusiveMaximum: z.number().finite().optional(),
 });
 
 export type ScalarSchema = z.infer<typeof scalarSchema>;
@@ -67,7 +73,7 @@ const propertySchema = z.strictObject({
 });
 
 export const manifestSchema = z.strictObject({
-  formatVersion: z.literal(3),
+  formatVersion: z.literal(4),
   graphDefinitionId: text,
   fieldGroups: z.array(text),
   roles: z.array(text),
@@ -111,6 +117,7 @@ export const manifestSchema = z.strictObject({
         apiName: text,
         input: z.record(text, actionFieldSchema),
         output: z.record(text, actionFieldSchema),
+        errors: z.record(text, z.record(text, actionFieldSchema)).optional(),
         creates: z.array(text),
         execute: roleGate.optional(),
       }),
@@ -153,18 +160,69 @@ export function deepFreeze<T>(value: T): T {
 }
 
 export function accepts(schema: ScalarSchema, value: unknown): boolean {
-  return value === undefined
-    ? schema.optional
-    : value === null
-      ? schema.nullable
-      : typeof value === schema.type &&
-        (schema.type !== 'number' || Number.isFinite(value));
+  if (value === undefined) return schema.optional;
+
+  if (value === null) return schema.nullable;
+
+  if (typeof value !== schema.type) return false;
+
+  if (typeof value === 'string') {
+    if (schema.minLength === undefined && schema.maxLength === undefined)
+      return true;
+
+    // Zod 4.6 string lengths count Unicode code points, including astral characters.
+    const length = [...value].length;
+
+    return (
+      (schema.minLength === undefined || length >= schema.minLength) &&
+      (schema.maxLength === undefined || length <= schema.maxLength)
+    );
+  }
+
+  if (typeof value === 'number')
+    return (
+      Number.isFinite(value) &&
+      (schema.minimum === undefined || value >= schema.minimum) &&
+      (schema.maximum === undefined || value <= schema.maximum) &&
+      (schema.exclusiveMinimum === undefined ||
+        value > schema.exclusiveMinimum) &&
+      (schema.exclusiveMaximum === undefined || value < schema.exclusiveMaximum)
+    );
+
+  return true;
 }
 
 const unsafe = new Set(['__proto__', 'prototype', 'constructor']);
 
 export function validateManifest(input: unknown): Manifest {
   const manifest = manifestSchema.parse(input);
+  // Validate type-specific constraint metadata on every schema, including loaded JSON.
+  const scalars = [
+    ...Object.values(manifest.claims),
+    ...manifest.sources.flatMap((s) => Object.values(s.fields)),
+    ...manifest.objects.flatMap((o) => o.properties.map((p) => p.schema)),
+    ...(manifest.actions ?? []).flatMap((a) =>
+      [a.input, a.output, ...Object.values(a.errors ?? {})].flatMap((s) =>
+        Object.values(s),
+      ),
+    ),
+  ];
+
+  for (const schema of scalars) {
+    if (
+      (schema.type !== 'string' &&
+        (schema.minLength !== undefined || schema.maxLength !== undefined)) ||
+      (schema.type !== 'number' &&
+        [
+          schema.minimum,
+          schema.maximum,
+          schema.exclusiveMinimum,
+          schema.exclusiveMaximum,
+        ].some((v) => v !== undefined))
+    )
+      throw new Error('Constraint does not match scalar type');
+  }
+
   const seen = new Set<string>();
   const register = (value: string) => {
     if (!value.trim() || seen.has(value) || unsafe.has(value))
@@ -460,7 +518,18 @@ export function validateManifest(input: unknown): Manifest {
     )
       throw new Error('Invalid native action capability');
 
-    for (const shape of [action.input, action.output])
+    if (
+      Object.keys(action.errors ?? {}).some(
+        (code) => !code.trim() || unsafe.has(code),
+      )
+    )
+      throw new Error('Invalid action error code');
+
+    for (const shape of [
+      action.input,
+      action.output,
+      ...Object.values(action.errors ?? {}),
+    ])
       for (const [name, field] of Object.entries(shape)) {
         if (!name.trim() || unsafe.has(name))
           throw new Error('Invalid action field');

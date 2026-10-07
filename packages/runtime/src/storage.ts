@@ -105,7 +105,7 @@ export interface NativeInvocation {
   readonly actorId: string | null;
   readonly reads: readonly NativeReceiptRead[] | null;
   readonly input: import('@relate/protocol').Json;
-  readonly receipt: import('@relate/protocol').SucceededReceipt;
+  readonly receipt: import('@relate/protocol').ActionReceipt;
 }
 
 /** Authorization dependencies of saved output, keyed by stable definition IDs. */
@@ -116,6 +116,8 @@ export interface NativeReceiptRead {
 }
 
 export interface NativeTransaction {
+  /** Roll back this callback's writes on rejection, retaining the outer transaction and key claim. */
+  savepoint<T>(operation: () => Promise<T>): Promise<T>;
   load(
     objectDefinitionId: string,
     objectId: string,

@@ -167,36 +167,12 @@ type NativeObject = ObjectDefinition<
 
 export type ActionErrors = Record<string, z.ZodType>;
 
-export interface ActionDefinition<
-  Input extends z.ZodType = z.ZodType,
-  Output extends z.ZodType = z.ZodType,
-  Creates extends readonly NativeObject[] = readonly NativeObject[],
-  Errors extends ActionErrors = ActionErrors,
-> {
-  readonly id: string;
-  readonly input: Input;
-  readonly output: Output;
-  readonly creates: Creates;
-  readonly errors: Errors;
-  readonly policy?: ActionPolicy;
-}
+// The action declaration (including portable errors) now uses the real package.
+export { defineAction } from 'relate';
 
-export declare function defineAction<
-  const Id extends string,
-  Input extends z.ZodType,
-  Output extends z.ZodType,
-  const Creates extends readonly NativeObject[],
-  const Errors extends ActionErrors = {},
->(definition: {
-  id: Id;
-  input: Input;
-  output: Output;
-  creates: Creates;
-  /** Expected business failures only; omission declares none. */
-  errors?: Errors;
-  /** Omission denies discovery and execution. */
-  policy?: ActionPolicy;
-}): ActionDefinition<Input, Output, Creates, Errors> & { readonly id: Id };
+import type { ActionDefinition } from 'relate';
+
+export type { ActionDefinition } from 'relate';
 
 // Access
 

@@ -186,8 +186,17 @@ Relate-owned records.
 
 > **Status:** single-source objects, references, traversal, policies, and
 > Postgres storage run today. Native get/create actions wait for completion and
-> support actor-bound receipt lookup and replay. Multi-source enrichment,
-> broader actions, and MCP remain API previews.
+> support declared business failures and actor-bound receipt lookup/replay.
+> Multi-source enrichment, broader actions, and MCP remain API previews.
+
+Native actions support
+[portable value constraints and declared business failures](packages/node/NATIVE_ACTIONS.md#declared-business-failures).
+For example, `z.string().min(1).max(4000)` keeps review notes nonempty and
+bounded on both action input and native storage; the compiled model exposes
+these limits. An action declaring `errors: { inactive: z.object({}) }` can call
+`fail('inactive', {})` to return a typed failure receipt after rolling back its
+native writes. Authorized retries recover the same outcome without repeating the
+handler. Malformed requests and pre-acceptance denial remain typed rejections.
 
 ## Get started
 
