@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist/server",
+    "composite": true
+  },
+  "include": ["src/protocol.ts", "src/server.ts"],
+  "references": [{ "path": "../../packages/relate" }]
+}

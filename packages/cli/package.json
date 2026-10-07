@@ -5,10 +5,26 @@
   "private": true,
   "type": "module",
   "description": "Development and operational commands using programmatic APIs.",
+  "bin": {
+    "relate": "./bin/relate.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "dependencies": {
-    "relate": "workspace:*",
+    "@hono/node-server": "2.1.3",
+    "@relate/inspector": "workspace:*",
     "@relate/node": "workspace:*",
-    "@relate/runtime": "workspace:*",
-    "@relate/postgres": "workspace:*"
+    "esbuild": "0.28.2",
+    "hono": "4.13.13",
+    "relate": "workspace:*"
   }
 }

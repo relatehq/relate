@@ -1,0 +1,490 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f7f7f8;
+  --panel: #ffffff;
+  --text: #1c1c1e;
+  --muted: #6b7280;
+  --border: #d9dbe0;
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.12);
+  --error: #c2410c;
+  --error-soft: rgba(194, 65, 12, 0.12);
+  --warning: #b45309;
+  --warning-soft: rgba(180, 83, 9, 0.14);
+  --native: #7c3aed;
+  --source: #0f766e;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-size: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111214;
+    --panel: #1b1d21;
+    --text: #e7e7ea;
+    --muted: #9ca3af;
+    --border: #2e3138;
+    --accent: #60a5fa;
+    --accent-soft: rgba(96, 165, 250, 0.16);
+    --error: #fb923c;
+    --error-soft: rgba(251, 146, 60, 0.16);
+    --warning: #fbbf24;
+    --warning-soft: rgba(251, 191, 36, 0.16);
+    --native: #a78bfa;
+    --source: #2dd4bf;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+code,
+pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  flex-wrap: wrap;
+}
+
+.status-title {
+  font-weight: 600;
+}
+
+.status-item {
+  color: var(--muted);
+}
+
+.status-connection {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+}
+
+.status-live {
+  color: #15803d;
+  border-color: #15803d;
+}
+
+.status-reconnecting,
+.status-connecting {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.status-stale,
+.status-unauthorized {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.status-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.status-pill-error {
+  background: var(--error-soft);
+  color: var(--error);
+}
+
+.status-pill-warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.banner {
+  padding: 10px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.banner-upgrade {
+  background: var(--warning-soft);
+}
+
+.notice {
+  margin: 48px auto;
+  max-width: 560px;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.graph-screen {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+.graph-canvas {
+  position: relative;
+  min-height: 0;
+}
+
+.empty-graph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.react-flow__node-object {
+  transition: transform 300ms ease;
+}
+
+.reduced-motion .react-flow__node-object {
+  transition: none;
+}
+
+.object-node {
+  width: 272px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.object-node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.object-node.highlighted {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px var(--error-soft);
+}
+
+.object-node-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  height: 64px;
+  border-bottom: 1px solid var(--border);
+}
+
+.object-node-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.object-node-label {
+  font-weight: 600;
+}
+
+.object-node-api-name {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-source {
+  background: rgba(15, 118, 110, 0.12);
+  color: var(--source);
+}
+
+.badge-native {
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--native);
+}
+
+.object-node-properties {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+}
+
+.property {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  height: 22px;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.property-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.property-object-id .property-name {
+  font-weight: 600;
+}
+
+.property-restricted .property-name::after {
+  content: ' 🔒';
+  font-size: 10px;
+}
+
+.property-type {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.property-origin {
+  color: var(--muted);
+  font-size: 11px;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.property-reference .property-origin,
+.property-native-reference .property-origin {
+  color: var(--accent);
+}
+
+.react-flow__handle {
+  opacity: 0;
+}
+
+.relationship-edge {
+  stroke: var(--muted);
+  stroke-width: 1.5;
+}
+
+.relationship-edge.selected {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.relationship-edge.highlighted {
+  stroke: var(--error);
+  stroke-width: 2;
+}
+
+.relationship-label {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 8px;
+  font-size: 11px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  pointer-events: all;
+}
+
+.relationship-label.selected {
+  border-color: var(--accent);
+}
+
+.relationship-label.highlighted {
+  border-color: var(--error);
+}
+
+.traversal small {
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.traversal-forward::before {
+  content: '→ ';
+  color: var(--muted);
+}
+
+.traversal-reverse::before {
+  content: '← ';
+  color: var(--muted);
+}
+
+.fit-button {
+  width: auto !important;
+  padding: 0 8px !important;
+  font-size: 11px;
+}
+
+.diagnostics {
+  width: 380px;
+  max-width: 45vw;
+  overflow: auto;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  padding: 12px 16px;
+}
+
+.diagnostics-group {
+  margin-bottom: 20px;
+}
+
+.diagnostics-group h2 {
+  font-size: 14px;
+  margin: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.diagnostics-group h2 small {
+  color: var(--muted);
+  font-weight: normal;
+  font-size: 12px;
+}
+
+.diagnostics-code h2 {
+  color: var(--error);
+}
+
+.diagnostics-loader h2 {
+  color: var(--warning);
+}
+
+.diagnostics-type h2 {
+  color: var(--warning);
+}
+
+.diagnostics-hint {
+  color: var(--muted);
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.diagnostics ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diagnostic {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.diagnostic-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.diagnostic-code {
+  color: var(--accent);
+}
+
+.severity {
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.severity-error {
+  color: var(--error);
+}
+
+.severity-warning {
+  color: var(--warning);
+}
+
+.diagnostic-message {
+  margin: 6px 0;
+}
+
+.diagnostic-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.diagnostic-details dt {
+  color: var(--muted);
+}
+
+.diagnostic-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.diagnostic-details small {
+  color: var(--muted);
+}
+
+.link-button {
+  border: none;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.diagnostic-frame {
+  margin: 8px 0 0;
+  padding: 8px;
+  background: var(--bg);
+  border-radius: 6px;
+  overflow: auto;
+  font-size: 12px;
+}
