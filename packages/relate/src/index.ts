@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { referenceSchemas } from './schema.js';
+import type { ActionDefinition } from './actions.js';
 import type {
   AccessDefinition,
   ExactPolicyInput,
@@ -26,12 +28,11 @@ export function referenceInput<
   // The object supplies compile-time identity; the runtime still checks membership.
   void object;
 
-  return z
-    .string()
-    .regex(/\S/, 'Object ID must not be blank') as unknown as z.ZodType<
-    ObjectId<O['id']>,
-    ObjectId<O['id']>
-  >;
+  const schema = z.string().regex(/\S/, 'Object ID must not be blank');
+
+  referenceSchemas.set(schema, object.id);
+
+  return schema as unknown as z.ZodType<ObjectId<O['id']>, ObjectId<O['id']>>;
 }
 
 export interface FieldReference<S extends z.ZodType = z.ZodType> {
@@ -77,6 +78,10 @@ export interface Property<S extends z.ZodType = z.ZodType> {
         readonly field: string;
         readonly targetObjectDefinitionId: string;
       }
+    | {
+        readonly kind: 'native-reference';
+        readonly targetObjectDefinitionId: string;
+      }
     | { readonly kind: 'native' }
     | { readonly kind: 'object-id' }
     | {
@@ -104,7 +109,10 @@ export function objectId<const Id extends string>(options: {
 export function native<S extends z.ZodType, const Id extends string>(
   schema: S,
   options: { id: Id; access?: FieldGroup },
-): Property<S> & { readonly id: Id } {
+): Property<S> & {
+  readonly id: Id;
+  readonly origin: { readonly kind: 'native' };
+} {
   return Object.freeze({
     ...options,
     schema,
@@ -134,17 +142,44 @@ export interface ReferenceProperty<
 > extends Property<z.ZodString> {
   readonly references: Target;
   readonly target: TargetObject;
-  readonly origin: {
-    readonly kind: 'reference';
-    readonly sourceDefinitionId: string;
-    readonly field: string;
-    readonly targetObjectDefinitionId: Target;
-  };
+  readonly origin:
+    | {
+        readonly kind: 'native-reference';
+        readonly targetObjectDefinitionId: Target;
+      }
+    | {
+        readonly kind: 'reference';
+        readonly sourceDefinitionId: string;
+        readonly field: string;
+        readonly targetObjectDefinitionId: Target;
+      };
 }
 
 export function reference<O extends ObjectDefinition, const Id extends string>(
   target: O,
   options: { id: Id; access?: FieldGroup; from: FieldReference<z.ZodString> },
+): ReferenceProperty<O['id'], O> & {
+  readonly id: Id;
+  readonly origin: Extract<
+    ReferenceProperty<O['id'], O>['origin'],
+    { kind: 'reference' }
+  >;
+};
+
+export function reference<O extends ObjectDefinition, const Id extends string>(
+  target: O,
+  options: { id: Id; access?: FieldGroup },
+): ReferenceProperty<O['id'], O> & {
+  readonly id: Id;
+  readonly origin: {
+    readonly kind: 'native-reference';
+    readonly targetObjectDefinitionId: O['id'];
+  };
+};
+
+export function reference<O extends ObjectDefinition, const Id extends string>(
+  target: O,
+  options: { id: Id; access?: FieldGroup; from?: FieldReference<z.ZodString> },
 ): ReferenceProperty<O['id'], O> & { readonly id: Id } {
   return Object.freeze({
     id: options.id,
@@ -152,14 +187,29 @@ export function reference<O extends ObjectDefinition, const Id extends string>(
     schema: z.string(),
     references: target.id,
     target,
-    origin: Object.freeze({
-      kind: 'reference' as const,
-      sourceDefinitionId: options.from.sourceDefinitionId,
-      field: options.from.field,
-      targetObjectDefinitionId: target.id,
-    }),
+    origin: options.from
+      ? Object.freeze({
+          kind: 'reference' as const,
+          sourceDefinitionId: options.from.sourceDefinitionId,
+          field: options.from.field,
+          targetObjectDefinitionId: target.id,
+        })
+      : Object.freeze({
+          kind: 'native-reference' as const,
+          targetObjectDefinitionId: target.id,
+        }),
   });
 }
+
+export interface NativeMembership {
+  readonly kind: 'native';
+}
+
+export function nativeMembership(): NativeMembership {
+  return Object.freeze({ kind: 'native' });
+}
+
+export type Membership = ReturnType<typeof source> | NativeMembership;
 
 export function source(resource: SourceDefinition) {
   return Object.freeze({ resource });
@@ -173,7 +223,7 @@ export interface ObjectDefinition {
   readonly pluralLabel?: string;
   /** Explanatory text for people, documentation, and agents. */
   readonly description?: string;
-  readonly membership: ReturnType<typeof source>;
+  readonly membership: Membership;
   readonly properties: Readonly<Record<string, Property>>;
 }
 
@@ -185,12 +235,14 @@ export type BoundProperty<
 export type DefinedObject<
   Id extends string,
   P extends Record<string, Property>,
-> = Omit<ObjectDefinition, 'id' | 'properties'> & {
+  M extends Membership = Membership,
+> = Omit<ObjectDefinition, 'id' | 'properties' | 'membership'> & {
   readonly id: Id;
+  readonly membership: M;
   readonly properties: {
     readonly [K in keyof P]: BoundProperty<
       Omit<P[K], 'owner'>,
-      DefinedObject<Id, P>
+      DefinedObject<Id, P, M>
     >;
   };
 };
@@ -198,12 +250,14 @@ export type DefinedObject<
 export function defineObject<
   const Id extends string,
   const P extends Record<string, Property>,
+  const M extends Membership,
 >(
-  definition: Omit<ObjectDefinition, 'id' | 'properties'> & {
+  definition: Omit<ObjectDefinition, 'id' | 'properties' | 'membership'> & {
     id: Id;
+    membership: M;
     properties: P;
   },
-): DefinedObject<Id, P> {
+): DefinedObject<Id, P, M> {
   if (
     Object.values(definition.properties).filter(
       (p) => p.origin.kind === 'object-id',
@@ -228,7 +282,7 @@ export function defineObject<
     ),
   );
 
-  return Object.freeze(object) as DefinedObject<Id, P>;
+  return Object.freeze(object) as DefinedObject<Id, P, M>;
 }
 
 export interface Traversal {
@@ -308,6 +362,7 @@ export interface GraphDefinition {
   readonly id: string;
   readonly objects: ObjectRegistry;
   readonly relationships?: RelationshipRegistry;
+  readonly actions?: Readonly<Record<string, ActionDefinition>>;
   readonly access: AccessDefinition;
   readonly policies: Readonly<Record<string, Policy>>;
 }
@@ -336,3 +391,16 @@ export type {
   PolicyWhere,
   RoleGate,
 } from './authorization.js';
+
+export { defineAction, implementAction } from './actions.js';
+
+export type {
+  ActionDefinition,
+  ActionImplementation,
+  ActionContext,
+  NativeValues,
+  Receipt,
+  ActionRequest,
+} from './actions.js';
+
+export type { ObjectResult, ReadOptions } from './operations.js';

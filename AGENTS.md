@@ -2,12 +2,11 @@
 
 Use Conventional Commits: `<type>[optional scope]: <description>` (for example,
 `docs: update license documentation` or `feat(runtime): add durable reads`).
-Mark breaking changes with `!` after the type or scope, or a `BREAKING CHANGE:`
-footer.
+Mark breaking changes with `!` after the type or scope.
 
 Do not add AI attribution to commits or pull requests. No `Co-Authored-By`
-trailers for Claude, Codex, or any other agent, and no "Generated with" lines
-or other notes saying an agent wrote, committed, or reviewed the change.
+trailers for Claude, Codex, or any other agent, and no "Generated with" lines or
+other notes saying an agent wrote, committed, or reviewed the change.
 
 ## Keeping the owner in the loop
 
@@ -29,8 +28,8 @@ concrete thing being talked about rather than describing it abstractly:
 Apply this to plans, design options, progress updates, and final summaries
 alike. When weighing alternatives, show each option as code or a contract
 sketch, then give a recommendation. If something is still undecided, say so
-explicitly and show the open shape. Keep prose short; let the examples carry
-the explanation.
+explicitly and show the open shape. Keep prose short; let the examples carry the
+explanation.
 
 ## Implementation approach
 
@@ -46,7 +45,7 @@ worked out.
 The useful distinction is **what behavior to preserve versus what implementation
 to preserve**.
 
-**Start with a small application that exercises the architecture**
+**Implement agreed behavior through complete application paths**
 
 Use the existing neutral model:
 
@@ -56,25 +55,52 @@ Use the existing neutral model:
 - Relationships between them.
 - An authorized read and a native action.
 
-First, write the intended application code as an acceptance fixture: its model
-definitions, configuration, embedded calls, and expected results. This
-establishes what the packages must make possible before we build their
-internals.
+The customer-graph acceptance fixture has established the intended application
+API. Source-backed reads, references and traversal already execute through the
+packages. The first native `addAccountReview` path now also executes get/create,
+authorization, rollback and successful receipt storage on memory and Postgres.
+Receipt lookup/replay, durable pending execution and declared failure receipts
+remain subsequent slices. Do not keep expanding a declaration-only API instead
+of implementing agreed behavior.
 
-Then implement that path through the packages:
+For each authorized slice:
 
-| Order | Build                    | What it establishes                                                   |
-| ----- | ------------------------ | --------------------------------------------------------------------- |
-| 1     | `relate` \+ `protocol`   | Authoring API, compiled model, public results and evidence            |
-| 2     | `runtime` \+ `postgres`  | One complete embedded read and native-write path with real durability |
-| 3     | `http` \+ `client`       | The same behavior through a remote interface                          |
-| 4     | `mcp`                    | The same operations exposed to agents                                 |
-| 5     | `node`                   | Convenient composition, startup, workers, and shutdown                |
-| 6     | `cli` \+ `create-relate` | A polished workflow around APIs that already work                     |
+- Implement the public API in its owning packages and exercise it through real
+  package imports. Use the fixture to identify required behavior, not as a
+  second implementation or a permanent public API declaration.
+- Keep authoring/type tests in `packages/relate/test`, execution tests in
+  `packages/runtime/test`, and typed application tests in `packages/node/test`.
+  Share memory/Postgres acceptance cases in `tests/support`, with database
+  execution in `tests/integration`.
+- Replace covered declarations in
+  `dev/fixtures/customer-graph/validation/target.ts` with package
+  imports/re-exports as their complete contract becomes available. Keep any
+  remaining proposed capability explicitly marked unimplemented.
+- `dev/` may retain exploratory examples, application fixtures and simulators.
+  Typechecking a proposed API is useful design evidence, but is not proof of
+  execution, authorization, atomicity or durability. Moving files alone is not
+  an implementation milestone.
+- Complete one end-to-end behavior before broadening the API. The first native
+  action path is `addAccountReview`: real definitions/compilation, authorized
+  native creation, reference validation, transaction rollback and a successful
+  receipt. Durable pending execution, receipt lookup/recovery and external
+  effects are subsequent slices, not implicit requirements to build now.
 
-This is an implementation sequence, not a reduction of the product vision. Grow
-capabilities through those paths rather than trying to finish each package
-independently.
+Package responsibilities along these paths:
+
+| Order | Build                    | What it establishes                                                    |
+| ----- | ------------------------ | ---------------------------------------------------------------------- |
+| 1     | `relate` \+ `protocol`   | Authoring API, compiled model, public results and evidence             |
+| 2     | `runtime` \+ `postgres`  | One complete embedded read and native-write path with real durability  |
+| 3     | `http` \+ `client`       | The same behavior through a remote interface                           |
+| 4     | `mcp`                    | The same operations exposed to agents                                  |
+| 5     | `node`                   | Typed embedded composition now; startup/workers as those features land |
+| 6     | `cli` \+ `create-relate` | A polished workflow around APIs that already work                      |
+
+Compose the embedded path through `node` while implementing it; do not postpone
+the callable application API until after transports. This is an implementation
+sequence, not a reduction of the product vision. Grow capabilities through those
+paths rather than trying to finish each package independently.
 
 **What I would take from the prototype**
 

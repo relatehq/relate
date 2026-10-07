@@ -12,9 +12,12 @@ The first read slice is now executable through `@relate/node`: named object
 registries, `connect`, `host.adopt` and principal-bound typed `get`. See
 [hello world](../../../examples/hello-world/README.md) and
 [`typed-read.test.ts`](../../../packages/node/test/typed-read.test.ts). The full
-fixture still uses declarations for native objects, native references, queries
-and actions. Source-backed references, nested read policies and bidirectional
-Customer–Invoice traversal are executable in the Invoice read subset.
+fixture still uses declarations for its broader native/query/action surface. The
+[native account-review slice](../../../packages/node/NATIVE_ACTIONS.md) now
+executes real package definitions, get/create, authorization, rollback and
+successful receipt storage against memory and Postgres. Source-backed
+references, nested read policies and bidirectional Customer–Invoice traversal
+are executable in the Invoice read subset.
 
 ## Current authoring direction
 
@@ -140,8 +143,9 @@ The fixture does not expose imperative `validate` or trusted evidence readers.
 Run `node dev/fixtures/customer-graph/validation/check-write-policies.mjs` for
 the selected write-rule type rejections. The
 [internal decision and archived spike](../../../../relate-internal/docs/internal/write-policy-spike.md)
-retain the alternatives and behavioral experiment. Runtime enforcement,
-validation timing and integrity evidence bounds remain unimplemented/open.
+retain the alternatives and behavioral experiment. The native account-review
+slice enforces create policies at the write and before commit. Task integrity
+rules and their evidence bounds remain unimplemented/open.
 
 `createRuntime({ graph, actionImplementations, connections })` checks action
 registration. `creates` limits native creation capability; runtime policies
@@ -151,9 +155,9 @@ transaction.
 
 The intended native execution contract is one runtime-owned transaction:
 interleaved native reads see earlier writes, success commits effects and
-receipt, and failure rolls back native effects. This is a proposed guarantee,
-not proven by declaration types. There is no author-facing commit call or
-mandatory preview.
+receipt, and failure rolls back native effects. This now executes in the
+account-review slice; the full fixture still contains unimplemented operations.
+There is no author-facing commit call or mandatory preview.
 
 Expected business failures use `errors: { code: schema }` on the shared contract
 and typed `fail(code, details)` in the implementation. Escalation declares
@@ -205,9 +209,9 @@ escalation's 1,000 tasks stay explicit. Breaking stops further page requests.
 `limit` is a page size, not a total-result bound.
 
 The shared `Page`/`PageMeta` types and `createQuery` helper are implemented in
-`@relate/protocol` and `@relate/runtime`. The fixture's `query` operation and
-action executor remain declarations; pagination tests do not prove native
-transaction rollback. See the
+`@relate/protocol` and `@relate/runtime`. The full fixture's `query` and
+escalation operations remain declarations; the separate native-action tests
+prove get/create rollback without claiming query support. See the
 [helper contract](../../../packages/runtime/README.md#pagination).
 
 The same calls work on the `objects` supplied to an action implementation.
@@ -242,8 +246,9 @@ read-your-writes must still respect field/object authorization.
 [authorization cases](./authorization-cases.md) specify required outcomes.
 [Open questions](./open-questions.md) identifies guarantees and syntax still to
 resolve. Graph policies now express portfolio isolation through each child's
-customer reference. Invoice read enforcement is implemented; native writes,
-native queries and actions remain declaration-only.
+customer reference. Invoice reads and the first native account-review action are
+implemented. Native queries, escalation, declared failures and receipt
+lookup/recovery remain declaration-only.
 
 The
 [current internal decision](../../../../relate-internal/docs/internal/action-authoring.md)

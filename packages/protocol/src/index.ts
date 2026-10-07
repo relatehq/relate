@@ -80,3 +80,26 @@ export class ReadError extends Error {
     this.name = 'ReadError';
   }
 }
+
+export interface SucceededReceipt<Output = Json> {
+  readonly invocationId: string;
+  readonly state: 'succeeded';
+  readonly output: Output;
+}
+
+/** Request/execution rejection, not a persisted failed receipt. No private details. */
+export class ActionError extends Error {
+  constructor(
+    readonly code:
+      | 'denied'
+      | 'invalid'
+      | 'conflict'
+      | 'unsupported'
+      | 'unavailable'
+      | 'internal'
+      | 'uncertain',
+  ) {
+    super(code);
+    this.name = 'ActionError';
+  }
+}

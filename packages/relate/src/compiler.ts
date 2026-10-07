@@ -6,7 +6,8 @@ import type {
   ObjectRegistry,
   Property,
 } from './index.js';
-import type { Claim } from './authorization.js';
+import { referenceSchemas } from './schema.js';
+import type { Claim, ActorField, ObjectRule } from './authorization.js';
 import { canonicalJson, deepFreeze, validateManifest } from './model.js';
 import type { CompiledModel, ScalarSchema } from './model.js';
 
@@ -47,7 +48,10 @@ function paths(
   object: ObjectDefinition,
   input: unknown,
   path: readonly Property[] = [],
-): readonly { readonly path: readonly Property[]; readonly claim: Claim }[] {
+): readonly {
+  readonly path: readonly Property[];
+  readonly claim: Claim | ActorField;
+}[] {
   if (
     !input ||
     typeof input !== 'object' ||
@@ -66,7 +70,10 @@ function paths(
 
     const next = [...path, property];
 
-    if (property.origin.kind === 'reference') {
+    if (
+      property.origin.kind === 'reference' ||
+      property.origin.kind === 'native-reference'
+    ) {
       const targetId = property.origin.targetObjectDefinitionId;
       const target = Object.values(objects).find((o) => o.id === targetId);
 
@@ -84,11 +91,11 @@ function paths(
       !value.eq ||
       typeof value.eq !== 'object' ||
       !('kind' in value.eq) ||
-      value.eq.kind !== 'claim'
+      !['claim', 'actor-field'].includes(String(value.eq.kind))
     )
       throw new Error('Invalid policy predicate');
 
-    return [{ path: next, claim: value.eq as Claim }];
+    return [{ path: next, claim: value.eq as Claim | ActorField }];
   });
 }
 
@@ -128,6 +135,13 @@ export function compile(graph: GraphDefinition): CompiledModel {
     )
       throw new Error('Invalid field group reference');
 
+    if (!('resource' in object.membership)) {
+      if (object.membership.kind !== 'native')
+        throw new Error('Unsupported membership');
+
+      continue;
+    }
+
     const resource = object.membership.resource;
 
     // Object-level refinements would otherwise be lost during field extraction.
@@ -164,6 +178,74 @@ export function compile(graph: GraphDefinition): CompiledModel {
       throw new Error(`Missing policy: ${name}`);
   }
 
+  const createPolicies: Record<string, unknown> = {};
+  const compileRule = (
+    object: ObjectDefinition,
+    rule: ObjectRule<string, unknown>,
+  ) => {
+    if (
+      !rule ||
+      typeof rule !== 'object' ||
+      Object.keys(rule).some(
+        (key) => !['gate', 'where', 'evidenceMaxAgeMs'].includes(key),
+      )
+    )
+      throw new Error('Invalid policy read rule');
+
+    if (rule.gate?.kind !== 'role') throw new Error('Unsupported policy gate');
+
+    const hasWhere = Object.hasOwn(rule, 'where');
+
+    if (
+      hasWhere
+        ? typeof rule.evidenceMaxAgeMs !== 'number'
+        : Object.hasOwn(rule, 'evidenceMaxAgeMs')
+    )
+      throw new Error(
+        'Predicates require an evidence bound; role-only rules omit it',
+      );
+
+    const conditions = hasWhere
+      ? paths(graph.objects, object, rule.where)
+      : undefined;
+
+    for (const { claim } of conditions ?? []) {
+      if (claim.kind === 'actor-field') {
+        if (claim.name !== 'id') throw new Error('Unknown actor field');
+
+        continue;
+      }
+
+      const declared = Object.hasOwn(graph.access.claims, claim.name)
+        ? graph.access.claims[claim.name]
+        : undefined;
+
+      if (!declared) throw new Error('Unknown policy claim');
+
+      if (
+        canonicalJson(portable(declared.schema)) !==
+        canonicalJson(portable(claim.schema))
+      )
+        throw new Error('Conflicting policy reference');
+    }
+
+    return {
+      role: rule.gate.role,
+      ...(conditions
+        ? {
+            where: {
+              all: conditions.map(({ path, claim }) => ({
+                path: path.map((p) => p.id),
+                ...(claim.kind === 'actor-field'
+                  ? { actor: 'id' }
+                  : { claim: claim.name }),
+              })),
+            },
+          }
+        : {}),
+      evidenceMaxAgeMs: rule.evidenceMaxAgeMs ?? 0,
+    };
+  };
   const policies = Object.fromEntries(
     Object.entries(graph.policies).flatMap(([name, policy]) => {
       if (!Object.hasOwn(graph.objects, name))
@@ -174,11 +256,20 @@ export function compile(graph: GraphDefinition): CompiledModel {
       if (
         !policy ||
         typeof policy !== 'object' ||
-        Object.keys(policy).some((key) => key !== 'read' && key !== 'groups')
+        Object.keys(policy).some(
+          (key) => !['read', 'create', 'groups'].includes(key),
+        )
       )
         throw new Error('Unsupported policy');
 
-      // Explicit authoring denial uses the portable manifest's existing default-deny contract.
+      if (policy.create !== undefined) {
+        if ('resource' in object.membership)
+          throw new Error('Create policy requires native membership');
+
+        if (policy.create !== 'deny')
+          createPolicies[object.id] = compileRule(object, policy.create);
+      }
+
       if (policy.read === 'deny') {
         if (Object.hasOwn(policy, 'groups'))
           throw new Error('Denied reads cannot grant field groups');
@@ -186,74 +277,19 @@ export function compile(graph: GraphDefinition): CompiledModel {
         return [];
       }
 
-      const read = policy.read;
-
       if (
-        !read ||
-        typeof read !== 'object' ||
-        Object.keys(read).some(
-          (key) => !['gate', 'where', 'evidenceMaxAgeMs'].includes(key),
-        )
-      )
-        throw new Error('Invalid policy read rule');
-
-      if (
-        [read.gate, ...Object.values(policy.groups ?? {})].some(
-          (gate) => gate?.kind !== 'role',
-        )
+        Object.values(policy.groups ?? {}).some((gate) => gate?.kind !== 'role')
       )
         throw new Error('Unsupported policy gate');
-
-      const hasWhere = Object.hasOwn(read, 'where');
-
-      if (
-        hasWhere
-          ? typeof read.evidenceMaxAgeMs !== 'number'
-          : Object.hasOwn(read, 'evidenceMaxAgeMs')
-      )
-        throw new Error(
-          'Predicates require an evidence bound; role-only rules omit it',
-        );
-
-      const conditions = hasWhere
-        ? paths(graph.objects, object, read.where)
-        : undefined;
-
-      for (const condition of conditions ?? []) {
-        const claim = Object.hasOwn(graph.access.claims, condition.claim.name)
-          ? graph.access.claims[condition.claim.name]
-          : undefined;
-
-        if (!claim) throw new Error('Unknown policy claim');
-
-        if (
-          canonicalJson(portable(claim.schema)) !==
-          canonicalJson(portable(condition.claim.schema))
-        )
-          throw new Error('Conflicting policy reference');
-      }
 
       return [
         [
           object.id,
           {
-            read: {
-              role: read.gate.role,
-              ...(conditions
-                ? {
-                    where: {
-                      all: conditions.map(({ path, claim }) => ({
-                        path: path.map((p) => p.id),
-                        claim: claim.name,
-                      })),
-                    },
-                  }
-                : {}),
-              evidenceMaxAgeMs: read.evidenceMaxAgeMs ?? 0,
-            },
+            read: compileRule(object, policy.read),
             groups: Object.fromEntries(
-              Object.entries(policy.groups ?? {}).map(([name, gate]) => [
-                name,
+              Object.entries(policy.groups ?? {}).map(([group, gate]) => [
+                group,
                 { role: gate!.role },
               ]),
             ),
@@ -262,6 +298,64 @@ export function compile(graph: GraphDefinition): CompiledModel {
       ];
     }),
   );
+
+  const actionShape = (schema: z.ZodType) => {
+    if (
+      schema.def.type !== 'object' ||
+      ('checks' in schema.def && schema.def.checks?.length) ||
+      (schema as z.ZodObject).def.catchall
+    )
+      throw new Error(
+        'Actions require unrefined object schemas with scalar fields in this slice',
+      );
+
+    return Object.fromEntries(
+      Object.entries((schema as z.ZodObject).shape).map(([name, field]) => {
+        const references = referenceSchemas.get(field);
+
+        return [
+          name,
+          references
+            ? { type: 'string', nullable: false, optional: false, references }
+            : portable(field),
+        ];
+      }),
+    );
+  };
+  const actions = Object.entries(graph.actions ?? {}).map(
+    ([apiName, action]) => {
+      if (
+        Object.keys(action).some(
+          (key) =>
+            !['id', 'input', 'output', 'creates', 'policy'].includes(key),
+        )
+      )
+        throw new Error('Unsupported action option');
+
+      if (
+        action.policy &&
+        (Object.keys(action.policy).some((key) => key !== 'execute') ||
+          action.policy.execute?.kind !== 'role')
+      )
+        throw new Error('Unsupported action policy');
+
+      if (action.creates.some((object) => !objects.includes(object)))
+        throw new Error('Unregistered action capability');
+
+      return {
+        id: action.id,
+        apiName,
+        input: actionShape(action.input),
+        output: actionShape(action.output),
+        creates: action.creates.map((o) => o.id).sort(),
+        ...(action.policy
+          ? { execute: { role: action.policy.execute.role } }
+          : {}),
+      };
+    },
+  );
+
+  actions.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   const relationships = Object.values(graph.relationships ?? {});
 
@@ -297,7 +391,9 @@ export function compile(graph: GraphDefinition): CompiledModel {
         label: o.label ?? humanize(apiName),
         pluralLabel: o.pluralLabel ?? o.label ?? humanize(apiName),
         ...(o.description !== undefined ? { description: o.description } : {}),
-        sourceDefinitionId: o.membership.resource.id,
+        ...('resource' in o.membership
+          ? { sourceDefinitionId: o.membership.resource.id }
+          : {}),
         properties: Object.entries(o.properties)
           .map(([name, p]) => ({
             id: p.id,
@@ -324,6 +420,8 @@ export function compile(graph: GraphDefinition): CompiledModel {
         }
       : {}),
     policies,
+    ...(Object.keys(createPolicies).length ? { createPolicies } : {}),
+    ...(actions.length ? { actions } : {}),
   });
 
   return deepFreeze({

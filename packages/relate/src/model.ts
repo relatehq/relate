@@ -10,6 +10,10 @@ export const scalarSchema = z.strictObject({
 
 export type ScalarSchema = z.infer<typeof scalarSchema>;
 
+export const actionFieldSchema = scalarSchema.extend({
+  references: text.optional(),
+});
+
 const roleGate = z.strictObject({ role: text });
 const policySchema = z.strictObject({
   read: roleGate.extend({
@@ -21,7 +25,8 @@ const policySchema = z.strictObject({
             .array(
               z.strictObject({
                 path: z.array(text).min(1).max(16),
-                claim: text,
+                claim: text.optional(),
+                actor: z.literal('id').optional(),
               }),
             )
             .min(1),
@@ -42,6 +47,10 @@ const propertySchema = z.strictObject({
   schema: scalarSchema,
   origin: z.discriminatedUnion('kind', [
     z.strictObject({ kind: z.literal('native') }),
+    z.strictObject({
+      kind: z.literal('native-reference'),
+      targetObjectDefinitionId: text,
+    }),
     z.strictObject({
       kind: z.literal('reference'),
       sourceDefinitionId: text,
@@ -77,7 +86,7 @@ export const manifestSchema = z.strictObject({
       label: text.refine((value) => value.trim().length > 0),
       pluralLabel: text.refine((value) => value.trim().length > 0),
       description: z.string().optional(),
-      sourceDefinitionId: text,
+      sourceDefinitionId: text.optional(),
       properties: z.array(propertySchema),
     }),
   ),
@@ -94,6 +103,19 @@ export const manifestSchema = z.strictObject({
     )
     .optional(),
   policies: z.record(text, policySchema),
+  createPolicies: z.record(text, policySchema.shape.read).optional(),
+  actions: z
+    .array(
+      z.strictObject({
+        id: text,
+        apiName: text,
+        input: z.record(text, actionFieldSchema),
+        output: z.record(text, actionFieldSchema),
+        creates: z.array(text),
+        execute: roleGate.optional(),
+      }),
+    )
+    .optional(),
 });
 
 export type Manifest = z.infer<typeof manifestSchema>;
@@ -201,7 +223,8 @@ export function validateManifest(input: unknown): Manifest {
       (s) => s.id === object.sourceDefinitionId,
     );
 
-    if (!resource) throw new Error('Unknown membership source');
+    if (object.sourceDefinitionId && !resource)
+      throw new Error('Unknown membership source');
 
     const propertyNames = new Set<string>();
 
@@ -216,10 +239,28 @@ export function validateManifest(input: unknown): Manifest {
       if (!manifest.fieldGroups.includes(property.access))
         throw new Error('Unknown field group');
 
-      if (property.origin.kind === 'native') {
-        throw new Error(
-          'Native business properties are not supported in this slice',
-        );
+      if (
+        property.origin.kind === 'native' ||
+        property.origin.kind === 'native-reference'
+      ) {
+        if (resource)
+          throw new Error(
+            'Native business properties require native membership',
+          );
+
+        if (
+          property.origin.kind === 'native-reference' &&
+          (property.schema.type !== 'string' ||
+            property.schema.optional ||
+            property.schema.nullable ||
+            !manifest.objects.some(
+              (o) =>
+                o.id ===
+                (property.origin as { targetObjectDefinitionId: string })
+                  .targetObjectDefinitionId,
+            ))
+        )
+          throw new Error('Invalid native reference');
       } else if (property.origin.kind === 'object-id') {
         if (
           property.schema.type !== 'string' ||
@@ -229,11 +270,11 @@ export function validateManifest(input: unknown): Manifest {
         )
           throw new Error('objectId() must be an ordinary required string');
       } else if (property.origin.kind === 'reference') {
-        const key = resource.fields[property.origin.field];
+        const key = resource?.fields[property.origin.field];
         const targetId = property.origin.targetObjectDefinitionId;
 
         if (
-          property.origin.sourceDefinitionId !== resource.id ||
+          property.origin.sourceDefinitionId !== resource?.id ||
           !key ||
           key.type !== 'string' ||
           key.optional ||
@@ -245,8 +286,8 @@ export function validateManifest(input: unknown): Manifest {
         )
           throw new Error('Invalid source reference target or key');
       } else if (
-        property.origin.sourceDefinitionId !== resource.id ||
-        !resource.fields[property.origin.field] ||
+        property.origin.sourceDefinitionId !== resource?.id ||
+        !resource?.fields[property.origin.field] ||
         canonicalJson(resource.fields[property.origin.field]) !==
           canonicalJson(property.schema)
       ) {
@@ -279,7 +320,8 @@ export function validateManifest(input: unknown): Manifest {
       !from ||
       !to ||
       !via ||
-      via.origin.kind !== 'reference' ||
+      (via.origin.kind !== 'reference' &&
+        via.origin.kind !== 'native-reference') ||
       via.origin.targetObjectDefinitionId !== from.id
     )
       throw new Error('Invalid relationship endpoints or reference');
@@ -301,7 +343,17 @@ export function validateManifest(input: unknown): Manifest {
     }
   }
 
-  for (const [typeId, policy] of Object.entries(manifest.policies)) {
+  for (const [typeId, rule] of Object.entries(manifest.createPolicies ?? {})) {
+    if (!manifest.objects.some((o) => o.id === typeId && !o.sourceDefinitionId))
+      throw new Error('Create policy requires native membership');
+  }
+
+  for (const [typeId, policy] of [
+    ...Object.entries(manifest.policies),
+    ...Object.entries(manifest.createPolicies ?? {}).map(
+      ([id, read]) => [id, { read, groups: {} } as Policy] as const,
+    ),
+  ]) {
     const object = manifest.objects.find((o) => o.id === typeId);
 
     if (!object) throw new Error('Unknown policy object');
@@ -334,17 +386,32 @@ export function validateManifest(input: unknown): Manifest {
           if (!property) throw new Error('Unknown policy dependency');
 
           if (index < condition.path.length - 1) {
-            if (property.origin.kind !== 'reference')
+            if (
+              property.origin.kind !== 'reference' &&
+              property.origin.kind !== 'native-reference'
+            )
               throw new Error('Policy path must traverse a reference');
 
             const targetId = property.origin.targetObjectDefinitionId;
 
             current = manifest.objects.find((o) => o.id === targetId)!;
           } else {
-            if (property.origin.kind === 'reference')
+            if (
+              property.origin.kind === 'reference' ||
+              property.origin.kind === 'native-reference'
+            )
               throw new Error('Policy path must end at a scalar');
 
-            const claim = manifest.claims[condition.claim];
+            if (
+              (condition.claim !== undefined) ===
+              ('actor' in condition && condition.actor !== undefined)
+            )
+              throw new Error('Policy needs exactly one operand');
+
+            const claim =
+              condition.claim !== undefined
+                ? manifest.claims[condition.claim]
+                : { type: 'string', nullable: false, optional: false };
 
             if (!claim) throw new Error('Unknown policy claim');
 
@@ -365,6 +432,48 @@ export function validateManifest(input: unknown): Manifest {
       )
     )
       throw new Error('Invalid policy group');
+  }
+
+  const actionNames = new Set<string>();
+
+  for (const action of manifest.actions ?? []) {
+    register(action.id);
+
+    if (
+      !action.apiName.trim() ||
+      unsafe.has(action.apiName) ||
+      actionNames.has(action.apiName)
+    )
+      throw new Error('Invalid action API name');
+
+    actionNames.add(action.apiName);
+
+    if (action.execute && !manifest.roles.includes(action.execute.role))
+      throw new Error('Unknown action role');
+
+    if (
+      new Set(action.creates).size !== action.creates.length ||
+      action.creates.some(
+        (id) =>
+          !manifest.objects.some((o) => o.id === id && !o.sourceDefinitionId),
+      )
+    )
+      throw new Error('Invalid native action capability');
+
+    for (const shape of [action.input, action.output])
+      for (const [name, field] of Object.entries(shape)) {
+        if (!name.trim() || unsafe.has(name))
+          throw new Error('Invalid action field');
+
+        if (
+          field.references &&
+          (field.type !== 'string' ||
+            field.nullable ||
+            field.optional ||
+            !manifest.objects.some((o) => o.id === field.references))
+        )
+          throw new Error('Invalid action reference');
+      }
   }
 
   return deepFreeze(manifest);

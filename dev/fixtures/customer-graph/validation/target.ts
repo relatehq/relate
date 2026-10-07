@@ -27,19 +27,21 @@ import type {
 import type { QueryResult } from '@relate/runtime';
 import type { ObservationStore } from '@relate/runtime/storage';
 
-export { defineSource, from, objectId, source, referenceInput } from 'relate';
+export {
+  defineSource,
+  from,
+  objectId,
+  source,
+  referenceInput,
+  native,
+  nativeMembership,
+} from 'relate';
 
 // Definitions
 
 type Options<Id extends string> = { id: Id; access: FieldGroup };
 
 type NativeOrigin = { readonly origin: { readonly kind: 'native' } };
-
-/** As today, but the origin stays visible to types so writes can be checked. */
-export declare function native<S extends z.ZodType, const Id extends string>(
-  schema: S,
-  options: Options<Id>,
-): Property<S> & NativeOrigin & { readonly id: Id };
 
 export interface ReferenceProperty<
   Target extends string = string,
@@ -76,9 +78,6 @@ export interface NativeMembership {
 }
 
 export type SourceMembership = ReturnType<typeof source>;
-
-/** Records exist because an action created them, not because a source has them. */
-export declare function nativeMembership(): NativeMembership;
 
 export interface ObjectDefinition<
   Id extends string = string,

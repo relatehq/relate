@@ -1,7 +1,7 @@
 # @relate/runtime
 
-Embedded read execution with explicit source and storage contracts. Private and
-unpublished.
+Embedded read and native-action execution with explicit source and storage
+contracts. Private and unpublished.
 
 `createRuntime` composes a compiled model, installed graph ID, optional storage
 adapter, source bindings and an optional clock. Consumer `read` applies
@@ -27,10 +27,13 @@ must honor cancellation to stop their own outstanding I/O. Each read uses at
 most one source fetch in this slice.
 
 Only explicit shared service-account source bindings are supported. Delegated
-credential partitions, automatic sync workers, arbitrary predicates, lists,
-relationships and actions are not implemented. Engine results remain partial
-JSON records. `@relate/node` composes this engine with authored definitions and
-provides typed `relate.as(principal).objects.Customer.get(...)` reads.
+credential partitions, automatic sync workers and arbitrary collection
+predicates are not implemented. Source-backed traversal and synchronous native
+actions are implemented; see
+[native account reviews](../node/NATIVE_ACTIONS.md). Engine results remain
+partial JSON records. `@relate/node` composes this engine with authored
+definitions and provides typed `relate.as(principal).objects.Customer.get(...)`
+reads.
 
 Connectors throw `SourceAccessDenied` for an explicit provider permission
 denial. The affected read returns `not-found` rather than falling back to
@@ -111,3 +114,18 @@ tokens cannot prove progress or snapshot consistency. This helper introduces no
 cross-source snapshot or automatic native rollback; those belong to the query
 engine and action transaction owner. Page size and an application's total work
 bound remain separate.
+
+## Native actions
+
+`invoke` runs a compiled action through its registered handler and optional
+`store.native` transaction capability. Runtime owns action gates, input/output
+validation, authorized get/create, reference membership, abort tracking and
+final create-policy validation. Successful native effects and receipt evidence
+commit atomically. `@relate/node` binds typed implementations and caller
+methods; it does not own transaction or authorization semantics.
+
+Memory serializes native transactions per graph using isolated working copies;
+Postgres provides the same behavior with adapter-owned transactions. Source
+observation retention stays separate. Current execution returns confirmed
+success or throws sanitized `ActionError`; durable pending execution and
+consumer receipt lookup/replay are subsequent slices.

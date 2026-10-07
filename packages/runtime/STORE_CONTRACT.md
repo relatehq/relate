@@ -15,9 +15,10 @@ import {
 } from '@relate/runtime/storage';
 ```
 
-The interface is the contract for the current read slice. Future action or
-history APIs may extend it; implementing this interface does not imply support
-for those features.
+The base interface is the source-observation contract. The optional `native`
+capability supplies native transactions; source-only adapters remain valid for
+read-only applications. History querying and consumer receipt lookup are
+separate.
 
 ## Methods and guarantees
 
@@ -90,3 +91,37 @@ checks revision/scope isolation, atomic concurrent adoption, membership checks,
 ordering, tombstones, refreshed evidence and snapshot isolation. Add tests for
 your adapter's transactions, multiple clients, restart behavior and ambiguous
 commit outcomes. Interface compatibility alone does not establish correctness.
+
+## Native write capability
+
+`ObservationStore.native?: NativeStore` uses installed graph/revision scope.
+`load` returns a native record by object type and canonical ID; `loadInvocation`
+returns trusted storage evidence by action/key. These are host/runtime storage
+operations, not caller-authorized receipt APIs. Never expose them through a
+consumer or transport directly.
+
+`transaction(scope, callback)` gives the runtime `load`, `insert`, `claim` and
+`saveInvocation`. Reads see the transaction's writes; independent readers do not
+see uncommitted records. Commit every insert and invocation receipt together
+only after the callback succeeds. Any callback error rolls back both native
+effects and the key reservation. Reject unfinished claims. Invalidate the
+transaction handle after completion and never expose mutable storage references.
+
+`claim` reserves graph/action/key and raises `NativeConflict` for existing or
+concurrently committed keys. This slice rejects duplicates; it does not replay
+receipts. Save validated input and successful receipt evidence under that claim.
+Native record values use stable property definition IDs. The runtime owns value,
+reference and permission validation; adapters own isolation and atomicity.
+
+Only known rollback can be treated as a confirmed failure. A lost commit
+acknowledgement raises `NativeCommitUncertain`; do not automatically retry it.
+Use `StorageUnavailable({ cause })` for recognized temporary storage failures
+during installation or before native commit, or after a confirmed transaction
+rejection. Never use it for an ambiguous COMMIT. The action executor maps this
+and `ReadError('unavailable')` to sanitized `ActionError('unavailable')`;
+unknown errors remain `internal`. Adapter-specific connection and timeout
+classification belongs in the adapter, not the runtime.
+
+Source observation refreshes remain independent of this transaction. The shared
+`tests/support/native-action-contract.ts` suite verifies native behavior on
+memory and Postgres, including failure after insert but before receipt save.
