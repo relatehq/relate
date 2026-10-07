@@ -23,6 +23,14 @@ it cannot renew permission evidence. Provider versions precede fetch-start
 ordering. Without provider versions, order is best effort and cannot prove
 upstream recency. Deletion and denial are never undone by fallback.
 
+Field-group denial is decided from the caller's roles alone and reported as
+`status: 'forbidden'` field evidence; it never consults or discloses object
+evidence. Unknown names, omitted stale values and undisclosable references are
+`unavailable`. Only `unavailable` marks a read `degraded`; both make it
+`partial`. Resolution, native reads and traversal projection share this rule in
+`src/resolution/evidence.ts`. See the
+[protocol contract](../protocol/CONTRACT.md#withheld-fields).
+
 A deleted reference target does not delete a referring native object or clear
 its stored link. Reads withhold the unresolved reference with
 `status: 'unavailable'` field evidence; other fields remain readable when the

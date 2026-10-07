@@ -89,9 +89,10 @@ it('adopts once and reads selected fields through a principal-bound object', asy
       data: { name: 'Northwind' },
       meta: {
         completeness: 'partial',
+        degraded: false,
         fields: {
           name: { status: 'available', retentionDurability: 'volatile' },
-          revenue: { status: 'unavailable' },
+          revenue: { status: 'forbidden' },
         },
       },
     });
@@ -210,7 +211,7 @@ it('binds an authenticated principal snapshot and keeps ingestion off the consum
     await consumer.objects.Customer.get(id, { select: ['name', 'revenue'] }),
   ).toMatchObject({
     data: { name: 'Northwind' },
-    meta: { fields: { revenue: { status: 'unavailable' } } },
+    meta: { fields: { revenue: { status: 'forbidden' } } },
   });
   await relate.close();
   await expect(consumer.objects.Customer.get(id)).rejects.toThrow('closed');

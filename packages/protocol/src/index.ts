@@ -24,8 +24,20 @@ export interface Page<T> {
 export type Refresh =
   'not-needed' | 'succeeded' | 'unavailable' | 'invalid' | 'superseded';
 
+/**
+ * Why a selected field has no value, when it has none.
+ *
+ * - `forbidden`: the field is known and the caller's roles do not grant its
+ *   access group. The answer is final for this principal; it reveals only the
+ *   caller's own role membership, never object-level policy evidence.
+ * - `unavailable`: the field may be readable, but no value could be supplied:
+ *   an unknown name, an omitted stale value, or a reference whose target
+ *   cannot be disclosed. Hidden and deleted targets share this shape.
+ *
+ * Whole-object denial stays `not-found` and never reaches field evidence.
+ */
 export type FieldEvidence =
-  | { status: 'unavailable' }
+  | { status: 'forbidden' | 'unavailable' }
   | {
       status: 'available' | 'absent';
       freshness: 'fresh' | 'stale';

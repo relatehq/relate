@@ -7,10 +7,36 @@ Transport-neutral Customer read requests, results, evidence, and errors. Private
 and unpublished. No runtime, database, or provider dependencies.
 
 Results distinguish `not-found` from `ok`, then represent each requested field
-as available, absent (a known optional value), or unavailable. Hidden, unknown
-and unobtainable fields share the public unavailable shape. Null remains a
-legitimate available value. Data is a partial JSON record, never typed as a
-complete model.
+as available, absent (a known optional value), forbidden, or unavailable. Null
+remains a legitimate available value. Data is a partial JSON record, never typed
+as a complete model.
+
+## Withheld fields
+
+```ts
+// Ana selects a known financial field her roles do not grant.
+fields.revenue = { status: 'forbidden' };
+
+// Fin may read it, but refresh failed and stale values were omitted.
+fields.revenue = { status: 'unavailable' };
+```
+
+`forbidden` means the field is known and the caller's roles do not grant its
+access group. It is a final answer for that principal: refreshing or retrying
+cannot change it. It discloses only the caller's own role membership, which the
+caller already knows, never object-level policy evidence or values.
+
+`unavailable` means the caller may read the field, but no value could be
+supplied: an unknown name, a stale value omitted by `stale: 'omit'`, or a
+reference whose target cannot be disclosed. Hidden and deleted reference targets
+share this shape, so the response does not reveal which applies.
+
+Whole-object denial, including failed `where` conditions, stays `not-found` and
+never reaches field evidence.
+
+Both withheld shapes make the selection `partial`, and `requireComplete: true`
+rejects either. Only `unavailable` sets `degraded: true`: a forbidden field is
+correct for its caller, not a lower-quality read.
 
 Completeness, freshness, and durability are independent. Evidence reports source
 identity only for authorized exposed values and never includes raw provider

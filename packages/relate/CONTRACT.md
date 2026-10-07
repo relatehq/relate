@@ -229,7 +229,10 @@ Paths support up to 16 properties. Role-only rules use `read: { gate }`.
 Disclosing a reference ID additionally requires a readable target and a current,
 retained reference. Otherwise that selected field is `unavailable`; its source
 key and private evidence never enter the response. Finance access grants
-financial fields only after the object's portfolio rule succeeds.
+financial fields only after the object's portfolio rule succeeds. A caller
+without the group's role sees a selected financial field as `forbidden`; see the
+[protocol contract](../protocol/CONTRACT.md#withheld-fields) for the difference
+from `unavailable`.
 
 See the executable
 [Invoice model](../../dev/fixtures/customer-graph/invoice-read/model.ts) and its
@@ -293,8 +296,9 @@ console.log(customer.data.name, customer.data.status);
 The helper checks `status: 'ok'`, then verifies that each named field is an own
 property of `data` with a value other than `undefined`. It returns nothing on
 success and throws `ReadError` with code `incomplete` on failure, including a
-`not-found` result. The error does not distinguish hidden, absent, unselected,
-or unavailable values. It contains no field values or provider details.
+`not-found` result. The error does not distinguish forbidden, absent,
+unselected, or unavailable values; read `meta.fields` for that. It contains no
+field values or provider details.
 
 It does not fetch, refresh, change the result, or bypass authorization. Use it
 on results produced by an authorized, schema-validating read; it is not a
@@ -368,11 +372,11 @@ promise an upstream snapshot. Set an appropriate `maxAgeMs` on the read when
 needed. The existing `stale: 'omit'` option omits stale values, which then fail
 the presence assertion. The helper itself introduces no freshness policy.
 
-`requireComplete: true` is different: it rejects unavailable evidence across the
-read selection, but a known absent optional field still counts as complete
-evidence. `assertFields` requires actual values for its named fields and allows
-other fields to remain unavailable. Neither presence nor complete evidence alone
-guarantees freshness.
+`requireComplete: true` is different: it rejects forbidden or unavailable
+evidence across the read selection, but a known absent optional field still
+counts as complete evidence. `assertFields` requires actual values for its named
+fields and allows other fields to remain withheld. Neither presence nor complete
+evidence alone guarantees freshness.
 
 Reads still happen when your implementation needs them. A later lookup can use
 an ID from an earlier result, and assertions run on the results actually
