@@ -1,5 +1,9 @@
 # @relate/node
 
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
 Application composition for Node: compile an authored graph, bind connections
 and action implementations, and expose a typed, authorized consumer API. Private
 and unpublished while implementation is in progress.

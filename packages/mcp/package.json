@@ -1,12 +1,15 @@
 {
   "name": "@relate/mcp",
-  "version": "0.0.0",
+  "version": "0.0.0-dev.0",
   "license": "Apache-2.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "description": "MCP server adapter and a separate MCP client entry point.",
   "dependencies": {
     "@relate/runtime": "workspace:*",
     "@relate/protocol": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

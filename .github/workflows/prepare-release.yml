@@ -1,0 +1,48 @@
+name: Prepare release
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        type: choice
+        options: [alpha, stable]
+        default: alpha
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.9.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare versions and changelogs
+        env:
+          CHANNEL: ${{ inputs.channel }}
+        run: pnpm release:prepare "$CHANNEL"
+      - name: Open release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('packages/relate/package.json')).version")
+          BRANCH="release/$VERSION"
+          git switch -c "$BRANCH"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add packages .changeset pnpm-lock.yaml
+          git commit -m "chore: release $VERSION"
+          git push origin "$BRANCH"
+          if ! gh pr create --base main --head "$BRANCH" --title "chore: release $VERSION" --body "Prepare Relate $VERSION with shared package versions and changelogs. Merge after reviewing the version changes and passing CI, then manually run the Release workflow. This PR does not publish to npm."; then
+            echo "Release branch pushed. Open its PR: https://github.com/$GITHUB_REPOSITORY/compare/main...$BRANCH?expand=1" >> "$GITHUB_STEP_SUMMARY"
+          fi

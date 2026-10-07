@@ -1,5 +1,9 @@
 # relate
 
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
 Define a business graph in TypeScript and compile it into a portable model.
 Private and unpublished while implementation is in progress.
 

@@ -1,5 +1,9 @@
 # @relate/runtime
 
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
 The execution engine: authorized reads, traversal and native actions over a
 compiled model, with explicit storage and connector contracts. Private and
 unpublished.

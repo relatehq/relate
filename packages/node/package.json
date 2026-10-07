@@ -1,8 +1,8 @@
 {
   "name": "@relate/node",
-  "version": "0.0.0",
+  "version": "0.0.0-dev.0",
   "license": "Apache-2.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "description": "Node application composition for typed, authorized reads and native actions.",
   "dependencies": {
@@ -22,5 +22,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

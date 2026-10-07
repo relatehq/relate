@@ -8,7 +8,9 @@
 > [!WARNING]
 >
 > Relate is at a very early stage and is not ready for use. It is published only
-> for comment and discussion.
+> for comment and discussion. The current package version is `0.0.0-dev.0`.
+
+See [RELEASING.md](RELEASING.md) for versioning and the release procedure.
 
 **A semantic business graph, defined in TypeScript.**
 

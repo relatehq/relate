@@ -1,5 +1,9 @@
 # @relate/client
 
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
 > [!WARNING]
 >
 > Scaffold only. No implementation, executable or public exports exist yet.

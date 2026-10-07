@@ -1,5 +1,9 @@
 # @relate/postgres
 
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
 Durable Relate storage on PostgreSQL: the persistent `ObservationStore` and
 `NativeStore` adapter, with checksummed migrations. Private and unpublished.
 

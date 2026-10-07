@@ -1,0 +1,28 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "@relate/cli",
+      "@relate/client",
+      "create-relate",
+      "@relate/http",
+      "@relate/mcp",
+      "@relate/node",
+      "@relate/postgres",
+      "@relate/protocol",
+      "relate",
+      "@relate/runtime"
+    ]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [],
+  "privatePackages": {
+    "version": false,
+    "tag": false
+  }
+}

@@ -1,5 +1,9 @@
 # @relate/protocol
 
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
 Transport-neutral request, result, evidence and error shapes shared by every
 Relate consumer surface. Private and unpublished.
 

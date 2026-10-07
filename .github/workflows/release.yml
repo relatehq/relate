@@ -1,0 +1,80 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact package version to release (without v)
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: relate
+          POSTGRES_PASSWORD: relate
+          POSTGRES_DB: relate_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U relate -d relate_test" --health-interval
+          5s --health-timeout 5s --health-retries 10
+    env:
+      VERSION: ${{ inputs.version }}
+      RELATE_TEST_DATABASE_URL: postgresql://relate:relate@localhost:5432/relate_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.9.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate selected version
+        run: |
+          node --input-type=module -e 'import {releasePackages,validateVersion} from "./scripts/releases/shared.mjs"; validateVersion(await releasePackages(), process.env.VERSION);'
+      - name: Check existing tag
+        run: |
+          if git rev-parse "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            test "$(git rev-list -n 1 "v$VERSION")" = "$GITHUB_SHA"
+          fi
+      - name: Validate source and installed packages
+        run: |
+          pnpm format:check
+          pnpm lint
+          pnpm typecheck
+          pnpm check:boundaries
+          pnpm test:release
+          pnpm exec vitest run
+          pnpm test:packaging
+      - name: Pack release assets
+        id: artifacts
+        run: pnpm release:artifacts "$VERSION"
+      - name: Create tag and GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ steps.artifacts.outputs.prerelease }}
+        run: |
+          TAG="v$VERSION"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+            git tag -a "$TAG" "$GITHUB_SHA" -m "Relate $VERSION"
+            git push origin "refs/tags/$TAG"
+          fi
+          FLAGS=(--latest)
+          if [ "$PRERELEASE" = true ]; then FLAGS=(--prerelease --latest=false); fi
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag --draft --title "Relate $VERSION" --notes-file release-artifacts/release-notes.md "${FLAGS[@]}"
+          fi
+          gh release upload "$TAG" release-artifacts/*.tgz release-artifacts/SHA256SUMS --clobber
+          gh release edit "$TAG" --draft=false
