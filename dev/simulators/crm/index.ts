@@ -14,15 +14,19 @@ export async function startCrmSimulator() {
   };
   let version = 1;
   let deleted = false;
+  let access: 'granted' | 'denied' = 'granted';
   const app = new Hono();
 
-  app.get('/customers/crm_456', (context) =>
-    context.json({
+  app.get('/customers/crm_456', (context) => {
+    // Provider permission denial is a distinct response from deletion (404/deleted).
+    if (access === 'denied') return context.json({}, 403);
+
+    return context.json({
       state: deleted ? 'deleted' : 'present',
       ...(deleted ? {} : { record }),
       version: { domain: 'crm-v1', value: String(version) },
-    }),
-  );
+    });
+  });
   app.notFound((context) => context.json({}, 404));
 
   const server = createServer(getRequestListener(app.fetch));
@@ -45,6 +49,12 @@ export async function startCrmSimulator() {
       record = { ...record, ...structuredClone(patch) };
       deleted = isDeleted;
       version++;
+    },
+    /** Toggle the provider account's visibility of the record without changing it. */
+    setAccess(state: 'granted' | 'denied') {
+      if (stopping) throw new Error('CRM simulator is stopped');
+
+      access = state;
     },
     stop() {
       stopping ??= new Promise<void>((resolve, reject) => {

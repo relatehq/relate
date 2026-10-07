@@ -50,6 +50,23 @@ try {
       refresh: true,
     }),
   );
+  crm.setAccess('denied');
+  show(
+    'provider-denied-refresh',
+    await runtime.read(employee, Customer.id, objectId, {
+      select: ['name'],
+      refresh: true,
+    }),
+  );
+  // Denial is observed per read, not persisted: a cached read within maxAgeMs
+  // does not consult the provider and still returns the retained value.
+  show(
+    'provider-denied-cached',
+    await runtime.read(employee, Customer.id, objectId, {
+      select: ['name'],
+    }),
+  );
+  crm.setAccess('granted');
   await crm.stop();
   await store.close();
   store = createPostgresStore({ connectionString: databaseUrl });

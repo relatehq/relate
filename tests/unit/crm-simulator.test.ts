@@ -1,8 +1,9 @@
 import { expect, it } from 'vitest';
+import { SourceAccessDenied } from '@relate/runtime';
 import { startCrmSimulator } from '../../dev/simulators/crm/index.js';
 import { crmConnector } from '../../examples/postgres-persistence/src/connector.js';
 
-it('isolates instances and preserves HTTP updates, deletion, and source outages', async () => {
+it('isolates instances and preserves HTTP updates, denial, deletion, and source outages', async () => {
   const first = await startCrmSimulator();
   const second = await startCrmSimulator();
   const connector = crmConnector(first.url);
@@ -27,6 +28,11 @@ it('isolates instances and preserves HTTP updates, deletion, and source outages'
       version: { value: '1' },
     });
     expect((await fetch(`${first.url}/customers/missing`)).status).toBe(404);
+    first.setAccess('denied');
+    expect((await fetch(`${first.url}/customers/crm_456`)).status).toBe(403);
+    await expect(read()).rejects.toBeInstanceOf(SourceAccessDenied);
+    first.setAccess('granted');
+    expect(await read()).toMatchObject({ record: { display_name: 'Changed' } });
     await first.update({}, true);
     expect(await read()).toEqual({
       state: 'deleted',
