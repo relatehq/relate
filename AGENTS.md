@@ -8,6 +8,24 @@ Do not add AI attribution to commits or pull requests. No `Co-Authored-By`
 trailers for Claude, Codex, or any other agent, and no "Generated with" lines or
 other notes saying an agent wrote, committed, or reviewed the change.
 
+## Worktrees
+
+When asked to do work in a new worktree, or to work on several features in
+parallel, create one with `pnpm worktree:create <type>/<name>` from any checkout
+(for example, `pnpm worktree:create feat/receipt-lookup`). It creates
+`../relate-worktrees/<name>` with its own branch, `.env`, databases,
+dependencies, and build. Then do all work, tests, and commits inside that
+folder.
+
+- Do not use `git worktree add` directly, copy `.env` files, or create databases
+  by hand.
+- Remove a worktree only when asked, with `pnpm worktree:delete <name>`. It
+  drops the worktree databases and deletes the branch only if it is merged.
+  Never pass `--force` without explicit approval: it discards uncommitted work.
+- `pnpm worktree:list` shows each worktree's branch, uncommitted changes, and
+  database.
+- Details: `CONTRIBUTING.md`, "Parallel work in worktrees".
+
 ## Keeping the owner in the loop
 
 I want to follow how the system evolves in detail, not just get summaries. When

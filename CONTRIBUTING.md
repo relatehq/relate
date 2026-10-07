@@ -36,3 +36,34 @@ the same test database concurrently.
 `pnpm test:unit` needs no database. Tests never fall back to `DATABASE_URL`,
 create databases, or start/stop Postgres. Compose provisioning can be added
 later without changing this contract.
+
+## Parallel work in worktrees
+
+Each Git worktree is a separate checkout on its own branch, with its own
+`node_modules`, build output, and databases. Use them to develop several
+features at once without the test runs or schemas colliding.
+
+```sh
+pnpm worktree:create feat/receipt-lookup   # ../relate-worktrees/receipt-lookup
+pnpm worktree:list
+pnpm worktree:delete receipt-lookup        # name, branch, or path
+```
+
+`worktree:create` derives the folder and database names from the branch, which
+must start with a Conventional Commit type such as `feat/` or `fix/`. It then:
+
+1. Creates the branch from local `main` (`--base origin/main` leaves out
+   unpushed commits), or checks out the branch if it already exists.
+2. Copies the main checkout's `.env`, changing `DATABASE_URL` to
+   `relate_receipt_lookup` and `RELATE_TEST_DATABASE_URL` to
+   `relate_receipt_lookup_test` on the same Postgres server.
+3. Creates those two databases, runs `pnpm install`, and runs `pnpm build`.
+
+`worktree:delete` drops the two databases, removes the worktree, and deletes the
+branch if it is merged into `main`. It refuses a worktree with uncommitted
+changes unless you pass `--force`, and it only drops databases named
+`relate_<name>` and `relate_<name>_test` on a local server. Use `--keep-branch`
+to keep a merged branch. Both commands accept `--dry-run`.
+
+Delete worktrees with `worktree:delete`, not `git worktree remove`, so their
+databases do not accumulate.
