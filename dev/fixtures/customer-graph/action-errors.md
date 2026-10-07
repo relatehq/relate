@@ -40,6 +40,7 @@ message. Applications own presentation of stable codes and typed details.
 
 ```ts
 {
+  invocationId: 'inv_123',
   state: 'failed',
   error: {
     kind: 'domain',
@@ -50,8 +51,10 @@ message. Applications own presentation of stable codes and typed details.
 ```
 
 `Receipt<Action>` discriminates `succeeded` with output, `failed` with an error,
-`pending`, and `uncertain`. Failed receipts further distinguish `domain` errors
-from `runtime` errors. Narrowing a domain code narrows its details:
+`pending`, and `uncertain`. All states carry `invocationId`; see
+[lookup and recovery](./receipts.md). Failed receipts further distinguish
+`domain` errors from `runtime` errors. Narrowing a domain code narrows its
+details:
 
 ```ts
 if (receipt.state === 'failed' && receipt.error.kind === 'domain') {
@@ -88,8 +91,9 @@ not grant disclosure permission. Receipt access must also enforce authorization.
   authorized failure without rerunning business logic, even if the customer
   later becomes active. A new business attempt uses a new key. Different input
   under an existing key rejects; it never replaces the earlier outcome.
-- A failed receipt is a terminal outcome, not a promise to retry. Retention/key
-  expiry, receipt access and cross-actor replay still need explicit policies.
+- A failed receipt is a terminal outcome, not a promise to retry. Lookup and
+  replay require current receipt authorization. Retention/key expiry, receipt
+  policy authoring and cross-actor replay still need explicit policies.
 - Native rollback cannot undo external effects. An external write with a lost
   acknowledgement remains `uncertain`; a later `fail()` cannot relabel it as a
   confirmed failure. Already confirmed external effects also remain real and

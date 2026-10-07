@@ -624,14 +624,21 @@ export interface RuntimeActionError {
     | 'internal';
 }
 
-export type Receipt<A extends ActionDefinition> =
+/** A snapshot of one accepted invocation; lookup/replay retains its identity. */
+export type Receipt<A extends ActionDefinition> = {
+  /** Opaque runtime-assigned ID, never an authorization credential. */
+  readonly invocationId: string;
+} & (
   | { readonly state: 'succeeded'; readonly output: z.output<A['output']> }
   | {
       readonly state: 'failed';
       readonly error: DomainActionError<A> | RuntimeActionError;
     }
+  /** Durably accepted, with no final outcome yet. */
   | { readonly state: 'pending' }
-  | { readonly state: 'uncertain' };
+  /** Relate cannot establish the effect outcome; do not blindly resubmit. */
+  | { readonly state: 'uncertain' }
+);
 
 // Shared reads
 
@@ -693,6 +700,18 @@ export interface Consumer<G extends GraphDefinition> {
       /** Reusing a key with different input fails. */
       idempotencyKey: string;
     }) => Promise<Receipt<G['actions'][N]>>;
+  };
+  readonly receipts: {
+    /**
+     * Read an existing invocation's latest receipt without executing the action.
+     * Check graph/action identity and current receipt authorization at runtime.
+     * Missing, mismatched or inaccessible receipts reject without disclosing
+     * stored output/errors; lookup rejection never changes the saved outcome.
+     */
+    get<A extends G['actions'][keyof G['actions']]>(
+      action: A,
+      invocationId: string,
+    ): Promise<Receipt<A>>;
   };
 }
 
