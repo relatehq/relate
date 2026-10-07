@@ -15,6 +15,7 @@ import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import { cursorCodec } from './cursors.js';
 import { validateReadRequest } from './request.js';
+import { summarize, supplied } from './evidence.js';
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
@@ -366,10 +367,7 @@ function project(
       status: 'unavailable' as const,
     };
 
-    if (
-      (evidence.status === 'available' || evidence.status === 'absent') &&
-      evidence.source === 'source'
-    ) {
+    if (supplied(evidence) && evidence.source === 'source') {
       const age = now - Date.parse(evidence.observedAt);
       const stale = age < 0 || age > (request.maxAgeMs ?? 60_000);
 
@@ -381,18 +379,14 @@ function project(
 
     fields[name] = evidence;
 
-    if (
-      (evidence.status === 'available' || evidence.status === 'absent') &&
-      Object.hasOwn(result.data, name)
-    )
+    if (supplied(evidence) && Object.hasOwn(result.data, name))
       data[name] = result.data[name]!;
   }
 
-  const complete = Object.values(fields).every(
-    (f) => f.status === 'available' || f.status === 'absent',
-  );
+  const summary = summarize(fields);
 
-  if (!complete && request.requireComplete) throw new ReadError('incomplete');
+  if (summary.completeness === 'partial' && request.requireComplete)
+    throw new ReadError('incomplete');
 
   return {
     id,
@@ -400,15 +394,8 @@ function project(
     meta: {
       ...result.meta,
       fields,
-      completeness: complete ? 'complete' : 'partial',
-      degraded:
-        result.meta.degraded ||
-        Object.values(fields).some(
-          (f) =>
-            f.status === 'unavailable' ||
-            ((f.status === 'available' || f.status === 'absent') &&
-              f.freshness === 'stale'),
-        ),
+      completeness: summary.completeness,
+      degraded: result.meta.degraded || summary.degraded,
     },
   };
 }

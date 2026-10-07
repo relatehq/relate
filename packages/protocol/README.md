@@ -42,6 +42,14 @@ function customerName(result: ObjectResult): string | undefined {
   // withhold a field. Evidence says why a value is what it is.
   const evidence = result.meta.fields.name;
 
+  if (evidence?.status === 'forbidden') {
+    // The caller's roles do not grant this field; retrying cannot change that.
+  }
+
+  if (evidence?.status === 'unavailable') {
+    // Readable in principle, but no value could be supplied right now.
+  }
+
   if (evidence?.status === 'available' && evidence.freshness === 'stale') {
     // Served from retained observations; decide whether that is acceptable.
   }
