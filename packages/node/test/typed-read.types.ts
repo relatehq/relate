@@ -1,4 +1,5 @@
 import { createRuntime, connect } from '@relate/node';
+import type { FieldEvidence } from '@relate/protocol';
 import { assertFields } from 'relate';
 import { defineObject, referenceInput } from 'relate';
 import { graph, Customer, customers, ana } from './model.js';
@@ -18,6 +19,13 @@ const selected = await consumer.objects.Customer.get(id, {
   select: ['name'],
 });
 
+type ForbiddenEvidence = Extract<FieldEvidence, { status: 'forbidden' }>;
+
+type UnavailableEvidence = Extract<FieldEvidence, { status: 'unavailable' }>;
+
+const forbiddenEvidence: ForbiddenEvidence = { status: 'forbidden' };
+const unavailableEvidence: UnavailableEvidence = { status: 'unavailable' };
+
 // @ts-expect-error result must be narrowed before accessing data
 selected.data.name;
 
@@ -30,6 +38,16 @@ if (selected.status === 'ok') {
   selected.data.revenue;
   // @ts-expect-error evidence is scoped to selection too
   selected.meta.fields.revenue;
+  const evidence = selected.meta.fields.name;
+
+  if (evidence?.status === 'forbidden') {
+    const status: 'forbidden' = evidence.status;
+
+    // @ts-expect-error forbidden fields expose no source or policy evidence
+    evidence.source;
+    void status;
+  }
+
   void [name, guaranteed];
 }
 
@@ -62,4 +80,4 @@ if (all.status === 'ok') {
   void allRevenue;
 }
 
-void [name, revenue, unasserted];
+void [name, revenue, unasserted, forbiddenEvidence, unavailableEvidence];

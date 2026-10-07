@@ -7,10 +7,24 @@ Transport-neutral Customer read requests, results, evidence, and errors. Private
 and unpublished. No runtime, database, or provider dependencies.
 
 Results distinguish `not-found` from `ok`, then represent each requested field
-as available, absent (a known optional value), or unavailable. Hidden, unknown
-and unobtainable fields share the public unavailable shape. Null remains a
-legitimate available value. Data is a partial JSON record, never typed as a
-complete model.
+as `available`, `absent` (a known optional value), `forbidden`, or
+`unavailable`. An explicitly selected known field denied by its field group has
+only `{ status: 'forbidden' }`. Unknown fields and values that cannot be
+supplied (such as stale values omitted after refresh failure) have only
+`{ status: 'unavailable' }`. Neither status includes private policy, source, or
+freshness evidence. Null remains a legitimate available value. Data is a partial
+JSON record, never typed as a complete model.
+
+Whole-object denial remains `not-found`. An otherwise readable reference field
+whose target cannot be disclosed remains `unavailable`, without revealing
+whether the target is missing or denied. Default selection includes only
+permitted fields; it does not enumerate forbidden fields.
+
+Both `forbidden` and `unavailable` make an explicit selection `partial` and
+cause `requireComplete: true` to throw `ReadError('incomplete')`.
+Permission-only omissions do not set `degraded`: a partial result can have
+`degraded: false`. Unavailable fields, stale evidence, failed refresh, or
+retention/ordering warnings still set `degraded: true`.
 
 Completeness, freshness, and durability are independent. Evidence reports source
 identity only for authorized exposed values and never includes raw provider

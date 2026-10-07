@@ -23,6 +23,16 @@ it cannot renew permission evidence. Provider versions precede fetch-start
 ordering. Without provider versions, order is best effort and cannot prove
 upstream recency. Deletion and denial are never undone by fallback.
 
+An explicitly selected known field denied by its field group returns only
+`{ status: 'forbidden' }`; unknown fields and omitted stale values remain
+`{ status: 'unavailable' }`. Both make the selection partial and fail
+`requireComplete`. Permission-only omission does not set `degraded`; unavailable
+fields and freshness, refresh, retention or ordering problems still do. This
+applies to source reads, native reads and traversal results. Default selection
+continues to omit forbidden fields entirely. Whole-object denial remains
+`not-found`, with no field or policy evidence. These paths share the summary
+rule in `src/resolution/evidence.ts`.
+
 A deleted reference target does not delete a referring native object or clear
 its stored link. Reads withhold the unresolved reference with
 `status: 'unavailable'` field evidence; other fields remain readable when the

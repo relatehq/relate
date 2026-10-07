@@ -368,11 +368,11 @@ promise an upstream snapshot. Set an appropriate `maxAgeMs` on the read when
 needed. The existing `stale: 'omit'` option omits stale values, which then fail
 the presence assertion. The helper itself introduces no freshness policy.
 
-`requireComplete: true` is different: it rejects unavailable evidence across the
-read selection, but a known absent optional field still counts as complete
-evidence. `assertFields` requires actual values for its named fields and allows
-other fields to remain unavailable. Neither presence nor complete evidence alone
-guarantees freshness.
+`requireComplete: true` is different: it rejects forbidden or unavailable
+evidence across the read selection, but a known absent optional field still
+counts as complete evidence. `assertFields` requires actual values for its named
+fields and allows other fields to remain forbidden or unavailable. Neither
+presence nor complete evidence alone guarantees freshness.
 
 Reads still happen when your implementation needs them. A later lookup can use
 an ID from an earlier result, and assertions run on the results actually

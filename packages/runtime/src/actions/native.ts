@@ -16,6 +16,7 @@ import type {
 import { allowsField, createAuthorization } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import { validateReadRequest } from '../resolution/request.js';
+import { summarize } from '../resolution/evidence.js';
 
 type ObjectType = Manifest['objects'][number];
 
@@ -162,8 +163,13 @@ export function createNativeOperations(options: {
       for (const name of selected) {
         const property = object.properties.find((p) => p.name === name);
 
-        if (!property || !allowsField(principal, policy, property.access)) {
+        if (!property) {
           fields[name] = { status: 'unavailable' };
+          continue;
+        }
+
+        if (!allowsField(principal, policy, property.access)) {
+          fields[name] = { status: 'forbidden' };
           continue;
         }
 
@@ -213,19 +219,16 @@ export function createNativeOperations(options: {
       if (!(await allowed())) return { status: 'not-found' };
 
       capture?.(allowed);
-      const complete = Object.values(fields).every(
-        (field) => field.status !== 'unavailable',
-      );
+      const summary = summarize(fields);
 
-      if (!complete && request.requireComplete)
+      if (summary.completeness === 'partial' && request.requireComplete)
         throw new ReadError('incomplete');
 
       return {
         status: 'ok',
         data,
         meta: {
-          completeness: complete ? 'complete' : 'partial',
-          degraded: !complete,
+          ...summary,
           definitionRevision: scope.definitionRevision,
           fields,
           warnings: [],
