@@ -17,9 +17,9 @@ The adapter owns the `relate` schema; it never modifies provider tables.
 
 Checksummed migrations establish installed graph revisions, durable canonical
 identities/source aliases, latest whole source records and mapped values, and
-applied-value history. Scope includes graph, object type, source, connection and
-shared service-account partition. An installed graph rejects a different model
-revision pending explicit migration support.
+applied-value history. Scope includes graph, object type, source, connection,
+provider account and shared service-account partition. An installed graph
+rejects a different model revision pending explicit migration support.
 
 A database sequence assigns comparable fetch-start tokens before provider I/O.
 Per-alias transaction locks serialize acceptance across processes. Membership,

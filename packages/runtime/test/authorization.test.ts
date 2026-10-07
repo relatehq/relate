@@ -68,10 +68,13 @@ it.each([
       graphId: 'test',
       sources: {
         records: {
+          providerAccountId: 'example-account',
           connectionId: 'test',
           authorization: 'shared-service' as const,
           connector: {
+            identify: async () => 'example-account',
             fetch: async () => ({
+              providerAccountId: 'example-account',
               state: 'present' as const,
               record: { id: '1', scope: value, revenue: 10 },
             }),

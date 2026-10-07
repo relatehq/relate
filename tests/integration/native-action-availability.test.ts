@@ -62,11 +62,14 @@ function app(
     actionTimeoutMs,
     sources: {
       [customers.id]: {
+        providerAccountId: 'example-account',
         connectionId: 'crm',
         authorization: 'shared-service',
         connector: {
+          identify: async () => 'example-account',
           async fetch(id) {
             return {
+              providerAccountId: 'example-account',
               state: 'present',
               record: { id, name: 'Northwind', portfolio: 'north' },
             };
@@ -74,11 +77,17 @@ function app(
         },
       },
       [invoices.id]: {
+        providerAccountId: 'example-account',
         connectionId: 'billing',
         authorization: 'shared-service',
         connector: {
+          identify: async () => 'example-account',
           async fetch(id) {
-            return { state: 'present', record: { id } };
+            return {
+              providerAccountId: 'example-account',
+              state: 'present',
+              record: { id },
+            };
           },
         },
       },

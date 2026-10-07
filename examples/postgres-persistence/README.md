@@ -20,11 +20,11 @@ provision databases or manage the server.
 
 The example starts an in-process Hono CRM simulator with a real HTTP listener.
 It adopts one customer, reads as an employee, changes the CRM name, refreshes as
-Finance, stops the CRM, recreates the embedded runtime and storage pool, and
-reads the retained name. Finally it advances its controlled clock past the
-permission evidence limit and demonstrates denied access. It closes its
-connections and CRM listener on exit; the database and retained data remain
-available.
+Finance, disables CRM record fetching while leaving account verification
+available, recreates the embedded runtime and storage pool, and reads the
+retained name. Finally it advances its controlled clock past the permission
+evidence limit and demonstrates denied access. It closes its connections and CRM
+listener on exit; the database and retained data remain available.
 
 - `src/model.ts`: authoring, stable IDs, source ownership, field groups, policy.
 - `src/connector.ts`: the example's minimal HTTP source adapter.
@@ -43,10 +43,18 @@ policy, whose evidence expires after 30 seconds. Business freshness defaults to
 60 seconds and is independently configurable.
 
 The `shared-service` binding explicitly uses one provider account's visibility.
-It does not implement delegated provider credentials. Connection identity is
-part of retained storage scope; another account cannot reuse these values.
+It does not implement delegated provider credentials. Connection identity and
+the verified `providerAccountId` are part of retained storage scope. The
+connector's `identify()` checks the active provider account before cached reads;
+each fetched record also carries account identity. Reusing a connection ID for
+another account cannot read or refresh the earlier account's object IDs. A
+configured account ID alone is not evidence: connectors must obtain identity
+from the provider using the credentials used for record access.
 
-An unavailable source produces authorized stale fallback by default.
+An unavailable record endpoint produces authorized stale fallback by default
+only while provider account identity can still be verified. If identity
+verification fails or times out, reads throw `ReadError('unavailable')` without
+cached data. Account mismatch returns `not-found`; adoption rejects.
 `stale: 'omit'` omits old values; `requireComplete: true` then errors when the
 selection cannot be fulfilled. These options compose: completeness alone permits
 stale data. Confirmed deletion and expired permission evidence withhold the
@@ -63,6 +71,6 @@ records, source record IDs, connection credentials, and hidden field details.
 
 With `RELATE_TEST_DATABASE_URL` in `.env` set to a separate dedicated test
 database, `pnpm test:integration` verifies this behavior against Postgres,
-including a new plain Node process reading fallback after the source stops,
-concurrent observations, transaction rollback, uncertain retention, and
+including a new plain Node process reading fallback during a record-endpoint
+outage, concurrent observations, transaction rollback, uncertain retention, and
 authorization expiry.

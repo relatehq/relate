@@ -29,6 +29,7 @@ it('isolates instances and preserves HTTP updates, deletion, and source outages'
     expect((await fetch(`${first.url}/customers/missing`)).status).toBe(404);
     await first.update({}, true);
     expect(await read()).toEqual({
+      providerAccountId: 'example-account',
       state: 'deleted',
       version: { domain: 'crm-v1', value: '3' },
     });

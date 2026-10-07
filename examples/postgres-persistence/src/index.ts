@@ -25,6 +25,7 @@ try {
     clock: () => now,
     sources: {
       'crm.customers': {
+        providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         authorization: 'shared-service' as const,
         connector: crmConnector(crm.url),
@@ -50,7 +51,7 @@ try {
       refresh: true,
     }),
   );
-  await crm.stop();
+  crm.setRecordsUnavailable(true);
   await store.close();
   store = createPostgresStore({ connectionString: databaseUrl });
   runtime = createRuntime({ ...options, store });

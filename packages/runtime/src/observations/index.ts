@@ -1,5 +1,6 @@
 export {
   boundedFetch,
+  verifyAccount,
   observation,
   InvalidObservation,
   SourceAccessDenied,

@@ -14,14 +14,20 @@ export async function startCrmSimulator() {
   };
   let version = 1;
   let deleted = false;
+  let recordsUnavailable = false;
+  let providerAccountId = 'example-account';
   const app = new Hono();
 
+  app.get('/account', (context) => context.json({ id: providerAccountId }));
   app.get('/customers/crm_456', (context) =>
-    context.json({
-      state: deleted ? 'deleted' : 'present',
-      ...(deleted ? {} : { record }),
-      version: { domain: 'crm-v1', value: String(version) },
-    }),
+    recordsUnavailable
+      ? context.json({}, 503)
+      : context.json({
+          providerAccountId,
+          state: deleted ? 'deleted' : 'present',
+          ...(deleted ? {} : { record }),
+          version: { domain: 'crm-v1', value: String(version) },
+        }),
   );
   app.notFound((context) => context.json({}, 404));
 
@@ -39,6 +45,13 @@ export async function startCrmSimulator() {
 
   return {
     url: `http://127.0.0.1:${address.port}`,
+    // Identity remains verifiable while the records service is unavailable.
+    setRecordsUnavailable(value: boolean) {
+      recordsUnavailable = value;
+    },
+    setAccount(id: string) {
+      providerAccountId = id;
+    },
     async update(patch: Record<string, unknown>, isDeleted = false) {
       if (stopping) throw new Error('CRM simulator is stopped');
 

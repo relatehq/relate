@@ -57,9 +57,14 @@ export function invoiceReadContract(
 
         if (customerState === 'forbidden') throw new SourceAccessDenied();
 
-        if (customerState === 'deleted') return { state: 'deleted' as const };
+        if (customerState === 'deleted')
+          return {
+            providerAccountId: 'example-account',
+            state: 'deleted' as const,
+          };
 
         return {
+          providerAccountId: 'example-account',
           state: 'present' as const,
           record: { id, name: 'Northwind', portfolio, revenue: 100 },
         };
@@ -71,16 +76,23 @@ export function invoiceReadContract(
         clock: () => now,
         connections: [
           connect(customers, {
+            providerAccountId: 'example-account',
             connectionId: 'crm',
-            connector: { fetch: fetchCustomer },
+            connector: {
+              identify: async () => 'example-account',
+              fetch: fetchCustomer,
+            },
           }),
           connect(invoices, {
+            providerAccountId: 'example-account',
             connectionId: 'billing',
             connector: {
+              identify: async () => 'example-account',
               async fetch(id) {
                 if (invoiceState === 'offline') throw new Error('offline');
 
                 return {
+                  providerAccountId: 'example-account',
                   state: 'present',
                   record: {
                     id,

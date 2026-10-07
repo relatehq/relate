@@ -40,11 +40,11 @@ object's own policy permits it. See
 [deleted references and future deletion policies](../node/NATIVE_ACTIONS.md#references-after-a-target-is-deleted)
 for the Task example, future edit rules, and deferred opt-in cascading deletes.
 
-The source fetch wait defaults to 3 seconds (maximum 10 seconds), including
-non-cooperative connectors. The Postgres adapter separately bounds pool, lock,
-and statement waits; this is not a whole-request deadline guarantee. Connectors
-must honor cancellation to stop their own outstanding I/O. Each read uses at
-most one source fetch in this slice.
+Each source identity check and record fetch wait defaults to 3 seconds (maximum
+10 seconds), including non-cooperative connectors. The Postgres adapter
+separately bounds pool, lock, and statement waits; this is not a whole-request
+deadline guarantee. Connectors must honor cancellation to stop their own
+outstanding I/O. Each read uses at most one source fetch in this slice.
 
 Only explicit shared service-account source bindings are supported. Delegated
 credential partitions, automatic sync workers and arbitrary collection
@@ -59,9 +59,27 @@ Connectors throw `SourceAccessDenied` for an explicit provider permission
 denial. The affected read returns `not-found` rather than falling back to
 retained data. This is not a deletion or a persisted revocation: retained
 observations remain, and a cached read does not perform a provider authorization
-check. Applications requiring a current provider check must request refresh of
-source-backed fields. Other connector errors remain temporary unavailability
-with authorized fallback.
+check for the individual record. Applications requiring that check must request
+refresh of source-backed fields. Record-fetch errors remain temporary
+unavailability with authorized fallback only when account identity is verified.
+
+Bindings require an expected `providerAccountId` alongside `connectionId`.
+`SourceConnector.identify({ signal })` authenticates current credentials and
+returns the provider's stable account ID. It must not echo configuration or
+reuse identity evidence after credentials change. The runtime checks identity
+before using cached source observations and again before disclosure after
+asynchronous work. Identity mismatch or explicit denial withholds the object;
+failed or timed out verification raises sanitized `ReadError('unavailable')`,
+without fallback. Every `SourceRecord`, including deletion, must carry
+`providerAccountId` from the authenticated response or the immutable credential
+context that fetched it. Missing or mismatched response identity withholds the
+result without retention or stale fallback. Never stamp the expected binding ID
+onto an unverified response. Connectors remain a trusted integration boundary.
+
+Storage scopes include provider account identity. Changing accounts under the
+same connection ID creates a separate alias and object ID when explicitly
+adopted. Existing object IDs, reference resolution, scans and traversal cursors
+cannot cross account scopes. Provider account IDs stay out of consumer evidence.
 
 Use
 [`assertFields` from `relate`](../relate/CONTRACT.md#require-values-after-a-read)
