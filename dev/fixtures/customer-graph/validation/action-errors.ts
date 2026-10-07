@@ -151,7 +151,10 @@ export function handle(receipt: EscalationReceipt) {
 }
 
 // @ts-expect-error a failed receipt must explain the failure
-const missingError: EscalationReceipt = { state: 'failed' };
+const missingError: EscalationReceipt = {
+  invocationId: 'inv_failed',
+  state: 'failed',
+};
 
 void missingError;
 

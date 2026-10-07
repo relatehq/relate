@@ -46,6 +46,9 @@ this setup must not require an undocumented authorization bypass.
   rejects without hidden data disclosure.
 - Losing roles or portfolio access prevents unauthorized saved-receipt access.
   Knowing an idempotency key or supplying identical input is not authorization.
+  Both [lookup and replay](./receipts.md) reject without exposing stored output
+  or error details; a retrieval denial never changes a committed success into a
+  failed invocation. The caller scenario covers role and portfolio revocation.
 
 Checks on runtime object operations can reject after implementation entry. They
 need not occur in a universal upfront preparation phase. A late denial or final

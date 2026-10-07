@@ -140,7 +140,9 @@ domain code or expose raw messages.
 
 Denied, not-found, invalid, conflict, unsupported and unavailable failures still
 need precise runtime-code and embedded/HTTP/MCP mappings. Which pre-invocation
-rejections receive receipts? Receipt access, key expiry, cross-actor replay,
+rejections receive receipts?
+[Receipt identity, lookup and current-access requirements](./receipts.md) are
+agreed. Receipt policy authoring, key expiry, cross-actor replay,
 actor-dependent output, schema evolution and receipt retention need explicit
 semantics. Runtime must enforce JSON-safe, authorized error details and contract
 compatibility, including declarations with identical TypeScript types but

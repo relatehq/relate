@@ -9,6 +9,11 @@ APIs. See [read cases](./read-cases.md),
 
 ## Native atomicity and read-your-writes
 
+The [receipt caller scenarios](./validation/receipt-scenario.ts) specify pending
+lookup, recovery after a lost response, and access changes before retrieval. See
+the [agreed receipt contract](./receipts.md); scenarios are typechecked but not
+executable until the runtime and test-driver dependencies exist.
+
 An authorized escalation reads the customer, creates a review, reads that
 review, queries open invoices and creates tasks. Later native reads in the
 invocation see its writes. Another invocation must not observe uncommitted
@@ -31,7 +36,7 @@ failed Receipt errors. These cases require the future action executor; only
 their authoring/consumer types are checked today.
 
 1. An authorized escalation of an inactive customer returns
-   `{ state: 'failed', error: { kind: 'domain', code: 'inactive', details: {} } }`.
+   `{ invocationId, state: 'failed', error: { kind: 'domain', code: 'inactive', details: {} } }`.
    It makes no invoice query and creates no review or task.
 2. An active customer with 1,001 open invoices fails with `tooManyInvoices` and
    `{ limit: 1000 }`. The review and all tasks created before the limit was hit
