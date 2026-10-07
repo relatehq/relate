@@ -42,7 +42,12 @@ Existing observations and Postgres value history require an explicit migration
 using the old pinned model's name-to-ID mapping before revision activation;
 model/data migration tooling is not implemented. Do not change the stored
 revision alone. `migrate()` only applies physical schema migrations and does not
-convert graph data. Native records already used property IDs.
+convert graph data. Before refreshing or projecting a retained observation, the
+runtime rejects value keys that are not property IDs of that object with
+`Stored observation values must use property IDs; explicit migration required`.
+This check also runs before evaluating the object's read policy, so a
+revision-only change cannot silently turn legacy values into absent fields or a
+policy denial. Native records already used property IDs.
 
 ## Methods and guarantees
 
@@ -57,8 +62,9 @@ convert graph data. Native records already used property IDs.
 | `accept(scope, input)`                 | Atomically check installation and membership, compare ordering, and retain the winning whole observation and identity. Return `{ object, acceptance }`, including the current winner when the incoming observation loses.                                                                                             |
 
 Every operation is scoped by installed graph ID/revision, object definition,
-source definition, connection ID and authorization partition. No data may cross
-these boundaries. Only `shared-service` is supported today.
+source definition, connection ID, verified provider account ID and authorization
+partition. No data may cross these boundaries. Only `shared-service` is
+supported today.
 
 `accept` must serialize competing writes to the same scoped `sourceRecordId`,
 including simultaneous first adoptions. When `adopt` is true it may allocate a

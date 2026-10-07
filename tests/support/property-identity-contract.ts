@@ -24,10 +24,18 @@ export function propertyIdentityContract(
     const sources = {
       'crm.customers': {
         connectionId: 'crm',
+        providerAccountId: 'crm-account',
         authorization: 'shared-service' as const,
         connector: {
+          async identify() {
+            return 'crm-account';
+          },
           async fetch() {
-            return { state: 'present' as const, record };
+            return {
+              state: 'present' as const,
+              record,
+              providerAccountId: 'crm-account',
+            };
           },
         },
       },
@@ -73,6 +81,7 @@ export function propertyIdentityContract(
             objectDefinitionId: Customer.id,
             sourceDefinitionId: 'crm.customers',
             connectionId: 'crm',
+            providerAccountId: 'crm-account',
             partition: 'shared-service',
           };
           const stored = (await backing.store.load(scope, id))!;
@@ -117,7 +126,80 @@ export function propertyIdentityContract(
       }
     });
 
-    it('refuses legacy name-keyed installations without rewriting data', async () => {
+    it.each([false, true])(
+      'rejects name-keyed values under the current revision (where policy: %s)',
+      async (where) => {
+        const backing = await open();
+        const model = compile(
+          where
+            ? customerGraph
+            : {
+                ...customerGraph,
+                policies: {
+                  Customer: {
+                    ...customerGraph.policies.Customer,
+                    read: { gate: customerGraph.policies.Customer.read.gate },
+                  },
+                },
+              },
+        );
+        const graphId = randomUUID();
+        const scope: StorageScope = {
+          graphId,
+          definitionRevision: model.definitionRevision,
+          objectDefinitionId: Customer.id,
+          sourceDefinitionId: 'crm.customers',
+          connectionId: 'crm',
+          providerAccountId: 'crm-account',
+          partition: 'shared-service',
+        };
+
+        try {
+          // Model the persisted state after a revision-only migration: install
+          // succeeds, but the existing payload still uses the old property names.
+          await backing.store.install(graphId, model.definitionRevision);
+          const saved = await backing.store.accept(scope, {
+            sourceRecordId: record.id,
+            adopt: true,
+            observation: {
+              state: 'present',
+              raw: record,
+              values: {
+                name: 'Northwind',
+                portfolio: 'portfolio_north',
+                revenue: 12,
+              },
+              observedAt: Date.now(),
+              token: await backing.store.beginFetch(),
+            },
+          });
+          const runtime = createRuntime({
+            model,
+            graphId,
+            sources,
+            store: backing.store,
+          });
+
+          for (const refresh of [false, true]) {
+            await expect(
+              runtime.read(employee, Customer.id, saved.object.objectId, {
+                refresh,
+              }),
+            ).rejects.toThrow(
+              'Stored observation values must use property IDs; explicit migration required',
+            );
+          }
+
+          expect(
+            await backing.store.load(scope, saved.object.objectId),
+          ).toEqual(saved.object);
+        } finally {
+          await backing.close();
+        }
+      },
+    );
+
+    it('refuses a legacy manifest revision without rewriting data', async () => {
       const backing = await open();
       const model = compile(customerGraph);
       const legacy = { ...model.manifest, formatVersion: 2 };
@@ -129,6 +211,7 @@ export function propertyIdentityContract(
         objectDefinitionId: Customer.id,
         sourceDefinitionId: 'crm.customers',
         connectionId: 'crm',
+        providerAccountId: 'crm-account',
         partition: 'shared-service',
       };
 

@@ -14,7 +14,10 @@ import type {
   StoredObject,
 } from '../storage.js';
 import { allowsField, createAuthorization } from '../authorization/index.js';
-import type { Principal } from '../authorization/index.js';
+import type {
+  Principal,
+  AuthorizationEvidence,
+} from '../authorization/index.js';
 import { validateReadRequest, summarize } from '../reads/index.js';
 
 type ObjectType = Manifest['objects'][number];
@@ -44,6 +47,7 @@ export function createNativeOperations(options: {
   scope: NativeScope;
   store: ObservationStore;
   clock(): number;
+  install(): Promise<void>;
   resolve(
     object: ObjectType,
     key: string,
@@ -51,9 +55,7 @@ export function createNativeOperations(options: {
     canonical: boolean,
     transaction?: NativeTransaction,
     request?: ReadRequest,
-  ): Promise<
-    { candidate: StoredObject; permissionCandidate: StoredObject } | undefined
-  >;
+  ): Promise<AuthorizationEvidence | undefined>;
 }) {
   const { manifest, scope, store, clock } = options;
   const authorization = (
@@ -119,17 +121,22 @@ export function createNativeOperations(options: {
     },
     async read(
       principal: Principal,
-      object: ObjectType,
+      objectDefinitionId: string,
       id: string,
       request: ReadRequest,
       transaction?: NativeTransaction,
       capture?: (check: () => Promise<boolean>) => void,
     ): Promise<ReadResult> {
       validateReadRequest(request);
-      const policy = manifest.policies[object.id];
+      const object = manifest.objects.find((o) => o.id === objectDefinitionId);
+      const policy = Object.hasOwn(manifest.policies, objectDefinitionId)
+        ? manifest.policies[objectDefinitionId]
+        : undefined;
 
-      if (!policy || !principal.roles.includes(policy.read.role))
+      if (!object || !policy || !principal.roles.includes(policy.read.role))
         return { status: 'not-found' };
+
+      await options.install();
 
       if (!store.native) throw new ReadError('unavailable');
 

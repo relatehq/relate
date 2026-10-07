@@ -13,8 +13,10 @@ function fixture() {
     clock: () => now,
     connections: [
       connect(customers, {
+        providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         connector: {
+          identify: async () => 'example-account',
           async fetch(id) {
             calls++;
 
@@ -22,9 +24,11 @@ function fixture() {
 
             if (state === 'forbidden') throw new SourceAccessDenied();
 
-            if (state === 'deleted') return { state: 'deleted' };
+            if (state === 'deleted')
+              return { providerAccountId: 'example-account', state: 'deleted' };
 
             return {
+              providerAccountId: 'example-account',
               state: 'present',
               record: {
                 id,
@@ -56,10 +60,13 @@ it('adopts once and reads selected fields through a principal-bound object', asy
     graph,
     connections: [
       connect(customers, {
+        providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         connector: {
+          identify: async () => 'example-account',
           async fetch(id) {
             return {
+              providerAccountId: 'example-account',
               state: 'present',
               record: {
                 id,
@@ -271,8 +278,15 @@ it('validates registration before use instead of trusting structurally similar d
     'source binding',
   );
   const binding = {
+    providerAccountId: 'example-account',
     connectionId: 'crm',
-    connector: { fetch: async () => ({ state: 'deleted' as const }) },
+    connector: {
+      identify: async () => 'example-account',
+      fetch: async () => ({
+        providerAccountId: 'example-account',
+        state: 'deleted' as const,
+      }),
+    },
   };
   const connection = connect(customers, binding);
 
@@ -304,8 +318,10 @@ it('waits for an in-flight read at close and leaves borrowed storage usable', as
   let block = false;
   const connections = [
     connect(customers, {
+      providerAccountId: 'example-account',
       connectionId: 'crm',
       connector: {
+        identify: async () => 'example-account',
         async fetch(id) {
           if (block) {
             started();
@@ -313,6 +329,7 @@ it('waits for an in-flight read at close and leaves borrowed storage usable', as
           }
 
           return {
+            providerAccountId: 'example-account',
             state: 'present',
             record: {
               id,
@@ -358,10 +375,13 @@ it('denies objects with no policy even when they have been adopted', async () =>
     graph: { ...graph, policies: { Customer: { read: 'deny' } } },
     connections: [
       connect(customers, {
+        providerAccountId: 'example-account',
         connectionId: 'crm',
         connector: {
+          identify: async () => 'example-account',
           async fetch(id) {
             return {
+              providerAccountId: 'example-account',
               state: 'present',
               record: {
                 id,

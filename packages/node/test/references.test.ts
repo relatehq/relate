@@ -67,18 +67,24 @@ it('enforces multiple predicates across two reference hops without exposing evid
     },
     connections: [
       connect(customers, {
+        providerAccountId: 'example-account',
         connectionId: 'crm',
         connector: {
+          identify: async () => 'example-account',
           fetch: async (id) => ({
+            providerAccountId: 'example-account',
             state: 'present',
             record: { id, name: 'Name', portfolio: 'north', revenue: 1 },
           }),
         },
       }),
       connect(invoices, {
+        providerAccountId: 'example-account',
         connectionId: 'billing',
         connector: {
+          identify: async () => 'example-account',
           fetch: async (id) => ({
+            providerAccountId: 'example-account',
             state: 'present',
             record: {
               id,
@@ -90,9 +96,12 @@ it('enforces multiple predicates across two reference hops without exposing evid
         },
       }),
       connect(credits, {
+        providerAccountId: 'example-account',
         connectionId: 'credits',
         connector: {
+          identify: async () => 'example-account',
           fetch: async (id) => ({
+            providerAccountId: 'example-account',
             state: 'present',
             record: { id, invoice_id: 'inv_1' },
           }),

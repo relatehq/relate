@@ -1,5 +1,5 @@
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFile as execFileCallback } from 'node:child_process';
@@ -92,3 +92,84 @@ it.each([
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+it('recognizes Windows paths in ownership and entry-point checks', () => {
+  expect(runtimeOwner('actions\\native.ts')).toBe('actions');
+  expect(() =>
+    assertRuntimeDependency('storage.ts', 'observations\\ordering.ts', false),
+  ).not.toThrow();
+  expect(() =>
+    assertRuntimeDependency(
+      'resolution\\source.ts',
+      'authorization\\index.ts',
+      false,
+    ),
+  ).not.toThrow();
+  expect(() =>
+    assertRuntimeDependency(
+      'resolution\\source.ts',
+      'authorization\\policy.ts',
+      true,
+    ),
+  ).toThrow('Forbidden runtime dependency');
+});
+
+it.each([
+  ["import type { Acceptance } from '../storage.js';", true],
+  ["export type { Acceptance } from '../storage.js';", true],
+  ["type Acceptance = import('../storage.js').Acceptance;", true],
+  ["import { type Acceptance } from '../storage.js';", false],
+  ["export { type Acceptance } from '../storage.js';", false],
+  ["import {} from '../storage.js';", false],
+  ["export {} from '../storage.js';", false],
+])(
+  'distinguishes erased edges from module-loading edges: %s',
+  async (source, erased) => {
+    const directory = await mkdtemp(join(tmpdir(), 'relate-boundary-test-'));
+    const run = () =>
+      execFile(
+        process.execPath,
+        [fileURLToPath(new URL('../boundaries.mjs', import.meta.url))],
+        { cwd: directory },
+      );
+
+    try {
+      for (const owner of ['relate', 'protocol', 'runtime', 'postgres', 'node'])
+        await mkdir(join(directory, 'packages', owner, 'src'), {
+          recursive: true,
+        });
+
+      await mkdir(join(directory, 'dev/simulators'), { recursive: true });
+      const write = async (file: string, content: string) => {
+        const path = join(directory, 'packages/runtime/src', file);
+
+        await mkdir(dirname(path), { recursive: true });
+        await writeFile(path, content);
+      };
+
+      await write('storage.ts', "import './observations/ordering.js';");
+      await write('observations/ordering.ts', source);
+
+      if (erased) await expect(run()).resolves.toBeDefined();
+      else
+        await expect(run()).rejects.toMatchObject({
+          stderr: expect.stringContaining('Forbidden runtime dependency'),
+        });
+
+      // Same-owner imports bypass ownership checks, but must still enter the
+      // execution-cycle graph unless the entire declaration is erased.
+      await write('storage.ts', '');
+      await write('observations/ordering.ts', '');
+      await write('reads/a.ts', source.replace('../storage.js', './b.js'));
+      await write('reads/b.ts', "import './a.js';");
+
+      if (erased) await expect(run()).resolves.toBeDefined();
+      else
+        await expect(run()).rejects.toMatchObject({
+          stderr: expect.stringContaining('Execution import cycle'),
+        });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
