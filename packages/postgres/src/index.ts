@@ -14,7 +14,11 @@ import type {
 } from '@relate/runtime/storage';
 import { createNativePostgresStore } from './native.js';
 import { storageError } from './errors.js';
-import { initialMigration, nativeActionMigration } from './migrations.js';
+import {
+  initialMigration,
+  nativeActionMigration,
+  providerAccountMigration,
+} from './migrations.js';
 
 export interface PostgresOptions {
   connectionString: string;
@@ -53,6 +57,7 @@ export function createPostgresStore(
     scope.sourceDefinitionId,
     scope.connectionId,
     scope.partition,
+    scope.providerAccountId,
   ];
   const rowObject = (row: {
     object_key: string;
@@ -79,7 +84,11 @@ export function createPostgresStore(
         await client.query(
           'CREATE TABLE IF NOT EXISTS relate.migrations (version integer PRIMARY KEY, checksum text NOT NULL)',
         );
-        const migrations = [initialMigration, nativeActionMigration];
+        const migrations = [
+          initialMigration,
+          nativeActionMigration,
+          providerAccountMigration,
+        ];
         const existing = await client.query<{
           version: number;
           checksum: string;
@@ -145,7 +154,7 @@ export function createPostgresStore(
       const result = await pool.query(
         `SELECT o.object_key,o.provider_key,o.observation FROM relate.objects o
         JOIN relate.graphs g USING (graph_id)
-        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.object_key=$6 AND g.definition_revision=$7`,
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.provider_account_id=$6 AND o.object_key=$7 AND g.definition_revision=$8`,
         [...scopeValues(scope), objectId, scope.definitionRevision],
       );
 
@@ -155,7 +164,7 @@ export function createPostgresStore(
       const result = await pool.query(
         `SELECT o.object_key,o.provider_key,o.observation FROM relate.objects o
         JOIN relate.graphs g USING (graph_id)
-        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.provider_key=$6 AND g.definition_revision=$7`,
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.provider_account_id=$6 AND o.provider_key=$7 AND g.definition_revision=$8`,
         [...scopeValues(scope), sourceRecordId, scope.definitionRevision],
       );
 
@@ -168,9 +177,9 @@ export function createPostgresStore(
       const result = await pool.query(
         `SELECT o.object_key,o.provider_key,o.observation FROM relate.objects o
         JOIN relate.graphs g USING (graph_id)
-        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5
-          AND g.definition_revision=$6 AND ($7::text IS NULL OR o.object_key COLLATE "C" > $7 COLLATE "C")
-        ORDER BY o.object_key COLLATE "C" LIMIT $8`,
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.provider_account_id=$6
+          AND g.definition_revision=$7 AND ($8::text IS NULL OR o.object_key COLLATE "C" > $8 COLLATE "C")
+        ORDER BY o.object_key COLLATE "C" LIMIT $9`,
         [
           ...scopeValues(scope),
           scope.definitionRevision,
@@ -206,7 +215,7 @@ export function createPostgresStore(
         );
         const result = await client.query(
           `SELECT object_key,provider_key,observation FROM relate.objects
-          WHERE graph_id=$1 AND object_type=$2 AND source_id=$3 AND connection_id=$4 AND partition=$5 AND provider_key=$6 FOR UPDATE`,
+          WHERE graph_id=$1 AND object_type=$2 AND source_id=$3 AND connection_id=$4 AND partition=$5 AND provider_account_id=$6 AND provider_key=$7 FOR UPDATE`,
           [...scopeValues(scope), input.sourceRecordId],
         );
         const previous = result.rows[0] ? rowObject(result.rows[0]) : undefined;
@@ -231,8 +240,8 @@ export function createPostgresStore(
             observation: input.observation,
           };
           await client.query(
-            `INSERT INTO relate.objects(graph_id,object_type,source_id,connection_id,partition,object_key,provider_key,observation)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
+            `INSERT INTO relate.objects(graph_id,object_type,source_id,connection_id,partition,provider_account_id,object_key,provider_key,observation)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
             ON CONFLICT (graph_id,object_type,object_key) DO UPDATE SET observation=EXCLUDED.observation`,
             [
               ...scopeValues(scope),

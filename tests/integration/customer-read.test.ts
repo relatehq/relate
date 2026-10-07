@@ -43,6 +43,7 @@ const connect = (
     clock,
     sources: {
       'crm.customers': {
+        providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         authorization: 'shared-service',
         connector,
@@ -121,7 +122,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
   await store.close();
   store = createPostgresStore({ connectionString: databaseUrl });
   runtime = connect();
-  await crm.stop();
+  crm.setRecordsUnavailable(true);
   now += 2_000;
   const restarted = await execFile(process.execPath, [
     fileURLToPath(new URL('../support/restarted-reader.mjs', import.meta.url)),
@@ -267,7 +268,7 @@ it('returns fresh authorized transient values when retention fails without chang
       warnings: ['observation_not_retained'],
     },
   });
-  await crm.stop();
+  crm.setRecordsUnavailable(true);
   expect(
     await runtime.read(employee, Customer.id, key, {
       select: ['name'],
@@ -348,6 +349,7 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
   const key = await runtime.adopt(Customer.id, 'crm_456');
   let calls = 0;
   const counted = connect(store, {
+    identify: async () => 'example-account',
     fetch: async (...args) => {
       calls++;
 
@@ -387,6 +389,7 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
     clock,
     sources: {
       'crm.customers': {
+        providerAccountId: 'example-account',
         connectionId: 'another-account',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
@@ -404,6 +407,7 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
     clock,
     sources: {
       'crm.customers': {
+        providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
@@ -436,7 +440,7 @@ it('withholds confirmed deletion and newly denied access even if retention fails
   expect(
     await runtime.read(employee, Customer.id, key, { refresh: true }),
   ).toEqual({ status: 'not-found' });
-  await crm.stop();
+  crm.setRecordsUnavailable(true);
   expect(await runtime.read(employee, Customer.id, key)).toEqual({
     status: 'not-found',
   });
@@ -452,7 +456,7 @@ it('refuses a provider-denied refresh without fallback and leaves cached reads t
       refresh: true,
     }),
   ).toEqual({ status: 'not-found' });
-  // Denial is not persisted: within maxAgeMs no provider check happens.
+  // Record denial is not persisted: fresh cached reads only verify account identity.
   expect(
     await runtime.read(employee, Customer.id, key, { select: ['name'] }),
   ).toMatchObject({
@@ -476,7 +480,10 @@ it('refuses a provider-denied refresh without fallback and leaves cached reads t
 
 it('bounds source waits and rejects malformed observations without overwriting retained data', async () => {
   const key = await runtime.adopt(Customer.id, 'crm_456');
-  const hanging = connect(store, { fetch: () => new Promise(() => {}) });
+  const hanging = connect(store, {
+    identify: async () => 'example-account',
+    fetch: () => new Promise(() => {}),
+  });
   const start = Date.now();
 
   expect(
@@ -512,6 +519,7 @@ it('keeps the later accepted observation when two real database clients race', a
     started = resolve;
   });
   const slow = connect(store, {
+    identify: async () => 'example-account',
     fetch: async () => {
       started();
 
@@ -532,6 +540,7 @@ it('keeps the later accepted observation when two real database clients race', a
     await runtime.read(employee, Customer.id, key, { refresh: true }),
   ).toMatchObject({ data: { name: 'Newer accepted name' } });
   release({
+    providerAccountId: 'example-account',
     state: 'present',
     record: {
       id: 'crm_456',
@@ -651,9 +660,17 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
     clock,
     sources: {
       [resource.id]: {
+        providerAccountId: 'example-account',
         connectionId: 'optional-account',
         authorization: 'shared-service',
-        connector: { fetch: async () => ({ state: 'present', record }) },
+        connector: {
+          identify: async () => 'example-account',
+          fetch: async () => ({
+            providerAccountId: 'example-account',
+            state: 'present',
+            record,
+          }),
+        },
       },
     },
   });
@@ -714,6 +731,7 @@ it('denies absent policies and rejects compiled model drift against an installed
     clock,
     sources: {
       'crm.customers': {
+        providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
@@ -732,6 +750,7 @@ it('denies absent policies and rejects compiled model drift against an installed
     clock,
     sources: {
       'crm.customers': {
+        providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
@@ -762,6 +781,7 @@ it.each(['source-failure', 'conflicting-version'] as const)(
       started = resolve;
     });
     const slow = connect(store, {
+      identify: async () => 'example-account',
       fetch: async () => {
         started();
         await new Promise<void>((resolve) => {
@@ -771,6 +791,7 @@ it.each(['source-failure', 'conflicting-version'] as const)(
         if (failure === 'source-failure') throw new Error('CRM unavailable');
 
         return {
+          providerAccountId: 'example-account',
           state: 'present',
           record: {
             id: 'crm_456',
@@ -798,3 +819,30 @@ it.each(['source-failure', 'conflicting-version'] as const)(
     expect(await pending).toEqual({ status: 'not-found' });
   },
 );
+
+it('verifies the HTTP provider account before cached reads and refreshes', async () => {
+  const id = await runtime.adopt(Customer.id, 'crm_456');
+
+  crm.setAccount('another-provider-account');
+  await crm.update({ display_name: 'Unrelated account customer' });
+  expect(await runtime.read(employee, Customer.id, id)).toEqual({
+    status: 'not-found',
+  });
+  expect(
+    await connect().read(employee, Customer.id, id, { refresh: true }),
+  ).toEqual({ status: 'not-found' });
+  await expect(runtime.adopt(Customer.id, 'crm_456')).rejects.toThrow();
+  crm.setAccount('example-account');
+  expect(await runtime.read(employee, Customer.id, id)).toMatchObject({
+    data: { name: 'Northwind' },
+  });
+});
+
+it('does not disclose retained values when the HTTP identity endpoint is unavailable', async () => {
+  const id = await runtime.adopt(Customer.id, 'crm_456');
+
+  await crm.stop();
+  await expect(runtime.read(employee, Customer.id, id)).rejects.toMatchObject({
+    code: 'unavailable',
+  });
+});

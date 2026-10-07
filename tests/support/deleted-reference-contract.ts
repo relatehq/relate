@@ -92,9 +92,12 @@ export function deletedReferenceContract(
         actionImplementations: [createTask],
         connections: [
           connect(customers, {
+            providerAccountId: 'example-account',
             connectionId: 'crm',
             connector: {
+              identify: async () => 'example-account',
               fetch: async (id) => ({
+                providerAccountId: 'example-account',
                 state: 'present',
                 record: {
                   id,
@@ -106,12 +109,15 @@ export function deletedReferenceContract(
             },
           }),
           connect(invoices, {
+            providerAccountId: 'example-account',
             connectionId: 'billing',
             connector: {
+              identify: async () => 'example-account',
               fetch: async (id) =>
                 invoiceDeleted
-                  ? { state: 'deleted' }
+                  ? { providerAccountId: 'example-account', state: 'deleted' }
                   : {
+                      providerAccountId: 'example-account',
                       state: 'present',
                       record: {
                         id,

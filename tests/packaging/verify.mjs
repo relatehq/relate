@@ -76,7 +76,7 @@ assert.equal(model.manifest.objects[0].id, 'customer');
 assert.equal(typeof createRuntime, 'function');
 assert.equal(createMemoryStore().durability, 'volatile');
 const memoryModel = compile(defineGraph({ id: 'graph', objects: { Customer }, access, policies: { Customer: { read: { gate: access.role('reader') } } } }));
-const runtime = createRuntime({ model: memoryModel, graphId: 'smoke', sources: { crm: { connectionId: 'fixture', authorization: 'shared-service', connector: { async fetch(id) { return { state: 'present', record: { id, name: 'Ada' } }; } } } } });
+const runtime = createRuntime({ model: memoryModel, graphId: 'smoke', sources: { crm: { connectionId: 'fixture', providerAccountId: 'example-account', authorization: 'shared-service', connector: { identify: async () => 'example-account', async fetch(id) { return { providerAccountId: 'example-account', state: 'present', record: { id, name: 'Ada' } }; } } } } });
 const objectIdValue = await runtime.adopt('customer', '1');
 const read = await runtime.read({ id: 'reader', roles: ['reader'], claims: {} }, 'customer', objectIdValue);
 assertFields(read, ['name']);
@@ -192,8 +192,8 @@ import assert from 'node:assert/strict';
 import { connect, createRuntime } from '@relate/node';
 import { graph, ana, Customer, Invoice, customers, invoices } from './built/invoice-model.js';
 const relate = createRuntime({ graph, connections: [
-  connect(customers, { connectionId: 'crm', connector: { fetch: async (id) => ({ state: 'present', record: { id, name: 'Northwind', portfolio: 'north', revenue: 100 } }) } }),
-  connect(invoices, { connectionId: 'billing', connector: { fetch: async (id) => ({ state: 'present', record: { id, customer_id: 'crm_1', status: 'open', total_minor: 12500 } }) } }),
+  connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Northwind', portfolio: 'north', revenue: 100 } }) } }),
+  connect(invoices, { connectionId: 'billing', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, customer_id: 'crm_1', status: 'open', total_minor: 12500 } }) } }),
 ] });
 try {
   const customerId = await relate.host.adopt(Customer, 'crm_1');
@@ -242,8 +242,8 @@ import assert from 'node:assert/strict';
 import { createRuntime, connect } from '@relate/node';
 import { graph, addAccountReview, ana, Customer, customers, invoices } from './built/native-action-model.js';
 const app = createRuntime({ graph, actionImplementations: [addAccountReview], connections: [
-  connect(customers, { connectionId: 'crm', connector: { fetch: async (id) => ({ state: 'present', record: { id, name: 'Northwind', portfolio: 'north' } }) } }),
-  connect(invoices, { connectionId: 'billing', connector: { fetch: async (id) => ({ state: 'present', record: { id } }) } }),
+  connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Northwind', portfolio: 'north' } }) } }),
+  connect(invoices, { connectionId: 'billing', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id } }) } }),
 ] });
 try {
   const customer = await app.host.adopt(Customer, 'northwind');

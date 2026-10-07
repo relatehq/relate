@@ -33,8 +33,9 @@ separate.
 | `accept(scope, input)`                 | Atomically check installation and membership, compare ordering, and retain the winning whole observation and identity. Return `{ object, acceptance }`, including the current winner when the incoming observation loses.                                                                                             |
 
 Every operation is scoped by installed graph ID/revision, object definition,
-source definition, connection ID and authorization partition. No data may cross
-these boundaries. Only `shared-service` is supported today.
+source definition, connection ID, verified provider account ID and authorization
+partition. No data may cross these boundaries. Only `shared-service` is
+supported today.
 
 `accept` must serialize competing writes to the same scoped `sourceRecordId`,
 including simultaneous first adoptions. When `adopt` is true it may allocate a

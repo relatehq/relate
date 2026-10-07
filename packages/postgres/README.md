@@ -62,6 +62,15 @@ try {
 The same store works with the engine directly:
 `createRuntime({ model, graphId, sources, store })` from `@relate/runtime`.
 
+## Provider account migration
+
+Migration 3 adds provider account identity to source aliases and lookup scope.
+Existing observations lack verified provenance: the migration preserves them and
+their history with a null account ID, inaccessible through scoped reads. It does
+not infer an account from `connectionId` or current credentials. Re-adopting
+through a verified connector establishes a new object ID; old references need
+explicit reconciliation. No automatic reassignment or deletion is performed.
+
 ## Status
 
 Implemented: durable source observations with history, installed-revision
