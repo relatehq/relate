@@ -10,7 +10,7 @@ import type { Claim } from './authorization.js';
 import { canonicalJson, deepFreeze, validateManifest } from './model.js';
 import type { CompiledModel, ScalarSchema } from './model.js';
 
-// Deliberately narrow: never silently erase refinements, transforms, or defaults.
+// Deliberately narrow: never silently erase refinements, transforms, defaults, or coercion.
 function portable(schema: z.ZodType): ScalarSchema {
   let current = schema;
   let optional = false;
@@ -30,10 +30,12 @@ function portable(schema: z.ZodType): ScalarSchema {
 
   if (
     !['string', 'number', 'boolean'].includes(type) ||
-    ('checks' in current.def && current.def.checks?.length)
+    ('checks' in current.def && current.def.checks?.length) ||
+    // Coercion changes which inputs parse; the portable scalar would accept fewer.
+    ('coerce' in current.def && current.def.coerce)
   ) {
     throw new Error(
-      `Unsupported schema: ${type}. This slice supports unrefined scalar fields only.`,
+      `Unsupported schema: ${type}. This slice supports unrefined, uncoerced scalar fields only.`,
     );
   }
 
