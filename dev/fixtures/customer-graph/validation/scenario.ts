@@ -26,7 +26,7 @@ export async function scenario() {
     assert.deepEqual(customer.data, { name: 'Northwind Studio' });
     assert.equal(customer.meta.completeness, 'partial');
     assert.equal(customer.meta.fields.name?.status, 'available');
-    assert.equal(customer.meta.fields.revenue?.status, 'unavailable');
+    assert.equal(customer.meta.fields.revenue?.status, 'forbidden');
 
     // Finance in the same portfolio also sees revenue.
     const financial = await relate.as(fin).objects.Customer.get(northwind, {

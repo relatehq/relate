@@ -134,7 +134,7 @@ export function invoiceReadContract(
       expect(invoice).toMatchObject({
         status: 'ok',
         data: { customer: customerId, status: 'open' },
-        meta: { fields: { totalMinor: { status: 'unavailable' } } },
+        meta: { fields: { totalMinor: { status: 'forbidden' } } },
       });
 
       if (invoice.status !== 'ok') throw new Error('Expected invoice');

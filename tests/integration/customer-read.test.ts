@@ -81,7 +81,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
   if (initial.status !== 'ok') throw new Error('Expected customer');
 
   expect(initial.data).not.toHaveProperty('revenue');
-  expect(initial.meta.fields.revenue).toEqual({ status: 'unavailable' });
+  expect(initial.meta.fields.revenue).toEqual({ status: 'forbidden' });
   expect(
     await runtime.read(
       { ...employee, claims: { portfolio: 'other' } },
@@ -374,7 +374,7 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
     data: {},
     meta: {
       fields: {
-        revenue: { status: 'unavailable' },
+        revenue: { status: 'forbidden' },
         unknown: { status: 'unavailable' },
       },
     },

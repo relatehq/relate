@@ -162,8 +162,13 @@ export function createNativeOperations(options: {
       for (const name of selected) {
         const property = object.properties.find((p) => p.name === name);
 
-        if (!property || !allowsField(principal, policy, property.access)) {
+        if (!property) {
           fields[name] = { status: 'unavailable' };
+          continue;
+        }
+
+        if (!allowsField(principal, policy, property.access)) {
+          fields[name] = { status: 'forbidden' };
           continue;
         }
 
@@ -214,7 +219,7 @@ export function createNativeOperations(options: {
 
       capture?.(allowed);
       const complete = Object.values(fields).every(
-        (field) => field.status !== 'unavailable',
+        (field) => field.status === 'available' || field.status === 'absent',
       );
 
       if (!complete && request.requireComplete)
@@ -225,7 +230,9 @@ export function createNativeOperations(options: {
         data,
         meta: {
           completeness: complete ? 'complete' : 'partial',
-          degraded: !complete,
+          degraded: Object.values(fields).some(
+            (field) => field.status === 'unavailable',
+          ),
           definitionRevision: scope.definitionRevision,
           fields,
           warnings: [],

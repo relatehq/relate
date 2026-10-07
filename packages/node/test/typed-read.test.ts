@@ -89,9 +89,10 @@ it('adopts once and reads selected fields through a principal-bound object', asy
       data: { name: 'Northwind' },
       meta: {
         completeness: 'partial',
+        degraded: false,
         fields: {
           name: { status: 'available', retentionDurability: 'volatile' },
-          revenue: { status: 'unavailable' },
+          revenue: { status: 'forbidden' },
         },
       },
     });
@@ -159,13 +160,15 @@ it('keeps authorized stale values and their evidence, but cannot renew expired p
   advance(2_000);
   const result = await relate
     .as(ana)
-    .objects.Customer.get(id, { select: ['name'], maxAgeMs: 1_000 });
+    .objects.Customer.get(id, { select: ['name', 'revenue'], maxAgeMs: 1_000 });
 
   assertFields(result, ['name']);
   expect(result.data).toEqual({ name: 'Northwind' });
   expect(result.meta).toMatchObject({
+    completeness: 'partial',
     degraded: true,
     fields: {
+      revenue: { status: 'forbidden' },
       name: {
         freshness: 'stale',
         refresh: 'unavailable',
@@ -178,6 +181,50 @@ it('keeps authorized stale values and their evidence, but cannot renew expired p
   expect(await relate.as(ana).objects.Customer.get(id)).toEqual({
     status: 'not-found',
   });
+  await relate.close();
+});
+
+it('distinguishes permission omission from omitted stale values after a failed refresh', async () => {
+  const { relate, advance, setState } = fixture();
+  const id = await relate.host.adopt(Customer, 'crm_456');
+
+  setState('offline');
+  advance(2_000);
+  const request = {
+    select: ['revenue'] as const,
+    maxAgeMs: 1_000,
+    stale: 'omit' as const,
+  };
+  const denied = await relate.as(ana).objects.Customer.get(id, request);
+
+  expect(denied).toMatchObject({
+    status: 'ok',
+    data: {},
+    meta: {
+      completeness: 'partial',
+      degraded: false,
+      fields: { revenue: { status: 'forbidden' } },
+    },
+  });
+  const unavailable = await relate
+    .as(finance)
+    .objects.Customer.get(id, request);
+
+  expect(unavailable).toMatchObject({
+    status: 'ok',
+    data: {},
+    meta: { completeness: 'partial', degraded: true },
+  });
+
+  if (unavailable.status !== 'ok') throw new Error('Expected customer');
+
+  expect(unavailable.meta.fields.revenue).toEqual({ status: 'unavailable' });
+  await expect(
+    relate.as(finance).objects.Customer.get(id, {
+      ...request,
+      requireComplete: true,
+    }),
+  ).rejects.toMatchObject({ code: 'incomplete' });
   await relate.close();
 });
 
@@ -210,7 +257,7 @@ it('binds an authenticated principal snapshot and keeps ingestion off the consum
     await consumer.objects.Customer.get(id, { select: ['name', 'revenue'] }),
   ).toMatchObject({
     data: { name: 'Northwind' },
-    meta: { fields: { revenue: { status: 'unavailable' } } },
+    meta: { fields: { revenue: { status: 'forbidden' } } },
   });
   await relate.close();
   await expect(consumer.objects.Customer.get(id)).rejects.toThrow('closed');

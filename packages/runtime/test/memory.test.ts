@@ -109,7 +109,7 @@ it('enforces authorization, refresh and expired permission during memory fallbac
 
   expect(hidden).toMatchObject({
     data: {},
-    meta: { fields: { revenue: { status: 'unavailable' } } },
+    meta: { fields: { revenue: { status: 'forbidden' } } },
   });
   expect(() => assertFields(hidden, ['revenue'])).toThrow(
     new ReadError('incomplete'),

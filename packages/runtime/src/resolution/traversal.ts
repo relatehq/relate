@@ -366,7 +366,10 @@ function project(
       status: 'unavailable' as const,
     };
 
-    if (evidence.status !== 'unavailable' && evidence.source === 'source') {
+    if (
+      (evidence.status === 'available' || evidence.status === 'absent') &&
+      evidence.source === 'source'
+    ) {
       const age = now - Date.parse(evidence.observedAt);
       const stale = age < 0 || age > (request.maxAgeMs ?? 60_000);
 
@@ -378,12 +381,15 @@ function project(
 
     fields[name] = evidence;
 
-    if (evidence.status !== 'unavailable' && Object.hasOwn(result.data, name))
+    if (
+      (evidence.status === 'available' || evidence.status === 'absent') &&
+      Object.hasOwn(result.data, name)
+    )
       data[name] = result.data[name]!;
   }
 
   const complete = Object.values(fields).every(
-    (f) => f.status !== 'unavailable',
+    (f) => f.status === 'available' || f.status === 'absent',
   );
 
   if (!complete && request.requireComplete) throw new ReadError('incomplete');
@@ -397,9 +403,11 @@ function project(
       completeness: complete ? 'complete' : 'partial',
       degraded:
         result.meta.degraded ||
-        !complete ||
         Object.values(fields).some(
-          (f) => f.status !== 'unavailable' && f.freshness === 'stale',
+          (f) =>
+            f.status === 'unavailable' ||
+            ((f.status === 'available' || f.status === 'absent') &&
+              f.freshness === 'stale'),
         ),
     },
   };
