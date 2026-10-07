@@ -23,6 +23,10 @@
     "./model": {
       "types": "./dist/model.d.ts",
       "import": "./dist/model.js"
+    },
+    "./diagnostics": {
+      "types": "./dist/diagnostics.d.ts",
+      "import": "./dist/diagnostics.js"
     }
   },
   "dependencies": {

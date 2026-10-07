@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { referenceSchemas } from './schema.js';
+import { CompileError } from './diagnostics.js';
+import { recordProvenance } from './provenance.js';
 import type { ActionDefinition } from './actions.js';
 import type {
   AccessDefinition,
@@ -63,7 +65,9 @@ export function defineSource<S extends Record<string, z.ZodType>>(definition: {
     ]),
   ) as { readonly [K in keyof S]: FieldReference<S[K]> };
 
-  return Object.freeze({ ...definition, fields: Object.freeze(fields) });
+  return recordProvenance(
+    Object.freeze({ ...definition, fields: Object.freeze(fields) }),
+  );
 }
 
 export interface Property<S extends z.ZodType = z.ZodType> {
@@ -258,12 +262,20 @@ export function defineObject<
     properties: P;
   },
 ): DefinedObject<Id, P, M> {
-  if (
-    Object.values(definition.properties).filter(
-      (p) => p.origin.kind === 'object-id',
-    ).length !== 1
-  )
-    throw new Error('Each object must have exactly one objectId() property');
+  const identities = Object.values(definition.properties).filter(
+    (p) => p.origin.kind === 'object-id',
+  ).length;
+
+  // The registry key is unknown here; the issue names the supplied object ID only.
+  if (identities !== 1)
+    throw new CompileError([
+      {
+        code: 'object.object-id-count',
+        message: `Object '${definition.id}' requires exactly one objectId() property; found ${identities}`,
+        definitionId: definition.id,
+        path: { root: 'definition', segments: ['properties'] },
+      },
+    ]);
 
   const object = {
     ...definition,
@@ -282,7 +294,7 @@ export function defineObject<
     ),
   );
 
-  return Object.freeze(object) as DefinedObject<Id, P, M>;
+  return recordProvenance(Object.freeze(object)) as DefinedObject<Id, P, M>;
 }
 
 export interface Traversal {
@@ -319,14 +331,16 @@ export function defineRelationship<
   { readonly name: Forward; readonly cardinality: 'many' },
   { readonly name: Reverse; readonly cardinality: 'one' }
 > {
-  return Object.freeze({
-    id: definition.id,
-    from: definition.via.target,
-    to: definition.via.owner,
-    via: definition.via,
-    forward: Object.freeze({ name: definition.forward, cardinality: 'many' }),
-    reverse: Object.freeze({ name: definition.reverse, cardinality: 'one' }),
-  });
+  return recordProvenance(
+    Object.freeze({
+      id: definition.id,
+      from: definition.via.target,
+      to: definition.via.owner,
+      via: definition.via,
+      forward: Object.freeze({ name: definition.forward, cardinality: 'many' }),
+      reverse: Object.freeze({ name: definition.reverse, cardinality: 'one' }),
+    }),
+  );
 }
 
 export type RelationshipRegistry = Readonly<
@@ -376,7 +390,7 @@ export function defineGraph<const G extends GraphDefinition>(
       >;
   },
 ): G {
-  return graph;
+  return recordProvenance(graph);
 }
 
 export { defineAccess } from './authorization.js';
@@ -404,3 +418,18 @@ export type {
 } from './actions.js';
 
 export type { ObjectResult, ReadOptions } from './operations.js';
+
+export {
+  definitionProvenance,
+  disableDefinitionProvenance,
+  enableDefinitionProvenance,
+} from './provenance.js';
+
+export { CompileError } from './diagnostics.js';
+
+export type {
+  IssuePath,
+  ModelIssue,
+  ModelIssueCode,
+  SourceSite,
+} from './diagnostics.js';
