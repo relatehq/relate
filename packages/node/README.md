@@ -3,6 +3,13 @@
 Application composition for typed, authorized object reads. Private and
 unpublished while implementation is in progress.
 
+The [inspector foundation specification](../../apps/inspector/SPEC.md) proposes
+`defineApp` here as an inert descriptor containing a graph and deferred runtime
+setup. It explains how an inspector can compile the same graph that a larger
+application runs, without starting that application's server. `defineApp` and
+the illustrated `startApp` helper are not implemented exports; the callable API
+below remains `createRuntime`.
+
 ```ts
 import { connect, createRuntime } from '@relate/node';
 import { assertFields } from 'relate';
