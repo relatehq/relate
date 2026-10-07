@@ -20,11 +20,12 @@ provision databases or manage the server.
 
 The example starts an in-process Hono CRM simulator with a real HTTP listener.
 It adopts one customer, reads as an employee, changes the CRM name, refreshes as
-Finance, stops the CRM, recreates the embedded runtime and storage pool, and
-reads the retained name. Finally it advances its controlled clock past the
-permission evidence limit and demonstrates denied access. It closes its
-connections and CRM listener on exit; the database and retained data remain
-available.
+Finance, has the CRM deny the service account and shows a refused refresh next
+to a cached read, stops the CRM, recreates the embedded runtime and storage
+pool, and reads the retained name. Finally it advances its controlled clock past
+the permission evidence limit and demonstrates expired Relate permission
+evidence. It closes its connections and CRM listener on exit; the database and
+retained data remain available.
 
 - `src/model.ts`: authoring, stable IDs, source ownership, field groups, policy.
 - `src/connector.ts`: the example's minimal HTTP source adapter.
@@ -45,6 +46,14 @@ policy, whose evidence expires after 30 seconds. Business freshness defaults to
 The `shared-service` binding explicitly uses one provider account's visibility.
 It does not implement delegated provider credentials. Connection identity is
 part of retained storage scope; another account cannot reuse these values.
+
+The connector maps the CRM's responses onto the runtime's three outcomes: a
+`deleted` body is a confirmed deletion, HTTP 403 throws `SourceAccessDenied`,
+and any other failure is temporary unavailability. A denied refresh returns
+`not-found` with no fallback. Denial is observed per read rather than persisted:
+the retained observation remains, and a cached read within `maxAgeMs` does not
+consult the provider, so it still returns the retained value. Request `refresh`
+when a current provider check is required.
 
 An unavailable source produces authorized stale fallback by default.
 `stale: 'omit'` omits old values; `requireComplete: true` then errors when the
