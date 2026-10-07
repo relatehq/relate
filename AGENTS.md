@@ -8,6 +8,29 @@ Do not add AI attribution to commits or pull requests. No `Co-Authored-By`
 trailers for Claude, Codex, or any other agent, and no "Generated with" lines or
 other notes saying an agent wrote, committed, or reviewed the change.
 
+## Pull request descriptions
+
+Write PR descriptions so a non-technical reader can understand why the PR was
+created and what changes for someone using the product.
+
+- Lead with the user problem or need and why this change matters.
+- Explain the product behavior with concrete before-and-after examples: who
+  is doing what, what happened before, and what happens after this change.
+- For bug fixes, describe the specific situation that triggers the bug, the
+  incorrect result the user experiences, and the corrected outcome. For
+  example: "When a customer has no invoices, opening their account failed.
+  Their account now opens and shows an empty invoice list, so the team can
+  still review the customer."
+- For features, show a concrete task the change enables or improves. For
+  example: "A support agent can now see a customer's invoices alongside their
+  account reviews, so they can investigate a billing question in one place."
+- Use plain language and explain necessary technical terms. Put implementation
+  details and validation after the product explanation; a list of changed
+  files or technical mechanisms does not explain why the PR exists.
+- Keep examples accurate to the change's actual scope. If there is no direct
+  user-visible change, say so and explain the concrete maintenance or
+  reliability reason without inventing a product benefit.
+
 ## Worktrees
 
 When asked to do work in a new worktree, or to work on several features in
