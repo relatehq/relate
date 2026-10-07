@@ -104,6 +104,9 @@ export function createTraversal(options: {
     const via = owner.properties.find(
       (p) => p.id === relationship.referencePropertyDefinitionId,
     )!;
+
+    if (!owner.sourceDefinitionId) throw new ReadError('invalid-request');
+
     const ownerPolicy = manifest.policies[owner.id];
     const { cursor, limit: _limit, ...readRequest } = request;
     const scope = createHash('sha256')
@@ -117,9 +120,9 @@ export function createTraversal(options: {
           relationship: relationship.id,
           forward,
           query: { ...readRequest, limit },
-          bindings: manifest.objects.map((o) =>
-            scopeFor(o.id, o.sourceDefinitionId),
-          ),
+          bindings: manifest.objects
+            .filter((o) => o.sourceDefinitionId)
+            .map((o) => scopeFor(o.id, o.sourceDefinitionId!)),
         }),
       )
       .digest('hex');
@@ -243,10 +246,13 @@ export function createTraversal(options: {
       let batch;
 
       try {
-        batch = await store.scan(scopeFor(owner.id, owner.sourceDefinitionId), {
-          ...(after ? { after } : {}),
-          limit: Math.min(100 - scanned, limit - pending.length),
-        });
+        batch = await store.scan(
+          scopeFor(owner.id, owner.sourceDefinitionId!),
+          {
+            ...(after ? { after } : {}),
+            limit: Math.min(100 - scanned, limit - pending.length),
+          },
+        );
       } catch {
         throw new ReadError('unavailable');
       }

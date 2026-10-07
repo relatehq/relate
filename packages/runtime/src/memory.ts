@@ -5,6 +5,7 @@ import type {
   StorageScope,
   StoredObject,
 } from './storage.js';
+import { createNativeMemoryStore } from './native-memory.js';
 import { RetentionError } from './storage.js';
 import { compareObservation } from './observations/ordering.js';
 
@@ -17,6 +18,9 @@ export function createMemoryStore(): ObservationStore {
 
   return {
     durability: 'volatile',
+    native: createNativeMemoryStore(
+      (scope) => graphs.get(scope.graphId) === scope.definitionRevision,
+    ),
     async install(graphId, definitionRevision) {
       const installed = graphs.get(graphId);
 

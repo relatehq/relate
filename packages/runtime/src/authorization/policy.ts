@@ -36,6 +36,7 @@ export function createAuthorization(options: {
     object: ObjectType,
     sourceKey: string,
     maxAgeMs: number,
+    canonical?: boolean,
   ): Promise<AuthorizationEvidence | undefined>;
 }) {
   const { manifest, principal, clock } = options;
@@ -49,14 +50,21 @@ export function createAuthorization(options: {
     string,
     { age: number; result: Promise<AuthorizationEvidence | undefined> }
   >();
-  const resolve = (target: ObjectType, key: string, age: number) => {
-    const cacheKey = JSON.stringify([target.id, key]);
+  const resolve = (
+    target: ObjectType,
+    key: string,
+    age: number,
+    canonical = false,
+  ) => {
+    const cacheKey = JSON.stringify([target.id, key, canonical]);
     const previous = cache.get(cacheKey);
 
     if (!previous || age < previous.age) {
       cache.set(cacheKey, {
         age,
-        result: options.resolve(target, key, age).catch(() => undefined),
+        result: options
+          .resolve(target, key, age, canonical)
+          .catch(() => undefined),
       });
     }
 
@@ -73,7 +81,11 @@ export function createAuthorization(options: {
     age: number,
     authorizeTarget = false,
   ) {
-    if (property.origin.kind !== 'reference' || !fresh(stored, age))
+    if (
+      (property.origin.kind !== 'reference' &&
+        property.origin.kind !== 'native-reference') ||
+      (property.origin.kind === 'reference' && !fresh(stored, age))
+    )
       return undefined;
 
     const targetId = property.origin.targetObjectDefinitionId;
@@ -96,6 +108,7 @@ export function createAuthorization(options: {
       authorizeTarget && policy?.read.where
         ? Math.min(age, policy.read.evidenceMaxAgeMs)
         : age,
+      property.origin.kind === 'native-reference',
     );
 
     return evidence && { target, evidence };
@@ -105,14 +118,17 @@ export function createAuthorization(options: {
     object: ObjectType,
     stored: StoredObject,
     path: string[],
-    claim: string,
+    operand: { claim?: string | undefined; actor?: 'id' | undefined },
     age: number,
   ): Promise<boolean> {
     if (stored.observation.state !== 'present') return false;
 
     const property = object.properties.find((p) => p.id === path[0])!;
 
-    if (property.origin.kind === 'reference') {
+    if (
+      property.origin.kind === 'reference' ||
+      property.origin.kind === 'native-reference'
+    ) {
       const resolved = await targetFor(property, stored, age);
 
       if (!resolved) return false;
@@ -122,7 +138,13 @@ export function createAuthorization(options: {
         resolved.evidence.candidate,
       ])) {
         if (
-          !(await matches(resolved.target, snapshot, path.slice(1), claim, age))
+          !(await matches(
+            resolved.target,
+            snapshot,
+            path.slice(1),
+            operand,
+            age,
+          ))
         )
           return false;
       }
@@ -130,7 +152,11 @@ export function createAuthorization(options: {
       return true;
     }
 
-    if (property.origin.kind !== 'object-id' && !fresh(stored, age))
+    if (
+      object.sourceDefinitionId &&
+      property.origin.kind !== 'object-id' &&
+      !fresh(stored, age)
+    )
       return false;
 
     const value =
@@ -138,7 +164,13 @@ export function createAuthorization(options: {
         ? stored.objectId
         : stored.observation.values[property.name];
 
+    if (operand.actor === 'id')
+      return value !== undefined && value === principal.id;
+
+    const claim = operand.claim;
+
     return (
+      claim !== undefined &&
       Object.hasOwn(principal.claims, claim) &&
       principal.claims[claim] !== undefined &&
       accepts(manifest.claims[claim]!, principal.claims[claim]) &&
@@ -150,9 +182,8 @@ export function createAuthorization(options: {
   async function allows(
     object: ObjectType,
     evidence: AuthorizationEvidence,
+    policy = policyFor(object),
   ): Promise<boolean> {
-    const policy = policyFor(object);
-
     if (!policy || !principal.roles.includes(policy.read.role)) return false;
 
     for (const stored of new Set([
@@ -167,7 +198,7 @@ export function createAuthorization(options: {
             object,
             stored,
             condition.path,
-            condition.claim,
+            condition,
             policy.read.evidenceMaxAgeMs,
           ))
         )

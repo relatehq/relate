@@ -1,3 +1,7 @@
+import { createNativeOperations, nativeEvidence } from '../actions/native.js';
+import { createActionExecutor } from '../actions/execute.js';
+import type { ActionHandler } from '../actions/execute.js';
+import type { NativeTransaction } from '../storage.js';
 import { createTraversal } from './traversal.js';
 import { validateReadRequest } from './request.js';
 import { refreshObservation } from './refresh.js';
@@ -40,6 +44,7 @@ export interface RuntimeOptions {
   readonly clock?: () => number;
   /** Share a 32-byte key across trusted runtimes to preserve cursor validity. */
   readonly cursorKey?: Uint8Array;
+  readonly actionHandlers?: Readonly<Record<string, ActionHandler>>;
 }
 
 export function createRuntime(options: RuntimeOptions) {
@@ -88,6 +93,64 @@ export function createRuntime(options: RuntimeOptions) {
     partition: 'shared-service',
   });
 
+  const nativeScope = {
+    graphId: options.graphId,
+    definitionRevision: revision,
+  };
+
+  async function resolveEvidence(
+    target: (typeof manifest.objects)[number],
+    key: string,
+    maxAgeMs: number,
+    canonical = false,
+    transaction?: NativeTransaction,
+    request: ReadRequest = {},
+  ) {
+    if (!target.sourceDefinitionId) {
+      const record = transaction
+        ? await transaction.load(target.id, key)
+        : await store.native?.load(nativeScope, target.id, key);
+
+      return record ? nativeEvidence(target, record) : undefined;
+    }
+
+    const targetScope = scopeFor(target.id, target.sourceDefinitionId);
+    const retained = canonical
+      ? await store.load(targetScope, key)
+      : await store.resolve(targetScope, key);
+
+    if (!retained || retained.observation.state !== 'present') return undefined;
+
+    const resolved = await refreshObservation({
+      store,
+      scope: targetScope,
+      stored: retained,
+      object: target,
+      resource: manifest.sources.find(
+        (s) => s.id === target.sourceDefinitionId,
+      )!,
+      connector: sources[target.sourceDefinitionId]!.connector,
+      clock,
+      request: { ...request, maxAgeMs, select: [] },
+      needsSource: true,
+      sourcePermission: true,
+      evidenceMaxAgeMs: maxAgeMs,
+    });
+
+    return resolved?.candidate.observation.state === 'present' &&
+      resolved.permissionCandidate.observation.state === 'present'
+      ? resolved
+      : undefined;
+  }
+
+  const native = createNativeOperations({
+    manifest,
+    scope: nativeScope,
+    store,
+    clock,
+    resolve: resolveEvidence,
+  });
+
   async function readObject(
     principal: Principal,
     objectDefinitionId: string,
@@ -95,6 +158,7 @@ export function createRuntime(options: RuntimeOptions) {
     request: ReadRequest = {},
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
+    transaction?: NativeTransaction,
   ): Promise<ReadResult> {
     validateReadRequest(request);
     const maxAge = request.maxAgeMs ?? 60_000;
@@ -108,7 +172,19 @@ export function createRuntime(options: RuntimeOptions) {
       return { status: 'not-found' };
 
     await install();
-    const scope = scopeFor(objectDefinitionId, object.sourceDefinitionId);
+
+    if (!object.sourceDefinitionId)
+      return native.read(
+        principal,
+        object,
+        objectId,
+        request,
+        transaction,
+        captureAuthorization,
+      );
+
+    const sourceDefinitionId = object.sourceDefinitionId;
+    const scope = scopeFor(objectDefinitionId, sourceDefinitionId);
     let stored: StoredObject | undefined;
 
     try {
@@ -150,7 +226,7 @@ export function createRuntime(options: RuntimeOptions) {
       resource: manifest.sources.find(
         (s) => s.id === object.sourceDefinitionId,
       )!,
-      connector: sources[object.sourceDefinitionId]!.connector,
+      connector: sources[sourceDefinitionId]!.connector,
       clock,
       request,
       needsSource,
@@ -168,29 +244,8 @@ export function createRuntime(options: RuntimeOptions) {
       manifest,
       principal,
       clock,
-      async resolve(target, key, maxAgeMs) {
-        const targetScope = scopeFor(target.id, target.sourceDefinitionId);
-        const retained = await store.resolve(targetScope, key);
-
-        if (!retained || retained.observation.state !== 'present')
-          return undefined;
-
-        return refreshObservation({
-          store,
-          scope: targetScope,
-          stored: retained,
-          object: target,
-          resource: manifest.sources.find(
-            (s) => s.id === target.sourceDefinitionId,
-          )!,
-          connector: sources[target.sourceDefinitionId]!.connector,
-          clock,
-          request: { ...request, maxAgeMs, select: [] },
-          needsSource: true,
-          sourcePermission: true,
-          evidenceMaxAgeMs: maxAgeMs,
-        });
-      },
+      resolve: (target, key, maxAgeMs, canonical = false) =>
+        resolveEvidence(target, key, maxAgeMs, canonical, transaction, request),
     });
 
     if (!(await evidence.allows(object, resolved)))
@@ -240,7 +295,7 @@ export function createRuntime(options: RuntimeOptions) {
         source: native ? 'native' : 'source',
         ...(!native
           ? {
-              sourceDefinitionId: object.sourceDefinitionId,
+              sourceDefinitionId,
               orderingBasis: candidate.observation.version
                 ? ('source-version' as const)
                 : ('fetch-start' as const),
@@ -309,7 +364,7 @@ export function createRuntime(options: RuntimeOptions) {
     ): Promise<string> {
       const object = manifest.objects.find((o) => o.id === objectDefinitionId);
 
-      if (!object || !sourceRecordId.trim())
+      if (!object?.sourceDefinitionId || !sourceRecordId.trim())
         throw new Error('Invalid adoption target');
 
       await install();
@@ -355,6 +410,17 @@ export function createRuntime(options: RuntimeOptions) {
 
   return {
     ...runtime,
+    invoke: createActionExecutor({
+      manifest,
+      scope: nativeScope,
+      store,
+      clock,
+      install,
+      handlers: options.actionHandlers ?? {},
+      validate: native.validate,
+      read: (actor, type, id, request, transaction) =>
+        readObject(actor, type, id, request, undefined, undefined, transaction),
+    }),
     traverse: createTraversal({
       manifest,
       graphId: options.graphId,

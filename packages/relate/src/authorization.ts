@@ -16,6 +16,11 @@ export interface Claim<S extends z.ZodType = z.ZodType> {
   readonly schema: S;
 }
 
+export interface ActorField {
+  readonly kind: 'actor-field';
+  readonly name: 'id';
+}
+
 export interface RoleGate<Role extends string = string> {
   readonly kind: 'role';
   readonly role: Role;
@@ -29,11 +34,17 @@ export type PolicyWhere<
     K in keyof O['properties']
   ]?: O['properties'][K] extends ReferenceProperty<infer Id>
     ? PolicyWhere<Registry, Extract<Registry[keyof Registry], { id: Id }>>
-    : { readonly eq: Claim<z.ZodType<z.output<O['properties'][K]['schema']>>> };
+    : {
+        readonly eq:
+          | Claim<z.ZodType<z.output<O['properties'][K]['schema']>>>
+          | (z.output<O['properties'][K]['schema']> extends string
+              ? ActorField
+              : never);
+      };
 };
 
 /** Reject surplus extracted keys as well as fresh literal typos. */
-export type ExactPolicyInput<Input, Shape> = Shape extends Claim
+export type ExactPolicyInput<Input, Shape> = Shape extends Claim | ActorField
   ? Input
   : Input extends object
     ? Shape extends object
@@ -68,9 +79,14 @@ export type Policy<
   G extends string = string,
   W = unknown,
 > =
-  | { readonly read: 'deny'; readonly groups?: never }
+  | {
+      readonly read: 'deny';
+      readonly groups?: never;
+      readonly create?: ObjectRule<R, W> | 'deny';
+    }
   | {
       readonly read: ObjectRule<R, W>;
+      readonly create?: ObjectRule<R, W> | 'deny';
       readonly groups?: Readonly<
         Partial<Record<Exclude<G, 'ordinary'>, RoleGate<R>>>
       > & { readonly ordinary?: never };
@@ -84,7 +100,15 @@ export type Policies<
     Access['roles'][number],
     Access['fieldGroups'][number],
     PolicyWhere<Registry, Registry[K]>
-  >;
+  > & {
+    readonly create?: Registry[K]['membership'] extends { kind: 'native' }
+      ? | ObjectRule<
+            Access['roles'][number],
+            PolicyWhere<Registry, Registry[K]>
+          >
+        | 'deny'
+      : never;
+  };
 };
 
 /** Declare the vocabulary once; hosts still supply authenticated principals. */
@@ -107,6 +131,9 @@ export function defineAccess<
   ) as { readonly [K in G[number]]: FieldGroup<K> };
 
   return Object.freeze({
+    actor: Object.freeze({
+      id: Object.freeze({ kind: 'actor-field' as const, name: 'id' as const }),
+    }),
     roles: Object.freeze([...definition.roles]),
     fieldGroups: Object.freeze([...definition.fieldGroups]),
     claims: Object.freeze(claims),

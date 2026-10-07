@@ -1,41 +1,22 @@
 import type {
   GraphDefinition,
-  ObjectData,
   ObjectDefinition,
   ObjectId,
   ObjectRegistry,
   PropertyNames,
   RelationshipDefinition,
   RelationshipRegistry,
+  ReadOptions,
+  ObjectResult,
+  Receipt,
+  ActionDefinition,
+  ActionRequest,
 } from 'relate';
-import type {
-  FieldEvidence,
-  ReadRequest,
-  ReadResult,
-  Page as ResultPage,
-} from '@relate/protocol';
+import type { Page as ResultPage } from '@relate/protocol';
 import type { QueryResult } from '@relate/runtime';
 import type { Principal } from '@relate/runtime';
 
-export type ReadOptions<K extends string> = Omit<ReadRequest, 'select'> & {
-  readonly select?: readonly K[];
-};
-
-type Ok = Extract<ReadResult, { status: 'ok' }>;
-
-export type ObjectResult<
-  O extends ObjectDefinition,
-  K extends PropertyNames<O> = PropertyNames<O>,
-> =
-  | { readonly status: 'not-found' }
-  | {
-      readonly status: 'ok';
-      readonly id: ObjectId<O['id']>;
-      readonly data: ObjectData<O, K>;
-      readonly meta: Omit<Ok['meta'], 'fields'> & {
-        readonly fields: { readonly [N in K]?: FieldEvidence };
-      };
-    };
+export type { ReadOptions, ObjectResult } from 'relate';
 
 export type PageOptions<K extends string> = ReadOptions<K> & {
   readonly limit?: number;
@@ -91,6 +72,17 @@ export interface ObjectOperations<
 export interface Consumer<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 > {
+  readonly actions: G extends {
+    readonly actions: infer A extends Readonly<
+      Record<string, ActionDefinition>
+    >;
+  }
+    ? {
+        readonly [K in keyof A]: (
+          request: ActionRequest<A[K]>,
+        ) => Promise<Receipt<A[K]>>;
+      }
+    : {};
   readonly objects: {
     readonly [N in keyof G['objects']]: ObjectOperations<
       G['objects'][N],
@@ -106,7 +98,12 @@ export interface Relate<
 > {
   as(principal: Principal): Consumer<G>;
   readonly host: {
-    adopt<O extends G['objects'][keyof G['objects']]>(
+    adopt<
+      O extends Extract<
+        G['objects'][keyof G['objects']],
+        { membership: { resource: unknown } }
+      >,
+    >(
       object: O,
       sourceRecordId: string,
     ): Promise<ObjectId<O['id']>>;

@@ -30,3 +30,24 @@ CREATE TABLE relate.value_changes (
   FOREIGN KEY (graph_id, object_type, object_key) REFERENCES relate.objects(graph_id, object_type, object_key)
 );
 `;
+
+export const nativeActionMigration = `
+CREATE TABLE relate.native_objects (
+  graph_id text NOT NULL REFERENCES relate.graphs(graph_id),
+  object_type text NOT NULL,
+  object_key text NOT NULL,
+  values jsonb NOT NULL,
+  created_at double precision NOT NULL,
+  PRIMARY KEY (graph_id, object_type, object_key)
+);
+CREATE TABLE relate.native_invocations (
+  graph_id text NOT NULL REFERENCES relate.graphs(graph_id),
+  action_id text NOT NULL,
+  idempotency_key text NOT NULL,
+  invocation_id text,
+  input jsonb,
+  receipt jsonb,
+  PRIMARY KEY (graph_id, action_id, idempotency_key),
+  UNIQUE (graph_id, invocation_id)
+);
+`;

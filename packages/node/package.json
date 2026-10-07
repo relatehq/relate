@@ -4,7 +4,7 @@
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
-  "description": "Node application composition for typed, authorized object reads.",
+  "description": "Node application composition for typed, authorized reads and native actions.",
   "dependencies": {
     "relate": "workspace:*",
     "@relate/runtime": "workspace:*",
@@ -12,7 +12,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "NATIVE_ACTIONS.md"
   ],
   "sideEffects": false,
   "exports": {

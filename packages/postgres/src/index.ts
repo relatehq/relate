@@ -12,7 +12,9 @@ import type {
   StoredObject,
   Observation,
 } from '@relate/runtime/storage';
-import { initialMigration } from './migrations.js';
+import { createNativePostgresStore } from './native.js';
+import { storageError } from './errors.js';
+import { initialMigration, nativeActionMigration } from './migrations.js';
 
 export interface PostgresOptions {
   connectionString: string;
@@ -21,14 +23,27 @@ export interface PostgresOptions {
 export function createPostgresStore(
   options: PostgresOptions,
 ): ObservationStore & { migrate(): Promise<void>; close(): Promise<void> } {
-  const pool = new pg.Pool({
+  const poolOptions = {
     connectionString: options.connectionString,
     max: 5,
     connectionTimeoutMillis: 2_000,
     statement_timeout: 3_000,
     lock_timeout: 2_000,
     idle_in_transaction_session_timeout: 5_000,
+  };
+  const pool = new pg.Pool(poolOptions);
+  // Native transactions may refresh source evidence. Reserve a separate pool
+  // so queued native locks cannot consume every source-observation connection.
+  const nativePool = new pg.Pool({
+    ...poolOptions,
+    connectionTimeoutMillis: 30_000,
+    statement_timeout: 30_000,
+    lock_timeout: 30_000,
+    // An async action may await source I/O while its native transaction is idle.
+    idle_in_transaction_session_timeout: 0,
   });
+
+  nativePool.on('error', () => {});
 
   // Idle client failures are handled by pg; callers receive operation failures.
   pool.on('error', () => {});
@@ -51,6 +66,7 @@ export function createPostgresStore(
 
   return {
     durability: 'persistent',
+    native: createNativePostgresStore(nativePool),
     async migrate() {
       const client = await pool.connect();
 
@@ -63,26 +79,31 @@ export function createPostgresStore(
         await client.query(
           'CREATE TABLE IF NOT EXISTS relate.migrations (version integer PRIMARY KEY, checksum text NOT NULL)',
         );
-        const checksum = createHash('sha256')
-          .update(initialMigration)
-          .digest('hex');
+        const migrations = [initialMigration, nativeActionMigration];
         const existing = await client.query<{
           version: number;
           checksum: string;
         }>('SELECT version, checksum FROM relate.migrations ORDER BY version');
 
-        if (
-          existing.rows.some(
-            (row) => row.version !== 1 || row.checksum !== checksum,
-          )
-        )
-          throw new Error('Relate migration checksum/version mismatch');
+        for (const row of existing.rows) {
+          const sql = migrations[row.version - 1];
 
-        if (!existing.rowCount) {
-          await client.query(initialMigration);
+          if (
+            !sql ||
+            row.checksum !== createHash('sha256').update(sql).digest('hex')
+          )
+            throw new Error('Relate migration checksum/version mismatch');
+        }
+
+        for (const [index, sql] of migrations.entries()) {
+          const version = index + 1;
+
+          if (existing.rows.some((row) => row.version === version)) continue;
+
+          await client.query(sql);
           await client.query(
-            'INSERT INTO relate.migrations(version, checksum) VALUES (1,$1)',
-            [checksum],
+            'INSERT INTO relate.migrations(version, checksum) VALUES ($1,$2)',
+            [version, createHash('sha256').update(sql).digest('hex')],
           );
         }
 
@@ -95,17 +116,23 @@ export function createPostgresStore(
       }
     },
     async install(graphId, definitionRevision) {
-      await pool.query(
-        'INSERT INTO relate.graphs(graph_id,definition_revision) VALUES ($1,$2) ON CONFLICT DO NOTHING',
-        [graphId, definitionRevision],
-      );
-      const result = await pool.query(
-        'SELECT 1 FROM relate.graphs WHERE graph_id=$1 AND definition_revision=$2',
-        [graphId, definitionRevision],
-      );
+      try {
+        await pool.query(
+          'INSERT INTO relate.graphs(graph_id,definition_revision) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+          [graphId, definitionRevision],
+        );
+        const result = await pool.query(
+          'SELECT 1 FROM relate.graphs WHERE graph_id=$1 AND definition_revision=$2',
+          [graphId, definitionRevision],
+        );
 
-      if (!result.rowCount)
-        throw new Error('Installed model differs; explicit migration required');
+        if (!result.rowCount)
+          throw new Error(
+            'Installed model differs; explicit migration required',
+          );
+      } catch (error) {
+        throw storageError(error);
+      }
     },
     async beginFetch() {
       const result = await pool.query<{ token: string }>(
@@ -254,6 +281,8 @@ export function createPostgresStore(
         client.release();
       }
     },
-    close: () => pool.end(),
+    close: async () => {
+      await Promise.all([pool.end(), nativePool.end()]);
+    },
   };
 }

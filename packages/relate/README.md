@@ -1,11 +1,13 @@
 # relate
 
 TypeScript authoring and compiled-model contracts for authorized Customer and
-Invoice reads. Private and unpublished while implementation is in progress.
+Invoice reads and native account-review actions. Private and unpublished while
+implementation is in progress.
 
 - `relate`: `defineSource`, `source`, `defineObject`, `objectId`, `native`,
   `from`, `reference`, `referenceInput`, `defineRelationship`, `defineAccess`,
-  `defineGraph`, `assertFields`.
+  `defineGraph`, `assertFields`, `nativeMembership`, `defineAction`,
+  `implementAction`.
 - `relate/compiler`: `compile`, with deterministic SHA-256 definition revisions.
 - `relate/model`: portable manifest validation and types for runtime
   integrations.
@@ -24,12 +26,15 @@ requires a read policy; use `read: 'deny'` for intentional denial. Source
 schemas use ordinary `z.object` definitions. Unmapped JSON fields are retained
 privately.
 
-Refinements, transforms, defaults, nested values, other native fields, and
-custom handlers are rejected rather than silently compiled away. Policies in
-this slice are fully declarative, so no executable handler registry is needed
-yet. Release artifacts, schema evolution, actions, and additional source
-bindings remain future implementation work. The installed graph is pinned to one
-definition revision; incompatible activation requires an explicit migration.
+Refinements, transforms, defaults, nested property values, and custom policy
+handlers are rejected rather than silently compiled away. Policies in this slice
+are fully declarative, so no executable handler registry is needed for
+authorization. Native scalar properties, native references, action contracts and
+create policies are supported; see the
+[native action walkthrough](../node/NATIVE_ACTIONS.md). Release artifacts,
+schema evolution, external actions and additional source bindings remain future
+implementation work. The installed graph is pinned to one definition revision;
+incompatible activation requires an explicit migration.
 
 See [the runnable example](../../examples/hello-world/README.md).
 
@@ -254,8 +259,9 @@ unresolved or access is denied.
 The compiler validates that the exact endpoint objects and bound reference are
 registered in the graph. Names must be unique among traversals on the same
 object; reference properties and traversal names use separate namespaces.
-Existing graphs can omit the relationship registry. Native references and
-independent relationship records are not implemented.
+Existing graphs can omit the relationship registry. Native references support
+authorized get/create in the native-action slice; traversal over those
+references and independent relationship records remain unimplemented.
 
 Migration: remove authored `from` and `to`, and replace each
 `{ name, cardinality }` traversal with its name string. Keep the existing
@@ -331,7 +337,8 @@ both. An empty array asserts only `status: 'ok'`.
 The current embedded runtime returns partial JSON records. The customer graph
 [action fixture](../../dev/fixtures/customer-graph/source/actions/review-invoice.server.ts)
 demonstrates schema-specific narrowing with this implemented helper, but its
-typed object operations and action execution remain proposed APIs.
+full query/escalation operations remain proposed APIs. The smaller
+[native account-review path](../node/NATIVE_ACTIONS.md) is executable.
 
 ### Presence, freshness, and completeness
 

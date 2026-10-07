@@ -213,6 +213,52 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
   );
 
   await writeFile(
+    join(consumer, 'native-action-model.ts'),
+    await readFile(
+      resolve(root, 'tests/support/native-action-model.ts'),
+      'utf8',
+    ),
+  );
+
+  for (const [owner, name] of [
+    ['relate', 'actions.types.ts'],
+    ['node', 'native-action.types.ts'],
+  ]) {
+    await writeFile(
+      join(consumer, name),
+      (
+        await readFile(resolve(root, 'packages', owner, 'test', name), 'utf8')
+      ).replaceAll(
+        '../../../tests/support/native-action-model.js',
+        './native-action-model.js',
+      ),
+    );
+  }
+
+  await writeFile(
+    join(consumer, 'native-action-smoke.mjs'),
+    `
+import assert from 'node:assert/strict';
+import { createRuntime, connect } from '@relate/node';
+import { graph, addAccountReview, ana, Customer, customers, invoices } from './built/native-action-model.js';
+const app = createRuntime({ graph, actionImplementations: [addAccountReview], connections: [
+  connect(customers, { connectionId: 'crm', connector: { fetch: async (id) => ({ state: 'present', record: { id, name: 'Northwind', portfolio: 'north' } }) } }),
+  connect(invoices, { connectionId: 'billing', connector: { fetch: async (id) => ({ state: 'present', record: { id } }) } }),
+] });
+try {
+  const customer = await app.host.adopt(Customer, 'northwind');
+  const receipt = await app.as(ana).actions.addAccountReview({ input: { customer, note: 'Packed native action' }, idempotencyKey: 'one' });
+  assert.equal(receipt.state, 'succeeded');
+  assert.equal(typeof receipt.invocationId, 'string');
+  const review = await app.as(ana).objects.AccountReview.get(receipt.output.reviewId);
+  assert.equal(review.status, 'ok');
+  assert.equal(review.data.note, 'Packed native action');
+} finally { await app.close(); }
+console.log('Installed native action executes and returns a readable committed review.');
+`,
+  );
+
+  await writeFile(
     join(consumer, 'hello-world.ts'),
     await readFile(resolve(root, 'examples/hello-world/src/index.ts'), 'utf8'),
   );
@@ -241,6 +287,8 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
       'hello-world.ts',
       'traversal.types.ts',
       'object-ids.types.ts',
+      'actions.types.ts',
+      'native-action.types.ts',
     ],
     { cwd: consumer },
   );
@@ -250,6 +298,11 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
   });
 
   process.stdout.write(traversal.stdout);
+  const native = await execFile(process.execPath, ['native-action-smoke.mjs'], {
+    cwd: consumer,
+  });
+
+  process.stdout.write(native.stdout);
   const hello = await execFile(process.execPath, ['built/hello-world.js'], {
     cwd: consumer,
   });

@@ -1,6 +1,8 @@
 import type { TraversalRequest } from '@relate/protocol';
 import { compile } from 'relate/compiler';
 import type {
+  ActionDefinition,
+  ActionImplementation,
   GraphDefinition,
   ObjectDefinition,
   ObjectId,
@@ -9,7 +11,10 @@ import type {
 } from 'relate';
 import { createRuntime as createEngine, createQuery } from '@relate/runtime';
 import type { Principal, RuntimeOptions, SourceBinding } from '@relate/runtime';
+import type { ActionHandler } from '@relate/runtime';
 import type { Consumer, Relate } from './types.js';
+
+export { ActionError } from '@relate/protocol';
 
 export type { QueryResult } from '@relate/runtime';
 
@@ -46,6 +51,13 @@ export interface AppOptions<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 > {
   readonly graph: G;
+  readonly actionImplementations?: readonly (G extends {
+    readonly actions: infer A extends Readonly<
+      Record<string, ActionDefinition>
+    >;
+  }
+    ? { [K in keyof A]: ActionImplementation<G, A[K]> }[keyof A]
+    : never)[];
   readonly connections: readonly Connection[];
   readonly graphId?: string;
   /** Borrowed storage: the caller owns migrations and closing it. */
@@ -54,7 +66,7 @@ export interface AppOptions<
   readonly cursorKey?: Uint8Array;
 }
 
-/** Compile an authored graph and compose the existing read engine. */
+/** Compile an authored graph and bind typed reads and native action handlers. */
 export function createRuntime<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(options: AppOptions<G>): Relate<G> {
@@ -64,7 +76,9 @@ export function createRuntime<
     objects.map(([, object]) => object),
   );
   const resources = new Set(
-    objects.map(([, object]) => object.membership.resource),
+    objects.flatMap(([, object]) =>
+      'resource' in object.membership ? [object.membership.resource] : [],
+    ),
   );
   const sources: Record<string, SourceBinding> = {};
 
@@ -81,10 +95,57 @@ export function createRuntime<
     });
   }
 
+  const actions = Object.entries(options.graph.actions ?? {});
+  const handlers: Record<string, ActionHandler> = {};
+
+  for (const registered of options.actionImplementations ?? []) {
+    const implementation = registered as unknown as ActionImplementation<
+      G,
+      ActionDefinition
+    >;
+
+    if (
+      implementation.graph !== options.graph ||
+      !actions.some(([, action]) => action === implementation.action)
+    )
+      throw new Error('Unregistered action implementation');
+
+    if (Object.hasOwn(handlers, implementation.action.id))
+      throw new Error('Duplicate action implementation');
+
+    handlers[implementation.action.id] = (context) =>
+      implementation.implementation({
+        actor: context.actor,
+        input: context.input,
+        objects: Object.fromEntries(
+          objects.map(([name, object]) => [
+            name,
+            Object.freeze({
+              get: async (id: string, request = {}) => {
+                const result = await context.read(object.id, id, request);
+
+                return result.status === 'ok' ? { ...result, id } : result;
+              },
+              ...(implementation.action.creates.includes(object as never)
+                ? {
+                    create: (values: unknown) =>
+                      context.create(object.id, values),
+                  }
+                : {}),
+            }),
+          ]),
+        ) as never,
+      });
+  }
+
+  if (actions.some(([, action]) => !Object.hasOwn(handlers, action.id)))
+    throw new Error('Missing action implementation');
+
   const engine = createEngine({
     model,
     graphId: options.graphId ?? options.graph.id,
     sources,
+    actionHandlers: handlers,
     ...(options.store ? { store: options.store } : {}),
     ...(options.clock ? { clock: options.clock } : {}),
     ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
@@ -185,10 +246,24 @@ export function createRuntime<
       // The registry gives each operation exactly the definition used by that compiler.
       return Object.freeze({
         objects: Object.freeze(operations),
-      }) as Consumer<G>;
+        actions: Object.freeze(
+          Object.fromEntries(
+            actions.map(([name, action]) => [
+              name,
+              (request: { input: unknown; idempotencyKey: string }) =>
+                run(() => engine.invoke(actor, action.id, request)),
+            ]),
+          ),
+        ),
+      }) as unknown as Consumer<G>;
     },
     host: Object.freeze({
-      adopt: <O extends G['objects'][keyof G['objects']]>(
+      adopt: <
+        O extends Extract<
+          G['objects'][keyof G['objects']],
+          { membership: { resource: unknown } }
+        >,
+      >(
         object: O,
         sourceRecordId: string,
       ) =>

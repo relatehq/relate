@@ -9,3 +9,10 @@ export type { ReadRequest, ReadResult } from '@relate/protocol';
 export { createMemoryStore } from './memory.js';
 export { createQuery } from './pagination.js';
 export type { QueryResult } from './pagination.js';
+
+export type {
+  ActionHandler,
+  ActionExecutionContext,
+} from './actions/execute.js';
+
+export { ActionError } from '@relate/protocol';
