@@ -9,6 +9,29 @@ Do not add AI attribution to commits or pull requests. No `Co-Authored-By`
 trailers for Claude, Codex, or any other agent, and no "Generated with" lines
 or other notes saying an agent wrote, committed, or reviewed the change.
 
+## Keeping the owner in the loop
+
+I want to follow how the system evolves in detail, not just get summaries. When
+you discuss, propose, or report on design or implementation work, show the
+concrete thing being talked about rather than describing it abstractly:
+
+- **Code snippets:** the actual types, functions, or SQL in question, before and
+  after when something changes.
+- **APIs:** the public surface as a caller would use it, with a short usage
+  example (authoring calls, consumer calls, HTTP requests, MCP tools).
+- **Contracts:** interfaces, result and evidence shapes, protocol types, and
+  invariants each side relies on.
+- **Module splits:** which package or module owns what, what moved where, and
+  the dependency direction between them.
+- **Key files:** paths (`packages/<pkg>/src/...:line`) for the files that carry
+  the change, so I can open them directly.
+
+Apply this to plans, design options, progress updates, and final summaries
+alike. When weighing alternatives, show each option as code or a contract
+sketch, then give a recommendation. If something is still undecided, say so
+explicitly and show the open shape. Keep prose short; let the examples carry
+the explanation.
+
 ## Implementation approach
 
 We are building the OSS external version of relate here, using what we have
