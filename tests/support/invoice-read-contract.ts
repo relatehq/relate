@@ -326,7 +326,8 @@ export function invoiceReadContract(
           vi.spyOn(f.store, 'load').mockImplementation(async (...args) => {
             const stored = await load(...args);
 
-            if (stored) delete stored.observation.values.customer;
+            if (stored)
+              delete stored.observation.values[Invoice.properties.customer.id];
 
             return stored;
           });
@@ -336,7 +337,10 @@ export function invoiceReadContract(
           vi.spyOn(f.store, 'resolve').mockImplementation(async (...args) => {
             const stored = await resolve(...args);
 
-            if (stored) delete stored.observation.values.portfolio;
+            if (stored)
+              delete stored.observation.values[
+                Customer.properties.portfolio.id
+              ];
 
             return stored;
           });

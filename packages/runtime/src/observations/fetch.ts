@@ -151,7 +151,7 @@ export function observation(
         property.origin.kind === 'reference') &&
       Object.hasOwn(result.record, property.origin.field)
     )
-      values[property.name] = result.record[property.origin.field]!;
+      values[property.id] = result.record[property.origin.field]!;
   }
 
   return {

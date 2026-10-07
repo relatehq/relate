@@ -1,6 +1,10 @@
 import ts from 'typescript';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve, dirname, relative, sep } from 'node:path';
+import {
+  assertRuntimeDependency,
+  runtimeOwner,
+} from './architecture/runtime-boundaries.ts';
 
 const root = process.cwd();
 const owners = ['relate', 'protocol', 'runtime', 'postgres', 'node'];
@@ -38,6 +42,8 @@ for (const owner of owners) {
   for (const file of await walk(directory)) {
     if (!file.endsWith('.ts')) continue;
 
+    if (owner === 'runtime') runtimeOwner(relative(directory, file));
+
     const parsed = ts.createSourceFile(
       file,
       await readFile(file, 'utf8'),
@@ -53,7 +59,22 @@ for (const owner of owners) {
           : ts.isCallExpression(node) &&
               node.expression.kind === ts.SyntaxKind.ImportKeyword
             ? node.arguments[0]
-            : undefined;
+            : ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)
+              ? node.argument.literal
+              : undefined;
+      // With verbatimModuleSyntax, inline type specifiers still emit an empty
+      // import/export declaration and load the target module at runtime.
+      const typeOnly =
+        ts.isImportTypeNode(node) ||
+        (ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
+        (ts.isExportDeclaration(node) && node.isTypeOnly);
+
+      if (
+        ts.isCallExpression(node) &&
+        node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+        (!literal || !ts.isStringLiteral(literal))
+      )
+        throw new Error(`Nonliteral import cannot be checked: ${file}`);
 
       if (literal && ts.isStringLiteral(literal)) {
         const name = literal.text;
@@ -64,11 +85,18 @@ for (const owner of owners) {
           if (!target.startsWith(directory + sep))
             throw new Error(`Cross-package relative import: ${file}: ${name}`);
 
-          edges.push(target);
+          if (owner === 'runtime')
+            assertRuntimeDependency(
+              relative(directory, file),
+              relative(directory, target),
+              Boolean(typeOnly),
+            );
+
+          if (!typeOnly) edges.push(target);
         } else if (name.startsWith('node:')) {
           if (!(
             owner === 'postgres' ||
-            (owner === 'relate' && file.endsWith('/compiler.ts')) ||
+            (owner === 'relate' && file.endsWith(`${sep}compiler.ts`)) ||
             (owner === 'runtime' && name === 'node:crypto')
           ))
             throw new Error(`Platform dependency: ${file}: ${name}`);
@@ -95,28 +123,8 @@ async function check(file) {
   if (visited.has(file)) return;
 
   visiting.add(file);
-  const parsed = ts.createSourceFile(
-    file,
-    await readFile(file, 'utf8'),
-    ts.ScriptTarget.Latest,
-    true,
-  );
 
-  for (const node of parsed.statements) {
-    if (!ts.isImportDeclaration(node) && !ts.isExportDeclaration(node))
-      continue;
-
-    if (
-      (ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
-      (ts.isExportDeclaration(node) && node.isTypeOnly)
-    )
-      continue;
-
-    const spec = node.moduleSpecifier;
-
-    if (spec && ts.isStringLiteral(spec) && spec.text.startsWith('.'))
-      await check(resolve(dirname(file), spec.text.replace(/\.js$/, '.ts')));
-  }
+  for (const target of graph.get(file) ?? []) await check(target);
 
   visiting.delete(file);
   visited.add(file);
@@ -137,5 +145,5 @@ for (const file of await walk(resolve(root, 'dev/simulators'))) {
 }
 
 console.log(
-  `Verified package boundaries and execution cycles (${graph.size} modules).`,
+  `Verified package/runtime boundaries and execution cycles (${graph.size} modules).`,
 );

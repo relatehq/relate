@@ -62,6 +62,13 @@ try {
 The same store works with the engine directly:
 `createRuntime({ model, graphId, sources, store })` from `@relate/runtime`.
 
+Source observation values and `relate.value_changes.values` use stable property
+IDs, as native records already do. Manifest format 3 changes the definition
+revision and refuses existing name-keyed installations until explicitly
+migrated. `migrate()` does not convert graph data or activate a new model
+revision; see
+[property identity](../runtime/STORE_CONTRACT.md#property-identity).
+
 ## Provider account migration
 
 Migration 3 adds provider account identity to source aliases and lookup scope.

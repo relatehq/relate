@@ -9,7 +9,7 @@ const observation = (
 ): Observation => ({
   state: 'present',
   raw: { name },
-  values: { name },
+  values: { 'person.name': name },
   observedAt: 1,
   token,
   ...(version ? { version: { domain: 'v1', value: version } } : {}),

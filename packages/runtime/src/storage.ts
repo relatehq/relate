@@ -18,6 +18,7 @@ export interface SourceVersion {
 export interface Observation {
   readonly state: 'present' | 'deleted';
   readonly raw: Record<string, Json>;
+  /** Mapped values keyed by stable property definition ID, never by API name. */
   readonly values: Record<string, Json>;
   readonly observedAt: number;
   readonly token: string;
@@ -79,7 +80,10 @@ export class RetentionError extends Error {
   }
 }
 
-export { compareObservation, OrderingConflict } from './observations/index.js';
+export {
+  compareObservation,
+  OrderingConflict,
+} from './observations/ordering.js';
 
 export interface NativeScope {
   readonly graphId: string;

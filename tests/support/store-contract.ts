@@ -19,7 +19,7 @@ export function storeContract(
     const observation = (token: string, name = 'Ada'): Observation => ({
       state: 'present',
       raw: { id: 'external-1', name },
-      values: { name },
+      values: { 'person.name': name },
       observedAt: 1_000,
       token,
     });
@@ -102,7 +102,7 @@ export function storeContract(
 
       const resolved = (await store.resolve(scope, 'external-1'))!;
 
-      resolved.observation.values.name = 'changed';
+      resolved.observation.values['person.name'] = 'changed';
       expect(await store.resolve(scope, 'external-1')).toEqual(object);
       expect(await store.resolve(scope, object.objectId)).toBeUndefined();
     });
@@ -131,9 +131,11 @@ export function storeContract(
 
       expect(last.objects.map((o) => o.objectId)).toEqual(expected.slice(2));
       expect(last.hasMore).toBe(false);
-      first.objects[0]!.observation.values.name = 'mutation';
+      first.objects[0]!.observation.values['person.name'] = 'mutation';
       expect(
-        (await store.load(scope, expected[0]!))?.observation.values.name,
+        (await store.load(scope, expected[0]!))?.observation.values[
+          'person.name'
+        ],
       ).toBe('Ada');
 
       for (const field of [
@@ -218,7 +220,7 @@ export function storeContract(
       expect((await adopt(old)).acceptance).toBe('superseded');
       expect((await adopt(newer)).acceptance).toBe('replay');
       await expect(
-        adopt({ ...newer, values: { name: 'conflict' } }),
+        adopt({ ...newer, values: { 'person.name': 'conflict' } }),
       ).rejects.toBeInstanceOf(OrderingConflict);
       expect(await store.load(scope, winner.object.objectId)).toEqual(
         winner.object,
@@ -268,7 +270,7 @@ export function storeContract(
       const expected = structuredClone(object);
 
       incoming.raw.name = 'input mutation';
-      object.observation.values.name = 'result mutation';
+      object.observation.values['person.name'] = 'result mutation';
       const loaded = (await store.load(scope, object.objectId))!;
 
       loaded.observation.raw.name = 'load mutation';

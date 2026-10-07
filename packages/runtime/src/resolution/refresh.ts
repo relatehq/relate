@@ -45,6 +45,20 @@ export async function refreshObservation(options: {
     sourcePermission,
     evidenceMaxAgeMs,
   } = options;
+  // A revision bump cannot migrate persisted name-keyed values. Check before
+  // refresh or policy evaluation can hide the incompatible installation.
+  const assertPropertyIds = (snapshot: StoredObject) => {
+    if (
+      Object.keys(snapshot.observation.values).some(
+        (key) => !object.properties.some((property) => property.id === key),
+      )
+    )
+      throw new Error(
+        'Stored observation values must use property IDs; explicit migration required',
+      );
+  };
+
+  assertPropertyIds(stored);
   const objectId = stored.objectId;
   const age = clock() - stored.observation.observedAt;
   const maxAge = request.maxAgeMs ?? 60_000,
@@ -171,6 +185,9 @@ export async function refreshObservation(options: {
       warnings.length = 0;
     }
   }
+
+  assertPropertyIds(candidate);
+  assertPropertyIds(permissionCandidate);
 
   return {
     candidate,
