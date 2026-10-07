@@ -1,6 +1,11 @@
 import { ReadError } from '@relate/protocol';
 import type { Page } from '@relate/protocol';
 
+// TODO(client, open decision): choose a browser-safe shared home for createQuery,
+// QueryResult and the typed Consumer contract before implementing @relate/client.
+// relate/consumer is one option, not an agreed API. See packages/client/README.md.
+// Do not make the browser client import the engine or duplicate this behavior.
+
 /** Await one page, or iterate records across all pages. */
 export interface QueryResult<T>
   extends PromiseLike<Page<T>>, AsyncIterable<T> {}

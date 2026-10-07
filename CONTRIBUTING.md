@@ -16,6 +16,26 @@ published Node 26 type package at this update; its version does not exactly
 match the runtime's version. Keep the runtime and types on the same major when
 upgrading.
 
+## Package boundaries
+
+Run `pnpm check:boundaries` when changing imports or adding a workspace package.
+The checker discovers packages through pnpm's workspace configuration, including
+scaffolds with no source yet. Each package must have an explicit policy in
+`tests/architecture/package-boundaries.ts`; declaring a dependency in
+`package.json` does not grant architectural permission to import it.
+
+Production TypeScript and JavaScript files are checked throughout each package,
+including root entry points and TSX. Tests and generated output are excluded;
+production code cannot import excluded code to bypass the checks. The Postgres
+example has an explicit exception for its provider simulator.
+
+The `relate` authoring entry point must not reach the compiler, even through
+helpers, re-exports or type imports. `relate/model` can depend on model helpers
+under `src/model/`, but must not reach authoring or compiler modules. Runtime
+module ownership is enforced separately by
+`tests/architecture/runtime-boundaries.ts`. Boundary regression tests exercise
+the CLI against temporary workspaces without changing the checkout.
+
 ## Postgres integration tests
 
 Provision an existing, dedicated test database using your own Postgres server

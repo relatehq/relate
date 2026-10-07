@@ -23,6 +23,14 @@ Constraints the package will keep:
 
 ## How it will fit
 
+**TODO — open decision before implementing the client:** decide where shared
+consumer types (`Consumer`, `QueryResult`) and the `createQuery` pagination
+helper belong. They currently live in `@relate/node` and `@relate/runtime`. A
+browser-safe `relate/consumer` entry point is one option, not an agreed API.
+Avoid duplicating these contracts or importing the engine into the browser;
+review the client dependency policy when choosing their home. This decision does
+not require merging the Node and runtime packages.
+
 - Depends only on `@relate/protocol`.
 - Pairs with `@relate/http`; both are the third step in the implementation
   sequence, after the embedded path is complete.
