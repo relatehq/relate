@@ -94,6 +94,18 @@ rejection rule. Reference integrity must include newly created records, while
 policy still applies to reading one's own writes. Host transaction participation
 is not implied.
 
+The
+[reference lifecycle contract](../../../packages/node/NATIVE_ACTIONS.md#references-after-a-target-is-deleted)
+settles survival and read behavior after target deletion: no automatic deletion
+or link clearing; withhold the unresolved reference while applying the owner's
+own read policy. For future updates, an unrelated assignee edit may preserve a
+broken invoice link. Creating or changing a link validates its target; changing
+fields used by an integrity rule validates the affected rule. Update APIs,
+constraint dependency tracking and validation timing remain unimplemented.
+Cascading deletes are deferred beyond v1 and must be explicitly opted into;
+their authoring, authorization, transaction and source-deletion processing
+contracts remain open.
+
 ## 4. Types, input parsing and installation
 
 Reference schemas currently accept string IDs and produce typed `{ id }` values.
