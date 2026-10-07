@@ -8,7 +8,7 @@ import { graph } from '../source/graph.js';
 import { AccountReview, Customer, Invoice } from '../source/model.js';
 import { ana } from './setup.js';
 import { implementAction } from './target.js';
-import type { Receipt, Relate } from './target.js';
+import type { Relate } from './target.js';
 
 /** Future test-runner hooks, not public Relate APIs or a substitute executor. */
 export interface ReferenceWriteScenarioDriver {
@@ -19,10 +19,6 @@ export interface ReferenceWriteScenarioDriver {
    */
   open(implementation: typeof addAccountReview): Promise<{
     readonly relate: Relate<typeof graph>;
-    /** Await execution and inspect its final receipt through trusted test instrumentation. */
-    completedReceipt(
-      pending: Receipt<typeof AddAccountReview>,
-    ): Promise<Receipt<typeof AddAccountReview>>;
     /**
      * Inspect every committed review in this graph directly through storage,
      * independently of caller read policies. No pending transaction is visible.
@@ -103,8 +99,7 @@ export async function referenceWriteScenario(
         return { reviewId: review.id };
       },
     );
-    const { relate, committedReviews, completedReceipt } =
-      await driver.open(implementation);
+    const { relate, committedReviews } = await driver.open(implementation);
 
     try {
       const northwind = await relate.host.adopt(Customer, 'crm_456');
@@ -122,12 +117,10 @@ export async function referenceWriteScenario(
         customer: test.atWrite ? northwind : rawId,
         note: test.atWrite ? rawId : 'Follow up',
       });
-      const initial = await relate.as(ana).actions.addAccountReview({
+      const receipt = await relate.as(ana).actions.addAccountReview({
         input,
         idempotencyKey: test.name,
       });
-      const receipt =
-        initial.state === 'pending' ? await completedReceipt(initial) : initial;
 
       if (test.atWrite) assert.equal(reachedWrite, true, test.name);
 

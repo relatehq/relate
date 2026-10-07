@@ -78,9 +78,11 @@ closing it. `close()` rejects new operations and waits for in-flight operations;
 it does not close borrowed storage or provider clients.
 
 Native account-review actions now execute with authorized creation, rollback and
-successful receipts; see [the walkthrough](./NATIVE_ACTIONS.md). Queries,
-automatic synchronization, servers and workers remain unimplemented. See the
-complete runnable [hello-world example](../../examples/hello-world/README.md).
+successful receipts and actor-bound lookup/replay; see
+[the walkthrough](./NATIVE_ACTIONS.md#wait-for-completion-lookup-and-recovery).
+Queries, automatic synchronization, servers and workers remain unimplemented.
+See the complete runnable
+[hello-world example](../../examples/hello-world/README.md).
 
 Source-backed references and nested read policies support Invoice reads:
 

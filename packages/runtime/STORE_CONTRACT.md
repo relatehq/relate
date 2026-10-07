@@ -130,13 +130,13 @@ returns trusted storage evidence by action/key. These are host/runtime storage
 operations, not caller-authorized receipt APIs. Never expose them through a
 consumer or transport directly.
 
-`transaction(scope, callback)` gives the runtime `load`, `insert`, `claim` and
-`saveInvocation`. Reads see the transaction's writes; independent readers do not
-see uncommitted records. Commit every insert and invocation receipt together
-only after the callback succeeds. Any callback error rolls back both native
-effects and the key reservation. Reject unfinished claims. Invalidate the
-transaction handle before awaiting rollback and after completion; never expose
-mutable storage references.
+`transaction(scope, callback)` gives the runtime `load`, `insert`, `claim`,
+`findInvocation` and `saveInvocation`. Reads see the transaction's writes;
+independent readers do not see uncommitted records. Commit every insert and
+invocation receipt together only after the callback succeeds. Any callback error
+rolls back both native effects and the key reservation. Reject unfinished
+claims. Invalidate the transaction handle before awaiting rollback and after
+completion; never expose mutable storage references.
 
 The runtime can reject the callback at its execution deadline even while handler
 code or object operations are still suspended. Roll back and release graph locks
@@ -146,11 +146,22 @@ interrupt a suspended callback and release its resources. Race cancellation only
 before COMMIT; after COMMIT is sent, preserve confirmed versus uncertain
 outcomes.
 
-`claim` reserves graph/action/key and raises `NativeConflict` for existing or
-concurrently committed keys. This slice rejects duplicates; it does not replay
-receipts. Save validated input and successful receipt evidence under that claim.
-Native record values use stable property definition IDs. The runtime owns value,
-reference and permission validation; adapters own isolation and atomicity.
+`claim` atomically reserves a new graph/action/key and returns `undefined`, or
+returns an isolated snapshot of the original committed invocation. Concurrent
+claimants must observe the winner after its commit, never execute twice. A
+reservation whose transaction rolls back is retryable. `findInvocation` looks up
+an invocation by action and invocation ID in the transaction's graph/revision;
+missing and wrong-action IDs return `undefined`. Neither operation authorizes
+receipt disclosure. Runtime checks actor, input and current access.
+
+Save validated input, originating actor ID, successful receipt and runtime read
+dependencies under the new claim. Read dependencies use stable object/property
+definition IDs and canonical record IDs. Legacy actor/read provenance is null:
+preserve that evidence and its key, never infer ownership or make the key
+reusable. Key expiry and receipt-detail retention are separate future
+capabilities. Native record values use stable property definition IDs. The
+runtime owns value, reference and permission validation; adapters own isolation
+and atomicity.
 
 Only known rollback can be treated as a confirmed failure. A lost commit
 acknowledgement raises `NativeCommitUncertain`; do not automatically retry it.

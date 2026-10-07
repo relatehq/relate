@@ -128,15 +128,21 @@ const receipt = await actions.addAccountReview({
   input: { customer: customerId, note: 'Follow up' },
   idempotencyKey: 'review-2026-10',
 });
+const recovered = await relate
+  .as(ana)
+  .receipts.get(AddAccountReview, receipt.invocationId);
+// recovered.output contains the original result; the action is not executed again.
 ```
 
 ## Status
 
 Implemented: typed reads, source-backed references, bidirectional traversal with
-pagination, and native actions with atomic receipts. Not implemented: collection
-queries, automatic synchronization, servers and workers. `defineApp` and
-`startApp` from the [inspector specification](../../apps/inspector/SPEC.md) are
-proposals, not exports.
+pagination, native actions with atomic success receipts, and actor-bound
+lookup/replay with current-access checks. Ordinary calls wait for completion.
+Not implemented: background submission, failed receipts, collection queries,
+automatic synchronization, servers and workers. `defineApp` and `startApp` from
+the [inspector specification](../../apps/inspector/SPEC.md) are proposals, not
+exports.
 
 ## Further reading
 

@@ -125,7 +125,9 @@ missing status exposes policy or provider evidence.
 Implemented: authorized reads, source-backed references, bidirectional traversal
 with pagination, and synchronous native actions with atomic receipts on memory
 and Postgres. Not implemented: automatic synchronization, delegated credentials,
-collection queries, durable pending execution, receipt lookup and replay.
+collection queries and durable pending execution. Success receipt lookup and
+same-key replay are implemented with originating-actor and current-access
+checks.
 
 ## Further reading
 

@@ -83,10 +83,23 @@ export function createNativeMemoryStore(
             check();
             const scopeKey = invocationKey(action, key);
 
-            if (claimed.has(scopeKey) || state.invocations.has(scopeKey))
-              throw new NativeConflict();
+            if (claimed.has(scopeKey)) throw new NativeConflict();
+
+            const existing = state.invocations.get(scopeKey);
+
+            if (existing) return structuredClone(existing);
 
             claimed.add(scopeKey);
+          },
+          async findInvocation(action, id) {
+            check();
+            const existing = [...state.invocations.values()].find(
+              (entry) =>
+                entry.actionDefinitionId === action &&
+                entry.receipt.invocationId === id,
+            );
+
+            return existing && structuredClone(existing);
           },
           async saveInvocation(invocation) {
             check();

@@ -18,6 +18,7 @@ import {
   initialMigration,
   nativeActionMigration,
   providerAccountMigration,
+  receiptRecoveryMigration,
 } from './migrations.js';
 
 export interface PostgresOptions {
@@ -88,6 +89,7 @@ export function createPostgresStore(
           initialMigration,
           nativeActionMigration,
           providerAccountMigration,
+          receiptRecoveryMigration,
         ];
         const existing = await client.query<{
           version: number;

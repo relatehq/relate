@@ -183,8 +183,9 @@ Writes go through typed, authorized, idempotent actions. See the
 Relate-owned records.
 
 > **Status:** single-source objects, references, traversal, policies, and
-> Postgres storage run today. Multi-source enrichment, actions, and MCP are API
-> previews.
+> Postgres storage run today. Native get/create actions wait for completion and
+> support actor-bound receipt lookup and replay. Multi-source enrichment,
+> broader actions, and MCP remain API previews.
 
 ## Get started
 

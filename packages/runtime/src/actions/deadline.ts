@@ -32,6 +32,8 @@ export function createActionDeadline(
     load: (...args) => guard(() => transaction.load(...args)),
     insert: (...args) => guard(() => transaction.insert(...args)),
     claim: (...args) => guard(() => transaction.claim(...args)),
+    findInvocation: (...args) =>
+      guard(() => transaction.findInvocation(...args)),
     saveInvocation: (...args) =>
       guard(() => transaction.saveInvocation(...args)),
   };

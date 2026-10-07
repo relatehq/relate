@@ -72,6 +72,20 @@ export interface ObjectOperations<
 export interface Consumer<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 > {
+  readonly receipts: {
+    get<
+      A extends (G extends {
+        readonly actions: infer Actions extends Readonly<
+          Record<string, ActionDefinition>
+        >;
+      }
+        ? Actions[keyof Actions]
+        : never),
+    >(
+      action: A,
+      invocationId: string,
+    ): Promise<Receipt<A>>;
+  };
   readonly actions: G extends {
     readonly actions: infer A extends Readonly<
       Record<string, ActionDefinition>

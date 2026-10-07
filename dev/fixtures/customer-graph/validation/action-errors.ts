@@ -1,4 +1,4 @@
-/** Compile-time acceptance only. Actions and receipts are not executable yet. */
+/** Compile-time acceptance for declared failures, which are not executable yet. */
 import { z } from 'zod';
 import { defineAction, implementAction } from './target.js';
 import type { Consumer, DomainActionError, Receipt } from './target.js';
@@ -18,7 +18,10 @@ type EscalationReceipt = Awaited<
 >;
 
 export type InferredReceipt = Expect<
-  Equal<EscalationReceipt, Receipt<typeof EscalateAccount>>
+  Equal<
+    EscalationReceipt,
+    Exclude<Receipt<typeof EscalateAccount>, { state: 'pending' }>
+  >
 >;
 
 export type DeclaredCodes = Expect<

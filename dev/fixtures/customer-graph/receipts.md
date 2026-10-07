@@ -1,40 +1,51 @@
 # Action receipts and recovery
 
-**Agreed 2026-10-07; declaration-only acceptance.** Every receipt state carries
-an opaque `invocationId`. Callers save it and retrieve the latest receipt with
-`relate.as(principal).receipts.get(Action, invocationId)`. The action argument
-preserves output and domain-error types. Runtime verifies graph/action identity
-and current authorization; lookup never executes the action.
+**Agreed 2026-10-07:** ordinary action calls wait for completion. The native
+success path now implements lookup and replay through real packages; background
+submission is deferred for exploration.
 
-The [caller scenarios](./validation/receipt-scenario.ts) show:
+```ts
+const caller = relate.as(ana);
+const request = {
+  input: { customer: northwind, note: 'Follow up' },
+  idempotencyKey: 'review-2026-10',
+};
+const receipt = await caller.actions.addAccountReview(request);
+console.log(receipt.output.reviewId);
 
-1. Persist the input and idempotency key before submitting. Receive `pending`,
-   save its invocation ID, retrieve pending again, then retrieve success after
-   completion. `pending` promises durable acceptance, not an in-process promise.
-2. Lose the initial response after native commit, including its invocation ID.
-   Reload the saved request and call the action with the same key/input. Recover
-   the existing invocation and original outcome without a second review. Keys
-   are scoped to graph/action and bound to validated input; different input
-   rejects without replacing the outcome.
-3. Remove Ana's required role or Northwind portfolio access. Both lookup and
-   same-key replay reject without revealing saved output or error details.
-   Knowing an ID/key/input is not authorization. A lookup denial cannot change a
-   succeeded invocation to failed; restoring access reveals the same success.
+const saved = await caller.receipts.get(AddAccountReview, receipt.invocationId);
+const recovered = await caller.actions.addAccountReview(request);
+// Same invocation and original output, without another write.
+```
 
-Lookup/replay retain invocation identity as its state advances. Losing a caller
-response does not make a recorded success `uncertain`. Uncertainty means Relate
-itself cannot establish the effect outcome, for example after losing a provider
-write acknowledgement. Lookup and same-key replay must not blindly resubmit it;
-conclusive reconciliation is required. Missing, mismatched and inaccessible IDs
-must not reveal hidden invocation existence.
+Graph/action/key identifies the invocation. The originating authenticated actor
+and validated input bind execution. Another actor cannot replay or retrieve it;
+changed input rejects. Lookup/replay check current action, reference and
+recorded object/field access. Losing access withholds the saved result without
+rewriting success as failure. Restoring access permits retrieval.
 
-[Type probes](./validation/receipts.ts) check identity on all states and typed
-lookup. `pnpm typecheck` checks these declarations and scenarios; they are not
-executed and do not prove durability, scheduling, authorization or recovery. The
-scenario's persistent journal and pause/drop-response controls are future
-test-runner dependencies, not public Relate APIs or a fake executor.
+Applications should persist the request before submission. If a response is lost
+before receiving its invocation ID, retry the same request under the same actor.
+A known ID can instead be retrieved without invoking the action. Concurrent
+identical calls share one committed result, subject to waiting budgets. Keys do
+not automatically expire, and deleting receipt details must not implicitly make
+a key reusable. Legacy receipts without actor/read provenance remain protected
+and non-replayable.
 
-Receipt policy authoring/evidence freshness, rejection shapes, cross-actor
-replay, retention/key expiry and schema evolution remain open. The full internal
-agreement and caller walkthrough is `docs/internal/action-receipts.md` in
-`relate-internal`.
+The package suites in `tests/support/native-action-contract.ts` and
+`receipt-recovery-contract.ts` execute these guarantees on memory and Postgres.
+See
+[the native action contract](../../../packages/node/NATIVE_ACTIONS.md#wait-for-completion-lookup-and-recovery)
+for errors, evidence bounds and migration behavior.
+
+The broader [type probes](./validation/receipts.ts) and
+[caller scenarios](./validation/receipt-scenario.ts) remain typechecked only:
+they also describe unimplemented domain errors and native traversal. The full
+receipt union retains future pending/uncertain states, but ordinary action calls
+exclude `pending`; today's executable return is success-only and rejections
+throw sanitized errors. Background execution, persisted failures and
+external-effect recovery are not implemented.
+
+The internal agreement and proposed background exploration are in
+`relate-internal/docs/internal/action-receipts.md`. No background option has
+been added to the package API.

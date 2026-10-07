@@ -698,7 +698,7 @@ export interface Consumer<G extends GraphDefinition> {
       input: z.input<G['actions'][N]['input']>;
       /** Reusing a key with different input fails. */
       idempotencyKey: string;
-    }) => Promise<Receipt<G['actions'][N]>>;
+    }) => Promise<Exclude<Receipt<G['actions'][N]>, { state: 'pending' }>>;
   };
   readonly receipts: {
     /**

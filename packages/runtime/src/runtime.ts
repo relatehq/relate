@@ -181,7 +181,7 @@ export function createRuntime(options: RuntimeOptions) {
     ) {
       return readObject(principal, objectDefinitionId, objectId, request);
     },
-    invoke: createActionExecutor({
+    ...createActionExecutor({
       manifest,
       scope: nativeScope,
       store,
@@ -190,8 +190,16 @@ export function createRuntime(options: RuntimeOptions) {
       install,
       handlers: options.actionHandlers ?? {},
       validate: native.validate,
-      read: (actor, type, id, request, transaction) =>
-        readObject(actor, type, id, request, undefined, undefined, transaction),
+      read: (actor, type, id, request, transaction, captureAuthorization) =>
+        readObject(
+          actor,
+          type,
+          id,
+          request,
+          undefined,
+          captureAuthorization,
+          transaction,
+        ),
     }),
     traverse: createTraversal({
       manifest,

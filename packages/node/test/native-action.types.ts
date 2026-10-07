@@ -8,6 +8,7 @@ import {
   Customer,
   Invoice,
   AccountReview,
+  AddAccountReview,
 } from '../../../tests/support/native-action-model.js';
 
 async function caller() {
@@ -39,8 +40,21 @@ async function caller() {
   consumer.objects.AccountReview.create({ customer, author: 'ana', note: 'n' });
   // @ts-expect-error host adoption cannot create a native object
   relate.host.adopt(AccountReview, 'provider-key');
-  // @ts-expect-error receipt lookup belongs to the next implementation slice
+  const recovered = await consumer.receipts.get(AddAccountReview, invocationId);
+  const recoveredId: ObjectId<typeof AccountReview.id> =
+    recovered.output.reviewId;
+
+  // @ts-expect-error lookup requires a registered action definition and invocation ID
   consumer.receipts.get('one');
+  // @ts-expect-error an object is not an action contract
+  consumer.receipts.get(Customer, invocationId);
+  consumer.actions.addAccountReview({
+    input: { customer, note: 'n' },
+    idempotencyKey: 'bg',
+    // @ts-expect-error background execution is not implemented
+    mode: 'background',
+  });
+  void recoveredId;
   void invocationId;
 }
 

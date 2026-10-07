@@ -9,10 +9,12 @@ APIs. See [read cases](./read-cases.md),
 
 ## Native atomicity and read-your-writes
 
-The [receipt caller scenarios](./validation/receipt-scenario.ts) specify pending
-lookup, recovery after a lost response, and access changes before retrieval. See
-the [agreed receipt contract](./receipts.md); scenarios are typechecked but not
-executable until the runtime and test-driver dependencies exist.
+The [receipt caller scenarios](./validation/receipt-scenario.ts) specify
+completed lookup, recovery after a lost response, and access changes before
+retrieval. See the [agreed receipt contract](./receipts.md). These full-fixture
+scenarios remain typechecked; native success recovery now has executable
+memory/Postgres package tests. Background acceptance and pending execution are
+deferred for exploration.
 
 An authorized escalation reads the customer, creates a review, reads that
 review, queries open invoices and creates tasks. Later native reads in the

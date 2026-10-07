@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { accepts } from 'relate/model';
+import { accepts, canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
@@ -15,6 +15,8 @@ import {
 } from '../storage.js';
 import type {
   NativeRecord,
+  NativeInvocation,
+  NativeReceiptRead,
   NativeScope,
   NativeTransaction,
   ObservationStore,
@@ -80,6 +82,7 @@ export function createActionExecutor(options: {
     id: string,
     request: ReadRequest,
     transaction: NativeTransaction,
+    captureAuthorization?: (check: () => Promise<boolean>) => void,
   ): Promise<ReadResult>;
   validate(
     principal: Principal,
@@ -90,12 +93,7 @@ export function createActionExecutor(options: {
 }) {
   const { manifest, store } = options;
 
-  return async (
-    principal: Principal,
-    actionId: string,
-    request: { input: unknown; idempotencyKey: string },
-  ): Promise<SucceededReceipt> => {
-    const actor = structuredClone(principal);
+  function authorizedAction(actor: Principal, actionId: string) {
     const action = manifest.actions?.find((a) => a.id === actionId);
 
     if (
@@ -104,6 +102,104 @@ export function createActionExecutor(options: {
       !actor.id.trim()
     )
       throw new ActionError('denied');
+
+    return action;
+  }
+
+  async function authorizeReceipt(
+    actor: Principal,
+    action: Action,
+    saved: NativeInvocation | undefined,
+    transaction: NativeTransaction,
+  ): Promise<SucceededReceipt> {
+    if (
+      !saved ||
+      saved.actorId !== actor.id ||
+      !saved.reads ||
+      saved.actionDefinitionId !== action.id
+    )
+      throw new ActionError('denied');
+
+    const input = parse(action.input, saved.input);
+    const output = parse(action.output, saved.receipt.output);
+    const reads = [...saved.reads];
+    const authorization: (() => Promise<boolean>)[] = [];
+
+    for (const [shape, values] of [
+      [action.input, input],
+      [action.output, output],
+    ] as const)
+      for (const [name, field] of Object.entries(shape))
+        if (field.references)
+          reads.push({
+            objectDefinitionId: field.references,
+            objectId: values[name] as string,
+            propertyIds: [],
+          });
+
+    for (const read of reads) {
+      const object = manifest.objects.find(
+        (o) => o.id === read.objectDefinitionId,
+      );
+      const select = read.propertyIds.map(
+        (id) => object?.properties.find((p) => p.id === id)?.name,
+      );
+
+      if (!object || select.some((name) => name === undefined))
+        throw new ActionError('denied');
+
+      const result = await options.read(
+        actor,
+        object.id,
+        read.objectId,
+        { select: select as string[] },
+        transaction,
+        (check) => authorization.push(check),
+      );
+
+      if (
+        result.status !== 'ok' ||
+        select.some(
+          (name) =>
+            !['available', 'absent'].includes(
+              result.meta.fields[name!]?.status ?? '',
+            ),
+        )
+      )
+        throw new ActionError('denied');
+    }
+
+    // Later dependency reads may outlast an earlier permission's evidence bound.
+    for (const allowed of authorization)
+      if (!(await allowed())) throw new ActionError('denied');
+
+    return structuredClone(saved.receipt);
+  }
+
+  function rejection(error: unknown): never {
+    if (error instanceof NativeConflict) throw new ActionError('conflict');
+
+    if (error instanceof NativeCommitUncertain)
+      throw new ActionError('uncertain');
+
+    if (error instanceof ActionError) throw error;
+
+    if (
+      error instanceof StorageUnavailable ||
+      (error instanceof ReadError && error.code === 'unavailable')
+    )
+      throw new ActionError('unavailable');
+
+    throw new ActionError('internal');
+  }
+
+  const invoke = async (
+    principal: Principal,
+    actionId: string,
+    request: { input: unknown; idempotencyKey: string },
+  ): Promise<SucceededReceipt> => {
+    const actor = structuredClone(principal);
+    const action = authorizedAction(actor, actionId);
 
     if (
       !request ||
@@ -129,7 +225,27 @@ export function createActionExecutor(options: {
           deadline = createActionDeadline(transaction, options.timeoutMs);
 
           return deadline.run(async (transaction, check) => {
-            await transaction.claim(action.id, key);
+            const existing = await transaction.claim(action.id, key);
+
+            if (existing) {
+              // Check ownership before input equality to avoid exposing another actor's invocation.
+              if (existing.actorId !== actor.id)
+                throw new ActionError('denied');
+
+              const receipt = await authorizeReceipt(
+                actor,
+                action,
+                existing,
+                transaction,
+              );
+
+              if (canonicalJson(existing.input) !== canonicalJson(input))
+                throw new ActionError('conflict');
+
+              return receipt;
+            }
+
+            const reads: NativeReceiptRead[] = [];
             const created: NativeRecord[] = [];
             let accepting = true;
             let failure: unknown;
@@ -190,9 +306,35 @@ export function createActionExecutor(options: {
                 actor: structuredClone(actor),
                 input: structuredClone(input),
                 read: (type, id, request = {}) =>
-                  run(() =>
-                    options.read(actor, type, id, request, transaction),
-                  ),
+                  run(async () => {
+                    const result = await options.read(
+                      actor,
+                      type,
+                      id,
+                      request,
+                      transaction,
+                    );
+
+                    if (result.status === 'ok') {
+                      const object = manifest.objects.find(
+                        (o) => o.id === type,
+                      )!;
+
+                      reads.push({
+                        objectDefinitionId: type,
+                        objectId: id,
+                        propertyIds: object.properties
+                          .filter((p) =>
+                            ['available', 'absent'].includes(
+                              result.meta.fields[p.name]?.status ?? '',
+                            ),
+                          )
+                          .map((p) => p.id),
+                      });
+                    }
+
+                    return result;
+                  }),
                 create: (type, values) =>
                   run(async () => {
                     const object = manifest.objects.find((o) => o.id === type);
@@ -280,6 +422,8 @@ export function createActionExecutor(options: {
             await transaction.saveInvocation({
               actionDefinitionId: action.id,
               idempotencyKey: key,
+              actorId: actor.id,
+              reads,
               input,
               receipt,
             });
@@ -289,23 +433,57 @@ export function createActionExecutor(options: {
         },
       );
     } catch (error) {
-      if (error instanceof NativeConflict) throw new ActionError('conflict');
-
-      if (error instanceof NativeCommitUncertain)
-        throw new ActionError('uncertain');
-
-      if (error instanceof ActionError) throw error;
-
-      if (
-        error instanceof StorageUnavailable ||
-        (error instanceof ReadError && error.code === 'unavailable')
-      )
-        throw new ActionError('unavailable');
-
-      throw new ActionError('internal');
+      return rejection(error);
     } finally {
       // An adapter can fail while the callback is suspended (for example a dead PG session).
       deadline?.close();
     }
+  };
+
+  return {
+    invoke,
+    async getReceipt(
+      principal: Principal,
+      actionId: string,
+      invocationId: string,
+    ): Promise<SucceededReceipt> {
+      const actor = structuredClone(principal);
+      const action = authorizedAction(actor, actionId);
+
+      if (typeof invocationId !== 'string' || !invocationId.trim())
+        throw new ActionError('denied');
+
+      if (!store.native) throw new ActionError('unsupported');
+
+      let deadline: ReturnType<typeof createActionDeadline> | undefined;
+
+      try {
+        await options.install();
+
+        return await store.native.transaction(
+          options.scope,
+          async (transaction) => {
+            deadline = createActionDeadline(transaction, options.timeoutMs);
+
+            return deadline.run(async (transaction) =>
+              authorizeReceipt(
+                actor,
+                action,
+                await transaction.findInvocation(action.id, invocationId),
+                transaction,
+              ),
+            );
+          },
+        );
+      } catch (error) {
+        // Lookup has no business effects, so losing its transaction acknowledgement is an outage.
+        if (error instanceof NativeCommitUncertain)
+          throw new ActionError('unavailable');
+
+        return rejection(error);
+      } finally {
+        deadline?.close();
+      }
+    },
   };
 }

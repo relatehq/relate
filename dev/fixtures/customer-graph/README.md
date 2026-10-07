@@ -21,9 +21,11 @@ are executable in the Invoice read subset.
 
 ## Current authoring direction
 
-The [receipt contract and caller examples](./receipts.md) cover durable pending
-acceptance, lookup, lost-response recovery and changed access. These remain
-declaration-only acceptance, not an implemented executor.
+The [receipt contract and caller examples](./receipts.md) cover completion,
+lookup, lost-response recovery and changed access. Native success lookup/replay
+now executes through the packages, bound to the originating actor and current
+access. Background acceptance is deferred for exploration; declared failures and
+the full fixture's broader operations remain unimplemented.
 
 Actions declare input/output schemas, optional domain-error schemas, creation
 capabilities and colocated execution policies. Adjacent `.server.ts`
@@ -49,7 +51,7 @@ validation/
   rejections.ts                     positive and negative type probes
   action-errors.ts                  declared failure and Receipt type probes
   receipts.ts                       receipt identity and typed lookup probes
-  receipt-scenario.ts               pending, recovery and revoked-access cases
+  receipt-scenario.ts               completion, recovery and revoked-access cases
   policies.ts                       nested policy inference and rejection cases
   write-policies.ts                 create and integrity type cases
   check-write-policies.mjs          independent write-rule rejection check

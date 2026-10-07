@@ -200,14 +200,69 @@ of dependent deletions, transaction/receipt semantics, cycles, and how confirmed
 source deletions trigger native effects. A failed or unauthorized read must
 never trigger a cascade. No cascade API is currently exposed.
 
+## Wait for completion, lookup and recovery
+
+An ordinary action call waits for execution and commit. Its receipt contains the
+business result in `output`; callers do not need to poll:
+
+```ts
+const request = {
+  input: { customer: northwind, note: 'Follow up' },
+  idempotencyKey: 'review-2026-10',
+};
+const caller = relate.as(ana);
+const receipt = await caller.actions.addAccountReview(request);
+console.log(receipt.output.reviewId);
+
+// Read the saved outcome without executing the implementation.
+const saved = await caller.receipts.get(AddAccountReview, receipt.invocationId);
+
+// Also works when the first response, including invocationId, was lost.
+const recovered = await caller.actions.addAccountReview(request);
+// saved and recovered contain the original invocationId and output.
+```
+
+Graph/action/key identifies the invocation. It is bound to the originating
+host-authenticated `actor.id` and validated input. Same-actor, same-input
+retries recover the committed success; changed input rejects with `conflict`.
+Another actor rejects with `denied`, even with identical input and equivalent
+roles. Concurrent matching calls serialize and return the same receipt without
+running the handler twice, subject to the existing lock/execution budgets.
+
+Lookup and replay require the current action gate, current access to input and
+output references, and current object/field access for successful runtime reads
+performed by the original handler. The runtime retains those read dependencies
+automatically, using stable property IDs. This conservatively protects scalar
+output derived from restricted fields: losing finance access prevents recovery
+of a saved amount even if the object itself remains readable. No author-facing
+read declaration is required. Authorization evidence follows the model's age
+bounds; recovery does not promise an upstream snapshot or refresh every field.
+Application code remains responsible for data obtained outside runtime object
+operations and for the suitability of its declared output.
+
+Missing, wrong-action, wrong-graph, legacy and inaccessible receipts reject with
+the same sanitized `ActionError('denied')`. A denial does not alter the saved
+success; restoring access allows retrieval. Other temporary lookup failures
+return `unavailable`; lookup never executes business logic. Use a newly
+authenticated principal handle after roles or claims change.
+
+Postgres migration 4 retains old receipts and keys, but leaves their unknown
+actor/read provenance null. These receipts are not consumer-recoverable and
+their keys cannot execute again. No automatic key expiry or receipt deletion is
+implemented. Future receipt-detail retention must not implicitly release keys.
+Cross-actor recovery, key expiry and schema evolution need separate contracts.
+
+Background submission is deferred for exploration. No `mode: 'background'`
+option or `pending` response is implemented. A plain future MCP handler can
+await the same action and return its completed output in one tool response.
+
 ## Deliberate limits of this slice
 
-- A committed graph/action/idempotency key cannot execute again. Duplicate keys
-  reject with `conflict`, including concurrent duplicates and changed inputs.
-  Recovering the original outcome through replay or receipt lookup is the next
-  slice. A duplicate never blindly resubmits a write.
-- Durable pending acceptance, background workers, consumer receipt lookup,
-  persisted failed/domain receipts, and external effects are not implemented.
+- A committed graph/action/idempotency key cannot execute again. Authorized
+  matching retries recover the original success; they do not revalidate business
+  conditions by rerunning the handler. A new business attempt needs a new key.
+- Durable pending acceptance, background workers, persisted failed/domain
+  receipts, and external effects are not implemented.
 - Action schemas currently support ordinary object schemas with scalar fields
   and required `referenceInput` fields. Unsupported refinements, transforms,
   defaults, nested schemas and domain-error declarations reject at compilation
