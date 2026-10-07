@@ -31,7 +31,7 @@ fields and freshness, refresh, retention or ordering problems still do. This
 applies to source reads, native reads and traversal results. Default selection
 continues to omit forbidden fields entirely. Whole-object denial remains
 `not-found`, with no field or policy evidence. These paths share the summary
-rule in `src/resolution/evidence.ts`.
+rule in `src/reads/evidence.ts`.
 
 A deleted reference target does not delete a referring native object or clear
 its stored link. Reads withhold the unresolved reference with

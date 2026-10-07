@@ -67,7 +67,7 @@ const propertySchema = z.strictObject({
 });
 
 export const manifestSchema = z.strictObject({
-  formatVersion: z.literal(2),
+  formatVersion: z.literal(3),
   graphDefinitionId: text,
   fieldGroups: z.array(text),
   roles: z.array(text),

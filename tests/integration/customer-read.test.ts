@@ -206,6 +206,16 @@ it('keeps raw inputs private and commits value history only when mapped values c
       ).rows;
 
     expect(await changes()).toHaveLength(1);
+    const initialValues = (await changes())[0].values;
+
+    expect(Object.keys(initialValues).sort()).toEqual(
+      [
+        Customer.properties.name.id,
+        Customer.properties.portfolio.id,
+        Customer.properties.revenue.id,
+      ].sort(),
+    );
+    expect(initialValues[Customer.properties.name.id]).toBe('Northwind');
     now += 100;
     await runtime.read(employee, Customer.id, key, { refresh: true });
     expect(await changes()).toHaveLength(1);
@@ -224,12 +234,18 @@ it('keeps raw inputs private and commits value history only when mapped values c
       )
     ).rows[0].observation;
 
+    expect(retained.values).toEqual(initialValues);
     expect(retained.raw.private_unmapped).toBe('new private source data');
     expect(retained.observedAt).toBe(now);
     await crm.update({ display_name: 'Changed' });
     now += 100;
     await runtime.read(employee, Customer.id, key, { refresh: true });
     expect(await changes()).toHaveLength(2);
+    expect(
+      (await changes())
+        .map((row) => row.values[Customer.properties.name.id])
+        .sort(),
+    ).toEqual(['Changed', 'Northwind']);
   } finally {
     await db.end();
   }
@@ -554,7 +570,7 @@ it('rolls back raw retention, projection and history together on a database writ
     ).rows[0].observation;
 
     expect(stored.raw.display_name).toBe('Northwind');
-    expect(stored.values.name).toBe('Northwind');
+    expect(stored.values[Customer.properties.name.id]).toBe('Northwind');
     expect(
       (
         await db.query('SELECT * FROM relate.value_changes WHERE graph_id=$1', [

@@ -21,6 +21,14 @@ field classifications, and policy dependencies, then returns an immutable,
 serializable manifest. Property renames preserve their IDs and change the
 definition revision.
 
+The current manifest format is **3**. Source observations, native values,
+authorization evidence and persisted value history use stable property IDs;
+consumer results retain property names. Formats 1 and 2 must be recompiled.
+Recompilation also changes the installed revision, preventing an existing
+name-keyed store from being read as ID-keyed data. Existing installations need
+an explicit data/revision migration; see the
+[storage contract](../runtime/STORE_CONTRACT.md#property-identity).
+
 This slice supports a single membership source per object, scalar string/number/
 boolean fields (including optional/nullable wrappers), a generated canonical
 string object ID, explicit ordinary/restricted field groups, role gates, and
@@ -80,10 +88,11 @@ preserve definition IDs. Both changes affect the definition revision; the
 existing installed-graph revision checks still apply.
 
 Migration: replace object-level `name` with `label`, optionally add
-`pluralLabel` and `description`, and recompile. Manifest format 2 replaces
-object `name` with `apiName` and the resolved display labels. Format 1 manifests
-are rejected; their discarded registry keys cannot be recovered safely from
-display labels. Property and relationship names retain their existing meaning.
+`pluralLabel` and `description`, and recompile. Manifest format 2 introduced the
+replacement of object `name` with `apiName` and the resolved display labels.
+Format 1 manifests are rejected; their discarded registry keys cannot be
+recovered safely from display labels. Property and relationship names retain
+their existing meaning.
 
 Each object declares exactly one `objectId({ id })` property, conventionally
 named `id`. Relate owns its string schema and generates its value on adoption.
