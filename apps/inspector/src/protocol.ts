@@ -13,7 +13,7 @@ import type { ModelIssue, SourceSite } from 'relate/diagnostics';
 export const PROTOCOL_VERSION = 1 as const;
 
 const text = z.string().min(1);
-const identifierList = z.array(text);
+const identifierList = z.array(text).readonly();
 
 export const sourceSiteSchema = z.strictObject({
   file: text,
@@ -24,7 +24,7 @@ export const sourceSiteSchema = z.strictObject({
 
 export const issuePathSchema = z.strictObject({
   root: z.enum(['graph', 'definition', 'manifest']),
-  segments: z.array(z.union([z.string(), z.number().int()])),
+  segments: z.array(z.union([z.string(), z.number().int()])).readonly(),
 });
 
 const frameSchema = sourceSiteSchema.extend({ excerpt: z.string() });
@@ -80,12 +80,12 @@ export const manifestDiffSchema = z.strictObject({
 
 const failureSchema = z.strictObject({
   attempt: z.number().int().positive(),
-  diagnostics: z.array(diagnosticSchema),
+  diagnostics: z.array(diagnosticSchema).readonly(),
 });
 
 const typecheckSchema = z.strictObject({
   revision: z.number().int().nonnegative(),
-  diagnostics: z.array(diagnosticSchema),
+  diagnostics: z.array(diagnosticSchema).readonly(),
 });
 
 const envelope = {
@@ -114,13 +114,13 @@ export const devEventSchema = z.discriminatedUnion('type', [
     ...envelope,
     type: z.literal('diagnostics'),
     attempt: z.number().int().positive(),
-    diagnostics: z.array(diagnosticSchema),
+    diagnostics: z.array(diagnosticSchema).readonly(),
   }),
   z.strictObject({
     ...envelope,
     type: z.literal('typecheck'),
     revision: z.number().int().nonnegative(),
-    diagnostics: z.array(diagnosticSchema),
+    diagnostics: z.array(diagnosticSchema).readonly(),
   }),
 ]);
 

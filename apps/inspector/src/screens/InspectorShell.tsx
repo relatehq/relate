@@ -1,44 +1,53 @@
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { StatusBar } from '../StatusBar.js';
 import { useInspectorState } from '../inspector-context.js';
 
-/** Frame around every screen: status, stale/upgrade banners and access help. */
+/** Frame around every screen: the header, plus the no-session card. */
 export function InspectorShell(props: { readonly children: ReactNode }) {
   const state = useInspectorState();
-  const reload = () => window.location.reload();
+
+  // Follow the system color scheme with the design system's class convention.
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      document.documentElement.classList.toggle('dark', media.matches);
+      document.documentElement.classList.toggle('light', !media.matches);
+    };
+
+    apply();
+    media.addEventListener('change', apply);
+
+    return () => media.removeEventListener('change', apply);
+  }, []);
 
   return (
     <div className="shell">
       <StatusBar />
-      {state.connection === 'stale' && state.staleReason === 'protocol' && (
-        <div className="banner banner-upgrade" role="alert">
-          <strong>Inspector updated — reload to continue.</strong>{' '}
-          <span>
-            The running server speaks protocol {state.unsupportedProtocol}; this
-            page stopped applying events and shows its last graph.
-          </span>
-          <button type="button" onClick={reload}>
-            Reload
-          </button>
-        </div>
-      )}
-      {state.connection === 'stale' && state.staleReason === 'session' && (
-        <div className="banner banner-upgrade" role="alert">
-          <strong>Session ended.</strong>{' '}
-          <span>
-            The dev server restarted. Open the new link printed in the terminal
-            to reconnect; this graph is kept as a stale copy.
-          </span>
-        </div>
-      )}
       {state.connection === 'unauthorized' ? (
-        <div className="notice" role="alert">
-          <h2>Open the inspector from the terminal</h2>
-          <p>
-            This page has no development session. Run <code>relate dev</code>{' '}
-            and open the Inspector link it prints; the link carries a one-time
-            token that becomes a local session cookie.
-          </p>
+        <div className="session-screen">
+          <div className="session-card" role="alert">
+            <div className="eyebrow">
+              <strong>Relate</strong>
+              <span>inspector</span>
+            </div>
+            <div className="headline">
+              Open the inspector from your terminal
+            </div>
+            <div className="body">
+              This page only opens through the link printed by{' '}
+              <code>relate dev</code>. The link carries an access token for that
+              session. If relate dev restarted, the previous link stopped
+              working. Use the new one.
+            </div>
+            <div className="terminal">
+              {'  Inspector  '}
+              <span className="url">http://127.0.0.1:4318/#token=…</span>
+            </div>
+            <div className="footnote">
+              Visiting localhost alone does not grant access.
+            </div>
+          </div>
         </div>
       ) : (
         props.children

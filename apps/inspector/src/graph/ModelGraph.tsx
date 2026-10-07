@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Background,
-  Controls,
+  MarkerType,
   ReactFlow,
   ReactFlowProvider,
+  useNodesInitialized,
   useReactFlow,
 } from '@xyflow/react';
 import type { Edge, Node, OnSelectionChangeFunc } from '@xyflow/react';
@@ -18,9 +18,10 @@ import type {
 import { useLayout } from '../layout/useLayout.js';
 import type { LayoutRequest } from '../layout/elk.js';
 import { useDevClient } from '../inspector-context.js';
+import { Button } from '../ui.js';
 
 export type ObjectFlowNode = Node<
-  ObjectNodeData & { highlighted: boolean },
+  ObjectNodeData & { issues: number },
   'object'
 >;
 
@@ -35,8 +36,9 @@ const edgeTypes = { relationship: RelationshipEdge };
 export interface ModelGraphProps {
   readonly model: GraphModel | null;
   readonly generation: number;
+  /** Issue counts by definition ID for nodes, and highlighted edge IDs. */
   readonly highlights: {
-    readonly nodes: ReadonlySet<string>;
+    readonly nodes: ReadonlyMap<string, number>;
     readonly edges: ReadonlySet<string>;
   };
   readonly selected: string | null;
@@ -102,9 +104,7 @@ function ModelGraphView(props: ModelGraphProps) {
     return model.nodes.map((node) => {
       const size = estimateNodeSize(node.data);
       const position = layout.positions[node.id] ??
-        previous.current.get(node.id) ??
-          // New nodes wait for layout off-canvas-ish rather than at the origin pile.
-          { x: 0, y: 0 };
+        previous.current.get(node.id) ?? { x: 0, y: 0 };
 
       previous.current.set(node.id, position);
 
@@ -118,7 +118,7 @@ function ModelGraphView(props: ModelGraphProps) {
         connectable: false,
         deletable: false,
         selected: selected === node.id,
-        data: { ...node.data, highlighted: highlights.nodes.has(node.id) },
+        data: { ...node.data, issues: highlights.nodes.get(node.id) ?? 0 },
       };
     });
   }, [model, layout.positions, selected, highlights.nodes]);
@@ -132,6 +132,16 @@ function ModelGraphView(props: ModelGraphProps) {
         deletable: false,
         reconnectable: false,
         selected: selected === edge.id,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 14,
+          height: 14,
+          color: highlights.edges.has(edge.id)
+            ? 'var(--t-color-red9)'
+            : selected === edge.id
+              ? 'var(--t-color-blue9)'
+              : 'var(--t-border-color-strong)',
+        },
         data: { ...edge.data, highlighted: highlights.edges.has(edge.id) },
       })),
     [model, selected, highlights.edges],
@@ -148,15 +158,20 @@ function ModelGraphView(props: ModelGraphProps) {
     return () => media.removeEventListener('change', update);
   }, []);
 
-  // Fit once, on the first non-empty laid-out model. Never reset the camera later.
+  const duration = reducedMotion ? 0 : 250;
+  const initialized = useNodesInitialized();
+
+  // Fit once, on the first non-empty laid-out and measured model. Never reset
+  // the camera later.
   useEffect(() => {
     if (fitted.current || !model || model.nodes.length === 0) return;
 
-    if (layout.generation === 0) return;
+    if (layout.generation === 0 || !initialized) return;
 
     fitted.current = true;
-    void flow.fitView({ padding: 0.2, duration: reducedMotion ? 0 : 250 });
-  }, [flow, model, layout.generation, reducedMotion]);
+    // Instant: an animated first fit stalls when the tab is not yet visible.
+    void flow.fitView({ padding: 0.2, duration: 0, maxZoom: 1.25 });
+  }, [flow, model, layout.generation, initialized]);
 
   const onSelectionChange = useCallback<OnSelectionChangeFunc>(
     ({ nodes: selectedNodes, edges: selectedEdges }) => {
@@ -166,25 +181,12 @@ function ModelGraphView(props: ModelGraphProps) {
     },
     [onSelect, selected],
   );
-  const fit = useCallback(() => {
-    void flow.fitView({ padding: 0.2, duration: reducedMotion ? 0 : 250 });
-  }, [flow, reducedMotion]);
 
   return (
     <div
       className={`graph-canvas${reducedMotion ? ' reduced-motion' : ''}`}
       data-generation={generation}
     >
-      {model && model.nodes.length === 0 && (
-        <div className="empty-graph">
-          <p>This graph declares no object types yet.</p>
-        </div>
-      )}
-      {!model && (
-        <div className="empty-graph">
-          <p>No model has compiled yet.</p>
-        </div>
-      )}
       <ReactFlow<ObjectFlowNode, RelationshipFlowEdge>
         nodes={nodes}
         edges={edges}
@@ -203,24 +205,35 @@ function ModelGraphView(props: ModelGraphProps) {
         maxZoom={2}
         onSelectionChange={onSelectionChange}
         proOptions={{ hideAttribution: true }}
-      >
-        <Background gap={24} />
-        <Controls
-          showInteractive={false}
-          showFitView={false}
-          position="bottom-right"
+      />
+      {model && model.nodes.length > 0 && (
+        <div
+          className="graph-controls"
+          role="toolbar"
+          aria-label="View controls"
         >
-          <button
-            type="button"
-            className="react-flow__controls-button fit-button"
+          <Button
+            ariaLabel="Zoom out"
+            title="Zoom out"
+            onClick={() => void flow.zoomOut({ duration })}
+          >
+            −
+          </Button>
+          <Button
+            ariaLabel="Zoom in"
+            title="Zoom in"
+            onClick={() => void flow.zoomIn({ duration })}
+          >
+            +
+          </Button>
+          <Button
             title="Fit the graph in view"
-            aria-label="Fit view"
-            onClick={fit}
+            onClick={() => void flow.fitView({ padding: 0.2, duration })}
           >
             Fit
-          </button>
-        </Controls>
-      </ReactFlow>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

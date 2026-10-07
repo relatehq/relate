@@ -85,7 +85,7 @@ it('describes optional and nullable scalars', () => {
   ).toBe('boolean | null?');
 });
 
-it('changes the layout signature for topology and size changes only', () => {
+it('changes the layout signature for topology changes only', () => {
   const model = mapManifest(manifest);
   const relabelled = mapManifest({
     ...manifest,
@@ -93,39 +93,22 @@ it('changes the layout signature for topology and size changes only', () => {
   });
 
   expect(layoutSignature(relabelled)).toBe(layoutSignature(model));
-
-  const grown = mapManifest({
-    ...manifest,
-    objects: manifest.objects.map((o) =>
-      o.id === Customer.id
-        ? {
-            ...o,
-            properties: [
-              ...o.properties,
-              {
-                id: 'customer.extra',
-                name: 'extra',
-                access: 'ordinary',
-                schema: { type: 'string', optional: false, nullable: false },
-                origin: {
-                  kind: 'source',
-                  sourceDefinitionId: 'crm.customers',
-                  field: 'name',
-                },
-              },
-            ],
-          }
-        : o,
-    ),
+  expect(estimateNodeSize(model.nodes[0]!.data)).toEqual({
+    width: 200,
+    height: 60,
   });
-
-  expect(layoutSignature(grown)).not.toBe(layoutSignature(model));
-  expect(estimateNodeSize(grown.nodes[0]!.data).height).toBe(
-    estimateNodeSize(model.nodes[0]!.data).height + 22,
-  );
   expect(
     layoutSignature(mapManifest({ ...manifest, relationships: [] })),
   ).not.toBe(layoutSignature(model));
+  expect(
+    layoutSignature(
+      mapManifest({
+        ...manifest,
+        objects: manifest.objects.filter((o) => o.id === Customer.id),
+        relationships: [],
+      }),
+    ),
+  ).not.toBe(layoutSignature(mapManifest({ ...manifest, relationships: [] })));
 });
 
 it('highlights only unambiguous IDs present in the displayed model', () => {

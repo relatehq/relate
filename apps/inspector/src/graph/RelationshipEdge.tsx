@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, getBezierPath } from '@xyflow/react';
 import type { EdgeProps } from '@xyflow/react';
 import type { RelationshipFlowEdge } from './ModelGraph.js';
 
@@ -17,45 +17,42 @@ export const RelationshipEdge = memo(function RelationshipEdge(
     selected,
     data,
   } = props;
-  const [path, labelX, labelY] = getSmoothStepPath({
+  const [path, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
     targetX,
     targetY,
     sourcePosition,
     targetPosition,
-    borderRadius: 12,
   });
+  const state = `${selected ? ' selected' : ''}${data?.highlighted ? ' highlighted' : ''}`;
 
   return (
     <>
       <BaseEdge
         id={id}
         path={path}
-        className={`relationship-edge${selected ? ' selected' : ''}${
-          data?.highlighted ? ' highlighted' : ''
-        }`}
+        className={`relationship-edge${state}`}
         interactionWidth={16}
+        {...(props.markerEnd ? { markerEnd: props.markerEnd } : {})}
       />
       {data && (
         <EdgeLabelRenderer>
           <div
-            className={`relationship-label${selected ? ' selected' : ''}${
-              data.highlighted ? ' highlighted' : ''
-            }`}
+            className={`relationship-label${state}`}
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             }}
             data-definition-id={data.id}
             title={`${data.id} via ${data.viaProperty}`}
           >
-            <span className="traversal traversal-forward">
-              {data.forward.name}
-              <small>{data.forward.cardinality}</small>
-            </span>
-            <span className="traversal traversal-reverse">
+            <span className="names">
+              {data.forward.name} <span className="arrows">⇄</span>{' '}
               {data.reverse.name}
-              <small>{data.reverse.cardinality}</small>
+            </span>
+            <span className="cardinality">
+              {data.reverse.cardinality === 'one' ? '1' : 'N'} :{' '}
+              {data.forward.cardinality === 'many' ? 'N' : '1'}
             </span>
           </div>
         </EdgeLabelRenderer>

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { LayoutRequest, LayoutResponse, Position } from './elk.js';
+import { layoutWithElk } from './elk.js';
+import type { LayoutRequest, Position } from './elk.js';
+import { createLayoutEngine } from './engine.js';
+import type { LayoutEngine } from './engine.js';
 import type { Diagnostic } from '../protocol.js';
 
 export interface LayoutState {
@@ -10,7 +13,7 @@ export interface LayoutState {
 }
 
 /**
- * Run ELK in a Web Worker. Requests are tagged with the model generation and
+ * Run ELK in its Web Worker. Requests are tagged with the model generation and
  * a topology signature; obsolete results are discarded and failures keep the
  * last valid layout with a visible diagnostic.
  */
@@ -23,72 +26,61 @@ export function useLayout(
     generation: 0,
     diagnostic: null,
   });
-  const worker = useRef<Worker | null>(null);
-  // The request actually sent; responses for any other generation are obsolete.
+  const engine = useRef<LayoutEngine | null>(null);
+  // The request actually sent; results for any other generation are obsolete.
   const posted = useRef<{ generation: number; signature: string } | null>(null);
 
   useEffect(() => {
-    let instance: Worker;
-
     try {
-      instance = new Worker(new URL('./worker.ts', import.meta.url), {
-        type: 'module',
-      });
+      engine.current = createLayoutEngine();
     } catch (error) {
       setState((current) => ({ ...current, diagnostic: unavailable(error) }));
 
       return undefined;
     }
 
-    instance.onmessage = (event: MessageEvent<LayoutResponse>) => {
-      const response = event.data;
-      const generation = response.ok
-        ? response.result.generation
-        : response.generation;
+    return () => {
+      engine.current?.terminate();
+      engine.current = null;
+      posted.current = null;
+    };
+  }, []);
 
-      if (posted.current?.generation !== generation) return;
+  useEffect(() => {
+    if (!request || !engine.current) return;
 
-      if (response.ok)
+    // Presentation-only changes keep coordinates; topology changes relayout.
+    if (posted.current?.signature === signature) return;
+
+    const generation = request.generation;
+
+    posted.current = { generation, signature };
+    layoutWithElk(request, engine.current).then(
+      (result) => {
+        if (posted.current?.generation !== generation) return;
+
         setState({
-          positions: response.result.positions,
+          positions: result.positions,
           generation,
           diagnostic: null,
         });
-      else
+      },
+      (error: unknown) => {
+        if (posted.current?.generation !== generation) return;
+
         setState((current) => ({
           ...current,
           diagnostic: {
             kind: 'layout',
             code: 'layout.failed',
             severity: 'error',
-            message: `Layout failed for generation ${generation}; keeping the previous placement. ${response.message}`,
+            message: `Layout failed for generation ${generation}; keeping the previous placement. ${
+              error instanceof Error ? error.message : String(error)
+            }`,
           },
         }));
-    };
-    instance.onerror = (event) => {
-      event.preventDefault();
-      setState((current) => ({
-        ...current,
-        diagnostic: unavailable(event.message),
-      }));
-    };
-    worker.current = instance;
-
-    return () => {
-      instance.terminate();
-      worker.current = null;
-      posted.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!request || !worker.current) return;
-
-    // Presentation-only changes keep coordinates; topology and sizes relayout.
-    if (posted.current?.signature === signature) return;
-
-    posted.current = { generation: request.generation, signature };
-    worker.current.postMessage(request);
+      },
+    );
   }, [request, signature]);
 
   return state;

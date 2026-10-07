@@ -48,7 +48,7 @@ export const layeredOptions: Readonly<Record<string, string>> = Object.freeze({
   'elk.direction': 'RIGHT',
   'elk.edgeRouting': 'ORTHOGONAL',
   'elk.spacing.nodeNode': '60',
-  'elk.layered.spacing.nodeNodeBetweenLayers': '120',
+  'elk.layered.spacing.nodeNodeBetweenLayers': '180',
   'elk.spacing.componentComponent': '80',
   'elk.randomSeed': '42',
 });

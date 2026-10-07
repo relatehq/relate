@@ -144,23 +144,17 @@ export function mapManifest(manifest: Manifest): GraphModel {
   return { nodes, edges };
 }
 
-export const NODE_WIDTH = 272;
-export const NODE_HEADER_HEIGHT = 64;
-export const NODE_ROW_HEIGHT = 22;
-export const NODE_PADDING = 12;
+export const NODE_WIDTH = 200;
+export const NODE_HEIGHT = 60;
 
-/** Dimensions ELK lays out with; the rendered node matches them through CSS. */
+/** Dimensions ELK lays out with; the rendered card matches them through CSS. */
 export function estimateNodeSize(data: ObjectNodeData): {
   readonly width: number;
   readonly height: number;
 } {
-  return {
-    width: NODE_WIDTH,
-    height:
-      NODE_HEADER_HEIGHT +
-      Math.max(1, data.properties.length) * NODE_ROW_HEIGHT +
-      NODE_PADDING,
-  };
+  void data;
+
+  return { width: NODE_WIDTH, height: NODE_HEIGHT };
 }
 
 /** Changes when topology or node sizes change; presentation-only edits leave it alone. */
