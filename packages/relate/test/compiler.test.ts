@@ -162,6 +162,10 @@ it.each([
   z.string().refine((v) => v !== 'bad'),
   z.string().transform((v) => v.toUpperCase()),
   z.string().default('fallback'),
+  z.coerce.string(),
+  z.coerce.string().optional(),
+  z.coerce.number(),
+  z.coerce.boolean().nullable(),
   z.object({ name: z.string() }),
 ])('rejects unsupported schemas instead of dropping validation', (schema) => {
   expect(() =>
