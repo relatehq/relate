@@ -5,6 +5,7 @@ import type { NativeTransaction } from '../storage.js';
 import { createTraversal } from './traversal.js';
 import { validateReadRequest } from './request.js';
 import { refreshObservation } from './refresh.js';
+import { summarize } from './evidence.js';
 import { createMemoryStore } from '../memory.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
@@ -266,10 +267,15 @@ export function createRuntime(options: RuntimeOptions) {
       fields: Record<string, FieldEvidence> = {};
 
     for (const name of select) {
-      const property = visible.find((p) => p.name === name);
+      const property = object.properties.find((p) => p.name === name);
 
       if (!property) {
         fields[name] = { status: 'unavailable' };
+        continue;
+      }
+
+      if (!allowsField(principal, policy, property.access)) {
+        fields[name] = { status: 'forbidden' };
         continue;
       }
 
@@ -323,11 +329,10 @@ export function createRuntime(options: RuntimeOptions) {
     if (!(await evidence.allows(object, resolved)))
       return { status: 'not-found' };
 
-    const complete = Object.values(fields).every(
-      (f) => f.status !== 'unavailable',
-    );
+    const summary = summarize(fields, warnings);
 
-    if (!complete && request.requireComplete) throw new ReadError('incomplete');
+    if (summary.completeness === 'partial' && request.requireComplete)
+      throw new ReadError('incomplete');
 
     captureAuthorization?.(async () => {
       if (!(await evidence.allows(object, resolved))) return false;
@@ -349,18 +354,8 @@ export function createRuntime(options: RuntimeOptions) {
       status: 'ok',
       data,
       meta: {
-        completeness: complete ? 'complete' : 'partial',
+        ...summary,
         definitionRevision: revision,
-        degraded:
-          !complete ||
-          warnings.length > 0 ||
-          Object.values(fields).some(
-            (f) =>
-              f.status !== 'unavailable' &&
-              (f.freshness === 'stale' ||
-                f.refresh === 'invalid' ||
-                f.refresh === 'unavailable'),
-          ),
         fields,
         warnings,
       },

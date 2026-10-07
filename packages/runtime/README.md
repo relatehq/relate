@@ -83,6 +83,26 @@ if (result.status === 'ok') {
 }
 ```
 
+Explicitly selecting a known field without its field-group permission returns
+`{ status: 'forbidden' }`. If a permitted value cannot be supplied, for example
+after a failed refresh with `stale: 'omit'`, it returns
+`{ status: 'unavailable' }`. Unknown selections also remain `unavailable`.
+
+```ts
+const financial = await runtime.read(ana, 'business.customer', id, {
+  select: ['revenue'],
+});
+
+if (financial.status === 'ok') {
+  financial.meta.fields.revenue; // { status: 'forbidden' }
+  // completeness: 'partial', degraded: false (if otherwise healthy)
+}
+```
+
+Both missing statuses fail `requireComplete: true`. Permission-only omissions do
+not mark a read degraded. Whole-object denial remains `not-found`, and neither
+missing status exposes policy or provider evidence.
+
 ## Status
 
 Implemented: authorized reads, source-backed references, bidirectional traversal

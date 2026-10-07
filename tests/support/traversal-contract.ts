@@ -120,9 +120,36 @@ export function traversalContract(
       expect(page.data[0]).toMatchObject({
         id: invoiceId,
         data: { status: 'open' },
-        meta: { fields: { totalMinor: { status: 'unavailable' } } },
+        meta: {
+          completeness: 'partial',
+          degraded: false,
+          fields: { totalMinor: { status: 'forbidden' } },
+        },
       });
       expect(page.data[0]!.data).toEqual({ status: 'open' });
+      expect(page.data[0]!.meta.fields.totalMinor).toEqual({
+        status: 'forbidden',
+      });
+      await expect(
+        objects.Customer.traverse.invoices(customerId, {
+          select: ['totalMinor'],
+          requireComplete: true,
+        }),
+      ).rejects.toMatchObject({ code: 'incomplete' });
+      expect(
+        await objects.Invoice.traverse.customer(invoiceId, {
+          select: ['revenue'],
+        }),
+      ).toMatchObject({
+        status: 'ok',
+        data: {},
+        meta: {
+          completeness: 'partial',
+          degraded: false,
+          fields: { revenue: { status: 'forbidden' } },
+        },
+      });
+
       expect(page.meta).toMatchObject({ exhausted: true });
       expect(
         await objects.Invoice.traverse.customer(invoiceId, {
@@ -492,7 +519,7 @@ export function traversalContract(
         found.push(invoice.id);
         expect(invoice.data).toEqual({});
         expect(invoice.meta.fields.totalMinor).toEqual({
-          status: 'unavailable',
+          status: 'forbidden',
         });
       }
 
