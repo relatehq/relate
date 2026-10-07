@@ -1,7 +1,12 @@
 import { SourceAccessDenied } from '@relate/runtime';
 import type { SourceConnector, SourceRecord } from '@relate/runtime';
 
-/** The development CRM explicitly distinguishes deletion from access denial. */
+/**
+ * The development CRM record endpoint distinguishes three outcomes the runtime treats
+ * differently: a deleted record (`state: 'deleted'`), explicit permission
+ * denial (HTTP 401/403, `SourceAccessDenied`, no fallback), and any other failure
+ * (temporary unavailability with authorized stale fallback).
+ */
 export function crmConnector(baseUrl: string): SourceConnector {
   return {
     async identify({ signal }) {

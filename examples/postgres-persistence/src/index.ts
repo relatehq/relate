@@ -51,6 +51,23 @@ try {
       refresh: true,
     }),
   );
+  crm.setAccess('denied');
+  show(
+    'provider-denied-refresh',
+    await runtime.read(employee, Customer.id, objectId, {
+      select: ['name'],
+      refresh: true,
+    }),
+  );
+  // Record denial is not persisted: while data and permission evidence are fresh,
+  // a cached read verifies account identity but does not fetch the record.
+  show(
+    'provider-denied-cached',
+    await runtime.read(employee, Customer.id, objectId, {
+      select: ['name'],
+    }),
+  );
+  crm.setAccess('granted');
   crm.setRecordsUnavailable(true);
   await store.close();
   store = createPostgresStore({ connectionString: databaseUrl });
