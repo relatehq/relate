@@ -43,19 +43,22 @@ rejection; consumer recovery follows in the next slice.
 Native transactions use a separate five-connection pool from source
 observations, so queued native writers cannot starve their own authorization
 reads. Native connection acquisition, lock waits and statements each have a
-30-second timeout. The native idle-in-transaction timeout is disabled because
-handlers await source I/O inside the transaction. Source-observation pool limits
-remain 2 seconds for connections/locks, 3 seconds for statements and 5 seconds
-for idle transactions. `close()` closes both pools.
+30-second timeout. The native idle-in-transaction timeout is 60 seconds as a
+backstop for abandoned sessions. The runtime separately bounds the complete
+native callback to at most 60 seconds, including handler and source awaits;
+callback expiry rolls back and releases the connection. A session failure also
+interrupts a suspended callback immediately and removes the broken pool client.
+Source-observation pool limits remain 2 seconds for connections/locks, 3 seconds
+for statements and 5 seconds for idle transactions. `close()` closes both pools.
 
 Known connection failures and lock/statement timeouts before COMMIT surface as
 `StorageUnavailable`, which actions map to sanitized
 `ActionError('unavailable')`. A known transaction rejection or COMMIT response
 of ROLLBACK also means confirmed failure; an ambiguous COMMIT connection loss
 remains `uncertain`. Native writes still serialize per graph: long handlers can
-exhaust the 30-second queue budget, and a hung handler can hold its transaction
-until the connection is closed. Handler cancellation and shorter lock ownership
-remain future work.
+exhaust a queued caller's 30-second lock budget. An already-running SQL
+statement may delay rollback until it finishes or hits its statement timeout.
+Shorter lock ownership remains future work.
 
 Native transactions do not enlist provider I/O or source observation acceptance.
 There is no distributed snapshot guarantee.

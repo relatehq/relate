@@ -105,7 +105,16 @@ consumer or transport directly.
 see uncommitted records. Commit every insert and invocation receipt together
 only after the callback succeeds. Any callback error rolls back both native
 effects and the key reservation. Reject unfinished claims. Invalidate the
-transaction handle after completion and never expose mutable storage references.
+transaction handle before awaiting rollback and after completion; never expose
+mutable storage references.
+
+The runtime can reject the callback at its execution deadline even while handler
+code or object operations are still suspended. Roll back and release graph locks
+and pool slots without waiting for that code to finish; reject any later calls
+through its retained transaction handle. A connection failure must also
+interrupt a suspended callback and release its resources. Race cancellation only
+before COMMIT; after COMMIT is sent, preserve confirmed versus uncertain
+outcomes.
 
 `claim` reserves graph/action/key and raises `NativeConflict` for existing or
 concurrently committed keys. This slice rejects duplicates; it does not replay

@@ -45,9 +45,20 @@ export interface RuntimeOptions {
   /** Share a 32-byte key across trusted runtimes to preserve cursor validity. */
   readonly cursorKey?: Uint8Array;
   readonly actionHandlers?: Readonly<Record<string, ActionHandler>>;
+  /** Native callback budget after lock acquisition, 1–60,000 ms; defaults to 60,000. */
+  readonly actionTimeoutMs?: number;
 }
 
 export function createRuntime(options: RuntimeOptions) {
+  const actionTimeoutMs = options.actionTimeoutMs ?? 60_000;
+
+  if (
+    !Number.isInteger(actionTimeoutMs) ||
+    actionTimeoutMs < 1 ||
+    actionTimeoutMs > 60_000
+  )
+    throw new Error('actionTimeoutMs must be an integer between 1 and 60000');
+
   const manifest = validateManifest(options.model.manifest);
   const revision = `sha256:${createHash('sha256').update(canonicalJson(manifest)).digest('hex')}`;
 
@@ -415,6 +426,7 @@ export function createRuntime(options: RuntimeOptions) {
       scope: nativeScope,
       store,
       clock,
+      timeoutMs: actionTimeoutMs,
       install,
       handlers: options.actionHandlers ?? {},
       validate: native.validate,

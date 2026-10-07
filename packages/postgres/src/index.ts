@@ -39,8 +39,8 @@ export function createPostgresStore(
     connectionTimeoutMillis: 30_000,
     statement_timeout: 30_000,
     lock_timeout: 30_000,
-    // An async action may await source I/O while its native transaction is idle.
-    idle_in_transaction_session_timeout: 0,
+    // Backstop for idle sessions; the runtime also bounds the entire native callback.
+    idle_in_transaction_session_timeout: 60_000,
   });
 
   nativePool.on('error', () => {});

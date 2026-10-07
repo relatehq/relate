@@ -67,9 +67,18 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
       let committing = false;
       let rolledBack = false;
       let clientFailure: Error | undefined;
+      let rejectClient!: (error: Error) => void;
+      const clientFailed = new Promise<never>((_, reject) => {
+        rejectClient = reject;
+      });
+
+      // Failures can arrive before the callback race is installed.
+      void clientFailed.catch(() => {});
       // Checked-out clients can fail while the handler is awaiting non-PG I/O.
       const onError = (error: Error) => {
         clientFailure ??= error;
+        active = false;
+        rejectClient(clientFailure);
       };
 
       client.on('error', onError);
@@ -93,62 +102,65 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
           'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
           [JSON.stringify(['native', scope.graphId])],
         );
-        const result = await operation({
-          async load(type, id) {
-            check();
+        const result = await Promise.race([
+          operation({
+            async load(type, id) {
+              check();
 
-            return load(client, scope, type, id);
-          },
-          async insert(record) {
-            check();
-            await client.query(
-              'INSERT INTO relate.native_objects(graph_id,object_type,object_key,values,created_at) VALUES ($1,$2,$3,$4::jsonb,$5)',
-              [
-                scope.graphId,
-                record.objectDefinitionId,
-                record.objectId,
-                JSON.stringify(record.values),
-                record.createdAt,
-              ],
-            );
-          },
-          async claim(action, key) {
-            check();
-            const row = await client.query(
-              'INSERT INTO relate.native_invocations(graph_id,action_id,idempotency_key) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING action_id',
-              [scope.graphId, action, key],
-            );
+              return load(client, scope, type, id);
+            },
+            async insert(record) {
+              check();
+              await client.query(
+                'INSERT INTO relate.native_objects(graph_id,object_type,object_key,values,created_at) VALUES ($1,$2,$3,$4::jsonb,$5)',
+                [
+                  scope.graphId,
+                  record.objectDefinitionId,
+                  record.objectId,
+                  JSON.stringify(record.values),
+                  record.createdAt,
+                ],
+              );
+            },
+            async claim(action, key) {
+              check();
+              const row = await client.query(
+                'INSERT INTO relate.native_invocations(graph_id,action_id,idempotency_key) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING action_id',
+                [scope.graphId, action, key],
+              );
 
-            if (!row.rowCount) throw new NativeConflict();
+              if (!row.rowCount) throw new NativeConflict();
 
-            claimed.add(keyFor(action, key));
-          },
-          async saveInvocation(invocation) {
-            check();
+              claimed.add(keyFor(action, key));
+            },
+            async saveInvocation(invocation) {
+              check();
 
-            if (
-              !claimed.delete(
-                keyFor(
+              if (
+                !claimed.delete(
+                  keyFor(
+                    invocation.actionDefinitionId,
+                    invocation.idempotencyKey,
+                  ),
+                )
+              )
+                throw new Error('Invocation was not claimed');
+
+              await client.query(
+                'UPDATE relate.native_invocations SET invocation_id=$4,input=$5::jsonb,receipt=$6::jsonb WHERE graph_id=$1 AND action_id=$2 AND idempotency_key=$3',
+                [
+                  scope.graphId,
                   invocation.actionDefinitionId,
                   invocation.idempotencyKey,
-                ),
-              )
-            )
-              throw new Error('Invocation was not claimed');
-
-            await client.query(
-              'UPDATE relate.native_invocations SET invocation_id=$4,input=$5::jsonb,receipt=$6::jsonb WHERE graph_id=$1 AND action_id=$2 AND idempotency_key=$3',
-              [
-                scope.graphId,
-                invocation.actionDefinitionId,
-                invocation.idempotencyKey,
-                invocation.receipt.invocationId,
-                JSON.stringify(invocation.input),
-                JSON.stringify(invocation.receipt),
-              ],
-            );
-          },
-        });
+                  invocation.receipt.invocationId,
+                  JSON.stringify(invocation.input),
+                  JSON.stringify(invocation.receipt),
+                ],
+              );
+            },
+          }),
+          clientFailed,
+        ]);
 
         if (claimed.size) throw new Error('Unfinished native invocation');
 
@@ -167,6 +179,8 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
 
         return result;
       } catch (error) {
+        // Revoke retained handles before awaiting cleanup or releasing the client.
+        active = false;
         await client.query('ROLLBACK').catch(() => {});
 
         if (

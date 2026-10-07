@@ -65,6 +65,7 @@ export function nativeActionContract(
     function app(
       handler: Handler = addAccountReview.implementation,
       storage = backing.store,
+      actionTimeoutMs = 60_000,
     ) {
       if (!storage.native) throw new Error('Native store required');
 
@@ -74,6 +75,7 @@ export function nativeActionContract(
         graph,
         graphId,
         clock: () => now,
+        actionTimeoutMs,
         store: {
           ...storage,
           native: {
@@ -670,6 +672,156 @@ export function nativeActionContract(
       ).rejects.toMatchObject({ name: 'ActionError', code: 'unavailable' });
       expect(attempted).toHaveLength(0);
       await absent();
+    });
+    it('expires a suspended handler, releases its graph/key, and rejects writes when it resumes', async () => {
+      let resume!: () => void;
+      let entered!: () => void;
+      let finished!: () => void;
+      let lateError: unknown;
+      const blocked = new Promise<void>((resolve) => {
+        resume = resolve;
+      });
+      const ready = new Promise<void>((resolve) => {
+        entered = resolve;
+      });
+      const resumed = new Promise<void>((resolve) => {
+        finished = resolve;
+      });
+      const slow = app(
+        async (context) => {
+          const output = await addAccountReview.implementation(context);
+
+          entered();
+          await blocked;
+
+          try {
+            await addAccountReview.implementation(context);
+          } catch (error) {
+            lateError = error;
+          } finally {
+            finished();
+          }
+
+          return output;
+        },
+        backing.store,
+        500,
+      );
+      const customer = await slow.host.adopt(Customer, 'northwind');
+      const request = {
+        input: { customer, note: 'Expired' },
+        idempotencyKey: 'review',
+      };
+      const invocation = slow.as(ana).actions.addAccountReview(request);
+      const rejected = expect(invocation).rejects.toMatchObject({
+        name: 'ActionError',
+        code: 'unavailable',
+      });
+
+      try {
+        await Promise.race([ready, invocation]);
+        const expiredRecord = attempted[0]!;
+        // Starts waiting before the first handler times out; it must be able to take the same key.
+        const next = app()
+          .as(ana)
+          .actions.addAccountReview({
+            ...request,
+            input: { customer, note: 'Recovered' },
+          });
+
+        await rejected;
+        const receipt = await next;
+
+        expect(
+          await backing.store.native!.load(
+            scope(),
+            AccountReview.id,
+            expiredRecord.objectId,
+          ),
+        ).toBeUndefined();
+        expect(receipt.output.reviewId).not.toBe(expiredRecord.objectId);
+        expect(
+          (
+            await backing.store.native!.loadInvocation(
+              scope(),
+              AddAccountReview.id,
+              'review',
+            )
+          )?.receipt,
+        ).toEqual(receipt);
+        resume();
+        await resumed;
+        expect(lateError).toMatchObject({ code: 'unavailable' });
+        expect(attempted).toHaveLength(2);
+      } finally {
+        resume();
+        await rejected;
+      }
+    });
+    it('expires while draining an outstanding create and prevents its late insert', async () => {
+      let resume!: () => void;
+      let waiting!: () => void;
+      let blockReads = false;
+      let pending: Promise<unknown> | undefined;
+      const blocked = new Promise<void>((resolve) => {
+        resume = resolve;
+      });
+      const ready = new Promise<void>((resolve) => {
+        waiting = resolve;
+      });
+      const slow = app(
+        async (context) => {
+          const output = await addAccountReview.implementation(context);
+
+          blockReads = true;
+          pending = context.objects.AccountReview.create({
+            customer: context.input.customer,
+            author: context.actor.id,
+            note: 'Late',
+          });
+          void pending.catch(() => {});
+
+          return output;
+        },
+        {
+          ...backing.store,
+          async load(scope, id) {
+            if (blockReads) {
+              waiting();
+              await blocked;
+            }
+
+            return backing.store.load(scope, id);
+          },
+        },
+        500,
+      );
+      const customer = await slow.host.adopt(Customer, 'northwind');
+      const request = {
+        input: { customer, note: 'First' },
+        idempotencyKey: 'review',
+      };
+      const invocation = slow.as(ana).actions.addAccountReview(request);
+      const rejected = expect(invocation).rejects.toMatchObject({
+        code: 'unavailable',
+      });
+
+      try {
+        await Promise.race([ready, invocation]);
+        await rejected;
+        expect(attempted).toHaveLength(1);
+        await absent();
+        resume();
+        await expect(pending).rejects.toMatchObject({ code: 'unavailable' });
+        expect(attempted).toHaveLength(1);
+        await absent();
+        await expect(
+          app().as(ana).actions.addAccountReview(request),
+        ).resolves.toMatchObject({ state: 'succeeded' });
+      } finally {
+        resume();
+        await rejected;
+      }
     });
     it('does not report a lost commit acknowledgement as confirmed failure', async () => {
       const original = backing.store.native!;
