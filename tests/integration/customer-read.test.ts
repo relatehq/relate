@@ -446,6 +446,38 @@ it('withholds confirmed deletion and newly denied access even if retention fails
   });
 });
 
+it('refuses a provider-denied refresh without fallback and leaves cached reads to the freshness window', async () => {
+  const key = await runtime.adopt(Customer.id, 'crm_456');
+
+  crm.setAccess('denied');
+  expect(
+    await runtime.read(employee, Customer.id, key, {
+      select: ['name'],
+      refresh: true,
+    }),
+  ).toEqual({ status: 'not-found' });
+  // Record denial is not persisted: fresh cached reads only verify account identity.
+  expect(
+    await runtime.read(employee, Customer.id, key, { select: ['name'] }),
+  ).toMatchObject({
+    status: 'ok',
+    data: { name: 'Northwind' },
+    meta: { fields: { name: { refresh: 'not-needed' } } },
+  });
+  now += 60_001;
+  expect(
+    await runtime.read(employee, Customer.id, key, { select: ['name'] }),
+  ).toEqual({ status: 'not-found' });
+  crm.setAccess('granted');
+  expect(
+    await runtime.read(employee, Customer.id, key, { select: ['name'] }),
+  ).toMatchObject({
+    status: 'ok',
+    data: { name: 'Northwind' },
+    meta: { fields: { name: { refresh: 'succeeded' } } },
+  });
+});
+
 it('bounds source waits and rejects malformed observations without overwriting retained data', async () => {
   const key = await runtime.adopt(Customer.id, 'crm_456');
   const hanging = connect(store, {

@@ -14,21 +14,25 @@ export async function startCrmSimulator() {
   };
   let version = 1;
   let deleted = false;
+  let access: 'granted' | 'denied' = 'granted';
   let recordsUnavailable = false;
   let providerAccountId = 'example-account';
   const app = new Hono();
 
   app.get('/account', (context) => context.json({ id: providerAccountId }));
-  app.get('/customers/crm_456', (context) =>
-    recordsUnavailable
-      ? context.json({}, 503)
-      : context.json({
-          providerAccountId,
-          state: deleted ? 'deleted' : 'present',
-          ...(deleted ? {} : { record }),
-          version: { domain: 'crm-v1', value: String(version) },
-        }),
-  );
+  app.get('/customers/crm_456', (context) => {
+    // Record access denial is distinct from deletion and temporary unavailability.
+    if (access === 'denied') return context.json({}, 403);
+
+    if (recordsUnavailable) return context.json({}, 503);
+
+    return context.json({
+      providerAccountId,
+      state: deleted ? 'deleted' : 'present',
+      ...(deleted ? {} : { record }),
+      version: { domain: 'crm-v1', value: String(version) },
+    });
+  });
   app.notFound((context) => context.json({}, 404));
 
   const server = createServer(getRequestListener(app.fetch));
@@ -58,6 +62,12 @@ export async function startCrmSimulator() {
       record = { ...record, ...structuredClone(patch) };
       deleted = isDeleted;
       version++;
+    },
+    /** Toggle the provider account's visibility of the record without changing it. */
+    setAccess(state: 'granted' | 'denied') {
+      if (stopping) throw new Error('CRM simulator is stopped');
+
+      access = state;
     },
     stop() {
       stopping ??= new Promise<void>((resolve, reject) => {
