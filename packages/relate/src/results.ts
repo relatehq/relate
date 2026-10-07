@@ -52,7 +52,7 @@ type PresentFields<D, F extends readonly (keyof D)[]> = F extends readonly [
  * JSON values remain JSON values; this assertion does not infer a schema.
  * @throws {ReadError} With code `incomplete` if the result is `not-found` or
  * any requested value is missing/undefined. The error does not distinguish
- * hidden, absent, unselected, or unavailable fields or include their values.
+ * forbidden, absent, unselected, or unavailable fields or include their values.
  *
  * @example
  * ```ts

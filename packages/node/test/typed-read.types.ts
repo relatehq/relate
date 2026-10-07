@@ -1,4 +1,5 @@
 import { createRuntime, connect } from '@relate/node';
+import type { FieldEvidence } from '@relate/protocol';
 import { assertFields } from 'relate';
 import { defineObject, referenceInput } from 'relate';
 import { graph, Customer, customers, ana } from './model.js';
@@ -17,6 +18,13 @@ const consumer = relate.as(ana);
 const selected = await consumer.objects.Customer.get(id, {
   select: ['name'],
 });
+
+type ForbiddenEvidence = Extract<FieldEvidence, { status: 'forbidden' }>;
+
+type UnavailableEvidence = Extract<FieldEvidence, { status: 'unavailable' }>;
+
+const forbiddenEvidence: ForbiddenEvidence = { status: 'forbidden' };
+const unavailableEvidence: UnavailableEvidence = { status: 'unavailable' };
 
 // @ts-expect-error result must be narrowed before accessing data
 selected.data.name;
@@ -72,4 +80,4 @@ if (all.status === 'ok') {
   void allRevenue;
 }
 
-void [name, revenue, unasserted];
+void [name, revenue, unasserted, forbiddenEvidence, unavailableEvidence];
