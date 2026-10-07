@@ -14,7 +14,7 @@ const invoice = await relate.as(ana).objects.Invoice.get(invoiceId, {
 ```
 
 The invoice's `customer_id: 'crm_456'` resolves to `customerId`. Ana receives
-`customer` and `status` in her portfolio; `totalMinor` is unavailable without
+`customer` and `status` in her portfolio; `totalMinor` is forbidden without
 finance. Finance users still cannot read another portfolio's invoices.
 
 Reference lookup never adopts a missing customer. Each nested policy hop

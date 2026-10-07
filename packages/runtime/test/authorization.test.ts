@@ -92,7 +92,7 @@ it.each([
     ).toMatchObject({
       status: 'ok',
       data: { id, scope: value },
-      meta: { fields: { revenue: { status: 'unavailable' } } },
+      meta: { fields: { revenue: { status: 'forbidden' } } },
     });
     expect(
       await runtime.read(

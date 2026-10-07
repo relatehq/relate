@@ -25,6 +25,7 @@ export type Refresh =
   'not-needed' | 'succeeded' | 'unavailable' | 'invalid' | 'superseded';
 
 export type FieldEvidence =
+  | { status: 'forbidden' }
   | { status: 'unavailable' }
   | {
       status: 'available' | 'absent';

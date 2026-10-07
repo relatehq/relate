@@ -30,6 +30,16 @@ if (selected.status === 'ok') {
   selected.data.revenue;
   // @ts-expect-error evidence is scoped to selection too
   selected.meta.fields.revenue;
+  const evidence = selected.meta.fields.name;
+
+  if (evidence?.status === 'forbidden') {
+    const status: 'forbidden' = evidence.status;
+
+    // @ts-expect-error forbidden fields expose no source or policy evidence
+    evidence.source;
+    void status;
+  }
+
   void [name, guaranteed];
 }
 

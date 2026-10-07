@@ -266,10 +266,15 @@ export function createRuntime(options: RuntimeOptions) {
       fields: Record<string, FieldEvidence> = {};
 
     for (const name of select) {
-      const property = visible.find((p) => p.name === name);
+      const property = object.properties.find((p) => p.name === name);
 
       if (!property) {
         fields[name] = { status: 'unavailable' };
+        continue;
+      }
+
+      if (!allowsField(principal, policy, property.access)) {
+        fields[name] = { status: 'forbidden' };
         continue;
       }
 
@@ -324,7 +329,7 @@ export function createRuntime(options: RuntimeOptions) {
       return { status: 'not-found' };
 
     const complete = Object.values(fields).every(
-      (f) => f.status !== 'unavailable',
+      (f) => f.status === 'available' || f.status === 'absent',
     );
 
     if (!complete && request.requireComplete) throw new ReadError('incomplete');
@@ -352,14 +357,14 @@ export function createRuntime(options: RuntimeOptions) {
         completeness: complete ? 'complete' : 'partial',
         definitionRevision: revision,
         degraded:
-          !complete ||
           warnings.length > 0 ||
           Object.values(fields).some(
             (f) =>
-              f.status !== 'unavailable' &&
-              (f.freshness === 'stale' ||
-                f.refresh === 'invalid' ||
-                f.refresh === 'unavailable'),
+              f.status === 'unavailable' ||
+              ((f.status === 'available' || f.status === 'absent') &&
+                (f.freshness === 'stale' ||
+                  f.refresh === 'invalid' ||
+                  f.refresh === 'unavailable')),
           ),
         fields,
         warnings,
