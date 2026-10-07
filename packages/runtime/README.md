@@ -20,6 +20,13 @@ it cannot renew permission evidence. Provider versions precede fetch-start
 ordering. Without provider versions, order is best effort and cannot prove
 upstream recency. Deletion and denial are never undone by fallback.
 
+A deleted reference target does not delete a referring native object or clear
+its stored link. Reads withhold the unresolved reference with
+`status: 'unavailable'` field evidence; other fields remain readable when the
+object's own policy permits it. See
+[deleted references and future deletion policies](../node/NATIVE_ACTIONS.md#references-after-a-target-is-deleted)
+for the Task example, future edit rules, and deferred opt-in cascading deletes.
+
 The source fetch wait defaults to 3 seconds (maximum 10 seconds), including
 non-cooperative connectors. The Postgres adapter separately bounds pool, lock,
 and statement waits; this is not a whole-request deadline guarantee. Connectors

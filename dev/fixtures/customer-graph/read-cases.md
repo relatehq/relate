@@ -56,6 +56,25 @@ Tracing records operations performed on the actual path. It does not reveal the
 inactive branch's unexecuted invoice query or all possible failure paths by
 statically inspecting TypeScript.
 
+## Deleted references: implemented read behavior
+
+A Task created while an Invoice existed survives a subsequently confirmed
+billing deletion. When Task's customer-based policy still permits the read,
+`Task.get(taskId, { select: ['assignee', 'invoice'] })` returns `assignee`,
+omits `invoice`, and reports `meta.fields.invoice.status: 'unavailable'` with
+partial completeness. Neither Task nor its stored invoice link is deleted.
+Requiring a complete result rejects that selection. Task's own authorization
+still applies.
+
+This focused case executes through public packages on memory and Postgres in
+[the deleted-reference suite](../../../tests/support/deleted-reference-contract.ts).
+Existing source-read and traversal suites retain stale fallback, permission
+expiry, `stale: 'omit'`, completeness, deleted/reassigned invoice and reference
+evidence coverage. These cases need not be duplicated in the large escalation
+scenario. See the
+[reference lifecycle contract](../../../packages/node/NATIVE_ACTIONS.md#references-after-a-target-is-deleted)
+for the result shape and the separate future edit/deletion decisions.
+
 ## Implemented pagination infrastructure
 
 `@relate/protocol` owns `Page<T>`/`PageMeta`; `@relate/runtime` implements

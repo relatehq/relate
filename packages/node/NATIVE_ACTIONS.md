@@ -140,6 +140,66 @@ The execution timer stops before COMMIT; delayed or lost acknowledgements retain
 their normal success/uncertain semantics. JavaScript handler code itself cannot
 be forcibly stopped, and independently retained source refreshes may finish.
 
+## References after a target is deleted
+
+Deleting a referenced object does not delete its referring native objects or
+clear their stored links. For example, a Task created while its Invoice existed
+remains readable after billing confirms deletion, provided the Task's own
+customer-based read policy still permits it:
+
+```ts
+await objects.Invoice.get(invoiceId, { refresh: true });
+// { status: 'not-found' } after billing confirms deletion
+
+await objects.Task.get(taskId, { select: ['assignee', 'invoice'] });
+// Relevant result fields:
+// {
+//   status: 'ok',
+//   data: { assignee: 'sam' },
+//   meta: {
+//     completeness: 'partial',
+//     degraded: true,
+//     fields: {
+//       assignee: { status: 'available', ... },
+//       invoice: { status: 'unavailable' }
+//     }, ...
+//   }
+// }
+```
+
+The unresolved invoice reference is withheld from the result. The evidence
+reports `unavailable`, without disclosing whether the target was deleted or
+hidden by authorization. `requireComplete: true` rejects this selection with
+`ReadError('incomplete')`. If the Task's own policy depends on evidence that can
+no longer be established, the Task read returns `not-found`; that does not
+delete the Task. A consumer's `not-found` result alone is not proof of deletion.
+
+The
+[deleted-reference acceptance case](../../tests/support/deleted-reference-contract.ts)
+runs against memory and Postgres through public creation and read APIs. It also
+checks stored Task values to prove neither the record nor its link was removed.
+
+### Future edits and deletion policies
+
+Native update/delete operations are not implemented. Their agreed reference
+behavior is:
+
+- Creating a reference or changing its target must validate the proposed target
+  and applicable write permissions. Creation already performs these checks.
+- An unrelated edit, such as changing `Task.assignee`, may leave an existing
+  broken invoice reference in place. The edit still needs its own write
+  permission; it must not require repairing every unchanged reference.
+- Changing fields used by an integrity rule must validate the affected rule. For
+  example, changing `Task.customer` affects customer consistency with its
+  invoice even if the invoice ID itself is unchanged. Constraint dependencies
+  and validation timing need to be defined when update/integrity APIs land.
+
+Cascading deletes are a future, opt-in capability, outside v1. Before
+introducing them, define how a model declares deletion behavior, authorization
+of dependent deletions, transaction/receipt semantics, cycles, and how confirmed
+source deletions trigger native effects. A failed or unauthorized read must
+never trigger a cascade. No cascade API is currently exposed.
+
 ## Deliberate limits of this slice
 
 - A committed graph/action/idempotency key cannot execute again. Duplicate keys
