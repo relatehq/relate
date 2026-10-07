@@ -52,6 +52,7 @@ validation/
   check-write-policies.mjs          independent write-rule rejection check
   check-policies.mjs                independent unsuppressed rejection check
   scenario.ts                       intended outcomes, never executed
+  reference-write-scenario.ts       write identity, permission and rollback cases
   setup.ts                          simulated connections and principals
   records.ts                        provider data
 ```

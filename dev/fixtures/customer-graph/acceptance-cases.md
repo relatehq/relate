@@ -78,6 +78,33 @@ Invalid references, wrong object types, denied values or inconsistent links must
 not leave partial business writes. Checks must consider newly created records in
 the transaction without treating readable values as automatically writable.
 
+### Reference identity and create permission without a pre-read
+
+The [reference-write scenario](./validation/reference-write-scenario.ts)
+specifies the following regressions for `AddAccountReview`. Its replacement
+implementation deliberately omits `Customer.get()` and writes directly. It is
+typechecked only; the native-action executor and storage inspection driver are
+not implemented.
+
+| Case                                                                                                   | Required outcome                                                                                                         |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Ana creates a review for Northwind with herself as author                                              | Success and exactly one committed review. This positive control prevents a runtime that denies every write from passing. |
+| External `customer` input contains an adopted Invoice ID                                               | String parsing succeeds, but execution fails with no committed review. Parsing is not proof of Customer membership.      |
+| Valid Customer input, but action code supplies an Invoice ID to `create`                               | The write itself rejects. Checking reference inputs only at invocation is insufficient.                                  |
+| Action code supplies a nonblank, unadopted Customer ID to `create`                                     | The write rejects without adopting or inventing a customer.                                                              |
+| Action code supplies Southbank's real Customer ID for Ana                                              | The create policy rejects even though the reference identifies an existing Customer.                                     |
+| A valid Northwind review is created before a second write supplies an Invoice ID or Southbank customer | The action fails and neither review is committed. An allocated ID does not prove persistence.                            |
+
+The write-only cases carry the candidate ID through a scalar input and parse it
+inside the implementation, so invocation-time reference validation cannot mask a
+missing write check. Failures are runtime-owned, with no hidden record values or
+policy evidence in the error. Exact public error-code mapping remains open.
+
+Run these scenarios against both memory and Postgres when native execution is
+available. Assert committed storage independently of caller read authorization:
+an empty authorized query alone cannot prove that a forbidden review was never
+persisted. Source observation retention remains outside native-write rollback.
+
 ## Conditional updates and concurrency
 
 A future native update expecting revision 7 must conflict if revision 8 is
