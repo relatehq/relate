@@ -7,7 +7,7 @@ import {
 } from './architecture/runtime-boundaries.ts';
 
 const root = process.cwd();
-const owners = ['relate', 'protocol', 'runtime', 'postgres', 'node'];
+const owners = ['relate', 'protocol', 'runtime', 'postgres', 'node', 'cli'];
 const allowed = {
   relate: new Set(['zod', '@relate/protocol']),
   protocol: new Set(),
@@ -19,7 +19,34 @@ const allowed = {
     '@relate/runtime',
     '@relate/protocol',
   ]),
+  // Local processes, files and the inspector host: never runtime or storage.
+  cli: new Set([
+    'relate',
+    'relate/compiler',
+    'relate/diagnostics',
+    'relate/model',
+    '@relate/node',
+    '@relate/inspector/protocol',
+    '@relate/inspector/server',
+    'hono',
+    'hono/cookie',
+    'hono/streaming',
+    '@hono/node-server',
+    'esbuild',
+    'zod',
+  ]),
 };
+// Browser code in the inspector never reaches the compiler, runtime or Node.
+const inspectorBrowserForbidden = new Set([
+  'relate',
+  'relate/compiler',
+  '@relate/node',
+  '@relate/runtime',
+  '@relate/runtime/storage',
+  '@relate/postgres',
+  '@relate/cli',
+  '@relate/protocol',
+]);
 const graph = new Map();
 
 async function walk(directory) {
@@ -69,10 +96,12 @@ for (const owner of owners) {
         (ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
         (ts.isExportDeclaration(node) && node.isTypeOnly);
 
+      // The CLI's application child imports the user's bundle by computed path.
       if (
         ts.isCallExpression(node) &&
         node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-        (!literal || !ts.isStringLiteral(literal))
+        (!literal || !ts.isStringLiteral(literal)) &&
+        owner !== 'cli'
       )
         throw new Error(`Nonliteral import cannot be checked: ${file}`);
 
@@ -96,6 +125,7 @@ for (const owner of owners) {
         } else if (name.startsWith('node:')) {
           if (!(
             owner === 'postgres' ||
+            owner === 'cli' ||
             (owner === 'relate' && file.endsWith(`${sep}compiler.ts`)) ||
             (owner === 'runtime' && name === 'node:crypto')
           ))
@@ -131,6 +161,50 @@ async function check(file) {
 }
 
 for (const file of graph.keys()) await check(file);
+
+// The inspector's browser modules: only server.ts may touch Node.
+const inspectorSource = resolve(root, 'apps/inspector/src');
+
+for (const file of await walk(inspectorSource)) {
+  if (!/\.tsx?$/.test(file)) continue;
+
+  const serverOnly = file === resolve(inspectorSource, 'server.ts');
+  const parsed = ts.createSourceFile(
+    file,
+    await readFile(file, 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+
+  function visitInspector(node) {
+    const literal =
+      ts.isImportDeclaration(node) || ts.isExportDeclaration(node)
+        ? node.moduleSpecifier
+        : ts.isCallExpression(node) &&
+            node.expression.kind === ts.SyntaxKind.ImportKeyword
+          ? node.arguments[0]
+          : undefined;
+
+    if (literal && ts.isStringLiteral(literal)) {
+      const name = literal.text.replace(/\?.*$/, '');
+
+      if (!serverOnly && name.startsWith('node:'))
+        throw new Error(
+          `Inspector browser code imports Node: ${file}: ${name}`,
+        );
+
+      if (inspectorBrowserForbidden.has(name))
+        throw new Error(
+          `Inspector imports a forbidden package: ${file}: ${name}`,
+        );
+    }
+
+    ts.forEachChild(node, visitInspector);
+  }
+
+  visitInspector(parsed);
+}
 
 // Simulators are provider fixtures; they cannot import Relate or application code.
 for (const file of await walk(resolve(root, 'dev/simulators'))) {

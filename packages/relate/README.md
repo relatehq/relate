@@ -17,6 +17,10 @@ Private and unpublished while implementation is in progress.
   definition revision.
 - `relate/model`: the manifest schema, `validateManifest`, and the types that
   runtime integrations consume.
+- `relate/diagnostics`: platform-neutral issue types (`ModelIssue`, `IssuePath`,
+  `SourceSite`), stable `ModelIssueCode`s, and the `CompileError` /
+  `ManifestValidationError` classes thrown by authoring, compilation and
+  manifest validation. It imports nothing.
 
 It does not fetch, store, authorize or serve anything at runtime. Authoring
 imports stay free of compiler and Node dependencies.
@@ -126,6 +130,39 @@ Registry keys such as `Customer` are the public API names. `id` values are
 stable definition identities that survive renames. Applications normally pass
 `graph` to `@relate/node`, which compiles it for them; call `compile` directly
 when you need the manifest itself.
+
+## Diagnostics
+
+Validation failures are structured. `compile(graph)` collects every independent
+issue, skips checks that depend on a failed prerequisite, and throws one
+`CompileError` whose `issues` are deduplicated and ordered by path:
+
+```ts
+import { CompileError } from 'relate';
+import { compile } from 'relate/compiler';
+
+try {
+  compile(graph);
+} catch (error) {
+  if (error instanceof CompileError)
+    for (const issue of error.issues)
+      console.log(issue.code, issue.message, issue.definitionId, issue.path);
+  // policy.unknown-role  Unknown policy role 'finanse' in policy Invoice.read
+  //   example.invoice  { root: 'graph', segments: ['policies', 'Invoice', 'read', 'gate'] }
+}
+```
+
+Paths name their root: `graph` for the object passed to `compile`, `definition`
+for an early failure inside `defineObject`/`defineAction`, and `manifest` for
+`validateManifest` input. Issues found while lowering to a Manifest are
+translated back to authored registry keys when that mapping is unambiguous;
+otherwise they keep the explicit `manifest` root. Consumers branch on `code`,
+never on message text.
+
+Development hosts can record where definitions were declared with
+`enableDefinitionProvenance()` before importing user modules and read the raw
+capture with `definitionProvenance(definition)`. Capture is off by default,
+stays outside the Manifest and never changes `definitionRevision`.
 
 ## Status
 

@@ -1,14 +1,23 @@
 import { mkdtemp, readFile, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
-import { execFile as callback } from 'node:child_process';
+import { execFile as callback, spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 import { promisify } from 'node:util';
 import assert from 'node:assert/strict';
 
 const execFile = promisify(callback);
 const root = process.cwd();
 const temp = await mkdtemp(join(tmpdir(), 'relate-package-check-'));
-const packages = ['protocol', 'relate', 'runtime', 'postgres', 'node'];
+const packages = [
+  'protocol',
+  'relate',
+  'runtime',
+  'postgres',
+  'node',
+  '../apps/inspector',
+  'cli',
+];
 
 try {
   const tarballs = join(temp, 'tarballs');
@@ -22,6 +31,7 @@ try {
       await readFile(join(directory, 'package.json'), 'utf8'),
     );
 
+    // Workspace tarballs: `workspace:*` becomes the packed version.
     await execFile('pnpm', ['pack', '--pack-destination', tarballs], {
       cwd: directory,
     });
@@ -316,6 +326,93 @@ console.log('Installed native action executes and returns a readable committed r
   console.log(
     'Hello world runs through the typed API from installed tarballs in plain Node ESM.',
   );
+
+  // Structured diagnostics and the inspector entry points install cleanly.
+  await writeFile(
+    join(consumer, 'inspector-smoke.mjs'),
+    `
+import assert from 'node:assert/strict';
+import { CompileError } from 'relate/diagnostics';
+import { ManifestValidationError, validateManifest } from 'relate/model';
+import { defineApp, isAppDefinition } from '@relate/node';
+import { PROTOCOL_VERSION, parseDevEvent } from '@relate/inspector/protocol';
+import { createInspectorApp } from '@relate/inspector/server';
+import { graph } from './built/invoice-model.js';
+try { validateManifest({ formatVersion: 2 }); assert.fail('expected failure'); }
+catch (error) { assert.ok(error instanceof ManifestValidationError); assert.equal(error.issues[0].code, 'manifest.invalid-shape'); }
+assert.equal(new CompileError([{ code: 'policy.missing', message: 'x' }]).name, 'CompileError');
+assert.ok(isAppDefinition(defineApp({ graph })));
+assert.equal(parseDevEvent({ protocolVersion: PROTOCOL_VERSION, instanceId: 'i', sequence: 0, type: 'snapshot', model: null, failure: null }).type, 'snapshot');
+await createInspectorApp().verify();
+console.log('Installed inspector protocol and packaged assets load.');
+`,
+  );
+  const inspector = await execFile(process.execPath, ['inspector-smoke.mjs'], {
+    cwd: consumer,
+  });
+
+  process.stdout.write(inspector.stdout);
+
+  // One command serves the graph from the installed CLI: no frontend build,
+  // database, credentials or provider calls.
+  await writeFile(
+    join(consumer, 'relate.config.ts'),
+    "import { defineApp } from '@relate/node';\nimport { graph } from './invoice-model.js';\nexport default defineApp({ graph });\n",
+  );
+  const port = await new Promise((resolvePort, reject) => {
+    const probe = createServer();
+
+    probe.once('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+
+      probe.close(() => resolvePort(port));
+    });
+  });
+  const dev = spawn(
+    process.execPath,
+    ['node_modules/@relate/cli/bin/relate.js', 'dev', '--port', String(port)],
+    { cwd: consumer, env: { ...process.env, NO_COLOR: '1' } },
+  );
+  const devOutput = [];
+
+  dev.stdout.on('data', (chunk) => devOutput.push(chunk));
+  dev.stderr.on('data', (chunk) => devOutput.push(chunk));
+
+  try {
+    const deadline = Date.now() + 30_000;
+
+    while (
+      !/ready\s+gen 1\s+invoice-read/.test(Buffer.concat(devOutput).toString())
+    ) {
+      if (dev.exitCode !== null || Date.now() > deadline)
+        throw new Error(
+          `relate dev did not publish a model:\n${Buffer.concat(devOutput)}`,
+        );
+
+      await new Promise((tick) => setTimeout(tick, 100));
+    }
+
+    const identity = await fetch(`http://127.0.0.1:${port}/dev/instance`);
+
+    assert.equal(identity.status, 200);
+    const shell = await fetch(`http://127.0.0.1:${port}/`);
+
+    assert.equal(shell.status, 200);
+    assert.match(await shell.text(), /<div id="root">/);
+    assert.equal(
+      (await fetch(`http://127.0.0.1:${port}/dev/snapshot`)).status,
+      401,
+    );
+    console.log(
+      'Installed relate dev serves the inspector and compiles the graph.',
+    );
+  } finally {
+    const exited = new Promise((resolveExit) => dev.once('exit', resolveExit));
+
+    dev.kill('SIGINT');
+    await exited;
+  }
 } catch (error) {
   if (error.stdout) process.stderr.write(error.stdout);
 

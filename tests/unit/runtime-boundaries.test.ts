@@ -134,11 +134,19 @@ it.each([
       );
 
     try {
-      for (const owner of ['relate', 'protocol', 'runtime', 'postgres', 'node'])
+      for (const owner of [
+        'relate',
+        'protocol',
+        'runtime',
+        'postgres',
+        'node',
+        'cli',
+      ])
         await mkdir(join(directory, 'packages', owner, 'src'), {
           recursive: true,
         });
 
+      await mkdir(join(directory, 'apps/inspector/src'), { recursive: true });
       await mkdir(join(directory, 'dev/simulators'), { recursive: true });
       const write = async (file: string, content: string) => {
         const path = join(directory, 'packages/runtime/src', file);
