@@ -23,7 +23,10 @@
     "example:hello-world": "pnpm build && tsx examples/hello-world/src/index.ts",
     "example:postgres": "pnpm build && dotenvx run -f .env -- tsx examples/postgres-persistence/src/index.ts",
     "test:integration": "pnpm build && dotenvx run -f .env -- vitest run --project integration",
-    "test:unit": "pnpm build && vitest run --project unit"
+    "test:unit": "pnpm build && vitest run --project unit",
+    "worktree:create": "tsx scripts/worktrees/create.ts",
+    "worktree:delete": "tsx scripts/worktrees/delete.ts",
+    "worktree:list": "tsx scripts/worktrees/list.ts"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "2.28.0",

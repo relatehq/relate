@@ -4,6 +4,7 @@
   "include": [
     "tests/**/*.ts",
     "dev/**/*.ts",
+    "scripts/**/*.ts",
     "examples/*/src/**/*.ts",
     "packages/*/test/**/*.ts",
     "vitest.config.ts"
