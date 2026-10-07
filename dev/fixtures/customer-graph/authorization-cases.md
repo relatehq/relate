@@ -84,6 +84,11 @@ work; sharing TypeScript interfaces alone does not establish them.
 
 ## Native writes and final-state validation
 
+The [adversarial write fixture](./adversarial-writes.md) now supplies one unsafe
+action and typechecked acceptance assertions for impersonation, omitted lookups,
+cross-customer links and whole-action rollback. It reuses the declared graph
+rules; execution remains unimplemented.
+
 Future execution tests should deliberately attempt to create a review as another
 user, link a Northwind task to a Southbank invoice/customer/review, and supply
 missing or wrong-type IDs. All must reject under the applicable policy/integrity
@@ -104,14 +109,16 @@ application requirements, not hardcoded universal review/task semantics.
    and immediate versus final-state validation for interleaved writes.
 3. Trusted access to hidden validation evidence without exposing it through
    code, traces, output or errors.
-4. Same-customer constraints and eligible-assignee checks. Assignee remains a
-   string; no employee directory model is introduced here.
+4. Evidence resolution for the declared same-customer constraints, and
+   eligible-assignee checks. Assignee remains a string; no employee directory
+   model is introduced here.
 5. Current receipt authorization and cross-actor idempotency when both actors
    are permitted but effects contain actor-specific values.
 
-See [open questions](./open-questions.md). Read predicates now have an authoring
-shape; write authorization and evidence semantics remain design work. Neither is
-solved by changing execution shape.
+See [open questions](./open-questions.md). Read predicates, native-create rules
+and same-customer integrity constraints now have an authoring shape. Write
+enforcement and evidence semantics remain execution work; declaration types do
+not prove them.
 
 ## Write-policy exploration
 
