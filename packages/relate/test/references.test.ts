@@ -1,12 +1,9 @@
 import { expect, it } from 'vitest';
 import { compile } from 'relate/compiler';
 import { validateManifest } from 'relate/model';
-import {
-  access,
-  Customer,
-  graph,
-  Invoice,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { access, Customer, graph, Invoice } = createInvoiceGraph();
 
 it('lowers source references and nested predicates to stable definition paths', () => {
   const model = compile(graph);

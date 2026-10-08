@@ -17,15 +17,10 @@ import {
 } from 'relate';
 import { createRuntime } from '@relate/node';
 import { connect } from 'relate';
-import {
-  access,
-  ana,
-  Customer,
-  customers,
-  graph,
-  Invoice,
-  invoices,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { access, ana, Customer, customers, graph, Invoice, invoices } =
+  createInvoiceGraph();
 
 it('enforces multiple predicates across two reference hops without exposing evidence fields', async () => {
   const credits = defineSource({

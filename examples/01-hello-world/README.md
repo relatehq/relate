@@ -23,14 +23,9 @@ result's canonical ID is separate from its selected data. `assertFields` checks
 availability before using the typed name. The host authenticates the principal;
 adoption is available only through `relate.host`.
 
-The acceptance suite checks this same public API for authorization, partial
-fields, fallback and registration. Packaging verification compiles and runs this
-exact example with installed tarballs under plain Node ESM.
-
-```sh
-pnpm test:unit
-pnpm test:packaging
-```
+The package test suites check the same public API for authorization, partial
+fields, fallback and registration, using their own definitions rather than this
+example. Run the example itself with `pnpm example:hello-world`.
 
 Keep this example minimal as Relate evolves. Refresh, restart recovery and
 persistent storage belong in

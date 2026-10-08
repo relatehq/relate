@@ -2,8 +2,11 @@
 
 [model.ts](./model.ts) is the executable subset of the customer-graph fixture.
 It uses the public packages, with source-owned Customers and Invoices and no
-future API declarations. The acceptance suite supplies deterministic CRM and
-billing records through connectors.
+future API declarations. It is design reference only: tests do not import it.
+The test suites own an equivalent definition in
+[`tests/support/invoice-graph.ts`](../../../../tests/support/invoice-graph.ts)
+(`createInvoiceGraph()`) and supply deterministic CRM and billing records
+through connectors.
 
 ```ts
 const customerId = await relate.host.adopt(Customer, 'crm_456');

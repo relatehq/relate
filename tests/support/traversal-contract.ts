@@ -13,16 +13,10 @@ import {
 } from 'relate';
 import { RetentionError } from '@relate/runtime/storage';
 import type { ObservationStore } from '@relate/runtime/storage';
-import {
-  access,
-  ana,
-  finance,
-  Customer,
-  customers,
-  Invoice,
-  invoices,
-  graph,
-} from '../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from './invoice-graph.js';
+
+const { access, ana, finance, Customer, customers, Invoice, invoices, graph } =
+  createInvoiceGraph();
 
 export function traversalContract(
   name: string,

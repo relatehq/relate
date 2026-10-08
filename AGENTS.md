@@ -87,10 +87,14 @@ explanation.
 
 ## Test ownership and setup
 
-Packages, connectors, and their tests must not depend on `examples/`. Examples
-are consumers and learning material, never fixtures for library behavior.
+Packages, connectors, apps, and their tests must not depend on `examples/` or
+`dev/fixtures/`. Examples are tutorials and documentation for users learning and
+experimenting with Relate; dev fixtures are exploratory design material. Neither
+is setup for library tests: a user or contributor must be able to change an
+example's code or data without breaking any package test.
 `pnpm check:boundaries` enforces this for source, tests, shared test helpers,
-and workspace dependency declarations, including type-only imports.
+and workspace dependency declarations, including type-only imports. Packaging
+smoke tests write their own consumer programs rather than copying an example.
 
 Use arrange–act–assert: each test explicitly creates the state it needs,
 performs the operation, and asserts the outcome. Avoid module-level fixture
@@ -101,9 +105,8 @@ factories belong in `tests/support`; they must not import example code. Register
 cleanup for each test's owned resources.
 
 Keep unit tests with their owning package or application in its `test/` folder.
-Tests of an example belong in that example's `test/` folder. Repository-level
-integration and packaging smoke tests can exercise an example as the subject
-under test, but must not reuse it as setup for unrelated package tests.
+Tests of an example (checking that the tutorial itself still works) belong in
+that example's `test/` folder; they are the only tests that import example code.
 
 ## Implementation approach
 

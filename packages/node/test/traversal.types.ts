@@ -1,12 +1,8 @@
 import { createRuntime } from '@relate/node';
 import { defineRelationship, reference, referenceInput } from 'relate';
-import {
-  graph,
-  ana,
-  Customer,
-  Invoice,
-  invoices,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { graph, ana, Customer, Invoice, invoices } = createInvoiceGraph();
 
 const relate = createRuntime({ graph, connections: [] });
 const objects = relate.as(ana).objects;

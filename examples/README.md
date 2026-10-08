@@ -25,6 +25,17 @@ Examples 01–03 use an isolated **in-memory Relate store**. SQLite in 02 and 03
 is a **source system**, not Relate's persistence layer. Reviews and observations
 in 03 disappear on restart. Example 04 introduces a persistent Relate store.
 
+## Examples are for learning, not for tests
+
+These examples exist so you can see how Relate fits together, run it, and change
+it to try ideas. Edit them freely: rename objects, change records, add sources.
+Nothing in the package, connector or repository test suites depends on their
+code or data, so experimenting here cannot break the library's tests.
+`pnpm check:boundaries` enforces that separation.
+
+Tests that check an example's own behavior live in that example's `test/` folder
+(for example, [03](03-customer-workspace/test)).
+
 The exploratory application under `dev/fixtures/customer-graph` includes
 proposed APIs as well as implemented behavior. It is not another getting-started
 step; use the numbered examples for runnable public APIs.

@@ -292,11 +292,8 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
   }
 
   await writeFile(
-    join(consumer, 'invoice-model.ts'),
-    await readFile(
-      resolve(root, 'dev/fixtures/customer-graph/invoice-read/model.ts'),
-      'utf8',
-    ),
+    join(consumer, 'invoice-graph.ts'),
+    await readFile(resolve(root, 'tests/support/invoice-graph.ts'), 'utf8'),
   );
 
   for (const name of ['traversal.types.ts', 'object-ids.types.ts']) {
@@ -305,8 +302,8 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
       (
         await readFile(resolve(root, 'packages/node/test', name), 'utf8')
       ).replaceAll(
-        '../../../dev/fixtures/customer-graph/invoice-read/model.js',
-        './invoice-model.js',
+        '../../../tests/support/invoice-graph.js',
+        './invoice-graph.js',
       ),
     );
   }
@@ -319,8 +316,8 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
         'utf8',
       )
     ).replaceAll(
-      '../../../dev/fixtures/customer-graph/invoice-read/model.js',
-      './invoice-model.js',
+      '../../../tests/support/invoice-graph.js',
+      './invoice-graph.js',
     ),
   );
 
@@ -330,7 +327,8 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 import assert from 'node:assert/strict';
 import { startApp } from '@relate/node';
 import { connect, defineApp } from 'relate';
-import { graph, ana, Customer, Invoice, customers, invoices } from './built/invoice-model.js';
+import { createInvoiceGraph } from './built/invoice-graph.js';
+const { graph, ana, Customer, Invoice, customers, invoices } = createInvoiceGraph();
 let setupCalls = 0;
 let disposed = false;
 const definition = defineApp({ graph, setup({ onDispose }) {
@@ -411,11 +409,77 @@ console.log('Installed native action executes and returns a readable committed r
   );
 
   await writeFile(
-    join(consumer, 'hello-world.ts'),
-    await readFile(
-      resolve(root, 'examples/01-hello-world/src/index.ts'),
-      'utf8',
-    ),
+    join(consumer, 'typed-read-smoke.ts'),
+    `
+import { z } from 'zod';
+import {
+  assertFields,
+  connect,
+  defineAccess,
+  defineApp,
+  defineGraph,
+  defineObject,
+  defineSource,
+  from,
+  objectId,
+  source,
+} from 'relate';
+import { startApp } from '@relate/node';
+
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
+const people = defineSource({
+  id: 'smoke.people',
+  idField: 'id',
+  schema: z.object({ id: z.string(), name: z.string() }),
+});
+const Person = defineObject({
+  id: 'smoke.person',
+  label: 'Person',
+  membership: source(people),
+  properties: {
+    id: objectId({ id: 'smoke.person.id' }),
+    name: from(people.fields.name, { id: 'smoke.person.name' }),
+  },
+});
+const graph = defineGraph({
+  id: 'smoke.graph',
+  objects: { Person },
+  access,
+  policies: { Person: { read: { gate: access.role('reader') } } },
+});
+const relate = await startApp(
+  defineApp({
+    graph,
+    setup: () => ({
+      graphId: 'typed-read-smoke',
+      connections: [
+        connect(people, {
+          providerAccountId: 'smoke-account',
+          connectionId: 'smoke',
+          connector: {
+            identify: async () => 'smoke-account',
+            fetch: async (id: string) =>
+              id === '1'
+                ? { providerAccountId: 'smoke-account', state: 'present' as const, record: { id: '1', name: 'Ada' } }
+                : { providerAccountId: 'smoke-account', state: 'deleted' as const },
+          },
+        }),
+      ],
+    }),
+  }),
+);
+try {
+  const id = await relate.host.adopt(Person, '1');
+  const result = await relate
+    .as({ id: 'reader', roles: ['reader'], claims: {} })
+    .objects.Person.get(id, { select: ['name'] });
+  assertFields(result, ['name']);
+  const name: string = result.data.name;
+  console.log(JSON.stringify({ ...result, typedName: name }));
+} finally {
+  await relate.close();
+}
+`,
   );
   await execFile(
     process.execPath,
@@ -439,7 +503,7 @@ console.log('Installed native action executes and returns a readable committed r
       'authorization.types.ts',
       'references.types.ts',
       'typed-read.types.ts',
-      'hello-world.ts',
+      'typed-read-smoke.ts',
       'traversal.types.ts',
       'object-ids.types.ts',
       'actions.types.ts',
@@ -458,18 +522,21 @@ console.log('Installed native action executes and returns a readable committed r
   });
 
   process.stdout.write(native.stdout);
-  const hello = await execFile(process.execPath, ['built/hello-world.js'], {
-    cwd: consumer,
-  });
-  const read = JSON.parse(hello.stdout);
+  const typedRead = await execFile(
+    process.execPath,
+    ['built/typed-read-smoke.js'],
+    { cwd: consumer },
+  );
+  const read = JSON.parse(typedRead.stdout);
 
   assert.equal(read.status, 'ok');
   assert.equal(typeof read.id, 'string');
   assert.notEqual(read.id, '1');
   assert.deepEqual(read.data, { name: 'Ada' });
+  assert.equal(read.typedName, 'Ada');
   assert.equal(read.meta.fields.name.retentionDurability, 'volatile');
   console.log(
-    'Hello world runs through the typed API from installed tarballs in plain Node ESM.',
+    'A typed, authorized read runs from installed tarballs in plain Node ESM.',
   );
 
   // Structured diagnostics and the inspector entry points install cleanly.
@@ -482,7 +549,8 @@ import { ManifestValidationError, validateManifest } from 'relate/model';
 import { defineApp, isAppDefinition } from 'relate';
 import { PROTOCOL_VERSION, parseDevEvent } from '@relate/inspector/protocol';
 import { createInspectorApp } from '@relate/inspector/server';
-import { graph } from './built/invoice-model.js';
+import { createInvoiceGraph } from './built/invoice-graph.js';
+const { graph } = createInvoiceGraph();
 try { validateManifest({ formatVersion: 2 }); assert.fail('expected failure'); }
 catch (error) { assert.ok(error instanceof ManifestValidationError); assert.equal(error.issues[0].code, 'manifest.invalid-shape'); }
 assert.equal(new CompileError([{ code: 'policy.missing', message: 'x' }]).name, 'CompileError');
@@ -502,7 +570,7 @@ console.log('Installed inspector protocol and packaged assets load.');
   // database, credentials or provider calls.
   await writeFile(
     join(consumer, 'relate.config.ts'),
-    "import { defineApp } from 'relate';\nimport { graph } from './invoice-model.js';\nexport default defineApp({ graph, setup() { throw new Error('Inspector must not execute setup'); } });\n",
+    "import { defineApp } from 'relate';\nimport { createInvoiceGraph } from './invoice-graph.js';\nconst { graph } = createInvoiceGraph();\nexport default defineApp({ graph, setup() { throw new Error('Inspector must not execute setup'); } });\n",
   );
   const port = await new Promise((resolvePort, reject) => {
     const probe = createServer();

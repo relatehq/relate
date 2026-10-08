@@ -10,7 +10,9 @@ import {
 } from '@relate/cli';
 import { createInspectorApp } from '@relate/inspector/server';
 import { parseDevEvent } from '@relate/inspector/protocol';
-import { graph } from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { graph } = createInvoiceGraph();
 
 const origin = 'http://127.0.0.1:4318';
 const model = compile(graph);
