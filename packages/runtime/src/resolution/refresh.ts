@@ -16,7 +16,7 @@ import {
   InvalidObservation,
   SourceAccessDenied,
 } from '../observations/index.js';
-import type { SourceConnector } from '../observations/index.js';
+import type { AnySourceConnector } from 'relate/connectors';
 
 /** Shared by projected data and private authorization evidence. */
 export async function refreshObservation(options: {
@@ -25,7 +25,7 @@ export async function refreshObservation(options: {
   stored: StoredObject;
   object: Manifest['objects'][number];
   resource: Manifest['sources'][number];
-  connector: SourceConnector;
+  connector: AnySourceConnector;
   clock: () => number;
   request: ReadRequest;
   needsSource: boolean;

@@ -9,16 +9,16 @@ import type { ObservationStore } from './storage.js';
 
 type Graph = GraphDefinition & { readonly objects: ObjectRegistry };
 
-export interface Connection extends SourceBinding {
-  readonly source: SourceDefinition;
-}
+export type Connection = SourceBinding & { readonly source: SourceDefinition };
+
+type ConnectionOptions<T = SourceBinding> = T extends SourceBinding
+  ? Omit<T, 'authorization'> & { readonly authorization?: 'shared-service' }
+  : never;
 
 /** This slice supports shared service credentials only. Credentials stay in the connector. */
 export function connect(
   source: SourceDefinition,
-  binding: Omit<SourceBinding, 'authorization'> & {
-    readonly authorization?: 'shared-service';
-  },
+  binding: ConnectionOptions,
 ): Connection {
   return Object.freeze({
     ...binding,

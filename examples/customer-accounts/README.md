@@ -23,7 +23,12 @@ ID, and Relate's field evidence.
 - `src/index.ts`: typed adoption and authorized reads.
 
 SQLite owns customer data. Relate uses its default in-memory store here, so
-adopted IDs and observations do not survive app shutdown.
+adopted IDs and observations do not survive app shutdown. The application owns
+source identity through `connectionId: 'local-crm'`; the database needs no
+account table. Keep that ID when relocating the same CRM and change it for a
+different logical source. See the connector’s
+[optional database verification](../../connectors/sqlite/README.md#optional-database-verification)
+if you need to detect an accidental database replacement.
 
 The CRM includes a nullable `stripe_customer_id` column. Its example value is
 synthetic. A later Stripe connector can add billing sources and relationships to

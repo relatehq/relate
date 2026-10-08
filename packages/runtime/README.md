@@ -99,11 +99,19 @@ if (result.status === 'ok') {
 }
 ```
 
-Account identity is checked even for cached reads. Both `identify()` and fetch
-response identity must describe the authenticated provider account, never just
-repeat the configured expected ID. If identity cannot be verified, reads fail
-without cached data. See [the connector contract](./CONTRACT.md) for account
-rotation, stale fallback and adapter trust requirements.
+For provider-verified connectors, account identity is checked even for cached
+reads. Both `identify()` and fetch response identity must describe the
+authenticated provider account, never just repeat the configured expected ID. If
+identity cannot be verified, reads fail without cached data. See
+[the connector contract](./CONTRACT.md) for account rotation, stale fallback and
+adapter trust requirements.
+
+Connectors can instead explicitly implement `ApplicationSourceConnector` with
+`identity: 'application'` and `fetch()`, omitting `identify()` and account IDs.
+The binding then needs only `connectionId`, `authorization` and `connector`. The
+host must change `connectionId` for a different logical source; Relate cannot
+detect replacement under the same ID. SQLite defaults to this mode. Application
+identity and verified accounts never share retained observations.
 
 Explicitly selecting a known field without its field-group permission returns
 `{ status: 'forbidden' }`. If a permitted value cannot be supplied, for example

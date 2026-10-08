@@ -48,6 +48,49 @@ export function storeContract(
       await fixture?.close();
     });
 
+    it('isolates application-owned identity from verified accounts and other connections', async () => {
+      const verified = await adopt(observation(await store.beginFetch()));
+      const application = { ...scope, providerAccountId: null };
+
+      expect(
+        await store.load(application, verified.object.objectId),
+      ).toBeUndefined();
+      expect(await store.resolve(application, 'external-1')).toBeUndefined();
+      expect(await store.scan(application, { limit: 10 })).toEqual({
+        objects: [],
+        hasMore: false,
+      });
+      const saved = await Promise.all(
+        Array.from({ length: 5 }, async () =>
+          store.accept(application, {
+            sourceRecordId: 'external-1',
+            adopt: true,
+            observation: observation(await store.beginFetch()),
+          }),
+        ),
+      );
+      const first = saved[0]!.object;
+
+      expect(new Set(saved.map(({ object }) => object.objectId)).size).toBe(1);
+      expect(first.objectId).not.toBe(verified.object.objectId);
+      expect(await store.load(scope, first.objectId)).toBeUndefined();
+      expect(await store.load(application, first.objectId)).toEqual(
+        await store.resolve(application, 'external-1'),
+      );
+      expect(
+        (await store.scan(application, { limit: 10 })).objects.map(
+          (object) => object.objectId,
+        ),
+      ).toEqual([first.objectId]);
+      expect(
+        await store.resolve(
+          { ...application, connectionId: 'another' },
+          'external-1',
+        ),
+      ).toBeUndefined();
+      expect(await store.resolve(scope, 'external-1')).toEqual(verified.object);
+    });
+
     it('pins revisions and isolates scope', async () => {
       await store.install(scope.graphId, scope.definitionRevision);
       await expect(

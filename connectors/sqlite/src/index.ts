@@ -1,7 +1,12 @@
 import { Worker } from 'node:worker_threads';
 import { resolve } from 'node:path';
 import { SourceAccessDenied } from 'relate/connectors';
-import type { SourceConnector, SourceRecord } from 'relate/connectors';
+import type {
+  SourceConnector,
+  ApplicationSourceConnector,
+  AnySourceConnector,
+  SourceResult,
+} from 'relate/connectors';
 import { identifier } from './contracts.js';
 import type {
   Operation,
@@ -14,23 +19,38 @@ import type {
 
 export type { SqliteOptions, SqliteTableOptions } from './contracts.js';
 
-export interface SqliteConnection {
-  table(name: string, options: SqliteTableOptions): SourceConnector;
+export interface SqliteConnection<
+  C extends AnySourceConnector = AnySourceConnector,
+> {
+  table(name: string, options: SqliteTableOptions): C;
   /** Reject outstanding reads and release the owned worker/connection. Idempotent. */
   close(): Promise<void>;
 }
 
 interface Pending {
   request: Request;
-  resolve(value: string | SourceRecord): void;
+  resolve(value: string | SourceResult): void;
   reject(error: unknown): void;
   cleanup(): void;
 }
 
 /** One read-only SQLite connection, opened lazily in an owned worker. */
+export function sqlite(
+  options: SqliteOptions & { identity: NonNullable<SqliteOptions['identity']> },
+): SqliteConnection<SourceConnector>;
+
+export function sqlite(
+  options: SqliteOptions & { identity?: undefined },
+): SqliteConnection<ApplicationSourceConnector>;
+
+export function sqlite(options: SqliteOptions): SqliteConnection;
+
 export function sqlite(options: SqliteOptions): SqliteConnection {
-  identifier(options.identity.table);
-  identifier(options.identity.column);
+  if (options.identity) {
+    identifier(options.identity.table);
+    identifier(options.identity.column);
+  }
+
   const busyTimeoutMs = options.busyTimeoutMs ?? 150;
 
   if (
@@ -44,7 +64,7 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
 
   const settings: WorkerSettings = {
     path: resolve(options.path),
-    identity: { ...options.identity },
+    ...(options.identity ? { identity: { ...options.identity } } : {}),
     busyTimeoutMs,
   };
   let worker: Worker | undefined;
@@ -142,7 +162,7 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
   function call(
     operation: Operation,
     signal: AbortSignal,
-  ): Promise<string | SourceRecord> {
+  ): Promise<string | SourceResult> {
     return new Promise((resolveCall, reject) => {
       signal.throwIfAborted();
 
@@ -183,17 +203,27 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
 
       const resource = { idColumn: tableOptions.idColumn, columns };
 
-      return {
-        async identify({ signal }) {
-          return (await call({ operation: 'identify' }, signal)) as string;
-        },
-        async fetch(recordId, { signal }) {
-          return (await call(
-            { operation: 'fetch', table: name, options: resource, recordId },
-            signal,
-          )) as SourceRecord;
-        },
-      };
+      const fetch = async (
+        recordId: string,
+        { signal }: { signal: AbortSignal },
+      ) =>
+        (await call(
+          { operation: 'fetch', table: name, options: resource, recordId },
+          signal,
+        )) as SourceResult;
+
+      return settings.identity
+        ? {
+            identity: 'provider',
+            async identify({ signal }: { signal: AbortSignal }) {
+              return (await call({ operation: 'identify' }, signal)) as string;
+            },
+            fetch: fetch as SourceConnector['fetch'],
+          }
+        : {
+            identity: 'application',
+            fetch: fetch as ApplicationSourceConnector['fetch'],
+          };
     },
     close() {
       closed = true;

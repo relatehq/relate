@@ -11,11 +11,9 @@ import { connect } from 'relate';
 
 const database = sqlite({
   path: './crm.sqlite',
-  identity: { table: 'account', column: 'id' },
 });
 const binding = connect(customers, {
   connectionId: 'local-crm',
-  providerAccountId: 'crm-production',
   connector: database.table('customers', {
     idColumn: 'id',
     columns: ['display_name', 'portfolio', 'stripe_customer_id'],
@@ -41,7 +39,46 @@ the resource. Existing exact TEXT matches in mixed columns remain readable.
 Duplicate exact TEXT matches fail. Use an index with BINARY collation for
 efficient reads (the connector does not create indexes). Identifiers are quoted
 and IDs are bound parameters. Identity and resource statements are prepared once
-per worker and reused; data and account identity are read afresh on each call.
+per worker and reused; selected data is read afresh on each fetch.
+
+## Connection identity
+
+By default the application owns identity through `connectionId`; SQLite needs no
+account table. Keep the ID stable when moving or restoring the same logical CRM.
+Use a new ID when connecting a different logical source. Two connections with
+different IDs can both contain `customers.id = '1'` without sharing a Relate
+object or cached observations. The file path is a locator, not identity.
+
+This mode explicitly uses `ApplicationSourceConnector`
+(`identity: 'application'`), with no `identify()` or `providerAccountId` on its
+results or binding. It cannot detect a different database substituted under the
+same `connectionId`; the application owns that boundary. Relate policy and
+freshness checks still apply. File access is the credential boundary, so use
+trusted database files.
+
+### Optional database verification
+
+If the database contains a stable account ID and you want Relate to detect a
+replacement under the same connection ID, configure verification explicitly:
+
+```ts
+const database = sqlite({
+  path: './crm.sqlite',
+  identity: { table: 'account', column: 'id' },
+});
+const binding = connect(customers, {
+  connectionId: 'local-crm',
+  providerAccountId: 'crm-production',
+  connector: database.table('customers', {
+    idColumn: 'id',
+    columns: ['display_name', 'portfolio', 'stripe_customer_id'],
+  }),
+});
+```
+
+This returns a provider-verified `SourceConnector`. Application-owned and
+provider-verified modes have separate retained identities, even with the same
+connection ID; switching modes requires explicit adoption in the new scope.
 
 The identity table must contain exactly one row with a nonempty TEXT account ID
 without leading or trailing whitespace. Padded IDs are explicitly denied with a
@@ -55,9 +92,8 @@ INSERT INTO account VALUES ('crm-production');
 Provision that identity in the provider database; the connector never creates
 it. Keep it stable for the lifetime of that account. A copied database retains
 the same identity: provision a new ID if the copy represents a different
-account. File access is the credential boundary, so use only trusted database
-files. `identify()` reads the ID, and each fetch reads identity and data in one
-SQLite snapshot. Relate compares this evidence to the binding's expected
+account. `identify()` reads the ID, and each fetch reads identity and data in
+one SQLite snapshot. Relate compares this evidence to the binding's expected
 account. An empty or ambiguous identity is explicit access denial.
 
 A successful lookup with no row returns `deleted`. Missing tables, lock errors,
@@ -71,8 +107,8 @@ in your source schema. Selected BLOBs, nonfinite numbers and integers outside
 JavaScript's safe range are rejected. No source version is claimed because
 SQLite supplies no per-row version contract.
 
-The system connection can select multiple tables, each implementing
-`SourceConnector`. Database opening is deferred until the first read or
+The system connection can select multiple tables, each using the connection’s
+chosen identity mode. Database opening is deferred until the first read or
 identify; open errors reject that call. An owned worker serializes reads on one
 read-only connection, leaving the application event loop free to enforce source
 deadlines. `busyTimeoutMs` defaults to 150 ms (configurable from 0 to 60000); a

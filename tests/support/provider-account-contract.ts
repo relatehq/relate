@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/runtime';
 import type { ObservationStore } from '@relate/runtime/storage';
-import type { SourceConnector } from 'relate/connectors';
+import { SourceAccessDenied } from 'relate/connectors';
+import type {
+  SourceBinding,
+  ApplicationSourceConnector,
+  SourceConnector,
+} from 'relate/connectors';
 import {
   Customer,
   customerGraph,
@@ -49,6 +54,34 @@ export function providerAccountContract(
         },
       });
 
+    const application = (connectionId = 'reused-connection') =>
+      createRuntime({
+        model: compile(customerGraph),
+        graphId,
+        store: backing.store,
+        clock: () => now,
+        sources: {
+          'crm.customers': {
+            connectionId,
+            authorization: 'shared-service',
+            connector: applicationConnector,
+          },
+        },
+      });
+    const applicationFetch = vi.fn(async () => ({
+      state: 'present' as const,
+      record: {
+        id: '1',
+        display_name: recordName,
+        portfolio: 'portfolio_north',
+        revenue: 10,
+      },
+    }));
+    const applicationConnector: ApplicationSourceConnector = {
+      identity: 'application',
+      fetch: applicationFetch,
+    };
+
     beforeEach(async () => {
       backing = await open();
       graphId = randomUUID();
@@ -57,9 +90,63 @@ export function providerAccountContract(
       now = 1_000;
       identify.mockReset().mockImplementation(async () => account);
       fetch.mockClear();
+      applicationFetch.mockClear();
     });
     afterEach(async () => {
       await backing?.close();
+    });
+
+    it('reuses application identity across runtimes but separates connections and verification modes', async () => {
+      const id = await application().adopt(Customer.id, '1');
+
+      expect(await application().adopt(Customer.id, '1')).toBe(id);
+      expect(await application().read(employee, Customer.id, id)).toMatchObject(
+        { data: { name: recordName } },
+      );
+      expect(identify).not.toHaveBeenCalled();
+      expect(
+        await application('another').read(employee, Customer.id, id),
+      ).toEqual({ status: 'not-found' });
+      expect(await application('another').adopt(Customer.id, '1')).not.toBe(id);
+      expect(await runtime().read(employee, Customer.id, id)).toEqual({
+        status: 'not-found',
+      });
+      const verified = await runtime().adopt(Customer.id, '1');
+
+      expect(verified).not.toBe(id);
+      expect(await application().read(employee, Customer.id, verified)).toEqual(
+        { status: 'not-found' },
+      );
+    });
+
+    it('keeps explicit denial from falling back in application mode', async () => {
+      const current = application();
+      const id = await current.adopt(Customer.id, '1');
+
+      applicationFetch.mockRejectedValueOnce(new SourceAccessDenied());
+      expect(
+        await current.read(employee, Customer.id, id, { refresh: true }),
+      ).toEqual({ status: 'not-found' });
+      expect(await current.read(employee, Customer.id, id)).toMatchObject({
+        data: { name: recordName },
+      });
+    });
+
+    it('rejects an expected provider account on an application-owned connector', () => {
+      expect(() =>
+        createRuntime({
+          model: compile(customerGraph),
+          graphId,
+          sources: {
+            'crm.customers': {
+              connectionId: 'x',
+              authorization: 'shared-service',
+              providerAccountId: 'fake',
+              connector: applicationConnector,
+            } as unknown as SourceBinding,
+          },
+        }),
+      ).toThrow('unsupported source binding');
     });
 
     it.each([{}, { refresh: true }, { select: ['id'] }])(

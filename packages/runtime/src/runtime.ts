@@ -57,9 +57,14 @@ export function createRuntime(options: RuntimeOptions) {
     if (
       !binding ||
       !binding.connectionId.trim() ||
-      typeof binding.providerAccountId !== 'string' ||
-      !binding.providerAccountId.trim() ||
-      typeof binding.connector.identify !== 'function' ||
+      (binding.connector.identity === 'application'
+        ? binding.providerAccountId !== undefined ||
+          binding.connector.identify !== undefined
+        : (binding.connector.identity !== undefined &&
+            binding.connector.identity !== 'provider') ||
+          typeof binding.providerAccountId !== 'string' ||
+          !binding.providerAccountId.trim() ||
+          typeof binding.connector.identify !== 'function') ||
       binding.authorization !== 'shared-service' ||
       typeof binding.connector.fetch !== 'function'
     )
@@ -84,7 +89,7 @@ export function createRuntime(options: RuntimeOptions) {
     objectDefinitionId,
     sourceDefinitionId,
     connectionId: sources[sourceDefinitionId]!.connectionId,
-    providerAccountId: sources[sourceDefinitionId]!.providerAccountId,
+    providerAccountId: sources[sourceDefinitionId]!.providerAccountId ?? null,
     partition: 'shared-service',
   });
 

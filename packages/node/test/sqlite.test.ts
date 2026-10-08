@@ -11,7 +11,7 @@ import {
 } from '../../../examples/customer-accounts/src/model.js';
 import { seed } from '../../../examples/customer-accounts/src/seed.js';
 
-test('executes typed authorized reads and blocks retained data after an account switch', async ({
+test('executes typed authorized reads without an account table', async ({
   onTestFinished,
 }) => {
   const directory = mkdtempSync(join(tmpdir(), 'relate-sqlite-app-'));
@@ -44,8 +44,8 @@ test('executes typed authorized reads and blocks retained data after an account 
       status: 'ok',
       data: { name: 'Northwind Ltd' },
     });
-    db.exec("UPDATE account SET id = 'another-account'");
-    expect(await objects.Customer.get(id)).toMatchObject({
+    db.exec("DELETE FROM customers WHERE id = 'crm_northwind'");
+    expect(await objects.Customer.get(id, { maxAgeMs: 0 })).toMatchObject({
       status: 'not-found',
     });
   } finally {

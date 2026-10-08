@@ -133,7 +133,14 @@ try {
   assert.equal(await connector.identify({ signal: new AbortController().signal }), 'packed');
   assert.equal((await connector.fetch('1', { signal: new AbortController().signal })).record.name, 'Ada');
 } finally { await connection.close(); }
-console.log('Installed SQLite connector reads a real database in plain Node ESM.');
+const local = sqlite({ path: 'source.sqlite' });
+try {
+  const table = local.table('customers', { idColumn: 'id', columns: ['name'] });
+  assert.equal(table.identity, 'application');
+  assert.equal(table.identify, undefined);
+  assert.deepEqual(await table.fetch('1', { signal: new AbortController().signal }), { state: 'present', record: { id: '1', name: 'Ada' } });
+} finally { await local.close(); }
+console.log('Installed SQLite connector reads both identity modes in plain Node ESM.');
 `,
   );
   process.stdout.write(
@@ -221,8 +228,16 @@ objectId(z.string(), { id: 'customer.identity', access: access.groups.ordinary }
 // @ts-expect-error objects infer identity from objectId(), not a key selector
 defineObject({ id: 'customer', label: 'Customer', key: 'id', membership: source(crm), properties: { id: identity } });
 import { sqlite } from '@relate/connector-sqlite';
-import type { SourceConnector } from 'relate/connectors';
+import { connect } from 'relate';
+import type { SourceConnector, ApplicationSourceConnector } from 'relate/connectors';
+const localResource: ApplicationSourceConnector = sqlite({ path: 'source.sqlite' }).table('customers', { idColumn: 'id', columns: ['name'] });
+connect(crm, { connectionId: 'local', connector: localResource });
+// @ts-expect-error application identity cannot claim a provider account
+connect(crm, { connectionId: 'local', providerAccountId: 'fake', connector: localResource });
 const resource: SourceConnector = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } }).table('customers', { idColumn: 'id', columns: ['name'] });
+connect(crm, { connectionId: 'verified', providerAccountId: 'account', connector: resource });
+// @ts-expect-error verified identity requires an expected account
+connect(crm, { connectionId: 'verified', connector: resource });
 export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 `,
   );

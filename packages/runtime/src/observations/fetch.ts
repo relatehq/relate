@@ -2,34 +2,46 @@ import { accepts } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import type { Json } from '@relate/protocol';
 import type { Observation } from '../storage.js';
-import type { SourceConnector, SourceRecord } from 'relate/connectors';
+import type { AnySourceConnector, SourceResult } from 'relate/connectors';
 import { SourceAccessDenied } from 'relate/connectors';
 
 export class InvalidObservation extends Error {}
 
 export async function boundedFetch(
-  connector: SourceConnector,
+  connector: AnySourceConnector,
   sourceRecordId: string,
   timeoutMs: number,
-  providerAccountId: string,
-): Promise<SourceRecord> {
-  const result = await boundedSourceCall(
+  providerAccountId: string | null,
+): Promise<SourceResult> {
+  const result = await boundedSourceCall<SourceResult>(
     (signal) => connector.fetch(sourceRecordId, { signal }),
     timeoutMs,
   );
 
-  // Missing identity is also a denial: it must not enable stale fallback.
-  if (result?.providerAccountId !== providerAccountId)
+  // Provider mode requires account evidence; application mode must not claim it.
+  // A mismatch is a denial and must not enable stale fallback.
+  if (
+    connector.identity === 'application'
+      ? providerAccountId !== null || result?.providerAccountId !== undefined
+      : providerAccountId === null ||
+        result?.providerAccountId !== providerAccountId
+  )
     throw new SourceAccessDenied();
 
   return result;
 }
 
 export async function verifyAccount(
-  connector: SourceConnector,
-  providerAccountId: string,
+  connector: AnySourceConnector,
+  providerAccountId: string | null,
   timeoutMs: number,
 ): Promise<void> {
+  if (connector.identity === 'application') {
+    if (providerAccountId !== null) throw new SourceAccessDenied();
+
+    return;
+  }
+
   const actual = await boundedSourceCall(
     (signal) => connector.identify({ signal }),
     timeoutMs,
@@ -77,7 +89,7 @@ function validJson(value: unknown): boolean {
 }
 
 export function observation(
-  result: SourceRecord,
+  result: SourceResult,
   resource: Manifest['sources'][number],
   object: Manifest['objects'][number],
   sourceRecordId: string,

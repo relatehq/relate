@@ -25,6 +25,9 @@ function fixture() {
   const db = new DatabaseSync(path);
 
   cleanups.push(() => db.close());
+  db.exec(
+    "CREATE TABLE account (id TEXT PRIMARY KEY NOT NULL); INSERT INTO account VALUES ('demo-crm')",
+  );
   const database = sqlite({
     path,
     identity: { table: 'account', column: 'id' },
@@ -424,4 +427,27 @@ test('padded account IDs fail closed with an actionable diagnostic', async () =>
 
   db.exec("UPDATE account SET id = 'demo-crm'");
   expect(await connector.identify(request())).toBe('demo-crm');
+});
+
+test('defaults to application-owned identity without querying an account table', async () => {
+  const { db, path } = fixture();
+
+  db.exec('DROP TABLE account');
+  const database = sqlite({ path });
+
+  cleanups.push(() => database.close());
+  const connector = database.table('customers', {
+    idColumn: 'id',
+    columns: ['display_name'],
+  });
+
+  expect(connector.identity).toBe('application');
+  expect(connector.identify).toBeUndefined();
+  expect(await connector.fetch('crm_northwind', request())).toEqual({
+    state: 'present',
+    record: { id: 'crm_northwind', display_name: 'Northwind' },
+  });
+  expect(await connector.fetch('absent', request())).toEqual({
+    state: 'deleted',
+  });
 });

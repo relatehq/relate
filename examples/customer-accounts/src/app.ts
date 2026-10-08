@@ -8,7 +8,6 @@ export function customerAccounts(path: string) {
     setup({ onDispose }) {
       const database = sqlite({
         path,
-        identity: { table: 'account', column: 'id' },
       });
 
       onDispose(() => database.close());
@@ -18,7 +17,6 @@ export function customerAccounts(path: string) {
         connections: [
           connect(customers, {
             connectionId: 'local-crm',
-            providerAccountId: 'demo-crm',
             connector: database.table('customers', {
               idColumn: 'id',
               columns: ['display_name', 'portfolio', 'stripe_customer_id'],

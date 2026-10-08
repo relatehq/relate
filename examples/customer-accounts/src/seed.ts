@@ -6,8 +6,6 @@ export function seed(path: string): void {
 
   try {
     db.exec(`
-      CREATE TABLE account (id TEXT PRIMARY KEY NOT NULL);
-      INSERT INTO account VALUES ('demo-crm');
       CREATE TABLE customers (
         id TEXT PRIMARY KEY NOT NULL,
         display_name TEXT NOT NULL,

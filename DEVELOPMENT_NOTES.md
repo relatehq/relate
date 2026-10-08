@@ -29,3 +29,18 @@ missing/unreadable action object references now reject with `not-found`; custom
 native storage adapters must implement transaction savepoints. Receipt
 lookup/replay retains its opaque `denied` response. Actions without declared
 errors retain their success-only receipt type.
+
+## Application-owned connector identity
+
+SQLite now defaults to `sqlite({ path })`, with application-owned `connectionId`
+and no account table. Optional `identity: { table, column }` retains provider
+verification and requires the expected `providerAccountId` binding.
+
+Custom stores must support `StorageScope.providerAccountId: string | null`: null
+denotes application-owned identity and must never share aliases or observations
+with verified accounts or unknown legacy provenance. Run the Postgres store's
+`migrate()` for the new physical identity-mode constraint; old migration
+checksums and quarantined legacy rows are preserved. Switching modes requires
+adoption in the new scope; no automatic identity/data reassignment is performed.
+Replacing a logical source in application mode requires a new `connectionId`.
+This mode does not detect accidental file replacement.

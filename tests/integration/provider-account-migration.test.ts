@@ -66,6 +66,31 @@ it('preserves legacy rows without assigning unverified identities to an account'
       objects: [],
       hasMore: false,
     });
+    const application = { ...scope, providerAccountId: null };
+
+    expect(await store.load(application, 'old-id')).toBeUndefined();
+    expect(await store.resolve(application, '1')).toBeUndefined();
+    expect(await store.scan(application, { limit: 10 })).toEqual({
+      objects: [],
+      hasMore: false,
+    });
+    const appObject = await store.accept(application, {
+      adopt: true,
+      sourceRecordId: '1',
+      observation,
+    });
+
+    expect(appObject.object.objectId).not.toBe('old-id');
+    const restarted = createPostgresStore({ connectionString });
+
+    try {
+      expect(await restarted.resolve(application, '1')).toEqual(
+        appObject.object,
+      );
+    } finally {
+      await restarted.close();
+    }
+
     const adopted = await store.accept(scope, {
       adopt: true,
       sourceRecordId: '1',
@@ -73,6 +98,7 @@ it('preserves legacy rows without assigning unverified identities to an account'
     });
 
     expect(adopted.object.objectId).not.toBe('old-id');
+    expect(adopted.object.objectId).not.toBe(appObject.object.objectId);
     const other = await store.accept(
       { ...scope, providerAccountId: 'account-b' },
       { adopt: true, sourceRecordId: '1', observation },

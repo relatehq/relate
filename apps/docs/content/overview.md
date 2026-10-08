@@ -30,8 +30,10 @@ See
 ## Source Bindings and Object Identity
 
 A source definition describes records; `connect` from `relate` binds that source
-to a provider account and connector. The connector identifies the account and
-fetches records by their source keys.
+to a connection and connector. The connector fetches records by their source
+keys. Identity can be provider-verified or explicitly owned by the application
+through its stable `connectionId`; see
+[Sources and Connections](./key-concepts.md#sources-and-connections).
 
 When the host adopts a source record, Relate generates an object ID and stores
 its mapping to the source identity. Reads use this mapping to reach the original

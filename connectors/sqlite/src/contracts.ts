@@ -1,10 +1,10 @@
-import type { SourceRecord } from 'relate/connectors';
+import type { SourceResult } from 'relate/connectors';
 
 export interface SqliteOptions {
   /** Existing database file. The connector never creates or writes it. */
   readonly path: string;
-  /** Singleton table containing the database's stable, nonempty TEXT account ID. */
-  readonly identity: { readonly table: string; readonly column: string };
+  /** Optional verification against a singleton table with a stable, nonempty TEXT account ID. */
+  readonly identity?: { readonly table: string; readonly column: string };
   /** Time to wait for a writer lock in the worker. Default: 150 ms. */
   readonly busyTimeoutMs?: number;
 }
@@ -31,7 +31,7 @@ export type Request = Operation & { id: number };
 export type WorkerSettings = SqliteOptions & { readonly busyTimeoutMs: number };
 
 export type Response =
-  | { id: number; ok: true; result: string | SourceRecord }
+  | { id: number; ok: true; result: string | SourceResult }
   | {
       id: number;
       ok: false;

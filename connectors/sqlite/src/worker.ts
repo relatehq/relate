@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { StatementSync } from 'node:sqlite';
 import { parentPort, workerData } from 'node:worker_threads';
 import { SourceAccessDenied } from 'relate/connectors';
-import type { SourceRecord } from 'relate/connectors';
+import type { SourceResult } from 'relate/connectors';
 import { identifier } from './contracts.js';
 import type { Request, Response, WorkerSettings } from './contracts.js';
 import { readTransaction } from './read-transaction.js';
@@ -22,6 +22,9 @@ function database(): DatabaseSync {
 }
 
 function account(connection: DatabaseSync): string {
+  if (!options.identity)
+    throw new Error('SQLite account verification is not configured');
+
   identity ??= connection.prepare(
     `SELECT ${identifier(options.identity.column)} AS account FROM ${identifier(options.identity.table)} LIMIT 2`,
   );
@@ -42,13 +45,15 @@ function account(connection: DatabaseSync): string {
   return id;
 }
 
-function execute(request: Request): string | SourceRecord {
+function execute(request: Request): string | SourceResult {
   const connection = database();
 
   return readTransaction(connection, () => {
-    const providerAccountId = account(connection);
+    if (request.operation === 'identify') return account(connection);
 
-    if (request.operation === 'identify') return providerAccountId;
+    const provenance = options.identity
+      ? { providerAccountId: account(connection) }
+      : {};
 
     const { idColumn, columns } = request.options;
     const names = [idColumn, ...columns.filter((name) => name !== idColumn)];
@@ -100,7 +105,7 @@ function execute(request: Request): string | SourceRecord {
       if (invalid.get())
         throw new Error('SQLite source key contains non-TEXT values');
 
-      return { providerAccountId, state: 'deleted' };
+      return { ...provenance, state: 'deleted' };
     }
 
     const entries: [string, string | number | null][] = [];
@@ -116,7 +121,7 @@ function execute(request: Request): string | SourceRecord {
     }
 
     return {
-      providerAccountId,
+      ...provenance,
       state: 'present',
       record: Object.fromEntries(entries),
     };
