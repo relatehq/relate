@@ -223,7 +223,6 @@ it('checks browser application source outside src', async () => {
   });
 });
 
-<<<<<<< Updated upstream
 it.each(['node:fs', 'fs'])(
   'rejects inspector browser imports of %s',
   async (builtin) => {
@@ -253,7 +252,7 @@ it('permits Node only in the inspector asset server and retains CLI entry scanni
     }),
   ).resolves.toBeDefined();
 });
-=======
+
 it('allows only the docs stylesheet and excludes generated Next.js output', async () => {
   await expect(
     check({
@@ -281,4 +280,3 @@ it.each(['missing.css', 'other.css', '../out/generated.js'])(
     });
   },
 );
->>>>>>> Stashed changes

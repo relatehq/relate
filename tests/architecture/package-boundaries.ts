@@ -52,8 +52,20 @@ export const packagePolicies: Record<
     builtins: true,
   },
   'packages/create-relate': { imports: [], builtins: true },
-<<<<<<< Updated upstream
-  'apps/docs': { imports: [], builtins: true },
+  'apps/docs': {
+    assets: ['app/global.css'],
+    imports: [
+      'next',
+      'react',
+      '@fumadocs/mdx-remote',
+      'fumadocs-ui/provider/next',
+      'fumadocs-ui/layouts/docs',
+      'fumadocs-ui/layouts/docs/page',
+      'fumadocs-ui/mdx',
+      'rehype-raw',
+    ],
+    builtins: true,
+  },
   'apps/inspector': {
     imports: [
       '@relate/client',
@@ -78,23 +90,6 @@ export const packagePolicies: Record<
       '@fontsource/dm-mono/500.css',
     ],
   },
-=======
-  'apps/docs': {
-    assets: ['app/global.css'],
-    imports: [
-      'next',
-      'react',
-      '@fumadocs/mdx-remote',
-      'fumadocs-ui/provider/next',
-      'fumadocs-ui/layouts/docs',
-      'fumadocs-ui/layouts/docs/page',
-      'fumadocs-ui/mdx',
-      'rehype-raw',
-    ],
-    builtins: true,
-  },
-  'apps/inspector': { imports: ['@relate/client', '@relate/protocol'] },
->>>>>>> Stashed changes
   'examples/hello-world': {
     imports: ['relate', '@relate/node', 'zod'],
     builtins: true,

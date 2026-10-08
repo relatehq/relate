@@ -186,9 +186,8 @@ for (const workspace of workspaces) {
           if (!resolve(dirname(file), name).startsWith(directory + sep))
             throw new Error(`Cross-package relative import: ${file}: ${name}`);
 
-<<<<<<< Updated upstream
           if (owner === 'apps/inspector' && name.endsWith('.css')) return;
-=======
+
           const localPath = resolve(dirname(file), name);
 
           if (
@@ -199,7 +198,6 @@ for (const workspace of workspaces) {
             !source.test(localPath)
           )
             return;
->>>>>>> Stashed changes
 
           if (owner === 'packages/runtime')
             assertRuntimeDependency(
