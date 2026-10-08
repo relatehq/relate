@@ -6,6 +6,24 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Graph queries and native enumeration
+
+Add `objects.Type.query({ where?, select?, limit?, cursor?, ...readOptions })`
+for consumers and native action implementations. No separate list operation is
+needed: omitted filters enumerate. Equality filters use public property names
+and canonical reference IDs. Queries cover existing graph membership, not
+provider-wide discovery; direct source queries and sync are planned.
+
+Custom native storage adapters must now implement `NativeStore.scan` and
+`NativeTransaction.scan`, preserving scoped keyset order and read-your-writes.
+Memory and Postgres implement both. No database schema migration or manifest
+format change is required. Source-only observation stores remain valid.
+
+`QueryResult` is now a portable protocol type, re-exported by runtime, node and
+relate; the existing runtime import remains valid. Shared typed query options
+and object records live in `relate`, avoiding a runtime dependency for action
+contracts. Package versions remain `0.0.0-dev.0`.
+
 ## Portable constraints and declared business failures
 
 Preserved from the former `clear-kids-care` changeset; the behavior is already

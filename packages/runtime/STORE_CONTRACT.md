@@ -133,13 +133,13 @@ returns trusted storage evidence by action/key. These are host/runtime storage
 operations, not caller-authorized receipt APIs. Never expose them through a
 consumer or transport directly.
 
-`transaction(scope, callback)` gives the runtime `load`, `insert`, `claim`,
-`findInvocation`, `saveInvocation` and `savepoint`. Reads see the transaction's
-writes; independent readers do not see uncommitted records. Commit every insert
-and invocation receipt together only after the callback succeeds. Any callback
-error rolls back both native effects and the key reservation. Reject unfinished
-claims. Invalidate the transaction handle before awaiting rollback and after
-completion; never expose mutable storage references.
+`transaction(scope, callback)` gives the runtime `load`, `scan`, `insert`,
+`claim`, `findInvocation`, `saveInvocation` and `savepoint`. Reads see the
+transaction's writes; independent readers do not see uncommitted records. Commit
+every insert and invocation receipt together only after the callback succeeds.
+Any callback error rolls back both native effects and the key reservation.
+Reject unfinished claims. Invalidate the transaction handle before awaiting
+rollback and after completion; never expose mutable storage references.
 
 The runtime can reject the callback at its execution deadline even while handler
 code or object operations are still suspended. Roll back and release graph locks
@@ -187,3 +187,17 @@ and then save its failed receipt in the same outer transaction. A savepoint is
 not an independent commit. Adapters must preserve callback errors; rollback
 failures reject the whole transaction. Deadline revocation also guards
 savepoints and prevents late handler activity from committing.
+
+### Native enumeration
+
+`NativeStore.scan(scope, type, { after?, limit })` and
+`NativeTransaction.scan(type, { after?, limit })` return isolated native records
+in strictly ascending canonical object-ID order, plus `hasMore`. Return at most
+`limit` records, excluding the `after` boundary; use bytewise ordering for the
+ASCII runtime-generated IDs (Postgres uses `COLLATE "C"`). Never cross graph,
+revision or object-type boundaries. An empty batch must have `hasMore: false`.
+
+Transaction scans see earlier inserts, honor savepoint rollback, and reject
+calls after transaction revocation just like `load`. Independent scans see only
+committed state. Scanning does not authorize records or apply caller predicates;
+the runtime composes it with its existing authorized reads.

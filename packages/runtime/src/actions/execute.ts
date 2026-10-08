@@ -4,6 +4,8 @@ import type { Manifest } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
   Json,
+  QueryRequest,
+  PageResult,
   ReadRequest,
   ReadResult,
   ActionReceipt,
@@ -33,6 +35,7 @@ export interface ActionExecutionContext {
   readonly actor: Principal;
   readonly input: Record<string, Json>;
   read(type: string, id: string, request?: ReadRequest): Promise<ReadResult>;
+  query(type: string, request?: QueryRequest): Promise<PageResult>;
   fail(code: string, details: unknown): never;
   create(type: string, values: unknown): Promise<{ id: string }>;
 }
@@ -86,6 +89,13 @@ export function createActionExecutor(options: {
     transaction: NativeTransaction,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
   ): Promise<ReadResult>;
+  query(
+    principal: Principal,
+    type: string,
+    request: QueryRequest,
+    transaction: NativeTransaction,
+    onRead: (id: string, result: Extract<ReadResult, { status: 'ok' }>) => void,
+  ): Promise<PageResult>;
   validate(
     principal: Principal,
     type: ObjectType,
@@ -262,6 +272,26 @@ export function createActionExecutor(options: {
             }
 
             const reads: NativeReceiptRead[] = [];
+            const definitions = new Map(manifest.objects.map((o) => [o.id, o]));
+            const recordRead = (
+              type: string,
+              id: string,
+              result: Extract<ReadResult, { status: 'ok' }>,
+            ) => {
+              const object = definitions.get(type)!;
+
+              reads.push({
+                objectDefinitionId: type,
+                objectId: id,
+                propertyIds: object.properties
+                  .filter((p) =>
+                    ['available', 'absent'].includes(
+                      result.meta.fields[p.name]?.status ?? '',
+                    ),
+                  )
+                  .map((p) => p.id),
+              });
+            };
             const created: NativeRecord[] = [];
             let accepting = true;
             let failure: unknown;
@@ -369,6 +399,16 @@ export function createActionExecutor(options: {
 
                     throw domainSignal;
                   },
+                  query: (type, request = {}) =>
+                    run(() =>
+                      options.query(
+                        actor,
+                        type,
+                        request,
+                        transaction,
+                        (id, result) => recordRead(type, id, result),
+                      ),
+                    ),
                   read: (type, id, request = {}) =>
                     run(async () => {
                       const result = await options.read(
@@ -379,23 +419,7 @@ export function createActionExecutor(options: {
                         transaction,
                       );
 
-                      if (result.status === 'ok') {
-                        const object = manifest.objects.find(
-                          (o) => o.id === type,
-                        )!;
-
-                        reads.push({
-                          objectDefinitionId: type,
-                          objectId: id,
-                          propertyIds: object.properties
-                            .filter((p) =>
-                              ['available', 'absent'].includes(
-                                result.meta.fields[p.name]?.status ?? '',
-                              ),
-                            )
-                            .map((p) => p.id),
-                        });
-                      }
+                      if (result.status === 'ok') recordRead(type, id, result);
 
                       return result;
                     }),

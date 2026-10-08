@@ -5,6 +5,7 @@ import {
 } from './actions/index.js';
 import type { ActionHandler } from './actions/index.js';
 import type { NativeTransaction, StorageScope } from './storage.js';
+import { createGraphQuery } from './queries/index.js';
 import { createTraversal } from './traversal/index.js';
 import { createSourceOperations } from './resolution/index.js';
 import type { SourceBinding } from 'relate/connectors';
@@ -12,7 +13,7 @@ import { createMemoryStore } from './memory.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
-import type { ReadRequest, ReadResult } from '@relate/protocol';
+import type { QueryRequest, ReadRequest, ReadResult } from '@relate/protocol';
 import type { ObservationStore } from './storage.js';
 import type { Principal } from './authorization/index.js';
 
@@ -174,8 +175,26 @@ export function createRuntime(options: RuntimeOptions) {
     );
   }
 
+  const query = createGraphQuery({
+    manifest,
+    scope: nativeScope,
+    store,
+    clock,
+    install,
+    scopeFor,
+    read: readObject,
+    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+  });
+
   return {
     adopt: source.adopt,
+    query(
+      principal: Principal,
+      objectDefinitionId: string,
+      request: QueryRequest = {},
+    ) {
+      return query(principal, objectDefinitionId, request);
+    },
     read(
       principal: Principal,
       objectDefinitionId: string,
@@ -185,6 +204,7 @@ export function createRuntime(options: RuntimeOptions) {
       return readObject(principal, objectDefinitionId, objectId, request);
     },
     ...createActionExecutor({
+      query,
       manifest,
       scope: nativeScope,
       store,

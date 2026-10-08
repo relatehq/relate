@@ -417,7 +417,14 @@ export type {
   ActionRequest,
 } from './actions.js';
 
-export type { ObjectResult, ReadOptions } from './operations.js';
+export type {
+  ObjectResult,
+  ReadOptions,
+  ObjectRecord,
+  QueryOptions,
+  PageOptions,
+  QueryResult,
+} from './operations.js';
 
 export {
   definitionProvenance,

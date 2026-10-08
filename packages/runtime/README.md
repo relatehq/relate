@@ -4,15 +4,15 @@
 > Not ready for application use. APIs and behavior are incomplete and may change
 > without notice.
 
-The execution engine: authorized reads, traversal and native actions over a
-compiled model, with explicit storage and connector contracts. Private and
-unpublished.
+The execution engine: authorized reads, queries, traversal and native actions
+over a compiled model, with explicit storage and connector contracts. Private
+and unpublished.
 
 ## Responsibility
 
 - `createRuntime({ model, graphId, sources, store?, actionHandlers?, … })`
   returns an engine with the trusted host operation `adopt` and the consumer
-  operations `read`, `traverse` and `invoke`.
+  operations `read`, `query`, `traverse` and `invoke`.
 - Default-deny policy evaluation, field groups, selection, freshness, stale
   fallback and per-field evidence.
 - Observation validation and the pure ordering rule (`compareObservation`).

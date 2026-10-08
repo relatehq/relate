@@ -212,9 +212,10 @@ escalation's 1,000 tasks stay explicit. Breaking stops further page requests.
 `limit` is a page size, not a total-result bound.
 
 The shared `Page`/`PageMeta` types and `createQuery` helper are implemented in
-`@relate/protocol` and `@relate/runtime`. The full fixture's `query` and
-escalation operations remain declarations; the separate native-action tests
-prove get/create rollback without claiming query support. See the
+`@relate/protocol` and `@relate/runtime`. Graph queries now execute through
+public packages on memory and Postgres, including native action queries and
+rollback. The full escalation scenario and action traversal remain fixture
+declarations. See the
 [helper contract](../../../packages/runtime/CONTRACT.md#pagination).
 
 The same calls work on the `objects` supplied to an action implementation.

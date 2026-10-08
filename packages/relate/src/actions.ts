@@ -9,7 +9,13 @@ import type {
   NativeMembership,
 } from './index.js';
 import type { RoleGate } from './authorization.js';
-import type { ObjectResult, ReadOptions } from './operations.js';
+import type {
+  ObjectResult,
+  ReadOptions,
+  QueryOptions,
+  QueryResult,
+  ObjectRecord,
+} from './operations.js';
 import { CompileError } from './diagnostics.js';
 import { recordProvenance } from './provenance.js';
 
@@ -112,6 +118,13 @@ export interface ActionContext<
   ) => never;
   readonly objects: {
     readonly [K in keyof G['objects']]: {
+      query<
+        N extends PropertyNames<G['objects'][K]> = PropertyNames<
+          G['objects'][K]
+        >,
+      >(
+        options?: QueryOptions<G['objects'][K], N>,
+      ): QueryResult<ObjectRecord<G['objects'][K], N>>;
       get<
         N extends PropertyNames<G['objects'][K]> = PropertyNames<
           G['objects'][K]

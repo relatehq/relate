@@ -129,8 +129,8 @@ contract, errors, lifecycle and adapter verification requirements.
 `createQuery(readPage, { cursor? })` wraps an authorized page reader in a
 `QueryResult<T>`. Await the handle to obtain one `Page<T>`; use `for await` to
 iterate records across pages. This is implemented infrastructure for queries and
-to-many traversals. Collection query execution remains separate; the helper does
-not implement a query engine or action transactions.
+to-many traversals. The graph query engine below supplies authorized pages; the
+helper itself does not implement filtering or action transactions.
 
 ```ts
 import { createQuery } from '@relate/runtime';
@@ -167,6 +167,63 @@ tokens cannot prove progress or snapshot consistency. This helper introduces no
 cross-source snapshot or automatic native rollback; those belong to the query
 engine and action transaction owner. Page size and an application's total work
 bound remain separate.
+
+## Graph queries
+
+`runtime.query(principal, objectDefinitionId, request?)` returns one
+`PageResult`. The Node consumer and action APIs expose
+`objects.Invoice.query(options?)` as an awaitable, async-iterable `QueryResult`.
+Portable request/result types live in `@relate/protocol`; typed `QueryOptions`
+and object records live in `relate`.
+
+- Omit `where` or pass `{}` to enumerate. Otherwise each property is an exact
+  scalar equality test, combined with AND. Values must satisfy the property's
+  compiled schema. References and object-ID properties use canonical Relate IDs.
+  `null` matches explicit null; known absent optional values do not match. There
+  is no `undefined` filter, nested predicate, comparison, sorting or
+  aggregation.
+- Membership is adopted source identities or native records in this graph and
+  revision. Source queries may refresh known records through existing `get`
+  behavior, but never discover/adopt provider records. Exhaustion describes this
+  scan, not provider-wide coverage. Direct source queries and sync are planned.
+- Validate filter names, values and field access before scanning, even if there
+  are no records. Invalid or forbidden filters reject with `invalid-request`.
+  Whole-object policies filter candidates before caller predicates. Missing or
+  unavailable filter evidence on a readable candidate rejects with `incomplete`,
+  rather than silently treating an unknown match as false. `stale: 'allow'` can
+  match authorized stale values; `stale: 'omit'` cannot. Source
+  denials/deletions follow the existing read path and do not resurrect retained
+  data.
+- Filter fields need not be selected and do not appear in projected results.
+  `requireComplete` applies to the final selection of matching records. Records
+  preserve field evidence, freshness and warnings from reads. Authorization and
+  filter freshness are checked again before emitting pending matches. A match
+  whose filter evidence expired meanwhile is read again once; it rejects with
+  `incomplete` only if that evidence is still unavailable.
+- Ascending canonical object ID supplies deterministic keyset order. `limit`
+  defaults to 25 and accepts integers 1–100; it is a maximum page size. Each
+  page examines at most 100 candidates. Filtering and denial can yield short or
+  empty non-final pages. Continue until `meta.exhausted`; no total count is
+  reported.
+- Encrypted cursors expire after 15 minutes and bind graph, revision, principal,
+  object type, source bindings, filters, selection and read options/page size. A
+  shared `cursorKey` allows continuation across trusted runtime instances.
+  Action cursors additionally bind their transaction; they cannot escape it. The
+  runtime checks actual scan progress, not just changing cursor strings.
+- Pages are not a snapshot. Concurrent insertions before the cursor may be
+  missed, later insertions may appear, and values/access may change between
+  pages. Native queries within actions see earlier native writes in the same
+  transaction; source observations do not join that transaction.
+- Action queries use the executor's deadline and failure handling. A failed page
+  aborts native effects even if its rejection is caught by the handler. Receipt
+  dependencies include fields inspected while evaluating readable candidates,
+  including filter-only fields and non-matches. Receipt replay checks current
+  access to those dependencies; it does not rerun the query or promise the
+  historical population still matches.
+
+Shared acceptance cases in `tests/support/query-contract.ts` execute on memory
+and Postgres. Type probes cover caller/action filters, reference IDs, selection
+and iteration; installed-package smoke checks exercise graph query execution.
 
 ## Native actions
 

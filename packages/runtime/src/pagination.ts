@@ -1,14 +1,13 @@
 import { ReadError } from '@relate/protocol';
-import type { Page } from '@relate/protocol';
+import type { Page, QueryResult } from '@relate/protocol';
 
 // TODO(client, open decision): choose a browser-safe shared home for createQuery,
-// QueryResult and the typed Consumer contract before implementing @relate/client.
+// and the typed Consumer contract before implementing @relate/client.
+// QueryResult itself is now a portable protocol type.
 // relate/consumer is one option, not an agreed API. See packages/client/README.md.
 // Do not make the browser client import the engine or duplicate this behavior.
 
-/** Await one page, or iterate records across all pages. */
-export interface QueryResult<T>
-  extends PromiseLike<Page<T>>, AsyncIterable<T> {}
+export type { QueryResult } from '@relate/protocol';
 
 /** Validate the envelope, not records: the page reader owns policy and evidence. */
 function validatePage<T>(page: Page<T>, cursor: string | undefined): void {

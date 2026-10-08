@@ -11,10 +11,10 @@ import type {
   PageResult,
 } from '@relate/protocol';
 import type { ObservationStore, StorageScope } from '../storage.js';
+import { compareObjectIds } from '../storage.js';
 import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
-import { cursorCodec } from './cursors.js';
-import { validateReadRequest, summarize, supplied } from '../reads/index.js';
+import { validateReadRequest, project, cursorCodec } from '../reads/index.js';
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
@@ -271,7 +271,8 @@ export function createTraversal(options: {
         if (
           typeof candidate.objectId !== 'string' ||
           candidate.objectId.length === 0 ||
-          (after !== undefined && candidate.objectId <= after)
+          (after !== undefined &&
+            compareObjectIds(candidate.objectId, after) <= 0)
         )
           throw new ReadError('incomplete');
 
@@ -348,53 +349,5 @@ export function createTraversal(options: {
           }
         : { exhausted: true },
     };
-  };
-}
-
-function project(
-  id: string,
-  result: Available,
-  selected: readonly string[],
-  request: ReadRequest,
-  now: number,
-): ObjectRecord {
-  const data: ObjectRecord['data'] = {};
-  const fields: ObjectRecord['meta']['fields'] = {};
-
-  for (const name of selected) {
-    let evidence = result.meta.fields[name] ?? {
-      status: 'unavailable' as const,
-    };
-
-    if (supplied(evidence) && evidence.source === 'source') {
-      const age = now - Date.parse(evidence.observedAt);
-      const stale = age < 0 || age > (request.maxAgeMs ?? 60_000);
-
-      evidence =
-        stale && request.stale === 'omit'
-          ? { status: 'unavailable' }
-          : { ...evidence, freshness: stale ? 'stale' : 'fresh' };
-    }
-
-    fields[name] = evidence;
-
-    if (supplied(evidence) && Object.hasOwn(result.data, name))
-      data[name] = result.data[name]!;
-  }
-
-  const summary = summarize(fields);
-
-  if (summary.completeness === 'partial' && request.requireComplete)
-    throw new ReadError('incomplete');
-
-  return {
-    id,
-    data,
-    meta: {
-      ...result.meta,
-      fields,
-      completeness: summary.completeness,
-      degraded: result.meta.degraded || summary.degraded,
-    },
   };
 }

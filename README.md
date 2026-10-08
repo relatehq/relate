@@ -238,19 +238,49 @@ doesn't exist.
 - **Source systems stay in charge.** Relate keeps the identities and
   observations it needs. It doesn't copy your CRM into a new silo.
 
+## Querying the graph
+
+Use `query()` to enumerate records, or add equality filters to find matches:
+
+```ts
+const page = await objects.Invoice.query({
+  where: { status: 'Overdue' },
+  select: ['status', 'total'],
+  limit: 100,
+});
+
+// No filter enumerates the caller's accessible invoices.
+for await (const invoice of objects.Invoice.query()) {
+  console.log(invoice.id, invoice.data);
+}
+```
+
+`await` returns one page; `for await` walks every page. `limit` is the page
+size. Multiple filters mean AND, and reference filters use Relate object IDs.
+Queries apply the same access rules and field evidence as individual reads,
+including inside actions. There is no separate `list` method.
+
+**Queries currently cover records already in the graph:** adopted source records
+and Relate-owned records. “All overdue invoices” means all matching invoices in
+that graph, not every invoice in your billing system. **Direct source queries
+and sync from sources are coming; neither is implemented yet.** For now, your
+application discovers source records and adopts them by ID. Comparisons such as
+`dueDate < today`, sorting and aggregates are also outside this first query API.
+
 ## Status
 
-| Works today                                             | Not yet                                                  |
-| ------------------------------------------------------- | -------------------------------------------------------- |
-| TypeScript authoring, compiler and diagnostics          | Listing and querying (records are adopted by ID for now) |
-| Objects backed by one source; references across sources | One object enriched from several sources                 |
-| Two-way relationship traversal                          | **MCP and HTTP interfaces** (designed, not built)        |
-| Role gates, claim filters, field-level access           | Writing back to source systems                           |
-| Per-field evidence and freshness bounds                 | Migrating between model revisions                        |
-| Relate-owned objects, idempotent actions and receipts   | Published npm packages                                   |
-| In-memory and Postgres stores                           |                                                          |
-| SQLite, Stripe and Salesforce (read-only) connectors    |                                                          |
-| `relate dev` model inspector                            |                                                          |
+| Works today                                             | Not yet                                           |
+| ------------------------------------------------------- | ------------------------------------------------- |
+| TypeScript authoring, compiler and diagnostics          | Direct source queries and sync from sources       |
+| Objects backed by one source; references across sources | One object enriched from several sources          |
+| Graph queries with equality filters                     | Comparison filters, sorting and aggregates        |
+| Two-way relationship traversal                          | **MCP and HTTP interfaces** (designed, not built) |
+| Role gates, claim filters, field-level access           | Writing back to source systems                    |
+| Per-field evidence and freshness bounds                 | Migrating between model revisions                 |
+| Relate-owned objects, idempotent actions and receipts   | Published npm packages                            |
+| In-memory and Postgres stores                           |                                                   |
+| SQLite, Stripe and Salesforce (read-only) connectors    |                                                   |
+| `relate dev` model inspector                            |                                                   |
 
 Relate runs embedded in a Node application today. Agent access through MCP is
 the next major piece. The intended shape is `get`, `query` and `traverse` tools

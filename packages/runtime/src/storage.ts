@@ -10,6 +10,8 @@ export type {
   NativeReceiptRead,
   NativeTransaction,
   NativeStore,
+  NativeScanOptions,
+  NativeScanResult,
   SourceVersion,
 } from 'relate/storage';
 
@@ -27,6 +29,11 @@ export {
   compareObservation,
   OrderingConflict,
 } from './observations/ordering.js';
+
+/** Scan order for opaque object IDs: UTF-8 bytewise, matching Postgres COLLATE "C". */
+export function compareObjectIds(a: string, b: string): number {
+  return Buffer.compare(Buffer.from(a), Buffer.from(b));
+}
 
 export class NativeConflict extends Error {}
 

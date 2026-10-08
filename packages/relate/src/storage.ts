@@ -99,7 +99,23 @@ export interface NativeReceiptRead {
   readonly propertyIds: readonly string[];
 }
 
+/** Strictly ascending object-ID scan, scoped to one native object type. */
+export interface NativeScanOptions {
+  readonly after?: string;
+  readonly limit: number;
+}
+
+export interface NativeScanResult {
+  readonly objects: readonly NativeRecord[];
+  readonly hasMore: boolean;
+}
+
 export interface NativeTransaction {
+  /** Includes this transaction's earlier inserts. */
+  scan(
+    objectDefinitionId: string,
+    options: NativeScanOptions,
+  ): Promise<NativeScanResult>;
   /** Roll back this callback's writes on rejection, retaining the outer transaction and key claim. */
   savepoint<T>(operation: () => Promise<T>): Promise<T>;
   load(
@@ -120,6 +136,11 @@ export interface NativeTransaction {
 }
 
 export interface NativeStore {
+  scan(
+    scope: NativeScope,
+    objectDefinitionId: string,
+    options: NativeScanOptions,
+  ): Promise<NativeScanResult>;
   /** Trusted storage evidence; never expose without runtime receipt authorization. */
   loadInvocation(
     scope: NativeScope,
