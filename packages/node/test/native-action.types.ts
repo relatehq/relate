@@ -76,6 +76,12 @@ const Review = defineAction({
 const domainGraph = defineGraph({ ...graph, actions: { review: Review } });
 
 implementAction(domainGraph, Review, async ({ fail }) => {
+  // @ts-expect-error empty detail schemas still require an object
+  fail('inactive', 'customer inactive');
+  // @ts-expect-error empty detail schemas still require an object
+  fail('inactive', 42);
+  // @ts-expect-error arrays are not detail records
+  fail('inactive', []);
   // @ts-expect-error unknown business failure code
   fail('typo', {});
   // @ts-expect-error wrong details for this code

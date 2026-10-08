@@ -57,6 +57,7 @@ export function domainActionContract(
     let graphId: string;
     let records: NativeRecord[];
     let portfolio: string;
+    let dependencyPortfolio: string;
     let now: number;
     const model = compile(domainGraph);
     const scope = () => ({
@@ -69,6 +70,7 @@ export function domainActionContract(
       graphId = randomUUID();
       records = [];
       portfolio = 'north';
+      dependencyPortfolio = 'north';
       now = 1000;
     });
     afterEach(async () => {
@@ -114,7 +116,12 @@ export function domainActionContract(
                 record: {
                   id,
                   name: 'Northwind',
-                  portfolio: id === 'south' ? 'south' : portfolio,
+                  portfolio:
+                    id === 'dependency'
+                      ? dependencyPortfolio
+                      : id === 'south'
+                        ? 'south'
+                        : portfolio,
                 },
               }),
             },
@@ -152,7 +159,7 @@ export function domainActionContract(
       return context.fail('inactive', {});
     };
 
-    it.each([false, true])(
+    it.each(['rethrow', 'return', 'wrap', 'replace'])(
       'rolls back writes and returns a durable declared failure even if caught=%s',
       async (caught) => {
         let calls = 0;
@@ -165,7 +172,12 @@ export function domainActionContract(
           try {
             context.fail('inactive', {});
           } catch (error) {
-            if (!caught) throw error;
+            if (caught === 'rethrow') throw error;
+
+            if (caught === 'wrap')
+              throw new Error('review failed', { cause: error });
+
+            if (caught === 'replace') throw new Error('replacement');
           }
 
           // Work attempted after a swallowed failure must neither write nor cause
@@ -327,6 +339,35 @@ export function domainActionContract(
       expect(receipts[0]).toEqual(receipts[1]);
       expect(calls).toBe(1);
       await noWrites();
+    });
+
+    it('denies initial failure details derived from a read whose access was lost', async () => {
+      const relate = app(async (context) => {
+        const dependency = await relate.host.adopt(Customer, 'dependency');
+        const result = await context.objects.Customer.get(dependency, {
+          select: ['name'],
+        });
+
+        expect(result.status).toBe('ok');
+        await create(context);
+        dependencyPortfolio = 'south';
+        now += 30_001;
+
+        return context.fail('limit', { limit: 10 });
+      });
+      const customer = await relate.host.adopt(Customer, 'north');
+
+      await expect(
+        relate.as(ana).actions.review(request(customer)),
+      ).rejects.toMatchObject({ code: 'denied' });
+      await noWrites();
+      expect(
+        await backing.store.native!.loadInvocation(
+          scope(),
+          Review.id,
+          'review',
+        ),
+      ).toBeUndefined();
     });
 
     it('rechecks actor and current access before disclosing failure details', async () => {

@@ -181,6 +181,14 @@ object-operation error still aborts the invocation; `fail()` cannot relabel it
 as a business failure. Undeclared codes or invalid details reject with
 `internal` and cannot produce a business-failure receipt.
 
+Before initially saving and returning a failed receipt, Relate rechecks input
+and detail references and the object/field reads that may have contributed to
+scalar details. This check runs against the post-rollback state; losing access
+rejects with `denied` and saves no receipt. Success does not have this
+additional post-rollback check because it commits its native effects. This extra
+read pass is intentional to avoid disclosing failure details based on access
+that no longer holds.
+
 Same-actor/same-input retries and receipt lookup return the original failure,
 subject to current action, reference, object and field access. They do not run
 the handler again, even if the customer has since become active. Use a new key

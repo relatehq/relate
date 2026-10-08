@@ -165,8 +165,6 @@ type NativeObject = ObjectDefinition<
   NativeMembership
 >;
 
-export type ActionErrors = Record<string, z.ZodType>;
-
 // The action declaration (including portable errors) now uses the real package.
 export { defineAction } from 'relate';
 
@@ -175,10 +173,6 @@ import type { ActionDefinition } from 'relate';
 export type { ActionDefinition } from 'relate';
 
 // Access
-
-export interface ActionPolicy {
-  readonly execute: RoleGate;
-}
 
 type CurrentAccess<
   R extends readonly string[],

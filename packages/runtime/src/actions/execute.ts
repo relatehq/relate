@@ -466,7 +466,7 @@ export function createActionExecutor(options: {
 
                 if (!domain) output = parse(action.output, result);
               } catch (error) {
-                if (error !== domainSignal) throw error;
+                if (!domain) throw error;
               } finally {
                 accepting = false;
                 await Promise.allSettled(pending);
@@ -539,6 +539,8 @@ export function createActionExecutor(options: {
               receipt,
             };
 
+            // Rollback changes the authorization view. Recheck recorded fields too,
+            // since scalar failure details may have been derived from those reads.
             if (domain)
               await authorizeReceipt(actor, action, invocation, transaction);
 

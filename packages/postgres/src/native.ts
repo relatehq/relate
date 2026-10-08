@@ -130,6 +130,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
               } catch (error) {
                 check();
                 await client.query(`ROLLBACK TO SAVEPOINT ${name}`);
+                check();
                 await client.query(`RELEASE SAVEPOINT ${name}`);
                 claimed.clear();
 

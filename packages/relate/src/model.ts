@@ -221,6 +221,31 @@ export function validateManifest(input: unknown): Manifest {
         ].some((v) => v !== undefined))
     )
       throw new Error('Constraint does not match scalar type');
+
+    if (
+      schema.type === 'string' &&
+      (schema.minLength ?? 0) > (schema.maxLength ?? Infinity)
+    )
+      throw new Error('Unsatisfiable string bounds');
+
+    if (schema.type === 'number') {
+      const lower = Math.max(
+        schema.minimum ?? -Infinity,
+        schema.exclusiveMinimum ?? -Infinity,
+      );
+      const upper = Math.min(
+        schema.maximum ?? Infinity,
+        schema.exclusiveMaximum ?? Infinity,
+      );
+
+      if (
+        lower > upper ||
+        (lower === upper &&
+          (schema.exclusiveMinimum === lower ||
+            schema.exclusiveMaximum === upper))
+      )
+        throw new Error('Unsatisfiable number bounds');
+    }
   }
 
   const seen = new Set<string>();

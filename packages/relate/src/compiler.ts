@@ -7,6 +7,7 @@ import type {
   Property,
 } from './index.js';
 import { referenceSchemas } from './schema.js';
+import { actionKeys } from './actions.js';
 import { portable } from './portable-schema.js';
 import type { Claim, ActorField, ObjectRule } from './authorization.js';
 import { canonicalJson, deepFreeze, validateManifest } from './model.js';
@@ -293,14 +294,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
   };
   const actions = Object.entries(graph.actions ?? {}).map(
     ([apiName, action]) => {
-      if (
-        Object.keys(action).some(
-          (key) =>
-            !['id', 'input', 'output', 'creates', 'policy', 'errors'].includes(
-              key,
-            ),
-        )
-      )
+      if (Object.keys(action).some((key) => !actionKeys.includes(key)))
         throw new Error('Unsupported action option');
 
       if (

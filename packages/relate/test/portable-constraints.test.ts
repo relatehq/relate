@@ -99,6 +99,16 @@ it.each([
 );
 
 it.each([
+  // @ts-expect-error JavaScript callers can supply runtime-supported conditional checks
+  z.string().min(1, { when: () => false }),
+  // @ts-expect-error JavaScript callers can supply runtime-supported conditional checks
+  z.string().max(2, { when: () => false }),
+  // @ts-expect-error JavaScript callers can supply runtime-supported conditional checks
+  z.string().length(2, { when: () => false }),
+  // @ts-expect-error JavaScript callers can supply runtime-supported conditional checks
+  z.number().gt(1, { when: () => false }),
+  // @ts-expect-error JavaScript callers can supply runtime-supported conditional checks
+  z.number().max(2, { when: () => false }),
   z.string().regex(/hi/),
   z.string().trim(),
   z.email(),
@@ -170,4 +180,58 @@ it('compiles declared error details and rejects unsupported error schemas and un
         actions: { addAccountReview: { ...action, errors } },
       }),
     ).toThrow();
+});
+
+// Check compiled definitions and externally supplied manifests independently.
+it.each([
+  z.string().min(5).max(2),
+  z.number().min(5).max(2),
+  z.number().gt(3).lt(3),
+  z.number().min(3).lt(3),
+  z.number().gt(3).max(3),
+])('rejects impossible authoring bounds (%#. case)', (schema) => {
+  expect(() =>
+    compile({
+      ...graph,
+      actions: {
+        addAccountReview: {
+          ...AddAccountReview,
+          input: z.object({ value: schema }),
+        },
+      },
+    }),
+  ).toThrow('Unsatisfiable');
+});
+
+it.each([
+  { type: 'string', minLength: 5, maxLength: 2 },
+  { type: 'number', minimum: 5, maximum: 2 },
+  { type: 'number', exclusiveMinimum: 3, exclusiveMaximum: 3 },
+  { type: 'number', minimum: 3, exclusiveMaximum: 3 },
+  { type: 'number', exclusiveMinimum: 3, maximum: 3 },
+])('rejects impossible loaded bounds (%#. case)', (bounds) => {
+  const manifest = JSON.parse(JSON.stringify(compile(graph).manifest));
+
+  manifest.actions[0].input.note = {
+    optional: false,
+    nullable: false,
+    ...bounds,
+  };
+  expect(() => validateManifest(manifest)).toThrow('Unsatisfiable');
+});
+
+it('allows equal inclusive bounds and weaker exclusive bounds', () => {
+  const model = compile({
+    ...graph,
+    actions: {
+      addAccountReview: {
+        ...AddAccountReview,
+        input: z.object({
+          value: z.number().min(3).max(3).gt(2).lt(4),
+        }),
+      },
+    },
+  });
+
+  expect(accepts(model.manifest.actions![0]!.input.value!, 3)).toBe(true);
 });

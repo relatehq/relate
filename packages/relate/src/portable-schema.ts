@@ -1,5 +1,9 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 import type { ScalarSchema } from './model.js';
+
+// Zod installs this shared type guard on ordinary length checks. Custom predicates
+// cannot cross the JSON boundary, but its built-in guard preserves scalar semantics.
+const lengthWhen = z.string().min(0).def.checks![0]!._zod.def.when;
 
 // Only checks represented in portable JSON may cross the compilation boundary.
 export function portable(schema: z.ZodType): ScalarSchema {
@@ -38,6 +42,16 @@ export function portable(schema: z.ZodType): ScalarSchema {
   for (const check of ('checks' in current.def ? current.def.checks : []) ??
     []) {
     const def = check._zod.def;
+
+    if (
+      def.when !== undefined &&
+      !(
+        type === 'string' &&
+        ['min_length', 'max_length', 'length_equals'].includes(def.check) &&
+        def.when === lengthWhen
+      )
+    )
+      throw new Error('Unsupported conditional schema check');
 
     // Preserve the strongest bound when callers chain checks in any order.
     if (type === 'string' && def.check === 'min_length') {

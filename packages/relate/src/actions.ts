@@ -11,6 +11,15 @@ import type {
 import type { RoleGate } from './authorization.js';
 import type { ObjectResult, ReadOptions } from './operations.js';
 
+export const actionKeys: readonly string[] = Object.freeze([
+  'id',
+  'input',
+  'output',
+  'creates',
+  'policy',
+  'errors',
+]);
+
 type NativeObject = ObjectDefinition & {
   readonly membership: NativeMembership;
 };
@@ -46,12 +55,7 @@ export function defineAction<
   errors?: Errors;
   policy?: { readonly execute: RoleGate };
 }): ActionDefinition<Input, Output, Creates, Errors> & { readonly id: Id } {
-  if (
-    Object.keys(definition).some(
-      (key) =>
-        !['id', 'input', 'output', 'creates', 'policy', 'errors'].includes(key),
-    )
-  )
+  if (Object.keys(definition).some((key) => !actionKeys.includes(key)))
     throw new Error('Unsupported action option');
 
   return Object.freeze({
@@ -87,7 +91,7 @@ export interface ActionContext<
     ...args: {
       [Code in keyof A['errors'] & string]: [
         code: Code,
-        details: z.input<A['errors'][Code]>,
+        details: Record<string, unknown> & z.input<A['errors'][Code]>,
       ];
     }[keyof A['errors'] & string]
   ) => never;
