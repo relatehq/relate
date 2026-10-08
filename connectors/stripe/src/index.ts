@@ -11,6 +11,8 @@ const resources = {
   charges: { object: 'charge' },
 } as const;
 
+const ACCOUNT_ID = /^acct_[A-Za-z0-9]+$/;
+
 export type StripeResource = keyof typeof resources;
 
 export interface StripeOptions {
@@ -39,12 +41,13 @@ export interface StripeConnection {
 
 /** Sanitized diagnostics: no credentials, provider messages, or response bodies. */
 export class StripeSourceError extends Error {
-  constructor(readonly status?: number) {
-    super(
-      status === undefined
-        ? 'Stripe source request failed'
-        : `Stripe source request failed (HTTP ${status})`,
-    );
+  constructor(
+    readonly status?: number,
+    message = status === undefined
+      ? 'Stripe source request failed'
+      : `Stripe source request failed (HTTP ${status})`,
+  ) {
+    super(message);
     this.name = 'StripeSourceError';
   }
 }
@@ -103,10 +106,15 @@ export function stripe(options: StripeOptions): StripeConnection {
   if (mode !== 'test' && mode !== 'live')
     throw new Error('Invalid Stripe mode');
 
-  if (account !== undefined && !/^acct_[A-Za-z0-9]+$/.test(account))
+  if (account !== undefined && !ACCOUNT_ID.test(account))
     throw new Error('Invalid Stripe Connect account');
 
   const keyPattern = new RegExp(`^(?:sk|rk)_${mode}_[A-Za-z0-9]+$`);
+
+  // A secret/restricted key belongs to one account for its lifetime, so the
+  // scope verified for it is immutable credential context. Revocation still
+  // surfaces as 401/403 on the record request, which forgets it.
+  let verified: { key: string; scope: string } | undefined;
 
   async function request(
     path: string,
@@ -178,26 +186,23 @@ export function stripe(options: StripeOptions): StripeConnection {
 
   async function operation<T>(
     caller: AbortSignal,
-    work: (headers: Headers, signal: AbortSignal) => Promise<T>,
+    work: (key: string, headers: Headers, signal: AbortSignal) => Promise<T>,
   ): Promise<T> {
     caller.throwIfAborted();
-    const controller = new AbortController();
-    const signal = controller.signal;
-    const forwardAbort = () => controller.abort(caller.reason);
-
-    caller.addEventListener('abort', forwardAbort, { once: true });
-    const timer = setTimeout(
-      () =>
-        controller.abort(
-          new DOMException('Stripe source timeout', 'TimeoutError'),
-        ),
-      timeoutMs,
+    // Aborted on completion so a denial also cancels any sibling request.
+    const settled = new AbortController();
+    const signal = AbortSignal.any([
+      caller,
+      AbortSignal.timeout(timeoutMs),
+      settled.signal,
+    ]);
+    // Reject promptly even if a credential callback or transport ignores the signal.
+    const cancelled = new Promise<never>((_, reject) =>
+      signal.addEventListener('abort', () => reject(signal.reason), {
+        once: true,
+        signal: settled.signal,
+      }),
     );
-    let abort: () => void = () => {};
-    const cancelled = new Promise<never>((_, reject) => {
-      abort = () => reject(signal.reason);
-      signal.addEventListener('abort', abort, { once: true });
-    });
 
     try {
       return await Promise.race([
@@ -208,8 +213,13 @@ export function stripe(options: StripeOptions): StripeConnection {
 
           signal.throwIfAborted();
 
+          // Local misconfiguration is an outage, not provider denial, so
+          // previously verified observations remain available as stale data.
           if (typeof key !== 'string' || !keyPattern.test(key))
-            throw new SourceAccessDenied();
+            throw new StripeSourceError(
+              undefined,
+              `Stripe apiKey must be an sk_${mode}_ or rk_${mode}_ key`,
+            );
 
           const headers = new Headers({
             Authorization: `Bearer ${key}`,
@@ -218,11 +228,17 @@ export function stripe(options: StripeOptions): StripeConnection {
 
           if (account) headers.set('Stripe-Account', account);
 
-          return work(headers, signal);
+          return work(key, headers, signal);
         })(),
       ]);
     } catch (error) {
-      if (signal.aborted) throw signal.reason;
+      if (caller.aborted) throw caller.reason;
+
+      if (signal.aborted)
+        throw new StripeSourceError(
+          undefined,
+          'Stripe source request timed out',
+        );
 
       if (
         error instanceof SourceAccessDenied ||
@@ -232,28 +248,66 @@ export function stripe(options: StripeOptions): StripeConnection {
 
       throw new StripeSourceError();
     } finally {
-      clearTimeout(timer);
-      caller.removeEventListener('abort', forwardAbort);
-      signal.removeEventListener('abort', abort);
-      controller.abort();
+      settled.abort();
     }
   }
 
   async function identify(
+    key: string,
     headers: Headers,
     signal: AbortSignal,
   ): Promise<string> {
-    const result = await request('account', headers, signal);
+    try {
+      const result = await request('account', headers, signal);
 
-    if (
-      result.object !== 'account' ||
-      typeof result.id !== 'string' ||
-      !/^acct_[A-Za-z0-9]+$/.test(result.id) ||
-      (account && result.id !== account)
-    )
-      throw new SourceAccessDenied();
+      if (
+        result.object !== 'account' ||
+        typeof result.id !== 'string' ||
+        !ACCOUNT_ID.test(result.id) ||
+        (account && result.id !== account)
+      )
+        throw new SourceAccessDenied();
 
-    return `${result.id}:${mode}`;
+      verified = { key, scope: `${result.id}:${mode}` };
+
+      return verified.scope;
+    } catch (error) {
+      if (error instanceof SourceAccessDenied) verified = undefined;
+
+      throw error;
+    }
+  }
+
+  async function retrieve(
+    key: string,
+    path: string,
+    headers: Headers,
+    signal: AbortSignal,
+  ): Promise<[providerAccountId: string, result: RecordData]> {
+    const known = verified?.key === key ? verified.scope : undefined;
+
+    if (known) {
+      try {
+        return [known, await request(path, headers, signal)];
+      } catch (error) {
+        if (error instanceof SourceAccessDenied) verified = undefined;
+
+        throw error;
+      }
+    }
+
+    // First use of this key: verify identity without serial HTTP latency.
+    // Retain outages until both calls finish, but fail immediately on denial.
+    const [identityResult, recordResult] = await Promise.all([
+      settleUnlessDenied(identify(key, headers, signal)),
+      settleUnlessDenied(request(path, headers, signal)),
+    ]);
+
+    if (identityResult.status === 'rejected') throw identityResult.reason;
+
+    if (recordResult.status === 'rejected') throw recordResult.reason;
+
+    return [identityResult.value, recordResult.value];
   }
 
   return {
@@ -292,28 +346,13 @@ export function stripe(options: StripeOptions): StripeConnection {
 
           return operation(
             signal,
-            async (headers, activeSignal): Promise<SourceRecord> => {
-              // Keep fresh identity evidence without serial HTTP latency. Retain
-              // outages until both calls finish, but fail immediately on denial.
-              const outcomes = await Promise.all([
-                settleUnlessDenied(identify(headers, activeSignal)),
-                settleUnlessDenied(
-                  request(
-                    `${name}/${encodeURIComponent(id)}`,
-                    headers,
-                    activeSignal,
-                  ),
-                ),
-              ]);
-              const [identityResult, recordResult] = outcomes;
-
-              if (identityResult.status === 'rejected')
-                throw identityResult.reason;
-
-              if (recordResult.status === 'rejected') throw recordResult.reason;
-
-              const providerAccountId = identityResult.value;
-              const result = recordResult.value;
+            async (key, headers, activeSignal): Promise<SourceRecord> => {
+              const [providerAccountId, result] = await retrieve(
+                key,
+                `${name}/${encodeURIComponent(id)}`,
+                headers,
+                activeSignal,
+              );
 
               if (result.id !== id || result.object !== resource.object)
                 throw new StripeSourceError();
@@ -335,9 +374,11 @@ export function stripe(options: StripeOptions): StripeConnection {
 
               const record: RecordData = {};
 
+              // Absent fields (for example customer `subscriptions`, which
+              // Stripe only returns when expanded) are left out; the source
+              // schema decides whether a missing field is acceptable.
               for (const field of fields) {
-                if (!Object.hasOwn(result, field))
-                  throw new StripeSourceError();
+                if (!Object.hasOwn(result, field)) continue;
 
                 validateNumbers(result[field]);
                 record[field] = result[field]!;

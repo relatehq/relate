@@ -44,12 +44,15 @@ characters are rejected locally.
 literal top-level fields to retain in Relate. Stripe still sends its normal
 response; unselected fields are discarded by the connector before observation
 storage. Selected objects/arrays are kept in full, including any personal data
-inside them. Missing selected fields fail the read; explicit nulls remain null.
-Nested JSON is preserved, while nonfinite numbers and unsafe integer values are
-rejected. Define the source schema against your pinned version, including
-nullable fields. Money stays in Stripe's integer minor units and timestamps stay
-in seconds. Nested list fields (such as invoice lines) may be partial: this
-connector does not fetch their remaining pages or expand references.
+inside them. A selected field Stripe does not return is left out of the record
+(customer `subscriptions`, `sources` and `tax_ids`, for example, only appear
+when expanded, which this connector does not do); the source schema decides
+whether that is acceptable. Explicit nulls remain null. Nested JSON is
+preserved, while nonfinite numbers and unsafe integer values are rejected.
+Define the source schema against your pinned version, including nullable fields.
+Money stays in Stripe's integer minor units and timestamps stay in seconds.
+Nested list fields (such as invoice lines) may be partial: this connector does
+not fetch their remaining pages or expand references.
 
 ## Verified provider scope
 
@@ -60,30 +63,40 @@ restricted key prefix, and present records must have the matching `livemode`.
 Only `sk_test_`, `rk_test_`, `sk_live_`, and `rk_live_` keys are supported.
 OAuth, organization keys and API v2 contexts are outside this slice.
 
-Use a key permitted to retrieve the current account and the selected resources.
+The key must be allowed to retrieve the current account (`GET /v1/account`) as
+well as the selected resources. A restricted key with only `customers:read`
+cannot prove which account it belongs to, so every read is denied.
+
 `apiKey` may be a string or an async callback receiving `{ signal }`. Each
 operation resolves it once and reuses the immutable result for account
 verification and the resource request. A callback permits rotation without
 rebuilding the binding. Never change a key to represent a different source under
-an existing binding. Account verification happens on every connector fetch;
-Relate may serve cached observations according to its freshness policy without
-calling the connector. Set policy evidence freshness and read `maxAgeMs`
-according to your application's requirements.
+an existing binding.
+
+`identify` always calls `GET /v1/account`. A Stripe key belongs to one account
+for its lifetime, so `fetch` remembers the scope verified for the current key
+and sends only the resource request; a new key is verified again. A 401/403 on
+any request forgets the remembered scope. Relate may serve cached observations
+according to its freshness policy without calling the connector. Set policy
+evidence freshness and read `maxAgeMs` according to your application's
+requirements.
 
 For Stripe Connect, set `account: 'acct_connected'`. Both requests carry the
 `Stripe-Account` header, and the returned account must match it. Bind using
 `providerAccountId: 'acct_connected:test'`. A configured account is a routing
-hint, not identity evidence. Account verification and retrieval are separate
-HTTP requests, not a transactional snapshot; they run concurrently using the
-same key and account header. Both must succeed before data is returned; explicit
-denial takes precedence over an outage in the other request. No cross-operation
-identity cache is used. Revoked credentials produce denial, never stale
-authorization.
+hint, not identity evidence. When a key is first verified, account verification
+and retrieval run concurrently using the same key and account header. Both must
+succeed before data is returned; explicit denial takes precedence over an outage
+in the other request. Revoked credentials produce denial on the next request,
+never stale authorization.
 
 ## Errors and deadlines
 
-- HTTP 401/403, invalid/wrong-mode keys, invalid account identity, Connect
-  mismatches, and wrong record mode throw `SourceAccessDenied`.
+- HTTP 401/403, invalid account identity, Connect mismatches, and wrong record
+  mode throw `SourceAccessDenied`.
+- A missing, malformed or wrong-mode key is local misconfiguration, not provider
+  denial. It throws `StripeSourceError` before any request is sent, so Relate
+  reports the source unavailable instead of treating records as inaccessible.
 - A matching resource with `deleted: true` returns `state: 'deleted'`. Stripe
   documents this for deleted customers. These tombstones normally omit
   `livemode`, so their mode comes from the verified account and immutable
@@ -92,10 +105,12 @@ authorization.
   deletion evidence: wrong IDs, mode or access context can also cause
   missing-resource errors.
 - Other HTTP failures throw `StripeSourceError`, with an optional numeric
-  `status`. Transport failures, invalid JSON, wrong object/ID, and malformed
-  selected fields also fail. Error messages never copy credentials, provider
-  response bodies, or upstream exception messages. These failures follow
-  Relate's existing unavailable/stale-fallback policy; they do not delete data.
+  `status`. Transport failures, invalid JSON, wrong object/ID, malformed
+  selected fields and the connector deadline also throw it. Caller cancellation
+  rejects with the caller's abort reason. Error messages never copy credentials,
+  provider response bodies, or upstream exception messages. These failures
+  follow Relate's existing unavailable/stale-fallback policy; they do not delete
+  data.
 - No source `version` is claimed. Stripe's creation time and request IDs are not
   per-record revision ordering.
 

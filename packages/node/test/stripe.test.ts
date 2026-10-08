@@ -134,3 +134,59 @@ test('Stripe executes authorized refreshes, denies revoked access/account change
     await app.close();
   }
 });
+
+test('a missing Stripe key reports the source unavailable, not the record missing', async () => {
+  let now = 1_000;
+  let key: string | undefined = 'sk_test_fixture';
+  const app = await startApp(
+    defineApp({
+      graph,
+      setup: () => ({
+        graphId: 'stripe-misconfigured-test',
+        clock: () => now,
+        connections: [
+          connect(customers, {
+            connectionId: 'stripe',
+            providerAccountId: 'acct_one:test',
+            connector: stripe({
+              apiKey: () => key!,
+              apiVersion: '2025-06-30.basil',
+              mode: 'test',
+              fetch: async (url) =>
+                Response.json(
+                  String(url).endsWith('/account')
+                    ? { id: 'acct_one', object: 'account' }
+                    : {
+                        id: 'cus_one',
+                        object: 'customer',
+                        livemode: false,
+                        name: 'Ada',
+                      },
+                ),
+            }).resource('customers', { fields: ['name'] }),
+          }),
+        ],
+      }),
+    }),
+  );
+
+  try {
+    const id = await app.host.adopt(Customer, 'cus_one');
+    const reader = app.as({ id: 'reader', roles: ['reader'], claims: {} })
+      .objects.Customer;
+
+    now++;
+    key = undefined;
+    await expect(
+      reader.get(id, { maxAgeMs: 0, stale: 'allow' }),
+    ).rejects.toMatchObject({ name: 'ReadError', code: 'unavailable' });
+    now++;
+    key = 'sk_test_fixture';
+    expect(await reader.get(id, { maxAgeMs: 0 })).toMatchObject({
+      status: 'ok',
+      data: { name: 'Ada' },
+    });
+  } finally {
+    await app.close();
+  }
+});
