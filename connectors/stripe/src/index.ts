@@ -191,11 +191,9 @@ export function stripe(options: StripeOptions): StripeConnection {
     caller.throwIfAborted();
     // Aborted on completion so a denial also cancels any sibling request.
     const settled = new AbortController();
-    const signal = AbortSignal.any([
-      caller,
-      AbortSignal.timeout(timeoutMs),
-      settled.signal,
-    ]);
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(), timeoutMs);
+    const signal = AbortSignal.any([caller, deadline.signal, settled.signal]);
     // Reject promptly even if a credential callback or transport ignores the signal.
     const cancelled = new Promise<never>((_, reject) =>
       signal.addEventListener('abort', () => reject(signal.reason), {
@@ -232,6 +230,9 @@ export function stripe(options: StripeOptions): StripeConnection {
         })(),
       ]);
     } catch (error) {
+      // Covers both first-use parallel verification and cached retrieval.
+      if (error instanceof SourceAccessDenied) verified = undefined;
+
       if (caller.aborted) throw caller.reason;
 
       if (signal.aborted)
@@ -248,6 +249,7 @@ export function stripe(options: StripeOptions): StripeConnection {
 
       throw new StripeSourceError();
     } finally {
+      clearTimeout(timer);
       settled.abort();
     }
   }
@@ -268,6 +270,8 @@ export function stripe(options: StripeOptions): StripeConnection {
       )
         throw new SourceAccessDenied();
 
+      // A cancelled sibling may finish despite an uncooperative transport.
+      signal.throwIfAborted();
       verified = { key, scope: `${result.id}:${mode}` };
 
       return verified.scope;

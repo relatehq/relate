@@ -210,3 +210,86 @@ test.each(['identity', 'resource'])(
     expect(siblingSignal?.aborted).toBe(true);
   },
 );
+
+test.each([401, 403])(
+  'a first-fetch HTTP %s forgets identity before retry',
+  async (status) => {
+    const response = deferred<Response>();
+    const identityReady = deferred<void>();
+    const urls: string[] = [];
+    let retry = false;
+    const resource = stripe({
+      ...options,
+      fetch: async (url) => {
+        urls.push(String(url));
+
+        if (String(url).endsWith('/account')) {
+          // Wait until account parsing has completed before delivering the denial.
+          setImmediate(() => identityReady.resolve());
+
+          return Response.json(account);
+        }
+
+        return retry ? Response.json(customer) : response.promise;
+      },
+    }).resource('customers', { fields: [] });
+    const pending = resource.fetch('cus_one', { signal: signal() });
+    const assertion =
+      expect(pending).rejects.toBeInstanceOf(SourceAccessDenied);
+
+    await identityReady.promise;
+    response.resolve(Response.json({}, { status }));
+    await assertion;
+    retry = true;
+    await resource.fetch('cus_one', { signal: signal() });
+    expect(urls).toEqual([ACCOUNT, CUSTOMER, ACCOUNT, CUSTOMER]);
+  },
+);
+
+test('late identity completion after denial cannot repopulate the cache', async () => {
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  const reading = deferred<void>();
+  const resourceResponse = deferred<Response>();
+  let retry = false;
+  let accountCalls = 0;
+  const resource = stripe({
+    ...options,
+    fetch: async (url) => {
+      if (String(url).endsWith('/account')) {
+        accountCalls++;
+
+        if (retry) return Response.json(account);
+
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(value) {
+              controller = value;
+              controller.enqueue(
+                new TextEncoder().encode(JSON.stringify(account)),
+              );
+            },
+            pull() {
+              reading.resolve();
+            },
+          }),
+        );
+      }
+
+      return retry ? Response.json(customer) : resourceResponse.promise;
+    },
+  }).resource('customers', { fields: [] });
+  const pending = resource.fetch('cus_one', { signal: signal() });
+  const assertion = expect(pending).rejects.toBeInstanceOf(SourceAccessDenied);
+
+  await reading.promise;
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  resourceResponse.resolve(Response.json({}, { status: 403 }));
+  await assertion;
+  // A transport can finish its response despite the abort. It must not
+  // publish account evidence after its operation has already been rejected.
+  controller.close();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  retry = true;
+  await resource.fetch('cus_one', { signal: signal() });
+  expect(accountCalls).toBe(2);
+});

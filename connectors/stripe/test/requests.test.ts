@@ -1,3 +1,4 @@
+import { createHook } from 'node:async_hooks';
 import { expect, test, vi } from 'vitest';
 import { stripe, StripeSourceError } from '@relate/connector-stripe';
 import { account, fakeStripe, options, signal } from './fixture.js';
@@ -147,5 +148,58 @@ test.each(['complete', 'errored', 'oversize'] as const)(
 
     expect(stream.locked).toBe(false);
     expect(cancel).toHaveBeenCalledTimes(state === 'oversize' ? 1 : 0);
+  },
+);
+
+test.each(['success', 'failure', 'caller-abort', 'timeout'] as const)(
+  'releases its native timer after %s',
+  async (outcome) => {
+    const timers = new Set<number>();
+    let tracking = false;
+    const hook = createHook({
+      init(id, type) {
+        if (tracking && type === 'Timeout') timers.add(id);
+      },
+      destroy(id) {
+        timers.delete(id);
+      },
+    }).enable();
+
+    try {
+      const caller = new AbortController();
+      const resource = stripe({
+        ...options,
+        timeoutMs: outcome === 'timeout' ? 10 : 10_000,
+        fetch: async () => {
+          if (outcome === 'success') return Response.json(account);
+
+          if (outcome === 'failure') throw new Error('offline');
+
+          return new Promise(() => {});
+        },
+      }).resource('customers', { fields: [] });
+
+      tracking = true;
+      const pending = resource.identify({ signal: caller.signal });
+
+      tracking = false;
+      expect(timers.size).toBe(1);
+      const assertion =
+        outcome === 'success'
+          ? expect(pending).resolves.toBe('acct_one:test')
+          : expect(pending).rejects.toBeInstanceOf(
+              outcome === 'caller-abort' ? DOMException : StripeSourceError,
+            );
+
+      if (outcome === 'caller-abort') caller.abort();
+
+      await assertion;
+      // async_hooks reports timer destruction on the next event-loop turn.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(timers.size).toBe(0);
+    } finally {
+      hook.disable();
+    }
   },
 );
