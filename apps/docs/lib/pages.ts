@@ -19,6 +19,13 @@ export const pages: readonly DocPage[] = [
       'Define a source, an object, and access rules, then read the graph.',
   },
   {
+    slug: ['key-concepts'],
+    name: 'Key Concepts',
+    title: 'Key Concepts',
+    description:
+      'The main authoring concepts and how they fit into a running Relate app.',
+  },
+  {
     slug: ['overview'],
     name: 'Architecture Overview',
     title: 'Architecture Overview',

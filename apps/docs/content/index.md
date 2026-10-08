@@ -226,6 +226,8 @@ one that does not exist.
 
 ## Next Steps
 
+- **[Key Concepts](./key-concepts.md)**: The main authoring concepts and how
+  sources, objects, policies, actions, and apps fit together.
 - **[Architecture Overview](./overview.md)**: How Relate handles source
   ownership, object identity, and evidence.
 - **[Graph Modeling](./authoring/graph.md)**: Sources, objects, references, and
