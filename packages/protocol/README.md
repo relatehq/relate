@@ -1,5 +1,9 @@
 # @relate/protocol
 
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
 Transport-neutral request, result, evidence and error shapes shared by every
 Relate consumer surface. Private and unpublished.
 
@@ -13,7 +17,8 @@ Relate consumer surface. Private and unpublished.
 - Evidence: `FieldEvidence` for each selected field: availability, freshness,
   source identity, retention, ordering and refresh outcome.
 - Errors and receipts: `ReadError` and `ActionError` with sanitized codes and no
-  private detail, and `SucceededReceipt`.
+  private detail, and successful/declared-failure receipts (`SucceededReceipt`,
+  `FailedReceipt`, `ActionReceipt`).
 - `Json`.
 
 These are types plus two error classes. The package has no runtime, database,

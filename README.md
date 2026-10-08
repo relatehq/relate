@@ -8,7 +8,9 @@
 > [!WARNING]
 >
 > Relate is at a very early stage and is not ready for use. It is published only
-> for comment and discussion.
+> for comment and discussion. The current package version is `0.0.0-dev.0`.
+
+See [RELEASING.md](RELEASING.md) for versioning and the release procedure.
 
 **A semantic business graph, defined in TypeScript.**
 
@@ -183,8 +185,18 @@ Writes go through typed, authorized, idempotent actions. See the
 Relate-owned records.
 
 > **Status:** single-source objects, references, traversal, policies, and
-> Postgres storage run today. Multi-source enrichment, actions, and MCP are API
-> previews.
+> Postgres storage run today. Native get/create actions wait for completion and
+> support declared business failures and actor-bound receipt lookup/replay.
+> Multi-source enrichment, broader actions, and MCP remain API previews.
+
+Native actions support
+[portable value constraints and declared business failures](packages/node/NATIVE_ACTIONS.md#declared-business-failures).
+For example, `z.string().min(1).max(4000)` keeps review notes nonempty and
+bounded on both action input and native storage; the compiled model exposes
+these limits. An action declaring `errors: { inactive: z.object({}) }` can call
+`fail('inactive', {})` to return a typed failure receipt after rolling back its
+native writes. Authorized retries recover the same outcome without repeating the
+handler. Malformed requests and pre-acceptance denial remain typed rejections.
 
 ## Get started
 

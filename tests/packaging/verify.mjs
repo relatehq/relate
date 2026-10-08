@@ -250,7 +250,7 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
     `
 import assert from 'node:assert/strict';
 import { createRuntime, connect } from '@relate/node';
-import { graph, addAccountReview, ana, Customer, customers, invoices } from './built/native-action-model.js';
+import { graph, AddAccountReview, addAccountReview, ana, Customer, customers, invoices } from './built/native-action-model.js';
 const app = createRuntime({ graph, actionImplementations: [addAccountReview], connections: [
   connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Northwind', portfolio: 'north' } }) } }),
   connect(invoices, { connectionId: 'billing', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id } }) } }),
@@ -260,6 +260,8 @@ try {
   const receipt = await app.as(ana).actions.addAccountReview({ input: { customer, note: 'Packed native action' }, idempotencyKey: 'one' });
   assert.equal(receipt.state, 'succeeded');
   assert.equal(typeof receipt.invocationId, 'string');
+  assert.deepEqual(await app.as(ana).receipts.get(AddAccountReview, receipt.invocationId), receipt);
+  assert.deepEqual(await app.as(ana).actions.addAccountReview({ input: { customer, note: 'Packed native action' }, idempotencyKey: 'one' }), receipt);
   const review = await app.as(ana).objects.AccountReview.get(receipt.output.reviewId);
   assert.equal(review.status, 'ok');
   assert.equal(review.data.note, 'Packed native action');

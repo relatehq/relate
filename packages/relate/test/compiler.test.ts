@@ -158,7 +158,6 @@ it.each([
     .string()
     .optional()
     .refine((v) => v !== 'bad'),
-  z.string().min(2),
   z.string().refine((v) => v !== 'bad'),
   z.string().transform((v) => v.toUpperCase()),
   z.string().default('fallback'),

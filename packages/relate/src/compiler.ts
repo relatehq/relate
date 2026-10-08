@@ -7,6 +7,8 @@ import type {
   Property,
 } from './index.js';
 import { referenceSchemas } from './schema.js';
+import { actionKeys } from './actions.js';
+import { portable } from './portable-schema.js';
 import type { Claim, ActorField, ObjectRule } from './authorization.js';
 import { canonicalJson, deepFreeze, validateManifest } from './model.js';
 import type { CompiledModel, ScalarSchema } from './model.js';
@@ -67,50 +69,13 @@ class Collector {
 }
 
 function schemaIssue(schema: z.ZodType): string | undefined {
-  let current = schema;
+  try {
+    portable(schema);
 
-  while (current.def.type === 'optional' || current.def.type === 'nullable') {
-    if ('checks' in current.def && current.def.checks?.length)
-      return 'Unsupported schema refinement';
-
-    current = (current as z.ZodOptional | z.ZodNullable).unwrap() as z.ZodType;
+    return undefined;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
   }
-
-  const type = current.def.type;
-
-  if (
-    !['string', 'number', 'boolean'].includes(type) ||
-    ('checks' in current.def && current.def.checks?.length) ||
-    // Coercion changes which inputs parse; the portable scalar would accept fewer.
-    ('coerce' in current.def && current.def.coerce)
-  )
-    return `Unsupported schema: ${type}. This slice supports unrefined, uncoerced scalar fields only.`;
-
-  return undefined;
-}
-
-// Deliberately narrow: never silently erase refinements, transforms, defaults, or coercion.
-function portable(schema: z.ZodType): ScalarSchema {
-  const problem = schemaIssue(schema);
-
-  if (problem) throw new Error(problem);
-
-  let current = schema;
-  let optional = false;
-  let nullable = false;
-
-  while (current.def.type === 'optional' || current.def.type === 'nullable') {
-    if (current.def.type === 'optional') optional = true;
-    else nullable = true;
-
-    current = (current as z.ZodOptional | z.ZodNullable).unwrap() as z.ZodType;
-  }
-
-  return {
-    type: current.def.type as ScalarSchema['type'],
-    optional,
-    nullable,
-  };
 }
 
 // Presentation only: this value never determines API addressing or identity.
@@ -170,7 +135,25 @@ export function compile(graph: GraphDefinition): CompiledModel {
     ]);
 
   // Registry names are consumer API names; stable definition IDs own persistence.
-  const entries = Object.entries(graph.objects);
+  const entries = Object.entries(graph.objects).filter(([name, object]) => {
+    if (
+      !object ||
+      typeof object !== 'object' ||
+      !object.properties ||
+      !object.membership
+    ) {
+      issues.report(
+        'graph.invalid-shape',
+        `Object ${name} is not an object definition`,
+        ['objects', name],
+      );
+
+      return false;
+    }
+
+    return true;
+  });
+  const validNames = new Set(entries.map(([name]) => name));
   const objects = entries.map(([, object]) => object);
   const resources = new Map<
     string,
@@ -180,6 +163,20 @@ export function compile(graph: GraphDefinition): CompiledModel {
       fields: Record<string, ScalarSchema>;
     }
   >();
+  const claims: Record<string, ScalarSchema> = {};
+
+  for (const [name, claim] of Object.entries(graph.access.claims)) {
+    const problem = schemaIssue(claim.schema);
+
+    if (problem)
+      issues.report('schema.unsupported', `${problem} Claim ${name}.`, [
+        'access',
+        'claims',
+        name,
+      ]);
+    else claims[name] = portable(claim.schema);
+  }
+
   const roles = new Set(graph.access.roles);
   const policyPath = (name: string, ...rest: Segment[]) => [
     'policies',
@@ -487,8 +484,20 @@ export function compile(graph: GraphDefinition): CompiledModel {
           object.id,
         );
 
+      if (!Object.hasOwn(claims, claim.name)) continue;
+
+      const problem = schemaIssue(claim.schema);
+
+      if (problem)
+        issues.fail(
+          'schema.unsupported',
+          `${problem} Policy claim ${claim.name}.`,
+          [...segments, 'where'],
+          object.id,
+        );
+
       if (
-        canonicalJson(portable(declared.schema)) !==
+        canonicalJson(claims[claim.name]) !==
         canonicalJson(portable(claim.schema))
       )
         issues.fail(
@@ -527,6 +536,8 @@ export function compile(graph: GraphDefinition): CompiledModel {
           `Unknown policy object '${name}'`,
           policyPath(name),
         );
+
+      if (!validNames.has(name)) return;
 
       const object = graph.objects[name]!;
 
@@ -662,12 +673,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
           ...segments,
         ];
 
-        if (
-          Object.keys(action).some(
-            (key) =>
-              !['id', 'input', 'output', 'creates', 'policy'].includes(key),
-          )
-        )
+        if (Object.keys(action).some((key) => !actionKeys.includes(key)))
           issues.fail(
             'action.invalid-shape',
             `Unsupported action option on action ${apiName}`,
@@ -718,6 +724,21 @@ export function compile(graph: GraphDefinition): CompiledModel {
             `${apiName}.output`,
             action.id,
           ),
+          ...(Object.keys(action.errors ?? {}).length
+            ? {
+                errors: Object.fromEntries(
+                  Object.entries(action.errors ?? {}).map(([code, schema]) => [
+                    code,
+                    actionShape(
+                      schema,
+                      at('errors', code),
+                      `${apiName}.errors.${code}`,
+                      action.id,
+                    ),
+                  ]),
+                ),
+              }
+            : {}),
           creates: action.creates.map((o) => o.id).sort(),
           ...(action.policy
             ? { execute: { role: action.policy.execute.role } }
@@ -763,16 +784,11 @@ export function compile(graph: GraphDefinition): CompiledModel {
 
   const relationships = relationshipEntries.map(([, r]) => r);
   const manifestInput = {
-    formatVersion: 3,
+    formatVersion: 4,
     graphDefinitionId: graph.id,
     fieldGroups: [...graph.access.fieldGroups].sort(),
     roles: [...graph.access.roles].sort(),
-    claims: Object.fromEntries(
-      Object.entries(graph.access.claims).map(([name, claim]) => [
-        name,
-        portable(claim.schema),
-      ]),
-    ),
+    claims,
     sources: [...resources.values()].sort((a, b) =>
       a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     ),

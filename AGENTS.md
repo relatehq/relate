@@ -8,6 +8,29 @@ Do not add AI attribution to commits or pull requests. No `Co-Authored-By`
 trailers for Claude, Codex, or any other agent, and no "Generated with" lines or
 other notes saying an agent wrote, committed, or reviewed the change.
 
+## Pull request descriptions
+
+Write PR descriptions so a non-technical reader can understand why the PR was
+created and what changes for someone using the product.
+
+- Lead with the user problem or need and why this change matters.
+- Explain the product behavior with concrete before-and-after examples: who is
+  doing what, what happened before, and what happens after this change.
+- For bug fixes, describe the specific situation that triggers the bug, the
+  incorrect result the user experiences, and the corrected outcome. For example:
+  "When a customer has no invoices, opening their account failed. Their account
+  now opens and shows an empty invoice list, so the team can still review the
+  customer."
+- For features, show a concrete task the change enables or improves. For
+  example: "A support agent can now see a customer's invoices alongside their
+  account reviews, so they can investigate a billing question in one place."
+- Use plain language and explain necessary technical terms. Put implementation
+  details and validation after the product explanation; a list of changed files
+  or technical mechanisms does not explain why the PR exists.
+- Keep examples accurate to the change's actual scope. If there is no direct
+  user-visible change, say so and explain the concrete maintenance or
+  reliability reason without inventing a product benefit.
+
 ## Worktrees
 
 When asked to do work in a new worktree, or to work on several features in
@@ -77,9 +100,11 @@ The customer-graph acceptance fixture has established the intended application
 API. Source-backed reads, references and traversal already execute through the
 packages. The first native `addAccountReview` path now also executes get/create,
 authorization, rollback and successful receipt storage on memory and Postgres.
-Receipt lookup/replay, durable pending execution and declared failure receipts
-remain subsequent slices. Do not keep expanding a declaration-only API instead
-of implementing agreed behavior.
+Actor-bound receipt lookup/replay also executes with current-access checks.
+Declared business failures now roll back native effects and save actor-bound
+recoverable receipts. Durable pending execution remains a subsequent slice. Do
+not keep expanding a declaration-only API instead of implementing agreed
+behavior.
 
 For each authorized slice:
 
@@ -101,7 +126,7 @@ For each authorized slice:
 - Complete one end-to-end behavior before broadening the API. The first native
   action path is `addAccountReview`: real definitions/compilation, authorized
   native creation, reference validation, transaction rollback and a successful
-  receipt. Durable pending execution, receipt lookup/recovery and external
+  receipt and actor-bound recovery. Durable pending execution and external
   effects are subsequent slices, not implicit requirements to build now.
 
 Package responsibilities along these paths:

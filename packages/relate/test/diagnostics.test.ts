@@ -491,3 +491,107 @@ it('captures declaration provenance only when enabled and never changes the revi
     disableDefinitionProvenance();
   }
 });
+
+it('collects unsupported declared and policy claim schemas without losing other issues', () => {
+  const brokenAccess = defineAccess({
+    roles: ['reader'],
+    fieldGroups: ['ordinary'],
+    claims: {
+      portfolio: z.string().refine(() => true),
+      unused: z.string().transform((value) => value),
+    },
+  });
+  const result = issuesOf(() =>
+    compile({
+      ...graph,
+      access: brokenAccess,
+      policies: {
+        ...graph.policies,
+        Customer: {
+          read: {
+            gate: brokenAccess.role('reader'),
+            where: { portfolio: { eq: brokenAccess.claims.portfolio } },
+            evidenceMaxAgeMs: 1000,
+          },
+        },
+        AccountReview: { read: { gate: { kind: 'role', role: 'missing' } } },
+      },
+    }),
+  );
+
+  expect(result).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        code: 'schema.unsupported',
+        path: { root: 'graph', segments: ['access', 'claims', 'portfolio'] },
+      }),
+      expect.objectContaining({
+        code: 'schema.unsupported',
+        path: { root: 'graph', segments: ['access', 'claims', 'unused'] },
+      }),
+      expect.objectContaining({ code: 'policy.unknown-role' }),
+    ]),
+  );
+  const foreignAccess = defineAccess({
+    roles: ['reader'],
+    fieldGroups: ['ordinary'],
+    claims: { portfolio: z.string().refine(() => true) },
+  });
+
+  expect(
+    issuesOf(() =>
+      compile({
+        ...graph,
+        policies: {
+          ...graph.policies,
+          Customer: {
+            read: {
+              gate: access.role('reader'),
+              where: { portfolio: { eq: foreignAccess.claims.portfolio } },
+              evidenceMaxAgeMs: 1000,
+            },
+          },
+        },
+      }),
+    ),
+  ).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        code: 'schema.unsupported',
+        definitionId: Customer.id,
+      }),
+    ]),
+  );
+});
+
+it('reports malformed object entries alongside independent policy errors', () => {
+  for (const objects of [
+    { Broken: null, ...graph.objects },
+    { ...graph.objects, Broken: null },
+  ]) {
+    const result = issuesOf(() =>
+      compile({
+        ...graph,
+        objects: objects as unknown as typeof graph.objects,
+        policies: {
+          ...graph.policies,
+          Broken: { read: 'deny' },
+          Customer: { read: { gate: { kind: 'role', role: 'missing' } } },
+        },
+      }),
+    );
+
+    expect(result).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'graph.invalid-shape',
+          path: { root: 'graph', segments: ['objects', 'Broken'] },
+        }),
+        expect.objectContaining({
+          code: 'policy.unknown-role',
+          definitionId: Customer.id,
+        }),
+      ]),
+    );
+  }
+});

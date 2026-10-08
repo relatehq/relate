@@ -97,12 +97,12 @@ invalid output or receipt-storage failure roll back all native effects. Catching
 a rejected object operation cannot make the transaction commit. Source
 observation refreshes remain independently retained.
 
-This slice returns only `SucceededReceipt<Output>`. A rejection throws a
-sanitized `ActionError`; it does not persist a failed receipt. Confirmed
-rollback also rolls back the key reservation. An unconfirmed COMMIT
-acknowledgement throws `ActionError('uncertain')`, without claiming rollback.
-Memory's successful commit is process-local; use Postgres for persistence across
-reconnect/restart.
+Actions return a successful receipt or a declared business-failure receipt.
+Other rejections throw a sanitized `ActionError` and do not persist a receipt;
+their confirmed rollback also rolls back the key reservation. An unconfirmed
+COMMIT acknowledgement throws `ActionError('uncertain')`, without claiming
+rollback. Memory's successful commit is process-local; use Postgres for
+persistence across reconnect/restart.
 
 An unavailable object read or a recognized temporary storage failure rejects
 with `ActionError('unavailable')`. Native effects and the key reservation have
@@ -139,6 +139,105 @@ pool/lock waiting, database rollback and COMMIT have their own storage bounds.
 The execution timer stops before COMMIT; delayed or lost acknowledgements retain
 their normal success/uncertain semantics. JavaScript handler code itself cannot
 be forcibly stopped, and independently retained source refreshes may finish.
+
+## Declared business failures
+
+An inactive customer is a business outcome a UI can explain. It need not become
+an exception that looks like a broken service:
+
+```ts
+const Review = defineAction({
+  id: 'business.review',
+  input: z.object({
+    customer: referenceInput(Customer),
+    note: z.string().min(1).max(4000),
+  }),
+  output: z.object({ reviewId: referenceInput(AccountReview) }),
+  creates: [AccountReview],
+  errors: { inactive: z.object({}) },
+  policy: { execute: access.role('account-manager') },
+});
+
+// In implementAction(graph, Review, ...), after an authorized customer read:
+if (!customer.data.active) fail('inactive', {});
+```
+
+The returned result is:
+
+```ts
+{
+  invocationId: '...',
+  state: 'failed',
+  error: { kind: 'domain', code: 'inactive', details: {} },
+}
+```
+
+`fail(code, details): never` validates a declared code and its details, stops
+further object operations, and rolls back every native write made by this
+invocation, even if the handler catches the failure. The outer transaction
+retains the key claim and saves the failed receipt atomically. Existing native
+objects and independently retained source observations remain intact. A caught
+object-operation error still aborts the invocation; `fail()` cannot relabel it
+as a business failure. Undeclared codes or invalid details reject with
+`internal` and cannot produce a business-failure receipt.
+
+Before initially saving and returning a failed receipt, Relate rechecks input
+and detail references and the object/field reads that may have contributed to
+scalar details. This check runs against the post-rollback state; losing access
+rejects with `denied` and saves no receipt. Success does not have this
+additional post-rollback check because it commits its native effects. This extra
+read pass is intentional to avoid disclosing failure details based on access
+that no longer holds.
+
+Same-actor/same-input retries and receipt lookup return the original failure,
+subject to current action, reference, object and field access. They do not run
+the handler again, even if the customer has since become active. Use a new key
+for a new attempt. A lost commit acknowledgement still rejects with `uncertain`;
+recover with the same key. Never claim failure persistence until commit is
+confirmed. Postgres receipts survive reconnects; memory receipts are
+process-local.
+
+Successful runtime reads are retained as authorization dependencies for error
+details too. Reads of objects created and then rolled back are omitted; their
+input and original read dependencies remain. Reference-valued details must
+resolve after rollback, so they cannot point to a discarded object. Application
+code is responsible for private data obtained outside runtime object operations.
+
+Actions that declare no errors keep a success-only return type. Actions with
+errors require callers to narrow on `receipt.state` before accessing `output`,
+and on `receipt.error.code` for the corresponding typed details.
+
+### Rejection names
+
+| Situation                                                                                   | Outcome                             |
+| ------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Malformed input or invalid native values                                                    | `ActionError('invalid')`            |
+| No permission to execute/create, or failed proposed-value policy                            | `ActionError('denied')`             |
+| Missing or unreadable object reference in input, output, native creation or failure details | `ActionError('not-found')`          |
+| Missing or unreadable object read                                                           | `{ status: 'not-found' }`           |
+| Declared business condition such as inactive customer                                       | Persisted failed receipt            |
+| Undeclared exception or invalid `fail()` call                                               | Sanitized `ActionError('internal')` |
+
+Both missing and unreadable references use the same rejection without target IDs
+or policy details. Receipt lookup/replay keeps its existing opaque `denied`
+response for missing/inaccessible receipts. No HTTP or MCP transport is added
+here.
+
+## Validating values before they are stored
+
+Use the same constraint on the action and the native property:
+
+```ts
+input: z.object({ note: z.string().min(1).max(4000) });
+note: native(z.string().min(1).max(4000), { id: 'review.note' });
+```
+
+An empty or 4,001-code-point note is rejected before handler entry. If a handler
+builds an invalid note from a valid request, native creation also rejects and
+rolls back preceding writes. The compiled discovery model exposes `minLength`
+and `maxLength`, so consumers can present the same limits. Numeric inclusive and
+exclusive bounds work the same way; see the
+[portable schema contract](../relate/CONTRACT.md#portable-scalar-constraints).
 
 ## References after a target is deleted
 
@@ -200,18 +299,75 @@ of dependent deletions, transaction/receipt semantics, cycles, and how confirmed
 source deletions trigger native effects. A failed or unauthorized read must
 never trigger a cascade. No cascade API is currently exposed.
 
+## Wait for completion, lookup and recovery
+
+An ordinary action call waits for execution and commit. Its receipt contains the
+business result in `output`; callers do not need to poll:
+
+```ts
+const request = {
+  input: { customer: northwind, note: 'Follow up' },
+  idempotencyKey: 'review-2026-10',
+};
+const caller = relate.as(ana);
+const receipt = await caller.actions.addAccountReview(request);
+console.log(receipt.output.reviewId);
+
+// Read the saved outcome without executing the implementation.
+const saved = await caller.receipts.get(AddAccountReview, receipt.invocationId);
+
+// Also works when the first response, including invocationId, was lost.
+const recovered = await caller.actions.addAccountReview(request);
+// saved and recovered contain the original invocationId and output.
+```
+
+Graph/action/key identifies the invocation. It is bound to the originating
+host-authenticated `actor.id` and validated input. Same-actor, same-input
+retries recover the committed outcome; changed input rejects with `conflict`.
+Another actor rejects with `denied`, even with identical input and equivalent
+roles. Concurrent matching calls serialize and return the same receipt without
+running the handler twice, subject to the existing lock/execution budgets.
+
+Lookup and replay require the current action gate, current access to input and
+output or error-detail references, and current object/field access for
+successful runtime reads performed by the original handler. The runtime retains
+those read dependencies automatically, using stable property IDs. This
+conservatively protects scalar output derived from restricted fields: losing
+finance access prevents recovery of a saved amount even if the object itself
+remains readable. No author-facing read declaration is required. Authorization
+evidence follows the model's age bounds; recovery does not promise an upstream
+snapshot or refresh every field. Application code remains responsible for data
+obtained outside runtime object operations and for the suitability of its
+declared output and error details.
+
+Missing, wrong-action, wrong-graph, legacy and inaccessible receipts reject with
+the same sanitized `ActionError('denied')`. A denial does not alter the saved
+outcome; restoring access allows retrieval. Other temporary lookup failures
+return `unavailable`; lookup never executes business logic. Use a newly
+authenticated principal handle after roles or claims change.
+
+Postgres migration 4 retains old receipts and keys, but leaves their unknown
+actor/read provenance null. These receipts are not consumer-recoverable and
+their keys cannot execute again. No automatic key expiry or receipt deletion is
+implemented. Future receipt-detail retention must not implicitly release keys.
+Cross-actor recovery, key expiry and schema evolution need separate contracts.
+
+Background submission is deferred for exploration. No `mode: 'background'`
+option or `pending` response is implemented. A plain future MCP handler can
+await the same action and return its completed output in one tool response.
+
 ## Deliberate limits of this slice
 
-- A committed graph/action/idempotency key cannot execute again. Duplicate keys
-  reject with `conflict`, including concurrent duplicates and changed inputs.
-  Recovering the original outcome through replay or receipt lookup is the next
-  slice. A duplicate never blindly resubmits a write.
-- Durable pending acceptance, background workers, consumer receipt lookup,
-  persisted failed/domain receipts, and external effects are not implemented.
+- A committed graph/action/idempotency key cannot execute again. Authorized
+  matching retries recover the original outcome; they do not revalidate business
+  conditions by rerunning the handler. A new business attempt needs a new key.
+- Durable pending acceptance, background workers, persisted runtime-failure
+  receipts, and external effects are not implemented.
 - Action schemas currently support ordinary object schemas with scalar fields
-  and required `referenceInput` fields. Unsupported refinements, transforms,
-  defaults, nested schemas and domain-error declarations reject at compilation
-  or definition time rather than silently losing their behavior.
+  and required `referenceInput` fields. String lengths and numeric bounds are
+  portable. Arbitrary refinements, transforms, defaults and nested schemas
+  reject at compilation or definition time rather than silently losing their
+  behavior.
 - Action object operations currently expose `get` and permitted native `create`.
   Queries, native-reference traversal, update/delete and Task integrity rules
   remain outside this slice. The full customer-graph fixture still sketches

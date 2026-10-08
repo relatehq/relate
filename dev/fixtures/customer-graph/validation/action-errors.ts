@@ -1,4 +1,5 @@
-/** Compile-time acceptance only. Actions and receipts are not executable yet. */
+/** Broader proposed receipt surface (pending/runtime failures/transformed details).
+ * Portable declared domain failures execute in the packages; see tests/support/domain-action-contract.ts. */
 import { z } from 'zod';
 import { defineAction, implementAction } from './target.js';
 import type { Consumer, DomainActionError, Receipt } from './target.js';
@@ -18,7 +19,10 @@ type EscalationReceipt = Awaited<
 >;
 
 export type InferredReceipt = Expect<
-  Equal<EscalationReceipt, Receipt<typeof EscalateAccount>>
+  Equal<
+    EscalationReceipt,
+    Exclude<Receipt<typeof EscalateAccount>, { state: 'pending' }>
+  >
 >;
 
 export type DeclaredCodes = Expect<

@@ -69,3 +69,9 @@ END $$;
 ALTER TABLE relate.objects ADD CONSTRAINT objects_account_alias
   UNIQUE (graph_id, object_type, source_id, connection_id, partition, provider_account_id, provider_key);
 `;
+
+// Preserve legacy keys, but do not invent an originating actor or read evidence.
+export const receiptRecoveryMigration = `
+ALTER TABLE relate.native_invocations ADD COLUMN actor_id text;
+ALTER TABLE relate.native_invocations ADD COLUMN reads jsonb;
+`;

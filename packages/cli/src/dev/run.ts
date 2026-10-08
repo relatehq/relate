@@ -329,6 +329,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
 
     const exitCode = await new Promise<number>((resolve) => {
       let forced = false;
+      const onSignal = () => void shutdown();
       const shutdown = async () => {
         if (stopping) {
           if (!forced) {
@@ -347,6 +348,8 @@ export async function runDev(options: RunDevOptions): Promise<number> {
         await builder.dispose();
         await new Promise<void>((done) => bound.server.close(() => done()));
         await release();
+        process.off('SIGINT', onSignal);
+        process.off('SIGTERM', onSignal);
         resolve(exitCodes.ok);
       };
 
@@ -355,9 +358,8 @@ export async function runDev(options: RunDevOptions): Promise<number> {
           for await (const _signal of options.signals!) void shutdown();
         })();
       else {
-        process.once('SIGINT', () => void shutdown());
-        process.once('SIGTERM', () => void shutdown());
-        process.on('SIGINT', () => void shutdown());
+        process.on('SIGINT', onSignal);
+        process.on('SIGTERM', onSignal);
       }
     });
 

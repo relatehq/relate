@@ -193,6 +193,7 @@ export function nativeActionContract(
       );
 
       expect(saved?.receipt).toEqual(receipt);
+      expect(saved?.actorId).toBe(ana.id);
       expect(attempted).toHaveLength(1);
       const record = await backing.store.native!.load(
         scope(),
@@ -210,6 +211,17 @@ export function nativeActionContract(
         ? (await backing.close(), await backing.reopen())
         : undefined;
       const reopened = app(undefined, reconnected ?? backing.store);
+
+      await expect(
+        reopened.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+      ).resolves.toEqual(receipt);
+      await expect(
+        reopened.as(ana).actions.addAccountReview({
+          input: { note: 'Follow up', customer },
+          idempotencyKey: 'review',
+        }),
+      ).resolves.toEqual(receipt);
+      expect(attempted).toHaveLength(1);
 
       if (reconnected)
         expect(
@@ -230,6 +242,87 @@ export function nativeActionContract(
       await reopened.close();
       await reconnected?.close();
     });
+    it.each(['', 'x'.repeat(4001)])(
+      'enforces note limits on input and native creation (%#. case)',
+      async (note) => {
+        let calls = 0;
+        const relate = app(async (context) => {
+          calls++;
+
+          return addAccountReview.implementation(context);
+        });
+        const customer = await relate.host.adopt(Customer, 'northwind');
+
+        await expect(
+          relate.as(ana).actions.addAccountReview({
+            input: { customer, note },
+            idempotencyKey: 'review',
+          }),
+        ).rejects.toMatchObject({ code: 'invalid' });
+        expect(calls).toBe(0);
+        const bypass = app(async (context) => {
+          await addAccountReview.implementation(context);
+
+          return addAccountReview.implementation({
+            ...context,
+            input: { ...context.input, note },
+          });
+        });
+
+        await expect(
+          bypass.as(ana).actions.addAccountReview({
+            input: { customer, note: 'Valid input' },
+            idempotencyKey: 'review',
+          }),
+        ).rejects.toMatchObject({ code: 'invalid' });
+        expect(attempted).toHaveLength(1);
+        await absent();
+      },
+    );
+    it.each(['x', 'x'.repeat(4000), '😀'.repeat(4000)])(
+      'accepts the note boundaries (%#. case)',
+      async (note) => {
+        const relate = app();
+        const customer = await relate.host.adopt(Customer, 'northwind');
+        const receipt = await relate.as(ana).actions.addAccountReview({
+          input: { customer, note },
+          idempotencyKey: 'review',
+        });
+
+        expect(
+          await relate
+            .as(ana)
+            .objects.AccountReview.get(receipt.output.reviewId),
+        ).toMatchObject({ status: 'ok', data: { note } });
+      },
+    );
+    it.each(['missing', 'southbank'])(
+      'uses not-found for a %s input reference, matching object reads',
+      async (sourceId) => {
+        let calls = 0;
+        const relate = app(async (context) => {
+          calls++;
+
+          return addAccountReview.implementation(context);
+        });
+        const customer =
+          sourceId === 'missing'
+            ? referenceInput(Customer).parse('missing')
+            : await relate.host.adopt(Customer, sourceId);
+
+        expect(await relate.as(ana).objects.Customer.get(customer)).toEqual({
+          status: 'not-found',
+        });
+        await expect(
+          relate.as(ana).actions.addAccountReview({
+            input: { customer, note: 'Review' },
+            idempotencyKey: 'review',
+          }),
+        ).rejects.toMatchObject({ code: 'not-found', message: 'not-found' });
+        expect(calls).toBe(0);
+        await absent();
+      },
+    );
     it('rejects action-role denial and invalid input before handler entry', async () => {
       let calls = 0;
       const relate = app(async (context) => {
@@ -290,7 +383,9 @@ export function nativeActionContract(
             input: { customer, note: 'Second write' },
             idempotencyKey: 'review',
           }),
-        ).rejects.toMatchObject({ code: 'denied' });
+        ).rejects.toMatchObject({
+          code: invalid === 'wrong-author' ? 'denied' : 'not-found',
+        });
         expect(attempted).toHaveLength(1);
         await absent();
       },
@@ -312,7 +407,7 @@ export function nativeActionContract(
           },
           idempotencyKey: 'review',
         }),
-      ).rejects.toMatchObject({ code: 'denied' });
+      ).rejects.toMatchObject({ code: 'not-found' });
       expect(called).toBe(false);
       await absent();
     });
@@ -425,31 +520,29 @@ export function nativeActionContract(
             input: { customer, note: 'Recheck' },
             idempotencyKey: 'review',
           }),
-        ).rejects.toMatchObject({ code: 'denied' });
+        ).rejects.toMatchObject({ code: 'not-found' });
         await absent();
       },
     );
-    it('does not execute concurrent duplicate keys or reuse a committed key with new input', async () => {
+    it('recovers concurrent identical requests without executing twice and rejects changed input', async () => {
       let calls = 0;
-      const relate = app(async (context) => {
+      const handler: Handler = async (context) => {
         calls++;
 
         return addAccountReview.implementation(context);
-      });
+      };
+      const relate = app(handler);
       const customer = await relate.host.adopt(Customer, 'northwind');
       const request = {
         input: { customer, note: 'Once' },
         idempotencyKey: 'review',
       };
-      const results = await Promise.allSettled([
+      const results = await Promise.all([
         relate.as(ana).actions.addAccountReview(request),
-        relate.as(ana).actions.addAccountReview(request),
+        app(handler).as(ana).actions.addAccountReview(request),
       ]);
 
-      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-      expect(results.filter((r) => r.status === 'rejected')).toMatchObject([
-        { reason: { code: 'conflict' } },
-      ]);
+      expect(results[1]).toEqual(results[0]);
       await expect(
         relate.as(ana).actions.addAccountReview({
           ...request,
@@ -458,6 +551,113 @@ export function nativeActionContract(
       ).rejects.toMatchObject({ code: 'conflict' });
       expect(calls).toBe(1);
       expect(attempted).toHaveLength(1);
+    });
+    it('binds replay and lookup to the originating actor and current role and portfolio access', async () => {
+      const relate = app();
+      const customer = await relate.host.adopt(Customer, 'northwind');
+      const request = {
+        input: { customer, note: 'Private review' },
+        idempotencyKey: 'owned',
+      };
+      const receipt = await relate.as(ana).actions.addAccountReview(request);
+
+      for (const principal of [
+        { ...ana, id: 'ben' },
+        { ...ana, roles: ['employee'] },
+        { ...ana, claims: { portfolio: 'south' } },
+      ]) {
+        const caller = relate.as(principal);
+
+        await expect(
+          caller.actions.addAccountReview(request),
+        ).rejects.toMatchObject({ code: 'denied' });
+        await expect(
+          caller.receipts.get(AddAccountReview, receipt.invocationId),
+        ).rejects.toMatchObject({ code: 'denied' });
+      }
+
+      await expect(
+        relate.as({ ...ana, id: 'ben' }).actions.addAccountReview({
+          ...request,
+          input: { customer, note: 'Different' },
+        }),
+      ).rejects.toMatchObject({ code: 'denied' });
+      await expect(
+        relate.as(ana).receipts.get(AddAccountReview, 'missing'),
+      ).rejects.toMatchObject({ code: 'denied' });
+      await expect(
+        relate
+          .as(ana)
+          .receipts.get({ ...AddAccountReview }, receipt.invocationId),
+      ).rejects.toMatchObject({ code: 'denied' });
+      await expect(
+        relate.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+      ).resolves.toEqual(receipt);
+      await expect(
+        relate.as(ana).actions.addAccountReview(request),
+      ).resolves.toEqual(receipt);
+      expect(attempted).toHaveLength(1);
+
+      // Current source evidence, rather than the originally saved claims, decides access.
+      portfolio = 'south';
+      now += 30_001;
+      await expect(
+        relate.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+      ).rejects.toMatchObject({ code: 'denied' });
+      await expect(
+        relate.as(ana).actions.addAccountReview(request),
+      ).rejects.toMatchObject({ code: 'denied' });
+      expect(
+        (
+          await backing.store.native!.loadInvocation(
+            scope(),
+            AddAccountReview.id,
+            'owned',
+          )
+        )?.receipt,
+      ).toEqual(receipt);
+
+      portfolio = 'north';
+      now += 30_001;
+      await expect(
+        relate.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+      ).resolves.toEqual(receipt);
+      const originalGraph = graphId;
+
+      graphId = randomUUID();
+      await expect(
+        app().as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+      ).rejects.toMatchObject({ code: 'denied' });
+      graphId = originalGraph;
+    });
+    it('does not share a concurrently claimed invocation with another actor', async () => {
+      const relate = app();
+      const customer = await relate.host.adopt(Customer, 'northwind');
+      const request = {
+        input: { customer, note: 'One author' },
+        idempotencyKey: 'race',
+      };
+      const results = await Promise.allSettled([
+        relate.as(ana).actions.addAccountReview(request),
+        app()
+          .as({ ...ana, id: 'ben' })
+          .actions.addAccountReview(request),
+      ]);
+
+      expect(
+        results.filter((result) => result.status === 'fulfilled'),
+      ).toHaveLength(1);
+      expect(
+        results.filter((result) => result.status === 'rejected'),
+      ).toMatchObject([{ reason: { code: 'denied' } }]);
+      expect(attempted).toHaveLength(1);
+      const saved = await backing.store.native!.loadInvocation(
+        scope(),
+        AddAccountReview.id,
+        'race',
+      );
+
+      expect(saved?.actorId).toBe(attempted[0]!.values['review.author']);
     });
     it('executes more simultaneous actions than the native connection pool without starving source reads', async () => {
       const relate = app();
@@ -862,6 +1062,26 @@ export function nativeActionContract(
           )
         )?.receipt.state,
       ).toBe('succeeded');
+      const saved = await backing.store.native!.loadInvocation(
+        scope(),
+        AddAccountReview.id,
+        'review',
+      );
+
+      await expect(
+        app()
+          .as(ana)
+          .actions.addAccountReview({
+            input: { customer, note: 'Committed' },
+            idempotencyKey: 'review',
+          }),
+      ).resolves.toEqual(saved!.receipt);
+      await expect(
+        app()
+          .as(ana)
+          .receipts.get(AddAccountReview, saved!.receipt.invocationId),
+      ).resolves.toEqual(saved!.receipt);
+      expect(attempted).toHaveLength(1);
     });
   });
 }

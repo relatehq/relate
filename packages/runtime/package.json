@@ -1,8 +1,8 @@
 {
   "name": "@relate/runtime",
-  "version": "0.0.0",
+  "version": "0.0.0-dev.0",
   "license": "Apache-2.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "description": "Execution engine and explicit storage/connector extension contracts.",
   "dependencies": {
@@ -25,5 +25,8 @@
       "types": "./dist/storage.d.ts",
       "import": "./dist/storage.js"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

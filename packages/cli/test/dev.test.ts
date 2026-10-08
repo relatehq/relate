@@ -5,7 +5,14 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -563,4 +570,30 @@ it('recovers when a missing imported module is created in another directory', as
   await mkdir(join(project.root, 'src/model'));
   await project.write('src/model/graph.ts', graphSource('reader'));
   await dev.waitForStdout(/ready\s+gen 1/);
+});
+
+it('allows a child to finish graceful cleanup after one Ctrl+C', async () => {
+  const project = await createProject();
+
+  projects.push(project.root);
+  await project.write(
+    'src/relate/graph.ts',
+    `
+import { writeFileSync } from 'node:fs';
+process.on('SIGTERM', () => {
+  setTimeout(() => { writeFileSync('graceful.txt', 'finished'); process.exit(0); }, 300);
+});
+setInterval(() => {}, 1000);
+console.log('waiting-for-shutdown');
+await new Promise(() => {});
+export const graph = {};
+`,
+  );
+  const dev = await startDev(project);
+
+  await dev.waitForStdout(/waiting-for-shutdown/);
+  expect(await dev.stop()).toBe(0);
+  expect(await readFile(join(project.root, 'graceful.txt'), 'utf8')).toBe(
+    'finished',
+  );
 });

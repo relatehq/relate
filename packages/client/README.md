@@ -1,5 +1,9 @@
 # @relate/client
 
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
 > [!WARNING]
 >
 > Scaffold only. No implementation, executable or public exports exist yet.
@@ -22,6 +26,14 @@ Constraints the package will keep:
   the graph's policies to the authenticated principal.
 
 ## How it will fit
+
+**TODO — open decision before implementing the client:** decide where shared
+consumer types (`Consumer`, `QueryResult`) and the `createQuery` pagination
+helper belong. They currently live in `@relate/node` and `@relate/runtime`. A
+browser-safe `relate/consumer` entry point is one option, not an agreed API.
+Avoid duplicating these contracts or importing the engine into the browser;
+review the client dependency policy when choosing their home. This decision does
+not require merging the Node and runtime packages.
 
 - Depends only on `@relate/protocol`.
 - Pairs with `@relate/http`; both are the third step in the implementation

@@ -1,11 +1,19 @@
 /**
  * One `relate dev` per project. The lock lives under `<root>/.relate/dev/` and
- * is acquired exclusively with `O_EXCL`; metadata identifies the owner so a
+ * is published exclusively with an atomic hard link; metadata identifies the owner so a
  * second invocation can verify, wait for or report it, and reclaim only a
  * demonstrably dead owner.
  */
 import { randomBytes } from 'node:crypto';
-import { mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import {
+  link,
+  mkdir,
+  open,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -128,20 +136,21 @@ async function tryCreate(
   path: string,
   metadata: LockMetadata,
 ): Promise<Lock | null> {
-  let handle;
+  const candidate = `${path}.${randomBytes(12).toString('hex')}.tmp`;
 
   try {
-    handle = await open(path, 'wx', 0o600);
+    await writeFile(candidate, JSON.stringify(metadata, null, 2), {
+      mode: 0o600,
+      flag: 'wx',
+    });
+    // Publish complete metadata atomically without replacing an existing owner.
+    await link(candidate, path);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'EEXIST') return null;
 
     throw error;
-  }
-
-  try {
-    await handle.writeFile(JSON.stringify(metadata, null, 2));
   } finally {
-    await handle.close();
+    await rm(candidate, { force: true });
   }
 
   let current = metadata;
@@ -235,7 +244,7 @@ export async function acquireLock(
     url: null,
   };
 
-  for (let round = 0; round < 3; round += 1) {
+  acquire: for (let round = 0; round < 3; round += 1) {
     const lock = await tryCreate(path, metadata);
 
     if (lock) return { kind: 'acquired', lock };
@@ -271,7 +280,7 @@ export async function acquireLock(
       await new Promise((resolve) => setTimeout(resolve, 100));
       const again = await readMetadata(path);
 
-      if (again === null) break;
+      if (again === null) continue acquire;
 
       if (again === 'corrupt' || again.ownerId !== current.ownerId)
         return {

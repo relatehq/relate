@@ -1,9 +1,12 @@
 # @relate/cli
 
-> [!NOTE]
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
+> [!WARNING]
 >
-> Private and unpublished while implementation is in progress. `relate dev`
-> works from this workspace; other commands do not exist yet.
+> `relate dev` is implemented; other commands do not exist yet.
 
 Development and operational commands using programmatic APIs.
 

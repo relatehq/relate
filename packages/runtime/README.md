@@ -1,5 +1,9 @@
 # @relate/runtime
 
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
 The execution engine: authorized reads, traversal and native actions over a
 compiled model, with explicit storage and connector contracts. Private and
 unpublished.
@@ -125,7 +129,9 @@ missing status exposes policy or provider evidence.
 Implemented: authorized reads, source-backed references, bidirectional traversal
 with pagination, and synchronous native actions with atomic receipts on memory
 and Postgres. Not implemented: automatic synchronization, delegated credentials,
-collection queries, durable pending execution, receipt lookup and replay.
+collection queries and durable pending execution. Success receipt lookup and
+same-key replay are implemented with originating-actor and current-access
+checks.
 
 ## Further reading
 

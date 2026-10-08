@@ -101,13 +101,20 @@ export function createDevClient(options: DevClientOptions): DevClient {
       return true;
     }
 
-    return applyPayload(payload);
+    if (stopped) return false;
+
+    return applyPayload(payload, true);
   };
-  const applyPayload = (payload: unknown): boolean => {
-    let event;
+  const applyPayload = (payload: unknown, fromSnapshot = false): boolean => {
+    let result;
 
     try {
-      event = parseDevEvent(payload);
+      const event = parseDevEvent(payload);
+
+      if (fromSnapshot && event.type !== 'snapshot')
+        throw new ProtocolError('invalid', 'Expected a snapshot');
+
+      result = applyEvent(state, event);
     } catch (error) {
       if (
         error instanceof ProtocolError &&
@@ -118,13 +125,17 @@ export function createDevClient(options: DevClientOptions): DevClient {
         return false;
       }
 
-      // An invalid payload from a compatible supervisor: resynchronize.
-      void resync();
+      // A bad snapshot must wait for backoff, never recursively fetch itself.
+      closeStream();
+      update(markConnection(state, 'reconnecting'));
+
+      if (fromSnapshot) scheduleRetry();
+      else void resync();
 
       return true;
     }
 
-    const { state: next, outcome } = applyEvent(state, event);
+    const { state: next, outcome } = result;
 
     update(next);
 
@@ -165,6 +176,8 @@ export function createDevClient(options: DevClientOptions): DevClient {
       try {
         payload = JSON.parse(String(message.data));
       } catch {
+        void resync();
+
         return;
       }
 
@@ -186,6 +199,7 @@ export function createDevClient(options: DevClientOptions): DevClient {
     if (stopped) return;
 
     closeStream();
+    update(markConnection(state, 'reconnecting'));
 
     if (await fetchSnapshot()) {
       if (state.connection === 'live') openStream();

@@ -1,12 +1,15 @@
 {
   "name": "@relate/http",
-  "version": "0.0.0",
+  "version": "0.0.0-dev.0",
   "license": "Apache-2.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "description": "Direct HTTP API over narrow runtime consumer capabilities.",
   "dependencies": {
     "@relate/runtime": "workspace:*",
     "@relate/protocol": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

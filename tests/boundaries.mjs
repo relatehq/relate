@@ -1,42 +1,26 @@
 import ts from 'typescript';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve, dirname, relative, sep } from 'node:path';
+import { builtinModules } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import {
   assertRuntimeDependency,
   runtimeOwner,
 } from './architecture/runtime-boundaries.ts';
+import {
+  assertRelateEntryPoints,
+  packagePolicies,
+} from './architecture/package-boundaries.ts';
 
 const root = process.cwd();
-const owners = ['relate', 'protocol', 'runtime', 'postgres', 'node', 'cli'];
-const allowed = {
-  relate: new Set(['zod', '@relate/protocol']),
-  protocol: new Set(),
-  runtime: new Set(['relate/model', '@relate/protocol']),
-  postgres: new Set(['relate/model', '@relate/runtime/storage', 'pg']),
-  node: new Set([
-    'relate',
-    'relate/compiler',
-    '@relate/runtime',
-    '@relate/protocol',
-  ]),
-  // Local processes, files and the inspector host: never runtime or storage.
-  cli: new Set([
-    'relate',
-    'relate/compiler',
-    'relate/diagnostics',
-    'relate/model',
-    '@relate/node',
-    '@relate/inspector/protocol',
-    '@relate/inspector/server',
-    'hono',
-    'hono/cookie',
-    'hono/streaming',
-    '@hono/node-server',
-    'esbuild',
-    'zod',
-  ]),
-};
-// Browser code in the inspector never reaches the compiler, runtime or Node.
+// Ask pnpm to expand its actual workspace configuration, including future roots
+// and exclusions. Do not maintain a second list of packages to scan.
+const workspaces = JSON.parse(
+  execFileSync('pnpm', ['list', '-r', '--depth', '-1', '--json'], {
+    cwd: root,
+    encoding: 'utf8',
+  }),
+).filter((workspace) => resolve(workspace.path) !== root);
 const inspectorBrowserForbidden = new Set([
   'relate',
   'relate/compiler',
@@ -48,28 +32,63 @@ const inspectorBrowserForbidden = new Set([
   '@relate/protocol',
 ]);
 const graph = new Map();
+const relateGraph = new Map();
+const source = /\.(?:[cm]?[jt]s|[jt]sx)$/;
+const excludedDirectories = new Set([
+  'node_modules',
+  'dist',
+  'coverage',
+  'test',
+  'tests',
+  '__tests__',
+  '.git',
+  '.next',
+  '.next-internal',
+  '.source',
+  '.source-internal',
+]);
 
 async function walk(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
 
   return (
     await Promise.all(
-      entries.map((entry) =>
-        entry.isDirectory()
-          ? walk(resolve(directory, entry.name))
-          : [resolve(directory, entry.name)],
-      ),
+      entries
+        .filter(
+          (entry) =>
+            !entry.isDirectory() || !excludedDirectories.has(entry.name),
+        )
+        .map((entry) =>
+          entry.isDirectory()
+            ? walk(resolve(directory, entry.name))
+            : [resolve(directory, entry.name)],
+        ),
     )
   ).flat();
 }
 
-for (const owner of owners) {
-  const directory = resolve(root, 'packages', owner, 'src');
+for (const workspace of workspaces) {
+  const directory = resolve(workspace.path);
+  const owner = relative(root, directory).replaceAll(sep, '/');
+  const policy = Object.hasOwn(packagePolicies, owner)
+    ? packagePolicies[owner]
+    : undefined;
 
-  for (const file of await walk(directory)) {
-    if (!file.endsWith('.ts')) continue;
+  if (!policy)
+    throw new Error(
+      `Workspace package has no boundary policy: ${owner} (${workspace.name})`,
+    );
 
-    if (owner === 'runtime') runtimeOwner(relative(directory, file));
+  const files = new Set(
+    (await walk(directory)).filter(
+      (file) => source.test(file) && !/\.(?:test|spec)\.[^.]+$/.test(file),
+    ),
+  );
+
+  for (const file of files) {
+    const sourcePath = (path) => relative(resolve(directory, 'src'), path);
+
+    if (owner === 'packages/runtime') runtimeOwner(sourcePath(file));
 
     const parsed = ts.createSourceFile(
       file,
@@ -78,17 +97,22 @@ for (const owner of owners) {
       true,
     );
     const edges = [];
+    const allEdges = [];
 
     function visit(node) {
       const literal =
         ts.isImportDeclaration(node) || ts.isExportDeclaration(node)
           ? node.moduleSpecifier
           : ts.isCallExpression(node) &&
-              node.expression.kind === ts.SyntaxKind.ImportKeyword
+              (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+                (ts.isIdentifier(node.expression) &&
+                  node.expression.text === 'require'))
             ? node.arguments[0]
             : ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)
               ? node.argument.literal
-              : undefined;
+              : ts.isExternalModuleReference(node)
+                ? node.expression
+                : undefined;
       // With verbatimModuleSyntax, inline type specifiers still emit an empty
       // import/export declaration and load the target module at runtime.
       const typeOnly =
@@ -99,9 +123,15 @@ for (const owner of owners) {
       // The CLI's application child imports the user's bundle by computed path.
       if (
         ts.isCallExpression(node) &&
-        node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+        (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+          (ts.isIdentifier(node.expression) &&
+            node.expression.text === 'require')) &&
         (!literal || !ts.isStringLiteral(literal)) &&
-        owner !== 'cli'
+        !(
+          owner === 'packages/cli' &&
+          relative(directory, file) === `src${sep}dev${sep}worker.ts` &&
+          node.expression.kind === ts.SyntaxKind.ImportKeyword
+        )
       )
         throw new Error(`Nonliteral import cannot be checked: ${file}`);
 
@@ -109,28 +139,87 @@ for (const owner of owners) {
         const name = literal.text;
 
         if (name.startsWith('.')) {
-          const target = resolve(dirname(file), name.replace(/\.js$/, '.ts'));
+          // The published executable loads the emitted counterpart of src/bin.ts.
+          if (
+            owner === 'packages/cli' &&
+            relative(directory, file) === `bin${sep}relate.js` &&
+            name === '../dist/bin.js'
+          ) {
+            const entry = resolve(directory, 'src/bin.ts');
 
-          if (!target.startsWith(directory + sep))
+            if (!files.has(entry))
+              throw new Error(`Missing CLI source entry: ${entry}`);
+
+            edges.push(entry);
+            allEdges.push('src/bin.ts');
+
+            return;
+          }
+
+          const target = ts.resolveModuleName(
+            name,
+            file,
+            {
+              module: ts.ModuleKind.NodeNext,
+              moduleResolution: ts.ModuleResolutionKind.NodeNext,
+              allowJs: true,
+              resolveJsonModule: true,
+            },
+            ts.sys,
+          ).resolvedModule?.resolvedFileName;
+
+          // This example uses the independently checked provider simulator.
+          // All other cross-package relative imports still fail.
+          if (
+            target &&
+            policy.fixtures?.includes(
+              relative(root, target).replaceAll(sep, '/'),
+            )
+          )
+            return;
+
+          // Check the lexical path even when TypeScript cannot resolve it.
+          if (!resolve(dirname(file), name).startsWith(directory + sep))
             throw new Error(`Cross-package relative import: ${file}: ${name}`);
 
-          if (owner === 'runtime')
+          if (owner === 'apps/inspector' && name.endsWith('.css')) return;
+
+          if (owner === 'packages/runtime')
             assertRuntimeDependency(
-              relative(directory, file),
-              relative(directory, target),
+              sourcePath(file),
+              sourcePath(
+                target ?? resolve(dirname(file), name.replace(/\.js$/, '.ts')),
+              ),
               Boolean(typeOnly),
             );
 
-          if (!typeOnly) edges.push(target);
-        } else if (name.startsWith('node:')) {
+          if (
+            !target ||
+            !target.startsWith(directory + sep) ||
+            (!files.has(target) && !target.endsWith('.json'))
+          )
+            throw new Error(`Unscanned relative import: ${file}: ${name}`);
+
+          if (files.has(target)) {
+            allEdges.push(relative(directory, target).replaceAll(sep, '/'));
+
+            if (!typeOnly) edges.push(target);
+          }
+        } else if (name.startsWith('node:') || builtinModules.includes(name)) {
+          const builtin = name.startsWith('node:') ? name : `node:${name}`;
+          const compiler =
+            owner === 'packages/relate' &&
+            relative(directory, file) === `src${sep}compiler.ts`;
+
           if (!(
-            owner === 'postgres' ||
-            owner === 'cli' ||
-            (owner === 'relate' && file.endsWith(`${sep}compiler.ts`)) ||
-            (owner === 'runtime' && name === 'node:crypto')
+            compiler ||
+            (owner === 'apps/inspector' &&
+              relative(directory, file) === `src${sep}server.ts`) ||
+            policy.builtins === true ||
+            policy.builtins?.includes(builtin)
           ))
             throw new Error(`Platform dependency: ${file}: ${name}`);
-        } else if (!allowed[owner].has(name))
+        } else if (!policy.imports.includes(name))
           throw new Error(`Forbidden dependency: ${file}: ${name}`);
       }
 
@@ -139,8 +228,13 @@ for (const owner of owners) {
 
     visit(parsed);
     graph.set(file, edges);
+
+    if (owner === 'packages/relate')
+      relateGraph.set(relative(directory, file).replaceAll(sep, '/'), allEdges);
   }
 }
+
+assertRelateEntryPoints(relateGraph);
 
 // Type-only cycles are permitted for contract types; execution cycles are checked separately below.
 const visited = new Set(),
@@ -165,7 +259,11 @@ for (const file of graph.keys()) await check(file);
 // The inspector's browser modules: only server.ts may touch Node.
 const inspectorSource = resolve(root, 'apps/inspector/src');
 
-for (const file of await walk(inspectorSource)) {
+for (const file of await walk(inspectorSource).catch((error) => {
+  if (error.code === 'ENOENT') return [];
+
+  throw error;
+})) {
   if (!/\.tsx?$/.test(file)) continue;
 
   const serverOnly = file === resolve(inspectorSource, 'server.ts');
@@ -219,5 +317,5 @@ for (const file of await walk(resolve(root, 'dev/simulators'))) {
 }
 
 console.log(
-  `Verified package/runtime boundaries and execution cycles (${graph.size} modules).`,
+  `Verified package/runtime boundaries and execution cycles (${workspaces.length} packages, ${graph.size} modules).`,
 );

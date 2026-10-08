@@ -101,7 +101,11 @@ export function createAttemptRunner(
     const elapsed = () => Math.round(performance.now() - started);
     const build = await options.builder.build(attempt);
 
-    if (cancelled()) return { kind: 'cancelled', attempt };
+    if (cancelled()) {
+      if (build.ok) await options.builder.discard(attempt);
+
+      return { kind: 'cancelled', attempt };
+    }
 
     if (!build.ok)
       return {

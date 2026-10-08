@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { accepts } from 'relate/model';
+import { accepts, canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
   Json,
   ReadRequest,
   ReadResult,
-  SucceededReceipt,
+  ActionReceipt,
+  FailedReceipt,
 } from '@relate/protocol';
 import {
   NativeCommitUncertain,
@@ -15,6 +16,8 @@ import {
 } from '../storage.js';
 import type {
   NativeRecord,
+  NativeInvocation,
+  NativeReceiptRead,
   NativeScope,
   NativeTransaction,
   ObservationStore,
@@ -30,6 +33,7 @@ export interface ActionExecutionContext {
   readonly actor: Principal;
   readonly input: Record<string, Json>;
   read(type: string, id: string, request?: ReadRequest): Promise<ReadResult>;
+  fail(code: string, details: unknown): never;
   create(type: string, values: unknown): Promise<{ id: string }>;
 }
 
@@ -65,7 +69,7 @@ function parse(shape: Action['input'], value: unknown): Record<string, Json> {
   return result;
 }
 
-/** Native business effects and the successful receipt share exactly one transaction. */
+/** Success commits effects; domain failure rolls them back. Both receipts retain the key claim atomically. */
 export function createActionExecutor(options: {
   manifest: Manifest;
   scope: NativeScope;
@@ -80,6 +84,7 @@ export function createActionExecutor(options: {
     id: string,
     request: ReadRequest,
     transaction: NativeTransaction,
+    captureAuthorization?: (check: () => Promise<boolean>) => void,
   ): Promise<ReadResult>;
   validate(
     principal: Principal,
@@ -90,12 +95,7 @@ export function createActionExecutor(options: {
 }) {
   const { manifest, store } = options;
 
-  return async (
-    principal: Principal,
-    actionId: string,
-    request: { input: unknown; idempotencyKey: string },
-  ): Promise<SucceededReceipt> => {
-    const actor = structuredClone(principal);
+  function authorizedAction(actor: Principal, actionId: string) {
     const action = manifest.actions?.find((a) => a.id === actionId);
 
     if (
@@ -104,6 +104,118 @@ export function createActionExecutor(options: {
       !actor.id.trim()
     )
       throw new ActionError('denied');
+
+    return action;
+  }
+
+  async function authorizeReceipt(
+    actor: Principal,
+    action: Action,
+    saved: NativeInvocation | undefined,
+    transaction: NativeTransaction,
+  ): Promise<ActionReceipt> {
+    if (
+      !saved ||
+      saved.actorId !== actor.id ||
+      !saved.reads ||
+      saved.actionDefinitionId !== action.id
+    )
+      throw new ActionError('denied');
+
+    const input = parse(action.input, saved.input);
+    const resultShape =
+      saved.receipt.state === 'succeeded'
+        ? action.output
+        : Object.hasOwn(action.errors ?? {}, saved.receipt.error.code)
+          ? action.errors![saved.receipt.error.code]
+          : undefined;
+
+    if (!resultShape) throw new ActionError('denied');
+
+    const output = parse(
+      resultShape,
+      saved.receipt.state === 'succeeded'
+        ? saved.receipt.output
+        : saved.receipt.error.details,
+    );
+    const reads = [...saved.reads];
+    const authorization: (() => Promise<boolean>)[] = [];
+
+    for (const [shape, values] of [
+      [action.input, input],
+      [resultShape, output],
+    ] as const)
+      for (const [name, field] of Object.entries(shape))
+        if (field.references)
+          reads.push({
+            objectDefinitionId: field.references,
+            objectId: values[name] as string,
+            propertyIds: [],
+          });
+
+    for (const read of reads) {
+      const object = manifest.objects.find(
+        (o) => o.id === read.objectDefinitionId,
+      );
+      const select = read.propertyIds.map(
+        (id) => object?.properties.find((p) => p.id === id)?.name,
+      );
+
+      if (!object || select.some((name) => name === undefined))
+        throw new ActionError('denied');
+
+      const result = await options.read(
+        actor,
+        object.id,
+        read.objectId,
+        { select: select as string[] },
+        transaction,
+        (check) => authorization.push(check),
+      );
+
+      if (
+        result.status !== 'ok' ||
+        select.some(
+          (name) =>
+            !['available', 'absent'].includes(
+              result.meta.fields[name!]?.status ?? '',
+            ),
+        )
+      )
+        throw new ActionError('denied');
+    }
+
+    // Later dependency reads may outlast an earlier permission's evidence bound.
+    for (const allowed of authorization)
+      if (!(await allowed())) throw new ActionError('denied');
+
+    return structuredClone(saved.receipt);
+  }
+
+  function rejection(error: unknown): never {
+    if (error instanceof NativeConflict) throw new ActionError('conflict');
+
+    if (error instanceof NativeCommitUncertain)
+      throw new ActionError('uncertain');
+
+    if (error instanceof ActionError) throw error;
+
+    if (
+      error instanceof StorageUnavailable ||
+      (error instanceof ReadError && error.code === 'unavailable')
+    )
+      throw new ActionError('unavailable');
+
+    throw new ActionError('internal');
+  }
+
+  const invoke = async (
+    principal: Principal,
+    actionId: string,
+    request: { input: unknown; idempotencyKey: string },
+  ): Promise<ActionReceipt> => {
+    const actor = structuredClone(principal);
+    const action = authorizedAction(actor, actionId);
 
     if (
       !request ||
@@ -129,20 +241,54 @@ export function createActionExecutor(options: {
           deadline = createActionDeadline(transaction, options.timeoutMs);
 
           return deadline.run(async (transaction, check) => {
-            await transaction.claim(action.id, key);
+            const existing = await transaction.claim(action.id, key);
+
+            if (existing) {
+              // Check ownership before input equality to avoid exposing another actor's invocation.
+              if (existing.actorId !== actor.id)
+                throw new ActionError('denied');
+
+              const receipt = await authorizeReceipt(
+                actor,
+                action,
+                existing,
+                transaction,
+              );
+
+              if (canonicalJson(existing.input) !== canonicalJson(input))
+                throw new ActionError('conflict');
+
+              return receipt;
+            }
+
+            const reads: NativeReceiptRead[] = [];
             const created: NativeRecord[] = [];
             let accepting = true;
             let failure: unknown;
             let aborted = false;
+            const domainSignal = new Error('Declared action failure');
+            let domain: FailedReceipt['error'] | undefined;
             const pending: Promise<unknown>[] = [];
             const run = <T>(operation: () => Promise<T>): Promise<T> => {
-              if (!accepting) return Promise.reject(new ActionError('invalid'));
+              if (domain || !accepting) {
+                const rejected = Promise.reject(
+                  domain ? domainSignal : new ActionError('invalid'),
+                );
+
+                // A caught fail() can leave fire-and-forget work behind. Revoke it
+                // without turning its ignored rejection into a process-level error.
+                void rejected.catch(() => {});
+
+                return rejected;
+              }
 
               const promise = Promise.resolve()
                 .then(async () => {
                   check();
 
                   if (aborted) throw failure;
+
+                  if (domain) throw domainSignal;
 
                   const result = await operation();
 
@@ -151,6 +297,8 @@ export function createActionExecutor(options: {
                   return result;
                 })
                 .catch((error: unknown) => {
+                  if (error === domainSignal) throw error;
+
                   if (!aborted) failure = error;
 
                   aborted = true;
@@ -178,89 +326,170 @@ export function createActionExecutor(options: {
                     transaction,
                   );
 
-                  if (result.status !== 'ok') throw new ActionError('denied');
+                  if (result.status !== 'ok')
+                    throw new ActionError('not-found');
                 }
             };
 
             await checkReferences(action.input, input);
-            let output: Record<string, Json>;
+            let output: Record<string, Json> = {};
+
+            const executeHandler = async () => {
+              try {
+                const result = await handler({
+                  actor: structuredClone(actor),
+                  input: structuredClone(input),
+                  fail: (code, details): never => {
+                    check();
+
+                    if (aborted) throw failure;
+
+                    if (domain) throw domainSignal;
+
+                    if (!accepting) throw new ActionError('invalid');
+
+                    try {
+                      if (
+                        typeof code !== 'string' ||
+                        !Object.hasOwn(action.errors ?? {}, code)
+                      )
+                        throw new Error('Undeclared failure');
+
+                      domain = {
+                        kind: 'domain',
+                        code,
+                        details: parse(action.errors![code]!, details),
+                      };
+                    } catch {
+                      // A handler bug is not a declared business outcome, even when caught.
+                      aborted = true;
+                      failure = new ActionError('internal');
+                      throw failure;
+                    }
+
+                    throw domainSignal;
+                  },
+                  read: (type, id, request = {}) =>
+                    run(async () => {
+                      const result = await options.read(
+                        actor,
+                        type,
+                        id,
+                        request,
+                        transaction,
+                      );
+
+                      if (result.status === 'ok') {
+                        const object = manifest.objects.find(
+                          (o) => o.id === type,
+                        )!;
+
+                        reads.push({
+                          objectDefinitionId: type,
+                          objectId: id,
+                          propertyIds: object.properties
+                            .filter((p) =>
+                              ['available', 'absent'].includes(
+                                result.meta.fields[p.name]?.status ?? '',
+                              ),
+                            )
+                            .map((p) => p.id),
+                        });
+                      }
+
+                      return result;
+                    }),
+                  create: (type, values) =>
+                    run(async () => {
+                      const object = manifest.objects.find(
+                        (o) => o.id === type,
+                      );
+
+                      if (
+                        !object ||
+                        object.sourceDefinitionId ||
+                        !action.creates.includes(type)
+                      )
+                        throw new ActionError('denied');
+
+                      const properties = object.properties.filter(
+                        (p) => p.origin.kind !== 'object-id',
+                      );
+
+                      if (
+                        !values ||
+                        typeof values !== 'object' ||
+                        Array.isArray(values) ||
+                        Object.keys(values).some(
+                          (name) => !properties.some((p) => p.name === name),
+                        )
+                      )
+                        throw new ActionError('invalid');
+
+                      const shape = Object.fromEntries(
+                        properties.map((p) => [
+                          p.name,
+                          {
+                            ...p.schema,
+                            ...(p.origin.kind === 'native-reference'
+                              ? {
+                                  references: p.origin.targetObjectDefinitionId,
+                                }
+                              : {}),
+                          },
+                        ]),
+                      );
+                      const parsed = parse(shape, values);
+                      const record: NativeRecord = {
+                        objectDefinitionId: object.id,
+                        objectId: randomUUID(),
+                        createdAt: options.clock(),
+                        values: Object.fromEntries(
+                          properties
+                            .filter((p) => Object.hasOwn(parsed, p.name))
+                            .map((p) => [p.id, parsed[p.name]!]),
+                        ),
+                      };
+
+                      await options.validate(
+                        actor,
+                        object,
+                        record,
+                        transaction,
+                      );
+                      await transaction.insert(record);
+                      created.push(record);
+
+                      return { id: record.objectId };
+                    }),
+                });
+
+                if (!domain) output = parse(action.output, result);
+              } catch (error) {
+                if (!domain) throw error;
+              } finally {
+                accepting = false;
+                await Promise.allSettled(pending);
+              }
+
+              if (aborted) throw failure;
+
+              if (domain) throw domainSignal;
+            };
 
             try {
-              const result = await handler({
-                actor: structuredClone(actor),
-                input: structuredClone(input),
-                read: (type, id, request = {}) =>
-                  run(() =>
-                    options.read(actor, type, id, request, transaction),
-                  ),
-                create: (type, values) =>
-                  run(async () => {
-                    const object = manifest.objects.find((o) => o.id === type);
-
-                    if (
-                      !object ||
-                      object.sourceDefinitionId ||
-                      !action.creates.includes(type)
-                    )
-                      throw new ActionError('denied');
-
-                    const properties = object.properties.filter(
-                      (p) => p.origin.kind !== 'object-id',
-                    );
-
-                    if (
-                      !values ||
-                      typeof values !== 'object' ||
-                      Array.isArray(values) ||
-                      Object.keys(values).some(
-                        (name) => !properties.some((p) => p.name === name),
-                      )
-                    )
-                      throw new ActionError('invalid');
-
-                    const shape = Object.fromEntries(
-                      properties.map((p) => [
-                        p.name,
-                        {
-                          ...p.schema,
-                          ...(p.origin.kind === 'native-reference'
-                            ? { references: p.origin.targetObjectDefinitionId }
-                            : {}),
-                        },
-                      ]),
-                    );
-                    const parsed = parse(shape, values);
-                    const record: NativeRecord = {
-                      objectDefinitionId: object.id,
-                      objectId: randomUUID(),
-                      createdAt: options.clock(),
-                      values: Object.fromEntries(
-                        properties
-                          .filter((p) => Object.hasOwn(parsed, p.name))
-                          .map((p) => [p.id, parsed[p.name]!]),
-                      ),
-                    };
-
-                    await options.validate(actor, object, record, transaction);
-                    await transaction.insert(record);
-                    created.push(record);
-
-                    return { id: record.objectId };
-                  }),
-              });
-
-              output = parse(action.output, result);
-            } finally {
-              accepting = false;
-              await Promise.allSettled(pending);
+              // Success-only actions need no recoverable business-failure boundary.
+              if (Object.keys(action.errors ?? {}).length)
+                await transaction.savepoint(executeHandler);
+              else await executeHandler();
+            } catch (error) {
+              if (error !== domainSignal) throw error;
             }
-
-            if (aborted) throw failure;
 
             // Recheck after arbitrary implementation awaits and all native writes.
             await checkReferences(action.input, input);
 
-            for (const record of created)
+            for (const record of domain ? [] : created)
               await options.validate(
                 actor,
                 manifest.objects.find(
@@ -270,42 +499,109 @@ export function createActionExecutor(options: {
                 transaction,
               );
 
-            await checkReferences(action.output, output);
-            const receipt: SucceededReceipt = {
-              invocationId: randomUUID(),
-              state: 'succeeded',
-              output,
-            };
+            if (domain)
+              await checkReferences(
+                action.errors![domain.code]!,
+                domain.details as Record<string, Json>,
+              );
+            else await checkReferences(action.output, output);
 
-            await transaction.saveInvocation({
+            const receipt: ActionReceipt = domain
+              ? {
+                  invocationId: randomUUID(),
+                  state: 'failed',
+                  error: domain,
+                }
+              : {
+                  invocationId: randomUUID(),
+                  state: 'succeeded',
+                  output,
+                };
+
+            // Reads of rolled-back objects are not durable dependencies. Their source/input
+            // dependencies remain; reference-valued details must still resolve after rollback.
+            const retainedReads = domain
+              ? reads.filter(
+                  (read) =>
+                    !created.some(
+                      (record) =>
+                        record.objectDefinitionId === read.objectDefinitionId &&
+                        record.objectId === read.objectId,
+                    ),
+                )
+              : reads;
+            const invocation: NativeInvocation = {
               actionDefinitionId: action.id,
               idempotencyKey: key,
+              actorId: actor.id,
+              reads: retainedReads,
               input,
               receipt,
-            });
+            };
+
+            // Rollback changes the authorization view. Recheck recorded fields too,
+            // since scalar failure details may have been derived from those reads.
+            if (domain)
+              await authorizeReceipt(actor, action, invocation, transaction);
+
+            await transaction.saveInvocation(invocation);
 
             return receipt;
           });
         },
       );
     } catch (error) {
-      if (error instanceof NativeConflict) throw new ActionError('conflict');
-
-      if (error instanceof NativeCommitUncertain)
-        throw new ActionError('uncertain');
-
-      if (error instanceof ActionError) throw error;
-
-      if (
-        error instanceof StorageUnavailable ||
-        (error instanceof ReadError && error.code === 'unavailable')
-      )
-        throw new ActionError('unavailable');
-
-      throw new ActionError('internal');
+      return rejection(error);
     } finally {
       // An adapter can fail while the callback is suspended (for example a dead PG session).
       deadline?.close();
     }
+  };
+
+  return {
+    invoke,
+    async getReceipt(
+      principal: Principal,
+      actionId: string,
+      invocationId: string,
+    ): Promise<ActionReceipt> {
+      const actor = structuredClone(principal);
+      const action = authorizedAction(actor, actionId);
+
+      if (typeof invocationId !== 'string' || !invocationId.trim())
+        throw new ActionError('denied');
+
+      if (!store.native) throw new ActionError('unsupported');
+
+      let deadline: ReturnType<typeof createActionDeadline> | undefined;
+
+      try {
+        await options.install();
+
+        return await store.native.transaction(
+          options.scope,
+          async (transaction) => {
+            deadline = createActionDeadline(transaction, options.timeoutMs);
+
+            return deadline.run(async (transaction) =>
+              authorizeReceipt(
+                actor,
+                action,
+                await transaction.findInvocation(action.id, invocationId),
+                transaction,
+              ),
+            );
+          },
+        );
+      } catch (error) {
+        // Lookup has no business effects, so losing its transaction acknowledgement is an outage.
+        if (error instanceof NativeCommitUncertain)
+          throw new ActionError('unavailable');
+
+        return rejection(error);
+      } finally {
+        deadline?.close();
+      }
+    },
   };
 }

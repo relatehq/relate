@@ -1,5 +1,9 @@
 # @relate/node
 
+> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
+> Not ready for application use. APIs and behavior are incomplete and may change
+> without notice.
+
 Application composition for Node: compile an authored graph, bind connections
 and action implementations, and expose a typed, authorized consumer API. Private
 and unpublished while implementation is in progress.
@@ -128,6 +132,10 @@ const receipt = await actions.addAccountReview({
   input: { customer: customerId, note: 'Follow up' },
   idempotencyKey: 'review-2026-10',
 });
+const recovered = await relate
+  .as(ana)
+  .receipts.get(AddAccountReview, receipt.invocationId);
+// recovered.output contains the original result; the action is not executed again.
 ```
 
 ## Application definitions
@@ -172,10 +180,12 @@ await relate.close();
 ## Status
 
 Implemented: typed reads, source-backed references, bidirectional traversal with
-pagination, and native actions with atomic receipts. Not implemented: collection
-queries, automatic synchronization, servers and workers. `defineApp` and
-`startApp` from the [inspector specification](../../apps/inspector/SPEC.md) are
-proposals, not exports.
+pagination, native actions with atomic success receipts, and actor-bound
+lookup/replay with current-access checks. Ordinary calls wait for completion.
+Not implemented: background submission, failed receipts, collection queries,
+automatic synchronization, servers and workers. `defineApp` and `startApp` from
+the [inspector specification](../../apps/inspector/SPEC.md) are proposals, not
+exports.
 
 ## Further reading
 

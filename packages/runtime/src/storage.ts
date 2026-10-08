@@ -101,23 +101,42 @@ export interface NativeRecord {
 export interface NativeInvocation {
   readonly actionDefinitionId: string;
   readonly idempotencyKey: string;
+  /** Null only for legacy invocations, which cannot be recovered by consumers. */
+  readonly actorId: string | null;
+  readonly reads: readonly NativeReceiptRead[] | null;
   readonly input: import('@relate/protocol').Json;
-  readonly receipt: import('@relate/protocol').SucceededReceipt;
+  readonly receipt: import('@relate/protocol').ActionReceipt;
+}
+
+/** Authorization dependencies of saved output, keyed by stable definition IDs. */
+export interface NativeReceiptRead {
+  readonly objectDefinitionId: string;
+  readonly objectId: string;
+  readonly propertyIds: readonly string[];
 }
 
 export interface NativeTransaction {
+  /** Roll back this callback's writes on rejection, retaining the outer transaction and key claim. */
+  savepoint<T>(operation: () => Promise<T>): Promise<T>;
   load(
     objectDefinitionId: string,
     objectId: string,
   ): Promise<NativeRecord | undefined>;
   insert(record: NativeRecord): Promise<void>;
-  /** Reserve once per graph/action/key. Duplicate keys reject in this slice. */
-  claim(actionDefinitionId: string, idempotencyKey: string): Promise<void>;
+  /** Atomically reserve a new key, or return the original committed invocation. */
+  claim(
+    actionDefinitionId: string,
+    idempotencyKey: string,
+  ): Promise<NativeInvocation | undefined>;
+  findInvocation(
+    actionDefinitionId: string,
+    invocationId: string,
+  ): Promise<NativeInvocation | undefined>;
   saveInvocation(invocation: NativeInvocation): Promise<void>;
 }
 
 export interface NativeStore {
-  /** Trusted storage evidence; consumer receipt authorization is a separate future operation. */
+  /** Trusted storage evidence; never expose without runtime receipt authorization. */
   loadInvocation(
     scope: NativeScope,
     actionDefinitionId: string,

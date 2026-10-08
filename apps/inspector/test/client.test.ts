@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { compile } from 'relate/compiler';
 import {
   createDevClient,
@@ -250,3 +250,81 @@ it('reads the fragment token once and derives the mount from the document path',
     } as Location).toString(),
   ).toBe('http://127.0.0.1:4318/tools/inspector/');
 });
+
+it.each(['shape', 'severity'])(
+  'backs off invalid %s snapshots and recovers without losing the model',
+  async (kind) => {
+    vi.useFakeTimers();
+    const server: Server = { snapshot: () => snapshot(1), requests: [] };
+    const client = createDevClient({
+      baseUrl: new URL('http://127.0.0.1:4318/'),
+      fetch: fakeFetch(server),
+      createEventSource: (url) =>
+        new FakeEventSource(url) as unknown as EventSource,
+      retryDelaysMs: [1000, 2000],
+    });
+
+    try {
+      server.snapshot = () =>
+        kind === 'shape'
+          ? { ...snapshot(1), extra: 'unsupported' }
+          : {
+              ...snapshot(1),
+              failure: {
+                attempt: 1,
+                diagnostics: [
+                  {
+                    kind: 'compile',
+                    code: 'bad',
+                    severity: 'warning',
+                    message: 'bad',
+                  },
+                ],
+              },
+            };
+      await expect(client.start()).resolves.toBeUndefined();
+      expect(client.getState().connection).toBe('reconnecting');
+      expect(server.requests).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(999);
+      expect(server.requests).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(server.requests).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(1999);
+      expect(server.requests).toHaveLength(2);
+      server.snapshot = () => snapshot(3);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(client.getState()).toMatchObject({
+        connection: 'live',
+        sequence: 3,
+      });
+      const stream = FakeEventSource.instances.at(-1)!;
+
+      server.snapshot = () => ({
+        ...snapshot(3),
+        failure: {
+          attempt: 2,
+          diagnostics: [
+            {
+              kind: 'compile',
+              code: 'bad',
+              severity: 'warning',
+              message: 'bad',
+            },
+          ],
+        },
+      });
+      stream.onmessage?.({ data: JSON.stringify(server.snapshot()) });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(stream.closed).toBe(true);
+      expect(client.getState()).toMatchObject({
+        connection: 'reconnecting',
+        sequence: 3,
+        model: { generation: 1 },
+      });
+      expect(server.requests).toHaveLength(4);
+    } finally {
+      client.stop();
+      vi.useRealTimers();
+    }
+  },
+);

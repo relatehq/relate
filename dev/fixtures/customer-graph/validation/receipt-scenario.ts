@@ -1,4 +1,4 @@
-/** Intended caller outcomes, typechecked only; action execution is unimplemented. */
+/** Full-fixture caller outcomes, typechecked only. Native success recovery has package tests. */
 import assert from 'node:assert/strict';
 import type { ObjectId } from 'relate';
 import { AddAccountReview } from '../source/actions/add-account-review.js';
@@ -23,45 +23,41 @@ export interface ReceiptScenarioDriver {
     saveInvocationId(id: string): Promise<void>;
     loadInvocationId(): Promise<string>;
   };
-  /** Hold the next invocation after durable acceptance; finish waits for commit. */
-  holdNextInvocation(): Promise<{ finish(): Promise<void> }>;
   /** Let the invocation commit, then reject delivery without exposing its receipt. */
   loseResponseAfterCommit(
     invoke: () => Promise<Receipt<typeof AddAccountReview>>,
   ): Promise<never>;
 }
 
-export async function pendingReceiptScenario(
+export async function completedReceiptScenario(
   relate: Relate<typeof graph>,
   northwind: ObjectId<typeof Customer.id>,
   driver: ReceiptScenarioDriver,
 ) {
   const request = {
     input: { customer: northwind, note: 'Follow up on the open invoice' },
-    idempotencyKey: 'review-pending',
+    idempotencyKey: 'review-completed',
   };
-  const held = await driver.holdNextInvocation();
 
   await driver.journal.saveRequest(request);
 
-  const pending = await relate.as(ana).actions.addAccountReview(request);
+  const receipt = await relate.as(ana).actions.addAccountReview(request);
 
-  assert.equal(pending.state, 'pending');
-  assert.ok(pending.invocationId);
-  await driver.journal.saveInvocationId(pending.invocationId);
+  assert.equal(receipt.state, 'succeeded');
+  assert.ok(receipt.invocationId);
+  await driver.journal.saveInvocationId(receipt.invocationId);
 
   // Re-open the page: reload its saved ID and use a freshly authenticated caller.
   const invocationId = await driver.journal.loadInvocationId();
 
   assert.deepEqual(
     await relate.as(ana).receipts.get(AddAccountReview, invocationId),
-    pending,
+    receipt,
   );
   assert.deepEqual(
     await relate.as(ana).actions.addAccountReview(request),
-    pending,
+    receipt,
   );
-  await held.finish();
 
   const completed = await relate
     .as(ana)
@@ -82,6 +78,7 @@ export async function pendingReceiptScenario(
 
   // These principals come from the host's current authentication, not request input.
   const revokedPrincipals = [
+    { ...ana, id: 'another-actor' },
     { ...ana, roles: ['employee'] as const },
     { ...ana, claims: { portfolio: 'portfolio_south' } },
   ];

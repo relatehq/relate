@@ -151,3 +151,36 @@ it('reports corrupt lock files instead of overwriting them', async () => {
   expect((result as { reason: string }).reason).toMatch(/not readable/);
   expect(await readFile(lockPath(root), 'utf8')).toBe('not json');
 });
+
+it('retries acquisition when a starting owner releases its lock', async () => {
+  const first = await acquire();
+
+  expect(first.kind).toBe('acquired');
+  const lock = (first as { lock: Lock }).lock;
+  const pending = acquire({ waitForUrlMs: 1000 });
+
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  await lock.release();
+  const next = await pending;
+
+  expect(next.kind).toBe('acquired');
+
+  if (next.kind === 'acquired') await next.lock.release();
+});
+
+it('never exposes partially written metadata during concurrent acquisition', async () => {
+  const configPath = join(root, 'x'.repeat(1_000_000));
+  const results = await Promise.all(
+    Array.from({ length: 12 }, () => acquire({ configPath, waitForUrlMs: 0 })),
+  );
+
+  expect(results.filter((result) => result.kind === 'acquired')).toHaveLength(
+    1,
+  );
+
+  for (const result of results) {
+    if (result.kind === 'unverifiable') expect(result.metadata).not.toBeNull();
+
+    if (result.kind === 'acquired') await result.lock.release();
+  }
+});

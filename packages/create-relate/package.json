@@ -1,8 +1,11 @@
 {
   "name": "create-relate",
-  "version": "0.0.0",
+  "version": "0.0.0-dev.0",
   "license": "Apache-2.0",
-  "private": true,
+  "private": false,
   "type": "module",
-  "description": "Project generator and deployment-target templates."
+  "description": "Project generator and deployment-target templates.",
+  "publishConfig": {
+    "access": "public"
+  }
 }

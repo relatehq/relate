@@ -1,4 +1,4 @@
-import type { TraversalRequest } from '@relate/protocol';
+import { ActionError, type TraversalRequest } from '@relate/protocol';
 import { compile } from 'relate/compiler';
 import type {
   ActionDefinition,
@@ -103,6 +103,7 @@ export function createRuntime<
       implementation.implementation({
         actor: context.actor,
         input: context.input,
+        fail: context.fail,
         objects: Object.fromEntries(
           objects.map(([name, object]) => [
             name,
@@ -235,6 +236,15 @@ export function createRuntime<
       // The registry gives each operation exactly the definition used by that compiler.
       return Object.freeze({
         objects: Object.freeze(operations),
+        receipts: Object.freeze({
+          get: (action: ActionDefinition, invocationId: string) =>
+            run(async () => {
+              if (!actions.some(([, registered]) => registered === action))
+                throw new ActionError('denied');
+
+              return engine.getReceipt(actor, action.id, invocationId);
+            }),
+        }),
         actions: Object.freeze(
           Object.fromEntries(
             actions.map(([name, action]) => [

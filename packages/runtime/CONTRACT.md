@@ -172,5 +172,8 @@ does not include installation, lock/pool waiting or database cleanup.
 Memory serializes native transactions per graph using isolated working copies;
 Postgres provides the same behavior with adapter-owned transactions. Source
 observation retention stays separate. Current execution returns confirmed
-success or throws sanitized `ActionError`; durable pending execution and
-consumer receipt lookup/replay are subsequent slices.
+success or throws sanitized `ActionError`. `getReceipt` and matching-key replay
+recover success under originating-actor and current-access checks, including the
+handler's saved object/field read dependencies. They do not invoke the handler.
+Durable pending execution and failed receipts remain subsequent slices. See
+[receipt recovery](../node/NATIVE_ACTIONS.md#wait-for-completion-lookup-and-recovery).

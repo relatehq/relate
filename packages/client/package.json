@@ -1,11 +1,14 @@
 {
   "name": "@relate/client",
-  "version": "0.0.0",
+  "version": "0.0.0-dev.0",
   "license": "Apache-2.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "description": "HTTP client for browser and server consumers.",
   "dependencies": {
     "@relate/protocol": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -1,8 +1,8 @@
 {
   "name": "@relate/cli",
-  "version": "0.0.0",
+  "version": "0.0.0-dev.0",
   "license": "Apache-2.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "description": "Development and operational commands using programmatic APIs.",
   "bin": {
@@ -26,5 +26,8 @@
     "esbuild": "0.28.2",
     "hono": "4.13.13",
     "relate": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -41,7 +41,9 @@ serializes writes per graph, reserves the graph/action/key, and commits native
 inserts with successful receipt/input evidence. Errors roll back the entire
 transaction; a lost COMMIT acknowledgement throws `NativeCommitUncertain`
 instead of claiming failure. This is surfaced as a sanitized uncertain action
-rejection; consumer recovery follows in the next slice.
+rejection. Authorized same-key replay and receipt lookup can recover a committed
+success without another write. Migration 4 adds actor/read provenance; legacy
+rows keep their keys but cannot be consumer-recovered without that evidence.
 
 Native transactions use a separate five-connection pool from source
 observations, so queued native writers cannot starve their own authorization

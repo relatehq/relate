@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
 import { expect, it } from 'vitest';
+import { initializeBoundaryWorkspace } from '../support/boundary-workspace.js';
 import {
   assertRuntimeDependency,
   runtimeOwner,
@@ -64,12 +65,7 @@ it.each([
   const directory = await mkdtemp(join(tmpdir(), 'relate-boundary-test-'));
 
   try {
-    for (const owner of ['relate', 'protocol', 'runtime', 'postgres', 'node'])
-      await mkdir(join(directory, 'packages', owner, 'src'), {
-        recursive: true,
-      });
-
-    await mkdir(join(directory, 'dev/simulators'), { recursive: true });
+    await initializeBoundaryWorkspace(directory);
     await mkdir(join(directory, 'packages/runtime/src/authorization'), {
       recursive: true,
     });
@@ -134,20 +130,7 @@ it.each([
       );
 
     try {
-      for (const owner of [
-        'relate',
-        'protocol',
-        'runtime',
-        'postgres',
-        'node',
-        'cli',
-      ])
-        await mkdir(join(directory, 'packages', owner, 'src'), {
-          recursive: true,
-        });
-
-      await mkdir(join(directory, 'apps/inspector/src'), { recursive: true });
-      await mkdir(join(directory, 'dev/simulators'), { recursive: true });
+      await initializeBoundaryWorkspace(directory);
       const write = async (file: string, content: string) => {
         const path = join(directory, 'packages/runtime/src', file);
 

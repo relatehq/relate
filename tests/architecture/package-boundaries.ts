@@ -1,0 +1,123 @@
+/** Exact public imports, independent of package.json dependency declarations. */
+export const packagePolicies: Record<
+  string,
+  {
+    imports: readonly string[];
+    builtins?: true | readonly string[];
+    /** Explicit repository fixtures; never published package internals. */
+    fixtures?: readonly string[];
+  }
+> = {
+  'packages/relate': { imports: ['zod', '@relate/protocol'] },
+  'packages/protocol': { imports: [] },
+  'packages/runtime': {
+    imports: ['relate/model', '@relate/protocol'],
+    builtins: ['node:crypto'],
+  },
+  'packages/postgres': {
+    imports: ['relate/model', '@relate/runtime/storage', 'pg'],
+    builtins: true,
+  },
+  'packages/node': {
+    imports: [
+      'relate',
+      'relate/compiler',
+      '@relate/runtime',
+      '@relate/protocol',
+    ],
+  },
+  'packages/client': { imports: ['@relate/protocol'] },
+  'packages/http': { imports: ['@relate/runtime', '@relate/protocol'] },
+  'packages/mcp': { imports: ['@relate/runtime', '@relate/protocol'] },
+  'packages/cli': {
+    imports: [
+      'relate',
+      'relate/compiler',
+      '@relate/node',
+      '@relate/runtime',
+      '@relate/postgres',
+      'relate/diagnostics',
+      'relate/model',
+      '@relate/inspector/protocol',
+      '@relate/inspector/server',
+      'hono',
+      'hono/cookie',
+      'hono/streaming',
+      '@hono/node-server',
+      'esbuild',
+      'zod',
+    ],
+    builtins: true,
+  },
+  'packages/create-relate': { imports: [], builtins: true },
+  'apps/docs': { imports: [], builtins: true },
+  'apps/inspector': {
+    imports: [
+      '@relate/client',
+      'relate/model',
+      'relate/diagnostics',
+      'zod',
+      'hono',
+      'react',
+      'react-dom/client',
+      '@tanstack/react-query',
+      '@tanstack/react-router',
+      '@xyflow/react',
+      '@xyflow/react/dist/style.css',
+      'elkjs/lib/elk-api.js',
+      'elkjs/lib/elk-worker.min.js?worker&url',
+      'vite',
+      '@vitejs/plugin-react',
+      '@fontsource/inter/400.css',
+      '@fontsource/inter/500.css',
+      '@fontsource/inter/600.css',
+      '@fontsource/dm-mono/400.css',
+      '@fontsource/dm-mono/500.css',
+    ],
+  },
+  'examples/hello-world': {
+    imports: ['relate', '@relate/node', 'zod'],
+    builtins: true,
+  },
+  'examples/postgres-persistence': {
+    imports: [
+      'relate',
+      'relate/compiler',
+      '@relate/runtime',
+      '@relate/postgres',
+      'zod',
+    ],
+    builtins: true,
+    fixtures: ['dev/simulators/crm/index.ts'],
+  },
+};
+
+/** Follow type edges as well: portable declarations must not depend on the compiler. */
+export function assertRelateEntryPoints(
+  graph: ReadonlyMap<string, readonly string[]>,
+): void {
+  for (const entry of ['src/index.ts', 'src/model.ts']) {
+    const visited = new Set<string>();
+    const visit = (file: string, path: readonly string[]): void => {
+      if (visited.has(file)) return;
+
+      visited.add(file);
+      const compiler =
+        file === 'src/compiler.ts' || file.startsWith('src/compiler/');
+      const model = file === 'src/model.ts' || file.startsWith('src/model/');
+
+      if (
+        compiler ||
+        (entry === 'src/model.ts' && !model && file !== 'src/diagnostics.ts')
+      )
+        throw new Error(
+          `Forbidden relate entry-point dependency: ${[...path, file].join(' -> ')}`,
+        );
+
+      for (const target of graph.get(file) ?? [])
+        visit(target, [...path, file]);
+    };
+
+    if (graph.has(entry)) visit(entry, []);
+  }
+}

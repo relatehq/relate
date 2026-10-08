@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { SucceededReceipt } from '@relate/protocol';
+import type { SucceededReceipt, FailedReceipt } from '@relate/protocol';
 import type {
   GraphDefinition,
   ObjectDefinition,
@@ -13,6 +13,15 @@ import type { ObjectResult, ReadOptions } from './operations.js';
 import { CompileError } from './diagnostics.js';
 import { recordProvenance } from './provenance.js';
 
+export const actionKeys: readonly string[] = Object.freeze([
+  'id',
+  'input',
+  'output',
+  'creates',
+  'policy',
+  'errors',
+]);
+
 type NativeObject = ObjectDefinition & {
   readonly membership: NativeMembership;
 };
@@ -21,29 +30,35 @@ export interface ActionDefinition<
   Input extends z.ZodType = z.ZodType,
   Output extends z.ZodType = z.ZodType,
   Creates extends readonly NativeObject[] = readonly NativeObject[],
+  Errors extends Readonly<Record<string, z.ZodType>> = Readonly<
+    Record<string, z.ZodType>
+  >,
 > {
   readonly id: string;
   readonly input: Input;
   readonly output: Output;
   readonly creates: Creates;
+  readonly errors: Errors;
   readonly policy?: { readonly execute: RoleGate };
 }
 
-/** Native synchronous-completion slice; domain failures and background execution follow later. */
+/** Synchronous native action with optional declared business failures. */
 export function defineAction<
   const Id extends string,
   Input extends z.ZodType,
   Output extends z.ZodType,
   const Creates extends readonly NativeObject[],
+  const Errors extends Readonly<Record<string, z.ZodType>> = {},
 >(definition: {
   id: Id;
   input: Input;
   output: Output;
   creates: Creates;
+  errors?: Errors;
   policy?: { readonly execute: RoleGate };
-}): ActionDefinition<Input, Output, Creates> & { readonly id: Id } {
+}): ActionDefinition<Input, Output, Creates, Errors> & { readonly id: Id } {
   const unsupported = Object.keys(definition).filter(
-    (key) => !['id', 'input', 'output', 'creates', 'policy'].includes(key),
+    (key) => !actionKeys.includes(key),
   );
 
   if (unsupported.length)
@@ -59,9 +74,10 @@ export function defineAction<
   return recordProvenance(
     Object.freeze({
       ...definition,
+      errors: Object.freeze({ ...definition.errors }),
       creates: Object.freeze([...definition.creates]),
     }),
-  ) as ActionDefinition<Input, Output, Creates> & { readonly id: Id };
+  ) as ActionDefinition<Input, Output, Creates, Errors> & { readonly id: Id };
 }
 
 export type NativeValues<O extends ObjectDefinition> = {
@@ -85,6 +101,15 @@ export interface ActionContext<
     readonly claims: Readonly<Record<string, string | number | boolean | null>>;
   };
   readonly input: z.output<A['input']>;
+  /** Aborts this invocation and rolls back native writes, even if caught by the handler. */
+  readonly fail: (
+    ...args: {
+      [Code in keyof A['errors'] & string]: [
+        code: Code,
+        details: Record<string, unknown> & z.input<A['errors'][Code]>,
+      ];
+    }[keyof A['errors'] & string]
+  ) => never;
   readonly objects: {
     readonly [K in keyof G['objects']]: {
       get<
@@ -134,10 +159,15 @@ export function implementAction<
   return Object.freeze({ graph, action, implementation: execute });
 }
 
-/** Only confirmed success is returned by this synchronous native slice. */
-export type Receipt<A extends ActionDefinition> = SucceededReceipt<
-  z.output<A['output']>
->;
+/** Actions without declared errors retain a success-only result type. */
+export type Receipt<A extends ActionDefinition> =
+  | SucceededReceipt<z.output<A['output']>>
+  | {
+      [Code in keyof A['errors'] & string]: FailedReceipt<
+        Code,
+        z.output<A['errors'][Code]>
+      >;
+    }[keyof A['errors'] & string];
 
 export type ActionRequest<A extends ActionDefinition> = {
   readonly input: z.input<A['input']>;

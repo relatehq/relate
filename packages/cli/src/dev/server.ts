@@ -63,6 +63,10 @@ export function createDevServer(options: DevServerOptions): DevServer {
 
     return streamSSE(c, async (stream) => {
       let closed = false;
+      let resolveClosed!: () => void;
+      const untilClosed = new Promise<void>((resolve) => {
+        resolveClosed = resolve;
+      });
       const close = () => {
         if (closed) return;
 
@@ -71,6 +75,7 @@ export function createDevServer(options: DevServerOptions): DevServer {
         clearInterval(heartbeat);
         streams.delete(close);
         void stream.close();
+        resolveClosed();
       };
       // Snapshot and registration happen synchronously: no update is lost between them.
       // Unnamed events reach EventSource.onmessage; heartbeats are named and ignored.
@@ -85,14 +90,7 @@ export function createDevServer(options: DevServerOptions): DevServer {
       stream.onAbort(close);
       await stream.writeSSE({ data: JSON.stringify(subscription.snapshot) });
 
-      await new Promise<void>((resolve) => {
-        const check = setInterval(() => {
-          if (closed) {
-            clearInterval(check);
-            resolve();
-          }
-        }, 250);
-      });
+      await untilClosed;
     });
   });
 
