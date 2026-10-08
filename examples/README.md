@@ -2,8 +2,14 @@
 
 These examples run from a repository checkout. Install dependencies with
 `pnpm install` at the repository root; each command below builds the packages
-before starting. Use the Node and pnpm versions declared in the root
-`package.json`. No published npm packages are required.
+before starting. Supported Node versions are 22 (22.16+), 24 and 26; install
+pnpm with `npm install --global pnpm@12.9.1`. No published Relate packages are
+required.
+
+Preparation shows a short status line, followed by the result or browser URL.
+Build failures and runtime errors remain visible. Add `--verbose` to any example
+command for full build logs, or `--no-open` to prevent opening a browser. Press
+Ctrl+C to stop the browser demo and its owned processes.
 
 The folders are numbered in learning order. If you want to see Relate in an
 application first, jump to **03** and return to the smaller examples afterward.
@@ -20,6 +26,17 @@ Examples 01–03 and 05 use an isolated **in-memory Relate store**. SQLite in 02
 and 03 is a **source system**, not Relate's persistence layer. Reviews and
 observations in 03 disappear on restart. Example 04 introduces a persistent
 Relate store.
+
+## Examples are for learning, not for tests
+
+These examples exist so you can see how Relate fits together, run it, and change
+it to try ideas. Edit them freely: rename objects, change records, add sources.
+Nothing in the package, connector or repository test suites depends on their
+code or data, so experimenting here cannot break the library's tests.
+`pnpm check:boundaries` enforces that separation.
+
+Tests that check an example's own behavior live in that example's `test/` folder
+(for example, [03](03-customer-workspace/test)).
 
 The exploratory application under `dev/fixtures/customer-graph` includes
 proposed APIs as well as implemented behavior. It is not another getting-started

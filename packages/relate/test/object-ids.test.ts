@@ -1,7 +1,9 @@
 import { expect, it } from 'vitest';
 import { z } from 'zod';
 import { referenceInput } from 'relate';
-import { Customer } from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { Customer } = createInvoiceGraph();
 
 it('parses and serializes references as unchanged strings without wrappers', () => {
   const schema = z.object({ customer: referenceInput(Customer) });

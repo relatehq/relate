@@ -2,12 +2,9 @@ import { createRuntime } from '@relate/node';
 import { assertFields, defineObject, referenceInput } from 'relate';
 import type { ObjectData, ObjectId } from 'relate';
 import type { z } from 'zod';
-import {
-  graph,
-  ana,
-  Customer,
-  Invoice,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { graph, ana, Customer, Invoice } = createInvoiceGraph();
 
 const relate = createRuntime({ graph, connections: [] });
 const objects = relate.as(ana).objects;

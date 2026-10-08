@@ -2,7 +2,7 @@
 
 Read an existing SQLite database as a Relate source. This is a provider
 connector, separate from the storage adapter used to persist Relate observations
-and actions. Requires Node.js 26.9 or later in the 26.x line; uses built-in
+and actions. Requires Node.js 22 (22.16+), 24 or 26; uses built-in
 `node:sqlite`.
 
 ```ts

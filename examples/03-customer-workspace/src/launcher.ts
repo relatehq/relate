@@ -51,6 +51,7 @@ export async function runWorkspace(options: {
 
   options.signals.on('SIGINT', signal);
   options.signals.on('SIGTERM', signal);
+  options.signals.on('SIGHUP', signal);
 
   try {
     const ready = await Promise.race([inspector.ready, stopRequested]);
@@ -109,6 +110,7 @@ export async function runWorkspace(options: {
     clearTimeout(timeout);
     options.signals.off('SIGINT', signal);
     options.signals.off('SIGTERM', signal);
+    options.signals.off('SIGHUP', signal);
   }
 
   return code;

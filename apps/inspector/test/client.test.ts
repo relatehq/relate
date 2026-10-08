@@ -7,7 +7,9 @@ import {
 } from '../src/connection/client.js';
 import { PROTOCOL_VERSION } from '../src/protocol.js';
 import type { DevEvent } from '../src/protocol.js';
-import { graph } from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { graph } = createInvoiceGraph();
 
 const compiled = compile(graph);
 const model = (generation: number) => ({

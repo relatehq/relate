@@ -82,6 +82,25 @@ it.each([
   );
 });
 
+it.each([
+  [
+    'packages/node/test/read.test.ts',
+    "import { graph } from '../../../dev/fixtures/demo/model.js';",
+  ],
+  [
+    'tests/support/graph.ts',
+    "export * from '../../dev/fixtures/demo/model.js';",
+  ],
+])('rejects dev fixture coupling in %s', async (file, source) => {
+  const { root, write, packages } = await workspace();
+
+  await write('dev/fixtures/demo/model.ts', 'export const graph = {};');
+  await write(file, source);
+  await expect(assertNoExampleDependencies(root, packages)).rejects.toThrow(
+    'Forbidden dev fixture dependency',
+  );
+});
+
 it('rejects workspace dependencies on an example even without imports', async () => {
   const { root, write, packages } = await workspace();
 

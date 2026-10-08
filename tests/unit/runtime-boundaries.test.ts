@@ -76,7 +76,11 @@ it.each([
     await expect(
       execFile(
         process.execPath,
-        [fileURLToPath(new URL('../boundaries.mjs', import.meta.url))],
+        [
+          '--import',
+          import.meta.resolve('tsx'),
+          fileURLToPath(new URL('../boundaries.mjs', import.meta.url)),
+        ],
         { cwd: directory },
       ),
     ).rejects.toMatchObject({
@@ -125,7 +129,11 @@ it.each([
     const run = () =>
       execFile(
         process.execPath,
-        [fileURLToPath(new URL('../boundaries.mjs', import.meta.url))],
+        [
+          '--import',
+          import.meta.resolve('tsx'),
+          fileURLToPath(new URL('../boundaries.mjs', import.meta.url)),
+        ],
         { cwd: directory },
       );
 
