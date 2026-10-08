@@ -380,6 +380,9 @@ importers:
       '@relate/node':
         specifier: workspace:*
         version: link:../../packages/node
+      '@relate/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       relate:
         specifier: workspace:*
         version: link:../../packages/relate

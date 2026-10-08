@@ -8,6 +8,7 @@
     "@relate/node": "workspace:*",
     "@relate/connector-sqlite": "workspace:*",
     "@relate/dev-crm-simulator": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@relate/protocol": "workspace:*"
   }
 }

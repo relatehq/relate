@@ -2,6 +2,7 @@ const $ = (id) => document.getElementById(id);
 let actor = 'ana';
 let lastSubmission = null;
 let busy = false;
+let loaded = false;
 const describe = (value) => JSON.stringify(value, null, 2);
 const feedback = (message) => {
   $('feedback').textContent = message;
@@ -24,10 +25,10 @@ function controls() {
   document.querySelectorAll('button, select, input, textarea').forEach((el) => {
     el.disabled = busy;
   });
-  $('save').disabled = busy || actor !== 'ana';
-  $('note').disabled = busy || actor !== 'ana';
+  $('save').disabled = busy || !loaded || actor !== 'ana';
+  $('note').disabled = busy || !loaded || actor !== 'ana';
   $('retry').disabled =
-    busy || !lastSubmission || lastSubmission.actor !== actor;
+    busy || !loaded || !lastSubmission || lastSubmission.actor !== actor;
 }
 
 async function run(work) {
@@ -61,7 +62,7 @@ async function read(refresh = false) {
 
   $('evidence').textContent = describe(result);
   $('calls').textContent =
-    `const { objects } = relate.as(${actor});\n\nawait objects.Customer.get(customerId, { refresh: ${refresh} });\nawait objects.Customer.traverse.invoices(customerId, {\n  select: ['id', 'status', 'totalMinor', 'currency'],\n  refresh: ${refresh}\n});\n// reviewIds come from successful action receipts.\nawait Promise.all(reviewIds.map(id => objects.AccountReview.get(id)));`;
+    `const { objects } = relate.as(${actor});\n\nawait objects.Customer.get(customerId, { refresh: ${refresh} });\nawait objects.Customer.traverse.invoices(customerId, {\n  select: ['id', 'status', 'totalMinor', 'currency'],\n  refresh: ${refresh}\n});\n// Temporary demo index: IDs created through this running example only.\n// Native-reference traversal is not implemented yet; each get is authorized.\nawait Promise.all(reviewIds.map(id => objects.AccountReview.get(id)));`;
   const customer = result.customer;
 
   $('name').textContent =
@@ -139,13 +140,28 @@ async function read(refresh = false) {
     );
     $('reviews').append(entry);
   });
+  loaded = true;
+}
+
+function clearAccount() {
+  loaded = false;
+  $('name').textContent = 'Account not loaded';
+  $('status').textContent = 'Unavailable';
+  $('invoices').replaceChildren();
+  $('reviews').replaceChildren();
+  $('evidence').textContent = '';
+  $('calls').textContent = '';
+  $('receipt').textContent = 'Add a review to see its receipt.';
+  $('receipt-panel').open = false;
+  $('note').value = '';
+  $('review-hint').textContent = 'Load this account before adding a review.';
+  $('role').textContent = 'Loading data for the selected demo user…';
 }
 
 $('actor').addEventListener('change', () =>
   run(async () => {
     actor = $('actor').value;
-    $('receipt').textContent = 'Add a review to see its receipt.';
-    $('receipt-panel').open = false;
+    clearAccount();
     await read();
     feedback('Access rules applied for the selected demo user.');
   }),
@@ -203,8 +219,42 @@ $('rename-form').addEventListener('submit', (event) => {
   });
 });
 void run(async () => {
-  const config = await (await fetch('/config')).json();
+  let configError;
 
-  $('inspector').href = config.inspectorUrl;
+  try {
+    const response = await fetch('/config');
+
+    if (!response.ok)
+      throw new Error(
+        'Model inspector link unavailable. Check the terminal and reload.',
+      );
+
+    const config = await response.json();
+
+    if (typeof config.inspectorUrl !== 'string')
+      throw new Error(
+        'Model inspector link unavailable. Check the terminal and reload.',
+      );
+
+    const url = new URL(config.inspectorUrl);
+
+    if (
+      url.protocol !== 'http:' ||
+      url.hostname !== '127.0.0.1' ||
+      !url.hash.startsWith('#token=')
+    )
+      throw new Error(
+        'Model inspector link unavailable. Check the terminal and reload.',
+      );
+
+    $('inspector').href = url.href;
+  } catch (error) {
+    $('inspector').removeAttribute('href');
+    $('inspector').textContent = 'Inspector unavailable';
+    configError = error;
+  }
+
   await read();
+
+  if (configError) throw configError;
 });

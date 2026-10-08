@@ -17,7 +17,11 @@ browser. No credentials or database server are required. Both listeners choose
 available loopback ports. Use `pnpm example:customer-workspace --no-open` to
 print the links without opening a browser. Ctrl+C closes the application,
 connectors, simulator and owned inspector process, then removes the temporary
-database. State resets on each launch.
+database. State resets on each launch. A second launch starts its own
+application and reuses the existing model inspector; stopping that second launch
+leaves the borrowed inspector running. Stop the original owner to close the
+inspector. A second Ctrl+C forces a stuck shutdown; shutdown also has a
+six-second limit.
 
 ## Try it in this order
 
@@ -45,11 +49,17 @@ by Relate; the browser never reads the CRM or SQLite directly.
 - [src/app.ts](src/app.ts): deferred setup with `defineApp`, SQLite seeding,
   connector bindings, native action implementation, host adoption and SDK calls.
 - [src/crm-connector.ts](src/crm-connector.ts): HTTP source adapter. The shared
-  repository CRM simulator supplies deterministic provider responses.
+  repository CRM simulator supplies deterministic provider responses. The
+  adapter intentionally remains local (as in example 04), so the provider
+  simulator stays independent of Relate and each example includes its own
+  connector code.
 - [src/server.ts](src/server.ts): a small example-specific HTTP surface, input
   validation, two fixed demo principals and local request restrictions.
 - [src/ui](src/ui): dependency-free browser interface with native HTML controls.
-- [src/index.ts](src/index.ts): application and inspector process lifecycle.
+- [src/index.ts](src/index.ts): terminal entry and browser opening.
+- [src/launcher.ts](src/launcher.ts): cancellation and bounded shutdown.
+- [src/inspector.ts](src/inspector.ts): CLI child ownership and complete-line
+  bootstrap URL parsing.
 - [relate.config.ts](relate.config.ts): side-effect-free graph export for the
   CLI.
 
@@ -62,7 +72,9 @@ cross-source key matching or multi-source enrichment.
 Native-reference traversal is not implemented yet. The example keeps the IDs
 returned by successful review actions and calls `objects.AccountReview.get` for
 each ID, applying read authorization on every request. This small in-memory
-index is demo application state, not a general Relate query API.
+index is temporary demo application state, not a general Relate query API.
+Reviews created outside this running example's action wrapper will not appear.
+The UI and call panel label this limitation explicitly.
 
 The host adopts the known seed records explicitly. This is not a source scan or
 a general customer query API. The role selector chooses from two server-owned

@@ -98,6 +98,8 @@ export async function startWorkspace() {
   });
   const relate = await startApp(app);
 
+  // Temporary demo index, not the contents of CustomerReviews: reviews created
+  // outside this wrapper are not enumerated. Values are still read through Relate.
   const reviewIds = new Set<ObjectId<typeof AccountReview.id>>();
 
   try {

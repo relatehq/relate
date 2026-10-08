@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
+import { ActionError, ReadError } from '@relate/protocol';
 import { startWorkspace } from './app.js';
 
 const requestSchema = z.discriminatedUnion('operation', [
@@ -22,8 +23,20 @@ const requestSchema = z.discriminatedUnion('operation', [
 ]);
 
 /** Example-specific routes, not a public Relate HTTP transport or authentication system. */
-export async function startServer(inspectorUrl: string) {
-  const workspace = await startWorkspace();
+type Workspace = Pick<
+  Awaited<ReturnType<typeof startWorkspace>>,
+  'read' | 'review' | 'rename' | 'close'
+>;
+
+export async function startServer(
+  inspectorUrl: string,
+  options: {
+    workspaceFactory?: () => Promise<Workspace>;
+    reportError?: (error: unknown) => void;
+  } = {},
+) {
+  const reportError = options.reportError ?? console.error;
+  const workspace = await (options.workspaceFactory ?? startWorkspace)();
   let origin = '';
   const assets = new Map([
     ['/', ['index.html', 'text/html']],
@@ -90,7 +103,15 @@ export async function startServer(inspectorUrl: string) {
         }
       }
 
-      const parsed = requestSchema.safeParse(JSON.parse(body));
+      let value: unknown;
+
+      try {
+        value = JSON.parse(body);
+      } catch {
+        return json(400, { error: 'Invalid JSON' });
+      }
+
+      const parsed = requestSchema.safeParse(value);
 
       if (!parsed.success)
         return json(400, {
@@ -112,13 +133,36 @@ export async function startServer(inspectorUrl: string) {
 
       return json(200, { updated: true });
     } catch (error) {
-      if (error instanceof SyntaxError)
-        return json(400, { error: 'Invalid JSON' });
+      if (error instanceof ActionError) {
+        const status = {
+          denied: 403,
+          'not-found': 404,
+          invalid: 400,
+          conflict: 409,
+          unsupported: 400,
+          unavailable: 503,
+          uncertain: 503,
+          internal: 500,
+        }[error.code];
 
-      // Runtime rejections are safe to present here; never return connector errors or stacks.
-      return json(400, {
+        if (status >= 500) reportError(error);
+
+        return json(status, {
+          error:
+            status >= 500
+              ? 'The action could not complete. Check the terminal for details; retry with the same submission key.'
+              : `Action rejected: ${error.code}. Check your role and input.`,
+        });
+      }
+
+      if (error instanceof ReadError && error.code === 'invalid-request')
+        return json(400, { error: 'Invalid read request.' });
+
+      reportError(error);
+
+      return json(error instanceof ReadError ? 503 : 500, {
         error:
-          'The operation was rejected. Check your role and input, then retry.',
+          'The service could not complete the request. Check the terminal for details and retry.',
       });
     }
   });
@@ -134,14 +178,24 @@ export async function startServer(inspectorUrl: string) {
 
     origin = `http://127.0.0.1:${address.port}`;
 
+    let closing: Promise<void> | undefined;
+
     return {
       url: origin,
-      async close() {
-        await new Promise<void>((resolve, reject) => {
-          server.close((error) => (error ? reject(error) : resolve()));
-          server.closeIdleConnections();
-        });
-        await workspace.close();
+      forceClose() {
+        server.closeAllConnections();
+      },
+      close() {
+        return (closing ??= (async () => {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              server.close((error) => (error ? reject(error) : resolve()));
+              server.closeIdleConnections();
+            });
+          } finally {
+            await workspace.close();
+          }
+        })());
       },
     };
   } catch (error) {

@@ -144,11 +144,25 @@ export async function runDev(options: RunDevOptions): Promise<number> {
         `Relate dev is already running for ${project.root} on ${metadata.url} (PID ${metadata.pid}); it cannot be moved to port ${args.port}. Stop it first.`,
       );
 
+    // Reuse the complete bootstrap link, just as the initial banner does.
+    // Read owner-only token material only after verifying the running owner.
+    let token: string | null = null;
+
+    try {
+      token = (await readFile(tokenFile(project.root), 'utf8')).trim() || null;
+    } catch {
+      token = null;
+    }
+
+    const inspectorUrl = token
+      ? `${metadata.url}/#token=${token}`
+      : `${metadata.url}/`;
+
     write(
       options.stdout,
       [
         `Relate dev is already running for ${project.root}`,
-        `Inspector  ${metadata.url}`,
+        `Inspector  ${inspectorUrl}`,
         `Config     ${metadata.configPath}`,
         `PID        ${metadata.pid}`,
         'Use the existing server; stop it with Ctrl+C in its owning terminal to restart.',
@@ -157,20 +171,8 @@ export async function runDev(options: RunDevOptions): Promise<number> {
     );
 
     if (args.open && metadata.url) {
-      // Token material lives in owner-only local storage, read only after verification.
-      let token: string | null = null;
-
       try {
-        token =
-          (await readFile(tokenFile(project.root), 'utf8')).trim() || null;
-      } catch {
-        token = null;
-      }
-
-      try {
-        await openBrowser(
-          token ? `${metadata.url}/#token=${token}` : `${metadata.url}/`,
-        );
+        await openBrowser(inspectorUrl);
       } catch (error) {
         terminal.warn(`Could not open a browser: ${(error as Error).message}`);
       }
