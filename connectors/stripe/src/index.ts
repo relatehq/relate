@@ -2,13 +2,13 @@ import { SourceAccessDenied } from 'relate/connectors';
 import type { SourceConnector, SourceRecord } from 'relate/connectors';
 
 const resources = {
-  customers: { object: 'customer', prefix: 'cus_' },
-  invoices: { object: 'invoice', prefix: 'in_' },
-  subscriptions: { object: 'subscription', prefix: 'sub_' },
-  products: { object: 'product', prefix: 'prod_' },
-  prices: { object: 'price', prefix: 'price_' },
-  payment_intents: { object: 'payment_intent', prefix: 'pi_' },
-  charges: { object: 'charge', prefix: 'ch_' },
+  customers: { object: 'customer' },
+  invoices: { object: 'invoice' },
+  subscriptions: { object: 'subscription' },
+  products: { object: 'product' },
+  prices: { object: 'price' },
+  payment_intents: { object: 'payment_intent' },
+  charges: { object: 'charge' },
 } as const;
 
 export type StripeResource = keyof typeof resources;
@@ -67,6 +67,19 @@ function validateNumbers(value: unknown): void {
     for (const child of Object.values(value)) validateNumbers(child);
 }
 
+/** Retain ordinary failures while allowing explicit denial to stop sibling work. */
+async function settleUnlessDenied<T>(
+  pending: Promise<T>,
+): Promise<PromiseSettledResult<T>> {
+  try {
+    return { status: 'fulfilled', value: await pending };
+  } catch (reason) {
+    if (reason instanceof SourceAccessDenied) throw reason;
+
+    return { status: 'rejected', reason };
+  }
+}
+
 function positive(value: number, name: string): number {
   if (!Number.isSafeInteger(value) || value <= 0 || value > 2_147_483_647)
     throw new Error(`Stripe ${name} must be a positive 32-bit integer`);
@@ -92,6 +105,8 @@ export function stripe(options: StripeOptions): StripeConnection {
 
   if (account !== undefined && !/^acct_[A-Za-z0-9]+$/.test(account))
     throw new Error('Invalid Stripe Connect account');
+
+  const keyPattern = new RegExp(`^(?:sk|rk)_${mode}_[A-Za-z0-9]+$`);
 
   async function request(
     path: string,
@@ -120,13 +135,17 @@ export function stripe(options: StripeOptions): StripeConnection {
 
     const chunks: Uint8Array[] = [];
     let size = 0;
+    let completed = false;
 
     try {
       while (true) {
         signal.throwIfAborted();
         const { done, value } = await reader.read();
 
-        if (done) break;
+        if (done) {
+          completed = true;
+          break;
+        }
 
         size += value.byteLength;
 
@@ -135,7 +154,8 @@ export function stripe(options: StripeOptions): StripeConnection {
         chunks.push(value);
       }
     } finally {
-      await reader.cancel();
+      if (!completed) await reader.cancel().catch(() => {});
+
       reader.releaseLock();
     }
 
@@ -160,9 +180,19 @@ export function stripe(options: StripeOptions): StripeConnection {
     caller: AbortSignal,
     work: (headers: Headers, signal: AbortSignal) => Promise<T>,
   ): Promise<T> {
-    const signal = AbortSignal.any([caller, AbortSignal.timeout(timeoutMs)]);
+    caller.throwIfAborted();
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const forwardAbort = () => controller.abort(caller.reason);
 
-    signal.throwIfAborted();
+    caller.addEventListener('abort', forwardAbort, { once: true });
+    const timer = setTimeout(
+      () =>
+        controller.abort(
+          new DOMException('Stripe source timeout', 'TimeoutError'),
+        ),
+      timeoutMs,
+    );
     let abort: () => void = () => {};
     const cancelled = new Promise<never>((_, reject) => {
       abort = () => reject(signal.reason);
@@ -178,10 +208,7 @@ export function stripe(options: StripeOptions): StripeConnection {
 
           signal.throwIfAborted();
 
-          if (
-            typeof key !== 'string' ||
-            !new RegExp(`^(?:sk|rk)_${mode}_[A-Za-z0-9]+$`).test(key)
-          )
+          if (typeof key !== 'string' || !keyPattern.test(key))
             throw new SourceAccessDenied();
 
           const headers = new Headers({
@@ -205,7 +232,10 @@ export function stripe(options: StripeOptions): StripeConnection {
 
       throw new StripeSourceError();
     } finally {
+      clearTimeout(timer);
+      caller.removeEventListener('abort', forwardAbort);
       signal.removeEventListener('abort', abort);
+      controller.abort();
     }
   }
 
@@ -247,26 +277,58 @@ export function stripe(options: StripeOptions): StripeConnection {
         identity: 'provider',
         identify: ({ signal }) => operation(signal, identify),
         async fetch(id, { signal }) {
-          if (!id.startsWith(resource.prefix) || !/^[A-Za-z0-9_]+$/.test(id))
+          // Provider IDs are opaque: products/plans can have custom IDs, and
+          // charge IDs are not limited to ch_. Keep them inside one URL segment.
+          if (
+            !id ||
+            id === '.' ||
+            id === '..' ||
+            /[/\\]/.test(id) ||
+            [...id].some(
+              (char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127,
+            )
+          )
             throw new Error('Invalid Stripe resource ID');
 
           return operation(
             signal,
             async (headers, activeSignal): Promise<SourceRecord> => {
-              const providerAccountId = await identify(headers, activeSignal);
+              // Keep fresh identity evidence without serial HTTP latency. Retain
+              // outages until both calls finish, but fail immediately on denial.
+              const outcomes = await Promise.all([
+                settleUnlessDenied(identify(headers, activeSignal)),
+                settleUnlessDenied(
+                  request(
+                    `${name}/${encodeURIComponent(id)}`,
+                    headers,
+                    activeSignal,
+                  ),
+                ),
+              ]);
+              const [identityResult, recordResult] = outcomes;
 
-              activeSignal.throwIfAborted();
-              const result = await request(
-                `${name}/${encodeURIComponent(id)}`,
-                headers,
-                activeSignal,
-              );
+              if (identityResult.status === 'rejected')
+                throw identityResult.reason;
+
+              if (recordResult.status === 'rejected') throw recordResult.reason;
+
+              const providerAccountId = identityResult.value;
+              const result = recordResult.value;
 
               if (result.id !== id || result.object !== resource.object)
                 throw new StripeSourceError();
 
-              if (result.deleted === true)
+              // Deleted customers omit livemode. Their verified key context
+              // supplies mode; reject contradictory evidence if it is present.
+              if (result.deleted === true) {
+                if (
+                  Object.hasOwn(result, 'livemode') &&
+                  result.livemode !== (mode === 'live')
+                )
+                  throw new SourceAccessDenied();
+
                 return { state: 'deleted', providerAccountId };
+              }
 
               if (result.livemode !== (mode === 'live'))
                 throw new SourceAccessDenied();

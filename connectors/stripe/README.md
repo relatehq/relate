@@ -34,6 +34,12 @@ const binding = connect(customers, {
 // Adopt a known cus_... ID through app.host.adopt, then read as an actor.
 ```
 
+IDs are opaque provider keys: custom product IDs such as `gold-plan`, legacy
+plan IDs read through `prices`, and `py_` charge IDs are supported. The
+connector encodes each ID as one URL path segment and verifies the returned ID
+and object type; empty IDs, dot segments, path separators, and control
+characters are rejected locally.
+
 `id` is always included; the source's `idField` must be `id`. `fields` selects
 literal top-level fields to retain in Relate. Stripe still sends its normal
 response; unselected fields are discarded by the connector before observation
@@ -68,17 +74,23 @@ For Stripe Connect, set `account: 'acct_connected'`. Both requests carry the
 `Stripe-Account` header, and the returned account must match it. Bind using
 `providerAccountId: 'acct_connected:test'`. A configured account is a routing
 hint, not identity evidence. Account verification and retrieval are separate
-HTTP requests, not a transactional snapshot; they share the same key and account
-header. Revoked credentials produce denial, never stale authorization.
+HTTP requests, not a transactional snapshot; they run concurrently using the
+same key and account header. Both must succeed before data is returned; explicit
+denial takes precedence over an outage in the other request. No cross-operation
+identity cache is used. Revoked credentials produce denial, never stale
+authorization.
 
 ## Errors and deadlines
 
 - HTTP 401/403, invalid/wrong-mode keys, invalid account identity, Connect
   mismatches, and wrong record mode throw `SourceAccessDenied`.
 - A matching resource with `deleted: true` returns `state: 'deleted'`. Stripe
-  documents this for deleted customers. A 404 (including `resource_missing`) is
-  not affirmative deletion evidence: wrong IDs, mode or access context can also
-  cause missing-resource errors.
+  documents this for deleted customers. These tombstones normally omit
+  `livemode`, so their mode comes from the verified account and immutable
+  secret/restricted key context. A tombstone that supplies contradictory mode
+  evidence is denied. A 404 (including `resource_missing`) is not affirmative
+  deletion evidence: wrong IDs, mode or access context can also cause
+  missing-resource errors.
 - Other HTTP failures throw `StripeSourceError`, with an optional numeric
   `status`. Transport failures, invalid JSON, wrong object/ID, and malformed
   selected fields also fail. Error messages never copy credentials, provider
@@ -87,14 +99,20 @@ header. Revoked credentials produce denial, never stale authorization.
 - No source `version` is claimed. Stripe's creation time and request IDs are not
   per-record revision ordering.
 
-`timeoutMs` defaults to 10,000 and covers credentials plus both requests. Caller
-cancellation propagates to fetch. Callbacks/transports should honor the signal;
-a noncooperative callback may continue after the caller is rejected, but cannot
-start a request after cancellation. `maxResponseBytes` defaults to 2 MiB per
-response and bounds streamed response consumption. Redirects are rejected. There
-are no automatic retries, background jobs, or owned connections to close. A
-trusted `fetch` override supports deterministic testing; production requests use
-the fixed `https://api.stripe.com/v1/` endpoint.
+Connector `timeoutMs` defaults to 10,000 and covers credentials plus both
+concurrent requests. Relate also applies its own per-source-call timeout, which
+defaults to 3,000 ms (read requests can set `timeoutMs`). The earlier deadline
+wins: configuring a 10-second connector deadline does not extend the runtime's
+3-second limit. Identity checks and record fetches have separate runtime
+budgets, not a single 3-second budget for the entire read. Caller cancellation
+propagates to fetch. Operation timers and caller listeners are released on
+completion. Callbacks/transports should honor the signal; a noncooperative
+callback may continue after the caller is rejected, but cannot start a request
+after cancellation. `maxResponseBytes` defaults to 2 MiB per response and bounds
+streamed response consumption. Redirects are rejected. There are no automatic
+retries, background jobs, or owned connections to close. A trusted `fetch`
+override supports deterministic testing; production requests use the fixed
+`https://api.stripe.com/v1/` endpoint.
 
 Enumeration, search, webhooks, provider writes, and payment actions are not
 implemented. Cancelled subscriptions and archived products remain present
