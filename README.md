@@ -25,7 +25,7 @@ caller and says where each value came from and how fresh it is.
 
 ## Try it in two minutes
 
-You need Node 22 (22.16+), 24 or 26 and pnpm 12 (`npm i -g pnpm@12.9.1`). No
+You need **Node 22 (22.16+), 24 or 26** and pnpm 12 (`npm i -g pnpm@12.9.1`). No
 database, Docker or credentials.
 
 ```sh
