@@ -242,7 +242,7 @@ h1 {
 }
 .customer {
   left: 9%;
-  top: 32%;
+  top: 26%;
 }
 .invoice {
   left: 61.3%;
@@ -300,6 +300,26 @@ h1 {
 }
 .node-field .ref-field {
   color: #5b81a5;
+}
+.field-source {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+}
+.field-source img {
+  display: block;
+  width: 16px;
+  height: 12px;
+  object-fit: contain;
+  opacity: 0.85;
+}
+.field-source img[alt='Stripe'] {
+  width: 22px;
+}
+.storage-logo {
+  object-fit: contain;
+  opacity: 0.65;
 }
 .node-source {
   display: flex;
@@ -719,6 +739,13 @@ code {
     font-size: 7px;
     padding: 6px 8px;
     margin-top: 4px;
+  }
+  .field-source img {
+    width: 12px;
+    height: 9px;
+  }
+  .field-source img[alt='Stripe'] {
+    width: 18px;
   }
   .graph-heading {
     padding: 14px 14px 0;

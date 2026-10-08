@@ -144,14 +144,42 @@
                   >Customer</span
                 >
                 <span class="node-field"
-                  ><span>name</span><span>string</span></span
-                >
+                  ><span>name</span
+                  ><span class="field-source" title="Salesforce"
+                    ><img
+                      src="assets/sources/salesforce.svg"
+                      alt="Salesforce"
+                      width="16"
+                      height="12" /></span
+                ></span>
                 <span class="node-field"
-                  ><span>region</span><span>string</span></span
-                >
-                <span class="node-source"
-                  ><span class="source-dot"></span>CRM API</span
-                >
+                  ><span>mrr</span
+                  ><span class="field-source" title="Stripe"
+                    ><img
+                      src="assets/sources/stripe.svg"
+                      alt="Stripe"
+                      width="16"
+                      height="12" /></span
+                ></span>
+                <span class="node-field"
+                  ><span>usage</span
+                  ><span class="field-source" title="BigQuery"
+                    ><img
+                      src="assets/sources/bigquery.svg"
+                      alt="BigQuery"
+                      width="16"
+                      height="12" /></span
+                ></span>
+                <span class="node-field"
+                  ><span>contract</span
+                  ><span class="field-source" title="Amazon S3"
+                    ><img
+                      src="assets/sources/s3.svg"
+                      alt="Amazon S3"
+                      width="16"
+                      height="12" /></span
+                ></span>
+                <span class="node-source">Composite object</span>
               </button>
               <button
                 type="button"
@@ -200,7 +228,13 @@
                   ><span>notes</span><span>string</span></span
                 >
                 <span class="node-source"
-                  ><span class="source-dot native"></span>Relate storage</span
+                  ><img
+                    class="storage-logo"
+                    src="assets/relate-mark-light.svg"
+                    alt=""
+                    width="11"
+                    height="9"
+                  />Relate storage</span
                 >
               </button>
             </div>
@@ -211,11 +245,11 @@
               aria-atomic="true"
             >
               <span class="detail-label"
-                >Customer <span>· Source-backed object</span></span
+                >Customer <span>· Composite object</span></span
               >
               <p>
-                Customer records stay in your CRM. Relate gives them a typed
-                identity and connections to invoices and reviews.
+                One customer, fields from Salesforce, Stripe, BigQuery, and S3.
+                Each field keeps its source; the object brings them together.
               </p>
             </div>
             <div class="graph-caption">

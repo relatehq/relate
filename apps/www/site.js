@@ -1,9 +1,9 @@
 const objectDetails = {
   customer: {
     name: 'Customer',
-    kind: 'Source-backed object',
+    kind: 'Composite object',
     description:
-      'Customer records stay in your CRM. Relate gives them a typed identity and connections to invoices and reviews.',
+      'One customer, fields from Salesforce, Stripe, BigQuery, and S3. Each field keeps its source; the object brings them together.',
   },
   invoice: {
     name: 'Invoice',
