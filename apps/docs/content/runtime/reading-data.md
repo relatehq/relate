@@ -59,8 +59,8 @@ export const crmConnector = {
 ```
 
 Omitting `store` uses an in-memory store that is lost when the process exits.
-For durable storage, see [Postgres Persistence](../deployment/postgres.md). If
-the graph has no actions, leave out `actionImplementations`; see
+For durable storage, see [Persistence](../deployment/postgres.md). If the graph
+has no actions, leave out `actionImplementations`; see
 [Actions, Mutations & Receipts](./actions.md) for how they are defined.
 
 Call `await relate.close()` on shutdown to stop new operations and wait for

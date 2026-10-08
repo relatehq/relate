@@ -34,21 +34,13 @@ Relate brings those concerns into a **semantic business graph** defined in
 TypeScript. You describe business entities such as customers and invoices, map
 their properties to sources, and declare the relationships between them.
 
-```
-┌────────────────────────────────────────────────────────┐
-│                      Relate Graph                      │
-│                                                        │
-│   ┌──────────────┐     traversal     ┌─────────────┐   │
-│   │   Customer   │ ────────────────> │   Invoice   │   │
-│   └──────────────┘                   └─────────────┘   │
-│          ▲                                  ▲          │
-│          │ mapping                          │ mapping  │
-└──────────┼──────────────────────────────────┼──────────┘
-           │                                  │
-    ┌──────────────┐                   ┌─────────────┐
-    │   CRM API    │                   │ Billing DB  │
-    │ (Customers)  │                   │  (Invoices) │
-    └──────────────┘                   └─────────────┘
+```mermaid
+flowchart BT
+  crm["CRM API (Customers)"] -->|mapping| customer
+  billing["Billing DB (Invoices)"] -->|mapping| invoice
+  subgraph graph["Relate Graph"]
+    customer["Customer"] -->|traversal| invoice["Invoice"]
+  end
 ```
 
 The CRM and billing database remain authoritative for their records. Relate

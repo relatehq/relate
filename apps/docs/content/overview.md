@@ -105,16 +105,17 @@ for runtime state. See [Persistence](./deployment/postgres.md) for setup.
 Relate is split into packages with explicit dependency boundaries. Arrows point
 from a package to what it depends on:
 
-```
-[ protocol ]   Wire contracts and evidence types (no dependencies)
-     ▲
-[ relate ]     Authoring API and compiler
-     ▲
-[ runtime ]    Query engine, policy evaluation, action coordination
-     ▲    ▲
-     │    └──────────────┐
-[ node ]                 [ postgres ]
-Embedded runtime         Durable store
+```mermaid
+flowchart BT
+  protocol["@relate/protocol: contracts and evidence"]
+  relate["relate: authoring API and compiler"] --> protocol
+  runtime["@relate/runtime: queries, policies, actions"] --> relate
+  runtime --> protocol
+  node["@relate/node: embedded runtime"] --> runtime
+  node --> relate
+  node --> protocol
+  postgres["@relate/postgres: durable store"] --> runtime
+  postgres --> relate
 ```
 
 `node` and `postgres` do not depend on each other; the host application creates

@@ -54,6 +54,14 @@ export const pages: readonly DocPage[] = [
     section: 'Authoring',
   },
   {
+    slug: ['authoring', 'inspector'],
+    name: 'Inspector',
+    title: 'Running the Inspector',
+    description:
+      'Open a live model graph and inspect different Relate projects.',
+    section: 'Authoring',
+  },
+  {
     slug: ['runtime', 'reading-data'],
     name: 'Reading Data',
     title: 'Querying & Traversal',
@@ -69,9 +77,9 @@ export const pages: readonly DocPage[] = [
   },
   {
     slug: ['deployment', 'postgres'],
-    name: 'Postgres Persistence',
-    title: 'Postgres Persistence',
-    description: 'Persisting the graph in Postgres.',
+    name: 'Persistence',
+    title: 'Persistence',
+    description: 'Storage options for runtime state and durable persistence.',
     section: 'Deployment',
   },
 ];

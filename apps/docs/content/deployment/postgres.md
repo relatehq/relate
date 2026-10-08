@@ -1,38 +1,43 @@
-# Postgres Persistence
-
-> `@relate/postgres` is a private, unpublished development baseline
-> (`0.0.0-dev.0`). It is not ready for application use, and its APIs and
-> behavior may change without notice. Use it from a checkout of the Relate
-> repository.
+# Persistence
 
 By default the runtime uses an in-memory store, which loses adopted records,
 observations, native records, and receipts when the process exits.
-`@relate/postgres` stores the same state durably in PostgreSQL.
+
+Durable persistence is provided by separate store packages. `@relate/postgres`
+is the first available option; additional persistence packages are planned.
+
+## Postgres
+
+`@relate/postgres` stores the runtime state durably in PostgreSQL.
+
+`@relate/postgres` is a private, unpublished development baseline
+(`0.0.0-dev.0`). It is not ready for application use, and its APIs and behavior
+may change without notice. Use it from a checkout of the Relate repository.
 
 ---
 
-## Schema Isolation
+### Schema Isolation
 
 Relate never modifies your application or source tables. It keeps its state in a
 dedicated `relate` schema in an existing database:
 
-```
-PostgreSQL database
-├── relate schema (created and changed only by store.migrate())
-│   ├── relate.migrations          applied schema migrations and checksums
-│   ├── relate.graphs              installed graph ID → definition revision
-│   ├── relate.objects             adopted objects, source aliases, latest observations
-│   ├── relate.value_changes       history of applied source values
-│   ├── relate.native_objects      Relate-owned records written by actions
-│   └── relate.native_invocations  action invocations and receipts
-└── public schema (your application and source tables, untouched)
+```mermaid
+flowchart TD
+  database["PostgreSQL database"] --> relate["relate schema: managed by store.migrate()"]
+  database --> public["public schema: application and source tables, untouched"]
+  relate --> migrations["migrations: applied migrations and checksums"]
+  relate --> graphs["graphs: graph IDs and definition revisions"]
+  relate --> objects["objects: adopted objects, aliases, latest observations"]
+  relate --> changes["value_changes: applied source value history"]
+  relate --> native["native_objects: records written by actions"]
+  relate --> invocations["native_invocations: action invocations and receipts"]
 ```
 
 Relate does not create databases or start servers.
 
 ---
 
-## 1. Connecting the Store
+### 1. Connecting the Store
 
 Create the store, migrate it, and pass it to the runtime:
 
@@ -97,7 +102,7 @@ The graph, connectors, and action come from
 
 ---
 
-## 2. Definition Revision Pinning
+### 2. Definition Revision Pinning
 
 Compiling a graph produces a manifest of its objects, properties, relationships,
 policies, and actions, and a `definitionRevision` (`sha256:…`) computed over it.
@@ -121,7 +126,7 @@ the graph.
 
 ---
 
-## 3. Environment Configuration
+### 3. Environment Configuration
 
 The repository's examples and tests read connection strings from `.env` (see
 [`.env.example`](../../../../.env.example)):

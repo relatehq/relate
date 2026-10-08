@@ -1,17 +1,19 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createCompiler } from '@fumadocs/mdx-remote';
+import { remarkMdxMermaid } from 'fumadocs-core/mdx-plugins';
 import { DocsBody, DocsPage } from 'fumadocs-ui/layouts/docs/page';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import rehypeRaw from 'rehype-raw';
 import { type DocPage, pageFile, urlForFile } from '../lib/pages';
 import { remarkAlerts } from '../lib/remark-alerts';
+import { Mermaid } from './mermaid';
 
 const compiler = createCompiler({
   format: 'md',
   remarkImageOptions: false,
   remarkNpmOptions: false,
-  remarkPlugins: [remarkAlerts],
+  remarkPlugins: [remarkMdxMermaid, remarkAlerts],
   rehypePlugins: (plugins) => [
     [rehypeRaw, { passThrough: ['mdxJsxFlowElement'] }],
     ...plugins,
@@ -55,6 +57,7 @@ export async function RenderDoc({ page }: { page: DocPage }) {
         <Content
           components={{
             ...defaultMdxComponents,
+            Mermaid,
             a: ({ href, ...props }) => (
               <defaultMdxComponents.a
                 href={resolveLink(href, file)}

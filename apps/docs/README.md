@@ -20,3 +20,15 @@ Dev and build commands copy the logos and favicon from `assets/brand` into the
 generated public folder.
 
 Run `pnpm --filter @relate/docs typecheck` to check the app's types.
+
+Write diagrams in fenced `mermaid` blocks. The site renders them as SVG at build
+time using `beautiful-mermaid`, with colors that follow the site theme and an
+expandable source view. The same fences render as diagrams on GitHub. Invalid
+diagrams fail the docs build.
+
+````md
+```mermaid
+flowchart LR
+  source["Source system"] -->|mapping| object["Graph object"]
+```
+````
