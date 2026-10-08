@@ -223,6 +223,7 @@ it('checks browser application source outside src', async () => {
   });
 });
 
+<<<<<<< Updated upstream
 it.each(['node:fs', 'fs'])(
   'rejects inspector browser imports of %s',
   async (builtin) => {
@@ -252,3 +253,32 @@ it('permits Node only in the inspector asset server and retains CLI entry scanni
     }),
   ).resolves.toBeDefined();
 });
+=======
+it('allows only the docs stylesheet and excludes generated Next.js output', async () => {
+  await expect(
+    check({
+      'apps/docs/package.json': JSON.stringify({ name: '@relate/docs' }),
+      'apps/docs/app/layout.tsx': "import './global.css';",
+      'apps/docs/app/global.css': "@import 'tailwindcss';",
+      'apps/docs/next-env.d.ts': "import './.next/types/routes.d.ts';",
+      'apps/docs/out/generated.js': "import 'generated-only';",
+    }),
+  ).resolves.toBeDefined();
+});
+
+it.each(['missing.css', 'other.css', '../out/generated.js'])(
+  'rejects undeclared or generated docs imports: %s',
+  async (target) => {
+    await expect(
+      check({
+        'apps/docs/package.json': JSON.stringify({ name: '@relate/docs' }),
+        'apps/docs/app/layout.tsx': `import './${target}';`,
+        'apps/docs/app/other.css': 'body {}',
+        'apps/docs/out/generated.js': 'export {};',
+      }),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining('Unscanned relative import'),
+    });
+  },
+);
+>>>>>>> Stashed changes

@@ -37,6 +37,7 @@ const source = /\.(?:[cm]?[jt]s|[jt]sx)$/;
 const excludedDirectories = new Set([
   'node_modules',
   'dist',
+  'out',
   'coverage',
   'test',
   'tests',
@@ -81,7 +82,10 @@ for (const workspace of workspaces) {
 
   const files = new Set(
     (await walk(directory)).filter(
-      (file) => source.test(file) && !/\.(?:test|spec)\.[^.]+$/.test(file),
+      (file) =>
+        source.test(file) &&
+        !file.endsWith('/next-env.d.ts') &&
+        !/\.(?:test|spec)\.[^.]+$/.test(file),
     ),
   );
 
@@ -182,7 +186,20 @@ for (const workspace of workspaces) {
           if (!resolve(dirname(file), name).startsWith(directory + sep))
             throw new Error(`Cross-package relative import: ${file}: ${name}`);
 
+<<<<<<< Updated upstream
           if (owner === 'apps/inspector' && name.endsWith('.css')) return;
+=======
+          const localPath = resolve(dirname(file), name);
+
+          if (
+            policy.assets?.includes(
+              relative(directory, localPath).replaceAll(sep, '/'),
+            ) &&
+            ts.sys.fileExists(localPath) &&
+            !source.test(localPath)
+          )
+            return;
+>>>>>>> Stashed changes
 
           if (owner === 'packages/runtime')
             assertRuntimeDependency(

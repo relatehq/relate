@@ -30,7 +30,9 @@
     "changeset": "changeset",
     "release:prepare": "node scripts/releases/prepare.mjs",
     "release:artifacts": "node scripts/releases/artifacts.mjs",
-    "test:release": "node --test scripts/releases/release.test.mjs"
+    "test:release": "node --test scripts/releases/release.test.mjs",
+    "docs:dev": "pnpm --filter @relate/docs dev",
+    "docs:build": "pnpm --filter @relate/docs build"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

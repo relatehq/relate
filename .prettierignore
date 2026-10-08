@@ -12,3 +12,5 @@
 pnpm-lock.yaml
 **/*.tgz
 release-artifacts/
+apps/docs/out/
+apps/docs/public/assets/brand/

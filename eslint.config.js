@@ -18,6 +18,7 @@ export default [
     ignores: [
       '**/node_modules/**',
       '**/dist/**',
+      'apps/docs/out/**',
       '**/.next/**',
       '**/.next-internal/**',
       '**/.source/**',
