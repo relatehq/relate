@@ -84,7 +84,24 @@ export function startInspector(): Inspector {
   );
 
   child.stdin.end();
-  child.stdout.pipe(process.stdout);
+
+  if (process.env.RELATE_EXAMPLE_VERBOSE !== '0')
+    child.stdout.pipe(process.stdout);
+  else {
+    // Hide CLI status lines, but keep output from the user's application visible.
+    const lines = createInterface({ input: child.stdout });
+
+    lines.on('line', (line) => {
+      if (
+        line.trim() &&
+        !/^  (Relate dev|Project\s|Config\s|Inspector\s|Watching\s|Loading\s|ready\s|update\s)/.test(
+          line,
+        )
+      )
+        process.stdout.write(`${line}\n`);
+    });
+  }
+
   child.stderr.pipe(process.stderr);
 
   return watchInspector(child);

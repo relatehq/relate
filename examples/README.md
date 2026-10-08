@@ -2,8 +2,14 @@
 
 These examples run from a repository checkout. Install dependencies with
 `pnpm install` at the repository root; each command below builds the packages
-before starting. Use the Node and pnpm versions declared in the root
-`package.json`. No published npm packages are required.
+before starting. Supported Node versions are 22 (22.16+), 24 and 26; install
+pnpm with `npm install --global pnpm@12.9.1`. No published Relate packages are
+required.
+
+Preparation shows a short status line, followed by the result or browser URL.
+Build failures and runtime errors remain visible. Add `--verbose` to any example
+command for full build logs, or `--no-open` to prevent opening a browser. Press
+Ctrl+C to stop the browser demo and its owned processes.
 
 The folders are numbered in learning order. If you want to see Relate in an
 application first, jump to **03** and return to the smaller examples afterward.

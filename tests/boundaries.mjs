@@ -1,17 +1,23 @@
 import ts from 'typescript';
-import { assertNoExampleDependencies } from './architecture/example-boundaries.ts';
+import { tsImport } from 'tsx/esm/api';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve, dirname, relative, sep } from 'node:path';
 import { builtinModules } from 'node:module';
 import { execFileSync } from 'node:child_process';
-import {
-  assertRuntimeDependency,
-  runtimeOwner,
-} from './architecture/runtime-boundaries.ts';
-import {
-  assertRelateEntryPoints,
-  packagePolicies,
-} from './architecture/package-boundaries.ts';
+
+// Node 22.16 does not enable native TypeScript loading by default.
+const { assertNoExampleDependencies } = await tsImport(
+  './architecture/example-boundaries.ts',
+  import.meta.url,
+);
+const { assertRuntimeDependency, runtimeOwner } = await tsImport(
+  './architecture/runtime-boundaries.ts',
+  import.meta.url,
+);
+const { assertRelateEntryPoints, packagePolicies } = await tsImport(
+  './architecture/package-boundaries.ts',
+  import.meta.url,
+);
 
 const root = process.cwd();
 // Ask pnpm to expand its actual workspace configuration, including future roots

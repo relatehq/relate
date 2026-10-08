@@ -11,10 +11,17 @@ ESLint, and dependency-boundary checks. This is the current exception to the
 latest-major policy: the tooling still requires the TypeScript 6 JavaScript API.
 Keep one TypeScript dependency until the tooling supports the new API.
 
-Use Node 26.9.0 from `.node-version`. `@types/node` 26.6.4 is the latest
-published Node 26 type package at this update; its version does not exactly
-match the runtime's version. Keep the runtime and types on the same major when
-upgrading.
+Supported Node lines are 22 (22.16.0 or newer), 24 and 26. `.node-version`
+selects the preferred contributor version, not a requirement to upgrade. The
+minimum is Node 22.16 because the SQLite connector uses `timeout` and
+`isTransaction`. Keep `@types/node` on the oldest supported major to catch
+accidental use of newer APIs. CI exercises the minimum Node 22 and 24 versions
+and the current Node 26 line, including installation, builds, runtime tests,
+installed packages and the onboarding commands.
+
+Install pnpm explicitly with `npm install --global pnpm@12.9.1`; Corepack is not
+required. The package-manager pin keeps dependency installation reproducible
+across supported Node versions.
 
 ## Dependency ownership
 
