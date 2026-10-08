@@ -17,6 +17,7 @@ import type {
 import { useLayout } from '../layout/useLayout.js';
 import type { LayoutRequest } from '../layout/elk.js';
 import { useDevClient } from '../inspector-context.js';
+import { useTheme } from '../theme/theme.js';
 import { Button } from '../ui.js';
 
 export type ObjectFlowNode = Node<
@@ -56,6 +57,7 @@ function ModelGraphView(props: ModelGraphProps) {
   const { model, generation, highlights, selected, onSelect } = props;
   const client = useDevClient();
   const flow = useReactFlow();
+  const { theme } = useTheme();
   const signature = useMemo(
     () => (model ? layoutSignature(model) : ''),
     [model],
@@ -224,7 +226,7 @@ function ModelGraphView(props: ModelGraphProps) {
         proOptions={{ hideAttribution: true }}
         // React Flow tags its root with .light/.dark, which also scopes the
         // theme tokens; follow the system like the shell does.
-        colorMode="system"
+        colorMode={theme}
       />
       {model && model.nodes.length > 0 && (
         <div

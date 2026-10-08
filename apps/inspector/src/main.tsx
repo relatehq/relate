@@ -24,7 +24,7 @@ const token = takeFragmentToken(window.location, window.history);
 const baseUrl = inspectorBaseUrl(window.location);
 const client = createDevClient({ baseUrl, token });
 const queryClient = new QueryClient();
-const router = createInspectorRouter(baseUrl.pathname.replace(/\/$/, ''));
+const router = createInspectorRouter();
 
 void client.start();
 

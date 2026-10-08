@@ -1,10 +1,17 @@
 import { failureOrigin } from './connection/store.js';
+import { Icon } from './icons.js';
 import { useInspectorState } from './inspector-context.js';
-import { Status, Tag } from './ui.js';
+import { useActivePage } from './NavRail.js';
+import { useTheme } from './theme/theme.js';
+import { IconButton, Status, Tag } from './ui.js';
 
-/** The 44px header: brand, graph, generation, problems and connection status. */
+/** The 44px header: brand, graph, page, generation, problems, connection and theme. */
 export function StatusBar() {
   const state = useInspectorState();
+  const { theme, toggle } = useTheme();
+  const page = useActivePage();
+  const themeLabel =
+    theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
   const manifest = state.model?.manifest;
   const revision = state.model?.definitionRevision
     .replace(/^sha256:/, '')
@@ -33,12 +40,18 @@ export function StatusBar() {
           <span className="graph-id">{manifest.graphDefinitionId}</span>
         </>
       )}
+      {page && (
+        <>
+          <span className="divider">/</span>
+          <span className="page-label">{page.label}</span>
+        </>
+      )}
+      <span className="spacer" />
       <span className="generation">
         {state.model
           ? `gen ${state.model.generation} · ${revision}`
           : 'no model yet'}
       </span>
-      <span className="spacer" />
       {state.failure && origin === 'loader' && (
         <Tag color="orange" weight="medium">
           Loader failed
@@ -60,6 +73,10 @@ export function StatusBar() {
         </Tag>
       )}
       <Status color={status[0]}>{status[1]}</Status>
+      <span className="header-separator" aria-hidden="true" />
+      <IconButton label={themeLabel} onClick={toggle}>
+        <Icon name={theme === 'dark' ? 'moon' : 'sun'} />
+      </IconButton>
     </header>
   );
 }

@@ -61,12 +61,158 @@ a:hover {
 /* Shell */
 .shell {
   display: flex;
-  flex-direction: column;
   height: 100%;
   background: var(--t-background-primary);
 }
 
+.shell-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Left rail (design-system IconButton, ghost/soft, md) */
+.nav-rail {
+  width: 48px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--t-background-secondary);
+  border-right: 1px solid var(--t-border-color-light);
+  position: relative;
+  z-index: 10;
+}
+
+.nav-rail-mark {
+  height: 45px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-rail-mark span {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--t-font-color-primary);
+  color: var(--t-background-primary);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-button {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--t-spacing-8);
+  height: var(--t-spacing-8);
+  border-radius: var(--t-border-radius-md);
+  color: var(--t-font-color-secondary);
+  background: transparent;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+
+.icon-button-sm {
+  width: var(--t-spacing-6);
+  height: var(--t-spacing-6);
+}
+
+.icon-button.active {
+  background: var(--t-background-transparent-light);
+  color: var(--t-font-color-primary);
+}
+
+a.icon-button,
+a.icon-button:hover {
+  color: var(--t-font-color-secondary);
+}
+
+a.icon-button.active {
+  color: var(--t-font-color-primary);
+}
+
+@media (hover: hover) {
+  .icon-button:hover {
+    background: var(--t-background-transparent-light);
+  }
+
+  .icon-button:active {
+    background: var(--t-background-transparent-medium);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button {
+    transition: none;
+  }
+}
+
+/* Tooltip: to the right of rail items, below header buttons. */
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  border-radius: var(--t-border-radius-sm);
+  background: var(--t-background-primary-inverted);
+  color: var(--t-font-color-inverted);
+  font-size: var(--t-font-size-sm);
+  font-weight: var(--t-font-weight-medium);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 20;
+}
+
+[data-tooltip][data-tooltip-place='bottom']::after {
+  left: auto;
+  right: 0;
+  top: calc(100% + 6px);
+  transform: none;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transition-delay: 0.3s;
+}
+
+/* Placeholder for rail pages without a screen yet */
+.placeholder-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--t-background-secondary);
+}
+
+.placeholder-screen .title {
+  font-size: 15px;
+  font-weight: var(--t-font-weight-semi-bold);
+}
+
+.placeholder-screen .hint {
+  color: var(--t-font-color-tertiary);
+}
+
 .app-header {
+  position: relative;
+  z-index: 5;
   height: 45px;
   flex: none;
   display: flex;
@@ -95,8 +241,18 @@ a:hover {
   color: var(--t-font-color-tertiary);
 }
 
+.app-header .page-label {
+  font-weight: var(--t-font-weight-medium);
+}
+
 .app-header .spacer {
   flex: 1;
+}
+
+.app-header .header-separator {
+  width: 1px;
+  height: 16px;
+  background: var(--t-border-color-light);
 }
 
 /* Primitives: tag, status, callout, buttons (design-system Tag, Status, Callout, Button) */

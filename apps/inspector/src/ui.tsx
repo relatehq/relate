@@ -126,3 +126,23 @@ export function Button(props: {
     </button>
   );
 }
+
+/** Square ghost button around an icon, with a hover tooltip below it. */
+export function IconButton(props: {
+  readonly label: string;
+  readonly onClick: () => void;
+  readonly children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className="icon-button icon-button-sm"
+      aria-label={props.label}
+      data-tooltip={props.label}
+      data-tooltip-place="bottom"
+      onClick={props.onClick}
+    >
+      {props.children}
+    </button>
+  );
+}
