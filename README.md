@@ -25,14 +25,17 @@ caller and says where each value came from and how fresh it is.
 
 ## Try it in two minutes
 
-You need Node 26.9+ and pnpm 12 (`npm i -g pnpm@12`). No database, Docker or
-credentials.
+You need Node 22 (22.16+), 24 or 26 and pnpm 12 (`npm i -g pnpm@12.9.1`). No
+database, Docker or credentials.
 
 ```sh
 git clone https://github.com/relatehq/relate && cd relate
 pnpm install
 pnpm example:customer-workspace
 ```
+
+Preparation runs quietly; add `--verbose` to see build logs. Build failures and
+runtime errors are always shown.
 
 A small app opens in your browser. Its customer comes from an HTTP CRM, its
 invoices from a SQLite database and its account reviews from Relate itself.

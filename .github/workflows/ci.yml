@@ -8,6 +8,20 @@ permissions:
   contents: read
 jobs:
   check:
+    name: check (${{ matrix.coverage }}, Node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Current releases catch new regressions; minimums enforce engines.node.
+        node: ['22', '24', '26']
+        coverage: [current]
+        include:
+          - node: '22.16.0'
+            coverage: minimum
+          - node: '24.0.0'
+            coverage: minimum
+          - node: '26.0.0'
+            coverage: minimum
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -27,15 +41,19 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 26.9.0
+          node-version: ${{ matrix.node }}
+          check-latest: true
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: |
+      - run: pnpm test:onboarding
+      - if: matrix.node == '26'
+        run: |
           pnpm check:development
           pnpm format:check
           pnpm lint
-          pnpm typecheck
-          pnpm check:boundaries
           pnpm test:release
+          pnpm check:boundaries
+      - run: |
+          pnpm typecheck
           pnpm exec vitest run
           pnpm test:packaging

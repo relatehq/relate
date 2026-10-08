@@ -7,6 +7,7 @@ export interface DevArguments {
   /** Explicit port, or `undefined` for the default range with fallback. */
   readonly port: number | undefined;
   readonly open: boolean;
+  readonly quiet: boolean;
   readonly evalTimeoutMs: number;
   readonly allowedOrigins: readonly string[];
 }
@@ -34,6 +35,7 @@ Options:
                             working directory)
   --port <number>           Bind exactly this port (default: ${DEFAULT_PORT_RANGE.from}-${DEFAULT_PORT_RANGE.to},
                             first free)
+  --quiet                   Hide status chatter; keep the URL and diagnostics
   --open                    Open the inspector URL once it is ready
   --eval-timeout <ms>       Deadline for loading and compiling definitions
                             (default: ${DEFAULT_EVAL_TIMEOUT_MS})
@@ -111,6 +113,7 @@ export function parseDevArguments(
   let config: string | undefined;
   let port: number | undefined;
   let open = false;
+  let quiet = false;
   let evalTimeoutMs = DEFAULT_EVAL_TIMEOUT_MS;
   const allowedOrigins: string[] = [];
   const take = (index: number, flag: string): string => {
@@ -148,6 +151,12 @@ export function parseDevArguments(
       case '--port':
         port = integer(value(), '--port', 1, 65_535);
         break;
+      case '--quiet':
+        if (inline !== undefined)
+          throw new UsageError('--quiet takes no value');
+
+        quiet = true;
+        break;
       case '--open':
         if (inline !== undefined) throw new UsageError('--open takes no value');
 
@@ -168,6 +177,7 @@ export function parseDevArguments(
     config,
     port,
     open,
+    quiet,
     evalTimeoutMs,
     allowedOrigins: Object.freeze([...new Set(allowedOrigins)]),
   });

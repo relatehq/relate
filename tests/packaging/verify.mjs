@@ -59,7 +59,13 @@ try {
   );
   await execFile(
     'npm',
-    ['install', '--ignore-scripts', '--no-audit', '--no-fund'],
+    [
+      'install',
+      '--engine-strict',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+    ],
     {
       cwd: portable,
     },
@@ -116,7 +122,13 @@ console.log('Portable app and connector contracts work without Node host or runt
   );
   await execFile(
     'npm',
-    ['install', '--ignore-scripts', '--no-audit', '--no-fund'],
+    [
+      'install',
+      '--engine-strict',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+    ],
     { cwd: consumer },
   );
   await writeFile(
