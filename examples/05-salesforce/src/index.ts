@@ -2,7 +2,11 @@ import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import { startApp } from '@relate/node';
 import { salesforce } from '@relate/connector-salesforce';
-import { ScratchOrg, withScratchOrg } from '@relate/dev-salesforce/harness';
+import {
+  ScratchOrg,
+  withInterrupt,
+  withScratchOrg,
+} from '@relate/dev-salesforce/harness';
 import { customerApp } from '@relate/dev-salesforce/model';
 
 async function explore(org: ScratchOrg, signal: AbortSignal) {
@@ -57,20 +61,9 @@ async function explore(org: ScratchOrg, signal: AbortSignal) {
 }
 
 try {
-  if (process.argv.includes('--existing')) {
-    const abort = new AbortController();
-    const stop = () => abort.abort(new Error('Example interrupted'));
-
-    process.once('SIGINT', stop);
-    process.once('SIGTERM', stop);
-
-    try {
-      await explore(new ScratchOrg(), abort.signal);
-    } finally {
-      process.removeListener('SIGINT', stop);
-      process.removeListener('SIGTERM', stop);
-    }
-  } else await withScratchOrg(explore);
+  if (process.argv.includes('--existing'))
+    await withInterrupt((signal) => explore(new ScratchOrg(), signal));
+  else await withScratchOrg(explore);
 } catch (error) {
   console.error(
     error instanceof Error ? error.message : 'Salesforce example failed',

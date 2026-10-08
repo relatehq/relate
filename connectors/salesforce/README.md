@@ -74,19 +74,25 @@ See the [runnable example](../../examples/05-salesforce/README.md) and its
   `timeoutMs` overrides it; `maxResponseBytes` defaults to 2 MiB per response.
   Caller cancellation reaches credentials and HTTP requests.
 - HTTP 401/403 and Salesforce permission/session errors throw
-  `SourceAccessDenied`. `INVALID_FIELD` and `INVALID_TYPE` are conservatively
-  treated as denial because object/field permissions can cause these errors.
-  Missing selected fields and empty query results also deny access: an empty
-  result can mean sharing was revoked. These outcomes cannot replay cached data.
+  `SourceAccessDenied`. Salesforce reports a misspelled field and one hidden by
+  field-level security with the same `INVALID_FIELD`/`INVALID_TYPE` code, so
+  these throw `SalesforceSelectionDenied`, a `SourceAccessDenied` subclass whose
+  `errorCode` and message point at the selection. Missing selected fields and
+  empty query results also deny access: an empty result can mean sharing was
+  revoked. These outcomes cannot replay cached data.
+- Field names are case-insensitive, as in Salesforce. Each field is selected
+  once, and the record uses the spelling you passed (`Id` and `IsDeleted` keep
+  theirs).
 - `queryAll` provides affirmative soft-deletion evidence: only a matching
   Account with `IsDeleted: true` returns
-  `{ state: 'deleted', providerAccountId }`. Hard-deleted or invisible rows
-  cannot prove deletion. An empty result denies access without inventing a
-  tombstone. HTTP 404 is an unavailable lookup.
+  `{ state: 'deleted', providerAccountId }`. Once a record is purged from the
+  Recycle Bin, Salesforce returns the same empty result as for a record the user
+  cannot see, so a purge reads as denial rather than deletion; neither replays
+  cached data. HTTP 404 is an unavailable lookup.
 - Rate limits, server errors, timeouts, invalid JSON, and malformed records
-  throw a sanitized `SalesforceSourceError`. Relate may retain authorized stale
-  values according to its read policy. The connector does not retry or refresh
-  tokens.
+  throw a sanitized `SalesforceSourceError`, which keeps the HTTP status even
+  when an error page is not JSON. Relate may retain authorized stale values
+  according to its read policy. The connector does not retry or refresh tokens.
 - Field values retain Salesforce JSON values; unsafe numeric integers are
   rejected. Response shape, record identity/type, and completeness are checked.
   Unselected fields and Salesforce `attributes` are not returned.
@@ -148,10 +154,12 @@ org inventory and the owning Dev Hub; a Dev Hub or unrelated org is refused.
 Normal runner exit, handled interruption, and setup/assertion failures attempt
 cleanup. Signals wait for the current CLI command to settle before cleanup.
 Failed cleanup keeps the recovery record and reports
-`pnpm salesforce:dev delete`. A crash, SIGKILL, or network outage may require
-that command on the next run. Scratch orgs expire after **one day** as a
-backstop. Active-org and daily creation allocations still apply; reuse/reset
-retained orgs during development.
+`pnpm salesforce:dev delete` without hiding the error that ended the run.
+Deletion first asks the Dev Hub for the signup: if creation was rejected or the
+org has already expired, only the local record is removed. A crash, SIGKILL, or
+network outage may require that command on the next run. Scratch orgs expire
+after **one day** as a backstop. Active-org and daily creation allocations still
+apply; reuse/reset retained orgs during development.
 
 Live tests cover verified identity, seeded reads through Relate, upstream
 updates, invalid-session denial, and soft deletion. Local tests cover

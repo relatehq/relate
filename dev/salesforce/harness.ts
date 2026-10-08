@@ -159,37 +159,48 @@ export class ScratchOrg {
       throw error;
     }
   }
+  /** The Dev Hub's signup record for our pre-recorded unique username, if one exists. */
+  private async signup(state: State) {
+    const query = `SELECT Id, Status FROM ScratchOrgInfo WHERE SignupUsername = '${state.username}'`;
+    const result = z
+      .object({
+        records: z
+          .array(
+            z.object({
+              Id: z.string().regex(/^2SR[A-Za-z0-9]{15}$/),
+              Status: z.string(),
+            }),
+          )
+          .max(1),
+      })
+      .parse(
+        await this.cli([
+          'data',
+          'query',
+          '--target-org',
+          state.hubUsername,
+          '--query',
+          query,
+        ]),
+      );
+
+    return result.records[0];
+  }
   async resume() {
     const state = await this.read();
 
     if (state.orgId) return;
 
     if (!state.jobId) {
-      // Recover an async create whose response was lost using our pre-recorded unique username.
-      const query = `SELECT Id FROM ScratchOrgInfo WHERE SignupUsername = '${state.username}'`;
-      const result = z
-        .object({
-          records: z.array(
-            z.object({ Id: z.string().regex(/^2SR[A-Za-z0-9]{15}$/) }),
-          ),
-        })
-        .parse(
-          await this.cli([
-            'data',
-            'query',
-            '--target-org',
-            state.hubUsername,
-            '--query',
-            query,
-          ]),
-        );
+      // Recover an async create whose response was lost.
+      const signup = await this.signup(state);
 
-      if (result.records.length !== 1)
+      if (!signup)
         throw new Error(
           'Creation outcome unknown; retain state and inspect the Dev Hub scratch org list',
         );
 
-      state.jobId = result.records[0]!.Id;
+      state.jobId = signup.Id;
       await this.save(state);
     }
 
@@ -268,11 +279,12 @@ export class ScratchOrg {
 
     return { orgId: state.orgId, accountIds: [...state.accountIds] };
   }
-  async reset() {
+  async reset(signal?: AbortSignal) {
     const state = await this.owned();
 
     // Delete only IDs seeded by this harness, never broad Account queries.
     for (const recordId of [...state.accountIds]) {
+      signal?.throwIfAborted();
       await this.cli([
         'data',
         'delete',
@@ -289,6 +301,7 @@ export class ScratchOrg {
     }
 
     for (const name of ['Northwind', 'Contoso']) {
+      signal?.throwIfAborted();
       const result = z
         .object({
           id: z.string().regex(/^001[A-Za-z0-9]{15}$/),
@@ -352,8 +365,19 @@ export class ScratchOrg {
     state.accountIds = state.accountIds.filter((value) => value !== recordId);
     await this.save(state);
   }
-  async destroy() {
+  async destroy(signal?: AbortSignal) {
+    signal?.throwIfAborted();
+    const signup = await this.signup(await this.read());
+
+    // No signup, a failed signup, or an expired org leaves nothing to delete.
+    if (!signup || signup.Status === 'Error' || signup.Status === 'Deleted') {
+      await unlink(this.path);
+
+      return;
+    }
+
     await this.resume();
+    signal?.throwIfAborted();
     const state = await this.owned();
 
     await this.cli([
@@ -368,32 +392,48 @@ export class ScratchOrg {
   }
 }
 
-/** Runner-owned org: register signals before provisioning and always delete in finally. */
-export async function withScratchOrg(
-  work: (org: ScratchOrg, signal: AbortSignal) => Promise<void>,
-) {
-  const org = new ScratchOrg();
+/** Turn SIGINT/SIGTERM into an abort signal for the duration of work. */
+export async function withInterrupt<T>(
+  work: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
   const abort = new AbortController();
-  const stop = () => abort.abort(new Error('Salesforce run interrupted'));
+  const stop = () => abort.abort(new Error('Interrupted'));
 
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
-  let created = false;
 
   try {
-    await org.create(abort.signal);
-    created = true;
-    await work(org, abort.signal);
+    return await work(abort.signal);
   } finally {
-    try {
-      if (created) await org.destroy();
-    } catch {
-      throw new Error(
-        `Scratch cleanup failed. Run: pnpm salesforce:dev delete (state: ${org.path})`,
-      );
-    } finally {
-      process.removeListener('SIGINT', stop);
-      process.removeListener('SIGTERM', stop);
-    }
+    process.removeListener('SIGINT', stop);
+    process.removeListener('SIGTERM', stop);
   }
+}
+
+/** Runner-owned org: register signals before provisioning and always delete afterwards. */
+export async function withScratchOrg(
+  work: (org: ScratchOrg, signal: AbortSignal) => Promise<void>,
+  org = new ScratchOrg(),
+) {
+  await withInterrupt(async (signal) => {
+    await org.create(signal);
+    let failed = false;
+
+    try {
+      await work(org, signal);
+    } catch (error) {
+      failed = true;
+      throw error;
+    } finally {
+      try {
+        await org.destroy();
+      } catch {
+        const cleanup = `Scratch cleanup failed. Run: pnpm salesforce:dev delete (state: ${org.path})`;
+
+        // Report cleanup without hiding the failure that ended the work.
+        if (failed) console.error(cleanup);
+        else throw new Error(cleanup);
+      }
+    }
+  });
 }

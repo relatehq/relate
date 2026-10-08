@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { startApp } from '@relate/node';
 import { assertFields } from 'relate';
-import { customerApp } from '@relate/dev-salesforce/model';
+import { customerApp } from '../model.js';
 import { accountId, fixture, orgId, queryResult, row } from './fixture.js';
 
 test('reads application-owned Customers and refreshes upstream changes', async () => {

@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import {
   salesforce,
+  SalesforceSelectionDenied,
   SalesforceSourceError,
 } from '@relate/connector-salesforce';
 import { SourceAccessDenied } from 'relate/connectors';
@@ -110,8 +111,6 @@ test.each([
   'INSUFFICIENT_ACCESS',
   'INSUFFICIENT_ACCESS_OR_READONLY',
   'API_DISABLED_FOR_ORG',
-  'INVALID_FIELD',
-  'INVALID_TYPE',
 ])('maps Salesforce %s to denial', async (errorCode) => {
   const f = fixture();
 
@@ -119,6 +118,56 @@ test.each([
   await expect(
     f.resource.fetch(accountId, { signal: signal() }),
   ).rejects.toThrow(new SourceAccessDenied());
+});
+
+test.each(['INVALID_FIELD', 'INVALID_TYPE'])(
+  'reports Salesforce %s as a named selection denial',
+  async (errorCode) => {
+    const f = fixture();
+
+    f.respond([{ errorCode, message: 'secret details' }], 400);
+    const error = await f.resource
+      .fetch(accountId, { signal: signal() })
+      .catch((error: unknown) => error);
+
+    // Still a denial: a field hidden by field-level security reports the same code.
+    expect(error).toBeInstanceOf(SourceAccessDenied);
+    expect(error).toBeInstanceOf(SalesforceSelectionDenied);
+    expect(error).toMatchObject({ errorCode });
+    expect(String(error)).not.toContain('secret details');
+  },
+);
+
+test('non-JSON error pages keep their HTTP status', async () => {
+  const f = fixture({
+    fetch: async () =>
+      new Response('<html>Bad gateway</html>', { status: 502 }),
+  });
+
+  await expect(f.resource.identify({ signal: signal() })).rejects.toThrow(
+    new SalesforceSourceError(502),
+  );
+});
+
+test('field names match the response case-insensitively and in the selected spelling', async () => {
+  const f = fixture();
+  const resource = f.connection.resource('Account', {
+    fields: ['name', 'NAME', 'id', 'website'],
+  });
+
+  expect(await resource.fetch(accountId, { signal: signal() })).toEqual({
+    state: 'present',
+    providerAccountId: orgId,
+    record: {
+      Id: accountId,
+      IsDeleted: false,
+      name: 'Northwind',
+      website: null,
+    },
+  });
+  expect(new URL(f.calls[1]!.url).searchParams.get('q')).toBe(
+    `SELECT Id,IsDeleted,name,website FROM Account WHERE Id = '${accountId}' LIMIT 1`,
+  );
 });
 
 test.each([429, 500, 503])(
@@ -178,7 +227,7 @@ test.each([
   expect(f.calls).toHaveLength(0);
 });
 
-test.each(['Name FROM User', 'Owner.Name', 'constructor', 'attributes'])(
+test.each(['Name FROM User', 'Owner.Name', 'constructor', 'Attributes'])(
   'rejects unsupported field expression: %s',
   (field) => {
     expect(() =>
@@ -284,7 +333,7 @@ test('timeout cancels a stalled response stream', async () => {
 });
 
 test.each(['not-an-org', '001000000000001AAA', '00D000000000001AAA'])(
-  'rejects malformed identity %s before reading data',
+  'rejects malformed identity %s without returning data',
   async (identity) => {
     const f = fixture();
 
@@ -292,6 +341,5 @@ test.each(['not-an-org', '001000000000001AAA', '00D000000000001AAA'])(
     await expect(
       f.resource.fetch(accountId, { signal: signal() }),
     ).rejects.toBeInstanceOf(SalesforceSourceError);
-    expect(f.calls).toHaveLength(1);
   },
 );

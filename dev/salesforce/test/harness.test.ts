@@ -1,9 +1,9 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { expect, onTestFinished, test } from 'vitest';
-import { ScratchOrg } from '@relate/dev-salesforce/harness';
-import type { Cli } from '@relate/dev-salesforce/harness';
+import { expect, onTestFinished, test, vi } from 'vitest';
+import { ScratchOrg, withScratchOrg } from '../harness.js';
+import type { Cli } from '../harness.js';
 
 async function fixture() {
   const path = join(
@@ -17,6 +17,9 @@ async function fixture() {
   let username = '';
   let seedFails = false;
   let deleteFails = false;
+  let createFails = false;
+  let signupStatus = 'Active';
+  let signedUp = false;
   let listedId = scratch;
   let listedHub = 'hub@example.com';
   let created = false;
@@ -51,6 +54,10 @@ async function fixture() {
     if (command === 'org create scratch') {
       username = args[args.indexOf('--username') + 1]!;
       expect(JSON.parse(await readFile(path, 'utf8')).username).toBe(username);
+
+      if (createFails) throw new Error('fixture allocation exhausted');
+
+      signedUp = true;
       expect(args).toContain('--async');
       expect(args[args.indexOf('--duration-days') + 1]).toBe('1');
       created = true;
@@ -78,7 +85,11 @@ async function fixture() {
     }
 
     if (command === 'data query --target-org')
-      return { records: [{ Id: '2SR000000000001GAA' }] };
+      return {
+        records: signedUp
+          ? [{ Id: '2SR000000000001GAA', Status: signupStatus }]
+          : [],
+      };
 
     if (command === 'data delete record') return {};
 
@@ -94,6 +105,13 @@ async function fixture() {
     },
     failDelete: () => {
       deleteFails = true;
+    },
+    failCreate: () => {
+      createFails = true;
+    },
+    expire: () => {
+      signupStatus = 'Deleted';
+      created = false;
     },
     retargetHub: () => {
       listedId = hub;
@@ -194,4 +212,42 @@ test('does not replace a previous run or consume another org allocation', async 
       (args) => args.slice(0, 3).join(' ') === 'org create scratch',
     ),
   ).toHaveLength(1);
+});
+
+test('a rejected create removes its state so the next create can run', async () => {
+  const f = await fixture();
+
+  f.failCreate();
+  await expect(f.org.create(new AbortController().signal)).rejects.toThrow(
+    'fixture allocation exhausted',
+  );
+  await expect(readFile(f.path)).rejects.toMatchObject({ code: 'ENOENT' });
+});
+
+test('deleting an expired org only removes the local state', async () => {
+  const f = await fixture();
+
+  await f.org.create(new AbortController().signal);
+  f.expire();
+  await f.org.destroy();
+  expect(
+    f.calls.some((args) => args.slice(0, 3).join(' ') === 'org delete scratch'),
+  ).toBe(false);
+  await expect(readFile(f.path)).rejects.toMatchObject({ code: 'ENOENT' });
+});
+
+test('a cleanup failure does not hide the error that ended the work', async () => {
+  const f = await fixture();
+  const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+  onTestFinished(() => report.mockRestore());
+  await expect(
+    withScratchOrg(async () => {
+      f.failDelete();
+      throw new Error('assertion failed');
+    }, f.org),
+  ).rejects.toThrow('assertion failed');
+  expect(report).toHaveBeenCalledWith(
+    expect.stringContaining('Scratch cleanup failed'),
+  );
 });

@@ -43,6 +43,19 @@ export class SalesforceSourceError extends Error {
   }
 }
 
+/**
+ * Salesforce rejected a selected field or object. It reports a misspelled field
+ * and one hidden by field-level security with the same code, so this stays a
+ * denial (never replaying cached values) while naming the cause for diagnosis.
+ */
+export class SalesforceSelectionDenied extends SourceAccessDenied {
+  constructor(readonly errorCode: string) {
+    super();
+    this.message = `Salesforce rejected the selected fields (${errorCode}); check field names and field-level security`;
+    this.name = 'SalesforceSelectionDenied';
+  }
+}
+
 type RecordData = Extract<SourceRecord, { state: 'present' }>['record'];
 
 function object(value: unknown): value is RecordData {
@@ -215,31 +228,45 @@ export function salesforce(options: SalesforceOptions): SalesforceConnection {
               offset += chunk.byteLength;
             }
 
-            const body: unknown = JSON.parse(
-              new TextDecoder('utf-8', { fatal: true }).decode(bytes),
-            );
+            let body: unknown;
+
+            try {
+              body = JSON.parse(
+                new TextDecoder('utf-8', { fatal: true }).decode(bytes),
+              );
+            } catch {
+              // Keep the status of non-JSON error pages, such as proxy 502s.
+              throw new SalesforceSourceError(
+                response.ok ? undefined : response.status,
+              );
+            }
 
             if (!response.ok) {
               // Salesforce can encode object/field permission errors as HTTP 400.
-              const denialCodes = [
-                'INVALID_SESSION_ID',
-                'INSUFFICIENT_ACCESS',
-                'INSUFFICIENT_ACCESS_OR_READONLY',
-                'API_DISABLED_FOR_ORG',
-                'INVALID_FIELD',
-                'INVALID_TYPE',
-              ];
+              const codes = Array.isArray(body)
+                ? body.flatMap((entry) =>
+                    object(entry) && typeof entry.errorCode === 'string'
+                      ? [entry.errorCode]
+                      : [],
+                  )
+                : [];
+              const selection = codes.find((code) =>
+                ['INVALID_FIELD', 'INVALID_TYPE'].includes(code),
+              );
 
               if (
-                Array.isArray(body) &&
-                body.some(
-                  (entry) =>
-                    object(entry) &&
-                    typeof entry.errorCode === 'string' &&
-                    denialCodes.includes(entry.errorCode),
+                codes.some((code) =>
+                  [
+                    'INVALID_SESSION_ID',
+                    'INSUFFICIENT_ACCESS',
+                    'INSUFFICIENT_ACCESS_OR_READONLY',
+                    'API_DISABLED_FOR_ORG',
+                  ].includes(code),
                 )
               )
                 throw new SourceAccessDenied();
+
+              if (selection) throw new SalesforceSelectionDenied(selection);
 
               throw new SalesforceSourceError(response.status);
             }
@@ -281,16 +308,25 @@ export function salesforce(options: SalesforceOptions): SalesforceConnection {
       if (name !== 'Account')
         throw new Error('Unsupported Salesforce resource');
 
-      const fields = [...new Set(['Id', 'IsDeleted', ...selection.fields])];
+      // Salesforce field names are case-insensitive: keep the first spelling of each.
+      const byKey = new Map<string, string>();
 
-      for (const field of fields)
+      for (const field of ['Id', 'IsDeleted', ...selection.fields]) {
         if (
           !/^[A-Za-z][A-Za-z0-9_]*$/.test(field) ||
-          ['constructor', 'prototype', 'attributes'].includes(field)
+          ['constructor', 'prototype', 'attributes'].includes(
+            field.toLowerCase(),
+          )
         )
           throw new Error(
             'Salesforce fields must be top-level API field names',
           );
+
+        if (!byKey.has(field.toLowerCase()))
+          byKey.set(field.toLowerCase(), field);
+      }
+
+      const fields = [...byKey.values()];
 
       return {
         identity: 'provider',
@@ -299,12 +335,15 @@ export function salesforce(options: SalesforceOptions): SalesforceConnection {
           const recordId = canonicalId(id, '001');
 
           return operation(signal, async (get) => {
-            // Verify every operation with the same origin/token pair as the record read.
-            const providerAccountId = await identify(get);
             const query = `SELECT ${fields.join(',')} FROM Account WHERE Id = '${recordId}' LIMIT 1`;
-            const result = await get(
-              `/services/data/v${options.apiVersion}/queryAll?q=${encodeURIComponent(query)}`,
-            );
+            // Verify every operation with the same origin/token pair as the record read.
+            // Nothing from the query is used unless the identity check also succeeds.
+            const [providerAccountId, result] = await Promise.all([
+              identify(get),
+              get(
+                `/services/data/v${options.apiVersion}/queryAll?q=${encodeURIComponent(query)}`,
+              ),
+            ]);
 
             if (
               result.done !== true ||
@@ -314,7 +353,9 @@ export function salesforce(options: SalesforceOptions): SalesforceConnection {
             )
               throw new SalesforceSourceError();
 
-            // No row may mean sharing access was revoked. Never replay cached data or invent a tombstone.
+            // No row means sharing access was revoked or the record was purged from the
+            // Recycle Bin. Salesforce does not tell these apart for the running user, so
+            // never replay cached data or invent a tombstone.
             if (result.records.length === 0) throw new SourceAccessDenied();
 
             const row = result.records[0];
@@ -330,13 +371,19 @@ export function salesforce(options: SalesforceOptions): SalesforceConnection {
 
             if (row.IsDeleted) return { state: 'deleted', providerAccountId };
 
+            // Rows use Salesforce's canonical spelling; return the selected spelling.
+            const columns = new Map(
+              Object.keys(row).map((key) => [key.toLowerCase(), key]),
+            );
             const record: RecordData = {};
 
             for (const field of fields) {
-              if (!Object.hasOwn(row, field)) throw new SourceAccessDenied();
+              const column = columns.get(field.toLowerCase());
 
-              validValue(row[field]);
-              record[field] = row[field]!;
+              if (column === undefined) throw new SourceAccessDenied();
+
+              validValue(row[column]);
+              record[field] = row[column]!;
             }
 
             // Keep the application's adopted source ID, including its 15-character form.
