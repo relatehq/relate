@@ -5,7 +5,12 @@ import {
   useNodesInitialized,
   useReactFlow,
 } from '@xyflow/react';
-import type { Edge, Node, OnSelectionChangeFunc } from '@xyflow/react';
+import type {
+  Edge,
+  EdgeChange,
+  Node,
+  NodeChange,
+} from '@xyflow/react';
 import { ObjectNode } from './ObjectNode.js';
 import { ArrowMarkers, RelationshipEdge } from './RelationshipEdge.js';
 import { estimateNodeSize, layoutSignature } from './map.js';
@@ -113,6 +118,10 @@ function ModelGraphView(props: ModelGraphProps) {
         position,
         width: size.width,
         height: size.height,
+        // Nodes are fixed-size and rebuilt on every render, so React Flow's own
+        // measurement never reaches them; without this the graph is never
+        // "initialized" and the first fit never runs.
+        measured: size,
         draggable: false,
         connectable: false,
         deletable: false,
@@ -163,13 +172,33 @@ function ModelGraphView(props: ModelGraphProps) {
     void flow.fitView({ padding: 0.2, duration: 0, maxZoom: 1 });
   }, [flow, model, layout.generation, initialized]);
 
-  const onSelectionChange = useCallback<OnSelectionChangeFunc>(
-    ({ nodes: selectedNodes, edges: selectedEdges }) => {
-      const next = selectedNodes[0]?.id ?? selectedEdges[0]?.id ?? null;
+  // The nodes and edges are controlled, so React Flow reports selection only as
+  // changes. A click emits the new selection and deselects the old one, across
+  // the node and edge handlers; collect one tick so a selection wins.
+  const pendingSelection = useRef<string | null | undefined>(undefined);
+  const collectSelection = useCallback(
+    (changes: readonly (NodeChange | EdgeChange)[]) => {
+      const before = pendingSelection.current;
 
-      if (next !== selected) onSelect(next);
+      for (const change of changes) {
+        if (change.type !== 'select') continue;
+
+        if (change.selected) pendingSelection.current = change.id;
+        else if (pendingSelection.current === undefined)
+          pendingSelection.current = null;
+      }
+
+      if (before !== undefined || pendingSelection.current === undefined)
+        return;
+
+      queueMicrotask(() => {
+        const next = pendingSelection.current;
+
+        pendingSelection.current = undefined;
+        if (next !== undefined) onSelect(next);
+      });
     },
-    [onSelect, selected],
+    [onSelect],
   );
 
   return (
@@ -194,7 +223,8 @@ function ModelGraphView(props: ModelGraphProps) {
         zoomOnDoubleClick={false}
         minZoom={0.1}
         maxZoom={2}
-        onSelectionChange={onSelectionChange}
+        onNodesChange={collectSelection}
+        onEdgesChange={collectSelection}
         proOptions={{ hideAttribution: true }}
         // React Flow tags its root with .light/.dark, which also scopes the
         // theme tokens; follow the system like the shell does.
