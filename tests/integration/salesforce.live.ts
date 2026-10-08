@@ -3,8 +3,8 @@ import { startApp } from '@relate/node';
 import { salesforce } from '@relate/connector-salesforce';
 import { SourceAccessDenied } from 'relate/connectors';
 import { assertFields } from 'relate';
-import { withScratchOrg } from './harness.js';
-import { customerApp } from './model.js';
+import { withScratchOrg } from '@relate/dev-salesforce/harness';
+import { customerApp } from '../support/salesforce/model.js';
 
 try {
   await withScratchOrg(async (org, signal) => {

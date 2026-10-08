@@ -37,7 +37,7 @@
     "check:development": "node scripts/releases/check-development.mjs",
     "example:customer-workspace": "pnpm build && tsx examples/03-customer-workspace/src/index.ts",
     "salesforce:dev": "tsx dev/salesforce/cli.ts",
-    "test:salesforce:live": "pnpm build && tsx dev/salesforce/live.ts",
+    "test:salesforce:live": "pnpm build && tsx tests/integration/salesforce.live.ts",
     "example:salesforce": "pnpm build && tsx examples/05-salesforce/src/index.ts"
   },
   "devDependencies": {

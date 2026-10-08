@@ -359,12 +359,6 @@ importers:
       '@relate/connector-salesforce':
         specifier: workspace:*
         version: link:../../connectors/salesforce
-      '@relate/node':
-        specifier: workspace:*
-        version: link:../../packages/node
-      relate:
-        specifier: workspace:*
-        version: link:../../packages/relate
       zod:
         specifier: 4.6.5
         version: 4.6.5
@@ -455,6 +449,12 @@ importers:
       '@relate/node':
         specifier: workspace:*
         version: link:../../packages/node
+      relate:
+        specifier: workspace:*
+        version: link:../../packages/relate
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   packages/cli:
     dependencies:

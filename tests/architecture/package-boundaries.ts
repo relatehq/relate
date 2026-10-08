@@ -11,13 +11,7 @@ export const packagePolicies: Record<
   'connectors/stripe': { imports: ['relate/connectors'] },
   'connectors/salesforce': { imports: ['relate/connectors'] },
   'dev/salesforce': {
-    imports: [
-      'relate',
-      'relate/connectors',
-      '@relate/node',
-      '@relate/connector-salesforce',
-      'zod',
-    ],
+    imports: ['@relate/connector-salesforce', 'zod'],
     builtins: true,
   },
   'examples/05-salesforce': {
@@ -25,7 +19,9 @@ export const packagePolicies: Record<
       '@relate/node',
       '@relate/connector-salesforce',
       '@relate/dev-salesforce/harness',
-      '@relate/dev-salesforce/model',
+      'relate',
+      'relate/connectors',
+      'zod',
     ],
     builtins: ['node:readline/promises', 'node:process'],
   },

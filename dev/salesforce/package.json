@@ -4,13 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./harness": "./harness.ts",
-    "./model": "./model.ts"
+    "./harness": "./harness.ts"
   },
   "dependencies": {
-    "relate": "workspace:*",
     "@relate/connector-salesforce": "workspace:*",
-    "@relate/node": "workspace:*",
     "zod": "4.6.5"
   }
 }

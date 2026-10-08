@@ -12,7 +12,7 @@ import {
 } from 'relate';
 import type { SourceConnector } from 'relate/connectors';
 
-/** Test/development-owned model; applications own their business vocabulary and mapping. */
+/** Test-owned application factory shared by simulated and live Salesforce checks. */
 export function customerApp(
   connector: SourceConnector,
   providerAccountId: string,
@@ -64,6 +64,6 @@ export function customerApp(
   return {
     app,
     Customer,
-    employee: { id: 'example-employee', roles: ['employee'], claims: {} },
+    employee: { id: 'test-employee', roles: ['employee'], claims: {} },
   };
 }

@@ -7,7 +7,7 @@ import {
   withInterrupt,
   withScratchOrg,
 } from '@relate/dev-salesforce/harness';
-import { customerApp } from '@relate/dev-salesforce/model';
+import { customerApp } from './model.js';
 
 async function explore(org: ScratchOrg, signal: AbortSignal) {
   const info = await org.info();

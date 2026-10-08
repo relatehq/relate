@@ -65,7 +65,8 @@ const accountSource = defineSource({
 ```
 
 See the [runnable example](../../examples/05-salesforce/README.md) and its
-[development model](../../dev/salesforce/model.ts) for complete composition.
+[application model](../../examples/05-salesforce/src/model.ts) for complete
+composition.
 
 ## Failure and access contract
 
