@@ -42,13 +42,19 @@ export type LayoutResponse =
       readonly message: string;
     };
 
-/** Mirrors Arc's layered preset: left-to-right, orthogonal routing, fixed seed. */
+/**
+ * Arc's layered preset (left-to-right, orthogonal routing, fixed seed) with the
+ * inspector screens' spacing: 160px between columns and between rows, so the
+ * relationship labels sit clear of the nodes, and parents centered on their
+ * children.
+ */
 export const layeredOptions: Readonly<Record<string, string>> = Object.freeze({
   'elk.algorithm': 'layered',
   'elk.direction': 'RIGHT',
   'elk.edgeRouting': 'ORTHOGONAL',
-  'elk.spacing.nodeNode': '60',
-  'elk.layered.spacing.nodeNodeBetweenLayers': '180',
+  'elk.spacing.nodeNode': '160',
+  'elk.layered.spacing.nodeNodeBetweenLayers': '160',
+  'elk.layered.nodePlacement.bk.fixedAlignment': 'BALANCED',
   'elk.spacing.componentComponent': '80',
   'elk.randomSeed': '42',
 });

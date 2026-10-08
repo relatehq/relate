@@ -13,17 +13,31 @@ export interface DocPage {
 export const pages: readonly DocPage[] = [
   {
     slug: [],
+    name: 'Why Relate',
+    title: 'Why Relate',
+    description:
+      'Why Relate exists: a shared business model across APIs and databases.',
+  },
+  {
+    slug: ['getting-started'],
     name: 'Getting Started',
     title: 'Getting Started',
     description:
       'Define a source, an object, and access rules, then read the graph.',
   },
   {
+    slug: ['key-concepts'],
+    name: 'Key Concepts',
+    title: 'Key Concepts',
+    description:
+      'The main authoring concepts and how they fit into a running Relate app.',
+  },
+  {
     slug: ['overview'],
     name: 'Architecture Overview',
     title: 'Architecture Overview',
     description:
-      'How Relate handles source ownership, identity, access, and evidence.',
+      'How compilation, reads, authorization, transactions, and storage fit together.',
   },
   {
     slug: ['authoring', 'graph'],

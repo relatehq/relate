@@ -24,7 +24,12 @@ export interface PropertyView {
 }
 
 export type Ownership =
-  | { readonly kind: 'source'; readonly sourceId: string }
+  | {
+      readonly kind: 'source';
+      readonly sourceId: string;
+      /** Position among the model's sources by ID, so each source keeps a distinct color. */
+      readonly tone: number;
+    }
   | { readonly kind: 'native' };
 
 // Type aliases (not interfaces) so React Flow's Record<string, unknown> data constraint holds.
@@ -89,6 +94,9 @@ const byId = <T extends { readonly id: string }>(a: T, b: T) =>
 /** Object types become nodes; declared relationships become edges. Reference properties alone never do. */
 export function mapManifest(manifest: Manifest): GraphModel {
   const objects = new Map(manifest.objects.map((o) => [o.id, o] as const));
+  const sources = [
+    ...new Set(manifest.objects.flatMap((o) => o.sourceDefinitionId ?? [])),
+  ].sort();
   const nodes = [...manifest.objects].sort(byId).map((object): GraphNode => ({
     id: object.id,
     data: {
@@ -100,7 +108,11 @@ export function mapManifest(manifest: Manifest): GraphModel {
         ? { description: object.description }
         : {}),
       ownership: object.sourceDefinitionId
-        ? { kind: 'source', sourceId: object.sourceDefinitionId }
+        ? {
+            kind: 'source',
+            sourceId: object.sourceDefinitionId,
+            tone: sources.indexOf(object.sourceDefinitionId),
+          }
         : { kind: 'native' },
       properties: [...object.properties]
         .sort((a, b) => {

@@ -1,6 +1,6 @@
 {
   "name": "@relate/docs",
-  "version": "0.0.0",
+  "version": "0.0.0-dev.0",
   "private": true,
   "type": "module",
   "description": "Documentation site and content.",

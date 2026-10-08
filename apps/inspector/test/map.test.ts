@@ -25,7 +25,7 @@ it('maps object types to nodes with ownership and typed properties, identity fir
   expect(customer).toMatchObject({
     apiName: 'Customer',
     label: 'Customer',
-    ownership: { kind: 'source', sourceId: 'crm.customers' },
+    ownership: { kind: 'source', sourceId: 'crm.customers', tone: 1 },
   });
   expect(customer.properties.map((p) => [p.name, p.type, p.origin])).toEqual([
     ['id', 'string', 'object-id'],

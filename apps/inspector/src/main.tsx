@@ -8,6 +8,8 @@ import '@fontsource/inter/600.css';
 import '@fontsource/dm-mono/400.css';
 import '@fontsource/dm-mono/500.css';
 import '@xyflow/react/dist/style.css';
+import './theme/theme-light.css';
+import './theme/theme-dark.css';
 import './styles.css';
 import {
   createDevClient,

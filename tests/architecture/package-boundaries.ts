@@ -68,6 +68,7 @@ export const packagePolicies: Record<
     assets: ['app/global.css'],
     imports: [
       'next',
+      'next/navigation',
       'react',
       '@fumadocs/mdx-remote',
       'fumadocs-ui/provider/next',
@@ -78,6 +79,7 @@ export const packagePolicies: Record<
     ],
     builtins: true,
   },
+  'apps/www': { imports: [] },
   'apps/inspector': {
     imports: [
       '@relate/client',
