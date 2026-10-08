@@ -434,3 +434,75 @@ it('maps refused connections during installation and native acquisition to unava
     await offline.close();
   }
 });
+
+it('does not release a savepoint after timeout returns its client to the pool', async () => {
+  await store.install(graphId, model.definitionRevision);
+  let resume!: () => void;
+  let reached!: () => void;
+  let expire!: (error: Error) => void;
+  const paused = new Promise<void>((resolve) => {
+    reached = resolve;
+  });
+  const gate = new Promise<void>((resolve) => {
+    resume = resolve;
+  });
+  const deadline = new Promise<never>((_, reject) => {
+    expire = reject;
+  });
+  const queries: string[] = [];
+  let late: Promise<unknown> | undefined;
+
+  pool.on('connect', (client) => {
+    const query = client.query.bind(client);
+
+    client.query = ((...args: Parameters<typeof query>) => {
+      queries.push(String(args[0]));
+
+      if (String(args[0]).startsWith('ROLLBACK TO SAVEPOINT')) {
+        return query(String(args[0])).then(async (result) => {
+          reached();
+          await gate;
+
+          return result;
+        });
+      }
+
+      return query(...args);
+    }) as typeof client.query;
+  });
+  const invocation = createNativePostgresStore(pool).transaction(
+    scope(),
+    (tx) => {
+      late = tx.savepoint(async () => {
+        throw new Error('domain failure');
+      });
+
+      return Promise.race([late, deadline]);
+    },
+  );
+  const rejected = expect(invocation).rejects.toThrow('deadline');
+
+  try {
+    await paused;
+    expire(new Error('deadline'));
+    await rejected;
+    // Hold the returned client in a new transaction while the old callback resumes.
+    const reused = await pool.connect();
+
+    try {
+      await reused.query('BEGIN');
+      await reused.query('SAVEPOINT native_effects_1');
+      resume();
+      await expect(late).rejects.toThrow('Inactive native transaction');
+      expect(
+        queries.filter((sql) => sql.startsWith('RELEASE SAVEPOINT')),
+      ).toEqual([]);
+      await reused.query('ROLLBACK TO SAVEPOINT native_effects_1');
+      await reused.query('ROLLBACK');
+    } finally {
+      reused.release();
+    }
+  } finally {
+    resume();
+  }
+});

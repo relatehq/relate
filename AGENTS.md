@@ -101,9 +101,10 @@ API. Source-backed reads, references and traversal already execute through the
 packages. The first native `addAccountReview` path now also executes get/create,
 authorization, rollback and successful receipt storage on memory and Postgres.
 Actor-bound receipt lookup/replay also executes with current-access checks.
-Durable pending execution and declared failure receipts remain subsequent
-slices. Do not keep expanding a declaration-only API instead of implementing
-agreed behavior.
+Declared business failures now roll back native effects and save actor-bound
+recoverable receipts. Durable pending execution remains a subsequent slice. Do
+not keep expanding a declaration-only API instead of implementing agreed
+behavior.
 
 For each authorized slice:
 

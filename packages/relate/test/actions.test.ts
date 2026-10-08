@@ -28,7 +28,13 @@ it('compiles native membership, reference identity, create authorization and act
           nullable: false,
           references: Customer.id,
         },
-        note: { type: 'string', optional: false, nullable: false },
+        note: {
+          type: 'string',
+          optional: false,
+          nullable: false,
+          minLength: 1,
+          maxLength: 4000,
+        },
       },
       output: {
         reviewId: {
@@ -50,9 +56,9 @@ it('compiles native membership, reference identity, create authorization and act
   expect(compile(graph)).toEqual(compiled);
 });
 
-it('does not silently accept unsupported action schemas or domain-failure declarations', () => {
+it('does not silently accept unsupported action schemas', () => {
   for (const input of [
-    z.object({ value: z.string().min(1) }),
+    z.object({ value: z.string().refine((v) => v.length > 0) }),
     z.object({ value: z.string().transform(Number) }),
     z.object({ value: z.object({ nested: z.string() }) }),
   ]) {
@@ -63,13 +69,6 @@ it('does not silently accept unsupported action schemas or domain-failure declar
       }),
     ).toThrow();
   }
-
-  expect(() =>
-    defineAction({
-      ...AddAccountReview,
-      errors: { invalid: z.object({}) },
-    } as never),
-  ).toThrow('Unsupported action option');
 });
 
 it('validates action capabilities, registration and policy operands after serialization', () => {

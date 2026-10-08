@@ -118,6 +118,7 @@ export function createRuntime<
       implementation.implementation({
         actor: context.actor,
         input: context.input,
+        fail: context.fail,
         objects: Object.fromEntries(
           objects.map(([name, object]) => [
             name,

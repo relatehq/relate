@@ -17,7 +17,8 @@ Relate consumer surface. Private and unpublished.
 - Evidence: `FieldEvidence` for each selected field: availability, freshness,
   source identity, retention, ordering and refresh outcome.
 - Errors and receipts: `ReadError` and `ActionError` with sanitized codes and no
-  private detail, and `SucceededReceipt`.
+  private detail, and successful/declared-failure receipts (`SucceededReceipt`,
+  `FailedReceipt`, `ActionReceipt`).
 - `Json`.
 
 These are types plus two error classes. The package has no runtime, database,

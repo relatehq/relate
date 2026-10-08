@@ -15,17 +15,18 @@ registries, `connect`, `host.adopt` and principal-bound typed `get`. See
 fixture still uses declarations for its broader native/query/action surface. The
 [native account-review slice](../../../packages/node/NATIVE_ACTIONS.md) now
 executes real package definitions, get/create, authorization, rollback and
-successful receipt storage against memory and Postgres. Source-backed
-references, nested read policies and bidirectional Customer–Invoice traversal
-are executable in the Invoice read subset.
+successful and declared-failure receipt storage against memory and Postgres.
+Source-backed references, nested read policies and bidirectional
+Customer–Invoice traversal are executable in the Invoice read subset.
 
 ## Current authoring direction
 
 The [receipt contract and caller examples](./receipts.md) cover completion,
-lookup, lost-response recovery and changed access. Native success lookup/replay
-now executes through the packages, bound to the originating actor and current
-access. Background acceptance is deferred for exploration; declared failures and
-the full fixture's broader operations remain unimplemented.
+lookup, lost-response recovery and changed access. Native success/failure
+lookup/replay now executes through the packages, bound to the originating actor
+and current access. Background acceptance is deferred for exploration; the full
+fixture's broader operations and nonportable error-detail schemas remain
+unimplemented.
 
 Actions declare input/output schemas, optional domain-error schemas, creation
 capabilities and colocated execution policies. Adjacent `.server.ts`

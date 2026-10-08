@@ -91,6 +91,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
 
       client.on('error', onError);
       const claimed = new Set<string>();
+      let savepointSequence = 0;
       const keyFor = (action: string, key: string) =>
         JSON.stringify([action, key]);
       const check = () => {
@@ -112,6 +113,32 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
         );
         const result = await Promise.race([
           operation({
+            async savepoint(operation) {
+              check();
+              const name = `native_effects_${++savepointSequence}`;
+              const claims = new Set(claimed);
+
+              await client.query(`SAVEPOINT ${name}`);
+
+              try {
+                const result = await operation();
+
+                check();
+                await client.query(`RELEASE SAVEPOINT ${name}`);
+
+                return result;
+              } catch (error) {
+                check();
+                await client.query(`ROLLBACK TO SAVEPOINT ${name}`);
+                check();
+                await client.query(`RELEASE SAVEPOINT ${name}`);
+                claimed.clear();
+
+                for (const key of claims) claimed.add(key);
+
+                throw error;
+              }
+            },
             async load(type, id) {
               check();
 

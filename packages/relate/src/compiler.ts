@@ -7,41 +7,11 @@ import type {
   Property,
 } from './index.js';
 import { referenceSchemas } from './schema.js';
+import { actionKeys } from './actions.js';
+import { portable } from './portable-schema.js';
 import type { Claim, ActorField, ObjectRule } from './authorization.js';
 import { canonicalJson, deepFreeze, validateManifest } from './model.js';
 import type { CompiledModel, ScalarSchema } from './model.js';
-
-// Deliberately narrow: never silently erase refinements, transforms, defaults, or coercion.
-function portable(schema: z.ZodType): ScalarSchema {
-  let current = schema;
-  let optional = false;
-  let nullable = false;
-
-  while (current.def.type === 'optional' || current.def.type === 'nullable') {
-    if ('checks' in current.def && current.def.checks?.length)
-      throw new Error('Unsupported schema refinement');
-
-    if (current.def.type === 'optional') optional = true;
-    else nullable = true;
-
-    current = (current as z.ZodOptional | z.ZodNullable).unwrap() as z.ZodType;
-  }
-
-  const type = current.def.type;
-
-  if (
-    !['string', 'number', 'boolean'].includes(type) ||
-    ('checks' in current.def && current.def.checks?.length) ||
-    // Coercion changes which inputs parse; the portable scalar would accept fewer.
-    ('coerce' in current.def && current.def.coerce)
-  ) {
-    throw new Error(
-      `Unsupported schema: ${type}. This slice supports unrefined, uncoerced scalar fields only.`,
-    );
-  }
-
-  return { type: type as ScalarSchema['type'], optional, nullable };
-}
 
 function paths(
   objects: ObjectRegistry,
@@ -324,12 +294,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
   };
   const actions = Object.entries(graph.actions ?? {}).map(
     ([apiName, action]) => {
-      if (
-        Object.keys(action).some(
-          (key) =>
-            !['id', 'input', 'output', 'creates', 'policy'].includes(key),
-        )
-      )
+      if (Object.keys(action).some((key) => !actionKeys.includes(key)))
         throw new Error('Unsupported action option');
 
       if (
@@ -347,6 +312,16 @@ export function compile(graph: GraphDefinition): CompiledModel {
         apiName,
         input: actionShape(action.input),
         output: actionShape(action.output),
+        ...(Object.keys(action.errors ?? {}).length
+          ? {
+              errors: Object.fromEntries(
+                Object.entries(action.errors ?? {}).map(([code, schema]) => [
+                  code,
+                  actionShape(schema),
+                ]),
+              ),
+            }
+          : {}),
         creates: action.creates.map((o) => o.id).sort(),
         ...(action.policy
           ? { execute: { role: action.policy.execute.role } }
@@ -371,7 +346,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
   }
 
   const manifest = validateManifest({
-    formatVersion: 3,
+    formatVersion: 4,
     graphDefinitionId: graph.id,
     fieldGroups: [...graph.access.fieldGroups].sort(),
     roles: [...graph.access.roles].sort(),

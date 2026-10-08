@@ -64,7 +64,35 @@ export function createNativeMemoryStore(
           },
         );
         const claimed = new Set<string>();
+        const undo: (() => void)[] = [];
+        let savepointDepth = 0;
+        const recordUndo = (operation: () => void) => {
+          if (savepointDepth) undo.push(operation);
+        };
         const result = await operation({
+          async savepoint(operation) {
+            check();
+            const start = undo.length;
+
+            savepointDepth++;
+
+            try {
+              return await operation();
+            } catch (error) {
+              check();
+
+              for (let index = undo.length - 1; index >= start; index--)
+                undo[index]!();
+
+              undo.length = start;
+
+              throw error;
+            } finally {
+              savepointDepth--;
+
+              if (!savepointDepth) undo.length = 0;
+            }
+          },
           async load(type, id) {
             check();
             const value = state.records.get(recordKey(type, id));
@@ -78,6 +106,9 @@ export function createNativeMemoryStore(
             if (state.records.has(key)) throw new NativeConflict();
 
             state.records.set(key, structuredClone(record));
+            recordUndo(() => {
+              state.records.delete(key);
+            });
           },
           async claim(action, key) {
             check();
@@ -90,6 +121,9 @@ export function createNativeMemoryStore(
             if (existing) return structuredClone(existing);
 
             claimed.add(scopeKey);
+            recordUndo(() => {
+              claimed.delete(scopeKey);
+            });
           },
           async findInvocation(action, id) {
             check();
@@ -111,6 +145,14 @@ export function createNativeMemoryStore(
             if (!claimed.delete(key))
               throw new Error('Invocation was not claimed');
 
+            const previous = state.invocations.get(key);
+
+            recordUndo(() => {
+              claimed.add(key);
+
+              if (previous) state.invocations.set(key, previous);
+              else state.invocations.delete(key);
+            });
             state.invocations.set(key, structuredClone(invocation));
           },
         });

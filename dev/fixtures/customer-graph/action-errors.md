@@ -2,10 +2,17 @@
 
 **Agreed 2026-10-06.** Expected business failures belong to the shared action
 contract. The fixture checks declaration, implementation and consumer types;
-action execution, validation, rollback and receipt persistence remain
-unimplemented. HTTP/MCP mappings follow this contract rather than defining it.
+portable declared failures now execute through real packages, including details
+validation, native rollback, durable receipts and actor-bound replay. See the
+[implemented contract](../../../packages/node/NATIVE_ACTIONS.md#declared-business-failures)
+and [shared acceptance cases](../../../tests/support/domain-action-contract.ts).
+The broader receipt states and executable schema transforms below remain
+proposals. HTTP/MCP mappings follow the implemented contract.
 
 ## Authoring
+
+The fixture still uses `.int()` below, which is outside the implemented portable
+subset. Numeric bounds such as `.min(1).max(1000)` execute today.
 
 ```ts
 // Shared EscalateAccount contract
@@ -25,11 +32,14 @@ schema input, and returns `never`. It aborts the invocation rather than
 returning a value the implementation must propagate through every helper. No
 error-class hierarchy or additional execution phase is required.
 
-The executor must validate and parse details exactly once. Receipt details use
-schema output, including transforms/defaults, and must be JSON-serializable. An
-unknown code, invalid details or non-serializable output is an implementation
-fault, not a valid domain failure. Static types do not replace these runtime
-checks or installation-time contract compatibility checks.
+The executor validates details against their portable schema. Future executable
+schemas must parse details exactly once. Receipt details use schema output and
+must be JSON-serializable. Transforms/defaults are still unsupported by
+compilation; their behavior here is a future contract, not an implemented
+validation escape hatch. An unknown code, invalid details or non-serializable
+output is an implementation fault, not a valid domain failure. Static types do
+not replace these runtime checks or installation-time contract compatibility
+checks.
 
 Only expected business outcomes belong here. The escalation's `inactive` and
 `tooManyInvoices` checks are declared. Its `Review unavailable` throw remains an
@@ -50,11 +60,11 @@ message. Applications own presentation of stable codes and typed details.
 }
 ```
 
-`Receipt<Action>` discriminates `succeeded` with output, `failed` with an error,
-`pending`, and `uncertain`. All states carry `invocationId`; see
-[lookup and recovery](./receipts.md). Failed receipts further distinguish
-`domain` errors from `runtime` errors. Narrowing a domain code narrows its
-details:
+The broader proposed `Receipt<Action>` discriminates `succeeded` with output,
+`failed` with an error, `pending`, and `uncertain`. All states carry
+`invocationId`; see [lookup and recovery](./receipts.md). Failed receipts
+further distinguish `domain` errors from `runtime` errors. Narrowing a domain
+code narrows its details:
 
 ```ts
 if (receipt.state === 'failed' && receipt.error.kind === 'domain') {
