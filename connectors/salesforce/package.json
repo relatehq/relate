@@ -1,0 +1,28 @@
+{
+  "name": "@relate/connector-salesforce",
+  "version": "0.0.0-dev.0",
+  "license": "Apache-2.0",
+  "private": false,
+  "type": "module",
+  "description": "Read-only Salesforce source connector for Relate.",
+  "engines": {
+    "node": "^26.9.0"
+  },
+  "dependencies": {
+    "relate": "workspace:*"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

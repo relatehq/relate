@@ -9,6 +9,26 @@ export const packagePolicies: Record<
   }
 > = {
   'connectors/stripe': { imports: ['relate/connectors'] },
+  'connectors/salesforce': { imports: ['relate/connectors'] },
+  'dev/salesforce': {
+    imports: [
+      'relate',
+      'relate/connectors',
+      '@relate/node',
+      '@relate/connector-salesforce',
+      'zod',
+    ],
+    builtins: true,
+  },
+  'examples/05-salesforce': {
+    imports: [
+      '@relate/node',
+      '@relate/connector-salesforce',
+      '@relate/dev-salesforce/harness',
+      '@relate/dev-salesforce/model',
+    ],
+    builtins: ['node:readline/promises', 'node:process'],
+  },
   'connectors/sqlite': {
     imports: ['relate/connectors'],
     builtins: ['node:sqlite', 'node:worker_threads', 'node:path'],

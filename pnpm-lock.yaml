@@ -175,6 +175,9 @@ importers:
       '@relate/cli':
         specifier: workspace:*
         version: link:packages/cli
+      '@relate/connector-salesforce':
+        specifier: workspace:*
+        version: link:connectors/salesforce
       '@relate/connector-sqlite':
         specifier: workspace:*
         version: link:connectors/sqlite
@@ -184,6 +187,9 @@ importers:
       '@relate/dev-crm-simulator':
         specifier: workspace:*
         version: link:dev/simulators/crm
+      '@relate/dev-salesforce':
+        specifier: workspace:*
+        version: link:dev/salesforce
       '@relate/inspector':
         specifier: workspace:*
         version: link:apps/inspector
@@ -330,6 +336,12 @@ importers:
 
   apps/www: {}
 
+  connectors/salesforce:
+    dependencies:
+      relate:
+        specifier: workspace:*
+        version: link:../../packages/relate
+
   connectors/sqlite:
     dependencies:
       relate:
@@ -341,6 +353,21 @@ importers:
       relate:
         specifier: workspace:*
         version: link:../../packages/relate
+
+  dev/salesforce:
+    dependencies:
+      '@relate/connector-salesforce':
+        specifier: workspace:*
+        version: link:../../connectors/salesforce
+      '@relate/node':
+        specifier: workspace:*
+        version: link:../../packages/node
+      relate:
+        specifier: workspace:*
+        version: link:../../packages/relate
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   dev/simulators/crm:
     dependencies:
@@ -416,6 +443,18 @@ importers:
       zod:
         specifier: 4.6.5
         version: 4.6.5
+
+  examples/05-salesforce:
+    dependencies:
+      '@relate/connector-salesforce':
+        specifier: workspace:*
+        version: link:../../connectors/salesforce
+      '@relate/dev-salesforce':
+        specifier: workspace:*
+        version: link:../../dev/salesforce
+      '@relate/node':
+        specifier: workspace:*
+        version: link:../../packages/node
 
   packages/cli:
     dependencies:

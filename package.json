@@ -10,7 +10,7 @@
   },
   "scripts": {
     "packages": "pnpm -r list --depth -1",
-    "build": "tsc -b packages/protocol packages/relate packages/runtime packages/postgres packages/node connectors/sqlite connectors/stripe apps/inspector/tsconfig.server.json packages/cli && pnpm --filter @relate/inspector build:client",
+    "build": "tsc -b packages/protocol packages/relate packages/runtime packages/postgres packages/node connectors/sqlite connectors/stripe connectors/salesforce apps/inspector/tsconfig.server.json packages/cli && pnpm --filter @relate/inspector build:client",
     "docs:dev": "pnpm --filter @relate/docs dev",
     "docs:build": "pnpm --filter @relate/docs build",
     "example:hello-world": "pnpm build && tsx examples/01-hello-world/src/index.ts",
@@ -35,7 +35,10 @@
     "worktree:delete": "tsx scripts/worktrees/delete.ts",
     "example:customer-accounts": "pnpm build && tsx examples/02-customer-accounts/src/index.ts",
     "check:development": "node scripts/releases/check-development.mjs",
-    "example:customer-workspace": "pnpm build && tsx examples/03-customer-workspace/src/index.ts"
+    "example:customer-workspace": "pnpm build && tsx examples/03-customer-workspace/src/index.ts",
+    "salesforce:dev": "tsx dev/salesforce/cli.ts",
+    "test:salesforce:live": "pnpm build && tsx dev/salesforce/live.ts",
+    "example:salesforce": "pnpm build && tsx examples/05-salesforce/src/index.ts"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",
@@ -61,6 +64,8 @@
     "vitest": "5.0.3",
     "zod": "4.6.5",
     "@relate/connector-sqlite": "workspace:*",
-    "@relate/connector-stripe": "workspace:*"
+    "@relate/connector-stripe": "workspace:*",
+    "@relate/connector-salesforce": "workspace:*",
+    "@relate/dev-salesforce": "workspace:*"
   }
 }
