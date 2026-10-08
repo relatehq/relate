@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { StatusBar } from '../StatusBar.js';
 import { useInspectorState } from '../inspector-context.js';
 
-/** Frame around every screen: the header, plus the no-session card. */
+/** Frame around every screen: the header, or the no-session card in its place. */
 export function InspectorShell(props: { readonly children: ReactNode }) {
   const state = useInspectorState();
 
@@ -23,7 +23,6 @@ export function InspectorShell(props: { readonly children: ReactNode }) {
 
   return (
     <div className="shell">
-      <StatusBar />
       {state.connection === 'unauthorized' ? (
         <div className="session-screen">
           <div className="session-card" role="alert">
@@ -35,10 +34,9 @@ export function InspectorShell(props: { readonly children: ReactNode }) {
               Open the inspector from your terminal
             </div>
             <div className="body">
-              This page only opens through the link printed by{' '}
-              <code>relate dev</code>. The link carries an access token for that
-              session. If relate dev restarted, the previous link stopped
-              working. Use the new one.
+              This page only opens through the link printed by relate dev. The
+              link carries an access token for that session. If relate dev
+              restarted, the previous link stopped working. Use the new one.
             </div>
             <div className="terminal">
               {'  Inspector  '}
@@ -50,7 +48,10 @@ export function InspectorShell(props: { readonly children: ReactNode }) {
           </div>
         </div>
       ) : (
-        props.children
+        <>
+          <StatusBar />
+          {props.children}
+        </>
       )}
     </div>
   );

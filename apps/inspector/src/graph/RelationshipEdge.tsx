@@ -3,6 +3,40 @@ import { BaseEdge, EdgeLabelRenderer, getBezierPath } from '@xyflow/react';
 import type { EdgeProps } from '@xyflow/react';
 import type { RelationshipFlowEdge } from './ModelGraph.js';
 
+export type ArrowMarker = 'default' | 'selected' | 'highlighted';
+
+export const arrowMarkerId = (marker: ArrowMarker) => `relate-arrow-${marker}`;
+
+/** Arrowheads shared by every edge; colors follow the edge state. */
+export function ArrowMarkers() {
+  const fills: Record<ArrowMarker, string> = {
+    default: 'var(--t-border-color-strong)',
+    selected: 'var(--t-color-blue9)',
+    highlighted: 'var(--t-color-red9)',
+  };
+
+  return (
+    <svg className="arrow-markers" aria-hidden="true">
+      <defs>
+        {(Object.keys(fills) as ArrowMarker[]).map((marker) => (
+          <marker
+            key={marker}
+            id={arrowMarkerId(marker)}
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path d="M0 0 L10 5 L0 10 z" style={{ fill: fills[marker] }} />
+          </marker>
+        ))}
+      </defs>
+    </svg>
+  );
+}
+
 export const RelationshipEdge = memo(function RelationshipEdge(
   props: EdgeProps<RelationshipFlowEdge>,
 ) {
@@ -26,6 +60,11 @@ export const RelationshipEdge = memo(function RelationshipEdge(
     targetPosition,
   });
   const state = `${selected ? ' selected' : ''}${data?.highlighted ? ' highlighted' : ''}`;
+  const marker = data?.highlighted
+    ? 'highlighted'
+    : selected
+      ? 'selected'
+      : 'default';
 
   return (
     <>
@@ -34,7 +73,7 @@ export const RelationshipEdge = memo(function RelationshipEdge(
         path={path}
         className={`relationship-edge${state}`}
         interactionWidth={16}
-        {...(props.markerEnd ? { markerEnd: props.markerEnd } : {})}
+        markerEnd={`url(#${arrowMarkerId(marker)})`}
       />
       {data && (
         <EdgeLabelRenderer>

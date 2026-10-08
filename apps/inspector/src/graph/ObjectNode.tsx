@@ -3,6 +3,17 @@ import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import type { ObjectFlowNode } from './ModelGraph.js';
 import { Tag } from '../ui.js';
+import type { TagColor } from '../ui.js';
+
+// Source tags cycle through hues that stay clear of the problem colors.
+const sourceColors: readonly TagColor[] = [
+  'blue',
+  'jade',
+  'sky',
+  'iris',
+  'gold',
+  'pink',
+];
 
 /** Compact object-type card: label, API name and ownership. Details live in the panel. */
 export const ObjectNode = memo(function ObjectNode(
@@ -24,7 +35,10 @@ export const ObjectNode = memo(function ObjectNode(
         <span className="object-node-api-name">{data.apiName}</span>
       </div>
       {data.ownership.kind === 'source' ? (
-        <Tag color="blue" title={`Owned by source ${data.ownership.sourceId}`}>
+        <Tag
+          color={sourceColors[data.ownership.tone % sourceColors.length]!}
+          title={`Owned by source ${data.ownership.sourceId}`}
+        >
           {data.ownership.sourceId}
         </Tag>
       ) : (

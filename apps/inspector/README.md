@@ -21,7 +21,8 @@ apps/inspector/
   src/graph/                     Manifest -> nodes/edges, React Flow view
   src/layout/                    ELK adapter and worker engine
   src/panel/, src/screens/       side panel, graph screen, shell
-  src/styles.css                 Relate design tokens and custom theme
+  src/theme/theme-*.css          generated Relate design-system tokens (twenty-ui, MIT); do not edit
+  src/styles.css                 primitives and screens built on those tokens
 ```
 
 Two entry points are exported:

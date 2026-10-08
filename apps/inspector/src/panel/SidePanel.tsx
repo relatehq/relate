@@ -282,7 +282,7 @@ function LoaderFailure(props: {
         title={title}
         description={`${first.message} This is a loader failure, not a problem found in your definitions.`}
       />
-      <dl className="detail-rows">
+      <dl className="detail-rows facts">
         <dt>Code</dt>
         <dd>{first.code}</dd>
         <dt>Attempt</dt>
@@ -330,7 +330,7 @@ function LayoutFailure(props: { readonly diagnostic: Diagnostic }) {
             }
           : {})}
       />
-      <dl className="detail-rows">
+      <dl className="detail-rows facts">
         <dt>Code</dt>
         <dd>{props.diagnostic.code}</dd>
         <dt>Engine</dt>
@@ -362,7 +362,7 @@ function Selection(props: {
         {props.withLabel && (
           <div className="section-label">Selected · {node.data.label}</div>
         )}
-        <dl className="detail-rows">
+        <dl className="detail-rows facts">
           <dt>ID</dt>
           <dd>{node.id}</dd>
           <dt>API name</dt>
@@ -428,7 +428,7 @@ function Selection(props: {
         <div className="section-label">Selected relationship</div>
       )}
       <RelationshipCard edge={edge} nameOf={nameOf} />
-      <dl className="detail-rows">
+      <dl className="detail-rows facts">
         <dt>ID</dt>
         <dd>{edge.id}</dd>
         <dt>Via</dt>

@@ -48,7 +48,7 @@ export function GraphScreen() {
           onSelect={setSelected}
         />
         {!state.model && state.connection !== 'connecting' && (
-          <div className="graph-overlay-center">
+          <div className="graph-overlay-center initial">
             <div className="title">No model yet</div>
             <div className="hint">
               {state.failure
@@ -58,7 +58,7 @@ export function GraphScreen() {
           </div>
         )}
         {model && model.nodes.length === 0 && (
-          <div className="graph-overlay-center">
+          <div className="graph-overlay-center empty">
             <div className="title">This graph has no objects</div>
             <div className="hint">
               {state.model!.manifest.graphDefinitionId} compiled with 0 objects

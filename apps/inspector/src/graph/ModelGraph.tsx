@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  MarkerType,
   ReactFlow,
   ReactFlowProvider,
   useNodesInitialized,
@@ -8,7 +7,7 @@ import {
 } from '@xyflow/react';
 import type { Edge, Node, OnSelectionChangeFunc } from '@xyflow/react';
 import { ObjectNode } from './ObjectNode.js';
-import { RelationshipEdge } from './RelationshipEdge.js';
+import { ArrowMarkers, RelationshipEdge } from './RelationshipEdge.js';
 import { estimateNodeSize, layoutSignature } from './map.js';
 import type {
   GraphModel,
@@ -132,16 +131,6 @@ function ModelGraphView(props: ModelGraphProps) {
         deletable: false,
         reconnectable: false,
         selected: selected === edge.id,
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 14,
-          height: 14,
-          color: highlights.edges.has(edge.id)
-            ? 'var(--t-color-red9)'
-            : selected === edge.id
-              ? 'var(--t-color-blue9)'
-              : 'var(--t-border-color-strong)',
-        },
         data: { ...edge.data, highlighted: highlights.edges.has(edge.id) },
       })),
     [model, selected, highlights.edges],
@@ -170,7 +159,8 @@ function ModelGraphView(props: ModelGraphProps) {
 
     fitted.current = true;
     // Instant: an animated first fit stalls when the tab is not yet visible.
-    void flow.fitView({ padding: 0.2, duration: 0, maxZoom: 1.25 });
+    // Small graphs stay at 1:1, the scale the screens are drawn at.
+    void flow.fitView({ padding: 0.2, duration: 0, maxZoom: 1 });
   }, [flow, model, layout.generation, initialized]);
 
   const onSelectionChange = useCallback<OnSelectionChangeFunc>(
@@ -187,6 +177,7 @@ function ModelGraphView(props: ModelGraphProps) {
       className={`graph-canvas${reducedMotion ? ' reduced-motion' : ''}`}
       data-generation={generation}
     >
+      <ArrowMarkers />
       <ReactFlow<ObjectFlowNode, RelationshipFlowEdge>
         nodes={nodes}
         edges={edges}
@@ -205,6 +196,9 @@ function ModelGraphView(props: ModelGraphProps) {
         maxZoom={2}
         onSelectionChange={onSelectionChange}
         proOptions={{ hideAttribution: true }}
+        // React Flow tags its root with .light/.dark, which also scopes the
+        // theme tokens; follow the system like the shell does.
+        colorMode="system"
       />
       {model && model.nodes.length > 0 && (
         <div
