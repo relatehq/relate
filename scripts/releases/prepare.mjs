@@ -1,6 +1,10 @@
-import { assertReleasesEnabled } from './shared.mjs';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
-import { releasePackages, run, validateVersion } from './shared.mjs';
+import {
+  assertReleasesEnabled,
+  releasePackages,
+  run,
+  validateVersion,
+} from './shared.mjs';
 
 await assertReleasesEnabled();
 
@@ -28,7 +32,7 @@ if (!pending.length && !(pre && channel === 'stable'))
 if (!pre) {
   for (const pkg of await releasePackages()) {
     if (pkg.version === '0.0.0-dev.0') {
-      const path = `packages/${pkg.directory}/package.json`;
+      const path = `${pkg.directory}/package.json`;
       const metadata = JSON.parse(await readFile(path, 'utf8'));
 
       metadata.version = '0.0.0';

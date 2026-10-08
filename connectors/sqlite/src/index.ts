@@ -4,7 +4,9 @@ import { SourceAccessDenied } from 'relate/connectors';
 import type { SourceConnector, SourceRecord } from 'relate/connectors';
 import { identifier } from './contracts.js';
 import type {
+  Operation,
   Request,
+  WorkerSettings,
   Response,
   SqliteOptions,
   SqliteTableOptions,
@@ -17,15 +19,6 @@ export interface SqliteConnection {
   /** Reject outstanding reads and release the owned worker/connection. Idempotent. */
   close(): Promise<void>;
 }
-
-type Operation =
-  | { operation: 'identify' }
-  | {
-      operation: 'fetch';
-      table: string;
-      options: SqliteTableOptions;
-      recordId: string;
-    };
 
 interface Pending {
   request: Request;
@@ -49,7 +42,7 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
       'SQLite busyTimeoutMs must be an integer between 0 and 60000',
     );
 
-  const settings: SqliteOptions = {
+  const settings: WorkerSettings = {
     path: resolve(options.path),
     identity: { ...options.identity },
     busyTimeoutMs,
@@ -116,6 +109,7 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
               ? new SourceAccessDenied()
               : new Error(response.error.message);
 
+            error.message = response.error.message;
             Object.assign(
               error,
               response.error.code === undefined

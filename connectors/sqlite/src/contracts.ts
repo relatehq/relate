@@ -16,15 +16,19 @@ export interface SqliteTableOptions {
   readonly columns: readonly string[];
 }
 
-export type Request =
-  | { id: number; operation: 'identify' }
+export type Operation =
+  | { operation: 'identify' }
   | {
-      id: number;
       operation: 'fetch';
       table: string;
       options: SqliteTableOptions;
       recordId: string;
     };
+
+export type Request = Operation & { id: number };
+
+/** Fully resolved settings passed by the connection owner to its worker. */
+export type WorkerSettings = SqliteOptions & { readonly busyTimeoutMs: number };
 
 export type Response =
   | { id: number; ok: true; result: string | SourceRecord }

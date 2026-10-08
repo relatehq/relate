@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { packedPackages, releasePackages, validateVersion } from './shared.mjs';
+import {
+  assertReleasesEnabled,
+  readReleasePolicy,
+  packedPackages,
+  releasePackages,
+  validateVersion,
+} from './shared.mjs';
 
 const pkg = {
   name: 'relate',
@@ -40,7 +46,12 @@ test('release inventory includes the SQLite connector and its tarball', async ()
   );
 
   assert.ok(connector);
+  assert.equal(connector.directory, 'connectors/sqlite');
   assert.ok(packedPackages.includes(connector.directory));
+  assert.equal(
+    packages.find((entry) => entry.name === 'relate').directory,
+    'packages/relate',
+  );
 });
 
 test('connector scaffolds are ignored but malformed manifests fail', async () => {
@@ -71,29 +82,47 @@ test('connector scaffolds are ignored but malformed manifests fail', async () =>
   }
 });
 
-test('development mode blocks changesets and release commands before any mutation', async () => {
+test('development mode blocks changesets and release commands in an isolated root', async () => {
   const { spawnSync } = await import('node:child_process');
-  const { readFile } = await import('node:fs/promises');
-  const before = await releasePackages();
-  const lock = await readFile('pnpm-lock.yaml', 'utf8');
+  const { mkdtemp, mkdir, readFile, writeFile, readdir, rm } =
+    await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const root = await mkdtemp(join(tmpdir(), 'relate-disabled-commands-'));
 
-  for (const [script, ...args] of [
-    ['changeset.mjs', 'version'],
-    ['prepare.mjs', 'alpha'],
-    ['artifacts.mjs', '0.0.0-dev.0'],
-  ]) {
-    const result = spawnSync(
-      process.execPath,
-      [`scripts/releases/${script}`, ...args],
-      { encoding: 'utf8' },
+  try {
+    await mkdir(join(root, 'scripts/releases'), { recursive: true });
+    const policy = JSON.stringify({
+      enabled: false,
+      developmentVersion: '0.0.0-dev.0',
+    });
+
+    await writeFile(join(root, 'scripts/releases/policy.json'), policy);
+
+    for (const [script, ...args] of [
+      ['changeset.mjs', 'version'],
+      ['prepare.mjs', 'alpha'],
+      ['artifacts.mjs', '0.0.0-dev.0'],
+    ]) {
+      const result = spawnSync(
+        process.execPath,
+        [fileURLToPath(new URL(script, import.meta.url)), ...args],
+        { cwd: root, encoding: 'utf8' },
+      );
+
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /disabled during development/);
+    }
+
+    assert.equal(
+      await readFile(join(root, 'scripts/releases/policy.json'), 'utf8'),
+      policy,
     );
-
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /disabled during development/);
+    assert.deepEqual(await readdir(root), ['scripts']);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
-
-  assert.deepEqual(await releasePackages(), before);
-  assert.equal(await readFile('pnpm-lock.yaml', 'utf8'), lock);
 });
 
 test('CI development guard rejects changesets and public package version bumps', async () => {
@@ -131,6 +160,62 @@ test('CI development guard rejects changesets and public package version bumps',
     await rm(join(root, '.changeset/feature.md'));
     await writeFile(manifest, JSON.stringify({ ...pkg, version: '0.1.0' }));
     assert.match(check().stderr, /must stay at 0.0.0-dev.0/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('policy parsing fails closed consistently for malformed values', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const root = await mkdtemp(join(tmpdir(), 'relate-policy-types-'));
+  const path = join(root, 'scripts/releases/policy.json');
+
+  try {
+    await mkdir(join(root, 'scripts/releases'), { recursive: true });
+
+    for (const enabled of ['false', 'true', 0, 1, null]) {
+      await writeFile(
+        path,
+        JSON.stringify({ enabled, developmentVersion: '0.0.0-dev.0' }),
+      );
+      await assert.rejects(readReleasePolicy(root), /Invalid release policy/);
+      await assert.rejects(
+        assertReleasesEnabled(root),
+        /Invalid release policy/,
+      );
+      const check = spawnSync(
+        process.execPath,
+        [fileURLToPath(new URL('check-development.mjs', import.meta.url))],
+        { cwd: root, encoding: 'utf8' },
+      );
+
+      assert.notEqual(check.status, 0);
+      assert.match(check.stderr, /Invalid release policy/);
+    }
+
+    await writeFile(
+      path,
+      JSON.stringify({ enabled: true, developmentVersion: '0.0.0-dev.0' }),
+    );
+    await assertReleasesEnabled(root);
+    assert.equal((await readReleasePolicy(root)).enabled, true);
+    // The command-guard test must still pass when its invoking checkout is enabled:
+    // it creates its own disabled root rather than executing commands here.
+    const test = spawnSync(
+      process.execPath,
+      [
+        '--test',
+        '--test-name-pattern=development mode blocks',
+        fileURLToPath(import.meta.url),
+      ],
+      { cwd: root, encoding: 'utf8' },
+    );
+
+    assert.equal(test.status, 0, test.stdout + test.stderr);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

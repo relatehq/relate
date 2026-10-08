@@ -345,3 +345,83 @@ test('missing files reject on first use without claiming provider denial', async
     await database.close();
   }
 });
+
+test('numeric key schemas fail instead of implying deletion, including after schema changes', async () => {
+  const { db, database } = fixture();
+
+  db.exec(
+    "CREATE TABLE changing (id TEXT PRIMARY KEY, name TEXT); INSERT INTO changing VALUES ('1', 'Ada')",
+  );
+  const resource = database.table('changing', {
+    idColumn: 'id',
+    columns: ['name'],
+  });
+
+  expect(await resource.fetch('1', request())).toMatchObject({
+    state: 'present',
+  });
+  db.exec(
+    "DROP TABLE changing; CREATE TABLE changing (id INTEGER PRIMARY KEY, name TEXT); INSERT INTO changing VALUES (1, 'Ada')",
+  );
+  await expect(resource.fetch('1', request())).rejects.toThrow(
+    'key column must support TEXT IDs',
+  );
+  db.exec('DELETE FROM changing');
+  await expect(resource.fetch('missing', request())).rejects.toThrow(
+    'key column must support TEXT IDs',
+  );
+});
+
+test('absence requires valid TEXT key values in untyped columns and views', async () => {
+  const { db, database } = fixture();
+
+  db.exec(
+    "CREATE TABLE untyped (id, name TEXT); INSERT INTO untyped VALUES (1, 'numeric'), ('known', 'text'); CREATE VIEW untyped_view AS SELECT * FROM untyped",
+  );
+
+  for (const name of ['untyped', 'untyped_view']) {
+    const resource = database.table(name, {
+      idColumn: 'id',
+      columns: ['name'],
+    });
+
+    expect(await resource.fetch('known', request())).toMatchObject({
+      state: 'present',
+    });
+    await expect(resource.fetch('1', request())).rejects.toThrow(
+      'key contains non-TEXT values',
+    );
+    await expect(resource.fetch('missing', request())).rejects.toThrow(
+      'key contains non-TEXT values',
+    );
+  }
+
+  db.exec("DELETE FROM untyped WHERE typeof(id) != 'text'");
+  const resource = database.table('untyped', { idColumn: 'id', columns: [] });
+
+  expect(await resource.fetch('missing', request())).toMatchObject({
+    state: 'deleted',
+  });
+  db.exec("INSERT INTO untyped VALUES (NULL, 'invalid')");
+  await expect(resource.fetch('missing', request())).rejects.toThrow(
+    'key contains non-TEXT values',
+  );
+});
+
+test('padded account IDs fail closed with an actionable diagnostic', async () => {
+  const { db, connector } = fixture();
+
+  for (const id of [' demo-crm', 'demo-crm ', '\tdemo-crm\n']) {
+    db.prepare('UPDATE account SET id = ?').run(id);
+    await expect(connector.identify(request())).rejects.toMatchObject({
+      name: 'SourceAccessDenied',
+      message: 'SQLite account ID must not have leading or trailing whitespace',
+    });
+    await expect(
+      connector.fetch('crm_northwind', request()),
+    ).rejects.toBeInstanceOf(SourceAccessDenied);
+  }
+
+  db.exec("UPDATE account SET id = 'demo-crm'");
+  expect(await connector.identify(request())).toBe('demo-crm');
+});

@@ -32,14 +32,20 @@ when their casing differs from SQLite's declared identifiers.
 
 The resource needs unique TEXT IDs. Matching uses binary equality and TEXT
 storage class, so `abc` and `ABC` are distinct even on a NOCASE column, and
-numeric values are not aliases for string IDs. No exact TEXT match means
-`deleted`; duplicate exact TEXT matches fail. Use an index with BINARY collation
-for efficient reads (the connector does not create indexes). Identifiers are
-quoted and IDs are bound parameters. Identity and resource statements are
-prepared once per worker and reused; data and account identity are read afresh
-on each call.
+numeric values are not aliases for string IDs. Numeric-affinity key declarations
+(such as `INTEGER PRIMARY KEY`) raise a configuration error. Untyped columns,
+BLOB-affinity columns and views may supply TEXT IDs. If there is no exact TEXT
+match, the connector checks for non-TEXT key values before reporting `deleted`;
+any such value raises an error instead. This conservative absence check may scan
+the resource. Existing exact TEXT matches in mixed columns remain readable.
+Duplicate exact TEXT matches fail. Use an index with BINARY collation for
+efficient reads (the connector does not create indexes). Identifiers are quoted
+and IDs are bound parameters. Identity and resource statements are prepared once
+per worker and reused; data and account identity are read afresh on each call.
 
-The identity table must contain exactly one row with a nonempty TEXT account ID:
+The identity table must contain exactly one row with a nonempty TEXT account ID
+without leading or trailing whitespace. Padded IDs are explicitly denied with a
+configuration diagnostic; identity is never silently trimmed:
 
 ```sql
 CREATE TABLE account (id TEXT PRIMARY KEY NOT NULL);

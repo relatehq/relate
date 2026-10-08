@@ -3,11 +3,13 @@
 Relate is in development mode. Do not add changesets, bump package versions,
 enter prerelease mode, or run release preparation/publication as part of feature
 PRs. Keep all public packages at `0.0.0-dev.0`; explain changes in the PR
-instead. `pnpm check:development` enforces this in CI. Release commands are
-disabled by `scripts/releases/policy.json`. Enabling releases requires an
-explicit owner request and a separate reviewed change to that policy and release
-documentation. Package build and installed-tarball tests remain part of ordinary
-validation; they do not publish packages.
+instead. Preserve breaking-change and migration guidance in
+`DEVELOPMENT_NOTES.md` without adding a Changeset. `pnpm check:development`
+enforces this in CI. Release commands are disabled by
+`scripts/releases/policy.json`. Enabling releases requires an explicit owner
+request and a separate reviewed change to that policy and release documentation.
+Package build and installed-tarball tests remain part of ordinary validation;
+they do not publish packages.
 
 ## Commit messages
 

@@ -4,12 +4,12 @@ import { execFileSync } from 'node:child_process';
 import semver from 'semver';
 
 export const packedPackages = [
-  'protocol',
-  'relate',
-  'runtime',
-  'postgres',
-  'node',
-  '../connectors/sqlite',
+  'packages/protocol',
+  'packages/relate',
+  'packages/runtime',
+  'packages/postgres',
+  'packages/node',
+  'connectors/sqlite',
 ];
 
 export function run(command, args, options = {}) {
@@ -17,12 +17,15 @@ export function run(command, args, options = {}) {
 }
 
 export async function releasePackages(root = process.cwd()) {
-  const directories = [
-    ...(await readdir(resolve(root, 'packages'))),
-    ...(await readdir(resolve(root, 'connectors'), { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => `../connectors/${entry.name}`),
-  ];
+  const directories = (
+    await Promise.all(
+      ['packages', 'connectors'].map(async (directory) =>
+        (await readdir(resolve(root, directory), { withFileTypes: true }))
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => `${directory}/${entry.name}`),
+      ),
+    )
+  ).flat();
   const packages = [];
 
   for (const directory of directories.sort()) {
@@ -30,12 +33,11 @@ export async function releasePackages(root = process.cwd()) {
 
     try {
       content = await readFile(
-        resolve(root, 'packages', directory, 'package.json'),
+        resolve(root, directory, 'package.json'),
         'utf8',
       );
     } catch (error) {
-      if (directory.startsWith('../connectors/') && error.code === 'ENOENT')
-        continue;
+      if (error.code === 'ENOENT') continue;
 
       throw error;
     }
@@ -70,12 +72,30 @@ export function validateVersion(packages, version) {
 }
 
 /** Release activation is a reviewed repository change, never an environment override. */
-export async function assertReleasesEnabled(root = process.cwd()) {
+export async function readReleasePolicy(root = process.cwd()) {
   const policy = JSON.parse(
     await readFile(resolve(root, 'scripts/releases/policy.json'), 'utf8'),
   );
 
-  if (policy.enabled !== true)
+  if (
+    typeof policy?.enabled !== 'boolean' ||
+    typeof policy.developmentVersion !== 'string' ||
+    !semver.valid(policy.developmentVersion)
+  )
+    throw new Error(
+      'Invalid release policy: enabled must be a boolean and developmentVersion must be a valid version.',
+    );
+
+  return {
+    enabled: policy.enabled,
+    developmentVersion: policy.developmentVersion,
+  };
+}
+
+export async function assertReleasesEnabled(root = process.cwd()) {
+  const policy = await readReleasePolicy(root);
+
+  if (!policy.enabled)
     throw new Error(
       'Releases and changesets are disabled during development. Keep package versions unchanged; describe changes in the PR.',
     );

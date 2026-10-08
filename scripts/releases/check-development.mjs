@@ -1,9 +1,7 @@
-import { readFile, readdir } from 'node:fs/promises';
-import { releasePackages } from './shared.mjs';
+import { readdir } from 'node:fs/promises';
+import { readReleasePolicy, releasePackages } from './shared.mjs';
 
-const policy = JSON.parse(
-  await readFile('scripts/releases/policy.json', 'utf8'),
-);
+const policy = await readReleasePolicy();
 
 if (!policy.enabled) {
   const entries = await readdir('.changeset');

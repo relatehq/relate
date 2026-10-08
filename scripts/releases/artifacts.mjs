@@ -1,8 +1,8 @@
-import { assertReleasesEnabled } from './shared.mjs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import {
+  assertReleasesEnabled,
   packedPackages,
   releasePackages,
   run,
@@ -42,7 +42,7 @@ const checksums = [];
 for (const pkg of packages) {
   if (packedPackages.includes(pkg.directory)) {
     run('pnpm', ['pack', '--pack-destination', destination], {
-      cwd: resolve('packages', pkg.directory),
+      cwd: resolve(pkg.directory),
     });
     const filename = `${pkg.name.replace('@', '').replace('/', '-')}-${version}.tgz`;
     const bytes = await readFile(resolve(destination, filename));
@@ -54,7 +54,7 @@ for (const pkg of packages) {
 
   try {
     const changelog = await readFile(
-      resolve('packages', pkg.directory, 'CHANGELOG.md'),
+      resolve(pkg.directory, 'CHANGELOG.md'),
       'utf8',
     );
     const section = changelog.split(`\n## ${version}\n`)[1]?.split(/\n## /)[0];

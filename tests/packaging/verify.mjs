@@ -10,14 +10,14 @@ const execFile = promisify(callback);
 const root = process.cwd();
 const temp = await mkdtemp(join(tmpdir(), 'relate-package-check-'));
 const packages = [
-  'protocol',
-  'relate',
-  'runtime',
-  'postgres',
-  'node',
-  '../connectors/sqlite',
-  '../apps/inspector',
-  'cli',
+  'packages/protocol',
+  'packages/relate',
+  'packages/runtime',
+  'packages/postgres',
+  'packages/node',
+  'connectors/sqlite',
+  'apps/inspector',
+  'packages/cli',
 ];
 
 try {
@@ -27,7 +27,7 @@ try {
   const dependencies = { zod: '4.6.5' };
 
   for (const name of packages) {
-    const directory = resolve(root, 'packages', name);
+    const directory = resolve(root, name);
     const metadata = JSON.parse(
       await readFile(join(directory, 'package.json'), 'utf8'),
     );

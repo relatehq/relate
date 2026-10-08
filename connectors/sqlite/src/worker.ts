@@ -4,10 +4,10 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { SourceAccessDenied } from 'relate/connectors';
 import type { SourceRecord } from 'relate/connectors';
 import { identifier } from './contracts.js';
-import type { Request, Response, SqliteOptions } from './contracts.js';
+import type { Request, Response, WorkerSettings } from './contracts.js';
 import { readTransaction } from './read-transaction.js';
 
-const options = workerData as SqliteOptions;
+const options = workerData as WorkerSettings;
 let db: DatabaseSync | undefined;
 let identity: StatementSync | undefined;
 const statements = new Map<string, StatementSync>();
@@ -17,7 +17,7 @@ function database(): DatabaseSync {
     readOnly: true,
     enableDoubleQuotedStringLiterals: false,
     allowExtension: false,
-    timeout: options.busyTimeoutMs ?? 150,
+    timeout: options.busyTimeoutMs,
   }));
 }
 
@@ -30,6 +30,14 @@ function account(connection: DatabaseSync): string {
 
   if (rows.length !== 1 || typeof id !== 'string' || !id.trim())
     throw new SourceAccessDenied();
+
+  if (id !== id.trim()) {
+    const error = new SourceAccessDenied();
+
+    error.message =
+      'SQLite account ID must not have leading or trailing whitespace';
+    throw error;
+  }
 
   return id;
 }
@@ -65,7 +73,35 @@ function execute(request: Request): string | SourceRecord {
 
     const row = rows[0];
 
-    if (!row) return { providerAccountId, state: 'deleted' };
+    // Inspect after stepping: SQLite may have automatically recompiled a cached
+    // statement after a schema change. Numeric affinity is incompatible with TEXT IDs.
+    const declaredType = statement.columns()[0]?.type?.toUpperCase() ?? '';
+
+    if (
+      declaredType.includes('INT') ||
+      (declaredType !== '' &&
+        !['CHAR', 'CLOB', 'TEXT', 'BLOB'].some((name) =>
+          declaredType.includes(name),
+        ))
+    )
+      throw new Error('SQLite source key column must support TEXT IDs');
+
+    if (!row) {
+      // Untyped columns and views can change storage class without a schema change.
+      // Only affirm absence when the resource does not contain invalid key values.
+      const invalidSql = `SELECT 1 FROM ${identifier(request.table)} WHERE typeof(${key}) != 'text' LIMIT 1`;
+      let invalid = statements.get(invalidSql);
+
+      if (!invalid) {
+        invalid = connection.prepare(invalidSql);
+        statements.set(invalidSql, invalid);
+      }
+
+      if (invalid.get())
+        throw new Error('SQLite source key contains non-TEXT values');
+
+      return { providerAccountId, state: 'deleted' };
+    }
 
     const entries: [string, string | number | null][] = [];
 
