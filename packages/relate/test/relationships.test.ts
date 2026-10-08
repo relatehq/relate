@@ -2,13 +2,10 @@ import { expect, it } from 'vitest';
 import { compile } from 'relate/compiler';
 import { validateManifest } from 'relate/model';
 import { defineObject, defineRelationship, reference } from 'relate';
-import {
-  graph,
-  Customer,
-  Invoice,
-  CustomerInvoices,
-  invoices,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { graph, Customer, Invoice, CustomerInvoices, invoices } =
+  createInvoiceGraph();
 
 it('binds fresh immutable properties without mutating or sharing their owner', () => {
   const customer = reference(Customer, {

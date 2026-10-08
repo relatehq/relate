@@ -11,6 +11,7 @@ it('parses defaults, explicit flags and inline values', () => {
     config: undefined,
     port: undefined,
     open: false,
+    quiet: false,
     evalTimeoutMs: DEFAULT_EVAL_TIMEOUT_MS,
     allowedOrigins: [],
   });
@@ -20,6 +21,7 @@ it('parses defaults, explicit flags and inline values', () => {
       './packages/business/relate.config.ts',
       '--port=4500',
       '--open',
+      '--quiet',
       '--eval-timeout',
       '60000',
       '--allowed-origin',
@@ -31,6 +33,7 @@ it('parses defaults, explicit flags and inline values', () => {
     config: './packages/business/relate.config.ts',
     port: 4500,
     open: true,
+    quiet: true,
     evalTimeoutMs: 60_000,
     allowedOrigins: ['https://my-private-forward.example'],
   });
@@ -45,6 +48,7 @@ it.each([
   [['--port', '65536'], /from 1 through 65535/],
   [['--eval-timeout', '-1'], /integer/],
   [['--eval-timeout', '2147483648'], /through 2147483647/],
+  [['--quiet=yes'], /takes no value/],
   [['--open=yes'], /takes no value/],
   [['--bogus'], /Unknown option/],
   [['--allowed-origin', 'not a url'], /absolute origin/],

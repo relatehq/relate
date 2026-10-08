@@ -6,16 +6,10 @@ import { createRuntime } from '@relate/node';
 import { connect } from 'relate';
 import { SourceAccessDenied } from 'relate/connectors';
 import { RetentionError } from '@relate/runtime/storage';
-import {
-  access,
-  ana,
-  Customer,
-  customers,
-  finance,
-  graph,
-  Invoice,
-  invoices,
-} from '../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from './invoice-graph.js';
+
+const { access, ana, Customer, customers, finance, graph, Invoice, invoices } =
+  createInvoiceGraph();
 
 export function invoiceReadContract(
   name: string,

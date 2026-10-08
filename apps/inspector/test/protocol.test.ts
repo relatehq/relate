@@ -9,7 +9,9 @@ import {
   readProtocolVersion,
 } from '../src/protocol.js';
 import type { DevEvent, Diagnostic } from '../src/protocol.js';
-import { graph } from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { graph } = createInvoiceGraph();
 
 const model = compile(graph);
 const envelope = { protocolVersion: PROTOCOL_VERSION, instanceId: 'i1' };

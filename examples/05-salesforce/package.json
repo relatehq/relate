@@ -1,0 +1,13 @@
+{
+  "name": "@relate/example-salesforce",
+  "version": "0.0.0-dev.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@relate/dev-salesforce": "workspace:*",
+    "@relate/connector-salesforce": "workspace:*",
+    "@relate/node": "workspace:*",
+    "relate": "workspace:*",
+    "zod": "4.6.5"
+  }
+}

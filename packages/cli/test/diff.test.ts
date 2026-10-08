@@ -2,12 +2,9 @@ import { expect, it } from 'vitest';
 import { compile } from 'relate/compiler';
 import type { Manifest } from 'relate/model';
 import { describeManifest, diffManifests, summarizeDiff } from '@relate/cli';
-import {
-  Customer,
-  CustomerInvoices,
-  Invoice,
-  graph,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { Customer, CustomerInvoices, Invoice, graph } = createInvoiceGraph();
 
 const base = compile(graph).manifest;
 

@@ -7,12 +7,9 @@ import {
   layoutSignature,
   mapManifest,
 } from '../src/graph/map.js';
-import {
-  Customer,
-  CustomerInvoices,
-  Invoice,
-  graph,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { Customer, CustomerInvoices, Invoice, graph } = createInvoiceGraph();
 
 const { manifest } = compile(graph);
 

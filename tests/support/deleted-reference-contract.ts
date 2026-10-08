@@ -16,15 +16,17 @@ import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/node';
 import { connect } from 'relate';
 import type { ObservationStore } from '@relate/runtime/storage';
-import {
+import { createInvoiceGraph } from './invoice-graph.js';
+
+const {
   access,
   ana,
   Customer,
   customers,
-  graph as invoiceGraph,
+  graph: invoiceGraph,
   Invoice,
   invoices,
-} from '../../dev/fixtures/customer-graph/invoice-read/model.js';
+} = createInvoiceGraph();
 
 const Task = defineObject({
   id: 'business.task',

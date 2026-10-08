@@ -24,7 +24,11 @@ async function check(files: Record<string, string>) {
 
     return await execFile(
       process.execPath,
-      [fileURLToPath(new URL('../boundaries.mjs', import.meta.url))],
+      [
+        '--import',
+        import.meta.resolve('tsx'),
+        fileURLToPath(new URL('../boundaries.mjs', import.meta.url)),
+      ],
       { cwd: directory },
     );
   } finally {
