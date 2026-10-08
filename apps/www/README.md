@@ -26,8 +26,22 @@ Create a separate Vercel project using this repository:
 - Output directory: `.`
 - Domain: `relatehq.dev`; redirect `www.relatehq.dev` to it
 
-The small `package.json` prevents Vercel from inheriting the toolkit workspace's
-Node.js requirement. It adds no dependencies or build step.
+### Why this static site has a package manifest
+
+Vercel validates a Node.js version even when install and build commands are
+skipped. Without a local `package.json`, it searches parent directories and
+inherits the repository's `engines.node` requirement (`^26.9.0`). Vercel
+rejected that version when this site was first deployed.
+
+The website-only manifest declares `24.x`, a version supported by Vercel. This
+is a hosting compatibility setting, not a change to the toolkit's supported
+runtime: the repository keeps its Node.js 26 requirement, while this site is
+plain static HTML/CSS/JS with no Node.js runtime, dependencies, or build step.
+Keep the two requirements independent; do not synchronize them just to match.
+
+See
+[Vercel's supported Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions)
+when revisiting the hosting version.
 
 The documentation remains a separate project at `docs.relatehq.dev`.
 
