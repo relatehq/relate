@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title>Relate inspector: a live graph of the model's objects and relationships</title>
+  <defs>
+    <clipPath id="window"><rect x="20" y="16" width="1160" height="664" rx="12"/></clipPath>
+    <pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#e4e4e4"/>
+    </pattern>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.08"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-40%" width="140%" height="180%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#000" flood-opacity="0.06"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#c9c9c9"/>
+    </marker>
+  </defs>
+
+  <!-- Window -->
+  <rect x="20" y="16" width="1160" height="664" rx="12" fill="#fff" stroke="#e6e6e6" filter="url(#shadow)"/>
+  <g clip-path="url(#window)">
+    <!-- Browser chrome -->
+    <rect x="20" y="16" width="1160" height="36" fill="#f7f7f7"/>
+    <line x1="20" y1="52.5" x2="1180" y2="52.5" stroke="#ececec"/>
+    <circle cx="40" cy="34" r="5" fill="#d9d9d9"/>
+    <circle cx="56" cy="34" r="5" fill="#d9d9d9"/>
+    <circle cx="72" cy="34" r="5" fill="#d9d9d9"/>
+    <rect x="450" y="23" width="300" height="22" rx="6" fill="#fff" stroke="#ececec"/>
+    <rect x="555" y="31.5" width="90" height="5" rx="2.5" fill="#e0e0e0"/>
+
+    <!-- Rail -->
+    <rect x="20" y="53" width="48" height="627" fill="#fcfcfc"/>
+    <line x1="68.5" y1="53" x2="68.5" y2="680" stroke="#f1f1f1"/>
+    <rect x="32" y="63" width="24" height="24" rx="6" fill="#333"/>
+    <text x="44" y="79.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">R</text>
+    <rect x="28" y="101" width="32" height="32" rx="8" fill="#efefef"/>
+    <g fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <!-- graph (active) -->
+      <g stroke="#333" transform="translate(36 109) scale(0.667)">
+        <rect x="3" y="15" width="6" height="6" rx="2"/><rect x="15" y="15" width="6" height="6" rx="2"/><rect x="9" y="3" width="6" height="6" rx="2"/>
+        <path d="M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1M12 9v3"/>
+      </g>
+      <g stroke="#9a9a9a">
+        <path d="M44 145.5l6.5 3.7v7.6l-6.5 3.7l-6.5-3.7v-7.6z"/><path d="M44 160.5v-7.5l6.5-3.8M44 153l-6.5-3.8"/>
+        <ellipse cx="44" cy="186" rx="7" ry="2.6"/><path d="M37 186v8c0 1.5 3 2.6 7 2.6s7-1.1 7-2.6v-8"/>
+        <path d="M44 216c2.6 1.6 4.6 2.2 6.4 2.2c0 6-2.6 9.4-6.4 11.4c-3.8-2-6.4-5.4-6.4-11.4c1.8 0 3.8-.6 6.4-2.2z"/>
+        <circle cx="44" cy="258" r="7"/><path d="M44 254.5v3.5l2 2"/>
+      </g>
+    </g>
+
+    <!-- Header -->
+    <line x1="69" y1="96.5" x2="1180" y2="96.5" stroke="#f1f1f1"/>
+    <text x="86" y="79" font-size="13" font-weight="600" fill="#333">Relate</text>
+    <text x="138" y="79" font-size="13" fill="#ccc">/</text>
+    <text x="152" y="79" font-size="12" font-family="'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace" fill="#333">business</text>
+    <text x="222" y="79" font-size="13" fill="#ccc">/</text>
+    <text x="236" y="79" font-size="13" font-weight="500" fill="#333">Graph</text>
+    <rect x="960" y="72" width="88" height="6" rx="3" fill="#e6e6e6"/>
+    <rect x="1060" y="65" width="50" height="20" rx="10" fill="#e9f6ec"/>
+    <circle cx="1072" cy="75" r="2" fill="#30804f"/>
+    <text x="1079" y="79" font-size="12" font-weight="500" fill="#30804f">Live</text>
+    <line x1="1122.5" y1="67" x2="1122.5" y2="83" stroke="#ececec"/>
+    <g fill="none" stroke="#666" stroke-width="1.4" stroke-linecap="round">
+      <circle cx="1146" cy="75" r="3"/>
+      <path d="M1146 68.5v1M1146 80.5v1M1139.5 75h1M1151.5 75h1M1141.4 70.4l.7.7M1150.6 70.4l-.7.7M1141.4 79.6l.7-.7M1150.6 79.6l-.7-.7"/>
+    </g>
+
+    <!-- Graph canvas -->
+    <rect x="69" y="97" width="751" height="583" fill="#fcfcfc"/>
+    <rect x="69" y="97" width="751" height="583" fill="url(#dots)"/>
+
+    <!-- Edges -->
+    <path d="M320 390 C410 390 410 262 496 262" fill="none" stroke="#c9c9c9" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <path d="M320 390 C410 390 410 518 496 518" fill="none" stroke="#c9c9c9" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <g font-family="'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="10.5" text-anchor="middle">
+      <rect x="338" y="304" width="144" height="34" rx="6" fill="#fff" stroke="#ececec"/>
+      <text x="410" y="318" fill="#666">invoices ⇄ customer</text>
+      <text x="410" y="331" fill="#999">1 : N</text>
+      <rect x="338" y="442" width="144" height="34" rx="6" fill="#fff" stroke="#ececec"/>
+      <text x="410" y="456" fill="#666">reviews ⇄ customer</text>
+      <text x="410" y="469" fill="#999">1 : N</text>
+    </g>
+
+    <!-- Nodes -->
+    <g font-size="13">
+      <rect x="120" y="360" width="200" height="60" rx="8" fill="#fff" stroke="#e6e6e6" filter="url(#soft)"/>
+      <text x="134" y="386" font-weight="500" fill="#333">Customer</text>
+      <text x="134" y="402" font-size="11" font-family="'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace" fill="#999">customer</text>
+      <rect x="266" y="380" width="40" height="20" rx="4" fill="#edf2fd"/>
+      <text x="286" y="394" font-size="12" text-anchor="middle" fill="#3d5ac2">API</text>
+
+      <rect x="496" y="228" width="204" height="64" rx="11" fill="#e1e9ff"/>
+      <rect x="500" y="232" width="196" height="56" rx="7" fill="#fff" stroke="#3e62d8" stroke-width="2"/>
+      <text x="514" y="256" font-weight="500" fill="#333">Invoice</text>
+      <text x="514" y="272" font-size="11" font-family="'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace" fill="#999">invoice</text>
+      <rect x="616" y="250" width="66" height="20" rx="4" fill="#e6f6ed"/>
+      <text x="649" y="264" font-size="12" text-anchor="middle" fill="#16805d">Postgres</text>
+
+      <rect x="500" y="488" width="196" height="60" rx="8" fill="#fff" stroke="#e6e6e6" filter="url(#soft)"/>
+      <text x="514" y="514" font-weight="500" fill="#333">AccountReview</text>
+      <text x="514" y="530" font-size="11" font-family="'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace" fill="#999">accountReview</text>
+      <rect x="626" y="508" width="56" height="20" rx="4" fill="#f6eefd"/>
+      <text x="654" y="522" font-size="12" text-anchor="middle" fill="#7a47b0">Relate</text>
+    </g>
+
+    <!-- View controls -->
+    <rect x="85" y="626" width="104" height="36" rx="8" fill="#fff" stroke="#f1f1f1" filter="url(#soft)"/>
+    <text x="104" y="649" font-size="13" text-anchor="middle" fill="#666">−</text>
+    <text x="132" y="649" font-size="13" text-anchor="middle" fill="#666">+</text>
+    <text x="164" y="648" font-size="12" font-weight="500" text-anchor="middle" fill="#666">Fit</text>
+
+    <!-- Side panel -->
+    <rect x="820" y="97" width="360" height="583" fill="#fcfcfc"/>
+    <line x1="820.5" y1="97" x2="820.5" y2="680" stroke="#f1f1f1"/>
+    <text x="837" y="124" font-size="13" font-weight="600" fill="#333">Invoice</text>
+    <rect x="894" y="116" width="96" height="6" rx="3" fill="#e6e6e6"/>
+    <rect x="837" y="134" width="120" height="6" rx="3" fill="#ececec"/>
+    <line x1="820" y1="152.5" x2="1180" y2="152.5" stroke="#f1f1f1"/>
+
+    <g fill="#ececec">
+      <rect x="837" y="172" width="44" height="6" rx="3"/><rect x="921" y="172" width="110" height="6" rx="3" fill="#dedede"/>
+      <rect x="837" y="192" width="56" height="6" rx="3"/><rect x="921" y="192" width="64" height="6" rx="3" fill="#dedede"/>
+      <rect x="837" y="212" width="48" height="6" rx="3"/><rect x="921" y="212" width="150" height="6" rx="3" fill="#dedede"/>
+      <rect x="837" y="232" width="40" height="6" rx="3"/><rect x="921" y="232" width="86" height="6" rx="3" fill="#dedede"/>
+    </g>
+
+    <text x="837" y="270" font-size="11" font-weight="500" fill="#999">Properties</text>
+    <rect x="837" y="280" width="326" height="192" rx="8" fill="#fff" stroke="#f1f1f1"/>
+    <g fill="#dedede">
+      <rect x="849" y="293" width="40" height="6" rx="3"/><rect x="1065" y="293" width="86" height="6" rx="3" fill="#ececec"/>
+      <rect x="849" y="325" width="60" height="6" rx="3"/><rect x="1105" y="325" width="46" height="6" rx="3" fill="#ececec"/>
+      <rect x="849" y="357" width="72" height="6" rx="3"/><rect x="1065" y="357" width="86" height="6" rx="3" fill="#ececec"/>
+      <rect x="849" y="389" width="58" height="6" rx="3"/><rect x="1111" y="389" width="40" height="6" rx="3" fill="#ececec"/>
+      <rect x="849" y="421" width="50" height="6" rx="3"/><rect x="1117" y="421" width="34" height="6" rx="3" fill="#ececec"/>
+      <rect x="849" y="453" width="64" height="6" rx="3"/><rect x="1095" y="453" width="56" height="6" rx="3" fill="#ececec"/>
+    </g>
+    <g stroke="#f1f1f1">
+      <line x1="837" y1="312.5" x2="1163" y2="312.5"/><line x1="837" y1="344.5" x2="1163" y2="344.5"/>
+      <line x1="837" y1="376.5" x2="1163" y2="376.5"/><line x1="837" y1="408.5" x2="1163" y2="408.5"/>
+      <line x1="837" y1="440.5" x2="1163" y2="440.5"/>
+    </g>
+
+    <text x="837" y="502" font-size="11" font-weight="500" fill="#999">Relationships</text>
+    <rect x="837" y="512" width="326" height="70" rx="8" fill="#fff" stroke="#f1f1f1"/>
+    <rect x="849" y="526" width="112" height="7" rx="3.5" fill="#d6d6d6"/>
+    <rect x="849" y="544" width="180" height="6" rx="3" fill="#e6e6e6"/>
+    <rect x="849" y="560" width="140" height="6" rx="3" fill="#ececec"/>
+  </g>
+</svg>

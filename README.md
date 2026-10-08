@@ -219,6 +219,16 @@ needed; state resets on restart.
 Follow the [numbered examples](examples/README.md) in learning order, starting
 with `pnpm example:hello-world` for the smallest terminal example.
 
+For a smaller SQLite source example, run `pnpm example:customer-accounts`. It
+reads CRM customers with portfolio access checks and a Stripe customer key
+through [`@relate/connector-sqlite`](connectors/sqlite).
+
+Stripe billing records are available through
+[`@relate/connector-stripe`](connectors/stripe), using
+`stripe({ apiKey, apiVersion, mode }).resource('customers', { fields: ['name'] })`.
+It supports verified account/mode identity and read-only lookups of customers,
+invoices, subscriptions, products, prices, payment intents, and charges.
+
 For the [Postgres example](examples/04-postgres-persistence), copy
 `.env.example` to `.env` and configure separate `relate` and `relate_test`
 databases on your local server. The example values use Postgres on port 5433.
@@ -229,6 +239,17 @@ Relate manages its schema and migrations, not database or server provisioning.
 is for the persistent example; `RELATE_TEST_DATABASE_URL` is exclusively for
 integration tests, which reset that database's `relate` schema. Keep `.env`
 untracked. `pnpm test:unit` needs no database or environment file.
+
+## Inspector
+
+`pnpm relate dev` serves a local [inspector](apps/inspector) that draws your
+model as a live graph of objects, sources and relationships. It redraws on save
+and shows compile problems next to the last good model. For now it covers the
+model graph; more screens will follow.
+
+<p align="center">
+  <img alt="The Relate inspector showing Customer, Invoice and AccountReview objects and their relationships" src="assets/readme/inspector-light.svg" width="800">
+</p>
 
 ## License
 

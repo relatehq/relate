@@ -10,6 +10,7 @@ export const packedPackages = [
   'packages/postgres',
   'packages/node',
   'connectors/sqlite',
+  'connectors/stripe',
 ];
 
 export function run(command, args, options = {}) {

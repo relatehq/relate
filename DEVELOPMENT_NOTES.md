@@ -53,3 +53,19 @@ Existing `pnpm example:hello-world`, `pnpm example:customer-accounts`, and
 `pnpm example:postgres` commands are unchanged. Update direct file paths or
 imports into the old example folders. The new browser example runs with
 `pnpm example:customer-workspace`.
+
+## Stripe source connector
+
+`@relate/connector-stripe` adds read-only Stripe API v1 resource lookups with
+explicit field selection, pinned API versions, credential rotation, Connect
+account verification, deadlines, and bounded responses. Its provider identity is
+`<account ID>:<test|live>`; custom Stripe connectors migrating to this package
+must rebind and adopt records in that scope instead of relabeling existing
+observations. SQLite and other existing connectors keep their current identity
+formats. No storage migration or new required connector method is introduced.
+
+The shared connector documentation now explicitly allows provider namespaces in
+identity. Stripe confirms that creation times/request IDs must not be presented
+as versions, and that a missing-resource HTTP error is not deletion evidence.
+See the connector README for supported resources and the current read-only
+boundary; list/search/webhook/write capabilities are not implied.

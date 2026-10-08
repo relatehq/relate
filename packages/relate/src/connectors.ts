@@ -5,7 +5,11 @@ export interface SourceVersion {
   readonly value: string;
 }
 
-/** Account identity must come from this response or its authenticated, immutable credential context. */
+/**
+ * Provider scope must come from this response or its authenticated, immutable
+ * credential context. Include provider namespaces (for example test/live mode)
+ * when account ID alone does not uniquely scope records.
+ */
 export type SourceRecord = { readonly providerAccountId: string } & SourceData;
 
 export type ApplicationSourceRecord = {
@@ -21,7 +25,7 @@ type SourceData =
 /** Provider-verified adapter for one selected table or API resource. */
 export interface SourceConnector {
   readonly identity?: 'provider';
-  /** Authenticate current credentials and return the provider's stable account ID, never a configured label. */
+  /** Authenticate current credentials and return the stable provider scope used in fetch evidence, never a configured label. */
   identify(options: { signal: AbortSignal }): Promise<string>;
   /** Deletion requires affirmative evidence. Throw SourceAccessDenied for explicit provider denial. */
   fetch(
@@ -59,7 +63,7 @@ export type SourceBinding = BindingOptions &
   (
     | {
         readonly connector: SourceConnector;
-        /** Expected stable account ID, checked against connector evidence. */
+        /** Expected stable provider scope, checked against connector evidence. May include a namespace such as test/live mode. */
         readonly providerAccountId: string;
       }
     | {
