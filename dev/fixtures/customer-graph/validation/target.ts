@@ -17,6 +17,7 @@ import type {
   RoleGate,
   defineAccess as currentDefineAccess,
   source,
+  QueryOptions,
 } from 'relate';
 import type {
   FieldEvidence,
@@ -391,16 +392,6 @@ type NativeValues<O extends ObjectDefinition> = {
 type ObjectRegistry = Record<string, ObjectDefinition>;
 
 type RelationshipRegistry = Record<string, RelationshipDefinition>;
-
-type QueryOptions<
-  O extends ObjectDefinition,
-  K extends Names<O>,
-> = PageOptions<K> & {
-  /** Equality-only fixture sketch; query execution must not silently omit unknown matches. */
-  readonly where?: Partial<{
-    readonly [N in Names<O>]: PropertyValue<O, N>;
-  }>;
-};
 
 export type ActionObjects<
   O extends ObjectRegistry,

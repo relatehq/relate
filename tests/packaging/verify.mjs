@@ -195,6 +195,9 @@ const read = await runtime.read({ id: 'reader', roles: ['reader'], claims: {} },
 assertFields(read, ['name']);
 assert.throws(() => assertFields(read, ['missing']), { name: 'ReadError', code: 'incomplete' });
 assert.equal(read.data.name, 'Ada');
+const graphPage = await runtime.query({ id: 'reader', roles: ['reader'], claims: {} }, 'customer', { where: { name: 'Ada' }, select: ['name'] });
+assert.deepEqual(graphPage.data.map(row => row.id), [objectIdValue]);
+assert.equal(graphPage.meta.exhausted, true);
 assert.equal(read.meta.fields.name.retentionDurability, 'volatile');
 const store = createPostgresStore({ connectionString: 'postgresql://unused@127.0.0.1:1/unused' });
 await store.close();

@@ -1,4 +1,8 @@
-import { ActionError, type TraversalRequest } from '@relate/protocol';
+import {
+  ActionError,
+  type QueryRequest,
+  type TraversalRequest,
+} from '@relate/protocol';
 import { compile } from 'relate/compiler';
 import type {
   ActionDefinition,
@@ -77,6 +81,20 @@ export function createRuntime<
           objects.map(([name, object]) => [
             name,
             Object.freeze({
+              query: (request: QueryRequest = {}) => {
+                const captured = structuredClone(request);
+
+                return createQuery(
+                  (cursor) =>
+                    context.query(object.id, {
+                      ...captured,
+                      ...(cursor !== undefined ? { cursor } : {}),
+                    }),
+                  captured.cursor !== undefined
+                    ? { cursor: captured.cursor }
+                    : {},
+                );
+              },
               get: async (id: string, request = {}) => {
                 const result = await context.read(object.id, id, request);
 
@@ -191,6 +209,22 @@ export function createRuntime<
                   ]),
               ),
             ),
+            query: (request: QueryRequest = {}) => {
+              const captured = structuredClone(request);
+
+              return createQuery(
+                (cursor) =>
+                  run(() =>
+                    engine.query(actor, object.id, {
+                      ...captured,
+                      ...(cursor !== undefined ? { cursor } : {}),
+                    }),
+                  ),
+                captured.cursor !== undefined
+                  ? { cursor: captured.cursor }
+                  : {},
+              );
+            },
             get: (id: string, request = {}) =>
               run(async () => {
                 const result = await engine.read(actor, object.id, id, request);

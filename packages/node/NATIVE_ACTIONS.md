@@ -385,3 +385,14 @@ The integration suite requires `RELATE_TEST_DATABASE_URL` pointing at a
 dedicated existing database; its setup resets only that database's `relate`
 schema. Tests cover committed storage as well as authorized reads, so a hidden
 write cannot pass a rollback assertion merely by being unreadable.
+
+## Queries inside actions
+
+Action implementations can call `objects.Type.query()` with the same typed
+filters, selection and pagination as consumers. Native queries see records
+created earlier in the current transaction. If any requested page fails, all
+native writes roll back even if the handler catches the error. Retained handles
+cannot start new requests after the invocation ends, and cursors are scoped to
+their original transaction. Source queries still cover adopted graph members
+only and do not imply a source snapshot. See the
+[graph query contract](../runtime/CONTRACT.md#graph-queries).

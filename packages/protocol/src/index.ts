@@ -21,6 +21,10 @@ export interface Page<T> {
   readonly meta: PageMeta;
 }
 
+/** Await one page, or iterate records across pages. */
+export interface QueryResult<T>
+  extends PromiseLike<Page<T>>, AsyncIterable<T> {}
+
 export type Refresh =
   'not-needed' | 'succeeded' | 'unavailable' | 'invalid' | 'superseded';
 
@@ -85,6 +89,11 @@ export type PageResult = Page<ObjectRecord>;
 export interface TraversalRequest extends ReadRequest {
   readonly limit?: number;
   readonly cursor?: string;
+}
+
+/** Equality filters address object properties, never provider columns. */
+export interface QueryRequest extends TraversalRequest {
+  readonly where?: Readonly<Record<string, Json>>;
 }
 
 export class ReadError extends Error {

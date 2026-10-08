@@ -10,6 +10,8 @@ export type {
   NativeReceiptRead,
   NativeTransaction,
   NativeStore,
+  NativeScanOptions,
+  NativeScanResult,
   SourceVersion,
 } from 'relate/storage';
 

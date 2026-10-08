@@ -3,6 +3,7 @@ import type {
   NativeScope,
   NativeRecord,
   NativeInvocation,
+  NativeScanOptions,
 } from './storage.js';
 import { NativeConflict } from './storage.js';
 
@@ -22,7 +23,37 @@ export function createNativeMemoryStore(
   const invocationKey = (action: string, key: string) =>
     JSON.stringify([action, key]);
 
+  function scan(
+    records: Iterable<NativeRecord>,
+    type: string,
+    options: NativeScanOptions,
+  ) {
+    const matches = [...records]
+      .filter(
+        (r) =>
+          r.objectDefinitionId === type &&
+          (options.after === undefined || r.objectId > options.after),
+      )
+      .sort((a, b) =>
+        a.objectId < b.objectId ? -1 : a.objectId > b.objectId ? 1 : 0,
+      );
+
+    return {
+      objects: structuredClone(matches.slice(0, options.limit)),
+      hasMore: matches.length > options.limit,
+    };
+  }
+
   return {
+    async scan(scope, type, options) {
+      if (!installed(scope)) return { objects: [], hasMore: false };
+
+      return scan(
+        graphs.get(scope.graphId)?.records.values() ?? [],
+        type,
+        options,
+      );
+    },
     async loadInvocation(scope, action, key) {
       if (!installed(scope)) return undefined;
 
@@ -70,6 +101,11 @@ export function createNativeMemoryStore(
           if (savepointDepth) undo.push(operation);
         };
         const result = await operation({
+          async scan(type, options) {
+            check();
+
+            return scan(state.records.values(), type, options);
+          },
           async savepoint(operation) {
             check();
             const start = undo.length;

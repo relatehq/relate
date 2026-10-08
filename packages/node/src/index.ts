@@ -8,6 +8,7 @@ export type {
   ObjectRecord,
   Page,
   PageOptions,
+  QueryOptions,
   ObjectOperations,
   ReadOptions,
   Relate,

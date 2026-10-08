@@ -5,6 +5,7 @@ import {
 } from './actions/index.js';
 import type { ActionHandler } from './actions/index.js';
 import type { NativeTransaction, StorageScope } from './storage.js';
+import { createGraphQuery } from './queries/index.js';
 import { createTraversal } from './traversal/index.js';
 import { createSourceOperations } from './resolution/index.js';
 import type { SourceBinding } from 'relate/connectors';
@@ -174,8 +175,20 @@ export function createRuntime(options: RuntimeOptions) {
     );
   }
 
+  const query = createGraphQuery({
+    manifest,
+    scope: nativeScope,
+    store,
+    clock,
+    install,
+    scopeFor,
+    read: readObject,
+    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+  });
+
   return {
     adopt: source.adopt,
+    query,
     read(
       principal: Principal,
       objectDefinitionId: string,
@@ -185,6 +198,7 @@ export function createRuntime(options: RuntimeOptions) {
       return readObject(principal, objectDefinitionId, objectId, request);
     },
     ...createActionExecutor({
+      query,
       manifest,
       scope: nativeScope,
       store,

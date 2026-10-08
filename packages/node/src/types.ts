@@ -11,6 +11,9 @@ import type {
   Receipt,
   ActionDefinition,
   ActionRequest,
+  QueryOptions,
+  ObjectRecord,
+  PageOptions,
 } from 'relate';
 import type { Page as ResultPage } from '@relate/protocol';
 import type { QueryResult } from '@relate/runtime';
@@ -18,15 +21,7 @@ import type { Principal } from '@relate/runtime';
 
 export type { ReadOptions, ObjectResult } from 'relate';
 
-export type PageOptions<K extends string> = ReadOptions<K> & {
-  readonly limit?: number;
-  readonly cursor?: string;
-};
-
-export type ObjectRecord<
-  O extends ObjectDefinition,
-  K extends PropertyNames<O> = PropertyNames<O>,
-> = Omit<Extract<ObjectResult<O, K>, { status: 'ok' }>, 'status'>;
+export type { PageOptions, QueryOptions, ObjectRecord } from 'relate';
 
 export type Page<
   O extends ObjectDefinition,
@@ -63,6 +58,9 @@ export interface ObjectOperations<
   R extends RelationshipRegistry = {},
 > {
   readonly traverse: Traversals<R, O>;
+  query<K extends PropertyNames<O> = PropertyNames<O>>(
+    options?: QueryOptions<O, K>,
+  ): QueryResult<ObjectRecord<O, K>>;
   get<K extends PropertyNames<O> = PropertyNames<O>>(
     id: ObjectId<O['id']>,
     options?: ReadOptions<K>,

@@ -4,6 +4,7 @@ import type {
   ObjectDefinition,
   ObjectId,
   PropertyNames,
+  PropertyValue,
 } from './index.js';
 
 export type ReadOptions<K extends string> = Omit<ReadRequest, 'select'> & {
@@ -25,3 +26,24 @@ export type ObjectResult<
         readonly fields: { readonly [N in K]?: FieldEvidence };
       };
     };
+
+export type PageOptions<K extends string> = ReadOptions<K> & {
+  readonly limit?: number;
+  readonly cursor?: string;
+};
+
+export type QueryOptions<
+  O extends ObjectDefinition,
+  K extends PropertyNames<O> = PropertyNames<O>,
+> = PageOptions<K> & {
+  readonly where?: {
+    readonly [N in PropertyNames<O>]?: Exclude<PropertyValue<O, N>, undefined>;
+  };
+};
+
+export type ObjectRecord<
+  O extends ObjectDefinition,
+  K extends PropertyNames<O> = PropertyNames<O>,
+> = Omit<Extract<ObjectResult<O, K>, { status: 'ok' }>, 'status'>;
+
+export type { QueryResult } from '@relate/protocol';

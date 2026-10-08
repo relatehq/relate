@@ -16,7 +16,8 @@ and unpublished while implementation is in progress.
   engine.
 - `relate.as(principal)` returns consumer operations whose names and types are
   inferred from the graph's object registry: `objects.Customer.get`,
-  `objects.Customer.traverse.invoices`, `actions.addAccountReview`.
+  `objects.Customer.query`, `objects.Customer.traverse.invoices`,
+  `actions.addAccountReview`.
 - `relate.host.adopt(Customer, sourceRecordId)` is the trusted membership
   operation; `relate.close()` drains in-flight work.
 - `connect` and `defineApp` are portable authoring helpers imported from
@@ -196,3 +197,24 @@ synchronization, servers and workers.
   to end.
 - [Hello world](../../examples/01-hello-world/README.md) and
   [Postgres persistence](../../examples/04-postgres-persistence/README.md).
+
+## Graph queries
+
+```ts
+const page = await relate.as(principal).objects.Person.query({
+  where: { name: 'Ada' },
+  select: ['name'],
+  limit: 25,
+});
+```
+
+`query()` without options enumerates accessible graph members. Equality filters
+combine with AND; references accept typed Relate IDs. Await one page or iterate
+records with `for await`. Each record retains the same selected data and field
+evidence as `get`. Filters must be readable even when omitted from `select`.
+
+Source-backed queries cover adopted records only; native queries cover records
+created in Relate. Direct source queries and source sync are planned. See the
+[runtime query contract](../runtime/CONTRACT.md#graph-queries) for pagination,
+freshness, errors and concurrency limits. The same query API is available in
+`implementAction`, including native read-your-writes and rollback on failure.

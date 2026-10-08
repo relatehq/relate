@@ -377,7 +377,9 @@ both. An empty array asserts only `status: 'ok'`.
 The current embedded runtime returns partial JSON records. The customer graph
 [action fixture](../../dev/fixtures/customer-graph/source/actions/review-invoice.server.ts)
 demonstrates schema-specific narrowing with this implemented helper, but its
-full query/escalation operations remain proposed APIs. The smaller
+full escalation scenario remains a proposed API. Graph queries now execute for
+consumers and native action implementations; see the
+[query contract](../runtime/CONTRACT.md#graph-queries). The smaller
 [native account-review path](../node/NATIVE_ACTIONS.md) is executable.
 
 ### Presence, freshness, and completeness
