@@ -151,13 +151,14 @@ export function createGraphQuery(options: {
     if (!object.sourceDefinitionId && !store.native)
       throw new ReadError('unavailable');
 
-    const matches = (record: ObjectRecord) => {
-      for (const name of filterNames) {
+    const usable = (record: ObjectRecord) =>
+      filterNames.every((name) => {
         const status = record.meta.fields[name]?.status;
 
-        if (status !== 'available' && status !== 'absent')
-          throw new ReadError('incomplete');
-      }
+        return status === 'available' || status === 'absent';
+      });
+    const matches = (record: ObjectRecord) => {
+      if (!usable(record)) throw new ReadError('incomplete');
 
       return filterNames.every(
         (name) =>
@@ -165,9 +166,34 @@ export function createGraphQuery(options: {
           record.data[name] === filters[name],
       );
     };
+    const evidence = (id: string, result: Available, at: number) =>
+      project(
+        id,
+        result,
+        needed,
+        { ...readRequest, requireComplete: false },
+        at,
+      );
+    const readCandidate = async (id: string) => {
+      let allowed = async () => false;
+      const result = await options.read(
+        principal,
+        type,
+        id,
+        { ...readRequest, select: needed, requireComplete: false },
+        undefined,
+        (check) => {
+          allowed = check;
+        },
+        transaction,
+      );
+
+      return { result, allowed: () => allowed() };
+    };
     const pending: {
       id: string;
       result: Available;
+      at: number;
       allowed(): Promise<boolean>;
     }[] = [];
     let scanned = 0;
@@ -219,36 +245,45 @@ export function createGraphQuery(options: {
           throw new ReadError('incomplete');
 
         after = candidate.objectId;
-        scanned++;
-        let allowed = async () => false;
-        const result = await options.read(
-          principal,
-          type,
-          candidate.objectId,
-          { ...readRequest, select: needed, requireComplete: false },
-          undefined,
-          (check) => {
-            allowed = check;
-          },
-          transaction,
+      }
+
+      scanned += batch.objects.length;
+
+      // Transactions share one connection; independent reads can overlap. Each
+      // candidate is evaluated as soon as its read settles, while evidence is fresh.
+      const evaluate = async (id: string) => {
+        const { result, allowed } = await readCandidate(id);
+
+        if (result.status !== 'ok') return undefined;
+
+        const at = clock();
+
+        return {
+          id,
+          result,
+          at,
+          allowed,
+          match: matches(evidence(id, result, at)),
+        };
+      };
+      const evaluated: Awaited<ReturnType<typeof evaluate>>[] = [];
+      const concurrency = transaction ? 1 : 8;
+
+      for (let i = 0; i < batch.objects.length; i += concurrency)
+        evaluated.push(
+          ...(await Promise.all(
+            batch.objects
+              .slice(i, i + concurrency)
+              .map((candidate) => evaluate(candidate.objectId)),
+          )),
         );
 
-        if (result.status !== 'ok') continue;
+      for (const item of evaluated) {
+        if (!item) continue;
 
-        onRead?.(candidate.objectId, result);
+        onRead?.(item.id, item.result);
 
-        if (
-          matches(
-            project(
-              candidate.objectId,
-              result,
-              needed,
-              { ...readRequest, requireComplete: false },
-              clock(),
-            ),
-          )
-        )
-          pending.push({ id: candidate.objectId, result, allowed });
+        if (item.match) pending.push(item);
       }
     }
 
@@ -259,20 +294,28 @@ export function createGraphQuery(options: {
 
       // Time may have advanced while processing other members. Re-evaluate filter
       // evidence under the caller's freshness rules before emitting a match.
-      if (
-        !matches(
-          project(
-            item.id,
-            item.result,
-            needed,
-            { ...readRequest, requireComplete: false },
-            clock(),
-          ),
-        )
-      )
-        continue;
+      let at = clock();
 
-      data.push(project(item.id, item.result, selected, readRequest, clock()));
+      if (at !== item.at) {
+        let current = evidence(item.id, item.result, at);
+
+        if (!usable(current)) {
+          // Evidence expired after matching; refresh this member, not the page.
+          const reread = await readCandidate(item.id);
+
+          if (reread.result.status !== 'ok' || !(await reread.allowed()))
+            continue;
+
+          onRead?.(item.id, reread.result);
+          item.result = reread.result;
+          at = clock();
+          current = evidence(item.id, item.result, at);
+        }
+
+        if (!matches(current)) continue;
+      }
+
+      data.push(project(item.id, item.result, selected, readRequest, at));
     }
 
     return {

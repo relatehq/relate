@@ -30,6 +30,15 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
       : undefined;
   }
 
+  function record(row: pg.QueryResultRow): NativeRecord {
+    return {
+      objectDefinitionId: row.object_type,
+      objectId: row.object_key,
+      values: row.values,
+      createdAt: Number(row.created_at),
+    };
+  }
+
   async function load(
     client: Pick<pg.Pool, 'query'> | pg.PoolClient,
     scope: NativeScope,
@@ -44,14 +53,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
     );
     const row = result.rows[0];
 
-    return row
-      ? {
-          objectDefinitionId: row.object_type,
-          objectId: row.object_key,
-          values: row.values,
-          createdAt: Number(row.created_at),
-        }
-      : undefined;
+    return row ? record(row) : undefined;
   }
 
   async function scan(
@@ -60,6 +62,13 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
     type: string,
     options: NativeScanOptions,
   ): Promise<NativeScanResult> {
+    if (
+      !Number.isInteger(options.limit) ||
+      options.limit < 1 ||
+      options.limit > 100
+    )
+      throw new Error('Invalid scan limit');
+
     const result = await client.query(
       `SELECT n.object_type,n.object_key,n.values,n.created_at FROM relate.native_objects n
        JOIN relate.graphs g USING(graph_id)
@@ -76,12 +85,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
     );
 
     return {
-      objects: result.rows.slice(0, options.limit).map((row) => ({
-        objectDefinitionId: row.object_type,
-        objectId: row.object_key,
-        values: row.values,
-        createdAt: Number(row.created_at),
-      })),
+      objects: result.rows.slice(0, options.limit).map(record),
       hasMore: result.rows.length > options.limit,
     };
   }

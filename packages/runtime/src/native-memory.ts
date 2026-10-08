@@ -28,15 +28,25 @@ export function createNativeMemoryStore(
     type: string,
     options: NativeScanOptions,
   ) {
-    const matches = [...records]
-      .filter(
-        (r) =>
-          r.objectDefinitionId === type &&
-          (options.after === undefined || r.objectId > options.after),
+    if (
+      !Number.isInteger(options.limit) ||
+      options.limit < 1 ||
+      options.limit > 100
+    )
+      throw new Error('Invalid scan limit');
+
+    const matches: NativeRecord[] = [];
+
+    for (const r of records)
+      if (
+        r.objectDefinitionId === type &&
+        (options.after === undefined || r.objectId > options.after)
       )
-      .sort((a, b) =>
-        a.objectId < b.objectId ? -1 : a.objectId > b.objectId ? 1 : 0,
-      );
+        matches.push(r);
+
+    matches.sort((a, b) =>
+      a.objectId < b.objectId ? -1 : a.objectId > b.objectId ? 1 : 0,
+    );
 
     return {
       objects: structuredClone(matches.slice(0, options.limit)),

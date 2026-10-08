@@ -1,6 +1,9 @@
 import {
   ActionError,
+  ReadError,
+  type Page,
   type QueryRequest,
+  type QueryResult,
   type TraversalRequest,
 } from '@relate/protocol';
 import { compile } from 'relate/compiler';
@@ -18,6 +21,30 @@ import type { Principal } from '@relate/runtime';
 import type { SourceBinding } from 'relate/connectors';
 import type { ActionHandler } from '@relate/runtime';
 import type { Consumer, Relate } from './types.js';
+
+/** Bind paged options once; request errors reject the handle like other operations. */
+function paged<R extends { readonly cursor?: string }, T>(
+  request: R,
+  readPage: (request: R) => Promise<Page<T>>,
+): QueryResult<T> {
+  try {
+    let captured: R;
+
+    try {
+      captured = structuredClone(request);
+    } catch {
+      throw new ReadError('invalid-request');
+    }
+
+    return createQuery(
+      (cursor) =>
+        readPage({ ...captured, ...(cursor !== undefined ? { cursor } : {}) }),
+      captured.cursor !== undefined ? { cursor: captured.cursor } : {},
+    );
+  } catch (error) {
+    return createQuery(() => Promise.reject(error));
+  }
+}
 
 export interface AppOptions<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
@@ -81,20 +108,8 @@ export function createRuntime<
           objects.map(([name, object]) => [
             name,
             Object.freeze({
-              query: (request: QueryRequest = {}) => {
-                const captured = structuredClone(request);
-
-                return createQuery(
-                  (cursor) =>
-                    context.query(object.id, {
-                      ...captured,
-                      ...(cursor !== undefined ? { cursor } : {}),
-                    }),
-                  captured.cursor !== undefined
-                    ? { cursor: captured.cursor }
-                    : {},
-                );
-              },
+              query: (request: QueryRequest = {}) =>
+                paged(request, (page) => context.query(object.id, page)),
               get: async (id: string, request = {}) => {
                 const result = await context.read(object.id, id, request);
 
@@ -209,22 +224,10 @@ export function createRuntime<
                   ]),
               ),
             ),
-            query: (request: QueryRequest = {}) => {
-              const captured = structuredClone(request);
-
-              return createQuery(
-                (cursor) =>
-                  run(() =>
-                    engine.query(actor, object.id, {
-                      ...captured,
-                      ...(cursor !== undefined ? { cursor } : {}),
-                    }),
-                  ),
-                captured.cursor !== undefined
-                  ? { cursor: captured.cursor }
-                  : {},
-              );
-            },
+            query: (request: QueryRequest = {}) =>
+              paged(request, (page) =>
+                run(() => engine.query(actor, object.id, page)),
+              ),
             get: (id: string, request = {}) =>
               run(async () => {
                 const result = await engine.read(actor, object.id, id, request);

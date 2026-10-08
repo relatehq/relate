@@ -13,7 +13,7 @@ import { createMemoryStore } from './memory.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
-import type { ReadRequest, ReadResult } from '@relate/protocol';
+import type { QueryRequest, ReadRequest, ReadResult } from '@relate/protocol';
 import type { ObservationStore } from './storage.js';
 import type { Principal } from './authorization/index.js';
 
@@ -188,7 +188,13 @@ export function createRuntime(options: RuntimeOptions) {
 
   return {
     adopt: source.adopt,
-    query,
+    query(
+      principal: Principal,
+      objectDefinitionId: string,
+      request: QueryRequest = {},
+    ) {
+      return query(principal, objectDefinitionId, request);
+    },
     read(
       principal: Principal,
       objectDefinitionId: string,

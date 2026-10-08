@@ -272,6 +272,25 @@ export function createActionExecutor(options: {
             }
 
             const reads: NativeReceiptRead[] = [];
+            const recordRead = (
+              type: string,
+              id: string,
+              result: Extract<ReadResult, { status: 'ok' }>,
+            ) => {
+              const object = manifest.objects.find((o) => o.id === type)!;
+
+              reads.push({
+                objectDefinitionId: type,
+                objectId: id,
+                propertyIds: object.properties
+                  .filter((p) =>
+                    ['available', 'absent'].includes(
+                      result.meta.fields[p.name]?.status ?? '',
+                    ),
+                  )
+                  .map((p) => p.id),
+              });
+            };
             const created: NativeRecord[] = [];
             let accepting = true;
             let failure: unknown;
@@ -386,23 +405,7 @@ export function createActionExecutor(options: {
                         type,
                         request,
                         transaction,
-                        (id, result) => {
-                          const object = manifest.objects.find(
-                            (o) => o.id === type,
-                          )!;
-
-                          reads.push({
-                            objectDefinitionId: type,
-                            objectId: id,
-                            propertyIds: object.properties
-                              .filter((p) =>
-                                ['available', 'absent'].includes(
-                                  result.meta.fields[p.name]?.status ?? '',
-                                ),
-                              )
-                              .map((p) => p.id),
-                          });
-                        },
+                        (id, result) => recordRead(type, id, result),
                       ),
                     ),
                   read: (type, id, request = {}) =>
@@ -415,23 +418,7 @@ export function createActionExecutor(options: {
                         transaction,
                       );
 
-                      if (result.status === 'ok') {
-                        const object = manifest.objects.find(
-                          (o) => o.id === type,
-                        )!;
-
-                        reads.push({
-                          objectDefinitionId: type,
-                          objectId: id,
-                          propertyIds: object.properties
-                            .filter((p) =>
-                              ['available', 'absent'].includes(
-                                result.meta.fields[p.name]?.status ?? '',
-                              ),
-                            )
-                            .map((p) => p.id),
-                        });
-                      }
+                      if (result.status === 'ok') recordRead(type, id, result);
 
                       return result;
                     }),

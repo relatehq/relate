@@ -197,7 +197,9 @@ and object records live in `relate`.
 - Filter fields need not be selected and do not appear in projected results.
   `requireComplete` applies to the final selection of matching records. Records
   preserve field evidence, freshness and warnings from reads. Authorization and
-  filter freshness are checked again before emitting pending matches.
+  filter freshness are checked again before emitting pending matches. A match
+  whose filter evidence expired meanwhile is read again once; it rejects with
+  `incomplete` only if that evidence is still unavailable.
 - Ascending canonical object ID supplies deterministic keyset order. `limit`
   defaults to 25 and accepts integers 1–100; it is a maximum page size. Each
   page examines at most 100 candidates. Filtering and denial can yield short or

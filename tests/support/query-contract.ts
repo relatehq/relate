@@ -18,6 +18,7 @@ export function queryContract(
     let now: number;
     let offline: boolean;
     let denied: boolean;
+    let onFetch: (() => void) | undefined;
     let account: string;
     let graphId: string;
     let records: Map<
@@ -86,6 +87,7 @@ export function queryContract(
 
                 if (offline) throw new Error('offline');
 
+                onFetch?.();
                 const record = records.get(id);
 
                 return record
@@ -120,6 +122,7 @@ export function queryContract(
       now = 1000;
       offline = false;
       denied = false;
+      onFetch = undefined;
       account = 'account';
       graphId = randomUUID();
       records = new Map();
@@ -245,6 +248,36 @@ export function queryContract(
           })
         ).data[0]?.meta.fields.status,
       ).toMatchObject({ freshness: 'stale' });
+    });
+
+    it('refreshes a matched member whose filter evidence expires before the page is emitted', async () => {
+      await seed('a');
+      await seed('b');
+      await seed('c');
+      now += 61_000;
+      let fetches = 0;
+
+      // Action reads are sequential. Slow later refreshes leave each record fresh
+      // when evaluated, but a and b are stale by the time the page is emitted.
+      onFetch = () => {
+        if (++fetches === 2 || fetches === 3) now += 40_000;
+      };
+      handler = async ({ objects }) => ({
+        count: (
+          await objects.Invoice.query({
+            where: { status: 'Overdue' },
+            stale: 'omit',
+            select: [],
+          })
+        ).data.length,
+      });
+      const receipt = await app
+        .as(actor)
+        .actions.run({ input: {}, idempotencyKey: 'expiring' });
+
+      expect(receipt.output.count).toBe(3);
+      // Three first-pass refreshes, then one each for the expired a and b.
+      expect(fetches).toBe(5);
     });
 
     it('does not disclose hidden references through filters or return denied or deleted source records', async () => {
