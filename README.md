@@ -249,7 +249,7 @@ doesn't exist.
 | Per-field evidence and freshness bounds                 | Migrating between model revisions                        |
 | Relate-owned objects, idempotent actions and receipts   | Published npm packages                                   |
 | In-memory and Postgres stores                           |                                                          |
-| SQLite and Stripe (read-only) connectors                |                                                          |
+| SQLite, Stripe and Salesforce (read-only) connectors    |                                                          |
 | `relate dev` model inspector                            |                                                          |
 
 Relate runs embedded in a Node application today. Agent access through MCP is

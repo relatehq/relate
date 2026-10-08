@@ -4,5 +4,6 @@ packages:
   - apps/*
   - examples/*
   - dev/simulators/*
+  - dev/salesforce
 allowBuilds:
   esbuild: true

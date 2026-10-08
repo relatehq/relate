@@ -17,6 +17,7 @@ const packages = [
   'packages/node',
   'connectors/sqlite',
   'connectors/stripe',
+  'connectors/salesforce',
   'apps/inspector',
   'packages/cli',
 ];
@@ -137,7 +138,12 @@ console.log('Portable app and connector contracts work without Node host or runt
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { stripe } from '@relate/connector-stripe';
+import { salesforce } from '@relate/connector-salesforce';
 import { sqlite } from '@relate/connector-sqlite';
+const salesforceResource = salesforce({ credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture-token' }, apiVersion: '67.0', fetch: async url => Response.json(String(url).endsWith('/userinfo') ? { organization_id: '00D000000000001EAA' } : { done: true, totalSize: 1, records: [{ attributes: { type: 'Account' }, Id: '001000000000001AAA', IsDeleted: false, Name: 'Ada' }] }) }).resource('Account', { fields: ['Name'] });
+assert.equal(await salesforceResource.identify({ signal: new AbortController().signal }), '00D000000000001EAA');
+assert.deepEqual(await salesforceResource.fetch('001000000000001AAA', { signal: new AbortController().signal }), { state: 'present', providerAccountId: '00D000000000001EAA', record: { Id: '001000000000001AAA', IsDeleted: false, Name: 'Ada' } });
+console.log('Installed Salesforce connector verifies org identity and reads Accounts in plain Node ESM.');
 const billing = stripe({ apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test', fetch: async url => Response.json(String(url).endsWith('/account') ? { id: 'acct_packed', object: 'account' } : { id: 'cus_packed', object: 'customer', livemode: false, name: 'Ada' }) });
 const stripeResource = billing.resource('customers', { fields: ['name'] });
 assert.equal(await stripeResource.identify({ signal: new AbortController().signal }), 'acct_packed:test');
@@ -246,9 +252,12 @@ objectId(z.string(), { id: 'customer.identity', access: access.groups.ordinary }
 // @ts-expect-error objects infer identity from objectId(), not a key selector
 defineObject({ id: 'customer', label: 'Customer', key: 'id', membership: source(crm), properties: { id: identity } });
 import { stripe } from '@relate/connector-stripe';
+import { salesforce } from '@relate/connector-salesforce';
 import { sqlite } from '@relate/connector-sqlite';
 import { connect } from 'relate';
 import type { SourceConnector, ApplicationSourceConnector } from 'relate/connectors';
+const salesforceResource: SourceConnector = salesforce({ credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture' }, apiVersion: '67.0' }).resource('Account', { fields: ['Name'] });
+connect(crm, { connectionId: 'salesforce', providerAccountId: '00D000000000001EAA', connector: salesforceResource });
 const stripeResource: SourceConnector = stripe({ apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test' }).resource('customers', { fields: ['name'] });
 connect(crm, { connectionId: 'stripe', providerAccountId: 'acct_fixture:test', connector: stripeResource });
 const localResource: ApplicationSourceConnector = sqlite({ path: 'source.sqlite' }).table('customers', { idColumn: 'id', columns: ['name'] });
