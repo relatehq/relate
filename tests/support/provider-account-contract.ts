@@ -13,7 +13,7 @@ import {
   Customer,
   customerGraph,
   employee,
-} from '../../examples/postgres-persistence/src/model.js';
+} from '../../examples/04-postgres-persistence/src/model.js';
 
 export function providerAccountContract(
   name: string,

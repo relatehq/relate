@@ -44,3 +44,12 @@ checksums and quarantined legacy rows are preserved. Switching modes requires
 adoption in the new scope; no automatic identity/data reassignment is performed.
 Replacing a logical source in application mode requires a new `connectionId`.
 This mode does not detect accidental file replacement.
+
+## Numbered learning examples
+
+Example folders now follow the order in `examples/README.md`: `01-hello-world`,
+`02-customer-accounts`, `03-customer-workspace`, and `04-postgres-persistence`.
+Existing `pnpm example:hello-world`, `pnpm example:customer-accounts`, and
+`pnpm example:postgres` commands are unchanged. Update direct file paths or
+imports into the old example folders. The new browser example runs with
+`pnpm example:customer-workspace`.

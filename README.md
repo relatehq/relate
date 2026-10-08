@@ -203,31 +203,26 @@ handler. Malformed requests and pre-acceptance denial remain typed rejections.
 
 ## Get started
 
-From a checkout, run the [smallest working example](examples/hello-world):
+From a checkout, open the
+[interactive customer workspace](examples/03-customer-workspace):
 
 ```sh
 pnpm install
-pnpm example:hello-world
+pnpm example:customer-workspace
 ```
 
-It defines a source and object, adopts a record, and performs an authorized read
-using an in-memory store. No database or credentials are needed.
+Explore a customer from an HTTP CRM, invoices from SQLite, and Relate-owned
+account reviews. Switch roles, add a review, retry its action, refresh source
+data, and open the model inspector. No credentials or database server are
+needed; state resets on restart.
 
-For a local SQLite source, run the
-[customer accounts example](examples/customer-accounts):
+Follow the [numbered examples](examples/README.md) in learning order, starting
+with `pnpm example:hello-world` for the smallest terminal example.
 
-```sh
-pnpm example:customer-accounts
-```
-
-It uses [`@relate/connector-sqlite`](connectors/sqlite) to read CRM customers
-with portfolio access checks and a customer key ready for a later Stripe
-integration.
-
-For the [Postgres example](examples/postgres-persistence), copy `.env.example`
-to `.env` and configure separate `relate` and `relate_test` databases on your
-local server. The example values use Postgres on port 5433. Relate manages its
-schema and migrations, not database or server provisioning.
+For the [Postgres example](examples/04-postgres-persistence), copy
+`.env.example` to `.env` and configure separate `relate` and `relate_test`
+databases on your local server. The example values use Postgres on port 5433.
+Relate manages its schema and migrations, not database or server provisioning.
 
 `pnpm example:postgres`, `pnpm test:integration`, and `pnpm test` load the root
 `.env` using dotenvx. Existing shell variables take precedence. `DATABASE_URL`

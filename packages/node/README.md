@@ -194,5 +194,5 @@ synchronization, servers and workers.
   semantics in detail.
 - [NATIVE_ACTIONS.md](./NATIVE_ACTIONS.md): the account-review action path end
   to end.
-- [Hello world](../../examples/hello-world/README.md) and
-  [Postgres persistence](../../examples/postgres-persistence/README.md).
+- [Hello world](../../examples/01-hello-world/README.md) and
+  [Postgres persistence](../../examples/04-postgres-persistence/README.md).

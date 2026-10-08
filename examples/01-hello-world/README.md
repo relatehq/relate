@@ -1,4 +1,4 @@
-# Hello world
+# 01 · Hello world
 
 The smallest working Relate example: declare a source and object, bind a tiny
 in-process source, adopt a record, and perform one typed, authorized read.
@@ -34,5 +34,7 @@ pnpm test:packaging
 
 Keep this example minimal as Relate evolves. Refresh, restart recovery and
 persistent storage belong in
-[Postgres persistence](../postgres-persistence/README.md). For custom
+[Postgres persistence](../04-postgres-persistence/README.md). For custom
 persistence, see the [store contract](../../packages/runtime/STORE_CONTRACT.md).
+
+See the [ordered examples](../README.md) for the full learning path.

@@ -342,7 +342,19 @@ importers:
         specifier: 4.13.13
         version: 4.13.13
 
-  examples/customer-accounts:
+  examples/01-hello-world:
+    dependencies:
+      '@relate/node':
+        specifier: workspace:*
+        version: link:../../packages/node
+      relate:
+        specifier: workspace:*
+        version: link:../../packages/relate
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
+  examples/02-customer-accounts:
     dependencies:
       '@relate/connector-sqlite':
         specifier: workspace:*
@@ -357,8 +369,14 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
 
-  examples/hello-world:
+  examples/03-customer-workspace:
     dependencies:
+      '@relate/connector-sqlite':
+        specifier: workspace:*
+        version: link:../../connectors/sqlite
+      '@relate/dev-crm-simulator':
+        specifier: workspace:*
+        version: link:../../dev/simulators/crm
       '@relate/node':
         specifier: workspace:*
         version: link:../../packages/node
@@ -369,7 +387,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
 
-  examples/postgres-persistence:
+  examples/04-postgres-persistence:
     dependencies:
       '@relate/dev-crm-simulator':
         specifier: workspace:*

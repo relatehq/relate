@@ -1,8 +1,8 @@
-# Postgres persistence
+# 04 · Postgres persistence
 
 Shows how to supply a persistent store, refresh source data and recover retained
 values after recreating the runtime and database connection. Start with
-[Hello world](../hello-world/README.md) for the minimal in-memory example.
+[Hello world](../01-hello-world/README.md) for the minimal in-memory example.
 
 Run from the repository root:
 
@@ -86,3 +86,5 @@ database, `pnpm test:integration` verifies this behavior against Postgres,
 including a new plain Node process reading fallback during a record-endpoint
 outage, concurrent observations, transaction rollback, uncertain retention, and
 authorization expiry.
+
+See the [ordered examples](../README.md) for the full learning path.

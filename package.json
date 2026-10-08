@@ -13,8 +13,8 @@
     "build": "tsc -b packages/protocol packages/relate packages/runtime packages/postgres packages/node connectors/sqlite apps/inspector/tsconfig.server.json packages/cli && pnpm --filter @relate/inspector build:client",
     "docs:dev": "pnpm --filter @relate/docs dev",
     "docs:build": "pnpm --filter @relate/docs build",
-    "example:hello-world": "pnpm build && tsx examples/hello-world/src/index.ts",
-    "example:postgres": "pnpm build && dotenvx run -f .env -- tsx examples/postgres-persistence/src/index.ts",
+    "example:hello-world": "pnpm build && tsx examples/01-hello-world/src/index.ts",
+    "example:postgres": "pnpm build && dotenvx run -f .env -- tsx examples/04-postgres-persistence/src/index.ts",
     "check": "pnpm check:development && pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && pnpm test:packaging",
     "typecheck": "pnpm build && tsc --noEmit -p tsconfig.tests.json",
     "check:boundaries": "node tests/boundaries.mjs",
@@ -33,8 +33,9 @@
     "worktree:create": "tsx scripts/worktrees/create.ts",
     "worktree:list": "tsx scripts/worktrees/list.ts",
     "worktree:delete": "tsx scripts/worktrees/delete.ts",
-    "example:customer-accounts": "pnpm build && tsx examples/customer-accounts/src/index.ts",
-    "check:development": "node scripts/releases/check-development.mjs"
+    "example:customer-accounts": "pnpm build && tsx examples/02-customer-accounts/src/index.ts",
+    "check:development": "node scripts/releases/check-development.mjs",
+    "example:customer-workspace": "pnpm build && tsx examples/03-customer-workspace/src/index.ts"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

@@ -14,7 +14,7 @@ import {
   access,
   Customer,
   customerGraph,
-} from '../../../examples/postgres-persistence/src/model.js';
+} from '../../../examples/04-postgres-persistence/src/model.js';
 
 it('compiles named object registries without changing stable persisted identity', () => {
   const original = compile(customerGraph);

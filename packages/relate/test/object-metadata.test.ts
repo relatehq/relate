@@ -5,7 +5,7 @@ import { validateManifest } from 'relate/model';
 import {
   Customer,
   customerGraph,
-} from '../../../examples/postgres-persistence/src/model.js';
+} from '../../../examples/04-postgres-persistence/src/model.js';
 
 it('keeps API addressing and durable identity independent of display metadata', () => {
   const original = compile(customerGraph);

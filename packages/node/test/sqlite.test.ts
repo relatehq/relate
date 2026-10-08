@@ -4,12 +4,12 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { expect, test } from 'vitest';
 import { startApp } from '@relate/node';
-import { customerAccounts } from '../../../examples/customer-accounts/src/app.js';
+import { customerAccounts } from '../../../examples/02-customer-accounts/src/app.js';
 import {
   Customer,
   employee,
-} from '../../../examples/customer-accounts/src/model.js';
-import { seed } from '../../../examples/customer-accounts/src/seed.js';
+} from '../../../examples/02-customer-accounts/src/model.js';
+import { seed } from '../../../examples/02-customer-accounts/src/seed.js';
 
 test('executes typed authorized reads without an account table', async ({
   onTestFinished,

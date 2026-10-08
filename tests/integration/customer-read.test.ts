@@ -19,10 +19,10 @@ import {
   customerGraph,
   employee,
   finance,
-} from '../../examples/postgres-persistence/src/model.js';
+} from '../../examples/04-postgres-persistence/src/model.js';
 import { testDatabaseUrl } from '../support/database.js';
 import { startCrmSimulator } from '@relate/dev-crm-simulator';
-import { crmConnector } from '../../examples/postgres-persistence/src/connector.js';
+import { crmConnector } from '../../examples/04-postgres-persistence/src/connector.js';
 
 const model = compile(customerGraph);
 const databaseUrl = testDatabaseUrl();

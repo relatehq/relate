@@ -8,7 +8,7 @@ import {
   customerGraph,
   employee,
   finance,
-} from '../../../examples/postgres-persistence/src/model.js';
+} from '../../../examples/04-postgres-persistence/src/model.js';
 import { storeContract } from '../../../tests/support/store-contract.js';
 
 storeContract('memory store contract', async () => ({

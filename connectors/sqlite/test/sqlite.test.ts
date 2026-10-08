@@ -5,7 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { afterEach, expect, test } from 'vitest';
 import { sqlite } from '@relate/connector-sqlite';
 import { SourceAccessDenied } from 'relate/connectors';
-import { seed } from '../../../examples/customer-accounts/src/seed.js';
+import { seed } from '../../../examples/02-customer-accounts/src/seed.js';
 
 const cleanups: (() => void | Promise<void>)[] = [];
 

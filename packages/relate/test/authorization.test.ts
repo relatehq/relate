@@ -7,7 +7,7 @@ import {
   access,
   Customer,
   customerGraph,
-} from '../../../examples/postgres-persistence/src/model.js';
+} from '../../../examples/04-postgres-persistence/src/model.js';
 
 it('lowers object and property references into a portable policy', () => {
   const manifest = compile(customerGraph).manifest;

@@ -16,12 +16,17 @@ Relate is not yet published for application use. Run it from a checkout of the
 
 ```sh
 pnpm install
-pnpm example:hello-world
+pnpm example:customer-workspace
 ```
 
-The [hello-world example](../../../examples/hello-world) defines a source and
-object, adopts a record, and performs an authorized read using an in-memory
-store. No database or credentials are needed.
+The [interactive customer workspace](../../../examples/03-customer-workspace)
+opens in your browser. Explore a CRM customer and SQLite invoices, switch roles,
+add a review and inspect the model. No database server or credentials are
+needed.
+
+The [numbered examples](../../../examples/README.md) progress from a minimal
+terminal read (`pnpm example:hello-world`) through SQLite connections and the
+interactive workspace to persistent Postgres storage.
 
 ---
 
