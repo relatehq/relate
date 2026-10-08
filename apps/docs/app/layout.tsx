@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { RootProvider } from 'fumadocs-ui/provider/next';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import { Logo } from '../components/logo';
+import { navigationTree } from '../lib/pages';
 import './global.css';
 
 export const metadata: Metadata = {
@@ -20,10 +21,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             nav={{ title: <Logo />, url: '/' }}
             githubUrl="https://github.com/relatehq/relate"
             searchToggle={{ enabled: false }}
-            tree={{
-              name: 'Relate',
-              children: [{ type: 'page', name: 'Overview', url: '/' }],
-            }}
+            tree={navigationTree}
           >
             {children}
           </DocsLayout>
