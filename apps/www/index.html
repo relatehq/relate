@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#fafcfd" />
+    <meta
+      name="description"
+      content="Relate is an open-source TypeScript toolkit for modeling business data, relationships, and access rules across APIs and databases. Built for applications and AI agents."
+    />
+    <meta
+      property="og:title"
+      content="Relate — Model your business. Give agents context."
+    />
+    <meta
+      property="og:description"
+      content="A semantic business graph, defined in TypeScript. Open source, by Viable Systems."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://relatehq.dev/" />
+    <link rel="canonical" href="https://relatehq.dev/" />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="site.js" defer></script>
+    <title>Relate — Model your business. Give agents context.</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="page">
+      <header class="header">
+        <a class="brand" href="./" aria-label="Relate home"
+          ><img
+            src="assets/relate-logo-light.svg"
+            alt="Relate"
+            width="115"
+            height="28"
+        /></a>
+        <nav aria-label="Main navigation">
+          <a href="https://docs.relatehq.dev/">Docs</a>
+          <a href="https://github.com/relatehq/relate" class="github-link"
+            ><svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.86c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.03A9.6 9.6 0 0 1 12 6.83c.85 0 1.71.11 2.51.34 1.91-1.3 2.75-1.03 2.75-1.03.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.94.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              /></svg
+            >GitHub</a
+          >
+        </nav>
+      </header>
+
+      <main id="main">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <a
+              class="oss-label"
+              href="https://github.com/relatehq/relate/blob/main/LICENSE"
+              ><span class="status-dot"></span>Open source · Apache 2.0</a
+            >
+            <h1 id="hero-title">
+              Model your business.<br />Give agents context.
+            </h1>
+            <p class="hero-description">
+              A shared, typed view of your business data. Connect objects,
+              relationships, and access rules across the systems you already
+              use.
+            </p>
+            <p class="hero-detail">
+              Defined in TypeScript. Built for applications and AI agents.
+            </p>
+            <div class="hero-actions">
+              <a class="button primary" href="https://docs.relatehq.dev/"
+                >Read the docs <span aria-hidden="true">↗</span></a
+              >
+              <a class="text-link" href="https://github.com/relatehq/relate"
+                >Explore the code <span aria-hidden="true">↗</span></a
+              >
+            </div>
+          </div>
+
+          <div class="graph-example" aria-label="Illustrative business graph">
+            <div class="graph-heading">
+              <span
+                ><img
+                  src="assets/relate-mark-light.svg"
+                  alt=""
+                  width="16"
+                  height="14"
+                />
+                business.graph</span
+              ><span class="example-label">Example model</span>
+            </div>
+            <div class="graph-canvas">
+              <svg
+                class="connections"
+                viewBox="0 0 560 370"
+                fill="none"
+                aria-hidden="true"
+              >
+                <defs>
+                  <pattern
+                    id="dots"
+                    width="20"
+                    height="20"
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <circle cx="1" cy="1" r=".7" fill="#bdcbd8" opacity=".65" />
+                  </pattern>
+                </defs>
+                <rect width="560" height="370" fill="url(#dots)" />
+                <path
+                  class="edge"
+                  d="M240 186H280Q300 186 300 166V109Q300 89 320 89H343"
+                />
+                <path
+                  class="edge"
+                  d="M240 186H280Q300 186 300 206V271Q300 291 320 291H343"
+                />
+                <path
+                  class="flow"
+                  d="M240 186H280Q300 186 300 166V109Q300 89 320 89H343"
+                />
+                <circle cx="240" cy="186" r="3" fill="#6d8faf" />
+                <circle cx="343" cy="89" r="3" fill="#6d8faf" />
+                <circle cx="343" cy="291" r="3" fill="#6d8faf" />
+                <g class="edge-label">
+                  <rect x="265" y="120" width="66" height="22" rx="5" />
+                  <text x="298" y="135" text-anchor="middle">invoices</text>
+                  <rect x="266" y="230" width="64" height="22" rx="5" />
+                  <text x="298" y="245" text-anchor="middle">reviews</text>
+                </g>
+              </svg>
+              <button
+                type="button"
+                class="graph-node customer"
+                data-object="customer"
+                aria-pressed="true"
+                aria-controls="object-detail"
+              >
+                <span class="node-title"
+                  ><span class="object-icon blue"
+                    ><svg viewBox="0 0 20 20" aria-hidden="true">
+                      <circle cx="10" cy="6" r="3" />
+                      <path d="M4 17v-2a6 6 0 0 1 12 0v2" /></svg></span
+                  >Customer</span
+                >
+                <span class="node-field"
+                  ><span>name</span><span>string</span></span
+                >
+                <span class="node-field"
+                  ><span>region</span><span>string</span></span
+                >
+                <span class="node-source"
+                  ><span class="source-dot"></span>CRM API</span
+                >
+              </button>
+              <button
+                type="button"
+                class="graph-node invoice"
+                data-object="invoice"
+                aria-pressed="false"
+                aria-controls="object-detail"
+              >
+                <span class="node-title"
+                  ><span class="object-icon purple"
+                    ><svg viewBox="0 0 20 20" aria-hidden="true">
+                      <path
+                        d="M5 2h10v16l-2-1-3 1-3-1-2 1V2Z M8 6h4M8 10h4"
+                      /></svg></span
+                  >Invoice</span
+                >
+                <span class="node-field"
+                  ><span>customer</span><span class="ref-field">ref</span></span
+                >
+                <span class="node-field"
+                  ><span>status</span><span>string</span></span
+                >
+                <span class="node-source"
+                  ><span class="source-dot"></span>Billing database</span
+                >
+              </button>
+              <button
+                type="button"
+                class="graph-node review"
+                data-object="review"
+                aria-pressed="false"
+                aria-controls="object-detail"
+              >
+                <span class="node-title"
+                  ><span class="object-icon green"
+                    ><svg viewBox="0 0 20 20" aria-hidden="true">
+                      <path
+                        d="M3 3h14v11H8l-4 3v-3H3V3Z M6 7h8M6 10h5"
+                      /></svg></span
+                  >AccountReview</span
+                >
+                <span class="node-field"
+                  ><span>customer</span><span class="ref-field">ref</span></span
+                >
+                <span class="node-field"
+                  ><span>notes</span><span>string</span></span
+                >
+                <span class="node-source"
+                  ><span class="source-dot native"></span>Relate storage</span
+                >
+              </button>
+            </div>
+            <div
+              class="object-detail"
+              id="object-detail"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <span class="detail-label"
+                >Customer <span>· Source-backed object</span></span
+              >
+              <p>
+                Customer records stay in your CRM. Relate gives them a typed
+                identity and connections to invoices and reviews.
+              </p>
+            </div>
+            <div class="graph-caption">
+              <span class="selection-hint">Select an object to inspect</span
+              ><span
+                >3 objects <span class="caption-separator">/</span> 2
+                relationships</span
+              >
+            </div>
+          </div>
+        </section>
+
+        <section class="principles" aria-label="How Relate works">
+          <article>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <ellipse cx="12" cy="5" rx="7" ry="3" />
+              <path
+                d="M5 5v14c0 1.7 3.1 3 7 3s7-1.3 7-3V5M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"
+              />
+            </svg>
+            <h2>Your systems, connected.</h2>
+            <p>
+              Map APIs and databases to business objects. Your source systems
+              keep ownership of their records.
+            </p>
+          </article>
+          <article>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="m12 2 8 3v6c0 5-4 9-8 11-4-2-8-6-8-11V5l8-3Z M8 12l3 3 5-6"
+              />
+            </svg>
+            <h2>Access is part of the model.</h2>
+            <p>
+              Define who can read each object and field. Reads carry evidence of
+              where data came from and how fresh it is.
+            </p>
+          </article>
+          <article>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m7 7-5 5 5 5M17 7l5 5-5 5M14 3l-4 18" />
+            </svg>
+            <h2>One graph for code and agents.</h2>
+            <p>
+              Use the typed SDK in your application. MCP and HTTP interfaces are
+              in preview for the same model.
+            </p>
+          </article>
+        </section>
+
+        <section class="example-section" aria-labelledby="example-title">
+          <div class="example-copy">
+            <span class="section-label">A small example</span>
+            <h2 id="example-title">From a customer<br />to their invoices.</h2>
+            <p>
+              A customer lives in your CRM. Their invoices live in a billing
+              database. Describe the relationship once, then traverse it as the
+              authenticated caller.
+            </p>
+            <p>Relate checks access along the way.</p>
+            <a
+              class="text-link"
+              href="https://docs.relatehq.dev/authoring/graph"
+              >See how to model a graph <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <div class="code-example">
+            <div class="code-header">
+              <span
+                ><span class="file-icon" aria-hidden="true">{ }</span>
+                customer-invoices.ts</span
+              ><span>TypeScript</span>
+            </div>
+            <pre><code><span class="comment">// Connect the objects in your graph</span>
+<span class="keyword">const</span> CustomerInvoices = <span class="function">defineRelationship</span>({
+  id: <span class="string">'customer.invoices'</span>,
+  forward: <span class="string">'invoices'</span>,
+  reverse: <span class="string">'customer'</span>,
+  via: Invoice.properties.customer,
+});
+
+<span class="comment">// Read through the caller's access rules</span>
+<span class="keyword">const</span> { objects } = relate.<span class="function">as</span>(principal);
+
+<span class="keyword">const</span> invoices = <span class="keyword">await</span> objects.Customer
+  .traverse.<span class="function">invoices</span>(customerId, {
+    select: [<span class="string">'status'</span>],
+  });</code></pre>
+            <div class="code-note">
+              Excerpt from a configured graph.
+              <a
+                href="https://github.com/relatehq/relate/tree/main/examples/hello-world"
+                >Start with a runnable example
+                <span aria-hidden="true">↗</span></a
+              >
+            </div>
+          </div>
+        </section>
+
+        <aside class="project-note" aria-label="Project status">
+          <div>
+            <span class="status-dot"></span
+            ><strong>Building in the open.</strong>
+          </div>
+          <p>
+            Relate is early and published for comment and discussion. Not ready
+            for use yet.
+          </p>
+          <a href="https://github.com/relatehq/relate"
+            >Follow on GitHub <span aria-hidden="true">↗</span></a
+          >
+        </aside>
+      </main>
+
+      <footer class="footer">
+        <a href="https://viablesystems.ai" class="creator"
+          ><img
+            src="assets/viable-mark.svg"
+            alt=""
+            width="21"
+            height="22"
+          /><span>Created by <strong>Viable Systems</strong></span></a
+        >
+        <nav aria-label="Footer navigation">
+          <a href="https://docs.relatehq.dev/">Docs</a
+          ><a href="https://github.com/relatehq/relate">GitHub</a
+          ><a href="https://github.com/relatehq/relate/blob/main/LICENSE"
+            >Apache 2.0</a
+          >
+        </nav>
+      </footer>
+    </div>
+  </body>
+</html>
