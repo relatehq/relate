@@ -24,7 +24,7 @@ Create a separate Vercel project using this repository:
 - Node.js version: 24.x (declared in the website-only `package.json`)
 - Build and install commands: disabled (set in `vercel.json`)
 - Output directory: `.`
-- Domain: `relatehq.dev`; redirect `www.relatehq.dev` to it
+- Domain: `www.relatehq.dev`; redirect `relatehq.dev` to it
 
 ### Why this static site has a package manifest
 
@@ -44,6 +44,26 @@ See
 when revisiting the hosting version.
 
 The documentation remains a separate project at `docs.relatehq.dev`.
+
+## Search indexing
+
+The homepage includes a descriptive title, meta description, canonical URL, Open
+Graph metadata, and `WebSite` structured data. Its content and links are
+available without JavaScript. The canonical URL follows the production redirect
+to `https://www.relatehq.dev/`.
+
+`robots.txt` allows crawling and advertises `sitemap.xml`. The sitemap lists
+only the homepage; add canonical URLs when adding public pages. Keep the
+canonical, Open Graph, structured data, and sitemap URLs aligned if the domain
+changes.
+
+After deployment, check that `/`, `/robots.txt`, and `/sitemap.xml` return HTTP
+200 on the canonical domain, without a `noindex` response header. In Google
+Search Console, verify the domain, submit
+`https://www.relatehq.dev/sitemap.xml`, and use URL Inspection to request
+indexing of the homepage. These account-level steps are separate from deploying
+the site; indexing is not guaranteed. See
+[Google's sitemap guidance](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap).
 
 ## Content and design
 
