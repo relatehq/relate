@@ -19,7 +19,10 @@ export function customerAccounts(path: string) {
           connect(customers, {
             connectionId: 'local-crm',
             providerAccountId: 'demo-crm',
-            connector: database.table('customers', { idColumn: 'id' }),
+            connector: database.table('customers', {
+              idColumn: 'id',
+              columns: ['display_name', 'portfolio', 'stripe_customer_id'],
+            }),
           }),
         ],
       };

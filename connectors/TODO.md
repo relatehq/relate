@@ -26,9 +26,9 @@ any lasting usage guidance into the package READMEs.
       connection should support multiple resources.
 
 SQLite's implemented shape is
-`sqlite({ path, identity }).table(name, { idColumn })`. Stripe's resource API
-remains to be designed; keep one system connection with resource selection, and
-bind each resource using `connect(source, binding)`.
+`sqlite({ path, identity }).table(name, { idColumn, columns })`. Stripe's
+resource API remains to be designed; keep one system connection with resource
+selection, and bind each resource using `connect(source, binding)`.
 
 Shared interfaces now live in `relate/connectors`; application authoring is in
 `relate`, and type-only storage contracts are in `relate/storage`. SQLite now

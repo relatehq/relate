@@ -1,141 +1,220 @@
-import { DatabaseSync } from 'node:sqlite';
+import { Worker } from 'node:worker_threads';
+import { resolve } from 'node:path';
 import { SourceAccessDenied } from 'relate/connectors';
 import type { SourceConnector, SourceRecord } from 'relate/connectors';
+import { identifier } from './contracts.js';
+import type {
+  Request,
+  Response,
+  SqliteOptions,
+  SqliteTableOptions,
+} from './contracts.js';
 
-export interface SqliteOptions {
-  /** Existing database file. The connector never creates or writes it. */
-  readonly path: string;
-  /** A singleton table containing the database's stable, nonempty TEXT account ID. */
-  readonly identity: { readonly table: string; readonly column: string };
-}
+export type { SqliteOptions, SqliteTableOptions } from './contracts.js';
 
 export interface SqliteConnection {
-  /** Select a resource with a unique TEXT key matching the source idField. */
-  table(name: string, options: { readonly idColumn: string }): SourceConnector;
-  /** Release the owned connection. Safe to call more than once. */
-  close(): void;
+  table(name: string, options: SqliteTableOptions): SourceConnector;
+  /** Reject outstanding reads and release the owned worker/connection. Idempotent. */
+  close(): Promise<void>;
 }
 
-function identifier(value: string): string {
-  if (!value || value.includes('\0'))
-    throw new Error('Invalid SQLite identifier');
+type Operation =
+  | { operation: 'identify' }
+  | {
+      operation: 'fetch';
+      table: string;
+      options: SqliteTableOptions;
+      recordId: string;
+    };
 
-  return `"${value.replaceAll('"', '""')}"`;
+interface Pending {
+  request: Request;
+  resolve(value: string | SourceRecord): void;
+  reject(error: unknown): void;
+  cleanup(): void;
 }
 
-/** Read one SQLite resource through Relate's source connector contract. */
+/** One read-only SQLite connection, opened lazily in an owned worker. */
 export function sqlite(options: SqliteOptions): SqliteConnection {
-  const identityTable = identifier(options.identity.table);
-  const identityColumn = identifier(options.identity.column);
-  const db = new DatabaseSync(options.path, {
-    readOnly: true,
-    enableDoubleQuotedStringLiterals: false,
-    allowExtension: false,
-    timeout: 0,
-  });
+  identifier(options.identity.table);
+  identifier(options.identity.column);
+  const busyTimeoutMs = options.busyTimeoutMs ?? 150;
+
+  if (
+    !Number.isSafeInteger(busyTimeoutMs) ||
+    busyTimeoutMs < 0 ||
+    busyTimeoutMs > 60_000
+  )
+    throw new Error(
+      'SQLite busyTimeoutMs must be an integer between 0 and 60000',
+    );
+
+  const settings: SqliteOptions = {
+    path: resolve(options.path),
+    identity: { ...options.identity },
+    busyTimeoutMs,
+  };
+  let worker: Worker | undefined;
+  let stopping: Promise<void> | undefined;
   let closed = false;
+  let nextId = 0;
+  let active: Pending | undefined;
+  const queue: Pending[] = [];
 
-  function account(): string {
-    const rows = db
-      .prepare(
-        `SELECT ${identityColumn} AS account FROM ${identityTable} LIMIT 2`,
-      )
-      .all();
-    const id = rows[0]?.account;
+  function retire(): Promise<void> {
+    const previous = worker;
 
-    if (rows.length !== 1 || typeof id !== 'string' || !id.trim()) {
-      // Invalid identity must not permit fallback to data from an old account.
-      throw new SourceAccessDenied();
-    }
+    worker = undefined;
 
-    return id;
+    if (!previous) return stopping ?? Promise.resolve();
+
+    const completion = previous.terminate().then(() => {});
+
+    stopping = completion;
+    void completion.finally(() => {
+      if (stopping === completion) stopping = undefined;
+
+      pump();
+    });
+
+    return completion;
   }
 
-  function read<T>(signal: AbortSignal, operation: () => T): T {
-    signal.throwIfAborted();
+  function fail(error: unknown): void {
+    const pending = active;
 
-    if (closed) throw new Error('SQLite connector is closed');
+    active = undefined;
+    pending?.cleanup();
+    pending?.reject(error);
+    void retire();
+  }
+
+  function pump(): void {
+    if (closed || active || stopping || queue.length === 0) return;
+
+    active = queue.shift()!;
 
     try {
-      db.exec('BEGIN');
+      if (!worker) {
+        const current = new Worker(new URL('./worker.js', import.meta.url), {
+          workerData: settings,
+        });
 
-      try {
-        const result = operation();
+        worker = current;
+        current.on('message', (response: Response) => {
+          if (worker !== current || response.id !== active?.request.id) return;
 
-        signal.throwIfAborted();
+          const pending = active;
 
-        return result;
-      } finally {
-        db.exec('ROLLBACK');
+          active = undefined;
+          pending.cleanup();
+          current.unref();
+
+          if (response.ok) pending.resolve(response.result);
+          else {
+            const error = response.error.denied
+              ? new SourceAccessDenied()
+              : new Error(response.error.message);
+
+            Object.assign(
+              error,
+              response.error.code === undefined
+                ? {}
+                : { code: response.error.code },
+              response.error.errcode === undefined
+                ? {}
+                : { errcode: response.error.errcode },
+            );
+            pending.reject(error);
+          }
+
+          pump();
+        });
+        current.on('error', (error) => {
+          if (worker === current) fail(error);
+        });
+        current.on('exit', () => {
+          if (worker === current) fail(new Error('SQLite worker exited'));
+        });
       }
+
+      worker.ref();
+      worker.postMessage(active.request);
     } catch (error) {
-      // SQLite primary result codes: PERM (3), AUTH (23).
-      const code = (error as { errcode?: number }).errcode;
-
-      if (typeof code === 'number' && [3, 23].includes(code & 0xff))
-        throw new SourceAccessDenied();
-
-      throw error;
+      fail(error);
     }
+  }
+
+  function call(
+    operation: Operation,
+    signal: AbortSignal,
+  ): Promise<string | SourceRecord> {
+    return new Promise((resolveCall, reject) => {
+      signal.throwIfAborted();
+
+      if (closed) throw new Error('SQLite connector is closed');
+
+      const pending: Pending = {
+        request: { ...operation, id: nextId++ },
+        resolve: resolveCall,
+        reject,
+        cleanup: () => signal.removeEventListener('abort', abort),
+      };
+
+      function abort() {
+        if (active === pending) fail(signal.reason);
+        else {
+          const index = queue.indexOf(pending);
+
+          if (index !== -1) queue.splice(index, 1);
+
+          pending.cleanup();
+          pending.reject(signal.reason);
+        }
+      }
+
+      signal.addEventListener('abort', abort, { once: true });
+      queue.push(pending);
+      pump();
+    });
   }
 
   return {
-    table(name, { idColumn }) {
-      const table = identifier(name);
-      const key = identifier(idColumn);
+    table(name, tableOptions) {
+      identifier(name);
+      identifier(tableOptions.idColumn);
+      const columns = [...new Set(tableOptions.columns)];
+
+      for (const column of columns) identifier(column);
+
+      const resource = { idColumn: tableOptions.idColumn, columns };
 
       return {
         async identify({ signal }) {
-          return read(signal, account);
+          return (await call({ operation: 'identify' }, signal)) as string;
         },
-        async fetch(sourceRecordId, { signal }): Promise<SourceRecord> {
-          return read(signal, () => {
-            const providerAccountId = account();
-            const rows = db
-              .prepare(`SELECT * FROM ${table} WHERE ${key} = ? LIMIT 2`)
-              .all(sourceRecordId);
-
-            if (rows.length > 1)
-              throw new Error('SQLite source key is not unique');
-
-            const row = rows[0];
-
-            if (!row) return { providerAccountId, state: 'deleted' };
-
-            if (
-              typeof row[idColumn] !== 'string' ||
-              row[idColumn] !== sourceRecordId
-            )
-              throw new Error('SQLite source key must be an exact TEXT ID');
-
-            const record: Record<string, string | number | null> =
-              Object.create(null);
-
-            for (const [name, value] of Object.entries(row)) {
-              if (
-                value === null ||
-                typeof value === 'string' ||
-                (typeof value === 'number' && Number.isFinite(value))
-              )
-                record[name] = value;
-              else
-                throw new Error(`SQLite column ${name} is not a JSON scalar`);
-            }
-
-            return {
-              providerAccountId,
-              state: 'present',
-              record: { ...record },
-            };
-          });
+        async fetch(recordId, { signal }) {
+          return (await call(
+            { operation: 'fetch', table: name, options: resource, recordId },
+            signal,
+          )) as SourceRecord;
         },
       };
     },
     close() {
-      if (closed) return;
-
-      db.close();
       closed = true;
+      const error = new Error('SQLite connector is closed');
+
+      active?.cleanup();
+      active?.reject(error);
+      active = undefined;
+
+      for (const pending of queue.splice(0)) {
+        pending.cleanup();
+        pending.reject(error);
+      }
+
+      return retire();
     },
   };
 }

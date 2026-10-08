@@ -128,11 +128,11 @@ const db = new DatabaseSync('source.sqlite');
 db.exec("CREATE TABLE account (id TEXT); INSERT INTO account VALUES ('packed'); CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT); INSERT INTO customers VALUES ('1', 'Ada')");
 db.close();
 const connection = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } });
-const connector = connection.table('customers', { idColumn: 'id' });
+const connector = connection.table('customers', { idColumn: 'id', columns: ['name'] });
 try {
   assert.equal(await connector.identify({ signal: new AbortController().signal }), 'packed');
   assert.equal((await connector.fetch('1', { signal: new AbortController().signal })).record.name, 'Ada');
-} finally { connection.close(); }
+} finally { await connection.close(); }
 console.log('Installed SQLite connector reads a real database in plain Node ESM.');
 `,
   );
@@ -222,7 +222,7 @@ objectId(z.string(), { id: 'customer.identity', access: access.groups.ordinary }
 defineObject({ id: 'customer', label: 'Customer', key: 'id', membership: source(crm), properties: { id: identity } });
 import { sqlite } from '@relate/connector-sqlite';
 import type { SourceConnector } from 'relate/connectors';
-const resource: SourceConnector = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } }).table('customers', { idColumn: 'id' });
+const resource: SourceConnector = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } }).table('customers', { idColumn: 'id', columns: ['name'] });
 export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 `,
   );

@@ -11,12 +11,18 @@ import {
 } from '../../../examples/customer-accounts/src/model.js';
 import { seed } from '../../../examples/customer-accounts/src/seed.js';
 
-test('executes typed authorized reads and blocks retained data after an account switch', async () => {
+test('executes typed authorized reads and blocks retained data after an account switch', async ({
+  onTestFinished,
+}) => {
   const directory = mkdtempSync(join(tmpdir(), 'relate-sqlite-app-'));
+
+  onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
   const path = join(directory, 'crm.sqlite');
 
   seed(path);
   const db = new DatabaseSync(path);
+
+  onTestFinished(() => db.close());
   const app = await startApp(customerAccounts(path));
 
   try {
@@ -44,7 +50,5 @@ test('executes typed authorized reads and blocks retained data after an account 
     });
   } finally {
     await app.close();
-    db.close();
-    rmSync(directory, { recursive: true, force: true });
   }
 });

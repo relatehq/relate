@@ -16,16 +16,28 @@ const database = sqlite({
 const binding = connect(customers, {
   connectionId: 'local-crm',
   providerAccountId: 'crm-production',
-  connector: database.table('customers', { idColumn: 'id' }),
+  connector: database.table('customers', {
+    idColumn: 'id',
+    columns: ['display_name', 'portfolio', 'stripe_customer_id'],
+  }),
 });
 // In defineApp.setup: onDispose(() => database.close()).
 ```
 
-`customers` is your `defineSource(...)` definition. Its schema describes the
-SQLite columns, and its `idField` must match `idColumn`. The resource needs a
-unique TEXT key. Numeric and case-insensitive key aliases are rejected when they
-do not match the requested ID exactly. Identifiers are quoted and record IDs are
-bound parameters.
+`customers` is your `defineSource(...)` definition. Its `idField` must match
+`idColumn`, which is automatically included in the result. `columns` explicitly
+selects the other fields to expose; unlisted columns are not read or retained in
+Relate. Selected columns must exist. Configured names become result keys, even
+when their casing differs from SQLite's declared identifiers.
+
+The resource needs unique TEXT IDs. Matching uses binary equality and TEXT
+storage class, so `abc` and `ABC` are distinct even on a NOCASE column, and
+numeric values are not aliases for string IDs. No exact TEXT match means
+`deleted`; duplicate exact TEXT matches fail. Use an index with BINARY collation
+for efficient reads (the connector does not create indexes). Identifiers are
+quoted and IDs are bound parameters. Identity and resource statements are
+prepared once per worker and reused; data and account identity are read afresh
+on each call.
 
 The identity table must contain exactly one row with a nonempty TEXT account ID:
 
@@ -43,21 +55,35 @@ SQLite snapshot. Relate compares this evidence to the binding's expected
 account. An empty or ambiguous identity is explicit access denial.
 
 A successful lookup with no row returns `deleted`. Missing tables, lock errors,
-invalid values, and other database failures throw; they never imply deletion.
-SQLite permission/authorization errors become `SourceAccessDenied`. TEXT, finite
-numbers and NULL are returned unchanged. Booleans remain 0/1 and JSON text
-remains text; describe those representations in your source schema. BLOBs,
-nonfinite numbers and integers outside JavaScript's safe range are rejected. No
-source version is claimed because SQLite supplies no per-row version contract.
+invalid values, and other database failures throw; they never imply deletion. An
+invalid singleton account identity becomes `SourceAccessDenied`. File-open
+errors (including missing or unreadable files) and other SQLite errors stay
+database failures: a generic CANTOPEN error is not evidence of provider
+authorization denial. TEXT, finite numbers and NULL are returned unchanged.
+Booleans remain 0/1 and JSON text remains text; describe those representations
+in your source schema. Selected BLOBs, nonfinite numbers and integers outside
+JavaScript's safe range are rejected. No source version is claimed because
+SQLite supplies no per-row version contract.
 
 The system connection can select multiple tables, each implementing
-`SourceConnector`. The system owns one read-only connection shared by those
-resources; `close()` is idempotent. Calls after close fail. Reads are
-synchronous internally, fail immediately on lock contention, and check
-cancellation before and after the operation. An AbortSignal cannot interrupt
-SQLite work already running on the JavaScript thread. Use indexed keys and small
-records. This package implements record reads, not enumeration, change feeds,
-provider writes, or Relate storage.
+`SourceConnector`. Database opening is deferred until the first read or
+identify; open errors reject that call. An owned worker serializes reads on one
+read-only connection, leaving the application event loop free to enforce source
+deadlines. `busyTimeoutMs` defaults to 150 ms (configurable from 0 to 60000); a
+writer lock that outlasts that wait still fails. Keep keys indexed and records
+small.
+
+An aborted queued read is removed without affecting active work. Aborting an
+active read rejects it immediately and retires the worker; later calls get a
+fresh connection after teardown. Native SQLite work may finish before worker
+termination completes, so teardown and queued reads can take longer than the
+caller's deadline. At most one worker is active per system connection. Always
+await `database.close()` (or register it with `onDispose`): it rejects
+outstanding reads and waits for worker teardown. Closing is idempotent; calls
+after close fail.
+
+This package implements record reads, not enumeration, change feeds, provider
+writes, or Relate storage.
 
 See [customer accounts](../../examples/customer-accounts) for a runnable
 application.

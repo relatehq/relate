@@ -10,7 +10,7 @@ export const packagePolicies: Record<
 > = {
   'connectors/sqlite': {
     imports: ['relate/connectors'],
-    builtins: ['node:sqlite'],
+    builtins: ['node:sqlite', 'node:worker_threads', 'node:path'],
   },
   'examples/customer-accounts': {
     imports: ['relate', '@relate/node', '@relate/connector-sqlite', 'zod'],

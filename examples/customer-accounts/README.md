@@ -17,7 +17,8 @@ the temporary database. The output includes the customer name, Stripe customer
 ID, and Relate's field evidence.
 
 - `src/model.ts`: source schema, Customer object and portfolio access policy.
-- `src/app.ts`: SQLite binding and connection disposal through `defineApp`.
+- `src/app.ts`: explicit SQLite column selection and asynchronous connection
+  disposal through `defineApp`.
 - `src/seed.ts`: provider schema and sample data.
 - `src/index.ts`: typed adoption and authorized reads.
 
