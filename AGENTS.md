@@ -85,6 +85,26 @@ sketch, then give a recommendation. If something is still undecided, say so
 explicitly and show the open shape. Keep prose short; let the examples carry the
 explanation.
 
+## Test ownership and setup
+
+Packages, connectors, and their tests must not depend on `examples/`. Examples
+are consumers and learning material, never fixtures for library behavior.
+`pnpm check:boundaries` enforces this for source, tests, shared test helpers,
+and workspace dependency declarations, including type-only imports.
+
+Use arrange–act–assert: each test explicitly creates the state it needs,
+performs the operation, and asserts the outcome. Avoid module-level fixture
+instances or hidden setup coupling. Small test-owned helpers are encouraged: a
+nearby `createCustomerGraph()` can return fresh definitions or a factory can
+create a runtime in the required state. Shared cross-package acceptance
+factories belong in `tests/support`; they must not import example code. Register
+cleanup for each test's owned resources.
+
+Keep unit tests with their owning package or application in its `test/` folder.
+Tests of an example belong in that example's `test/` folder. Repository-level
+integration and packaging smoke tests can exercise an example as the subject
+under test, but must not reuse it as setup for unrelated package tests.
+
 ## Implementation approach
 
 We are building the OSS external version of relate here, using what we have

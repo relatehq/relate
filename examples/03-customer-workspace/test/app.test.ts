@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Server } from 'node:http';
 import { ActionError } from '@relate/protocol';
-import { startWorkspace } from '../../examples/03-customer-workspace/src/app.js';
-import { startServer } from '../../examples/03-customer-workspace/src/server.js';
+import { startWorkspace } from '../src/app.js';
+import { startServer } from '../src/server.js';
 
 describe('interactive customer workspace', () => {
   it('reads SQLite invoices, enforces roles, replays reviews and refreshes the HTTP source', async () => {

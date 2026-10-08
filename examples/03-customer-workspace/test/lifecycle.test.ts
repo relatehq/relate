@@ -2,9 +2,9 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { describe, expect, it, vi } from 'vitest';
-import { watchInspector } from '../../examples/03-customer-workspace/src/inspector.js';
-import { runWorkspace } from '../../examples/03-customer-workspace/src/launcher.js';
-import type { Inspector } from '../../examples/03-customer-workspace/src/inspector.js';
+import { watchInspector } from '../src/inspector.js';
+import { runWorkspace } from '../src/launcher.js';
+import type { Inspector } from '../src/inspector.js';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

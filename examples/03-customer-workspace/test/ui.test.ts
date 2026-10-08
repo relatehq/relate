@@ -63,10 +63,7 @@ async function start(fetch: ReturnType<typeof vi.fn>) {
     return elements.get(id)!;
   };
   const source = await readFile(
-    new URL(
-      '../../examples/03-customer-workspace/src/ui/app.js',
-      import.meta.url,
-    ),
+    new URL('../src/ui/app.js', import.meta.url),
     'utf8',
   );
 
