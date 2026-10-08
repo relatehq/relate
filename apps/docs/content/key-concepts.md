@@ -33,7 +33,7 @@ const crmConnection = connect(crmCustomers, {
 
 The source describes what a record looks like; the connection determines how to
 read it in a particular environment. See [Graph Modeling](./authoring/graph.md)
-for source definitions and [Getting Started](./index.md) for a working
+for source definitions and [Getting Started](./getting-started.md) for a working
 connector.
 
 ## Objects, Membership, and Properties
@@ -204,8 +204,8 @@ directly with the graph and its bindings. The runtime `graphId` identifies an
 installation of the graph; the graph definition's `id` identifies the model.
 Close the running instance with `await relate.close()` when finished.
 
-The [Inspector](../../../packages/cli/README.md) can load the graph or app to display
-the model without calling app setup.
+The [Inspector](../../../packages/cli/README.md) can load the graph or app to
+display the model without calling app setup.
 
 ## Observations, Evidence, and Storage
 
