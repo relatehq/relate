@@ -21,9 +21,13 @@ Create a separate Vercel project using this repository:
 
 - Root directory: `apps/www`
 - Framework preset: Other
+- Node.js version: 24.x (declared in the website-only `package.json`)
 - Build and install commands: disabled (set in `vercel.json`)
 - Output directory: `.`
 - Domain: `relatehq.dev`; redirect `www.relatehq.dev` to it
+
+The small `package.json` prevents Vercel from inheriting the toolkit workspace's
+Node.js requirement. It adds no dependencies or build step.
 
 The documentation remains a separate project at `docs.relatehq.dev`.
 
