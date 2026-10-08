@@ -32,11 +32,13 @@ const crmConnection = connect(crmCustomers, {
 });
 ```
 
-The binding above uses provider verification. SQLite defaults to
-application-owned identity: omit `providerAccountId` and give a different
-logical database a new `connectionId`. Relate cannot detect a substituted
-database under the same ID in that mode. Switching modes does not reuse retained
-identities.
+The binding above uses provider verification: the connector proves which account
+it reads from, and Relate checks that against `providerAccountId`. A connector
+with no provider account to verify, such as one reading a local database file,
+can use application-owned identity instead: omit `providerAccountId` and give
+each logical source its own `connectionId`. Relate cannot detect a substituted
+source under the same ID in that mode, and switching modes does not reuse
+retained identities. Each connector package documents its own options.
 
 The source describes what a record looks like; the connection determines how to
 read it in a particular environment. See [Graph Modeling](./authoring/graph.md)

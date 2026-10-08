@@ -8,6 +8,7 @@ export const packagePolicies: Record<
     assets?: readonly string[];
   }
 > = {
+  'connectors/stripe': { imports: ['relate/connectors'] },
   'connectors/sqlite': {
     imports: ['relate/connectors'],
     builtins: ['node:sqlite', 'node:worker_threads', 'node:path'],
@@ -71,6 +72,8 @@ export const packagePolicies: Record<
       'next/navigation',
       'react',
       '@fumadocs/mdx-remote',
+      'fumadocs-core/mdx-plugins',
+      'beautiful-mermaid',
       'fumadocs-ui/provider/next',
       'fumadocs-ui/layouts/docs',
       'fumadocs-ui/layouts/docs/page',

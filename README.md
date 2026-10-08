@@ -220,9 +220,14 @@ For a local SQLite source, run the
 pnpm example:customer-accounts
 ```
 
-It uses [`@relate/connector-sqlite`](connectors/sqlite) to read CRM customers
-with portfolio access checks and a customer key ready for a later Stripe
-integration.
+The example uses [`@relate/connector-sqlite`](connectors/sqlite) to read CRM
+customers with portfolio access checks and a Stripe customer key.
+
+Stripe billing records are available through
+[`@relate/connector-stripe`](connectors/stripe), using
+`stripe({ apiKey, apiVersion, mode }).resource('customers', { fields: ['name'] })`.
+It supports verified account/mode identity and read-only lookups of customers,
+invoices, subscriptions, products, prices, payment intents, and charges.
 
 For the [Postgres example](examples/postgres-persistence), copy `.env.example`
 to `.env` and configure separate `relate` and `relate_test` databases on your
