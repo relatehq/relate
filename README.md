@@ -5,96 +5,121 @@
   </picture>
 </h1>
 
-> [!WARNING]
->
-> Relate is at a very early stage and is not ready for use. It is published only
-> for comment and discussion. The current package version is `0.0.0-dev.0`.
+**A typed, permission-aware model of your business data, defined in
+TypeScript.**
 
-See [RELEASING.md](RELEASING.md) for versioning and the release procedure.
+Relate lets you describe your business objects (customers, invoices, reviews),
+where each field comes from, how the objects relate and who may see what. Your
+application, and eventually your agents, then read across your CRM, billing
+database and other systems through one typed API. Every read is filtered for the
+caller and says where each value came from and how fresh it is.
 
-**A semantic business graph, defined in TypeScript.**
+> **Request for comment.** Relate is early (`0.0.0-dev.0`), not yet on npm and
+> not ready for production. We're publishing it now to get the model right in
+> the open. [What works today](#status) ·
+> [What we'd like feedback on](#feedback)
 
-Relate is an open-source toolkit for creating a shared, typed view of business
-data across APIs and databases. It brings identity, relationships,
-authorization, freshness, and provenance into one model so applications and AI
-agents can work with operational data through consistent interfaces, while
-source systems retain ownership.
+<p align="center">
+  <img alt="The Relate inspector showing Customer, Invoice and AccountReview objects and their relationships" src="assets/readme/inspector-light.svg" width="800">
+</p>
 
-Relate aims to make business data easier to understand, connect, and act on
-without building another silo.
+## Try it in two minutes
 
-Created by [Viable Systems](https://viablesystems.ai).
+You need Node 26.9+ and pnpm 12 (`npm i -g pnpm@12`). No database, Docker or
+credentials.
 
-## Example
+```sh
+git clone https://github.com/relatehq/relate && cd relate
+pnpm install
+pnpm example:customer-workspace
+```
 
-A CRM API owns customers. Stripe knows their revenue. A billing database owns
-invoices. Relate composes them into one graph, with access rules attached.
+A small app opens in your browser. Its customer comes from an HTTP CRM, its
+invoices from a SQLite database and its account reviews from Relate itself.
 
-**1. Describe the sources.** Each system keeps ownership of its records.
+1. As **Ana**, an account manager, you see Northwind's invoices but the amounts
+   are withheld. The model says only finance sees them.
+2. Switch to **Fin** in finance. The amounts appear.
+3. As Ana, add a review, then click **Retry last submission**. You get the same
+   receipt back and no duplicate review.
+4. Rename the customer in the CRM and click **Refresh from sources**.
+5. Open **Inspect model** to see the graph. It redraws when you edit
+   `src/graph.ts`.
+
+Expand **See what Relate did** to see the exact SDK calls and the evidence
+returned with each read.
+
+## Why
+
+Most real work touches more than one system. Before anyone can review an
+account, the CRM's customer has to be joined to the billing database's invoices.
+Then the code has to check that the caller may see them, judge whether the data
+is fresh enough to act on and make a retried submission safe.
+
+Usually each app and each agent integration solves this again in its own glue
+code. Relate moves it into one model that every consumer shares. That matters
+more once agents are involved: an agent should see what the user asking it may
+see, and know whether a number is current.
+
+We built the first version inside [ARC](https://viablesystems.ai), where Viable
+Systems deploys agents to do end-to-end work for media businesses. Every client
+had a different shape of "customer" spread across different systems. Relate is
+that layer, extracted as an open-source library.
+
+## What it looks like
+
+Describe the systems you already have, the objects you want and the rules:
 
 ```ts
+const access = defineAccess({
+  roles: ['employee', 'finance'],
+  fieldGroups: ['ordinary', 'financial'],
+  claims: { portfolio: z.string() },
+});
+
+// Your CRM owns customers.
 const crm = defineSource({
   id: 'crm.customers',
   idField: 'id',
-  schema: z.object({ id: z.string(), name: z.string(), region: z.string() }),
+  schema: z.object({ id: z.string(), name: z.string(), portfolio: z.string() }),
 });
 
-const stripe = defineSource({
-  id: 'stripe.customers',
-  idField: 'id',
-  schema: z.object({ id: z.string(), crm_id: z.string(), mrr: z.number() }),
-});
-
+// Your billing database owns invoices. It knows customers by CRM ID.
 const billing = defineSource({
   id: 'billing.invoices',
   idField: 'id',
   schema: z.object({
     id: z.string(),
-    customer_id: z.string(),
+    crm_customer_id: z.string(),
     status: z.string(),
+    total: z.number(),
   }),
-});
-```
-
-**2. Compose objects and relationships.** One `Customer`, two systems.
-
-```ts
-const access = defineAccess({
-  roles: ['sales', 'finance'],
-  fieldGroups: ['ordinary', 'financial'],
-  claims: { region: z.string() },
 });
 
 const Customer = defineObject({
   id: 'customer',
-  label: 'Customer',
-  pluralLabel: 'Customers',
-  description: 'Customer accounts with CRM and billing information.',
   membership: source(crm),
   properties: {
     id: objectId({ id: 'customer.id' }),
     name: from(crm.fields.name, { id: 'customer.name' }),
-    region: from(crm.fields.region, { id: 'customer.region' }),
-    mrr: from(stripe.fields.mrr, {
-      id: 'customer.mrr',
-      match: stripe.fields.crm_id, // preview: enrichment from a second source
-      access: access.groups.financial,
-    }),
+    portfolio: from(crm.fields.portfolio, { id: 'customer.portfolio' }),
   },
 });
 
 const Invoice = defineObject({
   id: 'invoice',
-  label: 'Invoice',
-  pluralLabel: 'Invoices',
   membership: source(billing),
   properties: {
     id: objectId({ id: 'invoice.id' }),
     customer: reference(Customer, {
       id: 'invoice.customer',
-      from: billing.fields.customer_id,
+      from: billing.fields.crm_customer_id, // CRM ID → Customer
     }),
     status: from(billing.fields.status, { id: 'invoice.status' }),
+    total: from(billing.fields.total, {
+      id: 'invoice.total',
+      access: access.groups.financial,
+    }),
   },
 });
 
@@ -104,153 +129,158 @@ const CustomerInvoices = defineRelationship({
   reverse: 'customer',
   via: Invoice.properties.customer,
 });
-```
 
-**3. Set permissions.** Sales see their region. Only finance sees revenue.
-
-```ts
 const graph = defineGraph({
   id: 'business',
   objects: { Customer, Invoice },
   relationships: { CustomerInvoices },
   access,
   policies: {
+    // Employees see customers in their own portfolio...
     Customer: {
       read: {
-        gate: access.role('sales'),
-        where: { region: { eq: access.claims.region } },
+        gate: access.role('employee'),
+        where: { portfolio: { eq: access.claims.portfolio } },
+        evidenceMaxAgeMs: 30_000,
+      },
+    },
+    // ...and those customers' invoices. Only finance sees amounts.
+    Invoice: {
+      read: {
+        gate: access.role('employee'),
+        where: { customer: { portfolio: { eq: access.claims.portfolio } } },
         evidenceMaxAgeMs: 30_000,
       },
       groups: { financial: access.role('finance') },
-    },
-    Invoice: {
-      read: {
-        gate: access.role('sales'),
-        where: { customer: { region: { eq: access.claims.region } } },
-        evidenceMaxAgeMs: 30_000,
-      },
     },
   },
 });
 ```
 
-The keys in `objects` are the canonical API names: `Customer` becomes
-`apiName: 'Customer'` in the compiled model and `objects.Customer` in the SDK.
-An object's `id` is its stable definition identity and stays the same across
-renames. Changing a registry key renames the public API; changing a label only
-changes its presentation.
-
-`label`, `pluralLabel`, and `description` are optional metadata for UIs,
-documentation, and agents. The singular label defaults to the humanized API name
-(`AccountReview` → `Account Review`); the plural label defaults to that singular
-label without guessing plurals. Supply collection labels such as `Customers` or
-`People` explicitly. Descriptions stay absent when omitted. See
-[object naming and migration details](packages/relate/CONTRACT.md#object-names-and-display-metadata).
-
-**4. Use it from code.** Reads are typed, filtered by the caller, and carry
-freshness evidence.
+Then connect the sources and read as an authenticated caller:
 
 ```ts
-import { connect } from 'relate';
-import { createRuntime } from '@relate/node';
-
 const relate = createRuntime({
   graph,
   connections: [
-    connect(crm, crmApi),
-    connect(stripe, stripeApi),
-    connect(billing, billingDb),
+    connect(crm, {
+      connectionId: 'crm',
+      providerAccountId: 'acme-crm',
+      connector: crmApi,
+    }),
+    connect(billing, {
+      connectionId: 'billing',
+      connector: sqlite({ path: './billing.sqlite' }).table('invoices', {
+        idColumn: 'id',
+        columns: ['crm_customer_id', 'status', 'total'],
+      }),
+    }),
   ],
 });
 
+// Records enter the graph by explicit adoption for now (see Status).
+const northwind = await relate.host.adopt(Customer, 'crm_456');
+await relate.host.adopt(Invoice, 'INV-1042');
+
+// Your app authenticates the caller. Relate enforces the model's rules.
 const { objects } = relate.as({
   id: 'ana',
-  roles: ['sales'],
-  claims: { region: 'emea' },
+  roles: ['employee'],
+  claims: { portfolio: 'north' },
 });
 
-await objects.Customer.get(id, { select: ['name', 'mrr'] }); // mrr withheld: Ana is not finance
-await objects.Customer.traverse.invoices(id, { select: ['status'] }); // CRM → billing
+const invoices = await objects.Customer.traverse.invoices(northwind, {
+  select: ['status', 'total'],
+});
 ```
 
-**5. Or hand it to an agent.** The same graph, the same rules, over MCP
-(preview):
+Ana gets the status. The amount is withheld, and every field says why it's there
+or why it isn't:
 
-```ts
-serveMcp(relate, { principal: (req) => authenticate(req) });
+```jsonc
+{
+  "data": { "status": "Overdue" },
+  "meta": {
+    "completeness": "partial",
+    "fields": {
+      "status": {
+        "status": "available",
+        "freshness": "fresh",
+        "observedAt": "2026-10-08T13:09:34.028Z",
+        "sourceDefinitionId": "billing.invoices",
+        // …
+      },
+      "total": { "status": "forbidden" },
+    },
+  },
+}
 ```
 
-The agent gets `get`, `query`, `traverse`, and action tools for each object. It
-sees only what the authenticated caller may see.
+A customer outside Ana's portfolio returns `not-found`, the same as one that
+doesn't exist.
 
-Writes go through typed, authorized, idempotent actions. See the
-[customer graph fixture](dev/fixtures/customer-graph) for actions and
-Relate-owned records.
+## What's different
 
-> **Status:** single-source objects, references, traversal, policies, and
-> Postgres storage run today. Native get/create actions wait for completion and
-> support declared business failures and actor-bound receipt lookup/replay.
-> Multi-source enrichment, broader actions, and MCP remain API previews.
+- **Access rules live in the model.** Role gates, claim-based row filters
+  (including through references, such as "invoices of customers in my
+  portfolio") and field groups are declared once. They are enforced on every
+  read, traversal and action, so no consumer can forget to check.
+- **Every value carries evidence.** Each field reports whether it is available,
+  forbidden or unavailable, where it came from and when it was observed. Policy
+  checks can demand evidence no older than a set age.
+- **Writes are actions with receipts.** Typed, authorized actions run in a
+  transaction. They return a receipt for success or for a declared business
+  failure, and retrying with the same idempotency key replays the receipt rather
+  than repeating the write.
+- **Source systems stay in charge.** Relate keeps the identities and
+  observations it needs. It doesn't copy your CRM into a new silo.
 
-Native actions support
-[portable value constraints and declared business failures](packages/node/NATIVE_ACTIONS.md#declared-business-failures).
-For example, `z.string().min(1).max(4000)` keeps review notes nonempty and
-bounded on both action input and native storage; the compiled model exposes
-these limits. An action declaring `errors: { inactive: z.object({}) }` can call
-`fail('inactive', {})` to return a typed failure receipt after rolling back its
-native writes. Authorized retries recover the same outcome without repeating the
-handler. Malformed requests and pre-acceptance denial remain typed rejections.
+## Status
 
-## Get started
+| Works today                                             | Not yet                                                  |
+| ------------------------------------------------------- | -------------------------------------------------------- |
+| TypeScript authoring, compiler and diagnostics          | Listing and querying (records are adopted by ID for now) |
+| Objects backed by one source; references across sources | One object enriched from several sources                 |
+| Two-way relationship traversal                          | **MCP and HTTP interfaces** (designed, not built)        |
+| Role gates, claim filters, field-level access           | Writing back to source systems                           |
+| Per-field evidence and freshness bounds                 | Migrating between model revisions                        |
+| Relate-owned objects, idempotent actions and receipts   | Published npm packages                                   |
+| In-memory and Postgres stores                           |                                                          |
+| SQLite and Stripe (read-only) connectors                |                                                          |
+| `relate dev` model inspector                            |                                                          |
 
-From a checkout, open the
-[interactive customer workspace](examples/03-customer-workspace):
+Relate runs embedded in a Node application today. Agent access through MCP is
+the next major piece. The intended shape is `get`, `query` and `traverse` tools
+per object plus one tool per action, all scoped to the authenticated caller. It
+isn't built yet.
 
-```sh
-pnpm install
-pnpm example:customer-workspace
-```
+## Feedback
 
-Explore a customer from an HTTP CRM, invoices from SQLite, and Relate-owned
-account reviews. Switch roles, add a review, retry its action, refresh source
-data, and open the model inspector. No credentials or database server are
-needed; state resets on restart.
+We'd most like to hear about:
 
-Follow the [numbered examples](examples/README.md) in learning order, starting
-with `pnpm example:hello-world` for the smallest terminal example.
+1. **The model.** Do sources → objects → relationships → policies match how you
+   think about your own domain? What can't you express?
+2. **Evidence.** Is per-field provenance and freshness useful in practice, or
+   noise? What would you do with it?
+3. **Getting records in.** Adoption is explicit today. Would you want sync,
+   scanning, change feeds or on-demand fetches?
+4. **Agents.** What should an agent see? Is a tool per object the right
+   granularity for MCP?
+5. **Connectors.** Which systems would you need first?
 
-For a smaller SQLite source example, run `pnpm example:customer-accounts`. It
-reads CRM customers with portfolio access checks and a Stripe customer key
-through [`@relate/connector-sqlite`](connectors/sqlite).
+Please open a [discussion](https://github.com/relatehq/relate/discussions) or an
+issue.
 
-Stripe billing records are available through
-[`@relate/connector-stripe`](connectors/stripe), using
-`stripe({ apiKey, apiVersion, mode }).resource('customers', { fields: ['name'] })`.
-It supports verified account/mode identity and read-only lookups of customers,
-invoices, subscriptions, products, prices, payment intents, and charges.
+## Learn more
 
-For the [Postgres example](examples/04-postgres-persistence), copy
-`.env.example` to `.env` and configure separate `relate` and `relate_test`
-databases on your local server. The example values use Postgres on port 5433.
-Relate manages its schema and migrations, not database or server provisioning.
-
-`pnpm example:postgres`, `pnpm test:integration`, and `pnpm test` load the root
-`.env` using dotenvx. Existing shell variables take precedence. `DATABASE_URL`
-is for the persistent example; `RELATE_TEST_DATABASE_URL` is exclusively for
-integration tests, which reset that database's `relate` schema. Keep `.env`
-untracked. `pnpm test:unit` needs no database or environment file.
-
-## Inspector
-
-`pnpm relate dev` serves a local [inspector](apps/inspector) that draws your
-model as a live graph of objects, sources and relationships. It redraws on save
-and shows compile problems next to the last good model. For now it covers the
-model graph; more screens will follow.
-
-<p align="center">
-  <img alt="The Relate inspector showing Customer, Invoice and AccountReview objects and their relationships" src="assets/readme/inspector-light.svg" width="800">
-</p>
+- [Docs](https://docs.relatehq.dev): [Why Relate](https://docs.relatehq.dev/),
+  [Getting started](https://docs.relatehq.dev/getting-started),
+  [Key concepts](https://docs.relatehq.dev/key-concepts)
+- [Examples](examples/README.md), in learning order, from the smallest terminal
+  hello world to persistent Postgres storage
+- [Inspector](packages/cli/README.md): `pnpm relate dev`
+- [Contributing](CONTRIBUTING.md) · [Releasing](RELEASING.md)
 
 ## License
 
-Relate is licensed under the [Apache License 2.0](LICENSE).
+[Apache 2.0](LICENSE). Created by [Viable Systems](https://viablesystems.ai).
