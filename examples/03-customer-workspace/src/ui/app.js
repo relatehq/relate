@@ -4,6 +4,12 @@ let lastSubmission = null;
 let busy = false;
 let loaded = false;
 const describe = (value) => JSON.stringify(value, null, 2);
+const money = (major, currency) =>
+  new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(major);
+const withheld = (record, field) =>
+  record.meta?.fields?.[field]?.status === 'forbidden'
+    ? 'Withheld'
+    : 'Unavailable';
 const feedback = (message) => {
   $('feedback').textContent = message;
 };
@@ -73,6 +79,18 @@ async function read(refresh = false) {
     customer.status === 'ok'
       ? (customer.data.status ?? 'Unavailable')
       : 'Unavailable';
+  $('avatar').textContent = $('name').textContent.charAt(0).toUpperCase();
+  // The CRM revenue field carries no currency; the demo CRM reports GBP.
+  $('revenue').textContent =
+    customer.status !== 'ok'
+      ? 'Revenue unavailable'
+      : typeof customer.data.revenue === 'number'
+        ? `Revenue ${money(customer.data.revenue, 'GBP')}`
+        : `Revenue ${withheld(customer, 'revenue').toLowerCase()}`;
+
+  if (!$('crm-name').value && customer.status === 'ok' && customer.data.name)
+    $('crm-name').value = customer.data.name;
+
   $('role').textContent =
     actor === 'ana'
       ? 'Ana manages this account and can add reviews. Financial fields are withheld by Relate.'
@@ -82,7 +100,12 @@ async function read(refresh = false) {
       ? 'Retrying uses the original input and key. It returns the same receipt.'
       : 'Switch to Ana to add an account review.';
   $('invoices').replaceChildren();
-  result.invoices.data.forEach((invoice, index) => {
+  // Relate orders by object ID, which is random per launch; sort for stable labels.
+  const invoices = [...result.invoices.data].sort((a, b) =>
+    String(a.data.status).localeCompare(String(b.data.status)),
+  );
+
+  invoices.forEach((invoice, index) => {
     const row = document.createElement('tr');
 
     row.append(textElement('td', `Invoice ${index + 1}`));
@@ -97,19 +120,13 @@ async function read(refresh = false) {
     );
     row.append(status);
     const amount = invoice.data.totalMinor;
-    const state = invoice.meta?.fields?.totalMinor?.status;
 
     row.append(
       textElement(
         'td',
         typeof amount === 'number'
-          ? new Intl.NumberFormat('en-GB', {
-              style: 'currency',
-              currency: invoice.data.currency ?? 'GBP',
-            }).format(amount / 100)
-          : state === 'forbidden'
-            ? 'Withheld'
-            : 'Unavailable',
+          ? money(amount / 100, invoice.data.currency ?? 'GBP')
+          : withheld(invoice, 'totalMinor'),
         'amount',
       ),
     );
@@ -147,6 +164,7 @@ function clearAccount() {
   loaded = false;
   $('name').textContent = 'Account not loaded';
   $('status').textContent = 'Unavailable';
+  $('revenue').textContent = 'Revenue unavailable';
   $('invoices').replaceChildren();
   $('reviews').replaceChildren();
   $('evidence').textContent = '';

@@ -42,6 +42,26 @@ it('waits for a complete token line even when stdout splits the token', async ()
   child.emit('exit', 0);
 });
 
+it('reads the final token line when the CLI exits before stdout drains', async () => {
+  const child = Object.assign(new EventEmitter(), {
+    stdout: new PassThrough(),
+    exitCode: null,
+    signalCode: null,
+  });
+  const inspector = watchInspector(
+    child as unknown as ChildProcessWithoutNullStreams,
+  );
+
+  child.emit('exit', 0);
+  child.stdout.end('Inspector  http://127.0.0.1:4318/#token=abc\n');
+  await new Promise((resolve) => child.stdout.once('end', resolve));
+  child.emit('close', 0);
+  expect(await inspector.ready).toEqual({
+    url: 'http://127.0.0.1:4318/#token=abc',
+    reused: false,
+  });
+});
+
 function fixture(reused = false) {
   const signals = new EventEmitter();
   const exited = deferred<void>();

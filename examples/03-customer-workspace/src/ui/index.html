@@ -24,12 +24,14 @@
         >
       </div>
       <section class="account">
-        <div class="avatar" aria-hidden="true">N</div>
+        <div class="avatar" id="avatar" aria-hidden="true">N</div>
         <div>
           <h1 id="name">Loading account…</h1>
           <p>
             North portfolio <span class="dot">·</span>
             <span id="status">Customer</span>
+            <span class="dot">·</span>
+            <span id="revenue">Revenue</span>
           </p>
         </div>
         <button id="refresh">Refresh from sources</button>
@@ -56,7 +58,9 @@
             </thead>
             <tbody id="invoices"></tbody>
           </table>
-          <p class="hint">Invoice amounts are visible to Finance.</p>
+          <p class="hint">
+            Revenue and invoice amounts are visible to Finance.
+          </p>
         </section>
         <section class="reviews">
           <div class="section-heading">
@@ -100,12 +104,11 @@
         <form id="rename-form">
           <label for="crm-name">CRM customer name</label>
           <div class="actions">
-            <input
-              id="crm-name"
-              value="Northwind Studio"
-              required
-              maxlength="100"
-            /><button type="submit">Update CRM</button>
+            <input id="crm-name" required maxlength="100" /><button
+              type="submit"
+            >
+              Update CRM
+            </button>
           </div>
         </form>
       </section>

@@ -34,7 +34,8 @@ export function watchInspector(
         clear();
         reject(error);
       });
-      child.once('exit', () => {
+      // 'close' follows the final stdout line; 'exit' can arrive before it.
+      child.once('close', () => {
         clear();
         reject(new Error('Inspector exited before startup'));
       });

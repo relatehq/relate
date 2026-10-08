@@ -134,7 +134,8 @@ export async function startServer(
       return json(200, { updated: true });
     } catch (error) {
       if (error instanceof ActionError) {
-        const status = {
+        // A code added to ActionError later still gets a response, not a crash.
+        const statuses: Partial<Record<string, number>> = {
           denied: 403,
           'not-found': 404,
           invalid: 400,
@@ -143,7 +144,8 @@ export async function startServer(
           unavailable: 503,
           uncertain: 503,
           internal: 500,
-        }[error.code];
+        };
+        const status = statuses[error.code] ?? 500;
 
         if (status >= 500) reportError(error);
 

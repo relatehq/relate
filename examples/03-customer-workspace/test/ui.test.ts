@@ -36,9 +36,23 @@ class Element {
 
 const response = (data: unknown, ok = true) => ({ ok, json: async () => data });
 const account = (finance: boolean) => ({
-  customer: { status: 'ok', data: { name: 'Northwind', status: 'active' } },
+  customer: {
+    status: 'ok',
+    data: {
+      name: 'Northwind',
+      status: 'active',
+      ...(finance ? { revenue: 2000000 } : {}),
+    },
+    meta: {
+      fields: { revenue: { status: finance ? 'available' : 'forbidden' } },
+    },
+  },
   invoices: {
     data: [
+      {
+        data: { status: 'Paid' },
+        meta: { fields: {} },
+      },
       {
         data: {
           status: 'Overdue',
@@ -131,3 +145,25 @@ it.each([
     expect(element('invoices').textContent).toContain('Withheld');
   },
 );
+
+it('orders invoices by status and shows financial fields by role', async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(
+      response({ inspectorUrl: 'http://127.0.0.1:4318/#token=abc' }),
+    )
+    .mockResolvedValueOnce(response(account(false)))
+    .mockResolvedValueOnce(response(account(true)));
+  const element = await start(fetch);
+
+  expect(element('invoices').textContent).toMatch(
+    /^Invoice 1Overdue.*Invoice 2Paid/,
+  );
+  expect(element('revenue').textContent).toBe('Revenue withheld');
+  expect(element('avatar').textContent).toBe('N');
+  expect(element('crm-name').value).toBe('Northwind');
+
+  element('actor').value = 'fin';
+  await element('actor').listeners.get('change')!();
+  expect(element('revenue').textContent).toBe('Revenue £2,000,000.00');
+});

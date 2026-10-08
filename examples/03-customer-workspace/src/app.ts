@@ -100,10 +100,14 @@ export async function startWorkspace() {
 
   // Temporary demo index, not the contents of CustomerReviews: reviews created
   // outside this wrapper are not enumerated. Values are still read through Relate.
+  // TODO(native-reference traversal): replace with
+  // `objects.Customer.traverse.reviews(customerId)` and drop this index, the
+  // UI's "Temporary demo list" hint and the matching README paragraph.
   const reviewIds = new Set<ObjectId<typeof AccountReview.id>>();
 
   try {
     // Adoption is a host operation. This seed is not a general source enumeration API.
+    // TODO(source sync): adopt invoices from a SQLite scan instead of fixed IDs.
     const customerId = await relate.host.adopt(Customer, 'crm_456');
 
     await relate.host.adopt(Invoice, 'INV-1042');
