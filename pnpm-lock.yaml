@@ -178,6 +178,9 @@ importers:
       '@relate/connector-sqlite':
         specifier: workspace:*
         version: link:connectors/sqlite
+      '@relate/connector-stripe':
+        specifier: workspace:*
+        version: link:connectors/stripe
       '@relate/dev-crm-simulator':
         specifier: workspace:*
         version: link:dev/simulators/crm
@@ -328,6 +331,12 @@ importers:
   apps/www: {}
 
   connectors/sqlite:
+    dependencies:
+      relate:
+        specifier: workspace:*
+        version: link:../../packages/relate
+
+  connectors/stripe:
     dependencies:
       relate:
         specifier: workspace:*

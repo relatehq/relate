@@ -44,3 +44,19 @@ checksums and quarantined legacy rows are preserved. Switching modes requires
 adoption in the new scope; no automatic identity/data reassignment is performed.
 Replacing a logical source in application mode requires a new `connectionId`.
 This mode does not detect accidental file replacement.
+
+## Stripe source connector
+
+`@relate/connector-stripe` adds read-only Stripe API v1 resource lookups with
+explicit field selection, pinned API versions, credential rotation, Connect
+account verification, deadlines, and bounded responses. Its provider identity is
+`<account ID>:<test|live>`; custom Stripe connectors migrating to this package
+must rebind and adopt records in that scope instead of relabeling existing
+observations. SQLite and other existing connectors keep their current identity
+formats. No storage migration or new required connector method is introduced.
+
+The shared connector documentation now explicitly allows provider namespaces in
+identity. Stripe confirms that creation times/request IDs must not be presented
+as versions, and that a missing-resource HTTP error is not deletion evidence.
+See the connector README for supported resources and the current read-only
+boundary; list/search/webhook/write capabilities are not implied.

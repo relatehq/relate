@@ -38,6 +38,13 @@ logical database a new `connectionId`. Relate cannot detect a substituted
 database under the same ID in that mode. Switching modes does not reuse retained
 identities.
 
+Stripe uses provider verification, with account and mode together identifying
+the scope: `providerAccountId: 'acct_123:test'`. Select an API resource with
+`stripe({ apiKey, apiVersion, mode: 'test' }).resource('customers', { fields: ['name'] })`
+from `@relate/connector-stripe`. The connector verifies the current account on
+every fetch; credentials stay in the connection, outside the graph. It reads
+known record IDs and does not enumerate records or write to Stripe.
+
 The source describes what a record looks like; the connection determines how to
 read it in a particular environment. See [Graph Modeling](./authoring/graph.md)
 for source definitions and [Getting Started](./getting-started.md) for a working

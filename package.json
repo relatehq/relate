@@ -10,7 +10,7 @@
   },
   "scripts": {
     "packages": "pnpm -r list --depth -1",
-    "build": "tsc -b packages/protocol packages/relate packages/runtime packages/postgres packages/node connectors/sqlite apps/inspector/tsconfig.server.json packages/cli && pnpm --filter @relate/inspector build:client",
+    "build": "tsc -b packages/protocol packages/relate packages/runtime packages/postgres packages/node connectors/sqlite connectors/stripe apps/inspector/tsconfig.server.json packages/cli && pnpm --filter @relate/inspector build:client",
     "docs:dev": "pnpm --filter @relate/docs dev",
     "docs:build": "pnpm --filter @relate/docs build",
     "example:hello-world": "pnpm build && tsx examples/hello-world/src/index.ts",
@@ -59,6 +59,7 @@
     "typescript": "6.0.3",
     "vitest": "5.0.3",
     "zod": "4.6.5",
-    "@relate/connector-sqlite": "workspace:*"
+    "@relate/connector-sqlite": "workspace:*",
+    "@relate/connector-stripe": "workspace:*"
   }
 }

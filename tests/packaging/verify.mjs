@@ -16,6 +16,7 @@ const packages = [
   'packages/postgres',
   'packages/node',
   'connectors/sqlite',
+  'connectors/stripe',
   'apps/inspector',
   'packages/cli',
 ];
@@ -123,7 +124,12 @@ console.log('Portable app and connector contracts work without Node host or runt
     `
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
+import { stripe } from '@relate/connector-stripe';
 import { sqlite } from '@relate/connector-sqlite';
+const billing = stripe({ apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test', fetch: async url => Response.json(String(url).endsWith('/account') ? { id: 'acct_packed', object: 'account' } : { id: 'cus_packed', object: 'customer', livemode: false, name: 'Ada' }) });
+const stripeResource = billing.resource('customers', { fields: ['name'] });
+assert.equal(await stripeResource.identify({ signal: new AbortController().signal }), 'acct_packed:test');
+assert.deepEqual(await stripeResource.fetch('cus_packed', { signal: new AbortController().signal }), { state: 'present', providerAccountId: 'acct_packed:test', record: { id: 'cus_packed', name: 'Ada' } });
 const db = new DatabaseSync('source.sqlite');
 db.exec("CREATE TABLE account (id TEXT); INSERT INTO account VALUES ('packed'); CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT); INSERT INTO customers VALUES ('1', 'Ada')");
 db.close();
@@ -227,9 +233,12 @@ const idValue: string = identity.schema.parse('generated');
 objectId(z.string(), { id: 'customer.identity', access: access.groups.ordinary });
 // @ts-expect-error objects infer identity from objectId(), not a key selector
 defineObject({ id: 'customer', label: 'Customer', key: 'id', membership: source(crm), properties: { id: identity } });
+import { stripe } from '@relate/connector-stripe';
 import { sqlite } from '@relate/connector-sqlite';
 import { connect } from 'relate';
 import type { SourceConnector, ApplicationSourceConnector } from 'relate/connectors';
+const stripeResource: SourceConnector = stripe({ apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test' }).resource('customers', { fields: ['name'] });
+connect(crm, { connectionId: 'stripe', providerAccountId: 'acct_fixture:test', connector: stripeResource });
 const localResource: ApplicationSourceConnector = sqlite({ path: 'source.sqlite' }).table('customers', { idColumn: 'id', columns: ['name'] });
 connect(crm, { connectionId: 'local', connector: localResource });
 // @ts-expect-error application identity cannot claim a provider account

@@ -1,0 +1,121 @@
+# @relate/connector-stripe
+
+Read Stripe billing records through Relate's authorized object API. This package
+implements read-only API v1 lookups for `customers`, `invoices`,
+`subscriptions`, `products`, `prices`, `payment_intents`, and `charges`. It uses
+Node's built-in fetch; no Stripe SDK or runtime dependency is required.
+
+```ts
+import { stripe } from '@relate/connector-stripe';
+import { connect, defineSource } from 'relate';
+import { z } from 'zod';
+
+const customers = defineSource({
+  id: 'stripe.customers',
+  idField: 'id',
+  schema: z.object({
+    id: z.string(),
+    name: z.string().nullable(),
+    email: z.string().nullable(),
+  }),
+});
+const billing = stripe({
+  apiKey: () => process.env.STRIPE_SECRET_KEY!,
+  apiVersion: '2025-06-30.basil', // Pin the version your schema targets.
+  mode: 'test',
+});
+const binding = connect(customers, {
+  connectionId: 'billing',
+  providerAccountId: 'acct_yourAccount:test',
+  connector: billing.resource('customers', { fields: ['name', 'email'] }),
+});
+// Return { graphId, connections: [binding] } from defineApp.setup.
+// Define objects using source(customers) and from(customers.fields.name).
+// Adopt a known cus_... ID through app.host.adopt, then read as an actor.
+```
+
+`id` is always included; the source's `idField` must be `id`. `fields` selects
+literal top-level fields to retain in Relate. Stripe still sends its normal
+response; unselected fields are discarded by the connector before observation
+storage. Selected objects/arrays are kept in full, including any personal data
+inside them. Missing selected fields fail the read; explicit nulls remain null.
+Nested JSON is preserved, while nonfinite numbers and unsafe integer values are
+rejected. Define the source schema against your pinned version, including
+nullable fields. Money stays in Stripe's integer minor units and timestamps stay
+in seconds. Nested list fields (such as invoice lines) may be partial: this
+connector does not fetch their remaining pages or expand references.
+
+## Verified provider scope
+
+`providerAccountId` is `<account ID>:<mode>`, for example `acct_123:test` or
+`acct_123:live`. A Stripe account alone does not identify a record namespace.
+The account comes from `GET /v1/account`; mode is checked against the secret or
+restricted key prefix, and present records must have the matching `livemode`.
+Only `sk_test_`, `rk_test_`, `sk_live_`, and `rk_live_` keys are supported.
+OAuth, organization keys and API v2 contexts are outside this slice.
+
+Use a key permitted to retrieve the current account and the selected resources.
+`apiKey` may be a string or an async callback receiving `{ signal }`. Each
+operation resolves it once and reuses the immutable result for account
+verification and the resource request. A callback permits rotation without
+rebuilding the binding. Never change a key to represent a different source under
+an existing binding. Account verification happens on every connector fetch;
+Relate may serve cached observations according to its freshness policy without
+calling the connector. Set policy evidence freshness and read `maxAgeMs`
+according to your application's requirements.
+
+For Stripe Connect, set `account: 'acct_connected'`. Both requests carry the
+`Stripe-Account` header, and the returned account must match it. Bind using
+`providerAccountId: 'acct_connected:test'`. A configured account is a routing
+hint, not identity evidence. Account verification and retrieval are separate
+HTTP requests, not a transactional snapshot; they share the same key and account
+header. Revoked credentials produce denial, never stale authorization.
+
+## Errors and deadlines
+
+- HTTP 401/403, invalid/wrong-mode keys, invalid account identity, Connect
+  mismatches, and wrong record mode throw `SourceAccessDenied`.
+- A matching resource with `deleted: true` returns `state: 'deleted'`. Stripe
+  documents this for deleted customers. A 404 (including `resource_missing`) is
+  not affirmative deletion evidence: wrong IDs, mode or access context can also
+  cause missing-resource errors.
+- Other HTTP failures throw `StripeSourceError`, with an optional numeric
+  `status`. Transport failures, invalid JSON, wrong object/ID, and malformed
+  selected fields also fail. Error messages never copy credentials, provider
+  response bodies, or upstream exception messages. These failures follow
+  Relate's existing unavailable/stale-fallback policy; they do not delete data.
+- No source `version` is claimed. Stripe's creation time and request IDs are not
+  per-record revision ordering.
+
+`timeoutMs` defaults to 10,000 and covers credentials plus both requests. Caller
+cancellation propagates to fetch. Callbacks/transports should honor the signal;
+a noncooperative callback may continue after the caller is rejected, but cannot
+start a request after cancellation. `maxResponseBytes` defaults to 2 MiB per
+response and bounds streamed response consumption. Redirects are rejected. There
+are no automatic retries, background jobs, or owned connections to close. A
+trusted `fetch` override supports deterministic testing; production requests use
+the fixed `https://api.stripe.com/v1/` endpoint.
+
+Enumeration, search, webhooks, provider writes, and payment actions are not
+implemented. Cancelled subscriptions and archived products remain present
+records, with their provider status fields intact.
+
+## Contract lessons
+
+SQLite selects a table; Stripe selects an API resource. Both produce a
+`SourceConnector` from a connection factory, keeping resource selection,
+credentials, transport, and lifecycle out of the runtime. Stripe confirms that
+provider identity must describe the full record namespace, that deletion needs
+positive evidence, and that version evidence is optional. No new required
+connector method or generic HTTP abstraction is needed for these reads. Future
+listing and event delivery should establish their own tested capability
+contracts rather than being implied by `fetch`.
+
+References: [authentication](https://docs.stripe.com/api/authentication),
+[Connect requests](https://docs.stripe.com/api/connected-accounts),
+[current-account implementation](https://github.com/stripe/stripe-node/blob/master/src/resources/Accounts.ts),
+[deleted customers](https://docs.stripe.com/api/customers/retrieve),
+[version pinning](https://docs.stripe.com/api/versioning).
+
+Tests use deterministic HTTP response fixtures and the real Relate application
+path. They do not claim validation against a live Stripe account.
