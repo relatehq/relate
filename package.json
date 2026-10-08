@@ -17,7 +17,7 @@
     "example:postgres": "node scripts/examples/run.mjs postgres",
     "check": "pnpm check:development && pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && pnpm test:packaging",
     "typecheck": "pnpm build && tsc --noEmit -p tsconfig.tests.json",
-    "check:boundaries": "node tests/boundaries.mjs",
+    "check:boundaries": "node --import tsx tests/boundaries.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "pnpm lint:fix && prettier --write .",

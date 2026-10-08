@@ -6,7 +6,7 @@
   "type": "module",
   "description": "Read-only Stripe source connector for Relate.",
   "engines": {
-    "node": "^26.9.0"
+    "node": "^22.16.0 || ^24.0.0 || ^26.0.0"
   },
   "dependencies": {
     "relate": "workspace:*"

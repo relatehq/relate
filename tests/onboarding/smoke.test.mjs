@@ -1,3 +1,4 @@
+import pg from 'pg';
 import assert from 'node:assert/strict';
 import { spawn, execFile } from 'node:child_process';
 import { once } from 'node:events';
@@ -113,6 +114,52 @@ test(
 
       assert.equal(receipt.state, 'succeeded');
       assert.deepEqual(await request(review), receipt);
+
+      // A second workspace must borrow the inspector without stopping its owner.
+      const borrowed = spawn(
+        process.execPath,
+        [launcher, 'customer-workspace', '--no-open'],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      );
+      const borrowedClosed = once(borrowed, 'close');
+      let borrowedOutput = '';
+
+      borrowed.stdout.on('data', (chunk) => {
+        borrowedOutput += chunk;
+      });
+      borrowed.stderr.on('data', (chunk) => {
+        borrowedOutput += chunk;
+      });
+
+      try {
+        const deadline = Date.now() + 60000;
+
+        while (
+          !borrowedOutput.includes('the borrowed inspector stays running') &&
+          Date.now() < deadline
+        ) {
+          if (borrowed.exitCode !== null) assert.fail(borrowedOutput);
+
+          await delay(50);
+        }
+
+        assert.match(borrowedOutput, /the borrowed inspector stays running/);
+        assert.doesNotMatch(
+          borrowedOutput,
+          /Relate dev is already running|Config\s|PID\s/,
+        );
+      } finally {
+        borrowed.kill('SIGHUP');
+        const timer = setTimeout(() => borrowed.kill('SIGKILL'), 15000);
+        const [code] = await borrowedClosed;
+
+        clearTimeout(timer);
+        assert.equal(code, 130, borrowedOutput);
+      }
+
+      assert.equal((await fetch(inspector)).status, 200);
     } finally {
       child.kill('SIGINT');
       const timer = setTimeout(() => child.kill('SIGKILL'), 15000);
@@ -123,7 +170,10 @@ test(
     }
 
     await assert.rejects(fetch(url));
-    await assert.rejects(fetch(inspector));
+
+    if (output.includes('the borrowed inspector stays running'))
+      assert.equal((await fetch(inspector)).status, 200);
+    else await assert.rejects(fetch(inspector));
   },
 );
 
@@ -134,13 +184,33 @@ test(
     skip: !process.env.RELATE_TEST_DATABASE_URL,
   },
   async () => {
-    const { stdout } = await execute(process.execPath, [launcher, 'postgres'], {
-      env: {
-        ...process.env,
-        DATABASE_URL: process.env.RELATE_TEST_DATABASE_URL,
-      },
+    // This test owns only the explicitly configured disposable test database.
+    const database = new pg.Client({
+      connectionString: process.env.RELATE_TEST_DATABASE_URL,
     });
 
-    assert.match(stdout, /employee-read/);
+    await database.connect();
+
+    try {
+      await database.query('DROP SCHEMA IF EXISTS relate CASCADE');
+      const { stdout } = await execute(
+        process.execPath,
+        [launcher, 'postgres'],
+        {
+          env: {
+            ...process.env,
+            DATABASE_URL: process.env.RELATE_TEST_DATABASE_URL,
+          },
+        },
+      );
+
+      assert.match(stdout, /employee-read/);
+    } finally {
+      try {
+        await database.query('DROP SCHEMA IF EXISTS relate CASCADE');
+      } finally {
+        await database.end();
+      }
+    }
   },
 );

@@ -12,6 +12,7 @@ export interface Inspector {
 /** The CLI's complete terminal lines carry its local bootstrap link. */
 export function watchInspector(
   child: ChildProcessWithoutNullStreams,
+  onOutput?: (line: string) => void,
 ): Inspector {
   const exited = new Promise<void>((resolve) => {
     child.once('exit', () => resolve());
@@ -40,8 +41,11 @@ export function watchInspector(
         reject(new Error('Inspector exited before startup'));
       });
       lines.on('line', (line) => {
-        if (line.startsWith('Relate dev is already running for '))
+        if (line.startsWith('Relate dev is already running for ')) {
           reused = true;
+
+          return;
+        }
 
         const match =
           /^\s*Inspector\s+(http:\/\/127\.0\.0\.1:\d+\/#token=[A-Za-z0-9_-]+)\s*$/.exec(
@@ -49,9 +53,9 @@ export function watchInspector(
           );
 
         if (match) {
-          clear();
+          clearTimeout(timeout);
           resolve({ url: match[1]!, reused });
-        }
+        } else onOutput?.(line);
       });
     },
   );
@@ -70,6 +74,7 @@ export function watchInspector(
 }
 
 export function startInspector(): Inspector {
+  const quiet = process.env.RELATE_EXAMPLE_VERBOSE === '0';
   const child = spawn(
     process.execPath,
     [
@@ -77,6 +82,7 @@ export function startInspector(): Inspector {
         new URL('../../../packages/cli/bin/relate.js', import.meta.url),
       ),
       'dev',
+      ...(quiet ? ['--quiet'] : []),
       '--config',
       fileURLToPath(new URL('../relate.config.ts', import.meta.url)),
     ],
@@ -85,24 +91,12 @@ export function startInspector(): Inspector {
 
   child.stdin.end();
 
-  if (process.env.RELATE_EXAMPLE_VERBOSE !== '0')
-    child.stdout.pipe(process.stdout);
-  else {
-    // Hide CLI status lines, but keep output from the user's application visible.
-    const lines = createInterface({ input: child.stdout });
-
-    lines.on('line', (line) => {
-      if (
-        line.trim() &&
-        !/^  (Relate dev|Project\s|Config\s|Inspector\s|Watching\s|Loading\s|ready\s|update\s)/.test(
-          line,
-        )
-      )
-        process.stdout.write(`${line}\n`);
-    });
-  }
+  if (!quiet) child.stdout.pipe(process.stdout);
 
   child.stderr.pipe(process.stderr);
 
-  return watchInspector(child);
+  return watchInspector(
+    child,
+    quiet ? (line) => process.stdout.write(`${line}\n`) : undefined,
+  );
 }

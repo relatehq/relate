@@ -3,11 +3,16 @@ import { mkdtemp, open, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-/** Quiet preparation, visible failures, and cancellation of the owned process tree. */
+/**
+ * Quiet preparation and visible failures. Build steps opt into processTree so
+ * cancellation reaches their workers even in verbose mode. Examples stay in the
+ * terminal session and own their graceful cleanup; their descendants may include
+ * a browser, so finishing an example must not kill its whole process group.
+ */
 export async function runCommand(
   command,
   args,
-  { quiet = false, ...options } = {},
+  { quiet = false, processTree = false, ...options } = {},
 ) {
   const directory = quiet
     ? await mkdtemp(join(tmpdir(), 'relate-build-'))
@@ -22,7 +27,8 @@ export async function runCommand(
     if (!child?.pid) return;
 
     try {
-      if (process.platform === 'win32' && signal === 'SIGKILL') {
+      if (!processTree) child.kill(signal);
+      else if (process.platform === 'win32' && signal === 'SIGKILL') {
         const killer = spawn(
           'taskkill',
           ['/pid', String(child.pid), '/T', '/F'],
@@ -43,7 +49,7 @@ export async function runCommand(
 
     // The running example owns graceful cleanup of its children.
     // Build subprocesses have no such protocol, so signal the entire group.
-    if (quiet) killTree('SIGTERM');
+    if (processTree) killTree('SIGTERM');
     else child?.kill('SIGTERM');
 
     timer = setTimeout(() => killTree('SIGKILL'), 8000);
@@ -53,11 +59,12 @@ export async function runCommand(
   try {
     child = spawn(command, args, {
       ...options,
-      detached: process.platform !== 'win32',
+      detached: processTree && process.platform !== 'win32',
       stdio: log ? ['ignore', log.fd, log.fd] : 'inherit',
     });
     process.on('SIGINT', stop);
     process.on('SIGTERM', stop);
+    process.on('SIGHUP', stop);
     const code = await new Promise((resolve, reject) => {
       child.once('error', reject);
       child.once('close', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
@@ -72,10 +79,11 @@ export async function runCommand(
   } finally {
     clearTimeout(timer);
 
-    if (cancelled) killTree('SIGKILL');
+    if (cancelled && processTree) killTree('SIGKILL');
 
     process.off('SIGINT', stop);
     process.off('SIGTERM', stop);
+    process.off('SIGHUP', stop);
     await log?.close();
 
     if (directory) await rm(directory, { recursive: true, force: true });

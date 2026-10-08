@@ -53,71 +53,132 @@ test('verbose preparation and runtime output stay visible', async () => {
   assert.match(result.stderr, /warning/);
 });
 
-test(
-  'interrupting preparation stops its subprocess tree',
-  { timeout: 15000, skip: process.platform === 'win32' },
-  async () => {
-    const { spawn } = await import('node:child_process');
-    const { mkdtemp, readFile, rm } = await import('node:fs/promises');
-    const { tmpdir } = await import('node:os');
-    const { join } = await import('node:path');
-    const { once } = await import('node:events');
-    const { setTimeout: delay } = await import('node:timers/promises');
-    const directory = await mkdtemp(join(tmpdir(), 'relate-cancel-test-'));
-    const marker = join(directory, 'pid');
-    const source = `
+for (const signal of ['SIGINT', 'SIGHUP'])
+  for (const quiet of [true, false])
+    test(
+      `${signal} stops the ${quiet ? 'quiet' : 'verbose'} preparation subprocess tree`,
+      { timeout: 15000, skip: process.platform === 'win32' },
+      async () => {
+        const { spawn } = await import('node:child_process');
+        const { mkdtemp, readFile, rm } = await import('node:fs/promises');
+        const { tmpdir } = await import('node:os');
+        const { join } = await import('node:path');
+        const { once } = await import('node:events');
+        const { setTimeout: delay } = await import('node:timers/promises');
+        const directory = await mkdtemp(join(tmpdir(), 'relate-cancel-test-'));
+        const marker = join(directory, 'pid');
+        const source = `
     const { spawn } = require('node:child_process');
     const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)']);
     require('node:fs').writeFileSync(${JSON.stringify(marker)}, String(child.pid));
     setInterval(() => {}, 1000);
   `;
-    const child = spawn(process.execPath, [
+        const child = spawn(process.execPath, [
+          '--input-type=module',
+          '-e',
+          `
+    import { runCommand } from ${JSON.stringify(moduleUrl)};
+    process.exitCode = await runCommand(process.execPath, ['-e', ${JSON.stringify(source)}], { quiet: ${quiet}, processTree: true });
+  `,
+        ]);
+        const closed = once(child, 'close');
+        let pid;
+
+        try {
+          const deadline = Date.now() + 5000;
+
+          while (!pid && Date.now() < deadline) {
+            pid = Number(await readFile(marker, 'utf8').catch(() => ''));
+
+            if (!pid) await delay(20);
+          }
+
+          assert.ok(pid, 'preparation child started');
+          child.kill(signal);
+          assert.equal((await closed)[0], 130);
+
+          // Reaping a grandchild may lag behind its parent by a scheduling turn.
+          for (let attempt = 0; attempt < 100; attempt++) {
+            try {
+              process.kill(pid, 0);
+            } catch {
+              pid = undefined;
+              break;
+            }
+
+            await delay(20);
+          }
+
+          assert.equal(
+            pid,
+            undefined,
+            'preparation left no running grandchild',
+          );
+        } finally {
+          child.kill('SIGKILL');
+
+          if (pid) {
+            try {
+              process.kill(pid, 'SIGKILL');
+            } catch {}
+          }
+
+          await rm(directory, { recursive: true, force: true });
+        }
+      },
+    );
+
+test(
+  'graceful example shutdown leaves a browser-like descendant running',
+  {
+    timeout: 15000,
+    skip: process.platform === 'win32',
+  },
+  async () => {
+    const { spawn } = await import('node:child_process');
+    const { once } = await import('node:events');
+    const { setTimeout: delay } = await import('node:timers/promises');
+    const source = `
+    const { spawn } = require('node:child_process');
+    const browser = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+    process.on('SIGTERM', () => process.exit(0));
+    console.log(browser.pid);
+    setInterval(() => {}, 1000);
+  `;
+    const runner = spawn(process.execPath, [
       '--input-type=module',
       '-e',
       `
     import { runCommand } from ${JSON.stringify(moduleUrl)};
-    process.exitCode = await runCommand(process.execPath, ['-e', ${JSON.stringify(source)}], { quiet: true });
+    process.exitCode = await runCommand(process.execPath, ['-e', ${JSON.stringify(source)}]);
   `,
     ]);
-    const closed = once(child, 'close');
+    const closed = once(runner, 'close');
+    let output = '';
+
+    runner.stdout.on('data', (chunk) => {
+      output += chunk;
+    });
     let pid;
 
     try {
       const deadline = Date.now() + 5000;
 
-      while (!pid && Date.now() < deadline) {
-        pid = Number(await readFile(marker, 'utf8').catch(() => ''));
+      while (!output.includes('\n') && Date.now() < deadline) await delay(20);
 
-        if (!pid) await delay(20);
-      }
-
-      assert.ok(pid, 'preparation child started');
-      child.kill('SIGINT');
+      pid = Number(output.trim());
+      assert.ok(pid, 'browser-like descendant started');
+      runner.kill('SIGINT');
       assert.equal((await closed)[0], 130);
-
-      // Reaping a grandchild may lag behind its parent by a scheduling turn.
-      for (let attempt = 0; attempt < 100; attempt++) {
-        try {
-          process.kill(pid, 0);
-        } catch {
-          pid = undefined;
-          break;
-        }
-
-        await delay(20);
-      }
-
-      assert.equal(pid, undefined, 'preparation left no running grandchild');
+      assert.doesNotThrow(() => process.kill(pid, 0));
     } finally {
-      child.kill('SIGKILL');
+      runner.kill('SIGKILL');
 
       if (pid) {
         try {
           process.kill(pid, 'SIGKILL');
         } catch {}
       }
-
-      await rm(directory, { recursive: true, force: true });
     }
   },
 );

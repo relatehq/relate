@@ -17,6 +17,8 @@ export interface TerminalOptions {
   readonly cwd: string;
   readonly projectRoot: string;
   readonly color: boolean;
+  /** Suppress status chatter, retaining bootstrap links and application output. */
+  readonly quiet?: boolean;
 }
 
 export interface Terminal {
@@ -86,6 +88,12 @@ export function createTerminal(options: TerminalOptions): Terminal {
 
   return {
     banner({ project, config, inspectorUrl }) {
+      if (options.quiet) {
+        out(`Inspector  ${inspectorUrl}`);
+
+        return;
+      }
+
       out(`  ${paint('bold', 'Relate dev')}`);
       out(`  ${pad('Project', 10)} ${project}`);
       out(`  ${pad('Config', 10)} ${displayPath(config)}`);
@@ -93,21 +101,29 @@ export function createTerminal(options: TerminalOptions): Terminal {
       out(`  ${pad('Watching', 10)} application definitions`);
     },
     notice(message) {
+      if (options.quiet) return;
+
       out(`  ${paint('dim', message)}`);
     },
     warn(message) {
       err(`  ${paint('yellow', 'warn')}   ${message}`);
     },
     loading(attempt) {
+      if (options.quiet) return;
+
       out(`  ${pad('Loading', 10)} attempt ${attempt}`);
     },
     ready(generation, manifest, durationMs) {
+      if (options.quiet) return;
+
       out('');
       out(
         `  ${paint('green', 'ready')}  gen ${generation}  ${describeManifest(manifest)}  ${paint('dim', `${durationMs}ms`)}`,
       );
     },
     update(files, generation, summary, durationMs) {
+      if (options.quiet) return;
+
       out(
         `  ${paint('green', 'update')} ${pad(fileList(files), 28)} gen ${generation}  ${summary}  ${paint('dim', `${durationMs}ms`)}`,
       );

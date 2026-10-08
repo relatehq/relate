@@ -118,6 +118,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
     cwd: options.cwd,
     projectRoot: project.root,
     color,
+    quiet: args.quiet,
   });
   const instanceId = randomUUID();
   const acquired = await acquireLock({
@@ -163,9 +164,13 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       [
         `Relate dev is already running for ${project.root}`,
         `Inspector  ${inspectorUrl}`,
-        `Config     ${metadata.configPath}`,
-        `PID        ${metadata.pid}`,
-        'Use the existing server; stop it with Ctrl+C in its owning terminal to restart.',
+        ...(args.quiet
+          ? []
+          : [
+              `Config     ${metadata.configPath}`,
+              `PID        ${metadata.pid}`,
+              'Use the existing server; stop it with Ctrl+C in its owning terminal to restart.',
+            ]),
         '',
       ].join('\n'),
     );
@@ -352,6 +357,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
         await release();
         process.off('SIGINT', onSignal);
         process.off('SIGTERM', onSignal);
+        process.off('SIGHUP', onSignal);
         resolve(exitCodes.ok);
       };
 
@@ -362,6 +368,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       else {
         process.on('SIGINT', onSignal);
         process.on('SIGTERM', onSignal);
+        process.on('SIGHUP', onSignal);
       }
     });
 

@@ -21,7 +21,10 @@ process.exitCode = await runWorkspace({
           : process.platform === 'win32'
             ? 'explorer.exe'
             : 'xdg-open';
-      const browser = spawn(command, [application.url], { stdio: 'ignore' });
+      const browser = spawn(command, [application.url], {
+        stdio: 'ignore',
+        detached: true,
+      });
 
       browser.on('error', () =>
         console.log('Open the application URL above in your browser.'),

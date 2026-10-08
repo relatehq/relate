@@ -1,6 +1,8 @@
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { runCommand } from './process.mjs';
 
+const require = createRequire(import.meta.url);
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const examples = {
   'hello-world': { directory: '01-hello-world', projects: ['packages/node'] },
@@ -33,17 +35,13 @@ if (!example || forwarded.some((arg) => arg !== '--no-open')) {
   const steps = [
     [
       process.execPath,
-      ['node_modules/typescript/bin/tsc', '-b', ...example.projects],
+      [require.resolve('typescript/bin/tsc'), '-b', ...example.projects],
     ],
     ...(example.client
       ? [
           [
-            process.execPath,
-            [
-              'apps/inspector/node_modules/vite/bin/vite.js',
-              'build',
-              'apps/inspector',
-            ],
+            process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+            ['--filter', '@relate/inspector', 'build:client'],
           ],
         ]
       : []),
@@ -53,6 +51,8 @@ if (!example || forwarded.some((arg) => arg !== '--no-open')) {
     process.exitCode = await runCommand(command, arguments_, {
       cwd: root,
       quiet: !verbose,
+      processTree: true,
+      shell: process.platform === 'win32' && command === 'pnpm.cmd',
     });
 
     if (process.exitCode !== 0) break;

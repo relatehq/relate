@@ -40,9 +40,9 @@ jobs:
           pnpm check:development
           pnpm format:check
           pnpm lint
-          pnpm check:boundaries
           pnpm test:release
       - run: |
+          pnpm check:boundaries
           pnpm typecheck
           pnpm exec vitest run
           pnpm test:packaging
