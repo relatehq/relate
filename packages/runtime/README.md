@@ -42,8 +42,9 @@ concrete store or connector.
 
 ```ts
 import { compile } from 'relate/compiler';
-import { createRuntime, SourceAccessDenied } from '@relate/runtime';
-import type { SourceConnector } from '@relate/runtime';
+import { createRuntime } from '@relate/runtime';
+import { SourceAccessDenied } from 'relate/connectors';
+import type { SourceConnector } from 'relate/connectors';
 
 // This provider returns account identity with every authenticated record response.
 const crm: SourceConnector = {

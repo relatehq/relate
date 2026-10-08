@@ -13,7 +13,8 @@ import {
   referenceInput,
 } from 'relate';
 import { compile } from 'relate/compiler';
-import { connect, createRuntime } from '@relate/node';
+import { createRuntime } from '@relate/node';
+import { connect } from 'relate';
 import type { ObservationStore } from '@relate/runtime/storage';
 import {
   access,

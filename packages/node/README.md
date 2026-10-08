@@ -19,8 +19,8 @@ and unpublished while implementation is in progress.
   `objects.Customer.traverse.invoices`, `actions.addAccountReview`.
 - `relate.host.adopt(Customer, sourceRecordId)` is the trusted membership
   operation; `relate.close()` drains in-flight work.
-- `connect(source, { connectionId, connector })` binds a source definition to a
-  connector.
+- `connect` and `defineApp` are portable authoring helpers imported from
+  `relate`. This package executes their definitions.
 
 Authorization, transactions and evidence belong to the engine. This package adds
 types, composition and lifecycle. Storage defaults to isolated memory; an
@@ -47,7 +47,8 @@ import {
   objectId,
   source,
 } from 'relate';
-import { connect, createRuntime } from '@relate/node';
+import { createRuntime } from '@relate/node';
+import { connect } from 'relate';
 
 const people = defineSource({
   id: 'example.people',
@@ -140,13 +141,14 @@ const recovered = await relate
 
 ## Application definitions
 
-`defineApp` wraps an authored graph with a deferred recipe for runtime bindings.
-It is an inert descriptor: importing or creating it opens nothing, so
-`relate dev` can compile `app.graph` without credentials or a database.
+`defineApp` from `relate` wraps an authored graph with a deferred recipe for
+runtime bindings. It is an inert descriptor: importing or creating it opens
+nothing, so `relate dev` can compile `app.graph` without credentials or a
+database.
 
 ```ts
 // src/relate/app.ts
-import { defineApp } from '@relate/node';
+import { defineApp } from 'relate';
 import { graph } from './graph.js';
 
 export default defineApp({
@@ -182,10 +184,9 @@ await relate.close();
 Implemented: typed reads, source-backed references, bidirectional traversal with
 pagination, native actions with atomic success receipts, and actor-bound
 lookup/replay with current-access checks. Ordinary calls wait for completion.
-Not implemented: background submission, failed receipts, collection queries,
-automatic synchronization, servers and workers. `defineApp` and `startApp` from
-the [inspector specification](../../apps/inspector/SPEC.md) are proposals, not
-exports.
+`startApp` executes a portable `defineApp` descriptor and owns registered
+cleanup. Not implemented: background submission, collection queries, automatic
+synchronization, servers and workers.
 
 ## Further reading
 

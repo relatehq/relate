@@ -13,10 +13,8 @@ export type {
   Relate,
 } from './types.js';
 
-export { connect, createRuntime } from './runtime.js';
+export { createRuntime } from './runtime.js';
 
-export type { AppOptions, Connection } from './runtime.js';
+export type { AppOptions } from './runtime.js';
 
-export { defineApp, isAppDefinition, startApp } from './app.js';
-
-export type { AppBindings, AppDefinition, AppSetupContext } from './app.js';
+export { startApp } from './app.js';

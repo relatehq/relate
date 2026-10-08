@@ -1,5 +1,32 @@
 # relate contract
 
+## Portable application and extension contracts
+
+`connect`, `defineApp`, and their `Connection`, `AppBindings`, `AppDefinition`,
+and `AppSetupContext` types belong to `relate`. `connect` creates a frozen
+binding and defaults authorization to `shared-service`; it does not open a
+connection. `defineApp` preserves the exact graph type and stores deferred setup
+without invoking it. `isAppDefinition` recognizes the descriptor across module
+instances. Execution and registered cleanup belong to `startApp` in
+`@relate/node`.
+
+`relate/connectors` owns `SourceConnector`, `SourceRecord`, `SourceVersion`,
+`SourceBinding`, and `SourceAccessDenied`. This is the existing resource-read
+contract: account identification and fetching a known source record ID. It does
+not yet define system factories, resource discovery, synchronization, or
+external writes. Account evidence and denial/deletion semantics are unchanged;
+see the [runtime contract](../runtime/CONTRACT.md).
+
+`relate/storage` exports storage interface types needed by app setup and runtime
+implementations. `@relate/runtime/storage` continues to re-export those types
+alongside its errors and observation-ordering implementation. Neither portable
+extension entry point imports graph authoring, compiler, or host code. The root
+`relate` entry point has no runtime or Node-host dependency.
+
+Import migration: authoring helpers previously exported by `@relate/node` now
+come from `relate`; connector types and `SourceAccessDenied` previously exported
+by `@relate/runtime` now come from `relate/connectors`.
+
 Detailed behavior of the current slice. For an overview of the package, see
 [README.md](./README.md).
 

@@ -1,5 +1,5 @@
-import { SourceAccessDenied } from '@relate/runtime';
-import type { SourceConnector, SourceRecord } from '@relate/runtime';
+import { SourceAccessDenied } from 'relate/connectors';
+import type { SourceConnector, SourceRecord } from 'relate/connectors';
 
 /**
  * The development CRM record endpoint distinguishes three outcomes the runtime treats

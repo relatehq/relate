@@ -37,6 +37,21 @@ const compiler = {
     "import 'node:crypto'; export function compile() {}",
 };
 
+it.each(['connectors', 'storage'])(
+  'keeps %s contracts independent of graph authoring, including type imports',
+  async (entry) => {
+    await expect(
+      check({
+        'packages/relate/src/index.ts': 'export interface GraphDefinition {}',
+        [`packages/relate/src/${entry}.ts`]:
+          "import type { GraphDefinition } from './index.js';",
+      }),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining(`src/${entry}.ts -> src/index.ts`),
+    });
+  },
+);
+
 it.each([
   "export { compile } from './compiler.js';",
   "export * from './compiler.js';",

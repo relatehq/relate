@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { SourceAccessDenied } from '@relate/runtime';
+import { SourceAccessDenied } from 'relate/connectors';
 import { startCrmSimulator } from '../../dev/simulators/crm/index.js';
 import { crmConnector } from '../../examples/postgres-persistence/src/connector.js';
 

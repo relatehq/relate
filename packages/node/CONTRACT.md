@@ -6,15 +6,15 @@ Detailed behavior of the current slice. For an overview of the package, see
 Application composition for typed, authorized object reads. Private and
 unpublished while implementation is in progress.
 
-The [inspector foundation specification](../../apps/inspector/SPEC.md) proposes
-`defineApp` here as an inert descriptor containing a graph and deferred runtime
-setup. It explains how an inspector can compile the same graph that a larger
-application runs, without starting that application's server. `defineApp` and
-the illustrated `startApp` helper are not implemented exports; the callable API
-below remains `createRuntime`.
+`defineApp` and `connect` are exported by `relate`. An app definition holds the
+graph and deferred setup without executing it. `startApp` from `@relate/node`
+runs setup, compiles the graph, creates the runtime, and owns cleanup registered
+through `onDispose`. The inspector can compile `app.graph` without running
+setup. Direct embedding can use `createRuntime` instead.
 
 ```ts
-import { connect, createRuntime } from '@relate/node';
+import { createRuntime } from '@relate/node';
+import { connect } from 'relate';
 import { assertFields } from 'relate';
 
 const relate = createRuntime({
@@ -65,7 +65,7 @@ are the same as the underlying engine.
 `connectionId`. Connections use shared service authorization by default (the
 only supported mode). Missing, duplicate or unregistered connections fail at
 construction. Explicit provider denial must use `SourceAccessDenied` from
-`@relate/runtime`; ordinary errors mean temporary unavailability.
+`relate/connectors`; ordinary errors mean temporary unavailability.
 
 Compilation belongs here; `@relate/runtime` still consumes portable compiled
 models. Named registries are supported by the compiler alongside existing array

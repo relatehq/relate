@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/runtime';
 import type { ObservationStore } from '@relate/runtime/storage';
-import type { SourceConnector } from '@relate/runtime';
+import type { SourceConnector } from 'relate/connectors';
 import {
   Customer,
   customerGraph,

@@ -101,7 +101,7 @@ async function createProject(): Promise<Project> {
   );
   await writeFile(
     join(root, 'src/relate/app.ts'),
-    "import { defineApp } from '@relate/node';\nimport { graph } from './graph.js';\n\nexport default defineApp({ graph });\n",
+    "import { defineApp } from 'relate';\nimport { graph } from './graph.js';\n\nexport default defineApp({ graph });\n",
   );
   await writeFile(join(root, 'src/relate/graph.ts'), graphSource('reader'));
 
@@ -362,7 +362,7 @@ it('prints the URL before the first model, then publishes models and failures ov
   // A syntax error is a syntax diagnostic with an exact frame.
   await project.write(
     'src/relate/app.ts',
-    "import { defineApp } from '@relate/node';\nconst broken = ;\n",
+    "import { defineApp } from 'relate';\nconst broken = ;\n",
   );
   const syntax = await take(stream);
 
@@ -382,7 +382,7 @@ it('prints the URL before the first model, then publishes models and failures ov
   // Import-time failures are import diagnostics, never worker failures.
   await project.write(
     'src/relate/app.ts',
-    "import { defineApp } from '@relate/node';\nimport { graph } from './graph.js';\nif (!process.env.RELATE_TEST_MISSING_KEY) throw new Error('CRM_API_KEY is required');\nexport default defineApp({ graph });\n",
+    "import { defineApp } from 'relate';\nimport { graph } from './graph.js';\nif (!process.env.RELATE_TEST_MISSING_KEY) throw new Error('CRM_API_KEY is required');\nexport default defineApp({ graph });\n",
   );
   const imported = await take(stream);
 
@@ -403,7 +403,7 @@ it('prints the URL before the first model, then publishes models and failures ov
   // Child console output is prefixed per stream; it never becomes a protocol message.
   await project.write(
     'src/relate/app.ts',
-    "import { defineApp } from '@relate/node';\nimport { graph } from './graph.js';\nconsole.log('{\"type\":\"model\"}');\nconsole.error('Fixture configuration is incomplete');\nexport default defineApp({ graph });\n",
+    "import { defineApp } from 'relate';\nimport { graph } from './graph.js';\nconsole.log('{\"type\":\"model\"}');\nconsole.error('Fixture configuration is incomplete');\nexport default defineApp({ graph });\n",
   );
   const published = await take(stream);
 
@@ -445,7 +445,7 @@ it('times out a child that never settles, reports one worker diagnostic and reco
   projects.push(project.root);
   await project.write(
     'src/relate/app.ts',
-    "import { defineApp } from '@relate/node';\nimport { graph } from './graph.js';\nfor (;;) {}\nexport default defineApp({ graph });\n",
+    "import { defineApp } from 'relate';\nimport { graph } from './graph.js';\nfor (;;) {}\nexport default defineApp({ graph });\n",
   );
   const dev = await startDev(project, ['--eval-timeout', '1500']);
   const cookie = await openSession(dev);
@@ -479,7 +479,7 @@ it('times out a child that never settles, reports one worker diagnostic and reco
   expect((await fetch(`${dev.url}/dev/instance`)).status).toBe(200);
   await project.write(
     'src/relate/app.ts',
-    "import { defineApp } from '@relate/node';\nimport { graph } from './graph.js';\nexport default defineApp({ graph });\n",
+    "import { defineApp } from 'relate';\nimport { graph } from './graph.js';\nexport default defineApp({ graph });\n",
   );
   const model = await take(stream, 20_000);
 

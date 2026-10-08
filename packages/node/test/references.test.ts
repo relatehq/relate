@@ -15,7 +15,8 @@ import {
   objectId,
   source,
 } from 'relate';
-import { connect, createRuntime } from '@relate/node';
+import { createRuntime } from '@relate/node';
+import { connect } from 'relate';
 import {
   access,
   ana,

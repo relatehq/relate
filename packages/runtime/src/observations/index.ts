@@ -3,8 +3,8 @@ export {
   verifyAccount,
   observation,
   InvalidObservation,
-  SourceAccessDenied,
 } from './fetch.js';
 
-export type { SourceConnector, SourceRecord } from './fetch.js';
+export { SourceAccessDenied } from 'relate/connectors';
+export type { SourceConnector, SourceRecord } from 'relate/connectors';
 export { compareObservation, OrderingConflict } from './ordering.js';

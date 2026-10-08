@@ -15,8 +15,9 @@ evidence with `retention: 'confirmed'` and `retentionDurability: 'volatile'`.
 State disappears when the store instance is lost; creating another default
 runtime starts empty.
 
-`createRuntime` and `connect` come from `@relate/node`. Graph objects are named
-(`objects: { Person }`), and callers use
+`defineApp` and `connect` come from `relate`; they describe deferred setup.
+`startApp` from `@relate/node` runs that setup and starts the runtime. Graph
+objects are named (`objects: { Person }`), and callers use
 `relate.as(principal).objects.Person.get(id, { select: ['name'] })`. The
 result's canonical ID is separate from its selected data. `assertFields` checks
 availability before using the typed name. The host authenticates the principal;

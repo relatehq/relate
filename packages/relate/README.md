@@ -15,7 +15,12 @@ Private and unpublished while implementation is in progress.
   `defineAccess`, `defineAction` and `defineGraph`; the property constructors
   `objectId`, `from`, `native` and `reference`; `source` and `nativeMembership`;
   `implementAction`; and the boundary helpers `referenceInput` and
-  `assertFields`.
+  `assertFields`; `connect`, `defineApp`, and `isAppDefinition`.
+- `relate/connectors`: resource adapter contracts (`SourceConnector`,
+  `SourceRecord`, `SourceVersion`, `SourceBinding`) and `SourceAccessDenied`.
+- `relate/storage`: type-only storage adapter contracts used by application
+  setup and the runtime. Implementations and ordering remain in their owning
+  runtime/storage packages.
 - `relate/compiler`: `compile(graph)` validates a definition and returns an
   immutable, serializable `CompiledModel` with a deterministic `sha256:`
   definition revision.
@@ -34,10 +39,69 @@ imports stay free of compiler and Node dependencies.
 - Depends on `zod` and `@relate/protocol` (result and evidence types).
 - `@relate/node` compiles an authored graph and infers the typed consumer API
   from its object registry.
-- `@relate/runtime` and `@relate/postgres` import only `relate/model`. They
-  execute compiled manifests and never see authoring objects.
+- `@relate/runtime` uses `relate/model`, `relate/connectors`, and
+  `relate/storage`; it executes compiled manifests without importing graph
+  authoring.
+- Connector implementations depend on `relate/connectors`, not the Node host or
+  runtime implementation.
 
 ## Public API
+
+### From graph definition to running application
+
+An app author uses three steps:
+
+1. Define sources, objects, relationships, actions, and policies with `relate`.
+   The graph describes the model; it contains no live provider clients.
+2. Wrap the graph in `defineApp({ graph, setup })` from `relate`. Inside setup,
+   open provider clients, bind each source with `connect`, and register cleanup.
+   `connect` only creates a binding; it performs no I/O.
+3. In a Node server entry point, call `startApp(app)` from `@relate/node`. The
+   host runs setup, compiles the graph, and supplies the connections to the
+   runtime. It returns the typed consumer API and drains work before cleanup.
+
+```ts
+// app.ts — openBindings is an application-owned setup helper.
+import { defineApp } from 'relate';
+import { graph } from './graph.js';
+
+export default defineApp({
+  graph,
+  async setup({ onDispose }) {
+    const { openBindings } = await import('./bindings.js');
+    const bindings = await openBindings();
+    onDispose(() => bindings.close());
+    return { connections: bindings.connections };
+  },
+});
+```
+
+```ts
+// server.ts — only explicit embedding needs the Node host import.
+import { startApp } from '@relate/node';
+import app from './app.js';
+
+const relate = await startApp(app);
+// A server supplies an authenticated actor and a previously adopted object ID.
+const customer = await relate.as(actor).objects.Customer.get(customerId);
+await relate.close();
+```
+
+`relate dev` reads `app.graph` without calling setup. Top-level application
+imports must therefore remain safe to evaluate without credentials. Importing
+`relate` does not import the runtime or the Node host, even through its types.
+
+A connector author implements `SourceConnector` from `relate/connectors` for one
+selected resource. On a read, the runtime applies policy, verifies provider
+identity, and fetches through that adapter when freshness requires it. The
+runtime validates and retains observations and returns authorized fields with
+evidence. The app author does not call the adapter directly for consumer reads.
+
+See the runnable [hello-world example](../../examples/hello-world/src/index.ts)
+for the complete chain with an in-memory provider. SQLite and Stripe packages
+are planned in [connectors/TODO.md](../../connectors/TODO.md).
+
+### Graph authoring
 
 ```ts
 import { z } from 'zod';

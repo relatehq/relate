@@ -7,7 +7,7 @@ import type { ActionHandler } from './actions/index.js';
 import type { NativeTransaction, StorageScope } from './storage.js';
 import { createTraversal } from './traversal/index.js';
 import { createSourceOperations } from './resolution/index.js';
-import type { SourceBinding } from './resolution/index.js';
+import type { SourceBinding } from 'relate/connectors';
 import { createMemoryStore } from './memory.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
@@ -15,8 +15,6 @@ import type { CompiledModel } from 'relate/model';
 import type { ReadRequest, ReadResult } from '@relate/protocol';
 import type { ObservationStore } from './storage.js';
 import type { Principal } from './authorization/index.js';
-
-export type { SourceBinding } from './resolution/index.js';
 
 export interface RuntimeOptions {
   readonly model: CompiledModel;

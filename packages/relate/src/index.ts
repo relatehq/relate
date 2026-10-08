@@ -433,3 +433,12 @@ export type {
   ModelIssueCode,
   SourceSite,
 } from './diagnostics.js';
+
+export { connect, defineApp, isAppDefinition } from './app.js';
+
+export type {
+  Connection,
+  AppBindings,
+  AppDefinition,
+  AppSetupContext,
+} from './app.js';

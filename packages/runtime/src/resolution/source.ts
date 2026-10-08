@@ -27,17 +27,9 @@ import {
   verifyAccount,
   SourceAccessDenied,
 } from '../observations/index.js';
-import type { SourceConnector } from '../observations/index.js';
+import type { SourceBinding } from 'relate/connectors';
 import { validateReadRequest, summarize } from '../reads/index.js';
 import { refreshObservation } from './refresh.js';
-
-export interface SourceBinding {
-  readonly connectionId: string;
-  /** Expected stable provider account ID, checked against authenticated connector evidence. */
-  readonly providerAccountId: string;
-  readonly authorization: 'shared-service';
-  readonly connector: SourceConnector;
-}
 
 /** Source operations receive cross-object evidence resolution from composition. */
 export function createSourceOperations(options: {

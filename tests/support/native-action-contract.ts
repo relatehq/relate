@@ -3,8 +3,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { implementAction, referenceInput } from 'relate';
 import type { ActionContext, ObjectId } from 'relate';
 import { compile } from 'relate/compiler';
-import { connect, createRuntime } from '@relate/node';
-import { SourceAccessDenied } from '@relate/runtime';
+import { createRuntime } from '@relate/node';
+import { connect } from 'relate';
+import { SourceAccessDenied } from 'relate/connectors';
 import { ReadError } from '@relate/protocol';
 import type { ObservationStore, NativeRecord } from '@relate/runtime/storage';
 import {

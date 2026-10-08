@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { connect, createRuntime } from '@relate/node';
-import { SourceAccessDenied } from '@relate/runtime';
-import type { SourceConnector } from '@relate/runtime';
+import { createRuntime } from '@relate/node';
+import { connect } from 'relate';
+import { SourceAccessDenied } from 'relate/connectors';
+import type { SourceConnector } from 'relate/connectors';
 import type { Mock } from 'vitest';
 import {
   defineObject,

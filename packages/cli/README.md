@@ -26,8 +26,8 @@ pnpm relate dev --eval-timeout 60000
 pnpm relate dev --allowed-origin https://my-private-forward.example
 ```
 
-The config is an entry module exporting `defineApp(...)` from `@relate/node` (or
-a `defineGraph(...)` result) as its default export:
+The config is an entry module exporting `defineApp(...)` from `relate` (or a
+`defineGraph(...)` result) as its default export:
 
 ```ts
 // relate.config.ts

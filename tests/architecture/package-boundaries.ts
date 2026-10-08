@@ -13,7 +13,12 @@ export const packagePolicies: Record<
   'packages/relate': { imports: ['zod', '@relate/protocol'] },
   'packages/protocol': { imports: [] },
   'packages/runtime': {
-    imports: ['relate/model', '@relate/protocol'],
+    imports: [
+      'relate/model',
+      'relate/connectors',
+      'relate/storage',
+      '@relate/protocol',
+    ],
     builtins: ['node:crypto'],
   },
   'packages/postgres': {
@@ -24,6 +29,7 @@ export const packagePolicies: Record<
     imports: [
       'relate',
       'relate/compiler',
+      'relate/connectors',
       '@relate/runtime',
       '@relate/protocol',
     ],
@@ -98,6 +104,7 @@ export const packagePolicies: Record<
     imports: [
       'relate',
       'relate/compiler',
+      'relate/connectors',
       '@relate/runtime',
       '@relate/postgres',
       'zod',
@@ -111,7 +118,12 @@ export const packagePolicies: Record<
 export function assertRelateEntryPoints(
   graph: ReadonlyMap<string, readonly string[]>,
 ): void {
-  for (const entry of ['src/index.ts', 'src/model.ts']) {
+  for (const entry of [
+    'src/index.ts',
+    'src/model.ts',
+    'src/connectors.ts',
+    'src/storage.ts',
+  ]) {
     const visited = new Set<string>();
     const visit = (file: string, path: readonly string[]): void => {
       if (visited.has(file)) return;
@@ -123,6 +135,8 @@ export function assertRelateEntryPoints(
 
       if (
         compiler ||
+        (['src/connectors.ts', 'src/storage.ts'].includes(entry) &&
+          !['src/connectors.ts', 'src/storage.ts'].includes(file)) ||
         (entry === 'src/model.ts' && !model && file !== 'src/diagnostics.ts')
       )
         throw new Error(

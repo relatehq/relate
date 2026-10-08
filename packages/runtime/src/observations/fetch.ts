@@ -1,31 +1,9 @@
 import { accepts } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import type { Json } from '@relate/protocol';
-import type { Observation, SourceVersion } from '../storage.js';
-
-/** Account identity must come from this response or its authenticated, immutable credential context. */
-export type SourceRecord = { readonly providerAccountId: string } & (
-  | { state: 'present'; record: Record<string, Json>; version?: SourceVersion }
-  | { state: 'deleted'; version?: SourceVersion }
-);
-
-export interface SourceConnector {
-  /** Authenticate current credentials and return the provider's stable account ID, never a configured label. */
-  identify(options: { signal: AbortSignal }): Promise<string>;
-  /** Deletion requires affirmative evidence. Throw SourceAccessDenied for explicit provider denial. */
-  fetch(
-    sourceRecordId: string,
-    options: { signal: AbortSignal },
-  ): Promise<SourceRecord>;
-}
-
-/** Provider permission denial must never be treated as temporary unavailability. */
-export class SourceAccessDenied extends Error {
-  constructor() {
-    super('Source access denied');
-    this.name = 'SourceAccessDenied';
-  }
-}
+import type { Observation } from '../storage.js';
+import type { SourceConnector, SourceRecord } from 'relate/connectors';
+import { SourceAccessDenied } from 'relate/connectors';
 
 export class InvalidObservation extends Error {}
 

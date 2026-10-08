@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/runtime';
-import type { SourceConnector } from '@relate/runtime';
+import type { SourceConnector } from 'relate/connectors';
 import { RetentionError } from '@relate/runtime/storage';
 import type { ObservationStore } from '@relate/runtime/storage';
 import { randomUUID } from 'node:crypto';

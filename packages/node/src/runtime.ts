@@ -7,49 +7,18 @@ import type {
   ObjectDefinition,
   ObjectId,
   ObjectRegistry,
-  SourceDefinition,
+  AppBindings,
 } from 'relate';
 import { createRuntime as createEngine, createQuery } from '@relate/runtime';
-import type { Principal, RuntimeOptions, SourceBinding } from '@relate/runtime';
+import type { Principal } from '@relate/runtime';
+import type { SourceBinding } from 'relate/connectors';
 import type { ActionHandler } from '@relate/runtime';
 import type { Consumer, Relate } from './types.js';
 
-export interface Connection extends SourceBinding {
-  readonly source: SourceDefinition;
-}
-
-/** This slice supports shared service credentials only. Credentials stay in the connector. */
-export function connect(
-  source: SourceDefinition,
-  binding: Omit<SourceBinding, 'authorization'> & {
-    readonly authorization?: 'shared-service';
-  },
-): Connection {
-  return Object.freeze({
-    ...binding,
-    source,
-    authorization: binding.authorization ?? 'shared-service',
-  });
-}
-
 export interface AppOptions<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
-> {
+> extends AppBindings<G> {
   readonly graph: G;
-  readonly actionImplementations?: readonly (G extends {
-    readonly actions: infer A extends Readonly<
-      Record<string, ActionDefinition>
-    >;
-  }
-    ? { [K in keyof A]: ActionImplementation<G, A[K]> }[keyof A]
-    : never)[];
-  readonly connections: readonly Connection[];
-  readonly graphId?: string;
-  /** Borrowed storage: the caller owns migrations and closing it. */
-  readonly store?: RuntimeOptions['store'];
-  readonly clock?: RuntimeOptions['clock'];
-  readonly actionTimeoutMs?: RuntimeOptions['actionTimeoutMs'];
-  readonly cursorKey?: Uint8Array;
 }
 
 /** Compile an authored graph and bind typed reads and native action handlers. */

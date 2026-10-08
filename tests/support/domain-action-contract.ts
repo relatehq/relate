@@ -9,7 +9,8 @@ import {
 } from 'relate';
 import type { ActionContext } from 'relate';
 import { compile } from 'relate/compiler';
-import { connect, createRuntime } from '@relate/node';
+import { createRuntime } from '@relate/node';
+import { connect } from 'relate';
 import { NativeCommitUncertain } from '@relate/runtime/storage';
 import type { ObservationStore, NativeRecord } from '@relate/runtime/storage';
 import {

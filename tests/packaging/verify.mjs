@@ -39,6 +39,72 @@ try {
       `file:${join(tarballs, `${metadata.name.replace('@', '').replace('/', '-')}-${metadata.version}.tgz`)}`;
   }
 
+  // App/connector authors can install and typecheck without the engine or host.
+  const portable = join(temp, 'portable');
+
+  await mkdir(portable);
+  await writeFile(
+    join(portable, 'package.json'),
+    JSON.stringify({
+      private: true,
+      type: 'module',
+      dependencies: {
+        relate: dependencies.relate,
+        '@relate/protocol': dependencies['@relate/protocol'],
+        zod: dependencies.zod,
+      },
+    }),
+  );
+  await execFile(
+    'npm',
+    ['install', '--ignore-scripts', '--no-audit', '--no-fund'],
+    {
+      cwd: portable,
+    },
+  );
+  await writeFile(
+    join(portable, 'app.types.ts'),
+    await readFile(resolve(root, 'packages/relate/test/app.types.ts'), 'utf8'),
+  );
+  await execFile(
+    process.execPath,
+    [
+      resolve(root, 'node_modules/typescript/bin/tsc'),
+      '--outDir',
+      'built',
+      '--strict',
+      '--exactOptionalPropertyTypes',
+      '--target',
+      'ES2022',
+      '--module',
+      'NodeNext',
+      '--moduleResolution',
+      'NodeNext',
+      'app.types.ts',
+    ],
+    { cwd: portable },
+  );
+  await writeFile(
+    join(portable, 'smoke.mjs'),
+    `
+import assert from 'node:assert/strict';
+import { isAppDefinition } from 'relate';
+import { SourceAccessDenied } from 'relate/connectors';
+import { app } from './built/app.types.js';
+assert.ok(isAppDefinition(app));
+assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
+assert.deepEqual(Object.keys(await import('relate/storage')), []);
+await assert.rejects(import('@relate/node'), { code: 'ERR_MODULE_NOT_FOUND' });
+await assert.rejects(import('@relate/runtime'), { code: 'ERR_MODULE_NOT_FOUND' });
+console.log('Portable app and connector contracts work without Node host or runtime packages.');
+`,
+  );
+  const portableResult = await execFile(process.execPath, ['smoke.mjs'], {
+    cwd: portable,
+  });
+
+  process.stdout.write(portableResult.stdout);
+
   const consumer = join(temp, 'consumer');
 
   await mkdir(consumer);
@@ -56,7 +122,8 @@ import assert from 'node:assert/strict';
 import { z } from 'zod';
 import { defineAccess, defineGraph, defineObject, defineSource, source, objectId, from } from 'relate';
 import { compile } from 'relate/compiler';
-import { createRuntime, createMemoryStore, SourceAccessDenied } from '@relate/runtime';
+import { createRuntime, createMemoryStore } from '@relate/runtime';
+import { SourceAccessDenied } from 'relate/connectors';
 import { createPostgresStore } from '@relate/postgres';
 import { assertFields } from 'relate';
 import { ReadError } from '@relate/protocol';
@@ -199,12 +266,21 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
     join(consumer, 'traversal-smoke.mjs'),
     `
 import assert from 'node:assert/strict';
-import { connect, createRuntime } from '@relate/node';
+import { startApp } from '@relate/node';
+import { connect, defineApp } from 'relate';
 import { graph, ana, Customer, Invoice, customers, invoices } from './built/invoice-model.js';
-const relate = createRuntime({ graph, connections: [
+let setupCalls = 0;
+let disposed = false;
+const definition = defineApp({ graph, setup({ onDispose }) {
+  setupCalls++;
+  onDispose(() => { disposed = true; });
+  return { connections: [
   connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Northwind', portfolio: 'north', revenue: 100 } }) } }),
   connect(invoices, { connectionId: 'billing', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, customer_id: 'crm_1', status: 'open', total_minor: 12500 } }) } }),
-] });
+] }; } });
+assert.equal(setupCalls, 0);
+const relate = await startApp(definition);
+assert.equal(setupCalls, 1);
 try {
   const customerId = await relate.host.adopt(Customer, 'crm_1');
   const invoiceId = await relate.host.adopt(Invoice, 'inv_1');
@@ -218,6 +294,7 @@ try {
   for await (const invoice of objects.Customer.traverse.invoices(customerId)) ids.push(invoice.id);
   assert.deepEqual(ids, [invoiceId]);
 } finally { await relate.close(); }
+assert.equal(disposed, true);
 console.log('Installed typed traversal and iteration run in plain Node ESM.');
 `,
   );
@@ -249,7 +326,8 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
     join(consumer, 'native-action-smoke.mjs'),
     `
 import assert from 'node:assert/strict';
-import { createRuntime, connect } from '@relate/node';
+import { createRuntime } from '@relate/node';
+import { connect } from 'relate';
 import { graph, AddAccountReview, addAccountReview, ana, Customer, customers, invoices } from './built/native-action-model.js';
 const app = createRuntime({ graph, actionImplementations: [addAccountReview], connections: [
   connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Northwind', portfolio: 'north' } }) } }),
@@ -336,7 +414,7 @@ console.log('Installed native action executes and returns a readable committed r
 import assert from 'node:assert/strict';
 import { CompileError } from 'relate/diagnostics';
 import { ManifestValidationError, validateManifest } from 'relate/model';
-import { defineApp, isAppDefinition } from '@relate/node';
+import { defineApp, isAppDefinition } from 'relate';
 import { PROTOCOL_VERSION, parseDevEvent } from '@relate/inspector/protocol';
 import { createInspectorApp } from '@relate/inspector/server';
 import { graph } from './built/invoice-model.js';
@@ -359,7 +437,7 @@ console.log('Installed inspector protocol and packaged assets load.');
   // database, credentials or provider calls.
   await writeFile(
     join(consumer, 'relate.config.ts'),
-    "import { defineApp } from '@relate/node';\nimport { graph } from './invoice-model.js';\nexport default defineApp({ graph });\n",
+    "import { defineApp } from 'relate';\nimport { graph } from './invoice-model.js';\nexport default defineApp({ graph, setup() { throw new Error('Inspector must not execute setup'); } });\n",
   );
   const port = await new Promise((resolvePort, reject) => {
     const probe = createServer();

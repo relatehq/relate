@@ -1,7 +1,9 @@
 import { assertFields, referenceInput } from 'relate';
 import { expect, it, vi } from 'vitest';
-import { createRuntime, connect } from '@relate/node';
-import { createMemoryStore, SourceAccessDenied } from '@relate/runtime';
+import { createRuntime } from '@relate/node';
+import { connect } from 'relate';
+import { createMemoryStore } from '@relate/runtime';
+import { SourceAccessDenied } from 'relate/connectors';
 import { graph, Customer, customers, ana, finance } from './model.js';
 
 function fixture() {

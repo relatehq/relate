@@ -35,7 +35,8 @@ Agreed foundation:
 - Replaceable child process for loading the user's application definitions.
 - Authoritative Manifest snapshots plus typed diffs; no page reload on code
   edits. Inspector upgrades may require an explicit page reload.
-- `defineApp` belongs in `@relate/node`; graph authoring stays in `relate`.
+- `defineApp` and `connect` belong in `relate`; `startApp` stays in
+  `@relate/node`.
 - Browser code never imports the runtime, compiler, connectors or user modules.
 
 **Proposed scope decision:** the first graph-only worker compiles definitions
@@ -127,7 +128,7 @@ resources. The lifecycle names are a proposal, not existing exports.
 
 ```ts
 // src/relate/app.ts
-import { defineApp } from '@relate/node';
+import { defineApp } from 'relate';
 import { graph } from './graph.js';
 
 export default defineApp({
@@ -151,7 +152,7 @@ export default defineApp({
 connectors and uses the existing `connect` helper:
 
 ```ts
-import { connect } from '@relate/node';
+import { connect } from 'relate';
 
 const connection = connect(customers, {
   connectionId: 'crm-primary',
@@ -283,7 +284,7 @@ consumers, schedulers or provider effects.
 | `packages/relate`                   | Existing graph authoring, compiler and `relate/model` contract                  | The business model must work without a CLI, browser or HTTP server      |
 | `packages/runtime`                  | Existing compiled-model execution, authorization and storage contracts          | Execution must work embedded or through any transport                   |
 | `packages/postgres`                 | Existing persistent store and migrations                                        | Database behavior belongs to the storage adapter                        |
-| `packages/node`                     | Existing `connect`/`createRuntime`; proposed `defineApp` and lifecycle helpers  | Owns application composition and executable resource bindings           |
+| `packages/node`                     | `createRuntime` and `startApp`; portable definitions come from `relate`         | Owns application composition and executable resource bindings           |
 | `packages/protocol`                 | Consumer requests, results and evidence                                         | Shared by HTTP, SDK and MCP consumers; independent of inspector hosting |
 | `packages/http` + `packages/client` | Planned consumer HTTP transport and client                                      | Browser reads/actions must exercise the same contracts customers use    |
 | `packages/cli`                      | Command parsing, Hono supervisor, watching/building, child lifecycle            | Local processes and filesystem work are CLI responsibilities            |

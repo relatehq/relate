@@ -151,6 +151,9 @@ label without guessing plurals. Supply collection labels such as `Customers` or
 freshness evidence.
 
 ```ts
+import { connect } from 'relate';
+import { createRuntime } from '@relate/node';
+
 const relate = createRuntime({
   graph,
   connections: [

@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { Policy } from 'relate';
 import type { ObservationStore } from '@relate/runtime/storage';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { connect, createRuntime } from '@relate/node';
-import { SourceAccessDenied } from '@relate/runtime';
+import { createRuntime } from '@relate/node';
+import { connect } from 'relate';
+import { SourceAccessDenied } from 'relate/connectors';
 import { RetentionError } from '@relate/runtime/storage';
 import {
   access,

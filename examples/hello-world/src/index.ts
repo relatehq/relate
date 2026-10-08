@@ -9,7 +9,8 @@ import {
   objectId,
   source,
 } from 'relate';
-import { connect, createRuntime } from '@relate/node';
+import { startApp } from '@relate/node';
+import { connect, defineApp } from 'relate';
 
 const access = defineAccess({
   roles: ['reader'],
@@ -50,28 +51,34 @@ const graph = defineGraph({
   },
 });
 
-const relate = createRuntime({
+const app = defineApp({
   graph,
-  graphId: 'hello-world',
-  connections: [
-    connect(people, {
-      providerAccountId: 'example-account',
-      connectionId: 'example',
-      connector: {
-        identify: async () => 'example-account',
-        async fetch(sourceRecordId) {
-          return sourceRecordId === '1'
-            ? {
-                providerAccountId: 'example-account',
-                state: 'present',
-                record: { id: '1', name: 'Ada' },
-              }
-            : { providerAccountId: 'example-account', state: 'deleted' };
-        },
-      },
-    }),
-  ],
+  setup() {
+    return {
+      graphId: 'hello-world',
+      connections: [
+        connect(people, {
+          providerAccountId: 'example-account',
+          connectionId: 'example',
+          connector: {
+            identify: async () => 'example-account',
+            async fetch(sourceRecordId) {
+              return sourceRecordId === '1'
+                ? {
+                    providerAccountId: 'example-account',
+                    state: 'present',
+                    record: { id: '1', name: 'Ada' },
+                  }
+                : { providerAccountId: 'example-account', state: 'deleted' };
+            },
+          },
+        }),
+      ],
+    };
+  },
 });
+
+const relate = await startApp(app);
 
 try {
   const id = await relate.host.adopt(Person, '1');
