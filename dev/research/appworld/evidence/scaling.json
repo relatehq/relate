@@ -1,0 +1,128 @@
+[
+  {
+    "size": 10,
+    "condition": "flat",
+    "selected": "all",
+    "bytes": 2777,
+    "count": 10
+  },
+  {
+    "size": 10,
+    "condition": "flat",
+    "selected": ["sourceId", "title", "likeCount"],
+    "bytes": 1252,
+    "count": 10
+  },
+  {
+    "size": 10,
+    "condition": "full",
+    "selected": "all",
+    "bytes": 31977,
+    "count": 10
+  },
+  {
+    "size": 10,
+    "condition": "full",
+    "selected": ["sourceId", "title", "likeCount"],
+    "bytes": 11412,
+    "count": 10
+  },
+  {
+    "size": 10,
+    "condition": "compact",
+    "selected": "all",
+    "bytes": 3297,
+    "count": 10
+  },
+  {
+    "size": 10,
+    "condition": "compact",
+    "selected": ["sourceId", "title", "likeCount"],
+    "bytes": 1772,
+    "count": 10
+  },
+  {
+    "size": 100,
+    "condition": "flat",
+    "selected": "all",
+    "bytes": 27217,
+    "count": 100
+  },
+  {
+    "size": 100,
+    "condition": "flat",
+    "selected": ["sourceId", "title", "likeCount"],
+    "bytes": 11872,
+    "count": 100
+  },
+  {
+    "size": 100,
+    "condition": "full",
+    "selected": "all",
+    "bytes": 319217,
+    "count": 100
+  },
+  {
+    "size": 100,
+    "condition": "full",
+    "selected": ["sourceId", "title", "likeCount"],
+    "bytes": 113472,
+    "count": 100
+  },
+  {
+    "size": 100,
+    "condition": "compact",
+    "selected": "all",
+    "bytes": 32417,
+    "count": 100
+  },
+  {
+    "size": 100,
+    "condition": "compact",
+    "selected": ["sourceId", "title", "likeCount"],
+    "bytes": 17072,
+    "count": 100
+  },
+  {
+    "size": 500,
+    "condition": "flat",
+    "selected": "all",
+    "bytes": 137217,
+    "count": 500
+  },
+  {
+    "size": 500,
+    "condition": "flat",
+    "selected": ["sourceId", "title", "likeCount"],
+    "bytes": 60272,
+    "count": 500
+  },
+  {
+    "size": 500,
+    "condition": "full",
+    "selected": "all",
+    "bytes": 1597217,
+    "count": 500
+  },
+  {
+    "size": 500,
+    "condition": "full",
+    "selected": ["sourceId", "title", "likeCount"],
+    "bytes": 568272,
+    "count": 500
+  },
+  {
+    "size": 500,
+    "condition": "compact",
+    "selected": "all",
+    "bytes": 163217,
+    "count": 500
+  },
+  {
+    "size": 500,
+    "condition": "compact",
+    "selected": ["sourceId", "title", "likeCount"],
+    "bytes": 86272,
+    "count": 500
+  }
+]

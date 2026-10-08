@@ -17,6 +17,8 @@ export default [
     // Generated output is outside the source-formatting boundary.
     ignores: [
       '**/node_modules/**',
+      'dev/research/appworld/.venv/**',
+      'dev/research/appworld/.local/**',
       '**/dist/**',
       'apps/docs/out/**',
       '**/.next/**',

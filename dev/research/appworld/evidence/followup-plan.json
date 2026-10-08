@@ -1,0 +1,14 @@
+{
+  "name": "interface-docs-v2",
+  "reason": "Primary flat payment trial repeated acquisition after misreading result envelopes and needed to inspect canonical reference IDs. Test a prompt-only repair, not a runtime change.",
+  "tasks": ["d0b1f43_1"],
+  "conditions": ["flat", "compact"],
+  "seed": 11,
+  "steps": 14,
+  "changes": [
+    "Document load versus read envelopes exactly",
+    "Show mapping canonical Person IDs to source email IDs",
+    "Remove unavailable traversal documentation from flat condition"
+  ],
+  "limits": "Selected after observing the primary trajectory; exploratory follow-up, not held-out evaluation or an isolated causal test of each prompt change."
+}
