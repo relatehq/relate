@@ -1,6 +1,8 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "noEmit": true },
+  "compilerOptions": {
+    "noEmit": true
+  },
   "include": [
     "tests/**/*.ts",
     "dev/**/*.ts",
@@ -8,6 +10,7 @@
     "examples/*/src/**/*.ts",
     "packages/*/test/**/*.ts",
     "apps/*/test/**/*.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "connectors/*/test/**/*.ts"
   ]
 }

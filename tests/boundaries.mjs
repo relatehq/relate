@@ -311,6 +311,8 @@ for (const file of await walk(inspectorSource).catch((error) => {
 
 // Simulators are provider fixtures; they cannot import Relate or application code.
 for (const file of await walk(resolve(root, 'dev/simulators'))) {
+  if (!source.test(file)) continue;
+
   const content = await readFile(file, 'utf8');
 
   if (

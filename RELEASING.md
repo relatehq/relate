@@ -4,27 +4,51 @@
 > contribution only. It is not ready for application use. APIs and behavior are
 > incomplete and may change without notice.
 
+## Development mode: releases are disabled
+
+Do not add changesets, change package versions, or run release preparation in
+feature PRs. Describe behavior and validation in the PR. All public packages
+stay at `0.0.0-dev.0`. Pending changesets have been removed. Their migration
+guidance is preserved in [DEVELOPMENT_NOTES.md](DEVELOPMENT_NOTES.md), outside
+release automation.
+
+`scripts/releases/policy.json` sets `enabled: false`. The `pnpm changeset`,
+`pnpm release:prepare`, and `pnpm release:artifacts` commands fail before
+changing files. Both release workflows check the same policy before creating
+release branches, tags, or GitHub releases. CI's `pnpm check:development`
+rejects pending changesets, prerelease state, and package version bumps. Build
+and installed-package tests still run locally and in CI; temporary test tarballs
+are not releases.
+
+To begin releasing, obtain an explicit owner decision and make a separate
+reviewed PR enabling that policy, choosing the first version and release scope,
+incorporating [development migration notes](DEVELOPMENT_NOTES.md) into the first
+release notes and migration guide, and updating this document. The procedures
+below describe the dormant release tooling and must not be run while development
+mode is active.
+
 ## What is versioned
 
-All ten packages under `packages/` share one version through a Changesets fixed
-package group. They are Apache-2.0 OSS and declare public npm access. The root,
-apps, and examples remain `private: true` because they are not npm distribution
-packages; that flag does not make their source proprietary.
+Public packages under `packages/` and implemented connectors under `connectors/`
+share one version through a Changesets fixed package group. They are Apache-2.0
+OSS and declare public npm access. The root, apps, and examples remain
+`private: true` because they are not npm distribution packages; that flag does
+not make their source proprietary.
 
 A release has one annotated repository tag, `v<VERSION>`, and one GitHub
 release. The tag identifies the validated commit. GitHub provides its source
 archives. Tarballs and SHA-256 checksums are attached for `relate`,
-`@relate/protocol`, `@relate/runtime`, `@relate/postgres`, and `@relate/node`,
-which have installed package checks. Client, HTTP, MCP, CLI, and generator
-packages are unfinished: they share the version but are available only in the
-source snapshot for now.
+`@relate/protocol`, `@relate/runtime`, `@relate/postgres`, `@relate/node`, and
+`@relate/connector-sqlite`, which have installed package checks. Client, HTTP,
+MCP, CLI, and generator packages are unfinished: they share the version but are
+available only in the source snapshot for now.
 
 No workflow publishes to npm. Making package metadata public does not publish
 it.
 
-## Record changes during development
+## Record changes after release activation
 
-After implementing a meaningful change, run:
+Only after release activation, record a meaningful change with:
 
 ```sh
 pnpm changeset
@@ -109,14 +133,14 @@ gh workflow run release.yml --ref main -f version=0.0.1-alpha.0
 
 The workflow checks the shared version/public metadata, formatting, lint, types,
 package boundaries, unit and Postgres integration tests, release validation, and
-installed-package compatibility. It packs the five implemented packages, creates
-`v<VERSION>` on the checked commit, and creates a draft GitHub release with
-changelog-derived notes. It uploads tarballs and `SHA256SUMS`, then makes the
-release public. Versions with suffixes are marked prereleases and never marked
-latest; stable releases are marked latest.
+installed-package compatibility. It packs the implemented packages listed above,
+creates `v<VERSION>` on the checked commit, and creates a draft GitHub release
+with changelog-derived notes. It uploads tarballs and `SHA256SUMS`, then makes
+the release public. Versions with suffixes are marked prereleases and never
+marked latest; stable releases are marked latest.
 
-The initial `0.0.0-dev.0` can also be released as a discussion-only source and
-package snapshot if needed. No release is created merely by merging this setup.
+The `0.0.0-dev.0` baseline is not being released. No release is created by
+merging a feature PR.
 
 If upload or release creation fails, rerun the same workflow run so it uses the
 same commit. It accepts an existing tag only when that tag points to that commit

@@ -62,9 +62,12 @@ policy denial. Native records already used property IDs.
 | `accept(scope, input)`                 | Atomically check installation and membership, compare ordering, and retain the winning whole observation and identity. Return `{ object, acceptance }`, including the current winner when the incoming observation loses.                                                                                             |
 
 Every operation is scoped by installed graph ID/revision, object definition,
-source definition, connection ID, verified provider account ID and authorization
-partition. No data may cross these boundaries. Only `shared-service` is
-supported today.
+source definition, connection ID, provider account identity and authorization
+partition. `StorageScope.providerAccountId` is a nonempty string for verified
+accounts and `null` for application-owned connections. Null is an intentional
+identity mode, not missing or unknown evidence: it must remain distinct from all
+verified accounts and legacy observations with unknown provenance. No data may
+cross these boundaries. Only `shared-service` is supported today.
 
 `accept` must serialize competing writes to the same scoped `sourceRecordId`,
 including simultaneous first adoptions. When `adopt` is true it may allocate a

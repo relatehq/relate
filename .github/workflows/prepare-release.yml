@@ -27,6 +27,10 @@ jobs:
           node-version: 26.9.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Require explicit release activation
+        run:
+          node --input-type=module -e 'import { assertReleasesEnabled } from
+          "./scripts/releases/shared.mjs"; await assertReleasesEnabled();'
       - name: Prepare versions and changelogs
         env:
           CHANNEL: ${{ inputs.channel }}
@@ -40,7 +44,7 @@ jobs:
           git switch -c "$BRANCH"
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add packages .changeset pnpm-lock.yaml
+          git add packages connectors .changeset pnpm-lock.yaml
           git commit -m "chore: release $VERSION"
           git push origin "$BRANCH"
           if ! gh pr create --base main --head "$BRANCH" --title "chore: release $VERSION" --body "Prepare Relate $VERSION with shared package versions and changelogs. Merge after reviewing the version changes and passing CI, then manually run the Release workflow. This PR does not publish to npm."; then

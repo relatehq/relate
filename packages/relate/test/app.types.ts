@@ -76,7 +76,7 @@ const person: typeof Person = app.graph.objects.Person;
 
 // @ts-expect-error app graph retains its exact object registry
 app.graph.objects.Invoice;
-// @ts-expect-error all source outcomes require account evidence
+// @ts-expect-error provider-verified source outcomes require account evidence
 const missingAccount: SourceRecord = { state: 'deleted' };
 
 // @ts-expect-error setup must return runtime bindings
@@ -87,3 +87,29 @@ export function withStore(store: ObservationStore): AppBindings<typeof graph> {
 }
 
 void [person, missingAccount];
+
+const applicationConnector: import('relate/connectors').ApplicationSourceConnector =
+  {
+    identity: 'application',
+    async fetch(id) {
+      return { state: 'present', record: { id, name: 'Ada' } };
+    },
+  };
+
+connect(people, { connectionId: 'local', connector: applicationConnector });
+// @ts-expect-error provider verification requires an expected account
+connect(people, { connectionId: 'remote', connector });
+// @ts-expect-error application identity must not claim a provider account
+connect(people, {
+  connectionId: 'local',
+  providerAccountId: 'fake',
+  connector: applicationConnector,
+});
+const falseVerification: import('relate/connectors').ApplicationSourceConnector =
+  {
+    ...applicationConnector,
+    // @ts-expect-error application connectors must not pretend to verify accounts
+    identify: async () => 'fake',
+  };
+
+void falseVerification;

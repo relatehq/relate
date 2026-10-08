@@ -58,7 +58,7 @@ export function createSourceOperations(options: {
     try {
       await verifyAccount(
         binding.connector,
-        binding.providerAccountId,
+        binding.providerAccountId ?? null,
         request.timeoutMs ?? 3_000,
       );
 
@@ -341,7 +341,7 @@ export function createSourceOperations(options: {
         sources[object.sourceDefinitionId]!.connector,
         sourceRecordId,
         3_000,
-        sources[object.sourceDefinitionId]!.providerAccountId,
+        sources[object.sourceDefinitionId]!.providerAccountId ?? null,
       );
       const incoming = observation(
         fetched,

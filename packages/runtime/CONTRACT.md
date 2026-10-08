@@ -61,25 +61,40 @@ retained data. This is not a deletion or a persisted revocation: retained
 observations remain, and a cached read does not perform a provider authorization
 check for the individual record. Applications requiring that check must request
 refresh of source-backed fields. Record-fetch errors remain temporary
-unavailability with authorized fallback only when account identity is verified.
+unavailability with authorized fallback subject to the binding’s identity mode
+and current Relate policy evidence.
 
-Bindings require an expected `providerAccountId` alongside `connectionId`.
-`SourceConnector.identify({ signal })` authenticates current credentials and
-returns the provider's stable account ID. It must not echo configuration or
-reuse identity evidence after credentials change. The runtime checks identity
-before using cached source observations and again before disclosure after
-asynchronous work. Identity mismatch or explicit denial withholds the object;
-failed or timed out verification raises sanitized `ReadError('unavailable')`,
-without fallback. Every `SourceRecord`, including deletion, must carry
-`providerAccountId` from the authenticated response or the immutable credential
-context that fetched it. Missing or mismatched response identity withholds the
-result without retention or stale fallback. Never stamp the expected binding ID
-onto an unverified response. Connectors remain a trusted integration boundary.
+Provider-verified bindings require an expected `providerAccountId` alongside
+`connectionId`. `SourceConnector.identify({ signal })` authenticates current
+credentials and returns the provider's stable account ID. It must not echo
+configuration or reuse identity evidence after credentials change. The runtime
+checks identity before using cached source observations and again before
+disclosure after asynchronous work. Identity mismatch or explicit denial
+withholds the object; failed or timed out verification raises sanitized
+`ReadError('unavailable')`, without fallback. Every `SourceRecord`, including
+deletion, must carry `providerAccountId` from the authenticated response or the
+immutable credential context that fetched it. Missing or mismatched response
+identity withholds the result without retention or stale fallback. Never stamp
+the expected binding ID onto an unverified response. Connectors remain a trusted
+integration boundary.
 
-Storage scopes include provider account identity. Changing accounts under the
-same connection ID creates a separate alias and object ID when explicitly
-adopted. Existing object IDs, reference resolution, scans and traversal cursors
-cannot cross account scopes. Provider account IDs stay out of consumer evidence.
+Application-owned connectors implement `ApplicationSourceConnector` with
+`identity: 'application'`, `fetch()`, and no `identify()`. Bindings and results
+omit `providerAccountId`. The host owns the logical source identity through
+`connectionId`: relocation of the same source preserves it; replacement with a
+different logical source requires a new ID. The runtime does not authenticate a
+provider account in this mode and cannot detect substitution under the same ID.
+Never emulate verification by returning a configured label from `identify()`.
+Policy checks, record denial, freshness and deletion evidence still apply. A
+fresh cached read need not access the provider in application mode.
+
+Storage scopes include provider account identity (`null` for application-owned
+connections, distinct from every verified account and unknown legacy
+provenance). Switching identity modes creates a separate scope and requires
+adoption there. Changing accounts under the same connection ID creates a
+separate alias and object ID when explicitly adopted. Existing object IDs,
+reference resolution, scans and traversal cursors cannot cross account scopes.
+Provider account IDs stay out of consumer evidence.
 
 Use
 [`assertFields` from `relate`](../relate/CONTRACT.md#require-values-after-a-read)

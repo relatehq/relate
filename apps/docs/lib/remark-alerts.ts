@@ -29,8 +29,11 @@ export function remarkAlerts() {
 
       if (paragraph?.type === 'paragraph' && marker && match) {
         marker.value = marker.value!.slice(match[0].length);
+
         if (!marker.value) paragraph.children!.shift();
+
         if (!paragraph.children!.length) node.children!.shift();
+
         node.type = 'mdxJsxFlowElement';
         node.name = 'Callout';
         node.attributes = [

@@ -5,12 +5,7 @@ import {
   useNodesInitialized,
   useReactFlow,
 } from '@xyflow/react';
-import type {
-  Edge,
-  EdgeChange,
-  Node,
-  NodeChange,
-} from '@xyflow/react';
+import type { Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
 import { ObjectNode } from './ObjectNode.js';
 import { ArrowMarkers, RelationshipEdge } from './RelationshipEdge.js';
 import { estimateNodeSize, layoutSignature } from './map.js';
@@ -195,6 +190,7 @@ function ModelGraphView(props: ModelGraphProps) {
         const next = pendingSelection.current;
 
         pendingSelection.current = undefined;
+
         if (next !== undefined) onSelect(next);
       });
     },

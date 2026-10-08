@@ -18,9 +18,10 @@ declares its schema and the field containing its record key. For example, a
 customer source might describe CRM records with `id`, `name`, and `region`.
 
 A **connection** supplies the runtime binding for that source. `connect` pairs
-the definition with a connector that identifies the provider account and fetches
-records. The connector contains the API or database integration code and keeps
-credentials outside the graph definition.
+the definition with a connector that fetches records. Provider-verified
+connectors also identify the account; application-owned connectors explicitly
+rely on the host’s stable `connectionId`. The connector contains the API or
+database integration code and keeps credentials outside the graph definition.
 
 ```ts
 // Excerpt: crmCustomers is a source definition; crmConnector reads the CRM.
@@ -30,6 +31,12 @@ const crmConnection = connect(crmCustomers, {
   connector: crmConnector,
 });
 ```
+
+The binding above uses provider verification. SQLite defaults to
+application-owned identity: omit `providerAccountId` and give a different
+logical database a new `connectionId`. Relate cannot detect a substituted
+database under the same ID in that mode. Switching modes does not reuse retained
+identities.
 
 The source describes what a record looks like; the connection determines how to
 read it in a particular environment. See [Graph Modeling](./authoring/graph.md)

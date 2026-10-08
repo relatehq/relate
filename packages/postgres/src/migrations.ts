@@ -75,3 +75,17 @@ export const receiptRecoveryMigration = `
 ALTER TABLE relate.native_invocations ADD COLUMN actor_id text;
 ALTER TABLE relate.native_invocations ADD COLUMN reads jsonb;
 `;
+
+// Application-owned identity is explicit; legacy NULL provenance remains quarantined.
+export const applicationIdentityMigration = `
+ALTER TABLE relate.objects ADD COLUMN identity_kind text NOT NULL DEFAULT 'provider';
+ALTER TABLE relate.objects DROP CONSTRAINT objects_verified_account;
+ALTER TABLE relate.objects ADD CONSTRAINT objects_identity
+  CHECK (provider_account_id IS NOT NULL AND (
+    (identity_kind = 'provider' AND length(btrim(provider_account_id)) > 0) OR
+    (identity_kind = 'application' AND provider_account_id = '')
+  )) NOT VALID;
+ALTER TABLE relate.objects DROP CONSTRAINT objects_account_alias;
+ALTER TABLE relate.objects ADD CONSTRAINT objects_account_alias
+  UNIQUE (graph_id, object_type, source_id, connection_id, partition, identity_kind, provider_account_id, provider_key);
+`;

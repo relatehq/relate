@@ -6,13 +6,21 @@ export interface SourceVersion {
 }
 
 /** Account identity must come from this response or its authenticated, immutable credential context. */
-export type SourceRecord = { readonly providerAccountId: string } & (
-  | { state: 'present'; record: Record<string, Json>; version?: SourceVersion }
-  | { state: 'deleted'; version?: SourceVersion }
-);
+export type SourceRecord = { readonly providerAccountId: string } & SourceData;
 
-/** Adapter for one selected system resource, such as a table or API resource. */
+export type ApplicationSourceRecord = {
+  readonly providerAccountId?: never;
+} & SourceData;
+
+export type SourceResult = SourceRecord | ApplicationSourceRecord;
+
+type SourceData =
+  | { state: 'present'; record: Record<string, Json>; version?: SourceVersion }
+  | { state: 'deleted'; version?: SourceVersion };
+
+/** Provider-verified adapter for one selected table or API resource. */
 export interface SourceConnector {
+  readonly identity?: 'provider';
   /** Authenticate current credentials and return the provider's stable account ID, never a configured label. */
   identify(options: { signal: AbortSignal }): Promise<string>;
   /** Deletion requires affirmative evidence. Throw SourceAccessDenied for explicit provider denial. */
@@ -22,6 +30,18 @@ export interface SourceConnector {
   ): Promise<SourceRecord>;
 }
 
+export interface ApplicationSourceConnector {
+  /** The application owns connection identity; no provider account is asserted. */
+  readonly identity: 'application';
+  readonly identify?: never;
+  fetch(
+    sourceRecordId: string,
+    options: { signal: AbortSignal },
+  ): Promise<ApplicationSourceRecord>;
+}
+
+export type AnySourceConnector = SourceConnector | ApplicationSourceConnector;
+
 /** Provider permission denial must never be treated as temporary unavailability. */
 export class SourceAccessDenied extends Error {
   constructor() {
@@ -30,10 +50,20 @@ export class SourceAccessDenied extends Error {
   }
 }
 
-export interface SourceBinding {
+interface BindingOptions {
   readonly connectionId: string;
-  /** Expected stable provider account ID, checked against authenticated connector evidence. */
-  readonly providerAccountId: string;
   readonly authorization: 'shared-service';
-  readonly connector: SourceConnector;
 }
+
+export type SourceBinding = BindingOptions &
+  (
+    | {
+        readonly connector: SourceConnector;
+        /** Expected stable account ID, checked against connector evidence. */
+        readonly providerAccountId: string;
+      }
+    | {
+        readonly connector: ApplicationSourceConnector;
+        readonly providerAccountId?: never;
+      }
+  );

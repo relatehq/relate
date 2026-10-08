@@ -1,0 +1,29 @@
+import { connect, defineApp } from 'relate';
+import { sqlite } from '@relate/connector-sqlite';
+import { customerGraph, customers } from './model.js';
+
+export function customerAccounts(path: string) {
+  return defineApp({
+    graph: customerGraph,
+    setup({ onDispose }) {
+      const database = sqlite({
+        path,
+      });
+
+      onDispose(() => database.close());
+
+      return {
+        graphId: 'customer-accounts',
+        connections: [
+          connect(customers, {
+            connectionId: 'local-crm',
+            connector: database.table('customers', {
+              idColumn: 'id',
+              columns: ['display_name', 'portfolio', 'stripe_customer_id'],
+            }),
+          }),
+        ],
+      };
+    },
+  });
+}

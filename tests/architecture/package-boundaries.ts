@@ -8,6 +8,14 @@ export const packagePolicies: Record<
     assets?: readonly string[];
   }
 > = {
+  'connectors/sqlite': {
+    imports: ['relate/connectors'],
+    builtins: ['node:sqlite', 'node:worker_threads', 'node:path'],
+  },
+  'examples/customer-accounts': {
+    imports: ['relate', '@relate/node', '@relate/connector-sqlite', 'zod'],
+    builtins: true,
+  },
   'packages/relate': { imports: ['zod', '@relate/protocol'] },
   'packages/protocol': { imports: [] },
   'packages/runtime': {
@@ -60,6 +68,7 @@ export const packagePolicies: Record<
     assets: ['app/global.css'],
     imports: [
       'next',
+      'next/navigation',
       'react',
       '@fumadocs/mdx-remote',
       'fumadocs-ui/provider/next',
@@ -70,6 +79,7 @@ export const packagePolicies: Record<
     ],
     builtins: true,
   },
+  'apps/www': { imports: [] },
   'apps/inspector': {
     imports: [
       '@relate/client',

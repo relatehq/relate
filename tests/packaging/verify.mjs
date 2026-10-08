@@ -10,13 +10,14 @@ const execFile = promisify(callback);
 const root = process.cwd();
 const temp = await mkdtemp(join(tmpdir(), 'relate-package-check-'));
 const packages = [
-  'protocol',
-  'relate',
-  'runtime',
-  'postgres',
-  'node',
-  '../apps/inspector',
-  'cli',
+  'packages/protocol',
+  'packages/relate',
+  'packages/runtime',
+  'packages/postgres',
+  'packages/node',
+  'connectors/sqlite',
+  'apps/inspector',
+  'packages/cli',
 ];
 
 try {
@@ -26,7 +27,7 @@ try {
   const dependencies = { zod: '4.6.5' };
 
   for (const name of packages) {
-    const directory = resolve(root, 'packages', name);
+    const directory = resolve(root, name);
     const metadata = JSON.parse(
       await readFile(join(directory, 'package.json'), 'utf8'),
     );
@@ -117,6 +118,35 @@ console.log('Portable app and connector contracts work without Node host or runt
     ['install', '--ignore-scripts', '--no-audit', '--no-fund'],
     { cwd: consumer },
   );
+  await writeFile(
+    join(consumer, 'sqlite-smoke.mjs'),
+    `
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { sqlite } from '@relate/connector-sqlite';
+const db = new DatabaseSync('source.sqlite');
+db.exec("CREATE TABLE account (id TEXT); INSERT INTO account VALUES ('packed'); CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT); INSERT INTO customers VALUES ('1', 'Ada')");
+db.close();
+const connection = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } });
+const connector = connection.table('customers', { idColumn: 'id', columns: ['name'] });
+try {
+  assert.equal(await connector.identify({ signal: new AbortController().signal }), 'packed');
+  assert.equal((await connector.fetch('1', { signal: new AbortController().signal })).record.name, 'Ada');
+} finally { await connection.close(); }
+const local = sqlite({ path: 'source.sqlite' });
+try {
+  const table = local.table('customers', { idColumn: 'id', columns: ['name'] });
+  assert.equal(table.identity, 'application');
+  assert.equal(table.identify, undefined);
+  assert.deepEqual(await table.fetch('1', { signal: new AbortController().signal }), { state: 'present', record: { id: '1', name: 'Ada' } });
+} finally { await local.close(); }
+console.log('Installed SQLite connector reads both identity modes in plain Node ESM.');
+`,
+  );
+  process.stdout.write(
+    (await execFile(process.execPath, ['sqlite-smoke.mjs'], { cwd: consumer }))
+      .stdout,
+  );
   const program = `
 import assert from 'node:assert/strict';
 import { z } from 'zod';
@@ -197,6 +227,17 @@ const idValue: string = identity.schema.parse('generated');
 objectId(z.string(), { id: 'customer.identity', access: access.groups.ordinary });
 // @ts-expect-error objects infer identity from objectId(), not a key selector
 defineObject({ id: 'customer', label: 'Customer', key: 'id', membership: source(crm), properties: { id: identity } });
+import { sqlite } from '@relate/connector-sqlite';
+import { connect } from 'relate';
+import type { SourceConnector, ApplicationSourceConnector } from 'relate/connectors';
+const localResource: ApplicationSourceConnector = sqlite({ path: 'source.sqlite' }).table('customers', { idColumn: 'id', columns: ['name'] });
+connect(crm, { connectionId: 'local', connector: localResource });
+// @ts-expect-error application identity cannot claim a provider account
+connect(crm, { connectionId: 'local', providerAccountId: 'fake', connector: localResource });
+const resource: SourceConnector = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } }).table('customers', { idColumn: 'id', columns: ['name'] });
+connect(crm, { connectionId: 'verified', providerAccountId: 'account', connector: resource });
+// @ts-expect-error verified identity requires an expected account
+connect(crm, { connectionId: 'verified', connector: resource });
 export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 `,
   );

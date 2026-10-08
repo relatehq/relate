@@ -39,6 +39,10 @@ jobs:
           node-version: 26.9.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Require explicit release activation
+        run:
+          node --input-type=module -e 'import { assertReleasesEnabled } from
+          "./scripts/releases/shared.mjs"; await assertReleasesEnabled();'
       - name: Validate selected version
         run: |
           node --input-type=module -e 'import {releasePackages,validateVersion} from "./scripts/releases/shared.mjs"; validateVersion(await releasePackages(), process.env.VERSION);'

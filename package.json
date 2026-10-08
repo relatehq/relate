@@ -10,12 +10,12 @@
   },
   "scripts": {
     "packages": "pnpm -r list --depth -1",
-    "build": "tsc -b packages/protocol packages/relate packages/runtime packages/postgres packages/node apps/inspector/tsconfig.server.json packages/cli && pnpm --filter @relate/inspector build:client",
+    "build": "tsc -b packages/protocol packages/relate packages/runtime packages/postgres packages/node connectors/sqlite apps/inspector/tsconfig.server.json packages/cli && pnpm --filter @relate/inspector build:client",
     "docs:dev": "pnpm --filter @relate/docs dev",
     "docs:build": "pnpm --filter @relate/docs build",
     "example:hello-world": "pnpm build && tsx examples/hello-world/src/index.ts",
     "example:postgres": "pnpm build && dotenvx run -f .env -- tsx examples/postgres-persistence/src/index.ts",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && pnpm test:packaging",
+    "check": "pnpm check:development && pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && pnpm test:packaging",
     "typecheck": "pnpm build && tsc --noEmit -p tsconfig.tests.json",
     "check:boundaries": "node tests/boundaries.mjs",
     "lint": "eslint .",
@@ -27,12 +27,14 @@
     "test:integration": "pnpm build && dotenvx run -f .env -- vitest run --project integration",
     "test:packaging": "pnpm build && node tests/packaging/verify.mjs",
     "test:release": "node --test scripts/releases/release.test.mjs",
-    "changeset": "changeset",
+    "changeset": "node scripts/releases/changeset.mjs",
     "release:prepare": "node scripts/releases/prepare.mjs",
     "release:artifacts": "node scripts/releases/artifacts.mjs",
     "worktree:create": "tsx scripts/worktrees/create.ts",
     "worktree:list": "tsx scripts/worktrees/list.ts",
-    "worktree:delete": "tsx scripts/worktrees/delete.ts"
+    "worktree:delete": "tsx scripts/worktrees/delete.ts",
+    "example:customer-accounts": "pnpm build && tsx examples/customer-accounts/src/index.ts",
+    "check:development": "node scripts/releases/check-development.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",
@@ -56,6 +58,7 @@
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "vitest": "5.0.3",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@relate/connector-sqlite": "workspace:*"
   }
 }
