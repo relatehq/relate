@@ -15,6 +15,7 @@ const packages = [
   'runtime',
   'postgres',
   'node',
+  '../connectors/sqlite',
   '../apps/inspector',
   'cli',
 ];
@@ -117,6 +118,28 @@ console.log('Portable app and connector contracts work without Node host or runt
     ['install', '--ignore-scripts', '--no-audit', '--no-fund'],
     { cwd: consumer },
   );
+  await writeFile(
+    join(consumer, 'sqlite-smoke.mjs'),
+    `
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { sqlite } from '@relate/connector-sqlite';
+const db = new DatabaseSync('source.sqlite');
+db.exec("CREATE TABLE account (id TEXT); INSERT INTO account VALUES ('packed'); CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT); INSERT INTO customers VALUES ('1', 'Ada')");
+db.close();
+const connection = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } });
+const connector = connection.table('customers', { idColumn: 'id' });
+try {
+  assert.equal(await connector.identify({ signal: new AbortController().signal }), 'packed');
+  assert.equal((await connector.fetch('1', { signal: new AbortController().signal })).record.name, 'Ada');
+} finally { connection.close(); }
+console.log('Installed SQLite connector reads a real database in plain Node ESM.');
+`,
+  );
+  process.stdout.write(
+    (await execFile(process.execPath, ['sqlite-smoke.mjs'], { cwd: consumer }))
+      .stdout,
+  );
   const program = `
 import assert from 'node:assert/strict';
 import { z } from 'zod';
@@ -197,6 +220,9 @@ const idValue: string = identity.schema.parse('generated');
 objectId(z.string(), { id: 'customer.identity', access: access.groups.ordinary });
 // @ts-expect-error objects infer identity from objectId(), not a key selector
 defineObject({ id: 'customer', label: 'Customer', key: 'id', membership: source(crm), properties: { id: identity } });
+import { sqlite } from '@relate/connector-sqlite';
+import type { SourceConnector } from 'relate/connectors';
+const resource: SourceConnector = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } }).table('customers', { idColumn: 'id' });
 export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 `,
   );

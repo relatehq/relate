@@ -213,6 +213,17 @@ pnpm example:hello-world
 It defines a source and object, adopts a record, and performs an authorized read
 using an in-memory store. No database or credentials are needed.
 
+For a local SQLite source, run the
+[customer accounts example](examples/customer-accounts):
+
+```sh
+pnpm example:customer-accounts
+```
+
+It uses [`@relate/connector-sqlite`](connectors/sqlite) to read CRM customers
+with portfolio access checks and a customer key ready for a later Stripe
+integration.
+
 For the [Postgres example](examples/postgres-persistence), copy `.env.example`
 to `.env` and configure separate `relate` and `relate_test` databases on your
 local server. The example values use Postgres on port 5433. Relate manages its

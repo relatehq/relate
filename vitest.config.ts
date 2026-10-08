@@ -8,6 +8,7 @@ export default defineConfig({
           name: 'unit',
           include: [
             'packages/*/test/**/*.test.ts',
+            'connectors/*/test/**/*.test.ts',
             'apps/*/test/**/*.test.ts',
             'tests/unit/**/*.test.ts',
           ],

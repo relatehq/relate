@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { validateVersion } from './shared.mjs';
+import { packedPackages, releasePackages, validateVersion } from './shared.mjs';
 
 const pkg = {
   name: 'relate',
@@ -31,4 +31,14 @@ test('release versions cannot inject shell or tag syntax', () => {
     assert.throws(() => validateVersion([{ ...pkg, version }], version));
 
   assert.equal(validateVersion([{ ...pkg, version: '0.0.1' }], '0.0.1'), false);
+});
+
+test('release inventory includes the SQLite connector and its tarball', async () => {
+  const packages = await releasePackages();
+  const connector = packages.find(
+    (entry) => entry.name === '@relate/connector-sqlite',
+  );
+
+  assert.ok(connector);
+  assert.ok(packedPackages.includes(connector.directory));
 });

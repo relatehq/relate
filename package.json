@@ -10,7 +10,7 @@
   },
   "scripts": {
     "packages": "pnpm -r list --depth -1",
-    "build": "tsc -b packages/protocol packages/relate packages/runtime packages/postgres packages/node apps/inspector/tsconfig.server.json packages/cli && pnpm --filter @relate/inspector build:client",
+    "build": "tsc -b packages/protocol packages/relate packages/runtime packages/postgres packages/node connectors/sqlite apps/inspector/tsconfig.server.json packages/cli && pnpm --filter @relate/inspector build:client",
     "typecheck": "pnpm build && tsc --noEmit -p tsconfig.tests.json",
     "test": "pnpm build && dotenvx run -f .env -- vitest run",
     "check:boundaries": "node tests/boundaries.mjs",
@@ -32,7 +32,8 @@
     "release:artifacts": "node scripts/releases/artifacts.mjs",
     "test:release": "node --test scripts/releases/release.test.mjs",
     "docs:dev": "pnpm --filter @relate/docs dev",
-    "docs:build": "pnpm --filter @relate/docs build"
+    "docs:build": "pnpm --filter @relate/docs build",
+    "example:customer-accounts": "pnpm build && tsx examples/customer-accounts/src/index.ts"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",
@@ -56,6 +57,7 @@
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "vitest": "5.0.3",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@relate/connector-sqlite": "workspace:*"
   }
 }

@@ -30,7 +30,7 @@ const notes = [
           : []),
       ]
     : []),
-  'Tarballs are provided for the five packages covered by installed-package checks.',
+  'Tarballs are provided for packages covered by installed-package checks.',
   'The remaining packages are unfinished and available in the source archive only.',
   '',
 ];

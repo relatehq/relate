@@ -1,9 +1,9 @@
 # TODO: first connector packages
 
-Agreed direction: implement SQLite and Stripe together so two different systems
-shape the connector contract. This is a temporary implementation note, not a
-description of available APIs. Delete this file once implemented and move any
-lasting usage guidance into the package READMEs.
+SQLite is implemented first; Stripe will extend the customer-accounts example
+and help refine the connector contract. This is a temporary implementation note,
+not a description of available APIs. Delete this file once implemented and move
+any lasting usage guidance into the package READMEs.
 
 ## Package responsibilities
 
@@ -21,39 +21,28 @@ lasting usage guidance into the package READMEs.
       Node embedding can import the host package.
 - [x] Keep connection setup deferred: inspecting an app or graph must not open
       databases or require live credentials.
-- [ ] Model connectors as systems, with resources selected within a connection.
+- [x] Model connectors as systems, with resources selected within a connection.
       Customers and invoices are resources, not connector packages. One system
       connection should support multiple resources.
 
-Illustrative API direction; exact signatures remain to be designed:
-
-```ts
-import { connect } from 'relate';
-import { sqlite } from '@relate/connector-sqlite';
-import { stripe } from '@relate/connector-stripe';
-
-// Inside deferred application setup:
-const database = sqlite({ filename: './business.db' });
-const billing = stripe({ apiKey });
-
-const connections = [
-  connect(customerSource, database.table('customers')),
-  connect(invoiceSource, billing.invoices()),
-];
-```
+SQLite's implemented shape is
+`sqlite({ path, identity }).table(name, { idColumn })`. Stripe's resource API
+remains to be designed; keep one system connection with resource selection, and
+bind each resource using `connect(source, binding)`.
 
 Shared interfaces now live in `relate/connectors`; application authoring is in
-`relate`, and type-only storage contracts are in `relate/storage`. The system
-factory/resource selection sketch above is still unimplemented.
+`relate`, and type-only storage contracts are in `relate/storage`. SQLite now
+implements system/resource selection; see [its README](sqlite/README.md) for the
+actual API. The Stripe sketch remains unimplemented.
 
 ## SQLite
 
-- [ ] Implement `@relate/connector-sqlite` against a real local SQLite database,
+- [x] Implement `@relate/connector-sqlite` against a real local SQLite database,
       with reproducible seed/reset fixtures and table-backed record reads.
 - [ ] Exercise relational data, keys, and mappings through a runnable Relate
       example. SQLite is the application's source database here; adding SQLite
       as Relate's own persistence backend is a separate decision.
-- [ ] Specify database identity, record ID mapping, SQL-to-JSON value handling,
+- [x] Specify database identity, record ID mapping, SQL-to-JSON value handling,
       resource ownership, and cleanup. Do not pretend a local database has a
       SaaS provider account or treat a filename alone as verified identity.
 

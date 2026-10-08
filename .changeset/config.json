@@ -13,7 +13,8 @@
       "@relate/postgres",
       "@relate/protocol",
       "relate",
-      "@relate/runtime"
+      "@relate/runtime",
+      "@relate/connector-sqlite"
     ]
   ],
   "linked": [],

@@ -1,0 +1,12 @@
+{
+  "name": "@relate/example-customer-accounts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "relate": "workspace:*",
+    "@relate/node": "workspace:*",
+    "@relate/connector-sqlite": "workspace:*",
+    "zod": "4.6.5"
+  }
+}

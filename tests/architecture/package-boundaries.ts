@@ -8,6 +8,14 @@ export const packagePolicies: Record<
     assets?: readonly string[];
   }
 > = {
+  'connectors/sqlite': {
+    imports: ['relate/connectors'],
+    builtins: ['node:sqlite'],
+  },
+  'examples/customer-accounts': {
+    imports: ['relate', '@relate/node', '@relate/connector-sqlite', 'zod'],
+    builtins: true,
+  },
   'packages/relate': { imports: ['zod', '@relate/protocol'] },
   'packages/protocol': { imports: [] },
   'packages/runtime': {

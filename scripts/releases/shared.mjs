@@ -9,6 +9,7 @@ export const packedPackages = [
   'runtime',
   'postgres',
   'node',
+  '../connectors/sqlite',
 ];
 
 export function run(command, args, options = {}) {
@@ -16,7 +17,12 @@ export function run(command, args, options = {}) {
 }
 
 export async function releasePackages(root = process.cwd()) {
-  const directories = await readdir(resolve(root, 'packages'));
+  const directories = [
+    ...(await readdir(resolve(root, 'packages'))),
+    ...(await readdir(resolve(root, 'connectors'), { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => `../connectors/${entry.name}`),
+  ];
   const packages = [];
 
   for (const directory of directories.sort()) {
