@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { ManifestValidationError } from './diagnostics.js';
+import type { ModelIssue, ModelIssueCode } from './diagnostics.js';
+
+export { ManifestValidationError } from './diagnostics.js';
+
+export type { IssuePath, ModelIssue, ModelIssueCode } from './diagnostics.js';
 
 const text = z.string().min(1);
 
@@ -194,21 +200,104 @@ export function accepts(schema: ScalarSchema, value: unknown): boolean {
 
 const unsafe = new Set(['__proto__', 'prototype', 'constructor']);
 
+type Segment = string | number;
+
+class Issues {
+  readonly list: ModelIssue[] = [];
+
+  report(
+    code: ModelIssueCode,
+    message: string,
+    segments: readonly Segment[],
+    definitionId?: string,
+  ): void {
+    this.list.push({
+      code,
+      message,
+      ...(definitionId !== undefined ? { definitionId } : {}),
+      path: { root: 'manifest', segments: [...segments] },
+    });
+  }
+}
+
+function describeShapeIssue(issue: z.core.$ZodIssue): string {
+  const location = issue.path.length
+    ? issue.path.map(String).join('.')
+    : 'manifest';
+
+  return `Invalid manifest shape at ${location}: ${issue.message}`;
+}
+
+/**
+ * Validate serialized manifest input. Throws `ManifestValidationError` with
+ * every independent issue found; dependent checks are skipped once their
+ * prerequisite fails so one mistake does not cascade.
+ */
 export function validateManifest(input: unknown): Manifest {
-  const manifest = manifestSchema.parse(input);
+  const parsed = manifestSchema.safeParse(input);
+
+  if (!parsed.success)
+    throw new ManifestValidationError(
+      parsed.error.issues.map((issue) => ({
+        code: 'manifest.invalid-shape',
+        message: describeShapeIssue(issue),
+        path: {
+          root: 'manifest',
+          segments: issue.path.map((segment) =>
+            typeof segment === 'symbol' ? String(segment) : segment,
+          ),
+        },
+      })),
+    );
+
+  const manifest = parsed.data;
+  const issues = new Issues();
   // Validate type-specific constraint metadata on every schema, including loaded JSON.
-  const scalars = [
-    ...Object.values(manifest.claims),
-    ...manifest.sources.flatMap((s) => Object.values(s.fields)),
-    ...manifest.objects.flatMap((o) => o.properties.map((p) => p.schema)),
-    ...(manifest.actions ?? []).flatMap((a) =>
-      [a.input, a.output, ...Object.values(a.errors ?? {})].flatMap((s) =>
-        Object.values(s),
-      ),
+  const scalars: {
+    schema: ScalarSchema;
+    path: Segment[];
+    definitionId?: string;
+  }[] = [
+    ...Object.entries(manifest.claims).map(([name, schema]) => ({
+      schema,
+      path: ['claims', name],
+    })),
+    ...manifest.sources.flatMap((source, index) =>
+      Object.entries(source.fields).map(([name, schema]) => ({
+        schema,
+        path: ['sources', index, 'fields', name],
+        definitionId: source.id,
+      })),
     ),
+    ...manifest.objects.flatMap((object, index) =>
+      object.properties.map((property, propertyIndex) => ({
+        schema: property.schema,
+        path: ['objects', index, 'properties', propertyIndex, 'schema'],
+        definitionId: object.id,
+      })),
+    ),
+    ...(manifest.actions ?? []).flatMap((action, index) => [
+      ...Object.entries(action.input).map(([name, schema]) => ({
+        schema,
+        path: ['actions', index, 'input', name],
+        definitionId: action.id,
+      })),
+      ...Object.entries(action.output).map(([name, schema]) => ({
+        schema,
+        path: ['actions', index, 'output', name],
+        definitionId: action.id,
+      })),
+      ...Object.entries(action.errors ?? {}).flatMap(([code, shape]) =>
+        Object.entries(shape).map(([name, schema]) => ({
+          schema,
+          path: ['actions', index, 'errors', code, name],
+          definitionId: action.id,
+        })),
+      ),
+    ]),
   ];
 
-  for (const schema of scalars) {
+  for (const { schema, path, definitionId } of scalars) {
     if (
       (schema.type !== 'string' &&
         (schema.minLength !== undefined || schema.maxLength !== undefined)) ||
@@ -220,13 +309,23 @@ export function validateManifest(input: unknown): Manifest {
           schema.exclusiveMaximum,
         ].some((v) => v !== undefined))
     )
-      throw new Error('Constraint does not match scalar type');
+      issues.report(
+        'schema.unsupported',
+        'Constraint does not match scalar type',
+        path,
+        definitionId,
+      );
 
     if (
       schema.type === 'string' &&
       (schema.minLength ?? 0) > (schema.maxLength ?? Infinity)
     )
-      throw new Error('Unsatisfiable string bounds');
+      issues.report(
+        'schema.unsupported',
+        'Unsatisfiable string bounds',
+        path,
+        definitionId,
+      );
 
     if (schema.type === 'number') {
       const lower = Math.max(
@@ -244,91 +343,169 @@ export function validateManifest(input: unknown): Manifest {
           (schema.exclusiveMinimum === lower ||
             schema.exclusiveMaximum === upper))
       )
-        throw new Error('Unsatisfiable number bounds');
+        issues.report(
+          'schema.unsupported',
+          'Unsatisfiable number bounds',
+          path,
+          definitionId,
+        );
     }
   }
 
   const seen = new Set<string>();
-  const register = (value: string) => {
-    if (!value.trim() || seen.has(value) || unsafe.has(value))
-      throw new Error(`Invalid or duplicate definition ID: ${value}`);
+  const register = (value: string, segments: readonly Segment[]): boolean => {
+    if (!value.trim() || unsafe.has(value)) {
+      issues.report(
+        'definition.invalid-id',
+        `Invalid definition ID '${value}'`,
+        segments,
+      );
+
+      return false;
+    }
+
+    if (seen.has(value)) {
+      issues.report(
+        'definition.duplicate-id',
+        `Invalid or duplicate definition ID: ${value}`,
+        segments,
+        value,
+      );
+
+      return false;
+    }
 
     seen.add(value);
+
+    return true;
   };
 
-  register(manifest.graphDefinitionId);
+  register(manifest.graphDefinitionId, ['graphDefinitionId']);
 
   if (
     !manifest.fieldGroups.includes('ordinary') ||
     new Set(manifest.fieldGroups).size !== manifest.fieldGroups.length ||
     manifest.fieldGroups.some((g) => unsafe.has(g))
   )
-    throw new Error('Invalid field groups');
+    issues.report(
+      'access.invalid-field-groups',
+      `Invalid field groups: expected unique names including 'ordinary', found ${JSON.stringify(manifest.fieldGroups)}`,
+      ['fieldGroups'],
+    );
 
   if (
     new Set(manifest.roles).size !== manifest.roles.length ||
     manifest.roles.some((role) => !role.trim() || unsafe.has(role))
   )
-    throw new Error('Invalid roles');
+    issues.report(
+      'access.invalid-roles',
+      `Invalid roles: expected unique nonblank names, found ${JSON.stringify(manifest.roles)}`,
+      ['roles'],
+    );
 
-  if (
-    Object.keys(manifest.claims).some(
-      (name) => !name.trim() || unsafe.has(name),
-    )
-  )
-    throw new Error('Invalid claims');
+  for (const name of Object.keys(manifest.claims))
+    if (!name.trim() || unsafe.has(name))
+      issues.report(
+        'access.invalid-claims',
+        `Invalid claims: claim name '${name}' is not allowed`,
+        ['claims', name],
+      );
 
-  for (const resource of manifest.sources) {
-    register(resource.id);
+  manifest.sources.forEach((resource, index) => {
+    register(resource.id, ['sources', index, 'id']);
     const key = resource.fields[resource.idField];
 
     if (!key || key.type !== 'string' || key.optional || key.nullable)
-      throw new Error('Source idField must be a required string');
+      issues.report(
+        'source.invalid-id-field',
+        `Source idField must be a required string: source '${resource.id}' field '${resource.idField}'`,
+        ['sources', index, 'idField'],
+        resource.id,
+      );
 
-    if (Object.keys(resource.fields).some((k) => unsafe.has(k)))
-      throw new Error('Unsafe source field');
-  }
+    for (const field of Object.keys(resource.fields))
+      if (unsafe.has(field))
+        issues.report(
+          'source.invalid-field',
+          `Unsafe source field '${field}' on source '${resource.id}'`,
+          ['sources', index, 'fields', field],
+          resource.id,
+        );
+  });
 
   const names = new Set<string>();
+  const objectById = new Map(manifest.objects.map((o) => [o.id, o] as const));
 
-  for (const object of manifest.objects) {
-    register(object.id);
+  manifest.objects.forEach((object, index) => {
+    const at = (...segments: Segment[]) => ['objects', index, ...segments];
+
+    register(object.id, at('id'));
 
     if (
       !object.apiName.trim() ||
       unsafe.has(object.apiName) ||
       names.has(object.apiName)
     )
-      throw new Error('Invalid or duplicate object API name');
+      issues.report(
+        'object.invalid-api-name',
+        `Invalid or duplicate object API name '${object.apiName}' for object '${object.id}'`,
+        at('apiName'),
+        object.id,
+      );
 
     names.add(object.apiName);
     const resource = manifest.sources.find(
       (s) => s.id === object.sourceDefinitionId,
     );
 
-    if (object.sourceDefinitionId && !resource)
-      throw new Error('Unknown membership source');
+    if (object.sourceDefinitionId && !resource) {
+      issues.report(
+        'object.unknown-source',
+        `Unknown membership source '${object.sourceDefinitionId}' for object ${object.apiName}`,
+        at('sourceDefinitionId'),
+        object.id,
+      );
+
+      // Property checks below depend on the resolved source.
+      return;
+    }
 
     const propertyNames = new Set<string>();
 
-    for (const property of object.properties) {
-      register(property.id);
+    object.properties.forEach((property, propertyIndex) => {
+      const here = at('properties', propertyIndex);
+      const label = `${object.apiName}.${property.name}`;
+
+      register(property.id, [...here, 'id']);
 
       if (propertyNames.has(property.name) || unsafe.has(property.name))
-        throw new Error('Invalid property name');
+        issues.report(
+          'property.invalid-name',
+          `Invalid property name '${property.name}' on object ${object.apiName}`,
+          [...here, 'name'],
+          object.id,
+        );
 
       propertyNames.add(property.name);
 
       if (!manifest.fieldGroups.includes(property.access))
-        throw new Error('Unknown field group');
+        issues.report(
+          'property.unknown-field-group',
+          `Unknown field group '${property.access}' on property ${label}`,
+          [...here, 'access'],
+          object.id,
+        );
 
       if (
         property.origin.kind === 'native' ||
         property.origin.kind === 'native-reference'
       ) {
         if (resource)
-          throw new Error(
-            'Native business properties require native membership',
+          issues.report(
+            'property.native-requires-native-membership',
+            `Native business properties require native membership: property ${label} on source-backed object ${object.apiName}`,
+            [...here, 'origin'],
+            object.id,
           );
 
         if (
@@ -336,14 +513,14 @@ export function validateManifest(input: unknown): Manifest {
           (property.schema.type !== 'string' ||
             property.schema.optional ||
             property.schema.nullable ||
-            !manifest.objects.some(
-              (o) =>
-                o.id ===
-                (property.origin as { targetObjectDefinitionId: string })
-                  .targetObjectDefinitionId,
-            ))
+            !objectById.has(property.origin.targetObjectDefinitionId))
         )
-          throw new Error('Invalid native reference');
+          issues.report(
+            'reference.invalid-target',
+            `Invalid native reference: property ${label} references unregistered or invalid object '${property.origin.targetObjectDefinitionId}'`,
+            [...here, 'origin', 'targetObjectDefinitionId'],
+            object.id,
+          );
       } else if (property.origin.kind === 'object-id') {
         if (
           property.schema.type !== 'string' ||
@@ -351,7 +528,12 @@ export function validateManifest(input: unknown): Manifest {
           property.schema.optional ||
           property.access !== 'ordinary'
         )
-          throw new Error('objectId() must be an ordinary required string');
+          issues.report(
+            'object.invalid-object-id',
+            `objectId() must be an ordinary required string: property ${label}`,
+            [...here, 'schema'],
+            object.id,
+          );
       } else if (property.origin.kind === 'reference') {
         const key = resource?.fields[property.origin.field];
         const targetId = property.origin.targetObjectDefinitionId;
@@ -365,36 +547,54 @@ export function validateManifest(input: unknown): Manifest {
           property.schema.type !== 'string' ||
           property.schema.optional ||
           property.schema.nullable ||
-          !manifest.objects.some((o) => o.id === targetId)
+          !objectById.has(targetId)
         )
-          throw new Error('Invalid source reference target or key');
+          issues.report(
+            'reference.invalid-target',
+            `Invalid source reference target or key: property ${label} references object '${targetId}' through field '${property.origin.field}'`,
+            [...here, 'origin'],
+            object.id,
+          );
       } else if (
         property.origin.sourceDefinitionId !== resource?.id ||
         !resource?.fields[property.origin.field] ||
         canonicalJson(resource.fields[property.origin.field]) !==
           canonicalJson(property.schema)
       ) {
-        throw new Error('Invalid source field reference');
+        issues.report(
+          'property.invalid-source-field',
+          `Invalid source field reference: property ${label} reads field '${property.origin.field}' of source '${property.origin.sourceDefinitionId}'`,
+          [...here, 'origin'],
+          object.id,
+        );
       }
-    }
+    });
 
-    if (
-      object.properties.filter((p) => p.origin.kind === 'object-id').length !==
-      1
-    )
-      throw new Error('Each object must have exactly one objectId() property');
-  }
+    const identities = object.properties.filter(
+      (p) => p.origin.kind === 'object-id',
+    ).length;
+
+    if (identities !== 1)
+      issues.report(
+        'object.object-id-count',
+        `Object '${object.id}' requires exactly one objectId() property; found ${identities}`,
+        at('properties'),
+        object.id,
+      );
+  });
 
   const traversalNames = new Set<string>();
 
-  for (const relationship of manifest.relationships ?? []) {
-    register(relationship.id);
-    const from = manifest.objects.find(
-      (o) => o.id === relationship.fromObjectDefinitionId,
-    );
-    const to = manifest.objects.find(
-      (o) => o.id === relationship.toObjectDefinitionId,
-    );
+  (manifest.relationships ?? []).forEach((relationship, index) => {
+    const at = (...segments: Segment[]) => [
+      'relationships',
+      index,
+      ...segments,
+    ];
+
+    register(relationship.id, at('id'));
+    const from = objectById.get(relationship.fromObjectDefinitionId);
+    const to = objectById.get(relationship.toObjectDefinitionId);
     const via = to?.properties.find(
       (p) => p.id === relationship.referencePropertyDefinitionId,
     );
@@ -406,12 +606,21 @@ export function validateManifest(input: unknown): Manifest {
       (via.origin.kind !== 'reference' &&
         via.origin.kind !== 'native-reference') ||
       via.origin.targetObjectDefinitionId !== from.id
-    )
-      throw new Error('Invalid relationship endpoints or reference');
+    ) {
+      issues.report(
+        'relationship.invalid-endpoints',
+        `Invalid relationship endpoints or reference: relationship '${relationship.id}' from '${relationship.fromObjectDefinitionId}' to '${relationship.toObjectDefinitionId}' via '${relationship.referencePropertyDefinitionId}'`,
+        at(),
+        relationship.id,
+      );
 
-    for (const [object, traversal] of [
-      [from, relationship.forward],
-      [to, relationship.reverse],
+      // Traversal checks need resolved endpoints.
+      return;
+    }
+
+    for (const [object, traversal, side] of [
+      [from, relationship.forward, 'forward'],
+      [to, relationship.reverse, 'reverse'],
     ] as const) {
       const key = JSON.stringify([object.id, traversal.name]);
 
@@ -420,34 +629,83 @@ export function validateManifest(input: unknown): Manifest {
         unsafe.has(traversal.name) ||
         traversalNames.has(key)
       )
-        throw new Error('Invalid or duplicate traversal name');
+        issues.report(
+          'relationship.invalid-traversal',
+          `Invalid or duplicate traversal name '${traversal.name}' on ${object.apiName} for relationship '${relationship.id}'`,
+          at(side, 'name'),
+          relationship.id,
+        );
 
       traversalNames.add(key);
     }
+  });
+
+  for (const typeId of Object.keys(manifest.createPolicies ?? {})) {
+    const object = objectById.get(typeId);
+
+    if (object && object.sourceDefinitionId)
+      issues.report(
+        'policy.create-requires-native-membership',
+        `Create policy requires native membership: ${object.apiName} is owned by source '${object.sourceDefinitionId}'`,
+        ['createPolicies', typeId],
+        typeId,
+      );
   }
 
-  for (const [typeId, rule] of Object.entries(manifest.createPolicies ?? {})) {
-    if (!manifest.objects.some((o) => o.id === typeId && !o.sourceDefinitionId))
-      throw new Error('Create policy requires native membership');
-  }
-
-  for (const [typeId, policy] of [
-    ...Object.entries(manifest.policies),
-    ...Object.entries(manifest.createPolicies ?? {}).map(
-      ([id, read]) => [id, { read, groups: {} } as Policy] as const,
+  const policies: readonly (readonly [
+    string,
+    Policy,
+    readonly Segment[],
+    string,
+  ])[] = [
+    ...Object.entries(manifest.policies).map(
+      ([id, policy]) =>
+        [id, policy, ['policies', id] as const, 'read'] as const,
     ),
-  ]) {
-    const object = manifest.objects.find((o) => o.id === typeId);
+    ...Object.entries(manifest.createPolicies ?? {}).map(
+      ([id, read]) =>
+        [
+          id,
+          { read, groups: {} } as Policy,
+          ['createPolicies', id] as const,
+          'create',
+        ] as const,
+    ),
+  ];
 
-    if (!object) throw new Error('Unknown policy object');
+  for (const [typeId, policy, base, kind] of policies) {
+    const object = objectById.get(typeId);
 
-    if (
-      ![
-        policy.read.role,
-        ...Object.values(policy.groups).map((gate) => gate.role),
-      ].every((role) => manifest.roles.includes(role))
-    )
-      throw new Error('Unknown policy role');
+    if (!object) {
+      issues.report(
+        'policy.unknown-object',
+        `Unknown policy object '${typeId}'`,
+        base,
+        typeId,
+      );
+
+      continue;
+    }
+
+    const rule = kind === 'read' ? [...base, 'read'] : base;
+    const label = `${object.apiName}.${kind}`;
+
+    if (!manifest.roles.includes(policy.read.role))
+      issues.report(
+        'policy.unknown-role',
+        `Unknown policy role '${policy.read.role}' in policy ${label}`,
+        [...rule, 'role'],
+        object.id,
+      );
+
+    for (const [group, gate] of Object.entries(policy.groups))
+      if (!manifest.roles.includes(gate.role))
+        issues.report(
+          'policy.unknown-role',
+          `Unknown policy role '${gate.role}' in policy ${object.apiName}.groups.${group}`,
+          [...base, 'groups', group, 'role'],
+          object.id,
+        );
 
     if (policy.read.where) {
       const conditions =
@@ -460,115 +718,208 @@ export function validateManifest(input: unknown): Manifest {
               },
             ];
 
-      for (const condition of conditions) {
+      conditions.forEach((condition, conditionIndex) => {
+        const where = [...rule, 'where'];
+        const here =
+          'all' in policy.read.where!
+            ? [...where, 'all', conditionIndex]
+            : where;
         let current = object;
 
         for (const [index, id] of condition.path.entries()) {
           const property = current.properties.find((p) => p.id === id);
 
-          if (!property) throw new Error('Unknown policy dependency');
+          if (!property) {
+            issues.report(
+              'policy.unknown-dependency',
+              `Unknown policy dependency '${id}' on ${current.apiName} in policy ${label}`,
+              [...here, 'path', index],
+              object.id,
+            );
+
+            return;
+          }
 
           if (index < condition.path.length - 1) {
             if (
               property.origin.kind !== 'reference' &&
               property.origin.kind !== 'native-reference'
-            )
-              throw new Error('Policy path must traverse a reference');
+            ) {
+              issues.report(
+                'policy.invalid-path',
+                `Policy path must traverse a reference: ${current.apiName}.${property.name} in policy ${label}`,
+                [...here, 'path', index],
+                object.id,
+              );
 
-            const targetId = property.origin.targetObjectDefinitionId;
+              return;
+            }
 
-            current = manifest.objects.find((o) => o.id === targetId)!;
+            const target = objectById.get(
+              property.origin.targetObjectDefinitionId,
+            );
+
+            // Reference targets were validated with their owning object.
+            if (!target) return;
+
+            current = target;
           } else {
             if (
               property.origin.kind === 'reference' ||
               property.origin.kind === 'native-reference'
-            )
-              throw new Error('Policy path must end at a scalar');
+            ) {
+              issues.report(
+                'policy.invalid-path',
+                `Policy path must end at a scalar: ${current.apiName}.${property.name} in policy ${label}`,
+                [...here, 'path', index],
+                object.id,
+              );
+
+              return;
+            }
 
             if (
               (condition.claim !== undefined) ===
               ('actor' in condition && condition.actor !== undefined)
-            )
-              throw new Error('Policy needs exactly one operand');
+            ) {
+              issues.report(
+                'policy.invalid-predicate',
+                `Policy needs exactly one operand: condition on ${current.apiName}.${property.name} in policy ${label}`,
+                here,
+                object.id,
+              );
+
+              return;
+            }
 
             const claim =
               condition.claim !== undefined
                 ? manifest.claims[condition.claim]
                 : { type: 'string', nullable: false, optional: false };
 
-            if (!claim) throw new Error('Unknown policy claim');
+            if (!claim) {
+              issues.report(
+                'policy.unknown-claim',
+                `Unknown policy claim '${condition.claim}' in policy ${label}`,
+                [...here, 'claim'],
+                object.id,
+              );
+
+              return;
+            }
 
             if (
               claim.type !== property.schema.type ||
               (claim.nullable && !property.schema.nullable) ||
               (claim.optional && !property.schema.optional)
             )
-              throw new Error('Incompatible policy claim');
+              issues.report(
+                'policy.incompatible-claim',
+                `Incompatible policy claim '${condition.claim ?? 'actor.id'}' for ${current.apiName}.${property.name} in policy ${label}`,
+                [...here, 'claim'],
+                object.id,
+              );
           }
         }
-      }
+      });
     }
 
-    if (
-      Object.keys(policy.groups).some(
-        (g) => g === 'ordinary' || !manifest.fieldGroups.includes(g),
-      )
-    )
-      throw new Error('Invalid policy group');
+    for (const group of Object.keys(policy.groups))
+      if (group === 'ordinary' || !manifest.fieldGroups.includes(group))
+        issues.report(
+          'policy.invalid-group',
+          `Invalid policy group '${group}' in policy ${object.apiName}`,
+          [...base, 'groups', group],
+          object.id,
+        );
   }
 
   const actionNames = new Set<string>();
 
-  for (const action of manifest.actions ?? []) {
-    register(action.id);
+  (manifest.actions ?? []).forEach((action, index) => {
+    const at = (...segments: Segment[]) => ['actions', index, ...segments];
+
+    register(action.id, at('id'));
 
     if (
       !action.apiName.trim() ||
       unsafe.has(action.apiName) ||
       actionNames.has(action.apiName)
     )
-      throw new Error('Invalid action API name');
+      issues.report(
+        'action.invalid-api-name',
+        `Invalid action API name '${action.apiName}' for action '${action.id}'`,
+        at('apiName'),
+        action.id,
+      );
 
     actionNames.add(action.apiName);
 
     if (action.execute && !manifest.roles.includes(action.execute.role))
-      throw new Error('Unknown action role');
+      issues.report(
+        'policy.unknown-role',
+        `Unknown action role '${action.execute.role}' on action ${action.apiName}`,
+        at('execute', 'role'),
+        action.id,
+      );
 
     if (
       new Set(action.creates).size !== action.creates.length ||
-      action.creates.some(
-        (id) =>
-          !manifest.objects.some((o) => o.id === id && !o.sourceDefinitionId),
-      )
-    )
-      throw new Error('Invalid native action capability');
+      action.creates.some((id) => {
+        const object = objectById.get(id);
 
-    if (
-      Object.keys(action.errors ?? {}).some(
-        (code) => !code.trim() || unsafe.has(code),
-      )
+        return !object || Boolean(object.sourceDefinitionId);
+      })
     )
-      throw new Error('Invalid action error code');
+      issues.report(
+        'action.invalid-capability',
+        `Invalid native action capability: action ${action.apiName} creates ${JSON.stringify(action.creates)}`,
+        at('creates'),
+        action.id,
+      );
 
-    for (const shape of [
-      action.input,
-      action.output,
-      ...Object.values(action.errors ?? {}),
-    ])
+    for (const code of Object.keys(action.errors ?? {}))
+      if (!code.trim() || unsafe.has(code))
+        issues.report(
+          'action.invalid-field',
+          'Invalid action error code',
+          at('errors', code),
+          action.id,
+        );
+
+    for (const [shapePath, shape] of [
+      [['input'], action.input],
+      [['output'], action.output],
+      ...Object.entries(action.errors ?? {}).map(
+        ([code, shape]) => [['errors', code], shape] as const,
+      ),
+    ] as const)
       for (const [name, field] of Object.entries(shape)) {
         if (!name.trim() || unsafe.has(name))
-          throw new Error('Invalid action field');
+          issues.report(
+            'action.invalid-field',
+            `Invalid action field '${name}' in ${action.apiName}.${shapePath.join('.')}`,
+            at(...shapePath, name),
+            action.id,
+          );
 
         if (
           field.references &&
           (field.type !== 'string' ||
             field.nullable ||
             field.optional ||
-            !manifest.objects.some((o) => o.id === field.references))
+            !objectById.has(field.references))
         )
-          throw new Error('Invalid action reference');
+          issues.report(
+            'action.invalid-reference',
+            `Invalid action reference: ${action.apiName}.${shapePath.join('.')}.${name} references '${field.references}'`,
+            at(...shapePath, name, 'references'),
+            action.id,
+          );
       }
-  }
+  });
+
+  if (issues.list.length) throw new ManifestValidationError(issues.list);
 
   return deepFreeze(manifest);
 }

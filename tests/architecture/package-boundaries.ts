@@ -36,12 +36,45 @@ export const packagePolicies: Record<
       '@relate/node',
       '@relate/runtime',
       '@relate/postgres',
+      'relate/diagnostics',
+      'relate/model',
+      '@relate/inspector/protocol',
+      '@relate/inspector/server',
+      'hono',
+      'hono/cookie',
+      'hono/streaming',
+      '@hono/node-server',
+      'esbuild',
+      'zod',
     ],
     builtins: true,
   },
   'packages/create-relate': { imports: [], builtins: true },
   'apps/docs': { imports: [], builtins: true },
-  'apps/inspector': { imports: ['@relate/client', '@relate/protocol'] },
+  'apps/inspector': {
+    imports: [
+      '@relate/client',
+      'relate/model',
+      'relate/diagnostics',
+      'zod',
+      'hono',
+      'react',
+      'react-dom/client',
+      '@tanstack/react-query',
+      '@tanstack/react-router',
+      '@xyflow/react',
+      '@xyflow/react/dist/style.css',
+      'elkjs/lib/elk-api.js',
+      'elkjs/lib/elk-worker.min.js?worker&url',
+      'vite',
+      '@vitejs/plugin-react',
+      '@fontsource/inter/400.css',
+      '@fontsource/inter/500.css',
+      '@fontsource/inter/600.css',
+      '@fontsource/dm-mono/400.css',
+      '@fontsource/dm-mono/500.css',
+    ],
+  },
   'examples/hello-world': {
     imports: ['relate', '@relate/node', 'zod'],
     builtins: true,
@@ -73,7 +106,10 @@ export function assertRelateEntryPoints(
         file === 'src/compiler.ts' || file.startsWith('src/compiler/');
       const model = file === 'src/model.ts' || file.startsWith('src/model/');
 
-      if (compiler || (entry === 'src/model.ts' && !model))
+      if (
+        compiler ||
+        (entry === 'src/model.ts' && !model && file !== 'src/diagnostics.ts')
+      )
         throw new Error(
           `Forbidden relate entry-point dependency: ${[...path, file].join(' -> ')}`,
         );

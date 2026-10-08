@@ -138,6 +138,45 @@ const recovered = await relate
 // recovered.output contains the original result; the action is not executed again.
 ```
 
+## Application definitions
+
+`defineApp` wraps an authored graph with a deferred recipe for runtime bindings.
+It is an inert descriptor: importing or creating it opens nothing, so
+`relate dev` can compile `app.graph` without credentials or a database.
+
+```ts
+// src/relate/app.ts
+import { defineApp } from '@relate/node';
+import { graph } from './graph.js';
+
+export default defineApp({
+  graph,
+  async setup({ onDispose }) {
+    const { openBindings } = await import('./bindings.js');
+    const bindings = await openBindings();
+
+    onDispose(() => bindings.close());
+
+    return { connections: bindings.connections, store: bindings.store };
+  },
+});
+```
+
+`startApp(app)` runs `setup` once, composes the runtime through `createRuntime`
+and owns the cleanup registered with `onDispose`. A failure in `setup` or
+compilation releases what was registered before rethrowing, and `close()` drains
+operations before disposing. A model that only needs inspection can omit
+`setup`; a live start still requires every source connection.
+
+```ts
+import { startApp } from '@relate/node';
+import app from './relate/app.js';
+
+const relate = await startApp(app);
+// ... routes receive `relate` through ordinary dependency injection
+await relate.close();
+```
+
 ## Status
 
 Implemented: typed reads, source-backed references, bidirectional traversal with

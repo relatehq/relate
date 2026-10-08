@@ -1,12 +1,15 @@
 # Inspector foundation and live model graph
 
-**Status:** architecture and one-screen scope agreed on 2026-10-07;
-configuration and protocol signatures below are proposed. Structured semantic
-diagnostics are a required dependency of the error experience; source-location
-capture remains an open implementation choice. Type diagnostics are decided as a
-non-blocking follow-up: the protocol reserves their shape, the first
-implementation shows Manifest validity only. This is a specification, not an
-implemented or published inspector.
+**Status:** architecture and one-screen scope agreed on 2026-10-07; first
+implementation landed the same day across `relate/diagnostics`, `@relate/node`
+(`defineApp`, `startApp`), `@relate/cli` (`relate dev`) and `@relate/inspector`.
+Source-location capture uses optional declaration provenance
+(`new Error().stack`, resolved through source maps in the CLI child) and reports
+`declaration` precision only. Type diagnostics remain a non-blocking follow-up:
+the protocol carries their shape and the inspector renders them, but no checker
+emits them yet. Telemetry, forwarded-origin verification against real proxies
+and the benchmark fixtures are not implemented. Where the sections below say
+"proposed", the implementation in the packages is the current source of truth.
 
 ## Outcome and scope
 

@@ -10,6 +10,8 @@ import type {
 } from './index.js';
 import type { RoleGate } from './authorization.js';
 import type { ObjectResult, ReadOptions } from './operations.js';
+import { CompileError } from './diagnostics.js';
+import { recordProvenance } from './provenance.js';
 
 export const actionKeys: readonly string[] = Object.freeze([
   'id',
@@ -55,14 +57,27 @@ export function defineAction<
   errors?: Errors;
   policy?: { readonly execute: RoleGate };
 }): ActionDefinition<Input, Output, Creates, Errors> & { readonly id: Id } {
-  if (Object.keys(definition).some((key) => !actionKeys.includes(key)))
-    throw new Error('Unsupported action option');
+  const unsupported = Object.keys(definition).filter(
+    (key) => !actionKeys.includes(key),
+  );
 
-  return Object.freeze({
-    ...definition,
-    errors: Object.freeze({ ...definition.errors }),
-    creates: Object.freeze([...definition.creates]),
-  }) as ActionDefinition<Input, Output, Creates, Errors> & { readonly id: Id };
+  if (unsupported.length)
+    throw new CompileError([
+      {
+        code: 'action.invalid-shape',
+        message: `Unsupported action option ${unsupported.map((key) => `'${key}'`).join(', ')} on action '${definition.id}'`,
+        definitionId: definition.id,
+        path: { root: 'definition', segments: [unsupported[0]!] },
+      },
+    ]);
+
+  return recordProvenance(
+    Object.freeze({
+      ...definition,
+      errors: Object.freeze({ ...definition.errors }),
+      creates: Object.freeze([...definition.creates]),
+    }),
+  ) as ActionDefinition<Input, Output, Creates, Errors> & { readonly id: Id };
 }
 
 export type NativeValues<O extends ObjectDefinition> = {

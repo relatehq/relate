@@ -222,3 +222,33 @@ it('checks browser application source outside src', async () => {
     stderr: expect.stringContaining('Forbidden dependency'),
   });
 });
+
+it.each(['node:fs', 'fs'])(
+  'rejects inspector browser imports of %s',
+  async (builtin) => {
+    await expect(
+      check({
+        'apps/inspector/package.json': JSON.stringify({
+          name: '@relate/inspector',
+        }),
+        'apps/inspector/src/browser.ts': `import '${builtin}';`,
+      }),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining('Platform dependency'),
+    });
+  },
+);
+
+it('permits Node only in the inspector asset server and retains CLI entry scanning', async () => {
+  await expect(
+    check({
+      'apps/inspector/package.json': JSON.stringify({
+        name: '@relate/inspector',
+      }),
+      'apps/inspector/src/server.ts': "import 'node:fs';",
+      'packages/cli/package.json': JSON.stringify({ name: '@relate/cli' }),
+      'packages/cli/bin/relate.js': "import '../dist/bin.js';",
+      'packages/cli/src/bin.ts': "import 'node:process';",
+    }),
+  ).resolves.toBeDefined();
+});

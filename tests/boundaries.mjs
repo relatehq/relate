@@ -21,6 +21,16 @@ const workspaces = JSON.parse(
     encoding: 'utf8',
   }),
 ).filter((workspace) => resolve(workspace.path) !== root);
+const inspectorBrowserForbidden = new Set([
+  'relate',
+  'relate/compiler',
+  '@relate/node',
+  '@relate/runtime',
+  '@relate/runtime/storage',
+  '@relate/postgres',
+  '@relate/cli',
+  '@relate/protocol',
+]);
 const graph = new Map();
 const relateGraph = new Map();
 const source = /\.(?:[cm]?[jt]s|[jt]sx)$/;
@@ -110,12 +120,18 @@ for (const workspace of workspaces) {
         (ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
         (ts.isExportDeclaration(node) && node.isTypeOnly);
 
+      // The CLI's application child imports the user's bundle by computed path.
       if (
         ts.isCallExpression(node) &&
         (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
           (ts.isIdentifier(node.expression) &&
             node.expression.text === 'require')) &&
-        (!literal || !ts.isStringLiteral(literal))
+        (!literal || !ts.isStringLiteral(literal)) &&
+        !(
+          owner === 'packages/cli' &&
+          relative(directory, file) === `src${sep}dev${sep}worker.ts` &&
+          node.expression.kind === ts.SyntaxKind.ImportKeyword
+        )
       )
         throw new Error(`Nonliteral import cannot be checked: ${file}`);
 
@@ -123,6 +139,23 @@ for (const workspace of workspaces) {
         const name = literal.text;
 
         if (name.startsWith('.')) {
+          // The published executable loads the emitted counterpart of src/bin.ts.
+          if (
+            owner === 'packages/cli' &&
+            relative(directory, file) === `bin${sep}relate.js` &&
+            name === '../dist/bin.js'
+          ) {
+            const entry = resolve(directory, 'src/bin.ts');
+
+            if (!files.has(entry))
+              throw new Error(`Missing CLI source entry: ${entry}`);
+
+            edges.push(entry);
+            allEdges.push('src/bin.ts');
+
+            return;
+          }
+
           const target = ts.resolveModuleName(
             name,
             file,
@@ -148,6 +181,8 @@ for (const workspace of workspaces) {
           // Check the lexical path even when TypeScript cannot resolve it.
           if (!resolve(dirname(file), name).startsWith(directory + sep))
             throw new Error(`Cross-package relative import: ${file}: ${name}`);
+
+          if (owner === 'apps/inspector' && name.endsWith('.css')) return;
 
           if (owner === 'packages/runtime')
             assertRuntimeDependency(
@@ -178,6 +213,8 @@ for (const workspace of workspaces) {
 
           if (!(
             compiler ||
+            (owner === 'apps/inspector' &&
+              relative(directory, file) === `src${sep}server.ts`) ||
             policy.builtins === true ||
             policy.builtins?.includes(builtin)
           ))
@@ -218,6 +255,54 @@ async function check(file) {
 }
 
 for (const file of graph.keys()) await check(file);
+
+// The inspector's browser modules: only server.ts may touch Node.
+const inspectorSource = resolve(root, 'apps/inspector/src');
+
+for (const file of await walk(inspectorSource).catch((error) => {
+  if (error.code === 'ENOENT') return [];
+
+  throw error;
+})) {
+  if (!/\.tsx?$/.test(file)) continue;
+
+  const serverOnly = file === resolve(inspectorSource, 'server.ts');
+  const parsed = ts.createSourceFile(
+    file,
+    await readFile(file, 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+
+  function visitInspector(node) {
+    const literal =
+      ts.isImportDeclaration(node) || ts.isExportDeclaration(node)
+        ? node.moduleSpecifier
+        : ts.isCallExpression(node) &&
+            node.expression.kind === ts.SyntaxKind.ImportKeyword
+          ? node.arguments[0]
+          : undefined;
+
+    if (literal && ts.isStringLiteral(literal)) {
+      const name = literal.text.replace(/\?.*$/, '');
+
+      if (!serverOnly && name.startsWith('node:'))
+        throw new Error(
+          `Inspector browser code imports Node: ${file}: ${name}`,
+        );
+
+      if (inspectorBrowserForbidden.has(name))
+        throw new Error(
+          `Inspector imports a forbidden package: ${file}: ${name}`,
+        );
+    }
+
+    ts.forEachChild(node, visitInspector);
+  }
+
+  visitInspector(parsed);
+}
 
 // Simulators are provider fixtures; they cannot import Relate or application code.
 for (const file of await walk(resolve(root, 'dev/simulators'))) {

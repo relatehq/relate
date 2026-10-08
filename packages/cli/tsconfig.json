@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true,
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    { "path": "../relate" },
+    { "path": "../node" },
+    { "path": "../../apps/inspector/tsconfig.server.json" }
+  ]
+}
