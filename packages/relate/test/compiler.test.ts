@@ -10,13 +10,11 @@ import {
   reference,
   source,
 } from 'relate';
-import {
-  access,
-  Customer,
-  customerGraph,
-} from '../../../examples/postgres-persistence/src/model.js';
+import { createCustomerGraph } from '../../../tests/support/customer-graph.js';
 
 it('compiles named object registries without changing stable persisted identity', () => {
+  const { Customer, customerGraph } = createCustomerGraph();
+
   const original = compile(customerGraph);
 
   expect(compile({ ...customerGraph, objects: { Customer } })).toEqual(
@@ -40,6 +38,8 @@ it('compiles named object registries without changing stable persisted identity'
 });
 
 it('produces deterministic frozen portable contracts and preserves definition IDs across renames', () => {
+  const { access, Customer, customerGraph } = createCustomerGraph();
+
   const model = compile(customerGraph);
 
   expect(
@@ -69,6 +69,8 @@ it('produces deterministic frozen portable contracts and preserves definition ID
 });
 
 it('rejects missing, empty and duplicate IDs, unknown classifications and broken references', () => {
+  const { access, Customer, customerGraph } = createCustomerGraph();
+
   expect(() => compile({ ...customerGraph, id: '' })).toThrow();
   expect(() =>
     compile({ ...customerGraph, objects: { Customer, Duplicate: Customer } }),
@@ -167,6 +169,8 @@ it.each([
   z.coerce.boolean().nullable(),
   z.object({ name: z.string() }),
 ])('rejects unsupported schemas instead of dropping validation', (schema) => {
+  const { Customer, customerGraph } = createCustomerGraph();
+
   expect(() =>
     compile({
       ...customerGraph,
@@ -184,6 +188,8 @@ it.each([
 });
 
 it('supports explicit optional and nullable scalar values', () => {
+  const { access } = createCustomerGraph();
+
   const resource = defineSource({
     id: 'test.source',
     idField: 'id',
@@ -221,6 +227,8 @@ it('supports explicit optional and nullable scalar values', () => {
 });
 
 it('requires exactly one explicit objectId during authoring, compilation and manifest validation', () => {
+  const { access, Customer, customerGraph } = createCustomerGraph();
+
   const { id, ...withoutId } = Customer.properties;
   const extra = objectId({
     id: 'customer.second-id',
@@ -259,6 +267,8 @@ it('requires exactly one explicit objectId during authoring, compilation and man
 });
 
 it('rejects invalid object ID schemas, classifications and native substitutes', () => {
+  const { access, Customer, customerGraph } = createCustomerGraph();
+
   for (const replacement of [
     { ...Customer.properties.id, schema: z.number() },
     { ...Customer.properties.id, schema: z.string().optional() },
@@ -281,6 +291,8 @@ it('rejects invalid object ID schemas, classifications and native substitutes', 
 });
 
 it('defaults omitted property access to ordinary without changing the compiled contract', () => {
+  const { access, Customer, customerGraph } = createCustomerGraph();
+
   const resource = Customer.membership.resource;
   const properties = {
     ...Customer.properties,

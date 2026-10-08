@@ -5,7 +5,6 @@ import { DatabaseSync } from 'node:sqlite';
 import { afterEach, expect, test } from 'vitest';
 import { sqlite } from '@relate/connector-sqlite';
 import { SourceAccessDenied } from 'relate/connectors';
-import { seed } from '../../../examples/customer-accounts/src/seed.js';
 
 const cleanups: (() => void | Promise<void>)[] = [];
 
@@ -21,10 +20,11 @@ function fixture() {
   const path = join(directory, 'crm.sqlite');
 
   cleanups.push(() => rmSync(directory, { recursive: true, force: true }));
-  seed(path);
   const db = new DatabaseSync(path);
 
   cleanups.push(() => db.close());
+  db.exec(`CREATE TABLE customers (id TEXT PRIMARY KEY NOT NULL, display_name TEXT NOT NULL, portfolio TEXT NOT NULL, stripe_customer_id TEXT);
+    INSERT INTO customers VALUES ('crm_northwind', 'Northwind', 'portfolio_north', 'cus_demo_northwind');`);
   db.exec(
     "CREATE TABLE account (id TEXT PRIMARY KEY NOT NULL); INSERT INTO account VALUES ('demo-crm')",
   );

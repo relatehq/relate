@@ -127,5 +127,5 @@ after close fail.
 This package implements record reads, not enumeration, change feeds, provider
 writes, or Relate storage.
 
-See [customer accounts](../../examples/customer-accounts) for a runnable
+See [customer accounts](../../examples/02-customer-accounts) for a runnable
 application.

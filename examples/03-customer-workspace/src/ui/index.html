@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Customer workspace · Relate</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">relate<span>Customer workspace</span></a
+      ><a id="inspector" target="_blank" rel="noreferrer">Inspect model ↗</a>
+    </header>
+    <main>
+      <div class="intro">
+        <p>Example 03 / Connected customer data</p>
+        <label
+          >View as
+          <select id="actor">
+            <option value="ana">Ana · Account manager</option>
+            <option value="fin">Fin · Finance</option>
+          </select></label
+        >
+      </div>
+      <section class="account">
+        <div class="avatar" aria-hidden="true">N</div>
+        <div>
+          <h1 id="name">Loading account…</h1>
+          <p>
+            North portfolio <span class="dot">·</span>
+            <span id="status">Customer</span>
+          </p>
+        </div>
+        <button id="refresh">Refresh from sources</button>
+      </section>
+      <p class="explanation" id="role">
+        Explore one customer across three owners. Switch roles to see the same
+        access rules applied to every request.
+      </p>
+      <p id="feedback" role="status" aria-live="polite"></p>
+      <div class="workspace">
+        <section class="invoices">
+          <div class="section-heading">
+            <h2>Invoices</h2>
+            <span class="source">SQLite billing</span>
+          </div>
+          <p>Related through the customer’s CRM ID.</p>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Invoice</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="amount">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="invoices"></tbody>
+          </table>
+          <p class="hint">Invoice amounts are visible to Finance.</p>
+        </section>
+        <section class="reviews">
+          <div class="section-heading">
+            <h2>Account reviews</h2>
+            <span class="source">Relate</span>
+          </div>
+          <p class="hint">
+            Temporary demo list: reviews created through this running example
+            only. Each review is read through Relate. Native-reference traversal
+            is not implemented yet.
+          </p>
+          <div id="reviews"></div>
+          <form id="review-form">
+            <label for="note">Next step for this account</label
+            ><textarea
+              id="note"
+              maxlength="4000"
+              required
+              placeholder="e.g. Follow up on the overdue invoice on Friday."
+            ></textarea>
+            <div class="actions">
+              <button class="primary" id="save" type="submit">Add review</button
+              ><button id="retry" type="button" disabled>
+                Retry last submission
+              </button>
+            </div>
+            <p class="hint" id="review-hint">
+              Ana can add reviews. Retrying reuses the same action key.
+            </p>
+          </form>
+        </section>
+      </div>
+      <section class="source-editor">
+        <div>
+          <h2>Change the source, then refresh</h2>
+          <p>
+            This edits the simulated CRM. Relate reads it when you refresh
+            above.
+          </p>
+        </div>
+        <form id="rename-form">
+          <label for="crm-name">CRM customer name</label>
+          <div class="actions">
+            <input
+              id="crm-name"
+              value="Northwind Studio"
+              required
+              maxlength="100"
+            /><button type="submit">Update CRM</button>
+          </div>
+        </form>
+      </section>
+      <section class="developer">
+        <h2>See what Relate did</h2>
+        <p>
+          The application uses the embedded SDK. These panels show the calls and
+          their returned evidence.
+        </p>
+        <details>
+          <summary>Relate calls</summary>
+          <pre id="calls"></pre>
+        </details>
+        <details>
+          <summary>Read results &amp; evidence</summary>
+          <pre id="evidence"></pre>
+        </details>
+        <details id="receipt-panel">
+          <summary>Action receipt</summary>
+          <pre id="receipt">Add a review to see its receipt.</pre>
+        </details>
+      </section>
+      <footer>
+        Local demo · HTTP CRM + SQLite invoices + Relate reviews<br />State
+        resets on restart. The inspector shows definitions; restart this
+        application after changing its code.
+      </footer>
+    </main>
+  </body>
+</html>

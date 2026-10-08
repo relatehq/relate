@@ -1,4 +1,4 @@
-# Customer accounts
+# 02 · SQLite customer accounts
 
 A local CRM backed by SQLite, read through `@relate/connector-sqlite` and the
 typed Relate application API. No external services or credentials are needed.
@@ -34,3 +34,5 @@ The CRM includes a nullable `stripe_customer_id` column. Its example value is
 synthetic. A later Stripe connector can add billing sources and relationships to
 this graph using that key; this example makes no Stripe calls and does not yet
 model invoices or subscriptions.
+
+See the [ordered examples](../README.md) for the full learning path.

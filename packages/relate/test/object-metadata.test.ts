@@ -2,12 +2,11 @@ import { expect, it } from 'vitest';
 import { defineObject } from 'relate';
 import { compile } from 'relate/compiler';
 import { validateManifest } from 'relate/model';
-import {
-  Customer,
-  customerGraph,
-} from '../../../examples/postgres-persistence/src/model.js';
+import { createCustomerGraph } from '../../../tests/support/customer-graph.js';
 
 it('keeps API addressing and durable identity independent of display metadata', () => {
+  const { Customer, customerGraph } = createCustomerGraph();
+
   const original = compile(customerGraph);
   const model = compile({
     ...customerGraph,
@@ -43,6 +42,8 @@ it.each([
 ])(
   'resolves omitted labels from %s without guessing plurals',
   (apiName, label) => {
+    const { Customer, customerGraph } = createCustomerGraph();
+
     const object = defineObject({
       id: Customer.id,
       membership: Customer.membership,
@@ -66,6 +67,8 @@ it.each([
 );
 
 it('uses explicit singular and irregular plural labels independently', () => {
+  const { Customer, customerGraph } = createCustomerGraph();
+
   for (const metadata of [
     { label: 'Person' },
     { pluralLabel: 'People' },
@@ -93,6 +96,8 @@ it('uses explicit singular and irregular plural labels independently', () => {
 });
 
 it('allows shared display labels but rejects duplicate API names in loaded manifests', () => {
+  const { customerGraph } = createCustomerGraph();
+
   const manifest = structuredClone(compile(customerGraph).manifest);
   const object = manifest.objects[0]!;
 
@@ -113,6 +118,8 @@ it('allows shared display labels but rejects duplicate API names in loaded manif
 it.each(['', ' ', '__proto__', 'constructor', 'prototype'])(
   'rejects invalid API name %j during compilation and manifest loading',
   (apiName) => {
+    const { Customer, customerGraph } = createCustomerGraph();
+
     expect(() =>
       compile({
         ...customerGraph,
@@ -128,6 +135,8 @@ it.each(['', ' ', '__proto__', 'constructor', 'prototype'])(
 );
 
 it.each(['label', 'pluralLabel'] as const)('rejects blank %s', (field) => {
+  const { Customer, customerGraph } = createCustomerGraph();
+
   for (const value of ['', ' ']) {
     expect(() =>
       compile({
@@ -143,6 +152,8 @@ it.each(['label', 'pluralLabel'] as const)('rejects blank %s', (field) => {
 });
 
 it('requires recompilation of manifests from the previous naming contract', () => {
+  const { customerGraph } = createCustomerGraph();
+
   const manifest = structuredClone(compile(customerGraph).manifest);
   const {
     apiName: _apiName,

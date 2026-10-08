@@ -97,9 +97,10 @@ identity, and fetches through that adapter when freshness requires it. The
 runtime validates and retains observations and returns authorized fields with
 evidence. The app author does not call the adapter directly for consumer reads.
 
-See the runnable [hello-world example](../../examples/hello-world/src/index.ts)
-for the complete chain with an in-memory provider. SQLite and Stripe packages
-are planned in [connectors/TODO.md](../../connectors/TODO.md).
+See the runnable
+[hello-world example](../../examples/01-hello-world/src/index.ts) for the
+complete chain with an in-memory provider. SQLite and Stripe packages are
+planned in [connectors/TODO.md](../../connectors/TODO.md).
 
 ### Graph authoring
 
@@ -243,7 +244,7 @@ model migrations, external actions.
 
 - [CONTRACT.md](./CONTRACT.md): detailed authoring, policy, reference,
   relationship and `assertFields` behavior, including migration notes.
-- [Hello world](../../examples/hello-world/README.md): the smallest runnable
+- [Hello world](../../examples/01-hello-world/README.md): the smallest runnable
   graph.
 - [Native actions](../node/NATIVE_ACTIONS.md): `defineAction` and
   `implementAction` end to end.

@@ -4,44 +4,48 @@ import { compile } from 'relate/compiler';
 import { canonicalJson, validateManifest } from 'relate/model';
 import { createRuntime } from '@relate/runtime';
 import type { ObservationStore, StorageScope } from '@relate/runtime/storage';
-import {
-  Customer,
-  customerGraph,
-  employee,
-} from '../../examples/postgres-persistence/src/model.js';
+import { createCustomerGraph } from './customer-graph.js';
 
 export function propertyIdentityContract(
   name: string,
   open: () => Promise<{ store: ObservationStore; close(): Promise<void> }>,
 ) {
   describe(name, () => {
-    const record = {
-      id: 'crm_1',
-      display_name: 'Northwind',
-      portfolio: 'portfolio_north',
-      revenue: 12,
-    };
-    const sources = {
-      'crm.customers': {
-        connectionId: 'crm',
-        providerAccountId: 'crm-account',
-        authorization: 'shared-service' as const,
-        connector: {
-          async identify() {
-            return 'crm-account';
-          },
-          async fetch() {
-            return {
-              state: 'present' as const,
-              record,
-              providerAccountId: 'crm-account',
-            };
+    function createFixture() {
+      const { Customer, customerGraph, employee } = createCustomerGraph();
+      const record = {
+        id: 'crm_1',
+        display_name: 'Northwind',
+        portfolio: 'portfolio_north',
+        revenue: 12,
+      };
+      const sources = {
+        'crm.customers': {
+          connectionId: 'crm',
+          providerAccountId: 'crm-account',
+          authorization: 'shared-service' as const,
+          connector: {
+            async identify() {
+              return 'crm-account';
+            },
+            async fetch() {
+              return {
+                state: 'present' as const,
+                record,
+                providerAccountId: 'crm-account',
+              };
+            },
           },
         },
-      },
-    };
+      };
+
+      return { Customer, customerGraph, employee, record, sources };
+    }
 
     it('keeps stored property identity across API renames while projecting current names', async () => {
+      const { Customer, customerGraph, employee, record, sources } =
+        createFixture();
+
       const backing = await open();
       const { name: property, ...rest } = Customer.properties;
       const renamed = {
@@ -129,6 +133,9 @@ export function propertyIdentityContract(
     it.each([false, true])(
       'rejects name-keyed values under the current revision (where policy: %s)',
       async (where) => {
+        const { Customer, customerGraph, employee, record, sources } =
+          createFixture();
+
         const backing = await open();
         const model = compile(
           where
@@ -200,6 +207,9 @@ export function propertyIdentityContract(
     );
 
     it('refuses a legacy manifest revision without rewriting data', async () => {
+      const { Customer, customerGraph, employee, record, sources } =
+        createFixture();
+
       const backing = await open();
       const model = compile(customerGraph);
       const legacy = { ...model.manifest, formatVersion: 2 };

@@ -82,7 +82,7 @@ successful receipts and actor-bound lookup/replay; see
 [the walkthrough](./NATIVE_ACTIONS.md#wait-for-completion-lookup-and-recovery).
 Queries, automatic synchronization, servers and workers remain unimplemented.
 See the complete runnable
-[hello-world example](../../examples/hello-world/README.md).
+[hello-world example](../../examples/01-hello-world/README.md).
 
 Source-backed references and nested read policies support Invoice reads:
 

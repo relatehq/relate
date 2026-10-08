@@ -400,7 +400,10 @@ console.log('Installed native action executes and returns a readable committed r
 
   await writeFile(
     join(consumer, 'hello-world.ts'),
-    await readFile(resolve(root, 'examples/hello-world/src/index.ts'), 'utf8'),
+    await readFile(
+      resolve(root, 'examples/01-hello-world/src/index.ts'),
+      'utf8',
+    ),
   );
   await execFile(
     process.execPath,

@@ -430,8 +430,11 @@ it('prints the URL before the first model, then publishes models and failures ov
   );
 
   expect(duplicateExit).toBe(0);
+  expect(Buffer.concat(duplicateOutput).toString('utf8')).toContain(
+    `#token=${dev.token}\n`,
+  );
   expect(Buffer.concat(duplicateOutput).toString('utf8')).toMatch(
-    /Relate dev is already running for .*\nInspector\s+http:\/\/127\.0\.0\.1:\d+\nConfig\s+.*relate\.config\.ts\nPID\s+\d+/,
+    /Relate dev is already running for .*\nInspector\s+http:\/\/127\.0\.0\.1:\d+\/#token=[A-Za-z0-9_-]+\nConfig\s+.*relate\.config\.ts\nPID\s+\d+/,
   );
 
   await stream.return(undefined);

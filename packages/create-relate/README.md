@@ -26,5 +26,5 @@ and prompts, not behavior.
   `@relate/cli`, once the APIs it would generate code for are stable.
 
 Templates and prompts are not designed yet. The
-[hello world example](../../examples/hello-world/README.md) is the current
+[hello world example](../../examples/01-hello-world/README.md) is the current
 smallest working project and the likely starting shape.

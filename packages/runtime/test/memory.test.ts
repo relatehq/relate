@@ -3,12 +3,7 @@ import { compile } from 'relate/compiler';
 import { createMemoryStore, createRuntime } from '@relate/runtime';
 import { assertFields } from 'relate';
 import { ReadError } from '@relate/protocol';
-import {
-  Customer,
-  customerGraph,
-  employee,
-  finance,
-} from '../../../examples/postgres-persistence/src/model.js';
+import { createCustomerGraph } from '../../../tests/support/customer-graph.js';
 import { storeContract } from '../../../tests/support/store-contract.js';
 
 storeContract('memory store contract', async () => ({
@@ -17,6 +12,8 @@ storeContract('memory store contract', async () => ({
 }));
 
 it('defaults to isolated memory and supports sharing an explicit store', async () => {
+  const { Customer, customerGraph, employee } = createCustomerGraph();
+
   const options = {
     model: compile(customerGraph),
     graphId: 'memory-test',
@@ -72,6 +69,8 @@ it('defaults to isolated memory and supports sharing an explicit store', async (
 });
 
 it('enforces authorization, refresh and expired permission during memory fallback', async () => {
+  const { Customer, customerGraph, employee, finance } = createCustomerGraph();
+
   let now = 1_000;
   let offline = false;
   let name = 'Ada';

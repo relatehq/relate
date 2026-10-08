@@ -3,13 +3,11 @@ import { z } from 'zod';
 import { defineAccess } from 'relate';
 import { compile } from 'relate/compiler';
 import { validateManifest } from 'relate/model';
-import {
-  access,
-  Customer,
-  customerGraph,
-} from '../../../examples/postgres-persistence/src/model.js';
+import { createCustomerGraph } from '../../../tests/support/customer-graph.js';
 
 it('lowers object and property references into a portable policy', () => {
+  const { customerGraph } = createCustomerGraph();
+
   const manifest = compile(customerGraph).manifest;
 
   expect(manifest.roles).toEqual(['employee', 'finance']);
@@ -34,6 +32,8 @@ it('lowers object and property references into a portable policy', () => {
 });
 
 it('rejects duplicate and unregistered policy objects before lowering', () => {
+  const { Customer, customerGraph } = createCustomerGraph();
+
   expect(() =>
     compile({
       ...customerGraph,
@@ -47,6 +47,8 @@ it('rejects duplicate and unregistered policy objects before lowering', () => {
 });
 
 it('validates role, claim, group and comparison contracts in loaded manifests', () => {
+  let { access, Customer, customerGraph } = createCustomerGraph();
+
   const original = compile(customerGraph).manifest;
   const mutations: Array<[(manifest: typeof original) => void, RegExp]> = [
     [
@@ -118,6 +120,8 @@ it('validates role, claim, group and comparison contracts in loaded manifests', 
 });
 
 it('checks erased JavaScript inputs and conflicting claim references', () => {
+  const { access, Customer, customerGraph } = createCustomerGraph();
+
   const policy = customerGraph.policies.Customer!;
   const compileRead = (read: unknown) =>
     compile({
@@ -175,6 +179,8 @@ it('checks erased JavaScript inputs and conflicting claim references', () => {
 });
 
 it('does not silently lower unsupported authoring operators', () => {
+  const { Customer, customerGraph } = createCustomerGraph();
+
   const policy = customerGraph.policies.Customer!;
 
   for (const read of [
@@ -191,6 +197,8 @@ it('does not silently lower unsupported authoring operators', () => {
 });
 
 it('requires explicit authoring coverage and lowers deny to runtime default-deny', () => {
+  const { Customer, customerGraph } = createCustomerGraph();
+
   expect(() => compile({ ...customerGraph, policies: {} })).toThrow(
     'Missing policy: Customer',
   );
@@ -215,6 +223,8 @@ it('requires explicit authoring coverage and lowers deny to runtime default-deny
 });
 
 it('requires keyed registries even for untyped callers', () => {
+  const { Customer, customerGraph } = createCustomerGraph();
+
   expect(() =>
     compile({ ...customerGraph, objects: [Customer] } as never),
   ).toThrow('keyed registries');
@@ -224,6 +234,8 @@ it('requires keyed registries even for untyped callers', () => {
 });
 
 it('rejects erased freshness mistakes and empty or malformed predicates', () => {
+  const { access, Customer, customerGraph } = createCustomerGraph();
+
   const gate = access.role('employee');
 
   for (const read of [

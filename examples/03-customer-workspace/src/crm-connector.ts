@@ -2,6 +2,8 @@ import { SourceAccessDenied } from 'relate/connectors';
 import type { SourceConnector, SourceRecord } from 'relate/connectors';
 
 /**
+ * Intentionally example-local: keep this adapter copyable and the CRM simulator
+ * independent of Relate. Examples 03 and 04 use the same provider contract.
  * The development CRM record endpoint distinguishes three outcomes the runtime treats
  * differently: a deleted record (`state: 'deleted'`), explicit permission
  * denial (HTTP 401/403, `SourceAccessDenied`, no fallback), and any other failure

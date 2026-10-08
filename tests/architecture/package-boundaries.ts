@@ -13,7 +13,19 @@ export const packagePolicies: Record<
     imports: ['relate/connectors'],
     builtins: ['node:sqlite', 'node:worker_threads', 'node:path'],
   },
-  'examples/customer-accounts': {
+  'examples/03-customer-workspace': {
+    imports: [
+      'relate',
+      'relate/connectors',
+      '@relate/node',
+      '@relate/protocol',
+      '@relate/connector-sqlite',
+      '@relate/dev-crm-simulator',
+      'zod',
+    ],
+    builtins: true,
+  },
+  'examples/02-customer-accounts': {
     imports: ['relate', '@relate/node', '@relate/connector-sqlite', 'zod'],
     builtins: true,
   },
@@ -107,7 +119,7 @@ export const packagePolicies: Record<
       '@fontsource/dm-mono/500.css',
     ],
   },
-  'examples/hello-world': {
+  'examples/01-hello-world': {
     imports: ['relate', '@relate/node', 'zod'],
     builtins: true,
   },
@@ -115,7 +127,7 @@ export const packagePolicies: Record<
     imports: ['hono', '@hono/node-server'],
     builtins: ['node:events', 'node:http'],
   },
-  'examples/postgres-persistence': {
+  'examples/04-postgres-persistence': {
     imports: [
       'relate',
       'relate/compiler',

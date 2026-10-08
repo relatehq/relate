@@ -145,7 +145,7 @@ points to, so never point it at a database you want to keep.
 
 To see adoption, refresh, restart, and durable fallback against a real database,
 run the
-[Postgres persistence example](../../../../examples/postgres-persistence/README.md):
+[Postgres persistence example](../../../../examples/04-postgres-persistence/README.md):
 
 ```sh
 pnpm example:postgres

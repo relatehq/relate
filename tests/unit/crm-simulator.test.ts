@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { SourceAccessDenied } from 'relate/connectors';
 import { startCrmSimulator } from '@relate/dev-crm-simulator';
-import { crmConnector } from '../../examples/postgres-persistence/src/connector.js';
+import { crmConnector } from '../support/crm-connector.js';
 
 it('isolates instances and preserves HTTP updates, denial, deletion, and source outages', async () => {
   const first = await startCrmSimulator();

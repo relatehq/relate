@@ -1,4 +1,5 @@
 import ts from 'typescript';
+import { assertNoExampleDependencies } from './architecture/example-boundaries.ts';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve, dirname, relative, sep } from 'node:path';
 import { builtinModules } from 'node:module';
@@ -21,6 +22,9 @@ const workspaces = JSON.parse(
     encoding: 'utf8',
   }),
 ).filter((workspace) => resolve(workspace.path) !== root);
+
+await assertNoExampleDependencies(root, workspaces);
+
 const inspectorBrowserForbidden = new Set([
   'relate',
   'relate/compiler',

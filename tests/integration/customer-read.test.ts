@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { onTestFinished, expect, it } from 'vitest';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/runtime';
 import type { SourceConnector } from 'relate/connectors';
@@ -13,59 +13,90 @@ import { fileURLToPath } from 'node:url';
 const execFile = promisify(execFileCallback);
 
 import { createPostgresStore } from '@relate/postgres';
-import {
-  access,
-  Customer,
-  customerGraph,
-  employee,
-  finance,
-} from '../../examples/postgres-persistence/src/model.js';
+import { createCustomerGraph } from '../support/customer-graph.js';
 import { testDatabaseUrl } from '../support/database.js';
 import { startCrmSimulator } from '@relate/dev-crm-simulator';
-import { crmConnector } from '../../examples/postgres-persistence/src/connector.js';
+import { crmConnector } from '../support/crm-connector.js';
 
-const model = compile(customerGraph);
-const databaseUrl = testDatabaseUrl();
-let crm: Awaited<ReturnType<typeof startCrmSimulator>>;
-let store: ReturnType<typeof createPostgresStore>;
-let runtime: ReturnType<typeof createRuntime>;
-let now = Date.now();
-const clock = () => now;
-let graphId: string;
-const connect = (
-  storage: ObservationStore = store,
-  connector: SourceConnector = crmConnector(crm.url),
-) =>
-  createRuntime({
+async function createCustomerReadFixture() {
+  const { access, Customer, customerGraph, employee, finance } =
+    createCustomerGraph();
+  const model = compile(customerGraph);
+  const graphId = randomUUID();
+  const time = { now: Date.now() };
+  const clock = () => time.now;
+  const crm = await startCrmSimulator();
+
+  onTestFinished(() => crm.stop());
+  const openStore = () => {
+    const backing = createPostgresStore({
+      connectionString: testDatabaseUrl(),
+    });
+    let closing: Promise<void> | undefined;
+    const close = () => (closing ??= backing.close());
+
+    onTestFinished(close);
+
+    return { ...backing, close };
+  };
+  const store = openStore();
+
+  await store.migrate();
+  const connect = (
+    storage: ObservationStore = store,
+    connector: SourceConnector = crmConnector(crm.url),
+  ) =>
+    createRuntime({
+      model,
+      graphId,
+      store: storage,
+      clock,
+      sources: {
+        'crm.customers': {
+          providerAccountId: 'example-account',
+          connectionId: 'crm-primary',
+          authorization: 'shared-service',
+          connector,
+        },
+      },
+    });
+  const runtime = connect();
+
+  return {
+    access,
+    Customer,
+    customerGraph,
+    employee,
+    finance,
     model,
     graphId,
-    store: storage,
+    time,
     clock,
-    sources: {
-      'crm.customers': {
-        providerAccountId: 'example-account',
-        connectionId: 'crm-primary',
-        authorization: 'shared-service',
-        connector,
-      },
-    },
-  });
-
-beforeEach(async () => {
-  graphId = randomUUID();
-  now = Date.now();
-  crm = await startCrmSimulator();
-  store = createPostgresStore({ connectionString: databaseUrl });
-  await store.migrate();
-  runtime = connect();
-}, 30_000);
-
-afterEach(async () => {
-  await store?.close();
-  await crm?.stop();
-});
+    crm,
+    store,
+    connect,
+    runtime,
+    databaseUrl: testDatabaseUrl(),
+    openStore,
+  };
+}
 
 it('refreshes, retains, restarts, and serves only currently authorized fallback with honest evidence', async () => {
+  let {
+    Customer,
+    employee,
+    finance,
+    model,
+    graphId,
+    time,
+    crm,
+    store,
+    connect,
+    runtime,
+    databaseUrl,
+    openStore,
+  } = await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
 
   expect(await runtime.adopt(Customer.id, 'crm_456')).toBe(key);
@@ -92,7 +123,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
   ).toEqual({ status: 'not-found' });
 
   await crm.update({ display_name: 'Northwind Studio' });
-  now += 1_000;
+  time.now += 1_000;
   const refreshed = await runtime.read(finance, Customer.id, key, {
     select: ['name', 'revenue'],
     refresh: true,
@@ -113,17 +144,17 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
           refresh: 'succeeded',
           sourceDefinitionId: 'crm.customers',
           orderingBasis: 'source-version',
-          observedAt: new Date(now).toISOString(),
+          observedAt: new Date(time.now).toISOString(),
         },
       },
     },
   });
 
   await store.close();
-  store = createPostgresStore({ connectionString: databaseUrl });
-  runtime = connect();
+  store = openStore();
+  runtime = connect(store);
   crm.setRecordsUnavailable(true);
-  now += 2_000;
+  time.now += 2_000;
   const restarted = await execFile(process.execPath, [
     fileURLToPath(new URL('../support/restarted-reader.mjs', import.meta.url)),
     JSON.stringify({
@@ -131,7 +162,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
       crmUrl: crm.url,
       model,
       graphId,
-      now,
+      now: time.now,
       principal: employee,
       type: Customer.id,
       key,
@@ -159,7 +190,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
           freshness: 'stale',
           retention: 'confirmed',
           refresh: 'unavailable',
-          observedAt: new Date(now - 2_000).toISOString(),
+          observedAt: new Date(time.now - 2_000).toISOString(),
         },
       },
     },
@@ -186,13 +217,25 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
   expect(
     await runtime.read({ ...employee, roles: [] }, Customer.id, key),
   ).toEqual({ status: 'not-found' });
-  now += 30_001;
+  time.now += 30_001;
   expect(await runtime.read(employee, Customer.id, key)).toEqual({
     status: 'not-found',
   });
 });
 
 it('keeps raw inputs private and commits value history only when mapped values change', async () => {
+  const {
+    Customer,
+    employee,
+    finance,
+    graphId,
+    time,
+    crm,
+    connect,
+    runtime,
+    databaseUrl,
+  } = await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
   const db = new pg.Client({ connectionString: databaseUrl });
 
@@ -217,11 +260,11 @@ it('keeps raw inputs private and commits value history only when mapped values c
       ].sort(),
     );
     expect(initialValues[Customer.properties.name.id]).toBe('Northwind');
-    now += 100;
+    time.now += 100;
     await runtime.read(employee, Customer.id, key, { refresh: true });
     expect(await changes()).toHaveLength(1);
     await crm.update({ private_unmapped: 'new private source data' });
-    now += 100;
+    time.now += 100;
     const result = await runtime.read(finance, Customer.id, key, {
       refresh: true,
     });
@@ -237,9 +280,9 @@ it('keeps raw inputs private and commits value history only when mapped values c
 
     expect(retained.values).toEqual(initialValues);
     expect(retained.raw.private_unmapped).toBe('new private source data');
-    expect(retained.observedAt).toBe(now);
+    expect(retained.observedAt).toBe(time.now);
     await crm.update({ display_name: 'Changed' });
-    now += 100;
+    time.now += 100;
     await runtime.read(employee, Customer.id, key, { refresh: true });
     expect(await changes()).toHaveLength(2);
     expect(
@@ -253,10 +296,13 @@ it('keeps raw inputs private and commits value history only when mapped values c
 });
 
 it('returns fresh authorized transient values when retention fails without changing durable fallback', async () => {
+  const { Customer, employee, time, crm, store, connect, runtime } =
+    await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
 
   await crm.update({ display_name: 'Transient name' });
-  now += 100;
+  time.now += 100;
   const failing = connect({
     ...store,
     accept: async () => {
@@ -294,10 +340,13 @@ it('returns fresh authorized transient values when retention fails without chang
 });
 
 it('distinguishes an unconfirmed commit, successful readback, and unavailable ordering evidence', async () => {
+  const { Customer, employee, time, crm, store, connect, runtime } =
+    await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
 
   await crm.update({ display_name: 'Committed despite lost acknowledgement' });
-  now += 100;
+  time.now += 100;
   const lostAck = connect({
     ...store,
     accept: async (...args) => {
@@ -348,7 +397,7 @@ it('distinguishes an unconfirmed commit, successful readback, and unavailable or
     },
   });
   // A new unretained observation cannot renew expired permission evidence.
-  now += 30_001;
+  time.now += 30_001;
   const failed = connect({
     ...store,
     accept: async () => {
@@ -362,6 +411,18 @@ it('distinguishes an unconfirmed commit, successful readback, and unavailable or
 });
 
 it('does not leak hidden fields or adopt records from a read and scopes fallback to graph and connection', async () => {
+  const {
+    Customer,
+    employee,
+    model,
+    graphId,
+    clock,
+    crm,
+    store,
+    connect,
+    runtime,
+  } = await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
   let calls = 0;
   const counted = connect(store, {
@@ -437,6 +498,9 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
 });
 
 it('withholds confirmed deletion and newly denied access even if retention fails', async () => {
+  const { Customer, employee, crm, store, connect, runtime } =
+    await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
   const failed = connect({
     ...store,
@@ -463,6 +527,9 @@ it('withholds confirmed deletion and newly denied access even if retention fails
 });
 
 it('refuses a provider-denied refresh without fallback and leaves cached reads to the freshness window', async () => {
+  const { Customer, employee, time, crm, runtime } =
+    await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
 
   crm.setAccess('denied');
@@ -480,7 +547,7 @@ it('refuses a provider-denied refresh without fallback and leaves cached reads t
     data: { name: 'Northwind' },
     meta: { fields: { name: { refresh: 'not-needed' } } },
   });
-  now += 60_001;
+  time.now += 60_001;
   expect(
     await runtime.read(employee, Customer.id, key, { select: ['name'] }),
   ).toEqual({ status: 'not-found' });
@@ -495,6 +562,9 @@ it('refuses a provider-denied refresh without fallback and leaves cached reads t
 });
 
 it('bounds source waits and rejects malformed observations without overwriting retained data', async () => {
+  const { Customer, employee, crm, store, connect, runtime } =
+    await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
   const hanging = connect(store, {
     identify: async () => 'example-account',
@@ -528,6 +598,9 @@ it('bounds source waits and rejects malformed observations without overwriting r
 });
 
 it('keeps the later accepted observation when two real database clients race', async () => {
+  const { Customer, employee, time, crm, store, connect, runtime } =
+    await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
   let release!: (value: Awaited<ReturnType<SourceConnector['fetch']>>) => void;
   let started!: () => void;
@@ -551,7 +624,7 @@ it('keeps the later accepted observation when two real database clients race', a
 
   await fetching;
   await crm.update({ display_name: 'Newer accepted name' });
-  now += 100;
+  time.now += 100;
   expect(
     await runtime.read(employee, Customer.id, key, { refresh: true }),
   ).toMatchObject({ data: { name: 'Newer accepted name' } });
@@ -573,7 +646,7 @@ it('keeps the later accepted observation when two real database clients race', a
       fields: {
         name: {
           refresh: 'superseded',
-          observedAt: new Date(now).toISOString(),
+          observedAt: new Date(time.now).toISOString(),
         },
       },
     },
@@ -581,6 +654,9 @@ it('keeps the later accepted observation when two real database clients race', a
 });
 
 it('rolls back raw retention, projection and history together on a database write failure', async () => {
+  const { Customer, employee, graphId, crm, connect, runtime, databaseUrl } =
+    await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
   const db = new pg.Client({ connectionString: databaseUrl });
 
@@ -629,6 +705,9 @@ it('rolls back raw retention, projection and history together on a database writ
 });
 
 it('distinguishes absent optional values, legitimate null, and unavailable selections', async () => {
+  const { access, employee, model, graphId, clock, store } =
+    await createCustomerReadFixture();
+
   const { defineSource, defineObject, from, objectId, source } =
     await import('relate');
   const { z } = await import('zod');
@@ -735,6 +814,18 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
 });
 
 it('denies absent policies and rejects compiled model drift against an installed graph', async () => {
+  const {
+    Customer,
+    customerGraph,
+    employee,
+    model,
+    graphId,
+    clock,
+    crm,
+    store,
+    runtime,
+  } = await createCustomerReadFixture();
+
   const key = await runtime.adopt(Customer.id, 'crm_456');
   const deniedModel = compile({
     ...customerGraph,
@@ -790,6 +881,9 @@ it('denies absent policies and rejects compiled model drift against an installed
 it.each(['source-failure', 'conflicting-version'] as const)(
   'rechecks the retained winner when %s races with an authorization change',
   async (failure) => {
+    const { Customer, employee, crm, store, connect, runtime } =
+      await createCustomerReadFixture();
+
     const key = await runtime.adopt(Customer.id, 'crm_456');
     let complete!: () => void;
     let started!: () => void;
@@ -837,6 +931,9 @@ it.each(['source-failure', 'conflicting-version'] as const)(
 );
 
 it('verifies the HTTP provider account before cached reads and refreshes', async () => {
+  const { Customer, employee, crm, connect, runtime } =
+    await createCustomerReadFixture();
+
   const id = await runtime.adopt(Customer.id, 'crm_456');
 
   crm.setAccount('another-provider-account');
@@ -855,6 +952,9 @@ it('verifies the HTTP provider account before cached reads and refreshes', async
 });
 
 it('does not disclose retained values when the HTTP identity endpoint is unavailable', async () => {
+  const { Customer, employee, crm, runtime } =
+    await createCustomerReadFixture();
+
   const id = await runtime.adopt(Customer.id, 'crm_456');
 
   await crm.stop();
