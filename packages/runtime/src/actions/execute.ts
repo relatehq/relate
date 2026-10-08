@@ -272,12 +272,13 @@ export function createActionExecutor(options: {
             }
 
             const reads: NativeReceiptRead[] = [];
+            const definitions = new Map(manifest.objects.map((o) => [o.id, o]));
             const recordRead = (
               type: string,
               id: string,
               result: Extract<ReadResult, { status: 'ok' }>,
             ) => {
-              const object = manifest.objects.find((o) => o.id === type)!;
+              const object = definitions.get(type)!;
 
               reads.push({
                 objectDefinitionId: type,

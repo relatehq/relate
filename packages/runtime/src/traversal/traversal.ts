@@ -11,6 +11,7 @@ import type {
   PageResult,
 } from '@relate/protocol';
 import type { ObservationStore, StorageScope } from '../storage.js';
+import { compareObjectIds } from '../storage.js';
 import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import { validateReadRequest, project, cursorCodec } from '../reads/index.js';
@@ -270,7 +271,8 @@ export function createTraversal(options: {
         if (
           typeof candidate.objectId !== 'string' ||
           candidate.objectId.length === 0 ||
-          (after !== undefined && candidate.objectId <= after)
+          (after !== undefined &&
+            compareObjectIds(candidate.objectId, after) <= 0)
         )
           throw new ReadError('incomplete');
 

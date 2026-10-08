@@ -30,6 +30,11 @@ export {
   OrderingConflict,
 } from './observations/ordering.js';
 
+/** Scan order for opaque object IDs: UTF-8 bytewise, matching Postgres COLLATE "C". */
+export function compareObjectIds(a: string, b: string): number {
+  return Buffer.compare(Buffer.from(a), Buffer.from(b));
+}
+
 export class NativeConflict extends Error {}
 
 /** Temporary storage failure. For native writes, COMMIT must not have succeeded. */

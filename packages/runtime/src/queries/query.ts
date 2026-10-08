@@ -18,6 +18,7 @@ import type {
 import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import { validateReadRequest, project, cursorCodec } from '../reads/index.js';
+import { compareObjectIds } from '../storage.js';
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
@@ -122,7 +123,10 @@ export function createGraphQuery(options: {
     ];
     const needed = [...new Set([...selected, ...filterNames])];
 
-    if (needed.length > 100) throw new ReadError('invalid-request');
+    // An omitted selection already covers every readable filter field, so it keeps
+    // get's unbounded default; only an explicit selection/filter union is capped.
+    if (readRequest.select && needed.length > 100)
+      throw new ReadError('invalid-request');
 
     if (transaction && !transactions.has(transaction))
       transactions.set(transaction, randomUUID());
@@ -180,7 +184,11 @@ export function createGraphQuery(options: {
         principal,
         type,
         id,
-        { ...readRequest, select: needed, requireComplete: false },
+        {
+          ...readRequest,
+          ...(readRequest.select ? { select: needed } : {}),
+          requireComplete: false,
+        },
         undefined,
         (check) => {
           allowed = check;
@@ -240,7 +248,8 @@ export function createGraphQuery(options: {
         if (
           typeof candidate.objectId !== 'string' ||
           !candidate.objectId ||
-          (after !== undefined && candidate.objectId <= after)
+          (after !== undefined &&
+            compareObjectIds(candidate.objectId, after) <= 0)
         )
           throw new ReadError('incomplete');
 

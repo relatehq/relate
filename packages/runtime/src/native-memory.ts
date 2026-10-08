@@ -5,7 +5,7 @@ import type {
   NativeInvocation,
   NativeScanOptions,
 } from './storage.js';
-import { NativeConflict } from './storage.js';
+import { NativeConflict, compareObjectIds } from './storage.js';
 
 /** Private transaction snapshots; observation refreshes are independently retained. */
 export function createNativeMemoryStore(
@@ -40,13 +40,12 @@ export function createNativeMemoryStore(
     for (const r of records)
       if (
         r.objectDefinitionId === type &&
-        (options.after === undefined || r.objectId > options.after)
+        (options.after === undefined ||
+          compareObjectIds(r.objectId, options.after) > 0)
       )
         matches.push(r);
 
-    matches.sort((a, b) =>
-      a.objectId < b.objectId ? -1 : a.objectId > b.objectId ? 1 : 0,
-    );
+    matches.sort((a, b) => compareObjectIds(a.objectId, b.objectId));
 
     return {
       objects: structuredClone(matches.slice(0, options.limit)),

@@ -2,7 +2,18 @@ import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRuntime } from '@relate/node';
 import type { QueryResult, ObjectRecord } from '@relate/protocol';
-import { connect, implementAction } from 'relate';
+import { z } from 'zod';
+import {
+  connect,
+  defineAccess,
+  defineGraph,
+  defineObject,
+  defineSource,
+  from,
+  implementAction,
+  objectId,
+  source,
+} from 'relate';
 import type { ActionContext } from 'relate';
 import type { ObservationStore } from '@relate/runtime/storage';
 import { SourceAccessDenied } from 'relate/connectors';
@@ -583,6 +594,82 @@ export function queryContract(
       await expect(
         app.as(actor).actions.run({ input: {}, idempotencyKey: 'two' }),
       ).rejects.toMatchObject({ code: 'internal' });
+    });
+
+    it('enumerates objects with more than 100 readable fields by default', async () => {
+      const names = Array.from({ length: 120 }, (_, i) => `f${i}`);
+      const wide = defineSource({
+        id: 'wide-records',
+        idField: 'id',
+        schema: z.object({
+          id: z.string(),
+          ...Object.fromEntries(names.map((n) => [n, z.string()])),
+        }),
+      });
+      const fields = wide.fields as unknown as Record<string, never>;
+      const Wide = defineObject({
+        id: 'wide',
+        membership: source(wide),
+        properties: {
+          id: objectId({ id: 'wide.id' }),
+          ...Object.fromEntries(
+            names.map((n) => [n, from(fields[n]!, { id: `wide.${n}` })]),
+          ),
+        },
+      });
+      const access = defineAccess({
+        roles: ['employee'],
+        fieldGroups: ['ordinary'],
+        claims: {},
+      });
+      const graph = defineGraph({
+        id: 'wide-graph',
+        objects: { Wide },
+        access,
+        policies: { Wide: { read: { gate: access.role('employee') } } },
+      });
+      const wideApp = createRuntime({
+        graph,
+        graphId: randomUUID(),
+        store: backing.store,
+        clock: () => now,
+        connections: [
+          connect(wide, {
+            connectionId: 'wide',
+            providerAccountId: 'account',
+            connector: {
+              identify: async () => 'account',
+              fetch: async (id) => ({
+                providerAccountId: 'account',
+                state: 'present',
+                record: {
+                  id,
+                  ...Object.fromEntries(names.map((n) => [n, n])),
+                },
+              }),
+            },
+          }),
+        ],
+      });
+
+      try {
+        const id = await wideApp.host.adopt(Wide, 'w1');
+        const objects = wideApp.as(actor).objects as unknown as Record<
+          string,
+          { query(request: object): Promise<{ data: ObjectRecord[] }> }
+        >;
+        const page = await objects.Wide!.query({
+          where: { f0: 'f0' },
+        });
+
+        expect(page.data).toHaveLength(1);
+        expect(page.data[0]).toMatchObject({ id, data: { f119: 'f119' } });
+        await expect(
+          objects.Wide!.query({ select: names }),
+        ).rejects.toMatchObject({ code: 'invalid-request' });
+      } finally {
+        await wideApp.close();
+      }
     });
 
     it('rejects a store that repeats its scan position and stops requesting pages on early exit', async () => {

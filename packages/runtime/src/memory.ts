@@ -6,7 +6,7 @@ import type {
   StoredObject,
 } from './storage.js';
 import { createNativeMemoryStore } from './native-memory.js';
-import { RetentionError } from './storage.js';
+import { RetentionError, compareObjectIds } from './storage.js';
 import { compareObservation } from './observations/ordering.js';
 
 /** Isolated, process-local retention. Reuse the instance to share state between runtimes. */
@@ -58,10 +58,8 @@ export function createMemoryStore(): ObservationStore {
         return { objects: [], hasMore: false };
 
       const candidates = [...(scopes.get(scopeKey(scope))?.values() ?? [])]
-        .filter((o) => !after || o.objectId > after)
-        .sort((a, b) =>
-          a.objectId < b.objectId ? -1 : a.objectId > b.objectId ? 1 : 0,
-        )
+        .filter((o) => !after || compareObjectIds(o.objectId, after) > 0)
+        .sort((a, b) => compareObjectIds(a.objectId, b.objectId))
         .slice(0, limit + 1);
 
       return {
