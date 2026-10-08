@@ -5,12 +5,17 @@ import { DocsBody, DocsPage } from 'fumadocs-ui/layouts/docs/page';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import rehypeRaw from 'rehype-raw';
 import { type DocPage, pageFile, urlForFile } from '../lib/pages';
+import { remarkAlerts } from '../lib/remark-alerts';
 
 const compiler = createCompiler({
   format: 'md',
   remarkImageOptions: false,
   remarkNpmOptions: false,
-  rehypePlugins: (plugins) => [rehypeRaw, ...plugins],
+  remarkPlugins: [remarkAlerts],
+  rehypePlugins: (plugins) => [
+    [rehypeRaw, { passThrough: ['mdxJsxFlowElement'] }],
+    ...plugins,
+  ],
 });
 
 const contentDirectory = 'apps/docs/content';
