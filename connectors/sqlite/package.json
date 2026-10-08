@@ -6,7 +6,7 @@
   "type": "module",
   "description": "Read-only SQLite source connector for Relate.",
   "engines": {
-    "node": "^22.16.0 || ^24.0.0 || ^26.0.0"
+    "node": "^22.16.0 || ^24 || ^26"
   },
   "dependencies": {
     "relate": "workspace:*"

@@ -6,7 +6,7 @@
   "type": "module",
   "packageManager": "pnpm@12.9.1",
   "engines": {
-    "node": "^22.16.0 || ^24.0.0 || ^26.0.0"
+    "node": "^22.16.0 || ^24 || ^26"
   },
   "scripts": {
     "packages": "pnpm -r list --depth -1",

@@ -15,9 +15,11 @@ Supported Node lines are 22 (22.16.0 or newer), 24 and 26. `.node-version`
 selects the preferred contributor version, not a requirement to upgrade. The
 minimum is Node 22.16 because the SQLite connector uses `timeout` and
 `isTransaction`. Keep `@types/node` on the oldest supported major to catch
-accidental use of newer APIs. CI exercises the minimum Node 22 and 24 versions
-and the current Node 26 line, including installation, builds, runtime tests,
-installed packages and the onboarding commands.
+accidental use of newer APIs. CI exercises current releases of Node 22, 24 and
+26, plus separate checks for the declared minimums: 22.16.0, 24.0.0 and 26.0.0.
+Each checks installation, builds, runtime tests, installed packages and
+onboarding commands. Repository policy checks, including dependency boundaries,
+run once on current Node 26.
 
 Install pnpm explicitly with `npm install --global pnpm@12.9.1`; Corepack is not
 required. The package-manager pin keeps dependency installation reproducible
