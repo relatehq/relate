@@ -3,9 +3,9 @@
  * so edits, atomic saves and newly created modules all trigger a rebuild.
  * Saves are debounced into one attempt.
  */
-import { watch } from 'node:fs';
+import { existsSync, watch } from 'node:fs';
 import type { FSWatcher } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 
 export interface Watcher {
   /** Replace the watched set; the previous set stays until the new one is known. */
@@ -57,7 +57,13 @@ export function createWatcher(options: WatcherOptions): Watcher {
 
         // A known file, or an unknown name in a watched directory (a module
         // being created, or an editor's temporary rename), both rebuild.
-        if (!name || files.has(path) || isSourceLike(name)) schedule(path);
+        if (
+          !name ||
+          files.has(path) ||
+          isSourceLike(name) ||
+          [...files].some((file) => file.startsWith(path + sep))
+        )
+          schedule(path);
       });
     } catch (error) {
       options.onError?.(error as Error);
@@ -74,7 +80,16 @@ export function createWatcher(options: WatcherOptions): Watcher {
       files = new Set(inputs);
       const directories = new Set([
         options.projectRoot,
-        ...inputs.map((input) => dirname(input)),
+        ...inputs.map((input) => {
+          let directory = dirname(input);
+
+          // An unresolved import may name a directory that does not exist yet.
+          // Its nearest existing ancestor lets us observe directory creation.
+          while (!existsSync(directory) && dirname(directory) !== directory)
+            directory = dirname(directory);
+
+          return directory;
+        }),
       ]);
 
       for (const directory of directories) watchDirectory(directory);

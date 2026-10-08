@@ -92,24 +92,50 @@ it('refuses an alive owner that does not identify itself', async () => {
   await (first as { lock: Lock }).lock.release();
 });
 
-it('reclaims a lock whose owner PID is demonstrably gone, exclusively', async () => {
+it('reclaims a dead owner without admitting concurrent owners', async () => {
+  // Exercise repeated contention: the old rename-based reclaim can remove a
+  // newly acquired lock after multiple callers have read the dead owner.
+  for (let round = 0; round < 12; round += 1) {
+    const first = await acquire();
+
+    expect(first.kind).toBe('acquired');
+    const metadata = (first as { lock: Lock }).lock.metadata;
+
+    await writeFile(
+      lockPath(root),
+      JSON.stringify({
+        ...metadata,
+        pid: 2_147_483_646,
+        processStartedAt: null,
+      }),
+    );
+    const results = await Promise.all(
+      Array.from({ length: 16 }, () => acquire({ waitForUrlMs: 0 })),
+    );
+    const winners = results.filter((result) => result.kind === 'acquired');
+
+    expect(winners).toHaveLength(1);
+    expect(JSON.parse(await readFile(lockPath(root), 'utf8')).ownerId).toBe(
+      winners[0]!.lock.metadata.ownerId,
+    );
+    await winners[0]!.lock.release();
+  }
+});
+
+it('fails closed when a reclamation guard already exists', async () => {
   const first = await acquire();
   const metadata = (first as { lock: Lock }).lock.metadata;
+  const stale = { ...metadata, pid: 2_147_483_646, processStartedAt: null };
 
-  // Simulate a crashed owner: an impossible PID that nothing can reuse now.
-  await writeFile(
-    lockPath(root),
-    JSON.stringify({ ...metadata, pid: 2_147_483_646, processStartedAt: null }),
-  );
-  const [a, b] = await Promise.all([acquire(), acquire()]);
-  const kinds = [a.kind, b.kind].sort();
+  await writeFile(lockPath(root), JSON.stringify(stale));
+  await writeFile(`${lockPath(root)}.reclaim`, '');
+  const result = await acquire();
 
-  expect(kinds[0]).toBe('acquired');
-  expect(['held', 'unverifiable', 'acquired']).toContain(kinds[1]);
-  expect(kinds.filter((kind) => kind === 'acquired').length).toBe(1);
-
-  for (const result of [a, b])
-    if (result.kind === 'acquired') await result.lock.release();
+  expect(result).toMatchObject({
+    kind: 'unverifiable',
+    reason: expect.stringContaining(`${lockPath(root)}.reclaim`),
+  });
+  expect(JSON.parse(await readFile(lockPath(root), 'utf8'))).toEqual(stale);
 });
 
 it('reports corrupt lock files instead of overwriting them', async () => {

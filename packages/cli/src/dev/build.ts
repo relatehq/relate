@@ -21,7 +21,7 @@ export interface BuildSuccess {
 export interface BuildFailure {
   readonly ok: false;
   readonly diagnostics: readonly Diagnostic[];
-  /** Inputs esbuild still reported, if any; the watcher keeps the last good set too. */
+  /** Visited files and relative import targets; retained even without a metafile. */
   readonly inputs: readonly string[];
 }
 
@@ -90,6 +90,7 @@ export async function createBuilder(options: {
   const outfile = join(root, 'app.mjs');
 
   await mkdir(root, { recursive: true });
+  const discoveredInputs = new Set<string>();
   const context = await esbuild.context({
     entryPoints: [options.configPath],
     absWorkingDir: options.projectRoot,
@@ -105,6 +106,29 @@ export async function createBuilder(options: {
     write: false,
     logLevel: 'silent',
     legalComments: 'none',
+    plugins: [
+      {
+        name: 'watch-inputs',
+        setup(build) {
+          // Metafiles are unavailable on failure. Record files as esbuild visits
+          // them so the very first broken build can still recover on save.
+          build.onStart(() => {
+            discoveredInputs.clear();
+          });
+          build.onLoad({ filter: /.*/, namespace: 'file' }, (args) => {
+            discoveredInputs.add(args.path);
+
+            return undefined;
+          });
+          build.onResolve({ filter: /^\.\.?\// }, (args) => {
+            // Watch the target directory even when the imported file is absent.
+            discoveredInputs.add(resolve(args.resolveDir, args.path));
+
+            return undefined;
+          });
+        },
+      },
+    ],
   });
 
   return {
@@ -129,7 +153,7 @@ export async function createBuilder(options: {
                     error instanceof Error ? error.message : String(error),
                 },
               ],
-          inputs: [],
+          inputs: [...discoveredInputs],
         };
       }
 

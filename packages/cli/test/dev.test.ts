@@ -527,3 +527,40 @@ it('fails fast on invalid arguments, a missing config and an occupied explicit p
   expect(occupied.code).toBe(1);
   expect(occupied.stderr).toMatch(/No relate\.config/);
 }, 60_000);
+
+it('recovers from a syntax error in a nested module on the first build', async () => {
+  const project = await createProject();
+
+  projects.push(project.root);
+  await project.write('src/relate/graph.ts', 'export const graph = ???;');
+  const dev = await startDev(project);
+
+  await dev.waitForStderr(/syntax.esbuild/);
+  await project.write('src/relate/graph.ts', graphSource('reader'));
+  await dev.waitForStdout(/ready\s+gen 1/);
+  const cookie = await openSession(dev);
+  const snapshot = await fetch(`${dev.url}/dev/snapshot`, {
+    headers: { cookie },
+  });
+
+  expect(await snapshot.json()).toMatchObject({
+    model: { generation: 1 },
+    failure: null,
+  });
+});
+
+it('recovers when a missing imported module is created in another directory', async () => {
+  const project = await createProject();
+
+  projects.push(project.root);
+  await project.write(
+    'src/relate/graph.ts',
+    "export { graph } from '../model/graph.js';",
+  );
+  const dev = await startDev(project);
+
+  await dev.waitForStderr(/import.unresolved/);
+  await mkdir(join(project.root, 'src/model'));
+  await project.write('src/model/graph.ts', graphSource('reader'));
+  await dev.waitForStdout(/ready\s+gen 1/);
+});

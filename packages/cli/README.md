@@ -75,7 +75,10 @@ credential work in `setup`, which the inspector never calls.
   holding the config. The lock and owner metadata live under
   `<project>/.relate/dev/` (gitignored). A second invocation prints the running
   server's URL and exits 0; `--open` opens it. A dead owner's lock is reclaimed
-  automatically; an unverifiable one is reported and left intact.
+  automatically; an unverifiable one is reported and left intact. Reclamation
+  uses an exclusive `lock.json.reclaim` guard. If a process crashes during
+  reclamation, stop any remaining dev servers before removing the guard named in
+  the error and retrying.
 - Each attempt bundles the config with esbuild (project modules only;
   dependencies load from `node_modules`), writes it under `.relate/dev/build/`
   and runs it in a fresh Node child with source maps enabled. Loading and

@@ -180,21 +180,40 @@ async function ownerGone(metadata: LockMetadata): Promise<boolean> {
   return false;
 }
 
-/** Exclusive reclamation: only one racer can rename the stale file away. */
-async function reclaim(path: string): Promise<boolean> {
-  const stale = `${path}.stale.${randomBytes(6).toString('hex')}`;
+/** Serialize reclaimers, then verify the owner again before removing its lock. */
+async function reclaim(
+  path: string,
+  expectedOwnerId: string,
+): Promise<boolean> {
+  const guardPath = `${path}.reclaim`;
+  let guard;
 
   try {
-    await rename(path, stale);
+    guard = await open(guardPath, 'wx', 0o600);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return true;
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
 
-    return false;
+    throw error;
   }
 
-  await rm(stale, { force: true });
+  try {
+    const current = await readMetadata(path);
 
-  return true;
+    if (current === null) return true;
+
+    // A previous reclaimer may already have installed a new live owner.
+    if (current === 'corrupt' || current.ownerId !== expectedOwnerId)
+      return true;
+
+    if (!(await ownerGone(current))) return false;
+
+    await rm(path);
+
+    return true;
+  } finally {
+    await guard.close();
+    await rm(guardPath, { force: true });
+  }
 }
 
 export async function acquireLock(
@@ -234,13 +253,13 @@ export async function acquireLock(
       };
 
     if (await ownerGone(existing)) {
-      if (await reclaim(path)) continue;
+      if (await reclaim(path, existing.ownerId)) continue;
 
       return {
         kind: 'unverifiable',
         path,
         metadata: existing,
-        reason: 'Another command is reclaiming the lock',
+        reason: `Another command is reclaiming the lock. If no relate dev is running, remove ${path}.reclaim and retry`,
       };
     }
 
