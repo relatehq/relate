@@ -235,6 +235,17 @@ is for the persistent example; `RELATE_TEST_DATABASE_URL` is exclusively for
 integration tests, which reset that database's `relate` schema. Keep `.env`
 untracked. `pnpm test:unit` needs no database or environment file.
 
+## Inspector
+
+`pnpm relate dev` serves a local [inspector](apps/inspector) that draws your
+model as a live graph of objects, sources and relationships. It redraws on save
+and shows compile problems next to the last good model. For now it covers the
+model graph; more screens will follow.
+
+<p align="center">
+  <img alt="The Relate inspector showing Customer, Invoice and AccountReview objects and their relationships" src="assets/readme/inspector-light.svg" width="800">
+</p>
+
 ## License
 
 Relate is licensed under the [Apache License 2.0](LICENSE).
