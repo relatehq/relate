@@ -14,7 +14,7 @@
     "typecheck": "pnpm build && tsc --noEmit -p tsconfig.tests.json",
     "test": "pnpm build && dotenvx run -f .env -- vitest run",
     "check:boundaries": "node tests/boundaries.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && pnpm test:packaging",
+    "check": "pnpm check:development && pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && pnpm test:packaging",
     "test:packaging": "pnpm build && node tests/packaging/verify.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -27,13 +27,14 @@
     "worktree:create": "tsx scripts/worktrees/create.ts",
     "worktree:delete": "tsx scripts/worktrees/delete.ts",
     "worktree:list": "tsx scripts/worktrees/list.ts",
-    "changeset": "changeset",
+    "changeset": "node scripts/releases/changeset.mjs",
     "release:prepare": "node scripts/releases/prepare.mjs",
     "release:artifacts": "node scripts/releases/artifacts.mjs",
     "test:release": "node --test scripts/releases/release.test.mjs",
     "docs:dev": "pnpm --filter @relate/docs dev",
     "docs:build": "pnpm --filter @relate/docs build",
-    "example:customer-accounts": "pnpm build && tsx examples/customer-accounts/src/index.ts"
+    "example:customer-accounts": "pnpm build && tsx examples/customer-accounts/src/index.ts",
+    "check:development": "node scripts/releases/check-development.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

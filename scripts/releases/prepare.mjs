@@ -1,5 +1,8 @@
+import { assertReleasesEnabled } from './shared.mjs';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { releasePackages, run, validateVersion } from './shared.mjs';
+
+await assertReleasesEnabled();
 
 const channel = process.argv[2];
 

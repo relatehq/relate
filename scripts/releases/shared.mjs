@@ -26,12 +26,21 @@ export async function releasePackages(root = process.cwd()) {
   const packages = [];
 
   for (const directory of directories.sort()) {
-    const metadata = JSON.parse(
-      await readFile(
+    let content;
+
+    try {
+      content = await readFile(
         resolve(root, 'packages', directory, 'package.json'),
         'utf8',
-      ),
-    );
+      );
+    } catch (error) {
+      if (directory.startsWith('../connectors/') && error.code === 'ENOENT')
+        continue;
+
+      throw error;
+    }
+
+    const metadata = JSON.parse(content);
 
     packages.push({ directory, ...metadata });
   }
@@ -58,4 +67,16 @@ export function validateVersion(packages, version) {
   }
 
   return semver.prerelease(version) !== null;
+}
+
+/** Release activation is a reviewed repository change, never an environment override. */
+export async function assertReleasesEnabled(root = process.cwd()) {
+  const policy = JSON.parse(
+    await readFile(resolve(root, 'scripts/releases/policy.json'), 'utf8'),
+  );
+
+  if (policy.enabled !== true)
+    throw new Error(
+      'Releases and changesets are disabled during development. Keep package versions unchanged; describe changes in the PR.',
+    );
 }

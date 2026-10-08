@@ -1,3 +1,4 @@
+import { assertReleasesEnabled } from './shared.mjs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -7,6 +8,8 @@ import {
   run,
   validateVersion,
 } from './shared.mjs';
+
+await assertReleasesEnabled();
 
 const version = process.argv[2];
 const packages = await releasePackages();
