@@ -21,7 +21,7 @@ import {
   finance,
 } from '../../examples/postgres-persistence/src/model.js';
 import { testDatabaseUrl } from '../support/database.js';
-import { startCrmSimulator } from '../../dev/simulators/crm/index.js';
+import { startCrmSimulator } from '@relate/dev-crm-simulator';
 import { crmConnector } from '../../examples/postgres-persistence/src/connector.js';
 
 const model = compile(customerGraph);

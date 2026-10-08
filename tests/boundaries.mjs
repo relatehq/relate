@@ -172,16 +172,6 @@ for (const workspace of workspaces) {
             ts.sys,
           ).resolvedModule?.resolvedFileName;
 
-          // This example uses the independently checked provider simulator.
-          // All other cross-package relative imports still fail.
-          if (
-            target &&
-            policy.fixtures?.includes(
-              relative(root, target).replaceAll(sep, '/'),
-            )
-          )
-            return;
-
           // Check the lexical path even when TypeScript cannot resolve it.
           if (!resolve(dirname(file), name).startsWith(directory + sep))
             throw new Error(`Cross-package relative import: ${file}: ${name}`);

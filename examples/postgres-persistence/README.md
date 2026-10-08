@@ -18,15 +18,16 @@ connection role needs permission to create the `relate` schema and its tables.
 Relate explicitly applies its migrations with `store.migrate()`. It does not
 provision databases or manage the server.
 
-The example starts an in-process Hono CRM simulator with a real HTTP listener.
-It adopts one customer, reads as an employee, changes the CRM name, refreshes as
-Finance, has the CRM deny record access and shows a refused refresh next to a
-cached read, then disables CRM record fetching while leaving account
-verification available. It recreates the embedded runtime and storage pool and
-reads the retained name. Finally it advances its controlled clock past the
-permission evidence limit and demonstrates expired Relate permission evidence.
-It closes its connections and CRM listener on exit; the database and retained
-data remain available.
+The example starts an in-process Hono CRM simulator with a real HTTP listener,
+provided by the private workspace package
+[`@relate/dev-crm-simulator`](../../dev/simulators/crm/README.md). It adopts one
+customer, reads as an employee, changes the CRM name, refreshes as Finance, has
+the CRM deny record access and shows a refused refresh next to a cached read,
+then disables CRM record fetching while leaving account verification available.
+It recreates the embedded runtime and storage pool and reads the retained name.
+Finally it advances its controlled clock past the permission evidence limit and
+demonstrates expired Relate permission evidence. It closes its connections and
+CRM listener on exit; the database and retained data remain available.
 
 - `src/model.ts`: authoring, stable IDs, source ownership, field groups, policy.
 - `src/connector.ts`: the example's minimal HTTP source adapter.

@@ -3,5 +3,6 @@ packages:
   - connectors/*
   - apps/*
   - examples/*
+  - dev/simulators/*
 allowBuilds:
   esbuild: true

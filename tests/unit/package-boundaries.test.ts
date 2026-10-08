@@ -197,20 +197,24 @@ it('does not let production imports escape through excluded test files', async (
   });
 });
 
-it('allows the Postgres example to use its explicitly named simulator', async () => {
+it('allows the Postgres example to import the simulator package', async () => {
   await expect(
     check({
       'examples/postgres-persistence/package.json': JSON.stringify({
         name: '@relate/example-postgres-persistence',
       }),
       'examples/postgres-persistence/src/index.ts':
-        "import '../../../dev/simulators/crm/index.js';",
-      'dev/simulators/crm/index.ts': 'export {};',
+        "import '@relate/dev-crm-simulator';",
+      'dev/simulators/crm/package.json': JSON.stringify({
+        name: '@relate/dev-crm-simulator',
+        private: true,
+      }),
+      'dev/simulators/crm/index.ts': "import { Hono } from 'hono';",
     }),
   ).resolves.toBeDefined();
 });
 
-it('does not extend fixture permission to package internals', async () => {
+it('does not allow the example to import package internals', async () => {
   await expect(
     check({
       'examples/postgres-persistence/package.json': JSON.stringify({
@@ -295,3 +299,17 @@ it.each(['missing.css', 'other.css', '../out/generated.js'])(
     });
   },
 );
+
+it('keeps the CRM simulator independent of Relate', async () => {
+  await expect(
+    check({
+      'dev/simulators/crm/package.json': JSON.stringify({
+        name: '@relate/dev-crm-simulator',
+        private: true,
+      }),
+      'dev/simulators/crm/index.ts': "import 'relate';",
+    }),
+  ).rejects.toMatchObject({
+    stderr: expect.stringContaining('Forbidden dependency'),
+  });
+});

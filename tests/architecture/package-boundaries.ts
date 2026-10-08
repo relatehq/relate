@@ -4,8 +4,6 @@ export const packagePolicies: Record<
   {
     imports: readonly string[];
     builtins?: true | readonly string[];
-    /** Explicit repository fixtures; never published package internals. */
-    fixtures?: readonly string[];
     /** Non-code local imports, such as an app stylesheet. */
     assets?: readonly string[];
   }
@@ -100,6 +98,10 @@ export const packagePolicies: Record<
     imports: ['relate', '@relate/node', 'zod'],
     builtins: true,
   },
+  'dev/simulators/crm': {
+    imports: ['hono', '@hono/node-server'],
+    builtins: ['node:events', 'node:http'],
+  },
   'examples/postgres-persistence': {
     imports: [
       'relate',
@@ -107,10 +109,10 @@ export const packagePolicies: Record<
       'relate/connectors',
       '@relate/runtime',
       '@relate/postgres',
+      '@relate/dev-crm-simulator',
       'zod',
     ],
     builtins: true,
-    fixtures: ['dev/simulators/crm/index.ts'],
   },
 };
 

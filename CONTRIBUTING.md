@@ -16,6 +16,24 @@ published Node 26 type package at this update; its version does not exactly
 match the runtime's version. Keep the runtime and types on the same major when
 upgrading.
 
+## Dependency ownership
+
+Keep shared tooling (TypeScript, Vitest, ESLint, Prettier, Changesets) at the
+workspace root. Root tests and scripts also declare the dependencies they
+import. Each package declares its own implementation dependencies; provider SDKs
+and drivers belong to their connector under `connectors/<provider>`.
+
+Runnable applications belong under `examples/*` as private workspace packages.
+Independent provider simulators belong under `dev/simulators/*` as private
+workspace packages with their own dependencies and no Relate imports. Consumers
+import simulators by package name, not by reaching into their directories.
+Design declarations and acceptance material remain under `dev/fixtures`.
+
+The planned SQLite and Stripe connectors belong in `connectors/sqlite` and
+`connectors/stripe`; their runnable customer/billing application belongs in
+`examples/customer-billing`. Add those packages with their implementations.
+SQLite source access is separate from Relate's own persistence adapters.
+
 ## Package boundaries
 
 Run `pnpm check:boundaries` when changing imports or adding a workspace package.
@@ -27,7 +45,8 @@ scaffolds with no source yet. Each package must have an explicit policy in
 Production TypeScript and JavaScript files are checked throughout each package,
 including root entry points and TSX. Tests and generated output are excluded;
 production code cannot import excluded code to bypass the checks. The Postgres
-example has an explicit exception for its provider simulator.
+example imports its provider simulator through the private workspace package
+`@relate/dev-crm-simulator`.
 
 The `relate` authoring entry point must not reach the compiler, even through
 helpers, re-exports or type imports. `relate/model` can depend on model helpers

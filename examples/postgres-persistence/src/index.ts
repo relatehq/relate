@@ -1,7 +1,7 @@
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/runtime';
 import { createPostgresStore } from '@relate/postgres';
-import { startCrmSimulator } from '../../../dev/simulators/crm/index.js';
+import { startCrmSimulator } from '@relate/dev-crm-simulator';
 import { Customer, customerGraph, employee, finance } from './model.js';
 import { crmConnector } from './connector.js';
 

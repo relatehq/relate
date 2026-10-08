@@ -11,7 +11,7 @@ export async function initializeBoundaryWorkspace(
   );
   await writeFile(
     join(directory, 'pnpm-workspace.yaml'),
-    'packages:\n  - packages/*\n  - apps/*\n  - examples/*\n  - connectors/*\n',
+    'packages:\n  - packages/*\n  - apps/*\n  - examples/*\n  - connectors/*\n  - dev/simulators/*\n',
   );
   await mkdir(join(directory, 'dev/simulators'), { recursive: true });
 
