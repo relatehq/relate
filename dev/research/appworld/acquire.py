@@ -53,3 +53,49 @@ def payments(apis, phone_token, venmo_token):
             for t in transactions
         ],
     }
+
+
+def music(apis, token):
+    playlists = []
+    for page in range(100):
+        rows = apis.spotify.show_playlist_library(
+            access_token=token, page_index=page, page_limit=20
+        )
+        if not isinstance(rows, list):
+            raise ValueError("Playlist API did not return a collection")
+        playlists.extend(rows)
+        if not rows:
+            break
+    else:
+        raise ValueError("Collection acquisition cap reached; no complete snapshot")
+    song_ids = sorted({sid for p in playlists for sid in p["song_ids"]})
+    songs = [apis.spotify.show_song(song_id=sid) for sid in song_ids]
+    loaded_rows = {
+        "Playlist": [
+            {"sourceId": str(p["playlist_id"]), "title": p["title"]} for p in playlists
+        ],
+        "Song": [
+            {
+                "sourceId": str(s["song_id"]),
+                "title": s["title"],
+                "albumId": str(s["album_id"]),
+                "duration": s["duration"],
+                "genre": s["genre"],
+                "releaseDate": s["release_date"],
+                "likeCount": s["like_count"],
+                "playCount": s["play_count"],
+                "artistsJson": json.dumps(s["artists"], separators=(",", ":")),
+            }
+            for s in songs
+        ],
+        "Membership": [
+            {
+                "sourceId": f"{p['playlist_id']}:{sid}",
+                "playlist": str(p["playlist_id"]),
+                "song": str(sid),
+            }
+            for p in playlists
+            for sid in p["song_ids"]
+        ],
+    }
+    return loaded_rows

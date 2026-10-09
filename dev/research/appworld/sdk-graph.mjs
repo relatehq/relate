@@ -1,0 +1,210 @@
+import { z } from 'zod';
+import { createRuntime } from '@relate/node';
+import {
+  connect,
+  defineAccess,
+  defineGraph,
+  defineObject,
+  defineRelationship,
+  defineSource,
+  from,
+  objectId,
+  reference,
+  source,
+} from 'relate';
+
+const targets = {
+  Membership: { playlist: 'Playlist', song: 'Song' },
+  Transaction: { sender: 'Person', receiver: 'Person' },
+};
+
+// A task-local application snapshot, populated exclusively through public APIs.
+// The agent receives the real consumer SDK; acquisition remains host-owned.
+export function model() {
+  const descriptions = {
+    Playlist: 'A playlist in the user’s Spotify playlist library.',
+    Song: 'A song occurring in that playlist library. duration is seconds; likeCount is public popularity, not the user’s personal liking. artistsJson is a JSON string.',
+    Membership:
+      'A playlist-to-song association. sourceId joins the original playlist and song IDs with a colon.',
+    Person:
+      'A phone contact or Venmo participant, joined by exact email. sourceId is email; relationshipsJson is a JSON string of contact relationship labels.',
+    Transaction:
+      'An own Venmo transaction. sender and receiver are canonical Person references. sourceId is the original transaction ID as a string; createdAt is the source timestamp.',
+  };
+  const access = defineAccess({
+    roles: ['reader'],
+    fieldGroups: ['ordinary'],
+    claims: {},
+  });
+  const schemas = {
+    Playlist: z.object({ sourceId: z.string(), title: z.string() }),
+    Song: z.object({
+      sourceId: z.string(),
+      title: z.string(),
+      albumId: z.string(),
+      duration: z.number(),
+      genre: z.string(),
+      releaseDate: z.string(),
+      likeCount: z.number(),
+      playCount: z.number(),
+      artistsJson: z.string(),
+    }),
+    Person: z.object({
+      sourceId: z.string(),
+      name: z.string(),
+      relationshipsJson: z.string(),
+    }),
+    Transaction: z.object({
+      sourceId: z.string(),
+      sender: z.string(),
+      receiver: z.string(),
+      amount: z.number(),
+      description: z.string(),
+      createdAt: z.string(),
+      likeCount: z.number(),
+    }),
+    Membership: z.object({
+      sourceId: z.string(),
+      playlist: z.string(),
+      song: z.string(),
+    }),
+  };
+  const sources = Object.fromEntries(
+    Object.entries(schemas).map(([kind, schema]) => [
+      kind,
+      defineSource({ id: `snapshot.${kind}`, idField: 'sourceId', schema }),
+    ]),
+  );
+  const objects = {};
+
+  for (const kind of [
+    'Playlist',
+    'Song',
+    'Person',
+    'Membership',
+    'Transaction',
+  ]) {
+    const properties = { id: objectId({ id: `${kind}.id` }) };
+
+    for (const field of Object.keys(schemas[kind].shape)) {
+      properties[field] = targets[kind]?.[field]
+        ? reference(objects[targets[kind][field]], {
+            id: `${kind}.${field}`,
+            from: sources[kind].fields[field],
+          })
+        : from(sources[kind].fields[field], { id: `${kind}.${field}` });
+    }
+
+    objects[kind] = defineObject({
+      id: kind,
+      description: descriptions[kind],
+      membership: source(sources[kind]),
+      properties,
+    });
+  }
+
+  const relationships = {
+    PlaylistSongs: defineRelationship({
+      id: 'playlist.songs',
+      forward: 'songs',
+      reverse: 'playlists',
+      through: {
+        from: objects.Membership.properties.playlist,
+        to: objects.Membership.properties.song,
+      },
+    }),
+    SentTransactions: defineRelationship({
+      id: 'person.sent',
+      forward: 'sentTransactions',
+      reverse: 'sender',
+      via: objects.Transaction.properties.sender,
+    }),
+    ReceivedTransactions: defineRelationship({
+      id: 'person.received',
+      forward: 'receivedTransactions',
+      reverse: 'receiver',
+      via: objects.Transaction.properties.receiver,
+    }),
+    PlaylistMemberships: defineRelationship({
+      id: 'playlist.memberships',
+      forward: 'memberships',
+      reverse: 'playlist',
+      via: objects.Membership.properties.playlist,
+    }),
+    SongMemberships: defineRelationship({
+      id: 'song.memberships',
+      forward: 'memberships',
+      reverse: 'song',
+      via: objects.Membership.properties.song,
+    }),
+  };
+  const graph = defineGraph({
+    id: 'appworld-sdk-snapshot',
+    description:
+      'Snapshot of all playlist-library pages and their member songs, phone contacts with email, and own Venmo transactions. Excludes other music libraries, personal liked/downloaded state, social feed and payment requests. Source IDs are for original APIs; graph references are canonical IDs.',
+    objects,
+    relationships,
+    access,
+    policies: Object.fromEntries(
+      Object.keys(objects).map((kind) => [
+        kind,
+        { read: { gate: access.role('reader') } },
+      ]),
+    ),
+  });
+
+  return { graph, sources, objects };
+}
+
+export async function createSdkSnapshot(rows) {
+  const { graph, sources, objects } = model();
+  const maps = Object.fromEntries(
+    Object.keys(objects).map((kind) => [
+      kind,
+      new Map((rows[kind] ?? []).map((row) => [row.sourceId, row])),
+    ]),
+  );
+  let fetches = 0;
+  const runtime = createRuntime({
+    graph,
+    connections: Object.entries(sources).map(([kind, resource]) =>
+      connect(resource, {
+        connectionId: `snapshot.${kind}`,
+        connector: {
+          identity: 'application',
+          async fetch(id) {
+            fetches++;
+            const record = maps[kind].get(id);
+
+            return record ? { state: 'present', record } : { state: 'deleted' };
+          },
+        },
+      }),
+    ),
+  });
+
+  try {
+    for (const kind of [
+      'Playlist',
+      'Song',
+      'Person',
+      'Membership',
+      'Transaction',
+    ])
+      for (const row of rows[kind] ?? [])
+        await runtime.host.adopt(objects[kind], row.sourceId);
+
+    return {
+      consumer: runtime.as({
+        id: 'snapshot-reader',
+        roles: ['reader'],
+        claims: {},
+      }),
+      fetchCount: () => fetches,
+      close: () => runtime.close(),
+    };
+  } catch (error) {
+    await runtime.close();
+    throw error;
+  }
+}

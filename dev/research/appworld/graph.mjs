@@ -264,6 +264,7 @@ export async function createSnapshot(rows) {
               ? normalized(kind, sourceId, select)
               : await consumer.objects[kind].get(ids[kind].get(sourceId), {
                   select,
+                  evidence: 'full',
                 }),
           );
 
@@ -278,6 +279,7 @@ export async function createSnapshot(rows) {
               ? normalized(kind, sourceId, select)
               : await consumer.objects[kind].get(ids[kind].get(sourceId), {
                   select,
+                  evidence: 'full',
                 });
       } else if (op === 'traverse') {
         if (condition === 'flat')
@@ -294,7 +296,10 @@ export async function createSnapshot(rows) {
         if (!traversal) throw new Error('Unknown relationship');
 
         if (targets[kind]?.[relation])
-          result = await traversal(ids[kind].get(sourceId), { select });
+          result = await traversal(ids[kind].get(sourceId), {
+            select,
+            evidence: 'full',
+          });
         else {
           let cursor;
           const records = [];
@@ -302,6 +307,7 @@ export async function createSnapshot(rows) {
           do {
             const page = await traversal(ids[kind].get(sourceId), {
               select,
+              evidence: 'full',
               limit: 100,
               ...(cursor ? { cursor } : {}),
             });
