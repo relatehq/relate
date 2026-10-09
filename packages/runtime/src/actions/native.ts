@@ -17,16 +17,13 @@ import {
   allowsField,
   allowsObject,
   createAuthorization,
+  operationName,
 } from '../authorization/index.js';
 import type {
   Principal,
   AuthorizationEvidence,
 } from '../authorization/index.js';
-import {
-  operationName,
-  validateReadRequest,
-  summarize,
-} from '../reads/index.js';
+import { validateReadRequest, summarize } from '../reads/index.js';
 
 type ObjectType = Manifest['objects'][number];
 
@@ -139,7 +136,7 @@ export function createNativeOperations(options: {
     ): Promise<ReadResult> {
       validateReadRequest(
         request,
-        operationName(manifest, objectDefinitionId, 'get'),
+        operationName(manifest, principal, objectDefinitionId, 'get'),
       );
       const object = manifest.objects.find((o) => o.id === objectDefinitionId);
       const policy = Object.hasOwn(manifest.policies, objectDefinitionId)

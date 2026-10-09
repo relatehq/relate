@@ -19,13 +19,13 @@ import { scanBatch } from '../storage.js';
 import {
   allowsField,
   allowsObject,
+  operationName,
   readableProperties,
 } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import {
   cursorCodec,
   invalidValue,
-  operationName,
   project,
   requestIssues,
   schemaText,
@@ -71,7 +71,7 @@ export function createGraphQuery(options: {
   ): Promise<PageResult> => {
     const object = manifest.objects.find((o) => o.id === type);
     const policy = object && manifest.policies[object.id];
-    const operation = operationName(manifest, type, 'query');
+    const operation = operationName(manifest, principal, type, 'query');
     const issues = requestIssues(input, 'query');
     const where: Record<string, unknown> =
       input && typeof input === 'object' && isPlain(input.where)

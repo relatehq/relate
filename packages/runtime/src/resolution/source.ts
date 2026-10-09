@@ -17,6 +17,7 @@ import {
   allowsObject,
   conditions,
   createAuthorization,
+  operationName,
 } from '../authorization/index.js';
 import type {
   Principal,
@@ -29,11 +30,7 @@ import {
   SourceAccessDenied,
 } from '../observations/index.js';
 import type { SourceBinding } from 'relate/connectors';
-import {
-  operationName,
-  validateReadRequest,
-  summarize,
-} from '../reads/index.js';
+import { validateReadRequest, summarize } from '../reads/index.js';
 import { refreshObservation } from './refresh.js';
 
 /** Source operations receive cross-object evidence resolution from composition. */
@@ -133,7 +130,7 @@ export function createSourceOperations(options: {
   ): Promise<ReadResult> {
     validateReadRequest(
       request,
-      operationName(manifest, objectDefinitionId, 'get'),
+      operationName(manifest, principal, objectDefinitionId, 'get'),
     );
     const maxAge = request.maxAgeMs ?? 60_000;
 

@@ -374,27 +374,3 @@ export function cursorIssue(): RequestIssue {
       'not valid for this call. Pass page.meta.continuationCursor from a page of this same operation with the same options; cursors expire.',
   };
 }
-
-type Objects = {
-  readonly objects: readonly {
-    readonly id: string;
-    readonly apiName: string;
-  }[];
-};
-
-/** The caller-facing API name of an object definition. */
-export function objectName(manifest: Objects, objectDefinitionId: string) {
-  return (
-    manifest.objects.find((o) => o.id === objectDefinitionId)?.apiName ??
-    objectDefinitionId
-  );
-}
-
-/** The caller-facing name of an operation, such as `Person.query`. */
-export function operationName(
-  manifest: Objects,
-  objectDefinitionId: string,
-  operation: string,
-): string {
-  return `${objectName(manifest, objectDefinitionId)}.${operation}`;
-}

@@ -196,6 +196,12 @@ If a record fails the gate or the predicate, Relate behaves as if it does not
 exist. A direct read returns `{ status: 'not-found' }`, and traversals leave the
 record out. A denied record is indistinguishable from a missing one.
 
+Role gates also decide which traversals exist for a caller. A traversal whose
+start or destination type the caller cannot read, or whose link field is in a
+field group the caller lacks, is not listed by discovery. Calling it throws the
+same `unknown-traversal` `ReadError` as a misspelled traversal name, so the
+caller cannot tell a hidden traversal from a missing one.
+
 ### 3. Field Groups (`groups`)
 
 When a caller can read an object but lacks the role for one of its field groups,

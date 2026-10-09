@@ -25,6 +25,15 @@ options (previously `get` ignored them). A `where` filter on a reference whose
 target type the reader cannot read is rejected as `invalid-request`; it
 previously passed validation.
 
+Calling a traversal the reader's roles hide now throws the same
+`unknown-traversal` `ReadError('invalid-request')` as a traversal name that does
+not exist. Previously a role-hidden to-many traversal returned an empty page and
+a to-one traversal returned `not-found`, which let a caller tell hidden
+traversals from missing ones. A traversal is hidden when its start or
+destination type is unreadable or its link field is in a field group the reader
+lacks. Record-level policy is unchanged: denied records are still left out of
+results.
+
 ## Actor-bound graph discovery
 
 `relate.as(principal).describe()` now returns the graph's objects and actions

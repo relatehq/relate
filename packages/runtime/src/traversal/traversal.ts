@@ -10,26 +10,24 @@ import type {
 } from '@relate/protocol';
 import type { ObservationStore, StorageScope } from '../storage.js';
 import { scanBatch } from '../storage.js';
-import { allowsField } from '../authorization/index.js';
+import {
+  allowsField,
+  operationName,
+  visibleName,
+} from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import {
   cursorCodec,
   invalidValue,
-  objectName,
-  operationName,
   project,
+  rejectIssues,
   requestIssues,
   throwIssues,
 } from '../reads/index.js';
 import { traversalScope } from './scope.js';
 
 import { createThroughTraversal } from './through.js';
-import {
-  availableTraversals,
-  traversalAllowed,
-  traversalsFrom,
-  traversalSupported,
-} from './available.js';
+import { availableTraversals, traversalAllowed } from './available.js';
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
@@ -65,42 +63,41 @@ export function createTraversal(options: TraversalOptions) {
     name: string,
     input: TraversalRequest = {},
   ): Promise<PageResult | ObjectResult> => {
-    const operation = operationName(manifest, typeId, `traverse.${name}`);
-    const match = traversalsFrom(manifest, typeId).find(
-      ({ relationship: r, forward }) =>
-        (forward ? r.forward : r.reverse).name === name,
+    const operation = operationName(
+      manifest,
+      principal,
+      typeId,
+      `traverse.${name}`,
     );
-    const cardinality = match
-      ? (match.forward
-          ? match.relationship.forward
-          : match.relationship.reverse
-        ).cardinality
-      : 'many';
-    const kind = cardinality === 'one' ? 'traverse-one' : 'traverse-many';
+    const available = availableTraversals(manifest, principal, typeId);
+    const match = available.find((t) => t.traversal.name === name);
+
+    // Missing, unsupported and role-hidden traversals share one answer, decided
+    // before options are checked so no cardinality or object name leaks.
+    if (!match)
+      throwIssues(operation, 'traverse-many', [
+        {
+          path: [],
+          problem: 'unknown-traversal',
+          message: `"${name}" is not an available traversal from this object.`,
+          accepted: available.map((t) => t.traversal.name),
+        },
+      ]);
+
+    const kind =
+      match.traversal.cardinality === 'one' ? 'traverse-one' : 'traverse-many';
     const issues = requestIssues(input, kind);
 
     if (typeof id !== 'string' || !id.trim())
       issues.unshift(
         invalidValue(
           ['id'],
-          `a nonblank ${objectName(manifest, typeId)} object ID string`,
+          `a nonblank ${visibleName(manifest, principal, typeId)} object ID string`,
           id,
         ),
       );
 
-    // Unsupported and unauthorized traversals share one answer; the accepted
-    // names are exactly the traversals this reader can discover.
-    if (!match || !traversalSupported(manifest, match.relationship))
-      issues.unshift({
-        path: [],
-        problem: 'unknown-traversal',
-        message: `"${name}" is not an available traversal from this object.`,
-        accepted: availableTraversals(manifest, principal, typeId).map(
-          (t) => t.traversal.name,
-        ),
-      });
-
-    if (!match || issues.length) throwIssues(operation, kind, issues);
+    rejectIssues(operation, kind, issues);
 
     const request: TraversalRequest = structuredClone(
       Object.fromEntries(

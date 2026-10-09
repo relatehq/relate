@@ -49,3 +49,29 @@ export function readableProperties(
     return [{ property, ...(target ? { target } : {}) }];
   });
 }
+
+/**
+ * How errors name an object type: its API name once the actor may read it,
+ * otherwise the definition ID the caller supplied. An error never resolves a
+ * name the actor's discovery would not show.
+ */
+export function visibleName(
+  manifest: Manifest,
+  principal: Principal,
+  objectDefinitionId: string,
+): string {
+  return (
+    readableObject(manifest, principal, objectDefinitionId)?.apiName ??
+    objectDefinitionId
+  );
+}
+
+/** The caller-facing operation name, such as `Person.query`. */
+export function operationName(
+  manifest: Manifest,
+  principal: Principal,
+  objectDefinitionId: string,
+  operation: string,
+): string {
+  return `${visibleName(manifest, principal, objectDefinitionId)}.${operation}`;
+}

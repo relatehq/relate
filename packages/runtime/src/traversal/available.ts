@@ -91,8 +91,8 @@ export function traversalAllowed(
 }
 
 /**
- * The traversals an actor may attempt from an object: executable, gated by
- * `traversalAllowed`, and leading to a readable type. Discovery lists exactly
+ * The traversals an actor may attempt from an object: from a readable type,
+ * executable, gated by `traversalAllowed`, and leading to a readable type. Discovery lists exactly
  * these, and request errors offer only these names.
  */
 export function availableTraversals(
@@ -100,6 +100,9 @@ export function availableTraversals(
   principal: Principal,
   objectDefinitionId: string,
 ) {
+  // An unreadable start type has no discoverable traversals at all.
+  if (!readableObject(manifest, principal, objectDefinitionId)) return [];
+
   return traversalsFrom(manifest, objectDefinitionId).flatMap((edge) => {
     const { relationship, forward } = edge;
     const target = readableObject(

@@ -3,8 +3,6 @@ export { validateReadRequest } from './request.js';
 export {
   cursorIssue,
   invalidValue,
-  objectName,
-  operationName,
   optionDescriptions,
   rejectIssues,
   requestIssues,

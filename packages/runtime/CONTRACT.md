@@ -238,9 +238,15 @@ and iteration; installed-package smoke checks exercise graph query execution.
   operation and actor's static discovery.
 - Issues name only request options, arguments and properties or traversals the
   actor can discover. A hidden and a missing filter property produce the same
-  issue; `accepted` lists the discoverable names. Unsupported and unauthorized
-  traversal names produce the same issue. Every cursor rejection (forged,
-  altered, expired, other scope) is one `invalid-cursor` issue.
+  issue; `accepted` lists the discoverable names. A traversal outside
+  `availableTraversals` (missing, unsupported, role-hidden, or from an
+  unreadable start type) gets one neutral `unknown-traversal` issue before its
+  options or ID are checked, so the error does not reveal cardinality. Every
+  cursor rejection (forged, altered, expired, other scope) is one
+  `invalid-cursor` issue.
+- Operation names in errors use the object's API name only when the actor may
+  read that type; otherwise they echo the caller-supplied definition ID
+  (`business.customer.query`).
 - Alias hints (`pageSize` → `limit`, `offset` → cursor paging) are generic SDK
   vocabulary, never graph- or task-specific.
 - `operationContracts` is one frozen value shared by every graph and actor.

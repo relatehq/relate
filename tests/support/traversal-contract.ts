@@ -507,18 +507,22 @@ export function traversalContract(
       });
       const id = await relate.host.adopt(RestrictedInvoice, 'inv_1');
 
-      expect(
-        await relate
-          .as(ana)
-          .objects.Invoice.traverse.customer(id, { select: ['id'] }),
-      ).toEqual({ status: 'not-found' });
-      expect(
-        (
-          await relate
+      // A role-hidden traversal answers exactly like a missing one.
+      for (const call of [
+        () =>
+          relate
             .as(ana)
-            .objects.Customer.traverse.invoices(north, { select: ['id'] })
-        ).data,
-      ).toEqual([]);
+            .objects.Invoice.traverse.customer(id, { select: ['id'] }),
+        () =>
+          relate
+            .as(ana)
+            .objects.Customer.traverse.invoices(north, { select: ['id'] }),
+      ])
+        await expect(call()).rejects.toMatchObject({
+          code: 'invalid-request',
+          issues: [{ problem: 'unknown-traversal' }],
+        });
+
       expect(
         (
           await relate.as(finance).objects.Customer.traverse.invoices(north)
