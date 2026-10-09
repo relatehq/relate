@@ -21,6 +21,7 @@ test('SDK discovery and canonical payment references support a direction-correct
         description: 'Shared bill',
         createdAt: '2023-01-02',
         likeCount: 0,
+        commentCount: 0,
       },
       {
         sourceId: '2',
@@ -30,6 +31,7 @@ test('SDK discovery and canonical payment references support a direction-correct
         description: 'Return',
         createdAt: '2023-01-03',
         likeCount: 0,
+        commentCount: 0,
       },
     ],
   });
@@ -79,6 +81,84 @@ test('SDK discovery and canonical payment references support a direction-correct
       traversed.push(row.data.amount);
 
     assert.deepEqual(traversed, [25]);
+  } finally {
+    await snapshot.close();
+  }
+});
+
+test('source actions refresh observations and replay receipts without duplicate mutations', async () => {
+  const transaction = {
+    sourceId: '1',
+    sender: 'me@test',
+    receiver: 'me@test',
+    amount: 10,
+    description: 'Test',
+    createdAt: '2023-01-01',
+    likeCount: 0,
+    commentCount: 0,
+  };
+  const calls = [];
+  const snapshot = await createSdkSnapshot(
+    {
+      Person: [{ sourceId: 'me@test', name: 'Me', relationshipsJson: '[]' }],
+      Transaction: [transaction],
+    },
+    async (request) => {
+      calls.push(request);
+      if (request.operation === 'likeTransaction') transaction.likeCount++;
+      else transaction.commentCount++;
+      return {
+        transaction: { ...transaction },
+        output:
+          request.operation === 'likeTransaction'
+            ? { message: 'Liked' }
+            : { message: 'Commented', commentId: '99' },
+      };
+    },
+  );
+  try {
+    const api = snapshot.consumer;
+    const id = (await api.objects.Transaction.query()).data[0].id;
+    assert.deepEqual(
+      api
+        .describe()
+        .actions.map((a) => a.apiName)
+        .sort(),
+      ['commentOnTransaction', 'likeTransaction'],
+    );
+    const request = {
+      input: { transaction: id, comment: 'Thank you' },
+      idempotencyKey: 'comment-1',
+    };
+    const receipt = await api.actions.commentOnTransaction(request);
+    assert.equal(receipt.output.commentId, '99');
+    const replay = await api.actions.commentOnTransaction(request);
+    assert.equal(replay.output.commentId, '99');
+    assert.equal(calls.length, 1);
+    assert.equal((await api.objects.Transaction.get(id)).data.commentCount, 1);
+    assert.equal(
+      (await api.objects.Transaction.query()).data[0].data.commentCount,
+      1,
+    );
+    await assert.rejects(
+      api.actions.commentOnTransaction({
+        ...request,
+        input: { transaction: id, comment: 'different' },
+      }),
+    );
+    await assert.rejects(
+      api.actions.likeTransaction({
+        input: { transaction: 'not-a-canonical-id' },
+        idempotencyKey: 'bad',
+      }),
+    );
+    assert.equal(calls.length, 1);
+    await api.actions.likeTransaction({
+      input: { transaction: id },
+      idempotencyKey: 'like-1',
+    });
+    assert.equal((await api.objects.Transaction.get(id)).data.likeCount, 1);
+    assert.equal(calls.length, 2);
   } finally {
     await snapshot.close();
   }

@@ -59,6 +59,10 @@ Discover the graph and its operation contracts:
 console.log(await relate.describe());
 Discover a particular object using its discovered apiName:
 console.log(await relate.objects[apiName].describe());
+Discover a particular action using its discovered apiName:
+console.log(await relate.actions[apiName].describe());
+Invoke an action with await relate.actions[apiName]({input: {...}, idempotencyKey: "unique-operation-key"}).
+Use a fresh key for each intended operation; reuse the same key only when retrying that same operation.
 """
 
 

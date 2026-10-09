@@ -114,7 +114,11 @@ let busy = false;
 lines.on('line', async (line) => {
   const message = JSON.parse(line);
 
-  if (message.type === 'completion-result' || message.type === 'api-result') {
+  if (
+    message.type === 'completion-result' ||
+    message.type === 'api-result' ||
+    message.type === 'source-write-result'
+  ) {
     const waiter = pending.get(message.id);
 
     pending.delete(message.id);
@@ -136,7 +140,15 @@ lines.on('line', async (line) => {
   try {
     if (message.type === 'init') {
       if (message.mode === 'sdk') {
-        snapshot = await createSdkSnapshot(message.rows);
+        snapshot = await createSdkSnapshot(
+          message.rows,
+          (request) =>
+            new Promise((resolve, reject) => {
+              const id = ++nextCall;
+              pending.set(id, { resolve, reject });
+              send({ type: 'source-write', id, ...request });
+            }),
+        );
         repl.context.relate = snapshot.consumer;
       } else if (message.mode === 'raw_ts') {
         repl.context.tokens = message.tokens;

@@ -40,6 +40,7 @@ class AcquireTests(unittest.TestCase):
                 "description": "Test",
                 "created_at": "2023-01-01",
                 "like_count": 1,
+                "comment_count": 0,
             }
         ]
         apis = SimpleNamespace(

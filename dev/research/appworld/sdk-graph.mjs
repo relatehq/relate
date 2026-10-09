@@ -2,7 +2,9 @@ import { z } from 'zod';
 import { createRuntime } from '@relate/node';
 import {
   connect,
+  implementAction,
   defineAccess,
+  defineAction,
   defineGraph,
   defineObject,
   defineRelationship,
@@ -10,6 +12,7 @@ import {
   from,
   objectId,
   reference,
+  referenceInput,
   source,
 } from 'relate';
 
@@ -62,6 +65,7 @@ export function model() {
       description: z.string(),
       createdAt: z.string(),
       likeCount: z.number(),
+      commentCount: z.number(),
     }),
     Membership: z.object({
       sourceId: z.string(),
@@ -138,11 +142,35 @@ export function model() {
       via: objects.Membership.properties.song,
     }),
   };
+  const actions = {
+    likeTransaction: defineAction({
+      id: 'venmo.like-transaction',
+      description:
+        'Like an own Venmo transaction as the authenticated user. Updates its likeCount; does not transfer money.',
+      input: z.object({ transaction: referenceInput(objects.Transaction) }),
+      output: z.object({ message: z.string() }),
+      creates: [],
+      policy: { execute: access.role('reader') },
+    }),
+    commentOnTransaction: defineAction({
+      id: 'venmo.comment-on-transaction',
+      description:
+        'Add a comment to an own Venmo transaction as the authenticated user. Updates its commentCount; does not transfer money.',
+      input: z.object({
+        transaction: referenceInput(objects.Transaction),
+        comment: z.string(),
+      }),
+      output: z.object({ message: z.string(), commentId: z.string() }),
+      creates: [],
+      policy: { execute: access.role('reader') },
+    }),
+  };
   const graph = defineGraph({
     id: 'appworld-sdk-snapshot',
     description:
       'Snapshot of all playlist-library pages and their member songs, phone contacts with email, and own Venmo transactions. Excludes other music libraries, personal liked/downloaded state, social feed and payment requests. Source IDs are for original APIs; graph references are canonical IDs.',
     objects,
+    actions,
     relationships,
     access,
     policies: Object.fromEntries(
@@ -153,11 +181,11 @@ export function model() {
     ),
   });
 
-  return { graph, sources, objects };
+  return { graph, sources, objects, actions };
 }
 
-export async function createSdkSnapshot(rows) {
-  const { graph, sources, objects } = model();
+export async function createSdkSnapshot(rows, writeSource) {
+  const { graph, sources, objects, actions } = model();
   const maps = Object.fromEntries(
     Object.keys(objects).map((kind) => [
       kind,
@@ -167,6 +195,40 @@ export async function createSdkSnapshot(rows) {
   let fetches = 0;
   const runtime = createRuntime({
     graph,
+    actionImplementations: Object.entries(actions).map(([operation, action]) =>
+      implementAction(
+        graph,
+        action,
+        async ({ input, objects: contextObjects }) => {
+          const transaction = await contextObjects.Transaction.get(
+            input.transaction,
+          );
+          if (transaction.status !== 'ok')
+            throw new Error('Transaction unavailable');
+          if (!writeSource)
+            throw new Error('Source writes unavailable in this environment');
+          const result = await writeSource({
+            operation,
+            sourceId: transaction.data.sourceId,
+            ...(operation === 'commentOnTransaction'
+              ? { comment: input.comment }
+              : {}),
+          });
+          // The bridge reads the original record after mutation. Refresh the same
+          // runtime observation, preserving canonical IDs and idempotency receipts.
+          maps.Transaction.set(result.transaction.sourceId, result.transaction);
+          const refreshed = await contextObjects.Transaction.get(
+            input.transaction,
+            { refresh: true },
+          );
+          if (refreshed.status !== 'ok')
+            throw new Error(
+              'Write succeeded but graph refresh failed; inspect source state before retrying',
+            );
+          return result.output;
+        },
+      ),
+    ),
     connections: Object.entries(sources).map(([kind, resource]) =>
       connect(resource, {
         connectionId: `snapshot.${kind}`,

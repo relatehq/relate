@@ -15,6 +15,19 @@ def pages(api, **kwargs):
     raise ValueError("Acquisition cap reached; cannot claim complete collection")
 
 
+def transaction_row(t):
+    return {
+        "sourceId": str(t["transaction_id"]),
+        "sender": t["sender"]["email"],
+        "receiver": t["receiver"]["email"],
+        "amount": t["amount"],
+        "description": t["description"],
+        "createdAt": t["created_at"],
+        "likeCount": t["like_count"],
+        "commentCount": t["comment_count"],
+    }
+
+
 def payments(apis, phone_token, venmo_token):
     contacts = pages(apis.phone.search_contacts, access_token=phone_token)
     transactions = pages(apis.venmo.show_transactions, access_token=venmo_token)
@@ -40,18 +53,7 @@ def payments(apis, phone_token, venmo_token):
         }
     return {
         "Person": list(people.values()),
-        "Transaction": [
-            {
-                "sourceId": str(t["transaction_id"]),
-                "sender": t["sender"]["email"],
-                "receiver": t["receiver"]["email"],
-                "amount": t["amount"],
-                "description": t["description"],
-                "createdAt": t["created_at"],
-                "likeCount": t["like_count"],
-            }
-            for t in transactions
-        ],
+        "Transaction": [transaction_row(t) for t in transactions],
     }
 
 

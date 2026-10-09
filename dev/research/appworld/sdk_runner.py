@@ -15,7 +15,7 @@ from pathlib import Path
 
 import freezegun.api as clock
 import requests
-from acquire import music, payments
+from acquire import music, payments, transaction_row
 from appworld import AppWorld, load_task_ids
 from appworld.common.path_store import path_store
 from dotenv import dotenv_values
@@ -47,6 +47,10 @@ class NodeRepl:
             raise ValueError("Raw TypeScript must not receive acquired rows")
         self.mode = mode
         self.world = world
+        self.tokens = tokens or {}
+        self.writable_ids = {
+            row["sourceId"] for row in (rows or {}).get("Transaction", [])
+        }
         # Permission checks also constrain escaped JS contexts: no arbitrary host
         # files, subprocesses, workers or network. Only code/dependencies readable.
         readable = [
@@ -129,6 +133,44 @@ class NodeRepl:
                         "id": event["id"],
                         "error": f"{type(error).__name__}: {error}",
                     }
+                self.send(response)
+            elif event["type"] == "source-write" and self.mode == "sdk":
+                response = {"type": "source-write-result", "id": event["id"]}
+                wrote = False
+                try:
+                    operation, source_id = event["operation"], event["sourceId"]
+                    if source_id not in self.writable_ids:
+                        raise ValueError("Transaction is outside the acquired graph")
+                    args = {
+                        "transaction_id": int(source_id),
+                        "access_token": self.tokens["venmo"],
+                    }
+                    if operation == "likeTransaction":
+                        result = self.world.apis.venmo.like_transaction(**args)
+                        output = {"message": result["message"]}
+                    elif operation == "commentOnTransaction":
+                        result = self.world.apis.venmo.create_transaction_comment(
+                            **args, comment=event["comment"]
+                        )
+                        output = {
+                            "message": result["message"],
+                            "commentId": str(result["comment_id"]),
+                        }
+                    else:
+                        raise ValueError("Unsupported source write")
+                    wrote = True
+                    record = self.world.apis.venmo.show_transaction(**args)
+                    response["result"] = {
+                        "output": output,
+                        "transaction": transaction_row(record),
+                    }
+                except Exception as error:
+                    prefix = (
+                        "Write succeeded but readback failed; inspect source state before retrying. "
+                        if wrote
+                        else ""
+                    )
+                    response["error"] = prefix + f"{type(error).__name__}: {error}"
                 self.send(response)
             elif event["type"] == "api" and self.mode == "raw_ts":
                 try:
@@ -275,7 +317,7 @@ def run(args, key, task_id, condition, repeat, spent):
                     len(world.requester.request_tracker.requests) - setup_calls
                 )
                 acquisition_seconds = clock.real_perf_counter() - acquire_start
-                node = NodeRepl(world, rows)
+                node = NodeRepl(world, rows, tokens=tokens)
             elif condition == "raw_ts":
                 node = NodeRepl(world, mode="raw_ts", tokens=tokens)
             setup_seconds = clock.real_perf_counter() - start
@@ -512,7 +554,7 @@ def main():
             "world_seed": 100,
             "prompts": {condition: prompt(condition) for condition in args.conditions},
             "prompt_protocol": "uniform-zero-shot-appworld-react-v1",
-            "sdk_capabilities": "relate SDK reads and completeTask only; no original APIs or credentials",
+            "sdk_capabilities": "relate SDK reads, likeTransaction, commentOnTransaction and completeTask; no original API proxy or credentials",
             "raw_ts_capabilities": "original app APIs and completeTask; no SDK or acquired snapshot",
             "source_acquisition": "fixed music+payments union for every SDK episode",
             "pricing_per_million": {
