@@ -1,4 +1,9 @@
-import type { FieldEvidence, ReadRequest, ReadResult } from '@relate/protocol';
+import type {
+  EvidenceMode,
+  FieldEvidence,
+  ReadMeta,
+  ReadRequest,
+} from '@relate/protocol';
 import type {
   ObjectData,
   ObjectDefinition,
@@ -7,27 +12,40 @@ import type {
   PropertyValue,
 } from './index.js';
 
-export type ReadOptions<K extends string> = Omit<ReadRequest, 'select'> & {
+export type ReadOptions<
+  K extends string,
+  E extends EvidenceMode = EvidenceMode,
+> = Omit<ReadRequest, 'select' | 'evidence'> & {
   readonly select?: readonly K[];
+  readonly evidence?: E;
 };
 
-type Ok = Extract<ReadResult, { status: 'ok' }>;
+type TypedMeta<M, K extends string> = M extends { fields: unknown }
+  ? Omit<M, 'fields'> & {
+      readonly fields: { readonly [N in K]?: FieldEvidence };
+    }
+  : Omit<M, 'fields'> & {
+      readonly fields?: { readonly [N in K]?: FieldEvidence };
+    };
 
+/** Read methods guarantee full only for a required full evidence option. */
 export type ObjectResult<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,
+  E extends EvidenceMode = EvidenceMode,
 > =
   | { readonly status: 'not-found' }
   | {
       readonly status: 'ok';
       readonly id: ObjectId<O['id']>;
       readonly data: ObjectData<O, K>;
-      readonly meta: Omit<Ok['meta'], 'fields'> & {
-        readonly fields: { readonly [N in K]?: FieldEvidence };
-      };
+      readonly meta: TypedMeta<Extract<ReadMeta, { evidence: E }>, K>;
     };
 
-export type PageOptions<K extends string> = ReadOptions<K> & {
+export type PageOptions<
+  K extends string,
+  E extends EvidenceMode = EvidenceMode,
+> = ReadOptions<K, E> & {
   readonly limit?: number;
   readonly cursor?: string;
 };
@@ -35,7 +53,8 @@ export type PageOptions<K extends string> = ReadOptions<K> & {
 export type QueryOptions<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,
-> = PageOptions<K> & {
+  E extends EvidenceMode = EvidenceMode,
+> = PageOptions<K, E> & {
   readonly where?: {
     readonly [N in PropertyNames<O>]?: Exclude<PropertyValue<O, N>, undefined>;
   };
@@ -44,6 +63,7 @@ export type QueryOptions<
 export type ObjectRecord<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,
-> = Omit<Extract<ObjectResult<O, K>, { status: 'ok' }>, 'status'>;
+  E extends EvidenceMode = EvidenceMode,
+> = Omit<Extract<ObjectResult<O, K, E>, { status: 'ok' }>, 'status'>;
 
 export type { QueryResult } from '@relate/protocol';

@@ -14,6 +14,8 @@ export function validateReadRequest(request: ReadRequest) {
     !Number.isFinite(timeout) ||
     timeout <= 0 ||
     timeout > 10_000 ||
+    (request.evidence !== undefined &&
+      !['compact', 'full'].includes(request.evidence)) ||
     (request.stale !== undefined &&
       !['allow', 'omit'].includes(request.stale)) ||
     (request.select !== undefined &&

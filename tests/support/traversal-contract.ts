@@ -114,6 +114,62 @@ export function traversalContract(
       return relate.host.adopt(Invoice, sourceId);
     };
 
+    it('presents both traversal directions without losing evidence needed for joins', async () => {
+      const customer = await relate.host.adopt(Customer, 'north');
+      const invoice = await adoptInvoice('inv_1');
+
+      await adoptInvoice('inv_2');
+      const objects = relate.as(ana).objects;
+
+      for (const evidence of ['compact', 'full'] as const) {
+        const first = await objects.Customer.traverse.invoices(customer, {
+          select: ['status'],
+          limit: 1,
+          evidence,
+        });
+
+        expect(first.data).toHaveLength(1);
+        expect(first.data[0]?.meta.evidence).toBe(evidence);
+        expect(first.data[0]?.data).toEqual({ status: 'open' });
+        expect(first.meta.exhausted).toBe(false);
+
+        if (first.meta.exhausted) throw new Error('Expected continuation');
+
+        // A cursor continues in either mode; the mode only shapes evidence.
+        const nextEvidence = evidence === 'full' ? 'compact' : 'full';
+        const next = await objects.Customer.traverse.invoices(customer, {
+          select: ['status'],
+          limit: 1,
+          evidence: nextEvidence,
+          cursor: first.meta.continuationCursor,
+        });
+
+        expect(next.data).toHaveLength(1);
+        expect(next.data[0]?.meta.evidence).toBe(nextEvidence);
+        expect(next.data[0]?.id).not.toBe(first.data[0]?.id);
+        expect(next.meta).toEqual({ exhausted: true });
+        const owner = await objects.Invoice.traverse.customer(invoice, {
+          select: ['name'],
+          evidence,
+        });
+
+        expect(owner).toMatchObject({
+          status: 'ok',
+          id: customer,
+          data: { name: 'north' },
+          meta: { evidence },
+        });
+
+        if (owner.status !== 'ok') throw new Error('Expected owner');
+
+        if (evidence === 'compact') expect(owner.meta.fields).toBeUndefined();
+        else
+          expect(owner.meta.fields?.name).toMatchObject({
+            status: 'available',
+          });
+      }
+    });
+
     it('traverses both directions with canonical IDs and target field evidence', async () => {
       const customerId = await relate.host.adopt(Customer, 'north');
       const invoiceId = await adoptInvoice('inv_1');
@@ -133,7 +189,7 @@ export function traversalContract(
         },
       });
       expect(page.data[0]!.data).toEqual({ status: 'open' });
-      expect(page.data[0]!.meta.fields.totalMinor).toEqual({
+      expect(page.data[0]!.meta.fields?.totalMinor).toEqual({
         status: 'forbidden',
       });
       await expect(
@@ -524,7 +580,7 @@ export function traversalContract(
       for await (const invoice of query) {
         found.push(invoice.id);
         expect(invoice.data).toEqual({});
-        expect(invoice.meta.fields.totalMinor).toEqual({
+        expect(invoice.meta.fields?.totalMinor).toEqual({
           status: 'forbidden',
         });
       }

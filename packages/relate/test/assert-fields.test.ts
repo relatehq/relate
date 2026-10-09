@@ -62,6 +62,7 @@ it('accepts stale values despite partial evidence and preserves all metadata', (
     status: 'ok',
     data: { name: 'Ada' },
     meta: {
+      evidence: 'full',
       completeness: 'partial',
       degraded: true,
       definitionRevision: 'revision',

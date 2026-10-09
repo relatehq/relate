@@ -391,11 +391,12 @@ consumers and native action implementations; see the
 | `null` from a nullable schema | Passes                           | An explicit null value was supplied.                                     |
 | Missing or `undefined`        | Throws `ReadError('incomplete')` | No usable value was supplied for this field.                             |
 
-An action requiring freshness can inspect the checked field's evidence:
+An action requiring freshness can request `evidence: 'full'` on its read and
+inspect the checked field's evidence:
 
 ```ts
 assertFields(customer, ['name']);
-const evidence = customer.meta.fields.name;
+const evidence = customer.meta.fields?.name;
 
 if (evidence?.status !== 'available' || evidence.freshness !== 'fresh') {
   throw new Error('A fresh customer name is required');

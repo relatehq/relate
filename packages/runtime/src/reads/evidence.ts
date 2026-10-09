@@ -1,4 +1,7 @@
-import type { FieldEvidence, ReadResult } from '@relate/protocol';
+import type {
+  FieldEvidence,
+  FullReadResult as ReadResult,
+} from '@relate/protocol';
 
 type Supplied = Extract<FieldEvidence, { status: 'available' | 'absent' }>;
 

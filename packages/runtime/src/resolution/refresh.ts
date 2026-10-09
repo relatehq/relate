@@ -1,5 +1,9 @@
 import type { Manifest } from 'relate/model';
-import type { ReadRequest, ReadResult, Refresh } from '@relate/protocol';
+import type {
+  ReadRequest,
+  FullReadResult as ReadResult,
+  Refresh,
+} from '@relate/protocol';
 import type {
   ObservationStore,
   StorageScope,

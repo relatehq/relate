@@ -87,3 +87,17 @@ identity. Stripe confirms that creation times/request IDs must not be presented
 as versions, and that a missing-resource HTTP error is not deletion evidence.
 See the connector README for supported resources and the current read-only
 boundary; list/search/webhook/write capabilities are not implied.
+
+## Compact evidence is the default
+
+`get`, `query`, traversal, low-level runtime reads and action-handler reads now
+return compact evidence by default. Existing code that inspects ordinary
+per-field provenance must pass `evidence: 'full'`. Both modes include
+`meta.evidence`; compact mode omits `meta.fields` and `meta.warnings` when
+empty. Use `result.meta.fields?.name`, or narrow
+`result.meta.evidence === 'full'` before accessing the full map.
+
+No stored data migration is needed. Reissue collection queries after upgrading:
+continuation tokens are not an upgrade compatibility contract. Exceptional field
+evidence and nonempty warnings remain available in compact mode. Data,
+authorization and action receipt dependency tracking are unchanged.

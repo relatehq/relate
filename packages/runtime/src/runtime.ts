@@ -10,10 +10,16 @@ import { createTraversal } from './traversal/index.js';
 import { createSourceOperations } from './resolution/index.js';
 import type { SourceBinding } from 'relate/connectors';
 import { createMemoryStore } from './memory.js';
+import { presenting } from './reads/index.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
-import type { QueryRequest, ReadRequest, ReadResult } from '@relate/protocol';
+import type {
+  QueryRequest,
+  ReadRequest,
+  TraversalRequest,
+  FullReadResult as ReadResult,
+} from '@relate/protocol';
 import type { ObservationStore } from './storage.js';
 import type { Principal } from './authorization/index.js';
 
@@ -186,22 +192,37 @@ export function createRuntime(options: RuntimeOptions) {
     ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
   });
 
+  const traverse = createTraversal({
+    manifest,
+    graphId: options.graphId,
+    revision,
+    store,
+    clock,
+    scopeFor,
+    read: readObject,
+    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+  });
+
   return {
     adopt: source.adopt,
-    query(
+    async query(
       principal: Principal,
       objectDefinitionId: string,
       request: QueryRequest = {},
     ) {
-      return query(principal, objectDefinitionId, request);
+      return presenting(request, (r) =>
+        query(principal, objectDefinitionId, r),
+      );
     },
-    read(
+    async read(
       principal: Principal,
       objectDefinitionId: string,
       objectId: string,
       request: ReadRequest = {},
     ) {
-      return readObject(principal, objectDefinitionId, objectId, request);
+      return presenting(request, (r) =>
+        readObject(principal, objectDefinitionId, objectId, r),
+      );
     },
     ...createActionExecutor({
       query,
@@ -224,15 +245,16 @@ export function createRuntime(options: RuntimeOptions) {
           transaction,
         ),
     }),
-    traverse: createTraversal({
-      manifest,
-      graphId: options.graphId,
-      revision,
-      store,
-      clock,
-      scopeFor,
-      read: readObject,
-      ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
-    }),
+    async traverse(
+      principal: Principal,
+      typeId: string,
+      id: string,
+      name: string,
+      request: TraversalRequest = {},
+    ) {
+      return presenting(request, (r) =>
+        traverse(principal, typeId, id, name, r),
+      );
+    },
   };
 }

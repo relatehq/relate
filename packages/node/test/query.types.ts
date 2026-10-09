@@ -56,3 +56,67 @@ implementAction(graph, Run, async ({ objects }) => {
   return { count: result.data.length };
 });
 void [typed, status];
+
+const optionalFullQuery: import('relate').QueryOptions<
+  typeof Invoice,
+  'status',
+  'full'
+> = { select: ['status'] };
+const optionalPage = await objects.Invoice.query(optionalFullQuery);
+
+// @ts-expect-error optional evidence does not guarantee a field map
+optionalPage.data[0]!.meta.fields.status;
+const fullPage = await objects.Invoice.query({
+  select: ['status'],
+  evidence: 'full',
+});
+
+fullPage.data[0]!.meta.fields.status;
+// @ts-expect-error full evidence still respects selection
+fullPage.data[0]!.meta.fields.total;
+const genericPage = await objects.Invoice.query<'status', 'full'>();
+
+// @ts-expect-error explicit type arguments alone cannot request full
+genericPage.data[0]!.meta.fields.status;
+
+implementAction(graph, Run, async ({ objects }) => {
+  const optional = await objects.Invoice.get(invoice, {
+    select: ['status'],
+  } as import('relate').ReadOptions<'status', 'full'>);
+
+  if (optional.status === 'ok') {
+    // @ts-expect-error optional evidence includes compact inside actions too
+    optional.meta.fields.status;
+  }
+
+  const page = await objects.Invoice.query(optionalFullQuery);
+
+  // @ts-expect-error optional evidence includes compact inside action queries
+  page.data[0]!.meta.fields.status;
+  const full = await objects.Invoice.get(invoice, {
+    select: ['status'],
+    evidence: 'full',
+  });
+
+  if (full.status === 'ok') full.meta.fields.status;
+
+  const detailed = await objects.Invoice.query({
+    select: ['status'],
+    evidence: 'full',
+  });
+
+  detailed.data[0]!.meta.fields.status;
+  const omitted = await objects.Invoice.get<'status', 'full'>(invoice);
+
+  if (omitted.status === 'ok') {
+    // @ts-expect-error explicit generics with omitted options still include compact
+    omitted.meta.fields.status;
+  }
+
+  const omittedPage = await objects.Invoice.query<'status', 'full'>();
+
+  // @ts-expect-error explicit generics with omitted options still include compact
+  omittedPage.data[0]!.meta.fields.status;
+
+  return { count: 0 };
+});

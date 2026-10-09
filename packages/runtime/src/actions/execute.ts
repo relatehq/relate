@@ -3,6 +3,8 @@ import { accepts, canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
+  FullReadResult,
+  FullPageResult,
   Json,
   QueryRequest,
   PageResult,
@@ -11,6 +13,7 @@ import type {
   ActionReceipt,
   FailedReceipt,
 } from '@relate/protocol';
+import { presenting } from '../reads/index.js';
 import {
   NativeCommitUncertain,
   NativeConflict,
@@ -88,14 +91,17 @@ export function createActionExecutor(options: {
     request: ReadRequest,
     transaction: NativeTransaction,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
-  ): Promise<ReadResult>;
+  ): Promise<FullReadResult>;
   query(
     principal: Principal,
     type: string,
     request: QueryRequest,
     transaction: NativeTransaction,
-    onRead: (id: string, result: Extract<ReadResult, { status: 'ok' }>) => void,
-  ): Promise<PageResult>;
+    onRead: (
+      id: string,
+      result: Extract<FullReadResult, { status: 'ok' }>,
+    ) => void,
+  ): Promise<FullPageResult>;
   validate(
     principal: Principal,
     type: ObjectType,
@@ -276,7 +282,7 @@ export function createActionExecutor(options: {
             const recordRead = (
               type: string,
               id: string,
-              result: Extract<ReadResult, { status: 'ok' }>,
+              result: Extract<FullReadResult, { status: 'ok' }>,
             ) => {
               const object = definitions.get(type)!;
 
@@ -401,28 +407,33 @@ export function createActionExecutor(options: {
                   },
                   query: (type, request = {}) =>
                     run(() =>
-                      options.query(
-                        actor,
-                        type,
-                        request,
-                        transaction,
-                        (id, result) => recordRead(type, id, result),
+                      presenting(request, (r) =>
+                        options.query(
+                          actor,
+                          type,
+                          r,
+                          transaction,
+                          (id, result) => recordRead(type, id, result),
+                        ),
                       ),
                     ),
                   read: (type, id, request = {}) =>
-                    run(async () => {
-                      const result = await options.read(
-                        actor,
-                        type,
-                        id,
-                        request,
-                        transaction,
-                      );
+                    run(() =>
+                      presenting(request, async (r) => {
+                        const result = await options.read(
+                          actor,
+                          type,
+                          id,
+                          r,
+                          transaction,
+                        );
 
-                      if (result.status === 'ok') recordRead(type, id, result);
+                        if (result.status === 'ok')
+                          recordRead(type, id, result);
 
-                      return result;
-                    }),
+                        return result;
+                      }),
+                    ),
                   create: (type, values) =>
                     run(async () => {
                       const object = manifest.objects.find(

@@ -146,6 +146,96 @@ export function queryContract(
       await backing?.close();
     });
 
+    it('defaults to compact across pages and keeps action read dependencies for receipt authorization', async () => {
+      await app.host.adopt(model.Customer, 'north');
+      const invoice = await seed('a');
+
+      await seed('b');
+      const objects = app.as(actor).objects;
+
+      // Evidence mode is presentation only, so a cursor continues in any mode.
+      for (const [evidence, nextEvidence] of [
+        [undefined, 'full'],
+        ['compact', undefined],
+        ['full', 'compact'],
+      ] as const) {
+        const options = {
+          select: ['status'] as const,
+          where: { paid: false },
+          limit: 1,
+        };
+        const first = await objects.Invoice.query({
+          ...options,
+          ...(evidence ? { evidence } : {}),
+        });
+
+        expect(first.data[0]?.meta.evidence).toBe(evidence ?? 'compact');
+        expect(first.data[0]?.data).toEqual({ status: 'Overdue' });
+
+        if (first.meta.exhausted) throw new Error('Expected continuation');
+
+        const next = await objects.Invoice.query({
+          ...options,
+          ...(nextEvidence ? { evidence: nextEvidence } : {}),
+          cursor: first.meta.continuationCursor,
+        });
+
+        expect(next.data).toHaveLength(1);
+        expect(next.data[0]?.meta.evidence).toBe(nextEvidence ?? 'compact');
+        expect(next.data[0]?.id).not.toBe(first.data[0]?.id);
+        expect(next.meta).toEqual({ exhausted: true });
+      }
+
+      handler = async (context) => {
+        const record = await context.objects.Invoice.get(invoice, {
+          select: ['status'],
+        });
+
+        expect(record).toMatchObject({
+          status: 'ok',
+          meta: { evidence: 'compact' },
+        });
+        const page = await context.objects.Invoice.query({
+          select: ['status', 'total'],
+        });
+
+        expect(page.data[0]?.meta.evidence).toBe('compact');
+        expect(page.data[0]?.meta.fields).toBeUndefined();
+        const full = await context.objects.Invoice.get(invoice, {
+          select: ['status'],
+          evidence: 'full',
+        });
+
+        expect(full).toMatchObject({
+          meta: {
+            evidence: 'full',
+            fields: { status: { status: 'available' } },
+          },
+        });
+        const detailed = await context.objects.Invoice.query({
+          select: ['status'],
+          evidence: 'full',
+        });
+
+        expect(detailed.data[0]?.meta.fields?.status).toMatchObject({
+          status: 'available',
+        });
+
+        return { count: page.data.length };
+      };
+      const receipt = await app
+        .as(fin)
+        .actions.run({ input: {}, idempotencyKey: 'compact-read' });
+
+      expect(receipt).toMatchObject({
+        state: 'succeeded',
+        output: { count: 2 },
+      });
+      await expect(
+        app.as(actor).receipts.get(model.Run, receipt.invocationId),
+      ).rejects.toMatchObject({ code: 'denied' });
+    });
+
     it('enumerates only graph members, supports AND equality and reference IDs, and preserves selection evidence', async () => {
       const customer = await app.host.adopt(model.Customer, 'north');
       const overdue = await seed('a');
@@ -159,6 +249,7 @@ export function queryContract(
         paid: false,
       });
       const page = await app.as(actor).objects.Invoice.query({
+        evidence: 'full',
         where: { customer, status: 'Overdue', paid: false },
         select: ['status'],
         limit: 1,
@@ -173,7 +264,7 @@ export function queryContract(
           fields: { status: { status: 'available', source: 'source' } },
         },
       });
-      expect(Object.keys(page.data[0]!.meta.fields)).toEqual(['status']);
+      expect(Object.keys(page.data[0]!.meta.fields ?? {})).toEqual(['status']);
       expect((await app.as(actor).objects.Invoice.query()).data).toHaveLength(
         2,
       );
@@ -257,7 +348,7 @@ export function queryContract(
             stale: 'allow',
             select: ['status'],
           })
-        ).data[0]?.meta.fields.status,
+        ).data[0]?.meta.fields?.status,
       ).toMatchObject({ freshness: 'stale' });
     });
 
@@ -434,7 +525,7 @@ export function queryContract(
         select: ['total'],
       });
 
-      expect(partial.data[0]?.meta.fields.total).toEqual({
+      expect(partial.data[0]?.meta.fields?.total).toEqual({
         status: 'forbidden',
       });
       await expect(

@@ -14,6 +14,7 @@ const dependencies: Record<string, readonly string[]> = {
     'resolution',
     'traversal',
     'queries',
+    'reads',
     'storage',
     'memory',
   ],

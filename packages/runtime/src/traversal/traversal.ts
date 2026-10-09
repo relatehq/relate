@@ -4,11 +4,11 @@ import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
   ReadRequest,
-  ReadResult,
+  FullReadResult as ReadResult,
   TraversalRequest,
-  ObjectRecord,
-  ObjectResult,
-  PageResult,
+  FullObjectRecord as ObjectRecord,
+  FullObjectResult as ObjectResult,
+  FullPageResult as PageResult,
 } from '@relate/protocol';
 import type { ObservationStore, StorageScope } from '../storage.js';
 import { compareObjectIds } from '../storage.js';
@@ -83,6 +83,7 @@ export function createTraversal(options: {
         (key) =>
           ![
             'select',
+            'evidence',
             'maxAgeMs',
             'refresh',
             'stale',
@@ -108,7 +109,13 @@ export function createTraversal(options: {
     if (!owner.sourceDefinitionId) throw new ReadError('invalid-request');
 
     const ownerPolicy = manifest.policies[owner.id];
-    const { cursor, limit: _limit, ...readRequest } = request;
+    // Evidence mode is presentation only, so it stays out of the cursor scope.
+    const {
+      cursor,
+      limit: _limit,
+      evidence: _evidence,
+      ...readRequest
+    } = request;
     const scope = createHash('sha256')
       .update(
         canonicalJson({
