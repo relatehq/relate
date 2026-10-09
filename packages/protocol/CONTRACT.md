@@ -48,18 +48,14 @@ tokens and contradictory metadata; these types alone do not validate JSON.
 
 An empty page can have a continuation. Consumers must follow exhaustion, not
 record count. The implemented pagination helper in
-[`@relate/runtime`](../runtime/CONTRACT.md#pagination) handles this contract;
-collection query execution remains unimplemented.
+[`@relate/runtime`](../runtime/CONTRACT.md#pagination) handles this contract.
+Graph queries and traversals supply authorized pages over existing graph
+membership; they do not enumerate provider-wide records.
 
 ## Compact evidence
 
-Reads, queries and traversals return compact evidence by default. Pass
-`evidence: 'full'` in the read options to inspect every selected field's
-provenance. Both modes preserve values, authorization, completeness, degradation
-and the definition revision. Compact responses retain exceptional field evidence
-and nonempty warnings; `meta.fields` and `meta.warnings` may otherwise be
-omitted. Full responses always include both, and `meta.evidence` identifies the
-returned mode.
+Reads default to compact evidence; pass `evidence: 'full'` for every selected
+field's provenance. Values and access rules are identical in both modes.
 
 See
 [Read Responses & Evidence](../../apps/docs/content/reference/read-responses.md)

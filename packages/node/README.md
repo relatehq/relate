@@ -34,8 +34,9 @@ injected store is borrowed.
 
 - Depends on `relate` and `relate/compiler`, `@relate/runtime` and
   `@relate/protocol`.
-- The embedded entry point for applications today. The planned `@relate/http`,
-  `@relate/mcp` and `@relate/cli` build on a runtime composed here.
+- The embedded entry point for applications today. Planned HTTP and MCP adapters
+  will expose runtime consumer operations. The existing CLI inspects definitions
+  without starting a runtime.
 
 ## Public API
 
@@ -167,54 +168,24 @@ conditions and current data access are still checked when an operation runs.
 
 ## Application definitions
 
-`defineApp` from `relate` wraps an authored graph with a deferred recipe for
-runtime bindings. It is an inert descriptor: importing or creating it opens
-nothing, so `relate dev` can compile `app.graph` without credentials or a
-database.
+`defineApp` from `relate` packages the graph with deferred setup.
+`startApp(app)` runs setup, composes the runtime, and owns cleanup registered
+with `onDispose`. The Inspector loads definitions without calling setup.
 
-```ts
-// src/relate/app.ts
-import { defineApp } from 'relate';
-import { graph } from './graph.js';
-
-export default defineApp({
-  graph,
-  async setup({ onDispose }) {
-    const { openBindings } = await import('./bindings.js');
-    const bindings = await openBindings();
-
-    onDispose(() => bindings.close());
-
-    return { connections: bindings.connections, store: bindings.store };
-  },
-});
-```
-
-`startApp(app)` runs `setup` once, composes the runtime through `createRuntime`
-and owns the cleanup registered with `onDispose`. A failure in `setup` or
-compilation releases what was registered before rethrowing, and `close()` drains
-operations before disposing. A model that only needs inspection can omit
-`setup`; a live start still requires every source connection.
-
-```ts
-import { startApp } from '@relate/node';
-import app from './relate/app.js';
-
-const relate = await startApp(app);
-// ... routes receive `relate` through ordinary dependency injection
-await relate.close();
-```
+See
+[Application Setup & Lifecycle](../../apps/docs/content/runtime/application.md)
+for the complete setup, storage ownership, failure cleanup, and shutdown guide.
 
 ## Status
 
-Implemented: typed reads, source-backed references, bidirectional traversal with
-pagination, native actions with atomic success receipts, and actor-bound
-lookup/replay with current-access checks. Ordinary calls wait for completion.
-Actor-bound discovery exposes the portable meaning and structure of these
-operations without returning source mappings or policy internals. `startApp`
-executes a portable `defineApp` descriptor and owns registered cleanup. Not
-implemented: background submission, collection queries, automatic
-synchronization, servers and workers.
+Implemented: typed reads and graph queries, source-backed references,
+bidirectional traversal with pagination, native actions with atomic success or
+declared-failure receipts, and actor-bound lookup/replay with current-access
+checks. Ordinary calls wait for completion. Actor-bound discovery exposes the
+portable meaning and structure of these operations without returning source
+mappings or policy internals. `startApp` executes a portable `defineApp`
+descriptor and owns registered cleanup. Not implemented: background submission,
+provider-wide queries, automatic synchronization, servers and workers.
 
 ## Further reading
 
@@ -248,13 +219,8 @@ freshness, errors and concurrency limits. The same query API is available in
 
 ## Compact evidence
 
-Reads, queries and traversals return compact evidence by default. Pass
-`evidence: 'full'` in the read options to inspect every selected field's
-provenance. Both modes preserve values, authorization, completeness, degradation
-and the definition revision. Compact responses retain exceptional field evidence
-and nonempty warnings; `meta.fields` and `meta.warnings` may otherwise be
-omitted. Full responses always include both, and `meta.evidence` identifies the
-returned mode.
+Reads default to compact evidence; pass `evidence: 'full'` for every selected
+field's provenance. Values and access rules are identical in both modes.
 
 See
 [Read Responses & Evidence](../../apps/docs/content/reference/read-responses.md)

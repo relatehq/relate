@@ -20,13 +20,6 @@ one tool per registered action. Tool inputs and outputs use the
 sanitized errors as any other consumer, and only what the authenticated caller
 may see.
 
-The root README shows the intended entry point as an API preview:
-
-```ts
-// Preview: not implemented.
-serveMcp(relate, { principal: (req) => authenticate(req) });
-```
-
 Object `label`, `pluralLabel` and `description` from the compiled model are
 intended to describe tools to agents. A separate client entry point is planned
 for Relate applications that consume other MCP servers.
@@ -34,8 +27,9 @@ for Relate applications that consume other MCP servers.
 ## How it will fit
 
 - Depends on `@relate/runtime` (execution) and `@relate/protocol` (shapes).
-- Fourth step in the implementation sequence, after the HTTP transport, and
-  reusing the same consumer operations rather than a second code path.
+- Reuses the embedded consumer operations and actor-bound discovery. MCP is the
+  next major interface described in the [root roadmap](../../README.md#status);
+  no HTTP-first implementation order is required by this scaffold.
 
 Tool names, schemas and the client entry point are not fixed. See
 [`@relate/node`](../node/README.md) for the embedded behavior the adapter will

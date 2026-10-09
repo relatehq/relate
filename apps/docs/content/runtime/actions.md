@@ -34,6 +34,10 @@ Relate actions address this:
 Define the contract with `defineAction`. It holds no handler code, so it can be
 shared with clients:
 
+First define the
+[native AccountReview object](../authoring/graph.md#native-objects) and its
+[create policy](../authoring/access-control.md#5-create-rules-create).
+
 ```ts
 // actions/add-account-review.ts
 import { z } from 'zod';
@@ -137,6 +141,10 @@ The handler receives:
 - `input`: the parsed input.
 - `objects.<Name>.get(id, options)`: reads as the caller, with the same result
   shape as [`get`](./reading-data.md#4-reading-an-object-by-id-get).
+- `objects.<Name>.query(options)`: enumerates or filters graph members with the
+  same [query API](./reading-data.md#querying-objects-query) as consumers.
+  Native queries see records created earlier in this invocation. A failed page
+  rolls back native writes even if the handler catches the error.
 - `objects.<Name>.create(values)`: for objects in `creates`. Returns `{ id }`.
 - `fail(code, details)`: ends the invocation with a declared failure. It rolls
   back even if the handler catches it.
@@ -219,5 +227,18 @@ When a call reuses an idempotency key for the same action:
 Before returning a recorded receipt, Relate checks the caller's current access
 again, so a principal who has since lost access cannot read it.
 
-A complete working version of this action is in
-[`dev/fixtures/customer-graph`](../../../../dev/fixtures/customer-graph/source/actions/add-account-review.server.ts).
+The [customer workspace](../../../../examples/03-customer-workspace/README.md)
+is a runnable review-creation example with receipt replay. Its
+[handler](../../../../examples/03-customer-workspace/src/app.ts) demonstrates
+successful creation; the declared `customerInactive` failure above extends that
+example to show an additional business outcome.
+
+If the first response is lost, retry with the original input and idempotency key
+to recover the receipt even without its invocation ID. A new business attempt
+needs a new key. Receipt recovery also checks access to the original handler's
+read dependencies; losing access to a field used to produce the result can deny
+recovery. Use a newly authenticated caller handle after roles or claims change.
+
+See the [native action contract](../../../../packages/node/NATIVE_ACTIONS.md)
+for transaction boundaries, concurrent retries, dependency checks, and recovery
+limits. External side effects and background execution are not supported.

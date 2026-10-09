@@ -135,12 +135,12 @@ missing status exposes policy or provider evidence.
 
 ## Status
 
-Implemented: authorized reads, source-backed references, bidirectional traversal
-with pagination, and synchronous native actions with atomic receipts on memory
-and Postgres. Not implemented: automatic synchronization, delegated credentials,
-collection queries and durable pending execution. Success receipt lookup and
-same-key replay are implemented with originating-actor and current-access
-checks.
+Implemented: authorized reads and graph queries, source-backed references,
+bidirectional traversal with pagination, and synchronous native actions with
+atomic success or declared-failure receipts on memory and Postgres. Not
+implemented: automatic synchronization, delegated credentials, provider-wide
+queries and durable pending execution. Receipt lookup and same-key replay are
+implemented with originating-actor and current-access checks.
 
 ## Further reading
 

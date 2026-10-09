@@ -150,10 +150,10 @@ export const graph = defineGraph({
 });
 ```
 
-`Invoice`, `AccountReview`, and `CustomerInvoices` are defined in
-[Graph Modeling](./graph.md). A complete version of this graph, including
-actions, is in
-[`dev/fixtures/customer-graph`](../../../../dev/fixtures/customer-graph/source/graph.ts).
+For object and relationship declarations, see [Graph Modeling](./graph.md). The
+complete portfolio-based model used here is in the runnable
+[customer workspace](../../../../examples/03-customer-workspace/src/graph.ts),
+including native reviews, actions, and policies.
 
 ---
 
@@ -170,23 +170,15 @@ shared role such as `employee`.
 Predicates compare property values with the caller's claims or actor ID:
 
 ```ts
-where: {
-  portfolio: {
-    eq: access.claims.portfolio;
-  }
-}
+// Inside a read or create rule:
+where: { portfolio: { eq: access.claims.portfolio } },
 ```
 
 They can also follow references:
 
 ```ts
-where: {
-  customer: {
-    portfolio: {
-      eq: access.claims.portfolio;
-    }
-  }
-}
+// Inside a read or create rule:
+where: { customer: { portfolio: { eq: access.claims.portfolio } } },
 ```
 
 A rule is either a gate alone, or a gate with both `where` and

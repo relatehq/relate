@@ -99,8 +99,10 @@ evidence. The app author does not call the adapter directly for consumer reads.
 
 See the runnable
 [hello-world example](../../examples/01-hello-world/src/index.ts) for the
-complete chain with an in-memory provider. SQLite and Stripe packages are
-planned in [connectors/TODO.md](../../connectors/TODO.md).
+complete chain with an in-memory provider. See
+[Connecting Sources](../../apps/docs/content/authoring/connections.md) for the
+available SQLite, Stripe, and Salesforce connectors and the custom connector
+contract.
 
 ### Graph authoring
 

@@ -1,64 +1,13 @@
-# Native account reviews
+# Native action execution contract
 
-The first native action is executable through real packages. The
-[application model and implementation](../../tests/support/native-action-model.ts)
-use an API-owned Customer and a Relate-owned AccountReview. The
-[shared acceptance suite](../../tests/support/native-action-contract.ts) runs
-against memory and Postgres.
+For the authoring and caller walkthrough, see the public
+[Actions guide](../../apps/docs/content/runtime/actions.md). This document owns
+the detailed transaction, authorization, validation, and recovery guarantees.
 
-```ts
-import { z } from 'zod';
-import { defineAction, implementAction, referenceInput } from 'relate';
-import { createRuntime } from '@relate/node';
-
-// Customer, AccountReview and access come from the application's model.
-const AddAccountReview = defineAction({
-  id: 'business.add-account-review',
-  input: z.object({ customer: referenceInput(Customer), note: z.string() }),
-  output: z.object({ reviewId: referenceInput(AccountReview) }),
-  creates: [AccountReview],
-  policy: { execute: access.role('account-manager') },
-});
-
-// Register actions: { addAccountReview: AddAccountReview } in graph.
-const addAccountReview = implementAction(
-  graph,
-  AddAccountReview,
-  async ({ actor, input, objects }) => {
-    const customer = await objects.Customer.get(input.customer, {
-      select: ['id'],
-    });
-    if (customer.status !== 'ok') throw new Error('Customer unavailable');
-    const review = await objects.AccountReview.create({
-      customer: customer.id,
-      author: actor.id,
-      note: input.note,
-    });
-    return { reviewId: review.id };
-  },
-);
-
-const relate = createRuntime({
-  graph,
-  connections,
-  actionImplementations: [addAccountReview],
-  // Supply store: createPostgresStore(...) after migrating it for durability.
-});
-const receipt = await relate.as(ana).actions.addAccountReview({
-  input: { customer: northwind, note: 'Follow up' },
-  idempotencyKey: 'review-2026-10',
-});
-// { invocationId, state: 'succeeded', output: { reviewId } }
-const review = await relate
-  .as(ana)
-  .objects.AccountReview.get(receipt.output.reviewId);
-```
-
-Native objects use `membership: nativeMembership()`, scalar `native(...)`
-properties, `objectId(...)`, and native references such as
-`customer: reference(Customer, { id: 'review.customer' })`. Native membership
-cannot be established through `host.adopt`. Creation is available only inside an
-action whose `creates` includes that registered native object.
+The test-owned [application model](../../tests/support/native-action-model.ts)
+and [acceptance suite](../../tests/support/native-action-contract.ts) exercise
+the contract on memory and Postgres. For a runnable learning application, use
+the [customer workspace](../../examples/03-customer-workspace/README.md).
 
 ## Authorization and transaction contract
 
@@ -368,10 +317,9 @@ await the same action and return its completed output in one tool response.
   portable. Arbitrary refinements, transforms, defaults and nested schemas
   reject at compilation or definition time rather than silently losing their
   behavior.
-- Action object operations currently expose `get` and permitted native `create`.
-  Queries, native-reference traversal, update/delete and Task integrity rules
-  remain outside this slice. The full customer-graph fixture still sketches
-  them.
+- Action object operations expose `get`, `query`, and permitted native `create`.
+  Action-handler traversal, native update/delete, and Task integrity rules
+  remain outside the implemented surface.
 
 ## Verification
 
