@@ -159,11 +159,20 @@ stay the same.
 
 `sdk-mini-tool-pilot-v1` checks that loop, `sdk-nano-tool-pilot-v1` checks nano
 on the corrected loop, and `sdk-mini-main-v2` is the final 18-episode
-comparison. Both models use low reasoning, a 4,096-output-token cap and the same
-task/turn/ output budgets. The mini main run repeats each task/condition three
-times. No model-quality ranking is inferred from differently configured earlier
-pilots. The final comparison is frozen before it starts; SDK usability failures
-remain observations rather than triggers to add task-solving prompt examples.
+comparison. The first tool pilot also produced a response without a code call.
+The runner initially classified that as infrastructure failure and omitted that
+response's usage. Before the final run, this was changed to retain the full
+response and usage and score the episode as `model-no-action` (unsuccessful if
+the task was not completed). The partial `sdk-mini-main-v2` and
+`sdk-nano-tool-pilot-v1` runs were stopped during this correction; their
+coverage reports retain missing cells. The corrected nano check is
+`sdk-nano-tool-pilot-v2`.
+
+Both models use low reasoning, a 4,096-output-token cap and the same task/turn/
+output budgets. The mini main run repeats each task/condition three times. No
+model-quality ranking is inferred from differently configured earlier pilots.
+The final comparison is frozen before it starts; SDK usability failures remain
+observations rather than triggers to add task-solving prompt examples.
 
 ## Results
 

@@ -123,8 +123,11 @@ console.log(JSON.stringify({x, total, evidence: playlists.data[0].meta.evidence}
             ]
         }
         self.assertEqual(code_action(response), ('{"code":"console.log(1)"}', "call-1"))
-        with self.assertRaisesRegex(ValueError, "exactly one"):
-            code_action({"output": response["output"] + [response["output"][1]]})
+        self.assertEqual(
+            code_action({"output": response["output"] + [response["output"][1]]}),
+            ("", None),
+        )
+        self.assertEqual(code_action({"output": [{"type": "reasoning"}]}), ("", None))
 
     def test_prompt_contains_discovery_entry_points_not_domain_schema(self):
         self.assertIn("relate.describe()", SDK_PROMPT)

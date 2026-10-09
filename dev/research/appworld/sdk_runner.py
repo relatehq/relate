@@ -148,7 +148,7 @@ def code_action(result):
         item for item in result.get("output", []) if item.get("type") == "function_call"
     ]
     if len(calls) != 1 or calls[0].get("name") != "execute_code":
-        raise ValueError("Expected exactly one execute_code tool call")
+        return "", None
     return calls[0]["arguments"], calls[0]["call_id"]
 
 
@@ -306,12 +306,16 @@ def run(args, key, task_id, condition, repeat, spent):
                 before = len(world.requester.request_tracker.requests)
                 event = {}
                 try:
-                    code = json.loads(content)["code"]
-                    if node:
-                        event = node.request({"type": "execute", "code": code})
-                        output = event["output"]
+                    if model["call_id"] is None:
+                        output = "Model returned no unambiguous execute_code action."
+                        termination = "model-no-action"
                     else:
-                        output = world.execute(code)
+                        code = json.loads(content)["code"]
+                        if node:
+                            event = node.request({"type": "execute", "code": code})
+                            output = event["output"]
+                        else:
+                            output = world.execute(code)
                 except TimeoutError as exc:
                     event = {"error": str(exc)}
                     output = f"Execution timed out: {exc}"
@@ -321,13 +325,15 @@ def run(args, key, task_id, condition, repeat, spent):
                 visible = output[: args.output_chars]
                 if len(output) > args.output_chars:
                     visible += "\n[OUTPUT TRUNCATED: select fewer fields/records or compute a summary in code]"
-                messages.append(
-                    {
-                        "type": "function_call_output",
-                        "call_id": model["call_id"],
-                        "output": visible or "Execution produced no printed output.",
-                    }
-                )
+                if model["call_id"] is not None:
+                    messages.append(
+                        {
+                            "type": "function_call_output",
+                            "call_id": model["call_id"],
+                            "output": visible
+                            or "Execution produced no printed output.",
+                        }
+                    )
                 step = {
                     "turn": turn + 1,
                     "content": content,
@@ -356,7 +362,7 @@ def run(args, key, task_id, condition, repeat, spent):
                 before = len(world.requester.request_tracker.requests)
                 completed = world.task_completed()
                 polling += len(world.requester.request_tracker.requests) - before
-                if termination == "execution-timeout":
+                if termination in ("execution-timeout", "model-no-action"):
                     break
                 if completed:
                     termination = "completed"
