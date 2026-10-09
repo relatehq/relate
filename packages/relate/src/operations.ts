@@ -12,11 +12,27 @@ import type {
   PropertyValue,
 } from './index.js';
 
+/**
+ * Select properties and control evidence detail for an object read.
+ *
+ * Evidence is compact by default. Request `full` when you need provenance for
+ * every selected field. Selection never bypasses authorization.
+ *
+ * @example
+ * ```ts
+ * const customer = await objects.Customer.get(customerId, {
+ *   select: ['name'],
+ *   evidence: 'full',
+ * });
+ * ```
+ */
 export type ReadOptions<
   K extends string,
   E extends EvidenceMode = EvidenceMode,
 > = Omit<ReadRequest, 'select' | 'evidence'> & {
+  /** Property names to read from the object. */
   readonly select?: readonly K[];
+  /** Evidence presentation; defaults to compact. */
   readonly evidence?: E;
 };
 
@@ -50,11 +66,27 @@ export type PageOptions<
   readonly cursor?: string;
 };
 
+/**
+ * Filter and page through objects already adopted into the graph.
+ *
+ * Filters combine with AND and use exact equality. Reference properties take
+ * Relate object IDs. Queries do not discover provider-wide records.
+ *
+ * @example
+ * ```ts
+ * const customers = await objects.Customer.query({
+ *   select: ['name', 'status'],
+ *   where: { status: 'active' },
+ *   limit: 20,
+ * });
+ * ```
+ */
 export type QueryOptions<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,
   E extends EvidenceMode = EvidenceMode,
 > = PageOptions<K, E> & {
+  /** Exact-match filters keyed by object property name. */
   readonly where?: {
     readonly [N in PropertyNames<O>]?: Exclude<PropertyValue<O, N>, undefined>;
   };

@@ -100,6 +100,8 @@ export const packagePolicies: Record<
       'next/navigation',
       'react',
       '@fumadocs/mdx-remote',
+      'typedoc',
+      'typedoc-plugin-markdown',
       'fumadocs-core/mdx-plugins',
       'beautiful-mermaid',
       'fumadocs-ui/provider/next',
