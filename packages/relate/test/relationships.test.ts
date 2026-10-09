@@ -54,8 +54,16 @@ it('compiles both traversal directions through one registered reference', () => 
       fromObjectDefinitionId: Customer.id,
       toObjectDefinitionId: Invoice.id,
       referencePropertyDefinitionId: Invoice.properties.customer.id,
-      forward: { name: 'invoices', cardinality: 'many' },
-      reverse: { name: 'customer', cardinality: 'one' },
+      forward: {
+        name: 'invoices',
+        cardinality: 'many',
+        description: 'Invoices billed to this customer.',
+      },
+      reverse: {
+        name: 'customer',
+        cardinality: 'one',
+        description: 'Customer billed by this invoice.',
+      },
     },
   ]);
 });

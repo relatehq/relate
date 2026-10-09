@@ -22,6 +22,7 @@ import type {
 } from '@relate/protocol';
 import type { ObservationStore } from './storage.js';
 import type { Principal } from './authorization/index.js';
+import { createDiscovery } from './discovery.js';
 
 export interface RuntimeOptions {
   readonly model: CompiledModel;
@@ -204,6 +205,7 @@ export function createRuntime(options: RuntimeOptions) {
   });
 
   return {
+    discover: (principal: Principal) => createDiscovery(manifest, principal),
     adopt: source.adopt,
     async query(
       principal: Principal,

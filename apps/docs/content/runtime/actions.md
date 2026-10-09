@@ -43,9 +43,12 @@ import { AccountReview, Customer } from '../model.js';
 
 export const AddAccountReview = defineAction({
   id: 'business.add-account-review',
+  description: 'Record a new assessment of a customer account.',
   input: z.object({
-    customer: referenceInput(Customer),
-    note: z.string().min(1).max(4000),
+    customer: referenceInput(Customer, {
+      description: 'Customer being reviewed.',
+    }),
+    note: z.string().min(1).max(4000).describe('Assessment and next steps.'),
   }),
   output: z.object({ reviewId: referenceInput(AccountReview) }),
   // Native objects this action may create.
@@ -69,6 +72,9 @@ export const AddAccountReview = defineAction({
 - **`policy.execute`** is a single-role gate. Created objects are also checked
   against their `create` policy; see
   [Access Control](../authoring/access-control.md#5-create-rules-create).
+- **`description` and field descriptions**: explain the action to people and
+  agents through discovery. Use Zod `.describe()` for ordinary fields and the
+  `referenceInput` option for branded object IDs.
 
 Register the action in the graph. The key becomes the method name callers use:
 

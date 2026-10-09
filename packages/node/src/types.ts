@@ -18,6 +18,11 @@ import type {
 import type { EvidenceMode, Page as ResultPage } from '@relate/protocol';
 import type { QueryResult } from '@relate/runtime';
 import type { Principal } from '@relate/runtime';
+import type {
+  ActionDescription,
+  GraphDescription,
+  ObjectDescription,
+} from '@relate/runtime';
 
 export type { ReadOptions, ObjectResult } from 'relate';
 
@@ -68,6 +73,7 @@ export interface ObjectOperations<
   O extends ObjectDefinition,
   R extends RelationshipRegistry = {},
 > {
+  describe(): ObjectDescription | undefined;
   readonly traverse: Traversals<R, O>;
   query<K extends PropertyNames<O> = PropertyNames<O>>(
     options: QueryOptions<O, K, 'full'> & { readonly evidence: 'full' },
@@ -91,9 +97,15 @@ export interface ObjectOperations<
   ): Promise<ObjectResult<O, K, E | 'compact'>>;
 }
 
+export type ActionOperations<A extends ActionDefinition> = {
+  (request: ActionRequest<A>): Promise<Receipt<A>>;
+  describe(): ActionDescription | undefined;
+};
+
 export interface Consumer<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 > {
+  describe(): GraphDescription;
   readonly receipts: {
     get<
       A extends (G extends {
@@ -114,9 +126,7 @@ export interface Consumer<
     >;
   }
     ? {
-        readonly [K in keyof A]: (
-          request: ActionRequest<A[K]>,
-        ) => Promise<Receipt<A[K]>>;
+        readonly [K in keyof A]: ActionOperations<A[K]>;
       }
     : {};
   readonly objects: {

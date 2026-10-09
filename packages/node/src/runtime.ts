@@ -164,10 +164,16 @@ export function createRuntime<
 
       // A handle binds a snapshot of the host-authenticated principal.
       const actor = structuredClone(principal);
+      const discovery = engine.discover(actor);
       const operations = Object.fromEntries(
         objects.map(([name, object]) => [
           name,
           Object.freeze({
+            describe: () => {
+              if (closed) throw new Error('Relate is closed');
+
+              return discovery.describeObject(object.id);
+            },
             traverse: Object.freeze(
               Object.fromEntries(
                 (model.manifest.relationships ?? [])
@@ -241,6 +247,11 @@ export function createRuntime<
       // Compilation validates schema support; the engine validates values and selection.
       // The registry gives each operation exactly the definition used by that compiler.
       return Object.freeze({
+        describe: () => {
+          if (closed) throw new Error('Relate is closed');
+
+          return discovery.describe();
+        },
         objects: Object.freeze(operations),
         receipts: Object.freeze({
           get: (action: ActionDefinition, invocationId: string) =>
@@ -253,11 +264,23 @@ export function createRuntime<
         }),
         actions: Object.freeze(
           Object.fromEntries(
-            actions.map(([name, action]) => [
-              name,
-              (request: { input: unknown; idempotencyKey: string }) =>
-                run(() => engine.invoke(actor, action.id, request)),
-            ]),
+            actions.map(([name, action]) => {
+              const invoke = (request: {
+                input: unknown;
+                idempotencyKey: string;
+              }) => run(() => engine.invoke(actor, action.id, request));
+
+              Object.defineProperty(invoke, 'describe', {
+                value: () => {
+                  if (closed) throw new Error('Relate is closed');
+
+                  return discovery.describeAction(action.id);
+                },
+                enumerable: true,
+              });
+
+              return [name, Object.freeze(invoke)];
+            }),
           ),
         ),
       }) as unknown as Consumer<G>;

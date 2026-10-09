@@ -213,7 +213,7 @@ export function propertyIdentityContract(
 
       const backing = await open();
       const model = compile(customerGraph);
-      const legacy = { ...model.manifest, formatVersion: 2 };
+      const legacy = { ...model.manifest, formatVersion: 4 };
       const revision = `sha256:${createHash('sha256').update(canonicalJson(legacy)).digest('hex')}`;
       const graphId = randomUUID();
       const scope: StorageScope = {
@@ -227,7 +227,7 @@ export function propertyIdentityContract(
       };
 
       try {
-        expect(model.manifest.formatVersion).toBe(4);
+        expect(model.manifest.formatVersion).toBe(5);
         expect(() => validateManifest(legacy)).toThrow();
         await backing.store.install(graphId, revision);
         const saved = await backing.store.accept(scope, {

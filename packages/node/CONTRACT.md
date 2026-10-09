@@ -45,6 +45,41 @@ Registry keys name the consumer API; stable definition IDs identify persisted
 objects. Adoption accepts the registered object definition, not another object
 that happens to have the same ID.
 
+## Actor-bound discovery
+
+The consumer API exposes progressive, synchronous discovery:
+
+```ts
+const consumer = relate.as(principal);
+const graph = consumer.describe();
+const customer = consumer.objects.Customer.describe();
+const action = consumer.actions.addAccountReview.describe();
+```
+
+`consumer.describe()` returns graph identity and description plus summaries of
+statically readable object types and executable actions. Object detail returns
+its API identity, display metadata, authorized properties and available
+traversals. Action detail returns input, output, declared failure fields and
+readable created-object types. Every result is frozen and JSON-serializable.
+
+Discovery applies object read-role, field-group, relationship-reference, and
+action execute-role gates. An input reference to an object the actor cannot read
+removes that action from discovery. Object and action methods remain in the
+graph-typed TypeScript SDK; their `describe()` returns `undefined` when the
+actor cannot discover that definition. All describe methods reject after the
+runtime closes.
+
+Record-dependent policy predicates cannot be decided from metadata. Discovery
+therefore means an actor may attempt the operation; ordinary execution still
+checks the referenced records, actor claims, current authorization, and
+availability. Discovery never exposes source IDs, connector fields, role names,
+claim names, or policy predicates.
+
+Every object detail reports `query.collectionScope: 'graph-membership'`. Queries
+and traversal enumerate adopted source-backed records or Relate-native records;
+exhaustion is not a claim that every matching provider record has been
+discovered.
+
 Adoption returns `ObjectId<typeof Customer.id>`. `get` and traversal arguments
 require the starting object's branded ID; result IDs and reference fields carry
 their own or referenced object's brand. An Invoice ID cannot be passed to

@@ -643,11 +643,18 @@ export function compile(graph: GraphDefinition): CompiledModel {
     return Object.fromEntries(
       Object.entries((schema as z.ZodObject).shape).map(([name, field]) => {
         const references = referenceSchemas.get(field);
+        const description = field.description;
 
         if (references)
           return [
             name,
-            { type: 'string', nullable: false, optional: false, references },
+            {
+              type: 'string',
+              nullable: false,
+              optional: false,
+              references,
+              ...(description !== undefined ? { description } : {}),
+            },
           ];
 
         const problem = schemaIssue(field);
@@ -660,7 +667,13 @@ export function compile(graph: GraphDefinition): CompiledModel {
             actionId,
           );
 
-        return [name, portable(field)];
+        return [
+          name,
+          {
+            ...portable(field),
+            ...(description !== undefined ? { description } : {}),
+          },
+        ];
       }),
     );
   };
@@ -712,6 +725,9 @@ export function compile(graph: GraphDefinition): CompiledModel {
         return {
           id: action.id,
           apiName,
+          ...(action.description !== undefined
+            ? { description: action.description }
+            : {}),
           input: actionShape(
             action.input,
             at('input'),
@@ -803,8 +819,11 @@ export function compile(graph: GraphDefinition): CompiledModel {
 
   const relationships = relationshipEntries.map(([, r]) => r);
   const manifestInput = {
-    formatVersion: 4,
+    formatVersion: 5,
     graphDefinitionId: graph.id,
+    ...(graph.description !== undefined
+      ? { description: graph.description }
+      : {}),
     fieldGroups: [...graph.access.fieldGroups].sort(),
     roles: [...graph.access.roles].sort(),
     claims,
@@ -825,6 +844,9 @@ export function compile(graph: GraphDefinition): CompiledModel {
           .map(([name, p]) => ({
             id: p.id,
             name,
+            ...(p.description !== undefined
+              ? { description: p.description }
+              : {}),
             access: p.access === undefined ? 'ordinary' : p.access.name,
             schema: portable(p.schema),
             origin: p.origin,

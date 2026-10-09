@@ -19,16 +19,19 @@ it('compiles native membership, reference identity, create authorization and act
     {
       id: AddAccountReview.id,
       apiName: 'addAccountReview',
+      description: 'Record a new assessment of a customer account.',
       creates: [AccountReview.id],
       execute: { role: 'account-manager' },
       input: {
         customer: {
+          description: 'Customer being reviewed.',
           type: 'string',
           optional: false,
           nullable: false,
           references: Customer.id,
         },
         note: {
+          description: 'Assessment and recommended next steps.',
           type: 'string',
           optional: false,
           nullable: false,
@@ -38,6 +41,7 @@ it('compiles native membership, reference identity, create authorization and act
       },
       output: {
         reviewId: {
+          description: 'New account review ID.',
           type: 'string',
           optional: false,
           nullable: false,
