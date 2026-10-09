@@ -362,6 +362,23 @@ def run(args, key, task_id, condition, repeat, spent):
                 before = len(world.requester.request_tracker.requests)
                 completed = world.task_completed()
                 polling += len(world.requester.request_tracker.requests) - before
+                if (
+                    args.completion_feedback
+                    and not completed
+                    and model["call_id"] is not None
+                ):
+                    reminder = (
+                        "await apis.supervisor.complete_task({answer: value})"
+                        if node
+                        else "apis.supervisor.complete_task(answer=value)"
+                    )
+                    messages[-1]["output"] += (
+                        "\nTask status: incomplete. When you have the answer, submit it with "
+                        + reminder
+                        + ". Printing an answer does not complete the task."
+                    )
+                    step["visible_output"] = messages[-1]["output"]
+                    (out / "steps.json").write_text(dump(steps))
                 if termination in ("execution-timeout", "model-no-action"):
                     break
                 if completed:
@@ -449,6 +466,11 @@ def main():
         help="Host-only dotenv file; only OPENAI_API_KEY is read",
     )
     parser.add_argument("--reasoning", choices=["none", "low", "medium"], default="low")
+    parser.add_argument(
+        "--completion-feedback",
+        action="store_true",
+        help="Post-hoc ablation: return the task completion status and submission syntax after each cell",
+    )
     parser.add_argument("--steps", type=int, default=14)
     parser.add_argument("--max-output-tokens", type=int, default=4096)
     parser.add_argument("--generated-budget", type=int, default=14000)

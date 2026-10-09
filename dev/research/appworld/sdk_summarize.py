@@ -29,6 +29,15 @@ def summarize(names):
             # inputs. Public evidence reports the category only.
             row["error"] = row["error"].split(":", 1)[0] if row["error"] else None
             row["run"] = name
+            row["study_role"] = (
+                "primary"
+                if name == "sdk-mini-main-v3"
+                else "completion-feedback-ablation"
+                if name == "sdk-mini-completion-feedback-v1"
+                else "nano-corrected-pilot"
+                if name == "sdk-nano-tool-pilot-v2"
+                else "superseded-diagnostic"
+            )
             observed.add((row["task_id"], row["condition"], row["repeat"]))
             steps_path = path.parent / "steps.json"
             steps = json.loads(steps_path.read_text()) if steps_path.exists() else []

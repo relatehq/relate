@@ -2,9 +2,10 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from sdk_runner import SDK_PROMPT, NodeRepl, code_action
+from sdk_runner import SDK_PROMPT, NodeRepl, code_action, model_call
 
 
 def records():
@@ -128,6 +129,22 @@ console.log(JSON.stringify({x, total, evidence: playlists.data[0].meta.evidence}
             ("", None),
         )
         self.assertEqual(code_action({"output": [{"type": "reasoning"}]}), ("", None))
+
+    def test_no_action_response_retains_billed_usage(self):
+        response = {
+            "output": [{"type": "reasoning"}],
+            "status": "incomplete",
+            "model": "gpt-5.4-mini",
+            "usage": {"input_tokens": 100, "output_tokens": 50},
+        }
+        fake = SimpleNamespace(status_code=200, json=lambda: response)
+        with patch("sdk_runner.requests.post", return_value=fake):
+            content, metadata = model_call("test-only", "gpt-5.4-mini", [], 4096, "low")
+        self.assertEqual(content, "")
+        self.assertIsNone(metadata["call_id"])
+        self.assertEqual(metadata["usage"]["output_tokens"], 50)
+        self.assertGreater(metadata["estimated_usd"], 0)
+        self.assertEqual(metadata["provider_output"], response["output"])
 
     def test_prompt_contains_discovery_entry_points_not_domain_schema(self):
         self.assertIn("relate.describe()", SDK_PROMPT)
