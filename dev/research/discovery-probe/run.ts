@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { runEpisode, type Episode } from './episode.js';
 import { goals } from './goals.js';
@@ -72,7 +72,9 @@ const config = {
   maxCostUsd: cap,
 };
 
-mkdirSync(out, { recursive: false });
+mkdirSync(dirname(out), { recursive: true });
+// Never reuse a run directory: earlier transcripts stay as recorded.
+mkdirSync(out);
 writeFileSync(join(out, 'config.json'), JSON.stringify(config, null, 2));
 
 const episodes: Episode[] = [];
