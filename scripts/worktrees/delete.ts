@@ -6,6 +6,7 @@ import {
   callerCwd,
   dropDatabases,
   listWorktrees,
+  mergedInto,
   output,
   run,
   succeeds,
@@ -14,8 +15,9 @@ import {
 const usage = `Usage: pnpm worktree:delete <name|branch|path> [--force] [--keep-branch] [--dry-run]
 
 Drops the worktree's relate_<name> databases, removes the worktree, and deletes
-its branch when the branch is merged into main. Refuses a worktree with
-uncommitted changes unless --force is given. An unmerged branch is always kept.
+its branch when all of its changes are in main, including after a squash merge.
+Refuses a worktree with uncommitted changes unless --force is given. A branch
+with changes that are not in main is always kept.
 
 Example:
   pnpm worktree:delete receipt-lookup`;
@@ -81,17 +83,25 @@ async function main() {
   run('git', ['worktree', 'prune'], { cwd: checkout, dryRun });
 
   if (worktree.branch && !values['keep-branch']) {
-    const merged = succeeds(
-      'git',
-      ['merge-base', '--is-ancestor', worktree.branch, 'main'],
-      checkout,
-    );
+    // Squash-merged branches are only recognisable against the merged main, so
+    // also compare with origin/main after a best-effort fetch.
+    succeeds('git', ['fetch', '--quiet', 'origin', 'main'], checkout);
+
+    const merged =
+      mergedInto(worktree.branch, 'main', checkout) ??
+      mergedInto(worktree.branch, 'origin/main', checkout);
 
     if (merged)
-      run('git', ['branch', '-d', worktree.branch], { cwd: checkout, dryRun });
+      // -d only accepts ancestors; a branch whose changes are all in main by
+      // content (squash or rebase merge) needs -D.
+      run(
+        'git',
+        ['branch', merged === 'ancestor' ? '-d' : '-D', worktree.branch],
+        { cwd: checkout, dryRun },
+      );
     else
       console.log(
-        `Kept branch ${worktree.branch}: it has commits that are not in main.`,
+        `Kept branch ${worktree.branch}: some of its changes are not in main.`,
       );
   }
 

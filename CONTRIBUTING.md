@@ -110,10 +110,11 @@ must start with a Conventional Commit type such as `feat/` or `fix/`. It then:
 3. Creates those two databases, runs `pnpm install`, and runs `pnpm build`.
 
 `worktree:delete` drops the two databases, removes the worktree, and deletes the
-branch if it is merged into `main`. It refuses a worktree with uncommitted
-changes unless you pass `--force`, and it only drops databases named
-`relate_<name>` and `relate_<name>_test` on a local server. Use `--keep-branch`
-to keep a merged branch. Both commands accept `--dry-run`.
+branch if all of its changes are in `main` (or `origin/main`), whether it was
+merged, rebased or squash-merged. It refuses a worktree with uncommitted changes
+unless you pass `--force`, and it only drops databases named `relate_<name>` and
+`relate_<name>_test` on a local server. Use `--keep-branch` to keep a merged
+branch. Both commands accept `--dry-run`.
 
 Delete worktrees with `worktree:delete`, not `git worktree remove`, so their
 databases do not accumulate.
