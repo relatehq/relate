@@ -12,6 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RUNS = [
+    "sdk-nano-writes-28-v1",
     "sdk-nano-writes-v1",
     "sdk-nano-uniform-ts-v1",
     "sdk-nano-discovery-v1",
@@ -20,7 +21,8 @@ RUNS = [
     "sdk-nano-tool-pilot-v2",
 ]
 LABELS = {
-    "sdk-nano-writes-v1": "Nano · first write-action pilot",
+    "sdk-nano-writes-28-v1": "Nano · write tasks · 28 turns",
+    "sdk-nano-writes-v1": "Nano · write tasks · 14 turns",
     "sdk-nano-uniform-ts-v1": "Nano · uniform prompts · raw TS comparison",
     "sdk-nano-discovery-v1": "Nano · previous mixed SDK · prompt once",
     "sdk-mini-main-v3": "Mini · previous SDK · primary",
@@ -28,6 +30,7 @@ LABELS = {
     "sdk-nano-tool-pilot-v2": "Nano · previous SDK · pilot",
 }
 NOTES = {
+    "sdk-nano-writes-28-v1": "Budget comparison: same three tasks, four methods and two repeats; 28 turns instead of 14. Exact same prompts and execution code. Fresh stochastic trajectories, not continuations of the earlier run.",
     "sdk-nano-writes-v1": "Write pilot: two training write variants + one read control × four conditions × two repeats. Main realm fix 5a0af21; two SDK actions; original evaluator; no mid-run prompt changes.",
     "sdk-nano-uniform-ts-v1": "New comparison: six tasks × four conditions × three repeats. Uniform AppWorld-inspired prompts; original APIs in Python and TypeScript; SDK-only in the same Node REPL. No per-turn reminders.",
     "sdk-nano-discovery-v1": "Previous mixed-access rerun: four tasks × three conditions × three repeats. Current SDK operation contracts and errors; completion/answer-format instructions once in the system prompt. No per-turn reminders.",
@@ -124,6 +127,8 @@ def build(destination, findings):
     (destination / "data.json").write_text(json.dumps(data))
     shutil.copyfile(HERE / "explorer.html", destination / "index.html")
     for filename in [
+        "WRITE-BUDGET.md",
+        "WRITE-BUDGET-PLAN.md",
         "WRITE-PILOT.md",
         "WRITE-PILOT-PLAN.md",
         "TS-COMPARISON.md",
@@ -134,7 +139,7 @@ def build(destination, findings):
         if (HERE / filename).exists():
             shutil.copyfile(HERE / filename, destination / filename)
     (destination / "evidence").mkdir(exist_ok=True)
-    for evidence in (HERE / "evidence").glob("write-pilot*.json"):
+    for evidence in (HERE / "evidence").glob("write-*.json"):
         shutil.copyfile(evidence, destination / "evidence" / evidence.name)
     print(destination)
     print(f"{sum(len(run['episodes']) for run in data)} episodes")

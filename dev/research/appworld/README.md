@@ -1,6 +1,19 @@
 # AppWorld interface research
 
-## Current write-action pilot
+## Current turn-budget comparison
+
+The latest run doubles the turn limit from 14 to 28 while retaining identical
+prompts, execution code, nano, three tasks and all four methods. Overall
+official success is 2/24 → 6/24; 4 new successes finished after turn 14. These
+are fresh stochastic runs, not continuations of matched prefixes.
+
+Read [WRITE-BUDGET.md](WRITE-BUDGET.md) for the full comparison, per-case
+metrics, concrete failure analysis and next proposals. The explorer retains both
+budgets and links matching task/method/repeat cases. No prompt, REPL,
+acquisition, action implementation or Relate package change was made for this
+experiment.
+
+## Previous 14-turn write-action pilot
 
 Main `5a0af21` is merged. The first write increment adds two research-authored
 Relate actions for Venmo likes and comments, with source readback and refreshed
