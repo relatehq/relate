@@ -86,6 +86,29 @@ export function instrument<T>(value: T, path: string, log: CallRecord[]): T {
   return value;
 }
 
+/**
+ * Top-level `const`/`let` become `var`, so a later cell can reuse a name as in
+ * a notebook. Otherwise a redeclaration costs a turn, which measures REPL
+ * habits rather than discovery.
+ */
+const redeclarable: ts.TransformerFactory<ts.SourceFile> = () => (file) =>
+  ts.factory.updateSourceFile(
+    file,
+    file.statements.map((statement) =>
+      ts.isVariableStatement(statement) &&
+      statement.declarationList.flags & ts.NodeFlags.BlockScoped
+        ? ts.factory.updateVariableStatement(
+            statement,
+            statement.modifiers,
+            ts.factory.createVariableDeclarationList(
+              statement.declarationList.declarations,
+              ts.NodeFlags.None,
+            ),
+          )
+        : statement,
+    ),
+  );
+
 export function createRepl() {
   let output = '';
   const repl = start({
@@ -137,6 +160,7 @@ export function createRepl() {
         module: ts.ModuleKind.Preserve,
       },
       reportDiagnostics: true,
+      transformers: { before: [redeclarable] },
     });
     const errors = compiled.diagnostics?.filter(
       (d) => d.category === ts.DiagnosticCategory.Error,

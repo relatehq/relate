@@ -60,6 +60,16 @@ it('scores wrong answers, failed cells and SDK errors without passing them', asy
   });
 }, 30_000);
 
+it('lets a later cell redeclare a top-level name, as in a notebook', async () => {
+  const result = await episode('count-all', [
+    'const total: number = 1; let seen = 0;',
+    'const total = 64; let seen = total; { const total = 0; }',
+    'submit(total)',
+  ]);
+
+  expect(result).toMatchObject({ success: true, clean: true, failedCells: 0 });
+}, 30_000);
+
 it('ends at the turn budget or when the model stops calling the tool', async () => {
   expect((await episode('count-all', ['1', '2', '3'], 2)).termination).toBe(
     'turn-budget',
