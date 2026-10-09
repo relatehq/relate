@@ -2,8 +2,9 @@
 
 > Historical protocol: these recorded SDK episodes included original application
 > API access. The current runner now exposes only `relate` and the environment's
-> `completeTask` function. The results below have not been rerun under that
-> restriction.
+> `completeTask` function. A later SDK-only rerun with uniform prompts and a raw
+> TypeScript control is recorded in [TS-COMPARISON.md](TS-COMPARISON.md). The
+> historical scores below remain unchanged.
 
 This study reruns the three agent conditions using GPT-5.4 nano, the merged
 Relate operation contracts and named errors, and an explicit

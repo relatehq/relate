@@ -395,56 +395,58 @@
   <main>
     <section id="results" class="page active">
       <p class="intro">
-        Can a small model use Relate through discovery alone? This rerun uses
-        the merged SDK contracts and errors, plus one shared completion
-        instruction in the system prompt.
+        The same Node REPL, two data interfaces: original application APIs
+        versus the Relate SDK. This study compares both with the Python controls
+        using uniform prompts.
       </p>
       <div class="band">
-        No per-turn completion reminders. No new graph, acquisition, wrapper, or
-        REPL behavior. The primary rerun uses nano on four tasks, across three
-        conditions and three repeats.
+        Six training tasks, four conditions, three repeats. Nano throughout. SDK
+        agents can only read through Relate; raw TypeScript agents call original
+        APIs. No per-turn completion reminders.
       </div>
-      <div class="band">
-        These recorded runs predate the SDK-only environment. Their SDK agents
-        could also call original APIs. The current runner exposes only
-        <code>relate</code> and <code>completeTask</code>; it has not been
-        benchmarked again yet.
-      </div>
+      <div id="currentMetrics" class="metrics"></div>
       <div id="overview"></div>
       <h2>What changed</h2>
       <div class="grid">
         <div class="panel">
-          <h3>SDK improvements from main</h3>
+          <h3>A raw TypeScript control</h3>
           <p>
-            PR #18 adds generic operation contracts to graph discovery, concrete
-            call signatures to object discovery, helpful function
-            representations, and named request errors with accepted options and
-            corrective hints.
+            Original AppWorld APIs are exposed through a thin asynchronous
+            proxy. Operation names, parameter names, JSON results and manual
+            pagination are preserved. This arm has no graph or pre-acquired
+            data.
           </p>
           <pre>
-relate.describe().operations
-relate.objects.Playlist.describe().traversals
-String(relate.objects.Playlist.traverse.songs)</pre>
+await apis.api_docs.show_app_descriptions();
+await apis.APP.OPERATION({named_argument: value});
+await completeTask({answer: result});</pre>
           <p>
-            The agent receives the same generic discovery entry points in its
-            prompt. Operation instructions come from the SDK.
+            The SDK arm uses the same Node REPL, output capture, persistence,
+            permissions and completion function, but has only
+            <code>relate</code> for application data.
           </p>
         </div>
         <div class="panel">
-          <h3>One-time environment instruction</h3>
+          <h3>One shared prompt template</h3>
           <p>
-            The same instruction is appended to each condition’s system prompt.
-            It is not part of the SDK and is not repeated after each cell.
+            Adapted from the pinned AppWorld ReAct instructions: autonomous
+            execution, real values, phone-contact relationships, time
+            boundaries, documentation, pagination and minimal completion
+            answers. Language and data access sections differ only where the
+            environments require it. Static notes are the explicit ablation.
           </p>
-          <blockquote>
-            Printing a result does not complete the task. When finished, call
-            the completion API described above with your final answer. For
-            numeric questions, submit only the numeric value, without
-            explanatory text, currency symbols, or units. For questions asking
-            for a name or title, submit only that name or title, without
-            explanatory text. Follow any answer-format requirements stated in
-            the task.
-          </blockquote>
+          <p>
+            The conflicting login request and extra “one short cell” instruction
+            are removed. Existing objects are identified as objects to use, not
+            packages to import. The upstream worked login demonstration is
+            omitted in every arm; this remains a zero-shot interface study.
+          </p>
+          <p>
+            <a href="PROMPT-PROVENANCE.md"
+              >Prompt provenance and exact deviations</a
+            >. Each trajectory exposes its actual initial messages; the source
+            viewer includes <code>prompts.py</code> for the new run.
+          </p>
         </div>
       </div>
       <h2>Findings from the rerun</h2>
@@ -465,14 +467,14 @@ String(relate.objects.Playlist.traverse.songs)</pre>
       </p>
       <div class="band">
         This is an exploratory training-task experiment, not a benchmark
-        leaderboard score. Two tasks are familiar, one addition is a same-family
-        payment variant, and one introduces a song-selection family. Language,
-        pre-acquisition and authored graph semantics differ across arms. The SDK
-        and completion prompt changed together, so historical differences do not
-        identify either change’s causal effect.
+        leaderboard score. The six instances span three task families; the two
+        additions are same-family variants. Raw TypeScript versus SDK holds the
+        Node environment constant, but acquisition, normalized collections and
+        authored graph semantics still differ. Historical runs also used
+        different prompts and SDK access; do not pool them.
       </div>
       <p>
-        <a href="SDK-NANO-RERUN.md"
+        <a href="TS-COMPARISON.md"
           >Read / download the updated Markdown report</a
         >
         · <a href="SDK-STUDY.md">Previous direct-SDK study</a>
@@ -498,8 +500,8 @@ String(relate.objects.Playlist.traverse.songs)</pre>
         <div class="panel">
           <h3>What survives between turns?</h3>
           <p>
-            One Node child process and one REPL context live for the whole SDK
-            episode. Variables, helper functions, and the injected SDK consumer
+            One Node child process and one REPL context live for each Node
+            episode. Variables, helper functions, and the injected API or SDK
             persist. A new episode starts fresh.
           </p>
           <pre>
@@ -526,33 +528,35 @@ console.log(await relate.describe());</pre>
           </p>
         </div>
         <div class="panel">
-          <h3>Two paths out of a TypeScript cell</h3>
+          <h3>Two separate Node environments</h3>
           <pre>
-Agent cell
-  ├─ await relate.objects.Person.query(...)
-  │    → actual Relate SDK / runtime
-  │    → task-local acquired snapshot
-  │    → compact SDK result
-  │
-  └─ await apis.venmo.some_operation({...})
-       → JavaScript Proxy / pending Promise
-       → JSON line to Python host
-       → original AppWorld API
-       → api-result JSON line
-       → Promise resolves inside the same cell</pre>
+Raw TypeScript cell
+  → apis.APP.OPERATION(args)
+  → JSON-line RPC to Python
+  → original AppWorld API
+
+SDK TypeScript cell
+  → relate.objects.Object.operation(...)
+  → real Relate runtime
+  → acquired task-local snapshot
+
+Both environments
+  → completeTask({answer})
+  → original AppWorld supervisor</pre>
           <p>
-            <code>relate</code> is the real actor-bound SDK consumer.
-            <code>apis</code> is an asynchronous bridge to the original
-            simulator. The graph is populated through public APIs before agent
-            execution; it is not a live per-query Spotify or Venmo connector.
+            Both use the same TypeScript transpilation, REPL, console and
+            permission configuration. The raw-TS worker has
+            <code>apis</code> and <code>tokens</code>, without
+            <code>relate</code>. The SDK worker has <code>relate</code>, without
+            <code>apis</code> or <code>tokens</code>.
           </p>
           <p>
-            Python remains the host because AppWorld is Python-based. Relate
-            code is executed in Node, not translated into Python.
+            The graph is acquired before SDK execution; raw TS performs its own
+            source reads. Python remains the AppWorld host in both cases.
           </p>
         </div>
       </div>
-      <h2>Before the first cell</h2>
+      <h2>SDK preparation before the first cell</h2>
       <div class="flow">
         <button disabled>
           AppWorld task<small
@@ -570,7 +574,7 @@ Agent cell
           ></button
         ><span class="arrow">→</span
         ><button disabled>
-          Inject into REPL<small>relate, apis, tokens, console</small>
+          Inject into REPL<small>relate, completeTask, console</small>
         </button>
       </div>
       <div class="grid">
@@ -655,9 +659,9 @@ await relate.objects.Playlist.traverse.songs(id, {
         <tr>
           <td>Source mutations</td>
           <td>
-            Non-GET/HEAD source requests close the acquired snapshot before
-            resolving the proxy promise. This implementation has no snapshot
-            refresh API.
+            Raw TS delegates source operations to AppWorld and has no snapshot.
+            The current SDK condition exposes graph reads and completion only;
+            source mutations and snapshot refresh are unavailable.
           </td>
         </tr>
         <tr>
@@ -686,6 +690,7 @@ await relate.objects.Playlist.traverse.songs(id, {
             <option value="all">All conditions</option>
             <option value="sdk" selected>Relate SDK / TypeScript</option>
             <option value="raw">Raw API / Python</option>
+            <option value="raw_ts">Raw API / TypeScript</option>
             <option value="static">Static notes / Python</option>
           </select></label
         ><label
@@ -729,6 +734,7 @@ await relate.objects.Playlist.traverse.songs(id, {
             <option>sdk-graph.mjs</option>
             <option>acquire.py</option>
             <option>runner.py</option>
+            <option>prompts.py</option>
           </select></label
         ><button id="downloadSource">Download selected source</button>
       </div>
@@ -736,6 +742,13 @@ await relate.objects.Playlist.traverse.songs(id, {
       <pre class="source" id="source"></pre>
       <h3>Read in this order</h3>
       <table>
+        <tr>
+          <td>prompts.py</td>
+          <td>
+            Shared benchmark guidance and the minimal runtime/data-interface
+            differences between conditions.
+          </td>
+        </tr>
         <tr>
           <td>sdk_runner.py · NodeRepl</td>
           <td>
@@ -811,6 +824,8 @@ await relate.objects.Playlist.traverse.songs(id, {
       d0b1f43_1: 'Outgoing roommate payments',
       '82e2fac_1': 'Playlist song popularity',
       d0b1f43_2: 'Incoming coworker payments',
+      e7a10f8_2: 'Shortest playlist',
+      d0b1f43_3: 'Sent or received roommate payments',
     };
     const stages = [
       [
@@ -838,7 +853,7 @@ await relate.objects.Playlist.traverse.songs(id, {
         'Node REPL',
         'repl.eval + persistent context',
         'Execute JavaScript in the same context',
-        'Node’s default REPL supplies lexical persistence and top-level await. A domain captures runtime errors so the host receives a recoverable cell result. The actual SDK was injected at initialization.',
+        'Node’s default REPL supplies lexical persistence and top-level await. A domain captures runtime errors so the host receives a recoverable cell result. The API proxy or SDK consumer was injected at initialization, according to the condition.',
         `repl.eval(compiled.outputText, repl.context,\n  'agent-cell.ts', callback);`,
       ],
       [
@@ -889,7 +904,11 @@ await relate.objects.Playlist.traverse.songs(id, {
     function source() {
       let n = $('#sourceFile').value;
       $('#sourceNote').textContent = runs[ri].id + ' / source/' + n;
-      $('#source').innerHTML = runs[ri].sources[n]
+      $('#downloadSource').disabled = !runs[ri].sources[n];
+      $('#source').innerHTML = (
+        runs[ri].sources[n] ||
+        'This file was not part of the older run. Inspect its saved sdk_runner.py and initial messages instead.'
+      )
         .split('\n')
         .map((l) => '<span>' + esc(l) + '</span>')
         .join('');
@@ -923,7 +942,7 @@ await relate.objects.Playlist.traverse.songs(id, {
         visible
           .map(([e, i]) => {
             let x = e.result;
-            return `<button class="episode ${i === ei ? 'active' : ''}" data-episode="${i}">${taskNames[x.task_id] || x.task_id}<small>${x.condition === 'sdk' ? 'Relate SDK' : x.condition === 'static' ? 'Static notes' : 'Raw API'} · repeat ${x.repeat + 1}</small><small class="trajectory-id">${esc(e.id)}</small><small>${x.steps} turns · ${fmt(x.seconds)}s · <span class="${x.success ? 'ok' : 'bad'}">${x.success ? 'Passed' : 'Failed'}</span></small></button>`;
+            return `<button class="episode ${i === ei ? 'active' : ''}" data-episode="${i}">${taskNames[x.task_id] || x.task_id}<small>${x.condition === 'sdk' ? 'Relate SDK' : x.condition === 'static' ? 'Static notes / Python' : x.condition === 'raw_ts' ? 'Raw API / TypeScript' : 'Raw API / Python'} · repeat ${x.repeat + 1}</small><small class="trajectory-id">${esc(e.id)}</small><small>${x.steps} turns · ${fmt(x.seconds)}s · <span class="${x.success ? 'ok' : 'bad'}">${x.success ? 'Passed' : 'Failed'}</span></small></button>`;
           })
           .join('') || '<p>No matching episodes.</p>';
       document.querySelectorAll('[data-episode]').forEach(
@@ -957,7 +976,7 @@ await relate.objects.Playlist.traverse.songs(id, {
         x = e.result;
       ti = Math.min(ti, e.steps.length - 1);
       $('#episodeDetail').innerHTML =
-        `<h2 style="margin-top:0">${esc(taskNames[x.task_id] || x.task_id)} <span class="pill">${esc(x.condition)} · ${esc(x.model)}</span></h2><p>Trajectory ID: <code class="trajectory-id">${esc(runs[ri].id + '/' + e.id)}</code></p><p class="muted">The condition describes available tools. ${x.condition === 'sdk' ? e.steps.filter((s) => s.code.includes('relate.')).length + ' turns mention relate.; this is a code indicator, not a successful-call count.' : 'This condition executes Python against the original APIs.'}</p><p><b class="${x.success ? 'ok' : 'bad'}">Official evaluator: ${x.success ? 'pass' : 'fail'}</b> · Task ${esc(x.task_id)} · Stopped: ${esc(x.termination)} · Marked complete: ${x.completed ? 'yes' : 'no'}</p><div class="metrics">${metric(fmt(x.seconds) + 's', 'Episode wall time')}${metric(fmt(x.prompt_tokens, 0), 'Input tokens')}${metric(fmt(x.generated_tokens, 0), 'Output tokens')}${metric('$' + fmt(x.estimated_usd, 4), 'Estimated model cost')}</div><details><summary>Task and exact initial messages</summary>${e.messages.map((m) => `<h4>${esc(m.role)}</h4><pre>${esc(m.content)}</pre>`).join('')}</details><details><summary>Setup, source calls and full episode metrics</summary><p>Source calls include host authentication and acquisition, plus agent API calls; completion polling is excluded. Snapshot fetches are connector instrumentation, not a count of SDK queries.</p><pre>${esc(JSON.stringify(x, null, 2))}</pre></details><div class="toolbar"><h3>Usage by turn</h3><label>Chart metric<select id="chartMetric"><option value="model">Model time (seconds)</option><option value="execution">Execution time (seconds)</option><option value="input">Input tokens</option><option value="output">Output tokens</option><option value="cost">Estimated cost (USD)</option></select></label></div><div class="chart" id="chart"></div><small class="muted">Bar height shows the selected metric. Hover for the value; select a bar or turn. Red underline = recorded execution error; green = code mentions complete_task.</small><div class="turns" id="turns"></div><div id="cell"></div><details><summary>Original evaluator result</summary><pre>${esc(JSON.stringify(e.evaluation, null, 2))}</pre></details>`;
+        `<h2 style="margin-top:0">${esc(taskNames[x.task_id] || x.task_id)} <span class="pill">${esc(x.condition)} · ${esc(x.model)}</span></h2><p>Trajectory ID: <code class="trajectory-id">${esc(runs[ri].id + '/' + e.id)}</code></p><p class="muted">The condition describes available tools. ${x.condition === 'sdk' ? e.steps.filter((s) => s.code.includes('relate.')).length + ' turns mention relate.; this is a code indicator, not a successful-call count.' : 'This condition executes ' + (x.condition === 'raw_ts' ? 'TypeScript' : 'Python') + ' against the original APIs.'}</p><p><b class="${x.success ? 'ok' : 'bad'}">Official evaluator: ${x.success ? 'pass' : 'fail'}</b> · Task ${esc(x.task_id)} · Stopped: ${esc(x.termination)} · Marked complete: ${x.completed ? 'yes' : 'no'}</p><div class="metrics">${metric(fmt(x.seconds) + 's', 'Episode wall time')}${metric(fmt(x.prompt_tokens, 0), 'Input tokens')}${metric(fmt(x.generated_tokens, 0), 'Output tokens')}${metric('$' + fmt(x.estimated_usd, 4), 'Estimated model cost')}</div><details><summary>Task and exact initial messages</summary>${e.messages.map((m) => `<h4>${esc(m.role)}</h4><pre>${esc(m.content)}</pre>`).join('')}</details><details><summary>Setup, source calls and full episode metrics</summary><p>Source calls include host authentication and acquisition, plus agent API calls; completion polling is excluded. Snapshot fetches are connector instrumentation, not a count of SDK queries.</p><pre>${esc(JSON.stringify(x, null, 2))}</pre></details><div class="toolbar"><h3>Usage by turn</h3><label>Chart metric<select id="chartMetric"><option value="model">Model time (seconds)</option><option value="execution">Execution time (seconds)</option><option value="input">Input tokens</option><option value="output">Output tokens</option><option value="cost">Estimated cost (USD)</option></select></label></div><div class="chart" id="chart"></div><small class="muted">Bar height shows the selected metric. Hover for the value; select a bar or turn. Red underline = recorded execution error; green = code mentions a completion function.</small><div class="turns" id="turns"></div><div id="cell"></div><details><summary>Original evaluator result</summary><pre>${esc(JSON.stringify(e.evaluation, null, 2))}</pre></details>`;
       $('#chartMetric').onchange = turn;
       turn();
     }
@@ -985,7 +1004,7 @@ await relate.objects.Playlist.traverse.songs(id, {
       $('#turns').innerHTML = e.steps
         .map(
           (s, i) =>
-            `<button data-turn="${i}" class="${i === ti ? 'active' : ''} ${s.error || s.output.startsWith('Execution failed') ? 'error' : ''} ${s.code.includes('complete_task') ? 'submit' : ''}">${s.turn}</button>`,
+            `<button data-turn="${i}" class="${i === ti ? 'active' : ''} ${s.error || s.output.startsWith('Execution failed') ? 'error' : ''} ${s.code.includes('complete_task') || s.code.includes('completeTask') ? 'submit' : ''}">${s.turn}</button>`,
         )
         .join('');
       document.querySelectorAll('[data-turn]').forEach(
@@ -997,7 +1016,7 @@ await relate.objects.Playlist.traverse.songs(id, {
       );
       let u = s.model.usage;
       $('#cell').innerHTML =
-        `<div class="cell-head"><h3>Turn ${s.turn} of ${e.steps.length}</h3><div><button id="previous" ${ti === 0 ? 'disabled' : ''}>Previous</button> <button id="next" ${ti === e.steps.length - 1 ? 'disabled' : ''}>Next</button></div></div><p class="muted">Model ${fmt(s.model.seconds, 3)}s · execution ${fmt(s.execution_seconds, 3)}s · ${fmt(u.input_tokens, 0)} input / ${fmt(u.output_tokens, 0)} output tokens · ${s.api_calls} source API calls · $${fmt(s.model.estimated_usd, 6)} · ${fmt(u.input_tokens_details?.cached_tokens, 0)} cached input tokens</p>${s.error ? '<div class="band bad">' + esc(s.error) + '</div>' : ''}<div class="outputs"><div><h3>${e.result.condition === 'sdk' ? 'TypeScript cell' : 'Python cell'}</h3><pre>${esc(s.code)}</pre></div><div><h3>What the agent saw next</h3><pre>${esc(s.visible_output || 'Execution produced no printed output.')}</pre></div></div><details><summary>Full captured output and model usage</summary><p>The visible observation can include a host completion reminder that is not part of captured console output.</p><pre>${esc(s.output)}</pre><pre>${esc(JSON.stringify({ usage: u, model: s.model.model, estimated_usd: s.model.estimated_usd, snapshot_fetches: s.snapshot_fetches }, null, 2))}</pre></details>`;
+        `<div class="cell-head"><h3>Turn ${s.turn} of ${e.steps.length}</h3><div><button id="previous" ${ti === 0 ? 'disabled' : ''}>Previous</button> <button id="next" ${ti === e.steps.length - 1 ? 'disabled' : ''}>Next</button></div></div><p class="muted">Model ${fmt(s.model.seconds, 3)}s · execution ${fmt(s.execution_seconds, 3)}s · ${fmt(u.input_tokens, 0)} input / ${fmt(u.output_tokens, 0)} output tokens · ${s.api_calls} source API calls · $${fmt(s.model.estimated_usd, 6)} · ${fmt(u.input_tokens_details?.cached_tokens, 0)} cached input tokens</p>${s.error ? '<div class="band bad">' + esc(s.error) + '</div>' : ''}<div class="outputs"><div><h3>${['sdk', 'raw_ts'].includes(e.result.condition) ? 'TypeScript cell' : 'Python cell'}</h3><pre>${esc(s.code)}</pre></div><div><h3>What the agent saw next</h3><pre>${esc(s.visible_output || 'Execution produced no printed output.')}</pre></div></div><details><summary>Full captured output and model usage</summary><p>The visible observation can include a host completion reminder that is not part of captured console output.</p><pre>${esc(s.output)}</pre><pre>${esc(JSON.stringify({ usage: u, model: s.model.model, estimated_usd: s.model.estimated_usd, snapshot_fetches: s.snapshot_fetches }, null, 2))}</pre></details>`;
       $('#previous').onclick = () => {
         ti--;
         turn();
@@ -1036,9 +1055,20 @@ await relate.objects.Playlist.traverse.songs(id, {
       URL.revokeObjectURL(a.href);
     };
     function overview() {
+      const current = runs[0].episodes;
+      const total = (key) =>
+        current.reduce((sum, e) => sum + (e.result[key] || 0), 0);
+      $('#currentMetrics').innerHTML =
+        metric(current.length, 'Current run episodes') +
+        metric(total('steps'), 'Recorded agent turns') +
+        metric(
+          fmt(total('seconds') / 60) + ' min',
+          'Sequential episode wall time',
+        ) +
+        metric('$' + fmt(total('estimated_usd'), 4), 'Estimated model cost');
       let rows = '';
       for (let r of runs) {
-        for (let c of ['raw', 'static', 'sdk']) {
+        for (let c of ['raw', 'static', 'raw_ts', 'sdk']) {
           let es = r.episodes.filter((e) => e.result.condition === c),
             n = es.length;
           if (!n) continue;
@@ -1049,14 +1079,14 @@ await relate.objects.Playlist.traverse.songs(id, {
       $('#overview').innerHTML =
         '<h2>All retained comparison results</h2><div style="overflow:auto"><table><tr><th>Experiment</th><th>Arm</th><th>Passed</th><th>Completed</th><th>Mean turns</th><th>Mean time</th><th>Mean input tokens</th><th>Mean output tokens</th><th>Total cost</th><th>Trajectories</th></tr>' +
         rows +
-        '</table></div><p class="muted">Rows are separate experiments; never pool the old completion-feedback ablation with the new prompt-only rerun. Superseded harness pilots are documented in the previous study, not counted here.</p>';
+        '</table></div><p class="muted">Rows are separate experiments; never pool older prompts or mixed-access SDK arms with the new uniform-prompt comparison. Superseded harness pilots are documented in the previous study, not counted here.</p>';
       const taskRows = Object.entries(taskNames)
         .map(
           ([task, name]) =>
             '<tr><td>' +
             esc(name) +
             '</td>' +
-            ['raw', 'static', 'sdk']
+            ['raw', 'static', 'raw_ts', 'sdk']
               .map((c) => {
                 const es = runs[0].episodes.filter(
                   (e) => e.result.task_id === task && e.result.condition === c,
@@ -1074,7 +1104,7 @@ await relate.objects.Playlist.traverse.songs(id, {
         )
         .join('');
       $('#overview').innerHTML +=
-        '<h3>Current nano rerun, by task</h3><table><tr><th>Task</th><th>Raw API</th><th>Static notes</th><th>Relate SDK</th></tr>' +
+        '<h3>Current four-arm comparison, by task</h3><table><tr><th>Task</th><th>Raw API</th><th>Static notes</th><th>Raw TS</th><th>Relate SDK</th></tr>' +
         taskRows +
         '</table>';
       document.querySelectorAll('[data-open-run]').forEach(

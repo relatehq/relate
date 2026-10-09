@@ -1,34 +1,54 @@
 # AppWorld interface research
 
-## Current SDK environment
+## Current four-way comparison
 
-New SDK episodes expose only the actual `relate` consumer and the benchmark's
-`completeTask({ answer })` function. Original application APIs, API
-documentation calls and source credentials are not available to the TypeScript
-agent. The host still authenticates and acquires the same snapshot before
-execution. Python raw-API and static-note controls are unchanged.
+The latest study uses uniform prompts adapted from AppWorld, nano, six training
+instances and three repeats per condition (72 episodes). Read
+[TS-COMPARISON.md](TS-COMPARISON.md) for results and reproduction,
+[PROMPT-PROVENANCE.md](PROMPT-PROVENANCE.md) for the exact upstream source and
+adaptations, and [TS-COMPARISON-PLAN.md](TS-COMPARISON-PLAN.md) for the plan
+frozen before model execution.
+
+| Condition | Interpreter       | Agent's application-data interface                        |
+| --------- | ----------------- | --------------------------------------------------------- |
+| `raw`     | Python            | Original AppWorld APIs                                    |
+| `static`  | Python            | Original APIs plus unchanged semantic notes               |
+| `raw_ts`  | TypeScript / Node | Original APIs via an asynchronous named-argument proxy    |
+| `sdk`     | TypeScript / Node | Actual Relate SDK, with no original APIs or source tokens |
+
+The two Node conditions share the same REPL, transpilation, permissions and
+`completeTask({answer, status})` environment capability. The raw TS proxy
+preserves original operations, JSON responses and manual pagination. It receives
+no graph or acquired snapshot. Only the SDK condition gets the fixed,
+pre-acquired music-and-payments graph. The model discovers it through the public
+SDK; the prompt contains no domain schema or relationship names.
 
 ```ts
+// Raw TS: original API, original named arguments and original JSON response.
+console.log(
+  await apis.api_docs.show_api_doc({
+    app_name: 'spotify',
+    api_name: 'show_playlist_library',
+  }),
+);
+
+// SDK-only: discover the real consumer's capabilities.
 console.log(await relate.describe());
-// Discover objects, then read through the SDK.
+
+// Both Node conditions submit to the benchmark through the environment.
 await completeTask({ answer: result });
 ```
 
-`completeTask` is an environment capability, not a Relate SDK method. It can
-only submit to AppWorld's supervisor; the generic application-API dispatcher has
-been removed. Tasks needing capabilities outside the acquired graph have no
-application-API fallback in this condition.
-
-**Existing reports and trajectories predate this restriction.** Their SDK arm
-had original API access; no new model scores have been collected for the
-SDK-only environment. Use the recorded source revisions to reproduce them.
+These are different conditions, not globals coexisting in one agent environment.
+`completeTask` is not part of the Relate SDK. The host rejects generic API
+events from the SDK worker. Completion instructions appear once in every system
+prompt; there are no per-turn reminders.
 
 ## Recorded studies
 
-The latest rerun uses nano, current SDK operation discovery and a one-time
-completion instruction on four training tasks. Read
-[SDK-NANO-RERUN.md](SDK-NANO-RERUN.md) for results, trajectory analysis, and the
-local HTML explorer.
+The previous nano rerun used four training tasks and mixed SDK/API access. Read
+[SDK-NANO-RERUN.md](SDK-NANO-RERUN.md) for its historical results. Its SDK
+scores must not be interpreted as SDK-only scores or pooled with the new run.
 
 The preceding study compares Python AppWorld API agents with TypeScript agents
 using the actual Relate SDK. Read [SDK-STUDY.md](SDK-STUDY.md) for its protocol,
@@ -100,7 +120,7 @@ original evaluator output, API calls and metrics. Model seeds are not a
 guarantee of bitwise determinism across Ollama versions or hardware. Canonical
 graph IDs are regenerated per world, so their literal strings also differ.
 
-## Conditions
+## Original Ollama conditions (historical)
 
 | Condition | Agent access                                                          |
 | --------- | --------------------------------------------------------------------- |
@@ -144,7 +164,7 @@ combines page data and reports exhaustion; it does not preserve every original
 page-level metadata field. Neither is evidence that Relate has a general
 source-backed query/list interface.
 
-## Validation and diagnostics
+## Original Ollama validation and diagnostics
 
 ```sh
 node --test test/*.test.mjs

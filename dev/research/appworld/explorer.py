@@ -12,19 +12,22 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RUNS = [
+    "sdk-nano-uniform-ts-v1",
     "sdk-nano-discovery-v1",
     "sdk-mini-main-v3",
     "sdk-mini-completion-feedback-v1",
     "sdk-nano-tool-pilot-v2",
 ]
 LABELS = {
-    "sdk-nano-discovery-v1": "Nano · current SDK · prompt once",
+    "sdk-nano-uniform-ts-v1": "Nano · uniform prompts · raw TS comparison",
+    "sdk-nano-discovery-v1": "Nano · previous mixed SDK · prompt once",
     "sdk-mini-main-v3": "Mini · previous SDK · primary",
     "sdk-mini-completion-feedback-v1": "Mini · previous SDK · per-turn reminder",
     "sdk-nano-tool-pilot-v2": "Nano · previous SDK · pilot",
 }
 NOTES = {
-    "sdk-nano-discovery-v1": "Current rerun: four tasks × three conditions × three repeats. Current SDK operation contracts and errors; completion/answer-format instructions once in the system prompt. No per-turn reminders.",
+    "sdk-nano-uniform-ts-v1": "New comparison: six tasks × four conditions × three repeats. Uniform AppWorld-inspired prompts; original APIs in Python and TypeScript; SDK-only in the same Node REPL. No per-turn reminders.",
+    "sdk-nano-discovery-v1": "Previous mixed-access rerun: four tasks × three conditions × three repeats. Current SDK operation contracts and errors; completion/answer-format instructions once in the system prompt. No per-turn reminders.",
     "sdk-mini-main-v3": "Previous mini primary: two tasks × three conditions × three repeats. Earlier SDK discovery; no per-turn completion feedback. Do not pool with the current rerun.",
     "sdk-mini-completion-feedback-v1": "Previous mini follow-up: six episodes with a completion reminder after each incomplete cell, equally across conditions. Separate post-hoc experiment.",
     "sdk-nano-tool-pilot-v2": "Previous corrected nano pilot: six episodes, two tasks. Earlier SDK discovery and no explicit answer-shape instruction. All episodes reached 14 turns.",
@@ -101,15 +104,25 @@ def build(destination, findings):
                 "sources": {
                     filename: (base / "source" / filename).read_text()
                     for filename in [
-                        "sdk-repl.mjs", "sdk_runner.py", "sdk-graph.mjs",
-                        "acquire.py", "runner.py",
+                        "sdk-repl.mjs",
+                        "sdk_runner.py",
+                        "sdk-graph.mjs",
+                        "acquire.py",
+                        "runner.py",
+                        "prompts.py",
                     ]
+                    if (base / "source" / filename).exists()
                 },
             }
         )
     (destination / "data.json").write_text(json.dumps(data))
     shutil.copyfile(HERE / "explorer.html", destination / "index.html")
-    for filename in ["SDK-NANO-RERUN.md", "SDK-STUDY.md"]:
+    for filename in [
+        "TS-COMPARISON.md",
+        "PROMPT-PROVENANCE.md",
+        "SDK-NANO-RERUN.md",
+        "SDK-STUDY.md",
+    ]:
         if (HERE / filename).exists():
             shutil.copyfile(HERE / filename, destination / filename)
     print(destination)
