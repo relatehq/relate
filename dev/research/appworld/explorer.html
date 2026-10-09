@@ -216,6 +216,10 @@
     .episode small {
       display: block;
     }
+    .trajectory-id {
+      overflow-wrap: anywhere;
+      user-select: all;
+    }
     .ok {
       color: var(--green);
     }
@@ -696,7 +700,7 @@ await relate.objects.Playlist.traverse.songs(id, {
             <option value="all">All tasks</option>
           </select></label
         ><label
-          >Find in code and output<input
+          >Find by ID, code or output<input
             id="search"
             placeholder="e.g. traverse, complete_task"
         /></label>
@@ -909,6 +913,7 @@ await relate.objects.Playlist.traverse.songs(id, {
                   : e.result.success === null)) &&
             (t === 'all' || e.result.task_id === t) &&
             (!q ||
+              (r.id + '/' + e.id).toLowerCase().includes(q) ||
               e.steps.some((s) =>
                 (s.code + ' ' + s.visible_output).toLowerCase().includes(q),
               )),
@@ -918,7 +923,7 @@ await relate.objects.Playlist.traverse.songs(id, {
         visible
           .map(([e, i]) => {
             let x = e.result;
-            return `<button class="episode ${i === ei ? 'active' : ''}" data-episode="${i}">${taskNames[x.task_id] || x.task_id}<small>${x.condition === 'sdk' ? 'Relate SDK' : x.condition === 'static' ? 'Static notes' : 'Raw API'} · repeat ${x.repeat + 1}</small><small>${x.steps} turns · ${fmt(x.seconds)}s · <span class="${x.success ? 'ok' : 'bad'}">${x.success ? 'Passed' : 'Failed'}</span></small></button>`;
+            return `<button class="episode ${i === ei ? 'active' : ''}" data-episode="${i}">${taskNames[x.task_id] || x.task_id}<small>${x.condition === 'sdk' ? 'Relate SDK' : x.condition === 'static' ? 'Static notes' : 'Raw API'} · repeat ${x.repeat + 1}</small><small class="trajectory-id">${esc(e.id)}</small><small>${x.steps} turns · ${fmt(x.seconds)}s · <span class="${x.success ? 'ok' : 'bad'}">${x.success ? 'Passed' : 'Failed'}</span></small></button>`;
           })
           .join('') || '<p>No matching episodes.</p>';
       document.querySelectorAll('[data-episode]').forEach(
@@ -952,7 +957,7 @@ await relate.objects.Playlist.traverse.songs(id, {
         x = e.result;
       ti = Math.min(ti, e.steps.length - 1);
       $('#episodeDetail').innerHTML =
-        `<h2 style="margin-top:0">${esc(taskNames[x.task_id] || x.task_id)} <span class="pill">${esc(x.condition)} · ${esc(x.model)}</span></h2><p class="muted">The condition describes available tools. ${x.condition === 'sdk' ? e.steps.filter((s) => s.code.includes('relate.')).length + ' turns mention relate.; this is a code indicator, not a successful-call count.' : 'This condition executes Python against the original APIs.'}</p><p><b class="${x.success ? 'ok' : 'bad'}">Official evaluator: ${x.success ? 'pass' : 'fail'}</b> · Task ${esc(x.task_id)} · Stopped: ${esc(x.termination)} · Marked complete: ${x.completed ? 'yes' : 'no'}</p><div class="metrics">${metric(fmt(x.seconds) + 's', 'Episode wall time')}${metric(fmt(x.prompt_tokens, 0), 'Input tokens')}${metric(fmt(x.generated_tokens, 0), 'Output tokens')}${metric('$' + fmt(x.estimated_usd, 4), 'Estimated model cost')}</div><details><summary>Task and exact initial messages</summary>${e.messages.map((m) => `<h4>${esc(m.role)}</h4><pre>${esc(m.content)}</pre>`).join('')}</details><details><summary>Setup, source calls and full episode metrics</summary><p>Source calls include host authentication and acquisition, plus agent API calls; completion polling is excluded. Snapshot fetches are connector instrumentation, not a count of SDK queries.</p><pre>${esc(JSON.stringify(x, null, 2))}</pre></details><div class="toolbar"><h3>Usage by turn</h3><label>Chart metric<select id="chartMetric"><option value="model">Model time (seconds)</option><option value="execution">Execution time (seconds)</option><option value="input">Input tokens</option><option value="output">Output tokens</option><option value="cost">Estimated cost (USD)</option></select></label></div><div class="chart" id="chart"></div><small class="muted">Bar height shows the selected metric. Hover for the value; select a bar or turn. Red underline = recorded execution error; green = code mentions complete_task.</small><div class="turns" id="turns"></div><div id="cell"></div><details><summary>Original evaluator result</summary><pre>${esc(JSON.stringify(e.evaluation, null, 2))}</pre></details>`;
+        `<h2 style="margin-top:0">${esc(taskNames[x.task_id] || x.task_id)} <span class="pill">${esc(x.condition)} · ${esc(x.model)}</span></h2><p>Trajectory ID: <code class="trajectory-id">${esc(runs[ri].id + '/' + e.id)}</code></p><p class="muted">The condition describes available tools. ${x.condition === 'sdk' ? e.steps.filter((s) => s.code.includes('relate.')).length + ' turns mention relate.; this is a code indicator, not a successful-call count.' : 'This condition executes Python against the original APIs.'}</p><p><b class="${x.success ? 'ok' : 'bad'}">Official evaluator: ${x.success ? 'pass' : 'fail'}</b> · Task ${esc(x.task_id)} · Stopped: ${esc(x.termination)} · Marked complete: ${x.completed ? 'yes' : 'no'}</p><div class="metrics">${metric(fmt(x.seconds) + 's', 'Episode wall time')}${metric(fmt(x.prompt_tokens, 0), 'Input tokens')}${metric(fmt(x.generated_tokens, 0), 'Output tokens')}${metric('$' + fmt(x.estimated_usd, 4), 'Estimated model cost')}</div><details><summary>Task and exact initial messages</summary>${e.messages.map((m) => `<h4>${esc(m.role)}</h4><pre>${esc(m.content)}</pre>`).join('')}</details><details><summary>Setup, source calls and full episode metrics</summary><p>Source calls include host authentication and acquisition, plus agent API calls; completion polling is excluded. Snapshot fetches are connector instrumentation, not a count of SDK queries.</p><pre>${esc(JSON.stringify(x, null, 2))}</pre></details><div class="toolbar"><h3>Usage by turn</h3><label>Chart metric<select id="chartMetric"><option value="model">Model time (seconds)</option><option value="execution">Execution time (seconds)</option><option value="input">Input tokens</option><option value="output">Output tokens</option><option value="cost">Estimated cost (USD)</option></select></label></div><div class="chart" id="chart"></div><small class="muted">Bar height shows the selected metric. Hover for the value; select a bar or turn. Red underline = recorded execution error; green = code mentions complete_task.</small><div class="turns" id="turns"></div><div id="cell"></div><details><summary>Original evaluator result</summary><pre>${esc(JSON.stringify(e.evaluation, null, 2))}</pre></details>`;
       $('#chartMetric').onchange = turn;
       turn();
     }
