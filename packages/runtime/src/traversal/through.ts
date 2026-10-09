@@ -1,7 +1,4 @@
-import { createHash } from 'node:crypto';
-import { canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
-import { ReadError } from '@relate/protocol';
 import type {
   FullPageResult,
   FullReadResult,
@@ -10,8 +7,9 @@ import type {
 } from '@relate/protocol';
 import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
-import { compareObjectIds } from '../storage.js';
+import { compareObjectIds, scanBatch } from '../storage.js';
 import { cursorCodec, project } from '../reads/index.js';
+import { traversalScope } from './scope.js';
 import type { TraversalOptions } from './traversal.js';
 
 type Through = Extract<
@@ -21,14 +19,28 @@ type Through = Extract<
 
 type Available = Extract<FullReadResult, { status: 'ok' }>;
 
+/** A destination and one readable junction record connecting it to the root. */
+type Candidate = [target: string, link: string];
+
 type Position = {
+  /** Destinations up to and including this ID were returned by earlier pages. */
   afterTarget?: string;
-  target?: string;
-  targetHasMore?: boolean;
+  /** Junction scan position inside the current pass. */
   afterLink?: string;
+  /** Smallest destinations after `afterTarget` found so far this pass, ascending. */
+  candidates?: Candidate[];
+  capacity?: number;
 };
 
-/** Destination-major enumeration gives distinct results across pages without an unbounded seen-ID cursor. */
+// Bounds the candidates carried in a mid-pass cursor; pages may be short.
+const SERIALIZED_CANDIDATES = 26;
+
+/**
+ * Each page is one ordered pass over the junction records. The pass keeps the
+ * smallest `limit + 1` distinct destinations connected to the root, so pages
+ * stay in destination-ID order without an unbounded seen-ID cursor. A page
+ * costs one junction scan, the same as reference traversal over its owner.
+ */
 export function createThroughTraversal(options: TraversalOptions) {
   const { manifest, store, read, clock, scopeFor } = options;
   const codec = cursorCodec(options.cursorKey);
@@ -38,37 +50,12 @@ export function createThroughTraversal(options: TraversalOptions) {
     definitionRevision: options.revision,
   };
 
-  async function scan(object: Manifest['objects'][number], after?: string) {
-    let batch;
-
-    try {
-      const input = { ...(after !== undefined ? { after } : {}), limit: 1 };
-
-      batch = object.sourceDefinitionId
-        ? await store.scan(
-            scopeFor(object.id, object.sourceDefinitionId),
-            input,
-          )
-        : await store.native!.scan(nativeScope, object.id, input);
-    } catch {
-      throw new ReadError('unavailable');
-    }
-
-    if (batch.objects.length > 1 || (!batch.objects.length && batch.hasMore))
-      throw new ReadError('unavailable');
-
-    const candidate = batch.objects[0]?.objectId;
-
-    if (
-      candidate !== undefined &&
-      (typeof candidate !== 'string' ||
-        !candidate ||
-        (after !== undefined && compareObjectIds(candidate, after) <= 0))
-    )
-      throw new ReadError('incomplete');
-
-    return { id: candidate, hasMore: batch.hasMore };
-  }
+  const scanner =
+    (object: Manifest['objects'][number]) =>
+    (input: { after?: string; limit: number }) =>
+      object.sourceDefinitionId
+        ? store.scan(scopeFor(object.id, object.sourceDefinitionId), input)
+        : store.native!.scan(nativeScope, object.id, input);
 
   return async (
     principal: Principal,
@@ -98,26 +85,19 @@ export function createThroughTraversal(options: TraversalOptions) {
     const to = owner.properties.find((p) => p.id === toId)!;
     const policy = manifest.policies[owner.id]!;
     const { cursor, limit = 25, evidence: _evidence, ...readRequest } = request;
-    const scope = createHash('sha256')
-      .update(
-        canonicalJson({
-          graphId: options.graphId,
-          revision: options.revision,
-          principal,
-          typeId,
-          id,
-          relationship: relationship.id,
-          forward,
-          query: { ...readRequest, limit },
-          bindings: manifest.objects
-            .filter((o) => o.sourceDefinitionId)
-            .map((o) => scopeFor(o.id, o.sourceDefinitionId!)),
-        }),
-      )
-      .digest('hex');
+    const scope = traversalScope(options, {
+      principal,
+      typeId,
+      id,
+      relationship: relationship.id,
+      forward,
+      query: { ...readRequest, limit },
+    });
     const position: Position = cursor
       ? JSON.parse(codec.decode(cursor, scope, clock()))
       : {};
+    const encode = (next: Position) =>
+      codec.encode(scope, JSON.stringify(next), clock() + 900_000);
 
     if (
       !allowsField(principal, policy, from.access) ||
@@ -139,6 +119,81 @@ export function createThroughTraversal(options: TraversalOptions) {
       select: [from.name, to.name],
       requireComplete: false,
     };
+    const { afterTarget } = position;
+    const candidates = position.candidates ?? [];
+    let capacity = position.capacity ?? limit + 1;
+    let afterLink = position.afterLink;
+
+    // A hidden or deleted destination makes the reference unavailable, the
+    // same as a link to another root; neither is a membership of this root.
+    function keep(link: string, member: FullReadResult) {
+      const destination = member.status === 'ok' && member.data[to.name];
+
+      if (
+        member.status !== 'ok' ||
+        member.data[from.name] !== id ||
+        typeof destination !== 'string' ||
+        (afterTarget !== undefined &&
+          compareObjectIds(destination, afterTarget) <= 0)
+      )
+        return;
+
+      const at = candidates.findIndex(
+        ([t]) => compareObjectIds(t, destination) >= 0,
+      );
+
+      if (at < 0) {
+        if (candidates.length < capacity) candidates.push([destination, link]);
+      } else if (candidates[at]![0] !== destination) {
+        candidates.splice(at, 0, [destination, link]);
+        candidates.length = Math.min(candidates.length, capacity);
+      }
+    }
+
+    let scanned = 0;
+    let passing = true;
+
+    while (passing && scanned < 100) {
+      const batch = await scanBatch(scanner(owner), afterLink, 100 - scanned);
+
+      scanned += batch.ids.length;
+      passing = batch.hasMore;
+
+      for (let i = 0; i < batch.ids.length; i += 8) {
+        const links = batch.ids.slice(i, i + 8);
+        const members = await Promise.all(
+          links.map((link) => read(principal, owner.id, link, linkRequest)),
+        );
+
+        links.forEach((link, j) => keep(link, members[j]!));
+      }
+
+      afterLink = batch.ids.at(-1) ?? afterLink;
+    }
+
+    if (passing) {
+      // The pass resumes on the next page. Dropping the largest candidates is
+      // safe: a later pass finds them again.
+      capacity = Math.min(capacity, SERIALIZED_CANDIDATES);
+      candidates.length = Math.min(candidates.length, capacity);
+
+      return {
+        data: [],
+        meta: {
+          exhausted: false,
+          continuationCursor: encode({
+            ...(afterTarget !== undefined ? { afterTarget } : {}),
+            afterLink: afterLink!,
+            candidates,
+            capacity,
+          }),
+        },
+      };
+    }
+
+    // A full set holds one destination beyond this page, proving another exists.
+    const more = candidates.length === capacity;
+    const page = more ? candidates.slice(0, -1) : candidates;
     const selected = [
       ...new Set(
         request.select ??
@@ -149,78 +204,27 @@ export function createThroughTraversal(options: TraversalOptions) {
             .map((p) => p.name),
       ),
     ];
-    const pending: { id: string; linkId: string; result: Available }[] = [];
-    let scanned = 0;
-    let more = true;
-    const finishTarget = () => {
-      position.afterTarget = position.target!;
-      more = position.targetHasMore!;
-      delete position.target;
-      delete position.targetHasMore;
-      delete position.afterLink;
-    };
-
-    // The budget includes both destination and membership scans. A cursor can
-    // resume inside a destination's membership search, including empty pages.
-    while (more && scanned < 100 && pending.length < limit) {
-      if (!position.target) {
-        const next = await scan(target, position.afterTarget);
-
-        scanned++;
-
-        if (!next.id) {
-          more = false;
-          break;
-        }
-
-        position.target = next.id;
-        position.targetHasMore = next.hasMore;
-
-        if (scanned === 100) break;
-      }
-
-      const link = await scan(owner, position.afterLink);
-
-      scanned++;
-
-      if (!link.id) {
-        finishTarget();
-        continue;
-      }
-
-      position.afterLink = link.id;
-      const member = await read(principal, owner.id, link.id, linkRequest);
-
-      if (
-        member.status === 'ok' &&
-        member.data[from.name] === id &&
-        member.data[to.name] === position.target
-      ) {
-        const result = await read(principal, target.id, position.target, {
-          ...readRequest,
-          select: selected,
-          requireComplete: false,
-        });
-
-        if (result.status === 'ok')
-          pending.push({ id: position.target, linkId: link.id, result });
-
-        finishTarget();
-      } else if (!link.hasMore) finishTarget();
-    }
-
     const authorized: {
-      item: (typeof pending)[number];
+      id: string;
+      result: Available;
       linkAllowed(): Promise<boolean>;
       targetAllowed(): Promise<boolean>;
     }[] = [];
 
-    for (const item of pending) {
+    for (const [destination, linkId] of page) {
+      const result = await read(principal, target.id, destination, {
+        ...readRequest,
+        select: selected,
+        requireComplete: false,
+      });
+
+      if (result.status !== 'ok') continue;
+
       let linkAllowed = async () => false;
       const link = await read(
         principal,
         owner.id,
-        item.linkId,
+        linkId,
         { ...linkRequest, refresh: false },
         undefined,
         (check) => {
@@ -231,15 +235,16 @@ export function createThroughTraversal(options: TraversalOptions) {
       if (
         link.status !== 'ok' ||
         link.data[from.name] !== id ||
-        link.data[to.name] !== item.id
+        link.data[to.name] !== destination
       )
         continue;
 
+      // Recheck the destination after link validation may have refreshed private evidence.
       let targetAllowed = async () => false;
-      const destination = await read(
+      const final = await read(
         principal,
         target.id,
-        item.id,
+        destination,
         { ...rootRequest, refresh: false },
         undefined,
         (check) => {
@@ -247,8 +252,13 @@ export function createThroughTraversal(options: TraversalOptions) {
         },
       );
 
-      if (destination.status === 'ok')
-        authorized.push({ item, linkAllowed, targetAllowed });
+      if (final.status === 'ok')
+        authorized.push({
+          id: destination,
+          result,
+          linkAllowed,
+          targetAllowed,
+        });
     }
 
     let rootAllowed = async () => false;
@@ -267,8 +277,8 @@ export function createThroughTraversal(options: TraversalOptions) {
 
     const data: Array<FullPageResult['data'][number]> = [];
 
-    for (const { item, linkAllowed, targetAllowed } of authorized) {
-      if ((await linkAllowed()) && (await targetAllowed()))
+    for (const item of authorized) {
+      if ((await item.linkAllowed()) && (await item.targetAllowed()))
         data.push(
           project(item.id, item.result, selected, readRequest, clock()),
         );
@@ -281,11 +291,7 @@ export function createThroughTraversal(options: TraversalOptions) {
       meta: more
         ? {
             exhausted: false,
-            continuationCursor: codec.encode(
-              scope,
-              JSON.stringify(position),
-              clock() + 900_000,
-            ),
+            continuationCursor: encode({ afterTarget: page.at(-1)![0] }),
           }
         : { exhausted: true },
     };

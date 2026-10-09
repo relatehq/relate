@@ -236,20 +236,21 @@ retained link. Membership changes and deletions are observed according to the
 read's freshness options; use `refresh: true` to request fresh source data.
 
 Traversal covers existing graph records, including native endpoints and native
-junctions. It does not discover or adopt external records. The first
-implementation scans destinations and searches memberships for each one, with at
-most 100 candidate rows scanned per page. Large graphs can therefore require
-many pages, including empty pages with `meta.exhausted: false`. Follow the
-continuation cursor or use `for await`; an empty page alone does not mean the
-traversal is finished. This is a bounded scan implementation, not an indexed
-database join.
+junctions. It does not discover or adopt external records. Each page makes one
+pass over the junction records, scanning at most 100 per call, and returns the
+smallest destinations it found. Cost grows with the number of junction records,
+not with the number of destination objects. A junction with more than 100
+records takes several calls per page, including empty pages with
+`meta.exhausted: false`. Follow the continuation cursor or use `for await`; an
+empty page alone does not mean the traversal is finished. This is a bounded scan
+implementation, not an indexed database join.
 
-Cursors preserve the destination and membership scan positions without revealing
-hidden IDs. They expire after 15 minutes and are scoped to the graph revision,
-source bindings, caller, starting object, relationship direction, selection,
-read options, and page size. Switching between compact and full evidence is
-allowed. Pagination is not a snapshot: concurrent membership changes can affect
-later pages.
+Cursors preserve the junction scan position and pending destinations without
+revealing hidden IDs. They expire after 15 minutes and are scoped to the graph
+revision, source bindings, caller, starting object, relationship direction,
+selection, read options, and page size. Switching between compact and full
+evidence is allowed. Pagination is not a snapshot: concurrent membership changes
+can affect later pages.
 
 ---
 

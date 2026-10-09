@@ -336,6 +336,51 @@ export function throughTraversalContract(
       expect(second.meta).toEqual({ exhausted: true });
     });
 
+    it('scans each membership once per page, independent of destination count', async () => {
+      const t = await setup();
+      const p = await t.playlist('p');
+
+      await t.playlist('q');
+      const songs = await Promise.all(
+        Array.from({ length: 120 }, (_, i) => t.song(`song-${i}`)),
+      );
+
+      await t.link('entry-a', 'p', 'song-7');
+      await t.link('entry-b', 'p', 'song-3');
+      await t.link('entry-c', 'p', 'song-7');
+      await Promise.all(
+        Array.from({ length: 117 }, (_, i) =>
+          t.link(`other-${i}`, 'q', `song-${i}`),
+        ),
+      );
+      const scan = vi.spyOn(t.store, 'scan');
+      const first = await t.objects.Playlist.traverse.songs(p, { limit: 1 });
+
+      // 120 memberships exceed one page's scan budget; the pass resumes.
+      expect(first.data).toEqual([]);
+      expect(first.meta.exhausted).toBe(false);
+      const second = await t.objects.Playlist.traverse.songs(p, {
+        limit: 1,
+        cursor: first.meta.continuationCursor!,
+      });
+      const expected = [songs[3]!, songs[7]!].sort();
+
+      expect(second.data.map((r) => r.id)).toEqual([expected[0]]);
+      const third = await t.objects.Playlist.traverse.songs(p, {
+        limit: 1,
+        cursor: second.meta.continuationCursor!,
+      });
+      const fourth = await t.objects.Playlist.traverse.songs(p, {
+        limit: 1,
+        cursor: third.meta.continuationCursor!,
+      });
+
+      expect(fourth.data.map((r) => r.id)).toEqual([expected[1]]);
+      expect(fourth.meta).toEqual({ exhausted: true });
+      // Two passes over 120 memberships, in batches; destinations are never scanned.
+      expect(scan).toHaveBeenCalledTimes(4);
+    });
+
     it('binds cursors to principal, direction, selection, root and page size, but permits evidence changes', async () => {
       const t = await setup();
       const p = await t.playlist('p');
@@ -397,8 +442,9 @@ export function throughTraversalContract(
       vi.restoreAllMocks();
       const scan = t.store.scan.bind(t.store);
 
-      vi.spyOn(t.store, 'scan').mockImplementation((scope, input) =>
-        scan(scope, { limit: input.limit }),
+      // Short batches are valid; a batch that repeats the boundary is not.
+      vi.spyOn(t.store, 'scan').mockImplementation((scope) =>
+        scan(scope, { limit: 1 }),
       );
       await expect(
         Promise.resolve(t.objects.Playlist.traverse.songs(p)),

@@ -47,13 +47,17 @@ export type RelationshipEdgeData = {
   readonly id: string;
   readonly forward: ManifestRelationship['forward'];
   readonly reverse: ManifestRelationship['reverse'];
-  readonly viaProperty: string;
-  readonly through?: {
-    readonly objectId: string;
-    readonly from: string;
-    readonly to: string;
-  };
-};
+} & (
+  | { readonly viaProperty: string; readonly through?: never }
+  | {
+      readonly viaProperty?: never;
+      readonly through: {
+        readonly objectId: string;
+        readonly from: string;
+        readonly to: string;
+      };
+    }
+);
 
 export interface GraphNode {
   readonly id: string;
@@ -134,39 +138,51 @@ export function mapManifest(manifest: Manifest): GraphModel {
   const edges = [...(manifest.relationships ?? [])]
     .sort(byId)
     .flatMap((relationship): GraphEdge[] => {
-      const owner = objects.get(relationship.toObjectDefinitionId);
-      const throughOwner =
-        'through' in relationship
-          ? objects.get(relationship.through.objectDefinitionId)
-          : undefined;
-      const throughFrom =
-        'through' in relationship
-          ? throughOwner?.properties.find(
-              (p) =>
-                p.id === relationship.through.fromReferencePropertyDefinitionId,
-            )
-          : undefined;
-      const throughTo =
-        'through' in relationship
-          ? throughOwner?.properties.find(
-              (p) =>
-                p.id === relationship.through.toReferencePropertyDefinitionId,
-            )
-          : undefined;
-      const via =
-        'referencePropertyDefinitionId' in relationship
-          ? owner?.properties.find(
-              (p) => p.id === relationship.referencePropertyDefinitionId,
-            )
-          : undefined;
-
       // A validated manifest always resolves these; stay defensive anyway.
       if (
         !objects.has(relationship.fromObjectDefinitionId) ||
-        !owner ||
-        (!via && !(throughFrom && throughTo))
+        !objects.has(relationship.toObjectDefinitionId)
       )
         return [];
+
+      let link:
+        | { viaProperty: string }
+        | { through: NonNullable<RelationshipEdgeData['through']> };
+
+      if ('through' in relationship) {
+        const {
+          objectDefinitionId,
+          fromReferencePropertyDefinitionId,
+          toReferencePropertyDefinitionId,
+        } = relationship.through;
+        const junction = objects.get(objectDefinitionId);
+        const from = junction?.properties.find(
+          (p) => p.id === fromReferencePropertyDefinitionId,
+        );
+        const to = junction?.properties.find(
+          (p) => p.id === toReferencePropertyDefinitionId,
+        );
+
+        if (!from || !to) return [];
+
+        link = {
+          through: {
+            objectId: objectDefinitionId,
+            from: from.name,
+            to: to.name,
+          },
+        };
+      } else {
+        const via = objects
+          .get(relationship.toObjectDefinitionId)
+          ?.properties.find(
+            (p) => p.id === relationship.referencePropertyDefinitionId,
+          );
+
+        if (!via) return [];
+
+        link = { viaProperty: via.name };
+      }
 
       return [
         {
@@ -177,18 +193,7 @@ export function mapManifest(manifest: Manifest): GraphModel {
             id: relationship.id,
             forward: relationship.forward,
             reverse: relationship.reverse,
-            viaProperty:
-              via?.name ??
-              `${throughOwner!.apiName}.${throughFrom!.name} → ${throughTo!.name}`,
-            ...(throughOwner && throughFrom && throughTo
-              ? {
-                  through: {
-                    objectId: throughOwner.id,
-                    from: throughFrom.name,
-                    to: throughTo.name,
-                  },
-                }
-              : {}),
+            ...link,
           },
         },
       ];

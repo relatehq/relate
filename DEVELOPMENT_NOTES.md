@@ -23,11 +23,22 @@ has `referencePropertyDefinitionId`. Upgrade readers before using a graph with
 the graph revision and remains subject to installed-revision pinning. There is
 no storage schema migration or package version bump.
 
-Reads use bounded destination/membership scans, with distinct destinations in
-object-ID order and opaque continuation cursors. Membership metadata and
-ordering remain on the junction; no automatic link writes or new mutation
-operations are introduced. The docs site covers declaration, traversal,
-authorization, and scan costs.
+`RelationshipDefinition` is now a type alias over a `via | through` union
+instead of an interface. Code that extends it with
+`interface X extends RelationshipDefinition` must use an intersection type
+instead, and code that reads `.via` must first narrow with
+`'via' in relationship` (or check `relationship.through`).
+
+Runtime scans now share one validator. A store that returns an empty batch with
+`hasMore: true` makes reference traversal fail with `incomplete` instead of
+`unavailable`, matching queries.
+
+Each page is one bounded pass over the junction's records (100 per call),
+keeping the smallest distinct destinations, so cost follows junction size, not
+destination count. Results are in destination object-ID order with opaque
+continuation cursors. Membership metadata and ordering remain on the junction;
+no automatic link writes or new mutation operations are introduced. The docs
+site covers declaration, traversal, authorization, and scan costs.
 
 ## Graph queries and native enumeration
 
