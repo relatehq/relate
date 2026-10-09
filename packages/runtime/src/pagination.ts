@@ -1,5 +1,6 @@
 import { ReadError } from '@relate/protocol';
 import type { Page, QueryResult } from '@relate/protocol';
+import { cursorIssue } from './reads/index.js';
 
 // TODO(client, open decision): choose a browser-safe shared home for createQuery,
 // and the typed Consumer contract before implementing @relate/client.
@@ -52,7 +53,7 @@ function validatePage<T>(page: Page<T>, cursor: string | undefined): void {
  */
 export function createQuery<T>(
   readPage: (cursor: string | undefined) => Promise<Page<T>>,
-  options: { readonly cursor?: string } = {},
+  options: { readonly cursor?: string; readonly operation?: string } = {},
 ): QueryResult<T> {
   const initialCursor = options.cursor;
 
@@ -60,7 +61,10 @@ export function createQuery<T>(
     initialCursor !== undefined &&
     (typeof initialCursor !== 'string' || initialCursor.length === 0)
   )
-    throw new ReadError('invalid-request');
+    throw new ReadError('invalid-request', {
+      operation: options.operation ?? 'query',
+      issues: [cursorIssue()],
+    });
 
   const fetchPage = async (cursor: string | undefined): Promise<Page<T>> => {
     const page = await readPage(cursor);

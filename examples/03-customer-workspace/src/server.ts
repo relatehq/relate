@@ -157,8 +157,9 @@ export async function startServer(
         });
       }
 
+      // Request issues name only options and properties this reader can discover.
       if (error instanceof ReadError && error.code === 'invalid-request')
-        return json(400, { error: 'Invalid read request.' });
+        return json(400, { error: error.message, issues: error.issues });
 
       reportError(error);
 

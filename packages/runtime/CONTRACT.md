@@ -187,13 +187,14 @@ and object records live in `relate`.
   behavior, but never discover/adopt provider records. Exhaustion describes this
   scan, not provider-wide coverage. Direct source queries and sync are planned.
 - Validate filter names, values and field access before scanning, even if there
-  are no records. Invalid or forbidden filters reject with `invalid-request`.
-  Whole-object policies filter candidates before caller predicates. Missing or
-  unavailable filter evidence on a readable candidate rejects with `incomplete`,
-  rather than silently treating an unknown match as false. `stale: 'allow'` can
-  match authorized stale values; `stale: 'omit'` cannot. Source
-  denials/deletions follow the existing read path and do not resurrect retained
-  data.
+  are no records. Invalid or forbidden filters reject with `invalid-request`. A
+  filterable property is one the actor's discovery lists, so a reference whose
+  target type the actor cannot read is not filterable. Whole-object policies
+  filter candidates before caller predicates. Missing or unavailable filter
+  evidence on a readable candidate rejects with `incomplete`, rather than
+  silently treating an unknown match as false. `stale: 'allow'` can match
+  authorized stale values; `stale: 'omit'` cannot. Source denials/deletions
+  follow the existing read path and do not resurrect retained data.
 - Filter fields need not be selected and do not appear in projected results.
   `requireComplete` applies to the final selection of matching records. Records
   preserve field evidence, freshness and warnings from reads. Authorization and
@@ -224,6 +225,34 @@ and object records live in `relate`.
 Shared acceptance cases in `tests/support/query-contract.ts` execute on memory
 and Postgres. Type probes cover caller/action filters, reference IDs, selection
 and iteration; installed-package smoke checks exercise graph query execution.
+
+## Request errors and operation contracts
+
+- `reads/options.ts` owns the read option table. Request validation, discovery
+  (`describe().operations`) and error messages all read it, so a described
+  option is exactly an accepted option for get, query, to-many and to-one
+  traversal. Unknown options are rejected for every operation, including get.
+- `ReadError('invalid-request', { operation, issues, acceptedOptions? })`
+  reports every option, argument and filter issue at once, before membership,
+  records or sources are consulted. Issues are a pure function of the request,
+  operation and actor's static discovery.
+- Issues name only request options, arguments and properties or traversals the
+  actor can discover. A hidden and a missing filter property produce the same
+  issue; `accepted` lists the discoverable names. A traversal outside
+  `availableTraversals` (missing, unsupported, role-hidden, or from an
+  unreadable start type) gets one neutral `unknown-traversal` issue before its
+  options or ID are checked, so the error does not reveal cardinality. Every
+  cursor rejection (forged, altered, expired, other scope) is one
+  `invalid-cursor` issue.
+- Operation names in errors use the object's API name only when the actor may
+  read that type; otherwise they echo the caller-supplied definition ID
+  (`business.customer.query`).
+- Alias hints (`pageSize` → `limit`, `offset` → cursor paging) are generic SDK
+  vocabulary, never graph- or task-specific.
+- `operationContracts` is one frozen value shared by every graph and actor.
+  Object detail adds per-object `returns`, per-traversal `returns` and
+  per-property `filter` text. Call paths belong to the consumer surface
+  (`@relate/node` adds `call`), not to the runtime.
 
 ## Native actions
 

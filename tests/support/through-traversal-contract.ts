@@ -232,14 +232,19 @@ export function throughTraversalContract(
         const s = await t.song('s');
 
         await t.link('link', 'p', 's');
-        expect(
-          (await t.objects.Playlist.traverse.songs(p, { select: ['title'] }))
-            .data,
-        ).toEqual([]);
-        expect(
-          (await t.objects.Song.traverse.playlists(s, { select: ['name'] }))
-            .data,
-        ).toEqual([]);
+        // A role-hidden traversal answers exactly like a missing one.
+        await expect(
+          t.objects.Playlist.traverse.songs(p, { select: ['title'] }),
+        ).rejects.toMatchObject({
+          code: 'invalid-request',
+          issues: [{ problem: 'unknown-traversal' }],
+        });
+        await expect(
+          t.objects.Song.traverse.playlists(s, { select: ['name'] }),
+        ).rejects.toMatchObject({
+          code: 'invalid-request',
+          issues: [{ problem: 'unknown-traversal' }],
+        });
         const editor = t.runtime.as({
           ...t.reader,
           roles: ['reader', 'editor'],

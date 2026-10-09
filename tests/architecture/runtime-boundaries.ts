@@ -25,13 +25,14 @@ const dependencies: Record<string, readonly string[]> = {
   traversal: ['authorization', 'reads', 'storage'],
   queries: ['authorization', 'reads', 'storage'],
   authorization: ['storage'],
-  // Discovery reuses the enforcement gates rather than restating them.
-  discovery: ['authorization', 'actions', 'traversal'],
+  // Discovery reuses the enforcement gates rather than restating them, and
+  // describes read options from the same table request validation uses.
+  discovery: ['authorization', 'actions', 'traversal', 'reads'],
   observations: ['storage'],
   reads: [],
   storage: ['observations'],
   memory: ['storage', 'observations'],
-  pagination: [],
+  pagination: ['reads'],
 };
 const roots: Record<string, string> = {
   'index.ts': 'public',
@@ -40,6 +41,7 @@ const roots: Record<string, string> = {
   'memory.ts': 'memory',
   'native-memory.ts': 'memory',
   'discovery.ts': 'discovery',
+  'contracts.ts': 'discovery',
   'pagination.ts': 'pagination',
 };
 const folders = new Set([

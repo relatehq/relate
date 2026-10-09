@@ -10,17 +10,24 @@ import type {
 } from '@relate/protocol';
 import type { ObservationStore, StorageScope } from '../storage.js';
 import { scanBatch } from '../storage.js';
-import { allowsField } from '../authorization/index.js';
+import {
+  allowsField,
+  operationName,
+  visibleName,
+} from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
-import { validateReadRequest, project, cursorCodec } from '../reads/index.js';
+import {
+  cursorCodec,
+  invalidValue,
+  project,
+  rejectIssues,
+  requestIssues,
+  throwIssues,
+} from '../reads/index.js';
 import { traversalScope } from './scope.js';
 
 import { createThroughTraversal } from './through.js';
-import {
-  traversalAllowed,
-  traversalsFrom,
-  traversalSupported,
-} from './available.js';
+import { availableTraversals, traversalAllowed } from './available.js';
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
@@ -56,55 +63,60 @@ export function createTraversal(options: TraversalOptions) {
     name: string,
     input: TraversalRequest = {},
   ): Promise<PageResult | ObjectResult> => {
-    validateReadRequest(input);
+    const operation = operationName(
+      manifest,
+      principal,
+      typeId,
+      `traverse.${name}`,
+    );
+    const available = availableTraversals(manifest, principal, typeId);
+    const match = available.find((t) => t.traversal.name === name);
+
+    // Missing, unsupported and role-hidden traversals share one answer, decided
+    // before options are checked so no cardinality or object name leaks.
+    if (!match)
+      throwIssues(operation, 'traverse-many', [
+        {
+          path: [],
+          problem: 'unknown-traversal',
+          message: `"${name}" is not an available traversal from this object.`,
+          accepted: available.map((t) => t.traversal.name),
+        },
+      ]);
+
+    const kind =
+      match.traversal.cardinality === 'one' ? 'traverse-one' : 'traverse-many';
+    const issues = requestIssues(input, kind);
 
     if (typeof id !== 'string' || !id.trim())
-      throw new ReadError('invalid-request');
+      issues.unshift(
+        invalidValue(
+          ['id'],
+          `a nonblank ${visibleName(manifest, principal, typeId)} object ID string`,
+          id,
+        ),
+      );
+
+    rejectIssues(operation, kind, issues);
 
     const request: TraversalRequest = structuredClone(
       Object.fromEntries(
         Object.entries(input).filter(([, value]) => value !== undefined),
       ),
     );
-    const match = traversalsFrom(manifest, typeId).find(
-      ({ relationship: r, forward }) =>
-        (forward ? r.forward : r.reverse).name === name,
-    );
-
-    if (!match || !traversalSupported(manifest, match.relationship))
-      throw new ReadError('invalid-request');
-
     const { relationship, forward } = match;
     const limit = request.limit ?? 25;
 
-    if (
-      !Number.isInteger(limit) ||
-      limit < 1 ||
-      limit > 100 ||
-      (request.cursor !== undefined &&
-        (typeof request.cursor !== 'string' || !request.cursor)) ||
-      (relationship.reverse.cardinality === 'one' &&
-        !forward &&
-        (request.limit !== undefined || request.cursor !== undefined)) ||
-      Object.keys(request).some(
-        (key) =>
-          ![
-            'select',
-            'evidence',
-            'maxAgeMs',
-            'refresh',
-            'stale',
-            'requireComplete',
-            'timeoutMs',
-            'limit',
-            'cursor',
-          ].includes(key),
-      )
-    )
-      throw new ReadError('invalid-request');
-
     if ('through' in relationship)
-      return through(principal, typeId, id, relationship, forward, request);
+      return through(
+        principal,
+        typeId,
+        id,
+        relationship,
+        forward,
+        request,
+        operation,
+      );
 
     const targetType = forward
       ? relationship.toObjectDefinitionId
@@ -132,7 +144,9 @@ export function createTraversal(options: TraversalOptions) {
       forward,
       query: { ...readRequest, limit },
     });
-    let after = cursor ? codec.decode(cursor, scope, clock()) : undefined;
+    let after = cursor
+      ? codec.decode(cursor, scope, clock(), operation)
+      : undefined;
     const unavailable = () =>
       forward ? empty() : { status: 'not-found' as const };
 

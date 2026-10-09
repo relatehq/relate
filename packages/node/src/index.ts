@@ -11,8 +11,10 @@ export type {
   PageOptions,
   QueryOptions,
   ObjectOperations,
+  ObjectDescription,
   ReadOptions,
   Relate,
+  TraversalDescription,
 } from './types.js';
 
 export type {
@@ -20,10 +22,11 @@ export type {
   ActionFieldDescription,
   ActionSummary,
   GraphDescription,
-  ObjectDescription,
   ObjectSummary,
+  OperationContract,
+  OperationContracts,
+  OptionDescription,
   PropertyDescription,
-  TraversalDescription,
 } from '@relate/runtime';
 
 export { createRuntime } from './runtime.js';

@@ -11,6 +11,13 @@ export type { QueryResult } from './pagination.js';
 export type { ActionHandler, ActionExecutionContext } from './actions/index.js';
 
 export { createDiscovery } from './discovery.js';
+export { operationContracts } from './contracts.js';
+
+export type {
+  OperationContract,
+  OperationContracts,
+  OptionDescription,
+} from './contracts.js';
 
 export type {
   ActionDescription,

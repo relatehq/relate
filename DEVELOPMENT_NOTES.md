@@ -6,6 +6,34 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Discoverable operation contracts and request errors
+
+`relate.as(principal).describe()` now includes `operations`: how to call get,
+query and traversals, which options each accepts, every option's type and
+default, result shapes and paging. Object detail adds `call` paths
+(`objects.Customer.traverse.invoices(id, options?)`), `returns` types and a
+`filter` description on every property.
+
+Breaking: object detail `operations.get` was `true` and is now
+`{ returns, call }`; `operations.query` gains `returns` and `call`. Code that
+checked `operations.get === true` should check that `operations.get` exists.
+
+`ReadError('invalid-request')` keeps its code and now carries `operation`,
+`issues` and, for unknown options, `acceptedOptions`. Its message lists each
+issue instead of only the code. `get` and to-one traversal now reject unknown
+options (previously `get` ignored them). A `where` filter on a reference whose
+target type the reader cannot read is rejected as `invalid-request`; it
+previously passed validation.
+
+Calling a traversal the reader's roles hide now throws the same
+`unknown-traversal` `ReadError('invalid-request')` as a traversal name that does
+not exist. Previously a role-hidden to-many traversal returned an empty page and
+a to-one traversal returned `not-found`, which let a caller tell hidden
+traversals from missing ones. A traversal is hidden when its start or
+destination type is unreadable or its link field is in a field group the reader
+lacks. Record-level policy is unchanged: denied records are still left out of
+results.
+
 ## Actor-bound graph discovery
 
 `relate.as(principal).describe()` now returns the graph's objects and actions
