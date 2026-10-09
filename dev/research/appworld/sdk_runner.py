@@ -27,9 +27,9 @@ SDK_PROMPT = """You are an agent operating simulated apps to complete a user's t
 Return JSON with exactly one key, code, containing executable TypeScript. No markdown.
 Your TypeScript runs in a persistent Node REPL: bindings persist and top-level await is supported. Use console.log to inspect results; only printed output is visible.
 Use the authenticated Relate SDK consumer `relate` for graph reads. Start by discovering the graph with relate.describe() and object details with relate.objects[apiName].describe(). Read descriptions before guessing fields or relationships.
-For capabilities outside the graph and task completion, original application APIs are also available as asynchronous apis.APP.OPERATION({named: arguments}). Discover them with await apis.api_docs.show_app_descriptions(), await apis.api_docs.show_api_descriptions({app_name: ...}) and await apis.api_docs.show_api_doc({app_name: ..., api_name: ...}). Read docs before guessing arguments.
+The graph is your only application-data interface. Original application APIs and their credentials are not exposed in this environment.
 Always finish pagination. Use TypeScript loops for bulk work.
-Complete via await apis.supervisor.complete_task({answer: ...}) for a question; omit answer for an action task.
+Complete via await completeTask({answer: ...}) for a question; omit answer for an action task.
 Do not access databases, files on the real machine, task solutions, or evaluation internals. Imports and host filesystem/network access are not available.
 """
 AUTH = """\nAll three apps are already authenticated equally by the host. The variable tokens contains spotify, phone and venmo access tokens. Use the appropriate token with original APIs; do not log in again. Work with real API data; never invent records.\n"""
@@ -42,7 +42,7 @@ def dump(value):
 
 
 class NodeRepl:
-    def __init__(self, world, rows, tokens):
+    def __init__(self, world, rows):
         self.world = world
         # Permission checks also constrain escaped JS contexts: no arbitrary host
         # files, subprocesses, workers or network. Only code/dependencies readable.
@@ -74,7 +74,7 @@ class NodeRepl:
         self.buffer = b""
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.process.stdout, selectors.EVENT_READ)
-        self.request({"type": "init", "rows": rows, "tokens": tokens})
+        self.request({"type": "init", "rows": rows})
 
     def send(self, value):
         self.process.stdin.write(dump(value) + "\n")
@@ -98,38 +98,30 @@ class NodeRepl:
                 self.buffer += chunk
             line, self.buffer = self.buffer.split(b"\n", 1)
             event = json.loads(line)
-            if event["type"] == "api":
-                before = len(self.world.requester.request_tracker.requests)
+            if event["type"] == "complete":
                 try:
-                    if (
-                        event["app"] == "admin"
-                        or event["app"].startswith("_")
-                        or event["api"].startswith("_")
-                    ):
-                        raise ValueError("Private app APIs are unavailable")
-                    result = getattr(
-                        getattr(self.world.apis, event["app"]), event["api"]
-                    )(**event["args"])
+                    options = event.get("options")
+                    if not isinstance(options, dict) or set(options) - {"answer"}:
+                        raise ValueError("completeTask accepts only an optional answer")
+                    result = self.world.apis.supervisor.complete_task(**options)
                     response = {
-                        "type": "api-result",
+                        "type": "completion-result",
                         "id": event["id"],
                         "result": result,
                     }
                 except Exception as error:
                     response = {
-                        "type": "api-result",
+                        "type": "completion-result",
                         "id": event["id"],
                         "error": f"{type(error).__name__}: {error}",
                     }
-                records = self.world.requester.request_tracker.requests[before:]
-                response["invalidate"] = any(
-                    r["method"] not in ("get", "head") for r in records
-                )
                 self.send(response)
             elif event["type"] == "error":
                 raise RuntimeError(event["error"])
-            else:
+            elif event["type"] in {"ready", "result", "closed"}:
                 return event
+            else:
+                raise RuntimeError("Unsupported Node worker event")
 
     def close(self):
         if self.process.poll() is None:
@@ -231,7 +223,7 @@ def run(args, key, task_id, condition, repeat, spent):
                 "Return JSON with exactly one key, code, containing executable TypeScript. No markdown.",
                 "Use execute_code to run the next TypeScript cell.",
             )
-            + AUTH
+            + ("" if condition == "sdk" else AUTH)
             + COMPLETION
             + "\nWork iteratively: write one short cell, inspect its printed results, then choose the next cell. Read documentation output before attempting the documented operation.\n",
         }
@@ -269,7 +261,7 @@ def run(args, key, task_id, condition, repeat, spent):
                     len(world.requester.request_tracker.requests) - setup_calls
                 )
                 acquisition_seconds = clock.real_perf_counter() - acquire_start
-                node = NodeRepl(world, rows, tokens)
+                node = NodeRepl(world, rows)
             setup_seconds = clock.real_perf_counter() - start
             messages.append(
                 {
@@ -370,7 +362,7 @@ def run(args, key, task_id, condition, repeat, spent):
                     and model["call_id"] is not None
                 ):
                     reminder = (
-                        "await apis.supervisor.complete_task({answer: value})"
+                        "await completeTask({answer: value})"
                         if node
                         else "apis.supervisor.complete_task(answer=value)"
                     )
@@ -503,6 +495,7 @@ def main():
             "action_protocol": "single execute_code function call; stateless encrypted reasoning replay",
             "world_seed": 100,
             "sdk_prompt": SDK_PROMPT,
+            "sdk_capabilities": "relate SDK reads and completeTask only; no original APIs or credentials",
             "raw_prompt": BASE,
             "static_notes": SEMANTICS,
             "completion_instruction": COMPLETION,

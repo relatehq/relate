@@ -35,9 +35,11 @@ class SdkReplTests(unittest.TestCase):
     def start(self):
         world = SimpleNamespace(
             requester=SimpleNamespace(request_tracker=SimpleNamespace(requests=[])),
-            apis=SimpleNamespace(example=SimpleNamespace(echo=lambda **args: args)),
+            apis=SimpleNamespace(
+                supervisor=SimpleNamespace(complete_task=lambda **args: args)
+            ),
         )
-        node = NodeRepl(world, records(), {})
+        node = NodeRepl(world, records())
         self.addCleanup(node.close)
         return node
 
@@ -66,7 +68,7 @@ console.log(JSON.stringify({x, total, evidence: playlists.data[0].meta.evidence}
         self.assertIn('"evidence":"compact"', result["output"])
         self.assertIsNone(result["error"])
 
-    def test_errors_recover_and_parallel_original_api_calls_complete(self):
+    def test_errors_recover_and_completion_works(self):
         node = self.start()
         for code in [
             "missingVariable",
@@ -78,11 +80,50 @@ console.log(JSON.stringify({x, total, evidence: playlists.data[0].meta.evidence}
         result = node.request(
             {
                 "type": "execute",
-                "code": "console.log(await Promise.all([apis.example.echo({value: 3}), apis.example.echo({value: 4})]));",
+                "code": 'console.log(await completeTask({answer: "done"}));',
             }
         )
-        self.assertIn("value: 3", result["output"])
-        self.assertIn("value: 4", result["output"])
+        self.assertIn("done", result["output"])
+        self.assertIsNone(result["error"])
+
+    def test_original_apis_and_credentials_are_not_exposed(self):
+        node = self.start()
+        result = node.request(
+            {
+                "type": "execute",
+                "code": "console.log(typeof apis, typeof tokens, typeof completeTask);",
+            }
+        )
+        self.assertEqual(result["output"].strip(), "undefined undefined function")
+        result = node.request(
+            {
+                "type": "execute",
+                "code": "await apis.spotify.show_playlist_library({});",
+            }
+        )
+        self.assertIn("ReferenceError", result["error"])
+        result = node.request(
+            {
+                "type": "execute",
+                "code": "await completeTask({app: 'spotify', api: 'show_song'});",
+            }
+        )
+        self.assertIn("accepts only an optional answer", result["error"])
+        result = node.request(
+            {
+                "type": "execute",
+                "code": "console.log(await completeTask());",
+            }
+        )
+        self.assertIsNone(result["error"])
+
+    def test_host_rejects_old_application_api_protocol(self):
+        node = self.start()
+        node.buffer = b'{"type":"api","app":"spotify","api":"show_song","args":{}}\n'
+        with self.assertRaisesRegex(RuntimeError, "Unsupported Node worker event"):
+            node.request({"type": "execute", "code": "console.log('ok');"})
+        # Drain the legitimate queued result before normal cleanup.
+        node.process.stdout.readline()
 
     def test_host_secrets_and_files_are_unavailable(self):
         node = self.start()
@@ -148,6 +189,8 @@ console.log(JSON.stringify({x, total, evidence: playlists.data[0].meta.evidence}
 
     def test_prompt_contains_discovery_entry_points_not_domain_schema(self):
         self.assertIn("relate.describe()", SDK_PROMPT)
+        self.assertIn("await completeTask({answer: ...})", SDK_PROMPT)
+        self.assertNotIn("apis.", SDK_PROMPT)
         for word in [
             "Playlist",
             "Membership",

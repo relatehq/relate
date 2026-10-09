@@ -14,14 +14,12 @@ name = "sdk-persistence-smoke-" + uuid.uuid4().hex[:10]
 task = "e7a10f8_1"
 marker = "persistence-regression-marker"
 with AppWorld(task_id=task, experiment_name=name, load_ground_truth=False) as world:
-    node = NodeRepl(world, {}, {})
+    node = NodeRepl(world, {})
     try:
         event = node.request(
             {
                 "type": "execute",
-                "code": 'console.log(await apis.supervisor.complete_task({answer: "'
-                + marker
-                + '"}));',
+                "code": 'console.log(await completeTask({answer: "' + marker + '"}));',
             }
         )
         assert event["error"] is None, event

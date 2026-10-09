@@ -1,5 +1,30 @@
 # AppWorld interface research
 
+## Current SDK environment
+
+New SDK episodes expose only the actual `relate` consumer and the benchmark's
+`completeTask({ answer })` function. Original application APIs, API
+documentation calls and source credentials are not available to the TypeScript
+agent. The host still authenticates and acquires the same snapshot before
+execution. Python raw-API and static-note controls are unchanged.
+
+```ts
+console.log(await relate.describe());
+// Discover objects, then read through the SDK.
+await completeTask({ answer: result });
+```
+
+`completeTask` is an environment capability, not a Relate SDK method. It can
+only submit to AppWorld's supervisor; the generic application-API dispatcher has
+been removed. Tasks needing capabilities outside the acquired graph have no
+application-API fallback in this condition.
+
+**Existing reports and trajectories predate this restriction.** Their SDK arm
+had original API access; no new model scores have been collected for the
+SDK-only environment. Use the recorded source revisions to reproduce them.
+
+## Recorded studies
+
 The latest rerun uses nano, current SDK operation discovery and a one-time
 completion instruction on four training tasks. Read
 [SDK-NANO-RERUN.md](SDK-NANO-RERUN.md) for results, trajectory analysis, and the

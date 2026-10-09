@@ -57,26 +57,15 @@ let snapshot;
 let nextCall = 0;
 const pending = new Map();
 
-repl.context.apis = new Proxy(
-  {},
-  {
-    get: (_, app) =>
-      new Proxy(
-        {},
-        {
-          get:
-            (_, api) =>
-            (args = {}) =>
-              new Promise((resolve, reject) => {
-                const id = ++nextCall;
+// The only host capability available to agent code is task submission.
+// Source APIs and their credentials stay in the Python acquisition host.
+repl.context.completeTask = (options = {}) =>
+  new Promise((resolve, reject) => {
+    const id = ++nextCall;
 
-                pending.set(id, { resolve, reject });
-                send({ type: 'api', id, app, api, args });
-              }),
-        },
-      ),
-  },
-);
+    pending.set(id, { resolve, reject });
+    send({ type: 'complete', id, options });
+  });
 
 async function evaluate(code) {
   // Transpile TS syntax only. This is an execution REPL, not a typechecker.
@@ -126,12 +115,10 @@ let busy = false;
 lines.on('line', async (line) => {
   const message = JSON.parse(line);
 
-  if (message.type === 'api-result') {
+  if (message.type === 'completion-result') {
     const waiter = pending.get(message.id);
 
     pending.delete(message.id);
-
-    if (message.invalidate) await snapshot.close();
 
     if (message.error) waiter.reject(new Error(message.error));
     else waiter.resolve(message.result);
@@ -151,7 +138,6 @@ lines.on('line', async (line) => {
     if (message.type === 'init') {
       snapshot = await createSdkSnapshot(message.rows);
       repl.context.relate = snapshot.consumer;
-      repl.context.tokens = message.tokens;
       output = '';
       send({ type: 'ready', snapshot_fetches: snapshot.fetchCount() });
     } else if (message.type === 'execute') {
@@ -172,9 +158,6 @@ lines.on('line', async (line) => {
         error,
         snapshot_fetches: snapshot.fetchCount() - before,
       });
-    } else if (message.type === 'invalidate') {
-      await snapshot.close();
-      send({ type: 'invalidated' });
     } else if (message.type === 'close') {
       await snapshot?.close();
       repl.close();

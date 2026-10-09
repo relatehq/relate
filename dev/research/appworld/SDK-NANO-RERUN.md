@@ -1,5 +1,10 @@
 # Nano rerun: current SDK discovery and a one-time completion instruction
 
+> Historical protocol: these recorded SDK episodes included original application
+> API access. The current runner now exposes only `relate` and the environment's
+> `completeTask` function. The results below have not been rerun under that
+> restriction.
+
 This study reruns the three agent conditions using GPT-5.4 nano, the merged
 Relate operation contracts and named errors, and an explicit
 completion/answer-shape instruction in the system prompt. It adds two tasks
