@@ -17,7 +17,7 @@ const transaction = {
 let writes = 0;
 const snapshot = await createSdkSnapshot(
   {
-    Person: [{ sourceId: 'me@test', name: 'Me', relationshipsJson: '[]' }],
+    Person: [{ sourceId: 'me@test', name: 'Me', email: 'me@test' }],
     Transaction: [transaction],
   },
   async () => {

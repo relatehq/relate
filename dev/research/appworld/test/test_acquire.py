@@ -4,7 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from acquire import pages, payments
+from acquire import graph_payments, pages, payments
+from unittest.mock import patch
 
 
 class AcquireTests(unittest.TestCase):
@@ -59,6 +60,55 @@ class AcquireTests(unittest.TestCase):
         self.assertEqual(result["Transaction"][0]["receiver"], "a@example.test")
         matched = next(p for p in result["Person"] if p["sourceId"] == "a@example.test")
         self.assertEqual(matched["relationshipsJson"], '["roommate"]')
+
+    def test_graph_labels_are_owner_scoped_and_preserve_multiple_labels(self):
+        source_rows = {
+            "Person": [
+                {
+                    "sourceId": "contact@test",
+                    "name": "Contact",
+                    "relationshipsJson": '["friend", "coworker", "friend"]',
+                },
+                {
+                    "sourceId": "participant@test",
+                    "name": "Participant",
+                    "relationshipsJson": "[]",
+                },
+            ],
+            "Transaction": [
+                {"sourceId": "1", "sender": "contact@test", "receiver": "owner@test"}
+            ],
+        }
+        supervisor = {"email": "owner@test", "first_name": "Owner", "last_name": "Name"}
+        with patch("acquire.payments", return_value=source_rows) as acquire:
+            rows = graph_payments("apis", "phone", "venmo", supervisor)
+        acquire.assert_called_once_with("apis", "phone", "venmo")
+        self.assertEqual(rows["Transaction"], source_rows["Transaction"])
+        self.assertEqual(len(rows["Person"]), 3)
+        self.assertTrue(
+            all(
+                "relationshipsJson" not in p and p["email"] == p["sourceId"]
+                for p in rows["Person"]
+            )
+        )
+        labels = rows["ContactRelationship"]
+        self.assertEqual(
+            {(r["owner"], r["contact"], r["kind"]) for r in labels},
+            {
+                ("owner@test", "contact@test", "friend"),
+                ("owner@test", "contact@test", "coworker"),
+            },
+        )
+        self.assertEqual(len(labels), 2)
+        with patch("acquire.payments", return_value=source_rows):
+            other = graph_payments(
+                "apis", "phone", "venmo", {**supervisor, "email": "other@test"}
+            )
+        self.assertTrue(
+            {r["sourceId"] for r in labels}.isdisjoint(
+                r["sourceId"] for r in other["ContactRelationship"]
+            )
+        )
 
 
 if __name__ == "__main__":

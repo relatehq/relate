@@ -19,6 +19,7 @@ import {
 const targets = {
   Membership: { playlist: 'Playlist', song: 'Song' },
   Transaction: { sender: 'Person', receiver: 'Person' },
+  ContactRelationship: { owner: 'Person', contact: 'Person' },
 };
 
 // A task-local application snapshot, populated exclusively through public APIs.
@@ -30,7 +31,9 @@ export function model() {
     Membership:
       'A playlist-to-song association. sourceId joins the original playlist and song IDs with a colon.',
     Person:
-      'A phone contact or Venmo participant, joined by exact email. sourceId is email; relationshipsJson is a JSON string of contact relationship labels.',
+      'A phone contact, Venmo participant or supervisor, joined by exact email. ContactRelationship records describe the contact labels assigned by an owner to another person.',
+    ContactRelationship:
+      'One contact label assigned by the owner to the contact in the owner’s phone contacts. A contact may have multiple labels. These are directed, owner-scoped relationships, not global attributes of a person.',
     Transaction:
       'An own Venmo transaction. sender and receiver are canonical Person references. sourceId is the original transaction ID as a string; createdAt is the source timestamp.',
   };
@@ -55,7 +58,13 @@ export function model() {
     Person: z.object({
       sourceId: z.string(),
       name: z.string(),
-      relationshipsJson: z.string(),
+      email: z.string(),
+    }),
+    ContactRelationship: z.object({
+      sourceId: z.string(),
+      owner: z.string(),
+      contact: z.string(),
+      kind: z.string(),
     }),
     Transaction: z.object({
       sourceId: z.string(),
@@ -73,6 +82,29 @@ export function model() {
       song: z.string(),
     }),
   };
+  const propertyDescriptions = {
+    Person: {
+      email:
+        'Exact email address used to join phone contacts, Venmo participants and the supervisor identity supplied with the task.',
+      name: 'Display name. Names are not unique identifiers.',
+    },
+    ContactRelationship: {
+      owner: 'Person whose phone contacts assign this label.',
+      contact: 'Person to whom the owner assigned the label.',
+      kind: 'Exact relationship label from the phone contact, one label per record. Multiple labels produce separate records.',
+    },
+    Transaction: {
+      sourceId:
+        'Original Venmo transaction ID, not the canonical Relate object ID used by actions.',
+      sender: 'Person who sent this payment.',
+      receiver: 'Person who received this payment.',
+      createdAt:
+        'Original simulator timestamp, preserved without conversion. Source strings have no UTC offset; use the same simulator time convention as the task date. No timezone has been inferred.',
+      likeCount:
+        'Total likes on the transaction; not whether the current user liked it.',
+      commentCount: 'Total comments on the transaction, not comment contents.',
+    },
+  };
   const sources = Object.fromEntries(
     Object.entries(schemas).map(([kind, schema]) => [
       kind,
@@ -85,18 +117,30 @@ export function model() {
     'Playlist',
     'Song',
     'Person',
+    'ContactRelationship',
     'Membership',
     'Transaction',
   ]) {
     const properties = { id: objectId({ id: `${kind}.id` }) };
 
     for (const field of Object.keys(schemas[kind].shape)) {
+      // Provider identity stays host-side for these objects; expose semantic fields.
+      if (
+        field === 'sourceId' &&
+        ['Person', 'ContactRelationship'].includes(kind)
+      )
+        continue;
+      const description = propertyDescriptions[kind]?.[field];
+      const options = {
+        id: `${kind}.${field}`,
+        ...(description ? { description } : {}),
+      };
       properties[field] = targets[kind]?.[field]
         ? reference(objects[targets[kind][field]], {
-            id: `${kind}.${field}`,
+            ...options,
             from: sources[kind].fields[field],
           })
-        : from(sources[kind].fields[field], { id: `${kind}.${field}` });
+        : from(sources[kind].fields[field], options);
     }
 
     objects[kind] = defineObject({
@@ -108,6 +152,18 @@ export function model() {
   }
 
   const relationships = {
+    OwnedContactRelationships: defineRelationship({
+      id: 'person.contact-relationships',
+      forward: 'contactRelationships',
+      reverse: 'owner',
+      via: objects.ContactRelationship.properties.owner,
+    }),
+    LabeledContactRelationships: defineRelationship({
+      id: 'person.labels-from-others',
+      forward: 'labelsFromOthers',
+      reverse: 'contact',
+      via: objects.ContactRelationship.properties.contact,
+    }),
     PlaylistSongs: defineRelationship({
       id: 'playlist.songs',
       forward: 'songs',
@@ -168,7 +224,7 @@ export function model() {
   const graph = defineGraph({
     id: 'appworld-sdk-snapshot',
     description:
-      'Snapshot of all playlist-library pages and their member songs, phone contacts with email, and own Venmo transactions. Excludes other music libraries, personal liked/downloaded state, social feed and payment requests. Source IDs are for original APIs; graph references are canonical IDs.',
+      'Snapshot of all playlist-library pages and their member songs, phone contacts with email and explicit owner-scoped contact labels, the supplied supervisor identity, and own Venmo transactions. Excludes other music libraries, personal liked/downloaded state, social feed and payment requests. Source IDs are for original APIs; graph references are canonical IDs.',
     objects,
     actions,
     relationships,
@@ -250,6 +306,7 @@ export async function createSdkSnapshot(rows, writeSource) {
       'Playlist',
       'Song',
       'Person',
+      'ContactRelationship',
       'Membership',
       'Transaction',
     ])

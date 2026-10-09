@@ -15,7 +15,7 @@ from pathlib import Path
 
 import freezegun.api as clock
 import requests
-from acquire import music, payments, transaction_row
+from acquire import graph_payments, music, transaction_row
 from appworld import AppWorld, load_task_ids
 from appworld.common.path_store import path_store
 from dotenv import dotenv_values
@@ -310,8 +310,11 @@ def run(args, key, task_id, condition, repeat, spent):
             if condition == "sdk":
                 acquire_start = clock.real_perf_counter()
                 # Same fixed coverage for every task; no task-id/answer-based routing.
-                rows = music(world.apis, tokens["spotify"]) | payments(
-                    world.apis, tokens["phone"], tokens["venmo"]
+                rows = music(world.apis, tokens["spotify"]) | graph_payments(
+                    world.apis,
+                    tokens["phone"],
+                    tokens["venmo"],
+                    dict(world.task.supervisor),
                 )
                 acquisition_calls = (
                     len(world.requester.request_tracker.requests) - setup_calls

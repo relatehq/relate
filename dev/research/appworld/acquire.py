@@ -57,6 +57,43 @@ def payments(apis, phone_token, venmo_token):
     }
 
 
+def graph_payments(apis, phone_token, venmo_token, supervisor):
+    """Normalize the same acquired data into explicit, owner-scoped labels.
+
+    Supervisor identity is the same public task context supplied to every arm.
+    No extra API requests, inferred labels or task-specific filtering are used.
+    The old payments representation remains for historical wrapper reproduction.
+    """
+    rows = payments(apis, phone_token, venmo_token)
+    owner = supervisor["email"]
+    people = {}
+    relationships = {}
+    for person in rows["Person"]:
+        email = person["sourceId"]
+        people[email] = {"sourceId": email, "email": email, "name": person["name"]}
+        for kind in json.loads(person["relationshipsJson"]):
+            identity = json.dumps([owner, email, kind], separators=(",", ":"))
+            relationships[identity] = {
+                "sourceId": identity,
+                "owner": owner,
+                "contact": email,
+                "kind": kind,
+            }
+    people.setdefault(
+        owner,
+        {
+            "sourceId": owner,
+            "email": owner,
+            "name": f"{supervisor['first_name']} {supervisor['last_name']}",
+        },
+    )
+    return {
+        "Person": list(people.values()),
+        "ContactRelationship": list(relationships.values()),
+        "Transaction": rows["Transaction"],
+    }
+
+
 def music(apis, token):
     playlists = []
     for page in range(100):

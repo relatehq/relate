@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from acquire import payments
+from acquire import graph_payments
 from sdk_runner import HERE, AppWorld, NodeRepl, path_store
 
 path_store.update_root(str(HERE / ".local/world"))
@@ -27,7 +27,9 @@ with AppWorld(
         )["access_token"]
         for app in ["phone", "venmo"]
     }
-    rows = payments(world.apis, tokens["phone"], tokens["venmo"])
+    rows = graph_payments(
+        world.apis, tokens["phone"], tokens["venmo"], dict(world.task.supervisor)
+    )
     before = next(row for row in rows["Transaction"] if row["likeCount"] == 0)
     node = NodeRepl(world, rows, tokens=tokens)
     try:

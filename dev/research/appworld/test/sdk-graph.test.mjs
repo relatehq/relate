@@ -5,11 +5,11 @@ import { createSdkSnapshot } from '../sdk-graph.mjs';
 test('SDK discovery and canonical payment references support a direction-correct query', async () => {
   const snapshot = await createSdkSnapshot({
     Person: [
-      { sourceId: 'me@example.test', name: 'Me', relationshipsJson: '[]' },
+      { sourceId: 'me@example.test', email: 'me@example.test', name: 'Me' },
       {
         sourceId: 'roommate@example.test',
         name: 'Roommate',
-        relationshipsJson: '["roommate"]',
+        email: 'roommate@example.test',
       },
     ],
     Transaction: [
@@ -50,7 +50,7 @@ test('SDK discovery and canonical payment references support a direction-correct
       'Person',
     );
     const people = await api.objects.Person.query({
-      where: { sourceId: 'me@example.test' },
+      where: { email: 'me@example.test' },
       select: ['name'],
     });
     const me = people.data[0];
@@ -67,11 +67,11 @@ test('SDK discovery and canonical payment references support a direction-correct
     assert.equal(sent.data[0].meta.fields, undefined);
     const receiver = await api.objects.Transaction.traverse.receiver(
       sent.data[0].id,
-      { select: ['relationshipsJson'], evidence: 'full' },
+      { select: ['email'], evidence: 'full' },
     );
 
-    assert.equal(receiver.data.relationshipsJson, '["roommate"]');
-    assert.equal(receiver.meta.fields.relationshipsJson.status, 'available');
+    assert.equal(receiver.data.email, 'roommate@example.test');
+    assert.equal(receiver.meta.fields.email.status, 'available');
     const traversed = [];
 
     for await (const row of api.objects.Person.traverse.sentTransactions(
@@ -100,7 +100,7 @@ test('source actions refresh observations and replay receipts without duplicate 
   const calls = [];
   const snapshot = await createSdkSnapshot(
     {
-      Person: [{ sourceId: 'me@test', name: 'Me', relationshipsJson: '[]' }],
+      Person: [{ sourceId: 'me@test', name: 'Me', email: 'me@test' }],
       Transaction: [transaction],
     },
     async (request) => {
@@ -159,6 +159,83 @@ test('source actions refresh observations and replay receipts without duplicate 
     });
     assert.equal((await api.objects.Transaction.get(id)).data.likeCount, 1);
     assert.equal(calls.length, 2);
+  } finally {
+    await snapshot.close();
+  }
+});
+
+test('contact labels query by owner and kind, with canonical traversals in both directions', async () => {
+  const snapshot = await createSdkSnapshot({
+    Person: ['owner@test', 'other@test', 'contact@test'].map((email) => ({
+      sourceId: email,
+      email,
+      name: email,
+    })),
+    ContactRelationship: [
+      {
+        sourceId: 'one',
+        owner: 'owner@test',
+        contact: 'contact@test',
+        kind: 'friend',
+      },
+      {
+        sourceId: 'two',
+        owner: 'owner@test',
+        contact: 'contact@test',
+        kind: 'coworker',
+      },
+      {
+        sourceId: 'three',
+        owner: 'other@test',
+        contact: 'contact@test',
+        kind: 'friend',
+      },
+    ],
+  });
+  try {
+    const { objects } = snapshot.consumer;
+    const me = (await objects.Person.query({ where: { email: 'owner@test' } }))
+      .data[0];
+    const friends = [];
+    for await (const row of objects.ContactRelationship.query({
+      where: { owner: me.id, kind: 'friend' },
+      limit: 1,
+    }))
+      friends.push(row);
+    assert.equal(friends.length, 1);
+    const friend = await objects.ContactRelationship.traverse.contact(
+      friends[0].id,
+    );
+    assert.equal(friend.data.email, 'contact@test');
+    const owner = await objects.ContactRelationship.traverse.owner(
+      friends[0].id,
+    );
+    assert.equal(owner.id, me.id);
+    const labels = [];
+    for await (const row of objects.Person.traverse.contactRelationships(
+      me.id,
+      { limit: 1 },
+    ))
+      labels.push(row.data.kind);
+    assert.deepEqual(labels.sort(), ['coworker', 'friend']);
+    const incoming = [];
+    for await (const row of objects.Person.traverse.labelsFromOthers(friend.id))
+      incoming.push(row);
+    assert.equal(incoming.length, 3);
+    const description = objects.ContactRelationship.describe();
+    assert.equal(
+      description.properties.find((p) => p.name === 'owner').references.apiName,
+      'Person',
+    );
+    assert.match(
+      description.properties.find((p) => p.name === 'kind').description,
+      /Exact relationship label/,
+    );
+    assert.ok(
+      !objects.Person.describe().properties.some((p) =>
+        ['sourceId', 'relationshipsJson'].includes(p.name),
+      ),
+    );
   } finally {
     await snapshot.close();
   }
