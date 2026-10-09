@@ -16,7 +16,7 @@ import type {
   NativeTransaction,
 } from '../storage.js';
 import { scanBatch } from '../storage.js';
-import { allowsField } from '../authorization/index.js';
+import { allowsField, allowsObject } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import { validateReadRequest, project, cursorCodec } from '../reads/index.js';
 
@@ -150,7 +150,7 @@ export function createGraphQuery(options: {
       .digest('hex');
     let after = cursor ? codec.decode(cursor, scope, clock()) : undefined;
 
-    if (!policy || !principal.roles.includes(policy.read.role))
+    if (!allowsObject(principal, policy))
       return { data: [], meta: { exhausted: true } };
 
     await options.install();

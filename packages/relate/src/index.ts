@@ -26,13 +26,21 @@ export type ObjectId<DefinitionId extends string> = string & {
  */
 export function referenceInput<
   O extends Pick<ObjectDefinition, 'id' | 'properties'>,
->(object: O): z.ZodType<ObjectId<O['id']>, ObjectId<O['id']>> {
+>(
+  object: O,
+  options?: { readonly description?: string },
+): z.ZodType<ObjectId<O['id']>, ObjectId<O['id']>> {
   // The object supplies compile-time identity; the runtime still checks membership.
   void object;
 
-  const schema = z.string().regex(/\S/, 'Object ID must not be blank');
+  const base = z.string().regex(/\S/, 'Object ID must not be blank');
+  const schema =
+    options?.description !== undefined
+      ? base.describe(options.description)
+      : base;
 
-  referenceSchemas.set(schema, object.id);
+  // Keyed by definition so `.describe()` and `.meta()` clones stay references.
+  referenceSchemas.set(schema.def, object.id);
 
   return schema as unknown as z.ZodType<ObjectId<O['id']>, ObjectId<O['id']>>;
 }
@@ -72,6 +80,8 @@ export function defineSource<S extends Record<string, z.ZodType>>(definition: {
 
 export interface Property<S extends z.ZodType = z.ZodType> {
   readonly id: string;
+  /** Explanatory text for people, documentation, and agents. */
+  readonly description?: string | undefined;
   /** Defaults to the ordinary field group. */
   readonly access?: FieldGroup | undefined;
   readonly schema: S;
@@ -101,6 +111,7 @@ export interface ObjectIdProperty extends Property<z.ZodString> {
 
 export function objectId<const Id extends string>(options: {
   id: Id;
+  description?: string;
   access?: FieldGroup<'ordinary'>;
 }): ObjectIdProperty & { readonly id: Id } {
   return Object.freeze({
@@ -112,7 +123,7 @@ export function objectId<const Id extends string>(options: {
 
 export function native<S extends z.ZodType, const Id extends string>(
   schema: S,
-  options: { id: Id; access?: FieldGroup },
+  options: { id: Id; description?: string; access?: FieldGroup },
 ): Property<S> & {
   readonly id: Id;
   readonly origin: { readonly kind: 'native' };
@@ -126,7 +137,7 @@ export function native<S extends z.ZodType, const Id extends string>(
 
 export function from<S extends z.ZodType, const Id extends string>(
   field: FieldReference<S>,
-  options: { id: Id; access?: FieldGroup },
+  options: { id: Id; description?: string; access?: FieldGroup },
 ): Property<S> & { readonly id: Id } {
   return Object.freeze({
     ...options,
@@ -161,7 +172,12 @@ export interface ReferenceProperty<
 
 export function reference<O extends ObjectDefinition, const Id extends string>(
   target: O,
-  options: { id: Id; access?: FieldGroup; from: FieldReference<z.ZodString> },
+  options: {
+    id: Id;
+    description?: string;
+    access?: FieldGroup;
+    from: FieldReference<z.ZodString>;
+  },
 ): ReferenceProperty<O['id'], O> & {
   readonly id: Id;
   readonly origin: Extract<
@@ -172,7 +188,7 @@ export function reference<O extends ObjectDefinition, const Id extends string>(
 
 export function reference<O extends ObjectDefinition, const Id extends string>(
   target: O,
-  options: { id: Id; access?: FieldGroup },
+  options: { id: Id; description?: string; access?: FieldGroup },
 ): ReferenceProperty<O['id'], O> & {
   readonly id: Id;
   readonly origin: {
@@ -183,10 +199,18 @@ export function reference<O extends ObjectDefinition, const Id extends string>(
 
 export function reference<O extends ObjectDefinition, const Id extends string>(
   target: O,
-  options: { id: Id; access?: FieldGroup; from?: FieldReference<z.ZodString> },
+  options: {
+    id: Id;
+    description?: string;
+    access?: FieldGroup;
+    from?: FieldReference<z.ZodString>;
+  },
 ): ReferenceProperty<O['id'], O> & { readonly id: Id } {
   return Object.freeze({
     id: options.id,
+    ...(options.description !== undefined
+      ? { description: options.description }
+      : {}),
     access: options.access,
     schema: z.string(),
     references: target.id,
@@ -300,7 +324,11 @@ export function defineObject<
 export interface Traversal {
   readonly name: string;
   readonly cardinality: 'one' | 'many';
+  readonly description?: string;
 }
+
+type TraversalInput<Name extends string> =
+  Name | { readonly name: Name; readonly description?: string };
 
 export type RelationshipDefinition<
   From extends ObjectDefinition = ObjectDefinition,
@@ -333,15 +361,23 @@ export function defineRelationship<
   const Reverse extends string,
 >(definition: {
   id: string;
-  forward: Forward;
-  reverse: Reverse;
+  forward: TraversalInput<Forward>;
+  reverse: TraversalInput<Reverse>;
   via: Via;
   through?: never;
 }): RelationshipDefinition<
   Via['target'],
   Via['owner'],
-  { readonly name: Forward; readonly cardinality: 'many' },
-  { readonly name: Reverse; readonly cardinality: 'one' }
+  {
+    readonly name: Forward;
+    readonly cardinality: 'many';
+    readonly description?: string;
+  },
+  {
+    readonly name: Reverse;
+    readonly cardinality: 'one';
+    readonly description?: string;
+  }
 > & { readonly via: Via; readonly through?: never };
 
 export function defineRelationship<
@@ -351,15 +387,23 @@ export function defineRelationship<
   const Reverse extends string,
 >(definition: {
   id: string;
-  forward: Forward;
-  reverse: Reverse;
+  forward: TraversalInput<Forward>;
+  reverse: TraversalInput<Reverse>;
   via?: never;
   through: { from: From; to: To };
 }): RelationshipDefinition<
   From['target'],
   To['target'],
-  { readonly name: Forward; readonly cardinality: 'many' },
-  { readonly name: Reverse; readonly cardinality: 'many' }
+  {
+    readonly name: Forward;
+    readonly cardinality: 'many';
+    readonly description?: string;
+  },
+  {
+    readonly name: Reverse;
+    readonly cardinality: 'many';
+    readonly description?: string;
+  }
 > & {
   readonly via?: never;
   readonly through: { readonly from: From; readonly to: To };
@@ -367,8 +411,8 @@ export function defineRelationship<
 
 export function defineRelationship(definition: {
   id: string;
-  forward: string;
-  reverse: string;
+  forward: TraversalInput<string>;
+  reverse: TraversalInput<string>;
   via?: BoundProperty<ReferenceProperty>;
   through?: {
     from: BoundProperty<ReferenceProperty>;
@@ -377,6 +421,15 @@ export function defineRelationship(definition: {
 }): RelationshipDefinition {
   if (Boolean(definition.via) === Boolean(definition.through))
     throw new Error('A relationship requires exactly one of via or through');
+
+  const traversal = (
+    input: TraversalInput<string>,
+    cardinality: 'one' | 'many',
+  ) =>
+    Object.freeze({
+      ...(typeof input === 'string' ? { name: input } : input),
+      cardinality,
+    });
 
   if (definition.through) {
     const { from, to } = definition.through;
@@ -387,14 +440,8 @@ export function defineRelationship(definition: {
         from: from.target,
         to: to.target,
         through: Object.freeze({ from, to }),
-        forward: Object.freeze({
-          name: definition.forward,
-          cardinality: 'many' as const,
-        }),
-        reverse: Object.freeze({
-          name: definition.reverse,
-          cardinality: 'many' as const,
-        }),
+        forward: traversal(definition.forward, 'many'),
+        reverse: traversal(definition.reverse, 'many'),
       }),
     );
   }
@@ -407,14 +454,8 @@ export function defineRelationship(definition: {
       from: via.target,
       to: via.owner,
       via,
-      forward: Object.freeze({
-        name: definition.forward,
-        cardinality: 'many' as const,
-      }),
-      reverse: Object.freeze({
-        name: definition.reverse,
-        cardinality: 'one' as const,
-      }),
+      forward: traversal(definition.forward, 'many'),
+      reverse: traversal(definition.reverse, 'one'),
     }),
   );
 }
@@ -450,6 +491,8 @@ export type ObjectData<
 
 export interface GraphDefinition {
   readonly id: string;
+  /** Explanatory text for people, documentation, and agents. */
+  readonly description?: string;
   readonly objects: ObjectRegistry;
   readonly relationships?: RelationshipRegistry;
   readonly actions?: Readonly<Record<string, ActionDefinition>>;

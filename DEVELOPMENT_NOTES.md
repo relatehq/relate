@@ -6,6 +6,31 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Actor-bound graph discovery
+
+`relate.as(principal).describe()` now returns the graph's objects and actions
+that are statically available to that actor. Object and action detail is
+available from `objects.<Name>.describe()` and `actions.<name>.describe()`.
+Discovery filters object fields and traversals by the same role and field-group
+gates used during execution. Record-dependent rules still run when data is read
+or an action is invoked.
+
+Graphs, properties, directional traversals, actions, and action fields may now
+carry descriptions. Action-field descriptions use Zod `.describe()`, while
+object-reference fields use `referenceInput(Object, { description })`.
+Descriptions are presentation metadata; stable definition IDs and API names
+remain independent. Blank or whitespace-only descriptions fail compilation.
+
+Invoking an action now fails with `denied` before any handler runs when the
+actor lacks the read role for an object type its input references. Previously
+the call passed the execute gate and then failed with `not-found` while checking
+the reference. Discovery hides such actions for the same reason.
+
+Compiled manifests use format 5. It adds the optional discovery metadata and
+requires format 4 manifests to be recompiled. The new manifest produces a new
+definition revision, so an installed graph still needs an explicit revision
+migration. No package version bump or storage schema migration is included.
+
 ## Explicit many-to-many traversal
 
 `defineRelationship({ through: { from: Membership.properties.playlist, to: Membership.properties.song }, forward: 'songs', reverse: 'playlists', id })`
@@ -14,7 +39,7 @@ must be distinct, belong to one registered junction, and target the registered
 endpoints. Source-backed and native records are supported. Existing `via`
 relationships retain their declaration, manifest representation, and revisions.
 
-Manifest format 4 now accepts a second relationship shape with `through` holding
+Manifest format 4 introduced a second relationship shape with `through` holding
 `objectDefinitionId`, `fromReferencePropertyDefinitionId`, and
 `toReferencePropertyDefinitionId`; both cardinalities are `many`. Consumers that
 inspect manifests must handle this union instead of assuming every relationship

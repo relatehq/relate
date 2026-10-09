@@ -4,6 +4,7 @@ const dependencies: Record<string, readonly string[]> = {
     'composition',
     'actions',
     'authorization',
+    'discovery',
     'observations',
     'memory',
     'pagination',
@@ -17,12 +18,15 @@ const dependencies: Record<string, readonly string[]> = {
     'reads',
     'storage',
     'memory',
+    'discovery',
   ],
   actions: ['authorization', 'reads', 'storage'],
   resolution: ['authorization', 'observations', 'reads', 'storage'],
   traversal: ['authorization', 'reads', 'storage'],
   queries: ['authorization', 'reads', 'storage'],
   authorization: ['storage'],
+  // Discovery reuses the enforcement gates rather than restating them.
+  discovery: ['authorization', 'actions', 'traversal'],
   observations: ['storage'],
   reads: [],
   storage: ['observations'],
@@ -35,6 +39,7 @@ const roots: Record<string, string> = {
   'storage.ts': 'storage',
   'memory.ts': 'memory',
   'native-memory.ts': 'memory',
+  'discovery.ts': 'discovery',
   'pagination.ts': 'pagination',
 };
 const folders = new Set([

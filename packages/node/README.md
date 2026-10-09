@@ -18,6 +18,9 @@ and unpublished while implementation is in progress.
   inferred from the graph's object registry: `objects.Customer.get`,
   `objects.Customer.query`, `objects.Customer.traverse.invoices`,
   `actions.addAccountReview`.
+- The same actor-bound handle exposes progressive discovery through
+  `describe()`, `objects.Customer.describe()`, and
+  `actions.addAccountReview.describe()`.
 - `relate.host.adopt(Customer, sourceRecordId)` is the trusted membership
   operation; `relate.close()` drains in-flight work.
 - `connect` and `defineApp` are portable authoring helpers imported from
@@ -140,6 +143,28 @@ const recovered = await relate
 // recovered.output contains the original result; the action is not executed again.
 ```
 
+## Discovering the graph
+
+Start with a small actor-bound overview, then request detail only for the
+capability needed by the task:
+
+```ts
+const consumer = relate.as(ana);
+const overview = consumer.describe();
+const customer = consumer.objects.Customer.describe();
+const addReview = consumer.actions.addAccountReview.describe();
+```
+
+The overview lists readable object types and executable actions. Object detail
+contains authorized properties, traversals, scalar constraints, and their
+descriptions. Action detail contains its described input, output, failures, and
+readable created-object types. Unauthorized definitions and restricted fields
+are omitted.
+
+Discovery reports `collectionScope: 'graph-membership'` for `query`. It does not
+claim that adopted records cover an entire provider. Record-dependent policy
+conditions and current data access are still checked when an operation runs.
+
 ## Application definitions
 
 `defineApp` from `relate` wraps an authored graph with a deferred recipe for
@@ -185,8 +210,10 @@ await relate.close();
 Implemented: typed reads, source-backed references, bidirectional traversal with
 pagination, native actions with atomic success receipts, and actor-bound
 lookup/replay with current-access checks. Ordinary calls wait for completion.
-`startApp` executes a portable `defineApp` descriptor and owns registered
-cleanup. Not implemented: background submission, collection queries, automatic
+Actor-bound discovery exposes the portable meaning and structure of these
+operations without returning source mappings or policy internals. `startApp`
+executes a portable `defineApp` descriptor and owns registered cleanup. Not
+implemented: background submission, collection queries, automatic
 synchronization, servers and workers.
 
 ## Further reading

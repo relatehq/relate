@@ -66,8 +66,14 @@ export const Customer = defineObject({
   description: 'Enterprise and commercial customer accounts.',
   membership: source(crmSource),
   properties: {
-    id: objectId({ id: 'customer.id' }),
-    name: from(crmSource.fields.name, { id: 'customer.name' }),
+    id: objectId({
+      id: 'customer.id',
+      description: 'Opaque Relate customer ID.',
+    }),
+    name: from(crmSource.fields.name, {
+      id: 'customer.name',
+      description: 'Registered business name.',
+    }),
     region: from(crmSource.fields.region, { id: 'customer.region' }),
     tier: from(crmSource.fields.tier, { id: 'customer.tier' }),
   },
@@ -100,6 +106,8 @@ not yet supported.
 - **`label` and `pluralLabel`**: Display names for documentation, UIs, and
   agents. `label` defaults to the humanized registry key (`AccountReview` →
   `Account Review`); `pluralLabel` defaults to the singular label.
+- **`description`**: Business meaning exposed to documentation, UIs, and
+  actor-bound discovery. Property helpers accept the same optional metadata.
 
 ---
 
@@ -141,8 +149,14 @@ export const Invoice = defineObject({
 
 export const CustomerInvoices = defineRelationship({
   id: 'customer.invoices',
-  forward: 'invoices',
-  reverse: 'customer',
+  forward: {
+    name: 'invoices',
+    description: 'Invoices billed to this customer.',
+  },
+  reverse: {
+    name: 'customer',
+    description: 'Customer billed by this invoice.',
+  },
   via: Invoice.properties.customer,
 });
 
@@ -154,6 +168,7 @@ const access = defineAccess({
 
 export const graph = defineGraph({
   id: 'business',
+  description: 'Customer accounts and their invoices.',
   objects: { Customer, Invoice },
   relationships: { CustomerInvoices },
   access,
@@ -287,8 +302,9 @@ it directly to inspect or store the result. Compilation:
 
 1. Verifies property IDs, source fields, reference targets, field groups, and
    policy dependencies, throwing a `CompileError` that lists every issue.
-2. Produces an immutable, serializable manifest (format 4), including the
-   junction object and both reference IDs for `through` relationships.
+2. Produces an immutable, serializable manifest (format 5), including discovery
+   descriptions and the junction object and both reference IDs for `through`
+   relationships.
 3. Computes a deterministic SHA-256 definition revision of that manifest.
 
 ```ts

@@ -54,8 +54,16 @@ it('compiles both traversal directions through one registered reference', () => 
       fromObjectDefinitionId: Customer.id,
       toObjectDefinitionId: Invoice.id,
       referencePropertyDefinitionId: Invoice.properties.customer.id,
-      forward: { name: 'invoices', cardinality: 'many' },
-      reverse: { name: 'customer', cardinality: 'one' },
+      forward: {
+        name: 'invoices',
+        cardinality: 'many',
+        description: 'Invoices billed to this customer.',
+      },
+      reverse: {
+        name: 'customer',
+        cardinality: 'one',
+        description: 'Customer billed by this invoice.',
+      },
     },
   ]);
 });
@@ -139,4 +147,32 @@ it('validates portable endpoint, reference, cardinality and traversal-name contr
 
   Object.assign(invalid.relationships![0]!.forward, { cardinality: 'one' });
   expect(() => validateManifest(invalid)).toThrow();
+});
+
+it('keeps reference property descriptions in the manifest', () => {
+  const fresh = createInvoiceGraph();
+
+  expect(
+    compile(fresh.graph)
+      .manifest.objects.find((o) => o.id === fresh.Invoice.id)!
+      .properties.find((p) => p.name === 'customer'),
+  ).toMatchObject({ description: 'Customer billed by this invoice.' });
+});
+
+it('rejects a blank traversal description', () => {
+  const fresh = createInvoiceGraph();
+
+  expect(() =>
+    compile({
+      ...fresh.graph,
+      relationships: {
+        CustomerInvoices: defineRelationship({
+          id: fresh.CustomerInvoices.id,
+          forward: { name: 'invoices', description: ' ' },
+          reverse: 'customer',
+          via: fresh.Invoice.properties.customer,
+        }),
+      },
+    }),
+  ).toThrow();
 });

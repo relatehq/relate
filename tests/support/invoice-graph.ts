@@ -36,17 +36,20 @@ export function createInvoiceGraph() {
   const Customer = defineObject({
     id: 'business.customer',
     label: 'Customer',
+    description: 'Organizations that buy our services.',
     membership: source(customers),
     properties: {
       id: objectId({ id: 'customer.id' }),
       name: from(customers.fields.name, {
         id: 'customer.name',
+        description: 'Registered business name.',
       }),
       portfolio: from(customers.fields.portfolio, {
         id: 'customer.portfolio',
       }),
       revenue: from(customers.fields.revenue, {
         id: 'customer.revenue',
+        description: 'Lifetime revenue in minor currency units.',
         access: access.groups.financial,
       }),
     },
@@ -66,11 +69,13 @@ export function createInvoiceGraph() {
   const Invoice = defineObject({
     id: 'business.invoice',
     label: 'Invoice',
+    description: 'Amounts billed to customers.',
     membership: source(invoices),
     properties: {
       id: objectId({ id: 'invoice.id' }),
       customer: reference(Customer, {
         id: 'invoice.customer',
+        description: 'Customer billed by this invoice.',
         from: invoices.fields.customer_id,
       }),
       status: from(invoices.fields.status, {
@@ -85,13 +90,20 @@ export function createInvoiceGraph() {
 
   const CustomerInvoices = defineRelationship({
     id: 'business.customer-invoices',
-    forward: 'invoices',
-    reverse: 'customer',
+    forward: {
+      name: 'invoices',
+      description: 'Invoices billed to this customer.',
+    },
+    reverse: {
+      name: 'customer',
+      description: 'Customer billed by this invoice.',
+    },
     via: Invoice.properties.customer,
   });
 
   const graph = defineGraph({
     id: 'invoice-read',
+    description: 'Customer accounts and their invoices.',
     objects: { Customer, Invoice },
     relationships: { CustomerInvoices },
     access,

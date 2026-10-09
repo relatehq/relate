@@ -10,6 +10,7 @@ import type { Principal } from '../authorization/index.js';
 import { compareObjectIds, scanBatch } from '../storage.js';
 import { cursorCodec, project } from '../reads/index.js';
 import { traversalScope } from './scope.js';
+import { traversalAllowed } from './available.js';
 import type { TraversalOptions } from './traversal.js';
 
 type Through = Extract<
@@ -83,7 +84,6 @@ export function createThroughTraversal(options: TraversalOptions) {
       : relationship.through.fromReferencePropertyDefinitionId;
     const from = owner.properties.find((p) => p.id === fromId)!;
     const to = owner.properties.find((p) => p.id === toId)!;
-    const policy = manifest.policies[owner.id]!;
     const { cursor, limit = 25, evidence: _evidence, ...readRequest } = request;
     const scope = traversalScope(options, {
       principal,
@@ -99,10 +99,7 @@ export function createThroughTraversal(options: TraversalOptions) {
     const encode = (next: Position) =>
       codec.encode(scope, JSON.stringify(next), clock() + 900_000);
 
-    if (
-      !allowsField(principal, policy, from.access) ||
-      !allowsField(principal, policy, to.access)
-    )
+    if (!traversalAllowed(manifest, principal, { relationship, forward }))
       return empty();
 
     const rootRequest: ReadRequest = {

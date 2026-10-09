@@ -25,6 +25,7 @@ import { recordProvenance } from './provenance.js';
 
 export const actionKeys: readonly string[] = Object.freeze([
   'id',
+  'description',
   'input',
   'output',
   'creates',
@@ -45,6 +46,8 @@ export interface ActionDefinition<
   >,
 > {
   readonly id: string;
+  /** Explanatory text for people, documentation, and agents. */
+  readonly description?: string;
   readonly input: Input;
   readonly output: Output;
   readonly creates: Creates;
@@ -61,6 +64,7 @@ export function defineAction<
   const Errors extends Readonly<Record<string, z.ZodType>> = {},
 >(definition: {
   id: Id;
+  description?: string;
   input: Input;
   output: Output;
   creates: Creates;

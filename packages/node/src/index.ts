@@ -4,6 +4,7 @@ export type { QueryResult } from '@relate/runtime';
 
 export type {
   Consumer,
+  ActionOperations,
   ObjectResult,
   ObjectRecord,
   Page,
@@ -13,6 +14,17 @@ export type {
   ReadOptions,
   Relate,
 } from './types.js';
+
+export type {
+  ActionDescription,
+  ActionFieldDescription,
+  ActionSummary,
+  GraphDescription,
+  ObjectDescription,
+  ObjectSummary,
+  PropertyDescription,
+  TraversalDescription,
+} from '@relate/runtime';
 
 export { createRuntime } from './runtime.js';
 

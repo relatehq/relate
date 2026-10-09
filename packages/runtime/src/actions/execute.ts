@@ -29,6 +29,7 @@ import type {
 } from '../storage.js';
 import type { Principal } from '../authorization/index.js';
 import { createActionDeadline } from './deadline.js';
+import { actionAllowed } from './available.js';
 
 type Action = NonNullable<Manifest['actions']>[number];
 
@@ -114,11 +115,7 @@ export function createActionExecutor(options: {
   function authorizedAction(actor: Principal, actionId: string) {
     const action = manifest.actions?.find((a) => a.id === actionId);
 
-    if (
-      !action?.execute ||
-      !actor.roles.includes(action.execute.role) ||
-      !actor.id.trim()
-    )
+    if (!action || !actionAllowed(manifest, actor, action))
       throw new ActionError('denied');
 
     return action;

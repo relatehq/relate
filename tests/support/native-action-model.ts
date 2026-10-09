@@ -35,10 +35,17 @@ export const invoices = defineSource({
 
 export const Customer = defineObject({
   id: 'business.customer',
+  description: 'Organizations whose accounts are managed by the team.',
   membership: source(customers),
   properties: {
-    id: objectId({ id: 'customer.id' }),
-    name: from(customers.fields.name, { id: 'customer.name' }),
+    id: objectId({
+      id: 'customer.id',
+      description: 'Opaque Relate customer ID.',
+    }),
+    name: from(customers.fields.name, {
+      id: 'customer.name',
+      description: 'Registered business name.',
+    }),
     portfolio: from(customers.fields.portfolio, { id: 'customer.portfolio' }),
   },
 });
@@ -51,6 +58,7 @@ export const Invoice = defineObject({
 
 export const AccountReview = defineObject({
   id: 'business.account-review',
+  description: 'An account assessment written by a portfolio manager.',
   membership: nativeMembership(),
   properties: {
     id: objectId({ id: 'review.id' }),
@@ -62,17 +70,29 @@ export const AccountReview = defineObject({
 
 export const AddAccountReview = defineAction({
   id: 'business.add-account-review',
+  description: 'Record a new assessment of a customer account.',
   input: z.object({
-    customer: referenceInput(Customer),
-    note: z.string().min(1).max(4000),
+    customer: referenceInput(Customer, {
+      description: 'Customer being reviewed.',
+    }),
+    note: z
+      .string()
+      .min(1)
+      .max(4000)
+      .describe('Assessment and recommended next steps.'),
   }),
-  output: z.object({ reviewId: referenceInput(AccountReview) }),
+  output: z.object({
+    reviewId: referenceInput(AccountReview, {
+      description: 'New account review ID.',
+    }),
+  }),
   creates: [AccountReview],
   policy: { execute: access.role('account-manager') },
 });
 
 export const graph = defineGraph({
   id: 'native-action',
+  description: 'Customer accounts, invoices, and account reviews.',
   objects: { Customer, Invoice, AccountReview },
   actions: { addAccountReview: AddAccountReview },
   access,

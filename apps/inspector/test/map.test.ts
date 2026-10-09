@@ -53,8 +53,16 @@ it('maps declared relationships to edges and never invents edges from references
       target: Invoice.id,
       data: {
         id: CustomerInvoices.id,
-        forward: { name: 'invoices', cardinality: 'many' },
-        reverse: { name: 'customer', cardinality: 'one' },
+        forward: {
+          name: 'invoices',
+          cardinality: 'many',
+          description: 'Invoices billed to this customer.',
+        },
+        reverse: {
+          name: 'customer',
+          cardinality: 'one',
+          description: 'Customer billed by this invoice.',
+        },
         viaProperty: 'customer',
       },
     },
