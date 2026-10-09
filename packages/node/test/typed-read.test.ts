@@ -443,6 +443,16 @@ it('defaults to compact, permits full evidence, and rejects invalid modes', asyn
       },
       warnings: [],
     });
+    const optional: import('relate').ReadOptions<'name', 'full'> = {
+      select: ['name'],
+    };
+    const defaulted = await objects.Customer.get(id, optional);
+
+    expect(defaulted).toEqual(compact);
+
+    if (defaulted.status !== 'ok') throw new Error('Expected read');
+
+    expect(defaulted.meta.fields).toBeUndefined();
     expect(calls()).toBe(before);
     expect(
       await objects.Customer.get(id, { select: ['name'], evidence: 'compact' }),

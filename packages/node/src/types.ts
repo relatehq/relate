@@ -41,17 +41,27 @@ type Edges<R extends RelationshipRegistry, O extends ObjectDefinition> = {
 }[keyof R];
 
 type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
-  readonly [E in Edges<R, O> as E['traversal']['name']]: <
-    K extends PropertyNames<E['target']> = PropertyNames<E['target']>,
-    M extends EvidenceMode = 'compact',
-  >(
-    id: ObjectId<O['id']>,
-    options?: E['traversal']['cardinality'] extends 'many'
-      ? PageOptions<K, M>
-      : ReadOptions<K, M>,
-  ) => E['traversal']['cardinality'] extends 'many'
-    ? QueryResult<ObjectRecord<E['target'], K, M>>
-    : Promise<ObjectResult<E['target'], K, M>>;
+  readonly [E in Edges<R, O> as E['traversal']['name']]: {
+    <K extends PropertyNames<E['target']> = PropertyNames<E['target']>>(
+      id: ObjectId<O['id']>,
+      options: (E['traversal']['cardinality'] extends 'many'
+        ? PageOptions<K, 'full'>
+        : ReadOptions<K, 'full'>) & { readonly evidence: 'full' },
+    ): E['traversal']['cardinality'] extends 'many'
+      ? QueryResult<ObjectRecord<E['target'], K, 'full'>>
+      : Promise<ObjectResult<E['target'], K, 'full'>>;
+    <
+      K extends PropertyNames<E['target']> = PropertyNames<E['target']>,
+      M extends EvidenceMode = 'compact',
+    >(
+      id: ObjectId<O['id']>,
+      options?: E['traversal']['cardinality'] extends 'many'
+        ? PageOptions<K, M>
+        : ReadOptions<K, M>,
+    ): E['traversal']['cardinality'] extends 'many'
+      ? QueryResult<ObjectRecord<E['target'], K, M | 'compact'>>
+      : Promise<ObjectResult<E['target'], K, M | 'compact'>>;
+  };
 };
 
 export interface ObjectOperations<
@@ -59,19 +69,26 @@ export interface ObjectOperations<
   R extends RelationshipRegistry = {},
 > {
   readonly traverse: Traversals<R, O>;
+  query<K extends PropertyNames<O> = PropertyNames<O>>(
+    options: QueryOptions<O, K, 'full'> & { readonly evidence: 'full' },
+  ): QueryResult<ObjectRecord<O, K, 'full'>>;
   query<
     K extends PropertyNames<O> = PropertyNames<O>,
     E extends EvidenceMode = 'compact',
   >(
     options?: QueryOptions<O, K, E>,
-  ): QueryResult<ObjectRecord<O, K, E>>;
+  ): QueryResult<ObjectRecord<O, K, E | 'compact'>>;
+  get<K extends PropertyNames<O> = PropertyNames<O>>(
+    id: ObjectId<O['id']>,
+    options: ReadOptions<K, 'full'> & { readonly evidence: 'full' },
+  ): Promise<ObjectResult<O, K, 'full'>>;
   get<
     K extends PropertyNames<O> = PropertyNames<O>,
     E extends EvidenceMode = 'compact',
   >(
     id: ObjectId<O['id']>,
     options?: ReadOptions<K, E>,
-  ): Promise<ObjectResult<O, K, E>>;
+  ): Promise<ObjectResult<O, K, E | 'compact'>>;
 }
 
 export interface Consumer<

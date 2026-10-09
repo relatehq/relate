@@ -73,3 +73,52 @@ for await (const invoice of objects.Customer.traverse.invoices(customerId, {
   invoice.data.totalMinor;
   void status;
 }
+
+const optionalFullTraversal: import('relate').PageOptions<'status', 'full'> = {
+  select: ['status'],
+};
+const optionalPage = await objects.Customer.traverse.invoices(
+  customerId,
+  optionalFullTraversal,
+);
+
+// @ts-expect-error an optional full option can produce compact metadata
+optionalPage.data[0]!.meta.fields.status;
+const fullPage = await objects.Customer.traverse.invoices(customerId, {
+  select: ['status'],
+  evidence: 'full',
+});
+
+fullPage.data[0]!.meta.fields.status;
+const optionalOwner = await objects.Invoice.traverse.customer(
+  invoiceId,
+  {} as import('relate').ReadOptions<'name', 'full'>,
+);
+
+if (optionalOwner.status === 'ok') {
+  // @ts-expect-error optional full evidence does not guarantee full metadata
+  optionalOwner.meta.fields.name;
+}
+
+const fullOwner = await objects.Invoice.traverse.customer(invoiceId, {
+  select: ['name'],
+  evidence: 'full',
+});
+
+if (fullOwner.status === 'ok') fullOwner.meta.fields.name;
+
+const genericOwner = await objects.Invoice.traverse.customer<'name', 'full'>(
+  invoiceId,
+);
+
+if (genericOwner.status === 'ok') {
+  // @ts-expect-error an explicit type argument cannot request evidence
+  genericOwner.meta.fields.name;
+}
+
+const genericPage = await objects.Customer.traverse.invoices<'status', 'full'>(
+  customerId,
+);
+
+// @ts-expect-error an explicit type argument cannot request evidence
+genericPage.data[0]!.meta.fields.status;

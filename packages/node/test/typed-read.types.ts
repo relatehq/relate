@@ -129,3 +129,27 @@ if (either.status === 'ok') {
 
 // @ts-expect-error only compact and full are public modes
 consumer.objects.Customer.get(id, { evidence: 'none' });
+
+// Optional full evidence is not a promise that the runtime receives that option.
+const optionalFull: import('relate').ReadOptions<'name', 'full'> = {
+  select: ['name'],
+};
+const optionalResult = await consumer.objects.Customer.get(id, optionalFull);
+
+if (optionalResult.status === 'ok') {
+  // @ts-expect-error omitted evidence produces compact at runtime
+  optionalResult.meta.fields.name;
+  // @ts-expect-error an optional full option cannot promise a full result
+  const promisedFull: 'full' = optionalResult.meta.evidence;
+
+  if (optionalResult.meta.evidence === 'full') optionalResult.meta.fields.name;
+
+  void promisedFull;
+}
+
+const explicitGeneric = await consumer.objects.Customer.get<'name', 'full'>(id);
+
+if (explicitGeneric.status === 'ok') {
+  // @ts-expect-error a type argument alone cannot request full evidence
+  explicitGeneric.meta.fields.name;
+}

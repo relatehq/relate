@@ -126,10 +126,27 @@ export interface ActionContext<
         N extends PropertyNames<G['objects'][K]> = PropertyNames<
           G['objects'][K]
         >,
+      >(
+        options: QueryOptions<G['objects'][K], N, 'full'> & {
+          readonly evidence: 'full';
+        },
+      ): QueryResult<ObjectRecord<G['objects'][K], N, 'full'>>;
+      query<
+        N extends PropertyNames<G['objects'][K]> = PropertyNames<
+          G['objects'][K]
+        >,
         E extends EvidenceMode = 'compact',
       >(
         options?: QueryOptions<G['objects'][K], N, E>,
-      ): QueryResult<ObjectRecord<G['objects'][K], N, E>>;
+      ): QueryResult<ObjectRecord<G['objects'][K], N, E | 'compact'>>;
+      get<
+        N extends PropertyNames<G['objects'][K]> = PropertyNames<
+          G['objects'][K]
+        >,
+      >(
+        id: ObjectId<G['objects'][K]['id']>,
+        options: ReadOptions<N, 'full'> & { readonly evidence: 'full' },
+      ): Promise<ObjectResult<G['objects'][K], N, 'full'>>;
       get<
         N extends PropertyNames<G['objects'][K]> = PropertyNames<
           G['objects'][K]
@@ -138,7 +155,7 @@ export interface ActionContext<
       >(
         id: ObjectId<G['objects'][K]['id']>,
         options?: ReadOptions<N, E>,
-      ): Promise<ObjectResult<G['objects'][K], N, E>>;
+      ): Promise<ObjectResult<G['objects'][K], N, E | 'compact'>>;
     } & (G['objects'][K] extends A['creates'][number]
       ? {
           create(

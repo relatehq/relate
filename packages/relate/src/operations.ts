@@ -28,7 +28,7 @@ type TypedMeta<M, K extends string> = M extends { fields: unknown }
       readonly fields?: { readonly [N in K]?: FieldEvidence };
     };
 
-/** Read methods infer `E` from the request; omitting `evidence` means compact. */
+/** Read methods guarantee full only for a required full evidence option. */
 export type ObjectResult<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,

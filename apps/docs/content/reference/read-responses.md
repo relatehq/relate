@@ -27,6 +27,12 @@ const page = await objects.Customer.query({
 });
 ```
 
+An explicit `evidence: 'full'` makes `meta.fields` and `meta.warnings` required
+in the typed result after checking `status: 'ok'`. If your options type makes
+`evidence` optional, the result includes compact as a possibility even when that
+option's declared value is `'full'`: it may be omitted at runtime. Check
+`meta.evidence === 'full'` or use optional access in that case.
+
 A later full read is a new authorized read and may observe newer data. It is not
 a lookup of the exact evidence from an earlier compact response.
 
