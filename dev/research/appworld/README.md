@@ -1,6 +1,13 @@
 # AppWorld interface research
 
-## Latest completion-prompt experiment
+## Latest contact-graph experiment
+
+[GRAPH-SHAPE.md](GRAPH-SHAPE.md) compares explicit owner-scoped contact
+relationships, Person.email and field descriptions with the preceding graph.
+Prompts and SDK packages remain unchanged. The same 18-episode, three-method,
+28-turn protocol is frozen in [GRAPH-SHAPE-PLAN.md](GRAPH-SHAPE-PLAN.md).
+
+## Previous completion-prompt experiment
 
 Static notes are retired from future comparisons. The current methods are raw
 Python, raw TypeScript and Relate SDK. [COMPLETION.md](COMPLETION.md) reports

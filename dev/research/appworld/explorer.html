@@ -400,13 +400,17 @@
         using uniform prompts.
       </p>
       <div class="band">
-        Completion experiment: three methods, two write variants, one read
-        control, two repeats and 28 turns. An explicit no-answer completion
-        example is added once in each system prompt. Static notes are retired
-        from new comparisons.
+        Contact graph experiment: three methods, two write variants, one read
+        control, two repeats and 28 turns. Explicit owner-scoped contact labels,
+        an email property and field descriptions. Prompts and SDK packages are
+        unchanged.
       </div>
       <div id="currentMetrics" class="metrics"></div>
-      <div id="completionComparison"></div>
+      <div id="graphShapeComparison"></div>
+      <details>
+        <summary>Historical completion-prompt comparison</summary>
+        <div id="completionComparison"></div>
+      </details>
       <details>
         <summary>Historical turn-budget comparison</summary>
         <div id="budgetComparison"></div>
@@ -417,7 +421,8 @@
         These are fresh stochastic runs, not continuations. Compare the three
         retained methods with their previous 28-turn results. Sampling and new
         graph IDs can change outcomes; this small diagnostic does not establish
-        a causal effect. The SDK, acquisition and evaluator are unchanged.
+        a causal effect. The SDK, acquired API data and evaluator are unchanged;
+        the local graph represents the contact data differently.
       </p>
       <h2>Writes through the existing SDK</h2>
       <div class="panel">
@@ -511,9 +516,9 @@ await completeTask({answer: result});</pre>
         also used different prompts and SDK access; do not pool them.
       </div>
       <p>
-        <a href="COMPLETION.md"
-          >Read / download the latest completion experiment</a
+        <a href="GRAPH-SHAPE.md">Read / download the contact graph experiment</a
         ><br />
+        <a href="COMPLETION.md">Previous completion experiment</a><br />
         <a href="WRITE-BUDGET.md">Read / download the turn-budget comparison</a>
         · <a href="WRITE-PILOT.md">Original 14-turn write pilot</a> ·
         <a href="TS-COMPARISON.md">Previous read comparison</a>
@@ -632,7 +637,10 @@ Playlist ← Membership → Song
    └──────── songs() ────────┘
 
 Person ← Transaction.sender
-Person ← Transaction.receiver</pre>
+Person ← Transaction.receiver
+Person ← ContactRelationship.owner
+Person ← ContactRelationship.contact
+ContactRelationship.kind = one exact source label</pre>
           <p>
             Membership records represent a song’s inclusion in a playlist. A
             song can belong to several playlists. Explicit
@@ -1056,7 +1064,9 @@ await relate.objects.Playlist.traverse.songs(id, {
       const names =
         runs[ri].id === 'sdk-nano-writes-v1'
           ? ['sdk-nano-writes-v1', 'sdk-nano-writes-28-v1']
-          : ['sdk-nano-no-answer-v1', 'sdk-nano-writes-28-v1'];
+          : runs[ri].id === 'sdk-nano-writes-28-v1'
+            ? ['sdk-nano-no-answer-v1', 'sdk-nano-writes-28-v1']
+            : ['sdk-nano-contact-graph-v1', 'sdk-nano-no-answer-v1'];
       if (!names.includes(runs[ri].id)) return null;
       const other = runs.findIndex(
         (r) => names.includes(r.id) && r.id !== runs[ri].id,
@@ -1191,6 +1201,30 @@ await relate.objects.Playlist.traverse.songs(id, {
         '<h2>All retained comparison results</h2><div style="overflow:auto"><table><tr><th>Experiment</th><th>Arm</th><th>Passed</th><th>Completed</th><th>Mean turns</th><th>Mean time</th><th>Mean input tokens</th><th>Mean output tokens</th><th>Total cost</th><th>Trajectories</th></tr>' +
         rows +
         '</table></div><p class="muted">Rows are separate experiments; never pool older prompts or mixed-access SDK arms with the new uniform-prompt comparison. Superseded harness pilots are documented in the previous study, not counted here.</p>';
+      const graphBefore = runs.find((r) => r.id === 'sdk-nano-no-answer-v1');
+      const graphAfter = runs.find((r) => r.id === 'sdk-nano-contact-graph-v1');
+      if (graphBefore && graphAfter) {
+        const passed = (es) =>
+          es.filter((e) => e.result.success === true).length;
+        $('#graphShapeComparison').innerHTML =
+          '<h2>Explicit contact graph: before → after</h2><table><tr><th>Method</th><th>Official success</th><th>Write success</th><th>Read success</th><th>Mean turns</th></tr>' +
+          ['raw', 'raw_ts', 'sdk']
+            .map((c) => {
+              const a = graphBefore.episodes.filter(
+                  (e) => e.result.condition === c,
+                ),
+                b = graphAfter.episodes.filter((e) => e.result.condition === c);
+              const writes = (es) =>
+                  es.filter((e) => e.result.task_id.startsWith('afc0fce_')),
+                reads = (es) =>
+                  es.filter((e) => !e.result.task_id.startsWith('afc0fce_'));
+              const turns = (es) =>
+                fmt(es.reduce((n, e) => n + e.result.steps, 0) / es.length);
+              return `<tr><td>${c}</td><td>${passed(a)}/6 → ${passed(b)}/6</td><td>${passed(writes(a))}/4 → ${passed(writes(b))}/4</td><td>${passed(reads(a))}/2 → ${passed(reads(b))}/2</td><td>${turns(a)} → ${turns(b)}</td></tr>`;
+            })
+            .join('') +
+          '</table><p>Same prompts and SDK packages. Raw methods are unchanged controls; these are fresh stochastic runs, not matched prefixes.</p>';
+      }
       const prior = runs.find((r) => r.id === 'sdk-nano-writes-28-v1');
       const latest = runs.find((r) => r.id === 'sdk-nano-no-answer-v1');
       if (prior && latest) {
