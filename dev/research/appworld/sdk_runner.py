@@ -505,7 +505,7 @@ def main():
         "--conditions",
         nargs="+",
         choices=["raw", "static", "raw_ts", "sdk"],
-        default=["raw", "static", "raw_ts", "sdk"],
+        default=["raw", "raw_ts", "sdk"],
     )
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument(

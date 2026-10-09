@@ -75,9 +75,9 @@ def prompt(condition):
         else NODE + (RAW_TS + AUTH if condition == "raw_ts" else SDK)
     )
     complete = (
-        "Completion: apis.supervisor.complete_task(answer=value), or apis.supervisor.complete_task(status='fail').\n"
+        "Completion: if no answer is required, apis.supervisor.complete_task(); if an answer is requested, apis.supervisor.complete_task(answer=value), or apis.supervisor.complete_task(status='fail').\n"
         if condition in {"raw", "static"}
-        else "Completion: await completeTask({answer: value}), or await completeTask({status: 'fail'}).\n"
+        else "Completion: if no answer is required, await completeTask(); if an answer is requested, await completeTask({answer: value}), or await completeTask({status: 'fail'}).\n"
     )
     return (
         COMMON
