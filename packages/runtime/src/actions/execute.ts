@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { accepts, canonicalJson } from 'relate/model';
+import { accepts, canonicalJson, isPlainObject } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
@@ -49,13 +49,7 @@ export type ActionHandler = (
 ) => Promise<unknown>;
 
 function parse(shape: Action['input'], value: unknown): Record<string, Json> {
-  if (
-    !value ||
-    typeof value !== 'object' ||
-    Array.isArray(value) ||
-    Object.getPrototypeOf(value) !== Object.prototype
-  )
-    throw new ActionError('invalid');
+  if (!isPlainObject(value)) throw new ActionError('invalid');
 
   const result: Record<string, Json> = {};
 

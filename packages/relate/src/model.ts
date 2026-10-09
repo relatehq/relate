@@ -175,6 +175,31 @@ export interface CompiledModel {
   readonly definitionRevision: string;
 }
 
+/**
+ * True for a plain data object (`{...}` or `Object.create(null)`) and false for
+ * arrays, class instances, Map, Date and other built-ins.
+ *
+ * Why not `Object.getPrototypeOf(value) === Object.prototype`: every JavaScript
+ * realm (a `node:vm` context, an iframe, jsdom, an agent REPL sandbox) has its
+ * own `Object.prototype`. An object literal written in another realm is just as
+ * plain, but the identity check rejects it, so callers running in a sandbox saw
+ * valid action inputs and query filters fail as invalid. Instead we check the
+ * shape of the chain: only a realm's `Object.prototype` has a null prototype,
+ * while a class instance's prototype (`Foo.prototype`) inherits from it.
+ */
+export function isPlainObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) return false;
+
+  // Rejects arrays and built-ins (Map, Date, RegExp, ...) from any realm.
+  if (Object.prototype.toString.call(value) !== '[object Object]') return false;
+
+  const prototype: unknown = Object.getPrototypeOf(value);
+
+  return prototype === null || Object.getPrototypeOf(prototype) === null;
+}
+
 export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
 

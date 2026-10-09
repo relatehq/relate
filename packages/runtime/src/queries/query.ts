@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { accepts, canonicalJson } from 'relate/model';
+import { accepts, canonicalJson, isPlainObject } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
@@ -31,11 +31,6 @@ import {
   schemaText,
   throwIssues,
 } from '../reads/index.js';
-
-const isPlain = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) &&
-  typeof value === 'object' &&
-  Object.getPrototypeOf(value) === Object.prototype;
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
@@ -74,7 +69,7 @@ export function createGraphQuery(options: {
     const operation = operationName(manifest, principal, type, 'query');
     const issues = requestIssues(input, 'query');
     const where: Record<string, unknown> =
-      input && typeof input === 'object' && isPlain(input.where)
+      input && typeof input === 'object' && isPlainObject(input.where)
         ? input.where
         : {};
 
