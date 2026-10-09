@@ -78,6 +78,11 @@ function schemaIssue(schema: z.ZodType): string | undefined {
   }
 }
 
+/** Omits absent descriptions so manifests keep exact optional properties. */
+function described(description: string | undefined) {
+  return description !== undefined ? { description } : {};
+}
+
 // Presentation only: this value never determines API addressing or identity.
 function humanize(apiName: string): string {
   const words = apiName
@@ -642,7 +647,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
 
     return Object.fromEntries(
       Object.entries((schema as z.ZodObject).shape).map(([name, field]) => {
-        const references = referenceSchemas.get(field);
+        const references = referenceSchemas.get(field.def);
         const description = field.description;
 
         if (references)
@@ -653,7 +658,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
               nullable: false,
               optional: false,
               references,
-              ...(description !== undefined ? { description } : {}),
+              ...described(description),
             },
           ];
 
@@ -671,7 +676,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
           name,
           {
             ...portable(field),
-            ...(description !== undefined ? { description } : {}),
+            ...described(description),
           },
         ];
       }),
@@ -725,9 +730,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
         return {
           id: action.id,
           apiName,
-          ...(action.description !== undefined
-            ? { description: action.description }
-            : {}),
+          ...described(action.description),
           input: actionShape(
             action.input,
             at('input'),
@@ -821,9 +824,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
   const manifestInput = {
     formatVersion: 5,
     graphDefinitionId: graph.id,
-    ...(graph.description !== undefined
-      ? { description: graph.description }
-      : {}),
+    ...described(graph.description),
     fieldGroups: [...graph.access.fieldGroups].sort(),
     roles: [...graph.access.roles].sort(),
     claims,
@@ -836,7 +837,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
         apiName,
         label: o.label ?? humanize(apiName),
         pluralLabel: o.pluralLabel ?? o.label ?? humanize(apiName),
-        ...(o.description !== undefined ? { description: o.description } : {}),
+        ...described(o.description),
         ...('resource' in o.membership
           ? { sourceDefinitionId: o.membership.resource.id }
           : {}),
@@ -844,9 +845,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
           .map(([name, p]) => ({
             id: p.id,
             name,
-            ...(p.description !== undefined
-              ? { description: p.description }
-              : {}),
+            ...described(p.description),
             access: p.access === undefined ? 'ordinary' : p.access.name,
             schema: portable(p.schema),
             origin: p.origin,

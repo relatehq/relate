@@ -1,6 +1,16 @@
 import type { Manifest, ScalarSchema } from 'relate/model';
 import { deepFreeze } from 'relate/model';
-import { allowsField, type Principal } from './authorization/index.js';
+import {
+  allowsField,
+  allowsObject,
+  type Principal,
+} from './authorization/index.js';
+import { actionAllowed } from './actions/index.js';
+import {
+  traversalAllowed,
+  traversalsFrom,
+  traversalSupported,
+} from './traversal/index.js';
 
 type ManifestObject = Manifest['objects'][number];
 
@@ -69,224 +79,187 @@ export interface ActionDescription extends ActionSummary {
   readonly creates: readonly ObjectSummary[];
 }
 
+/** Omits absent descriptions so results keep exact optional properties. */
+function described(description: string | undefined) {
+  return description !== undefined ? { description } : {};
+}
+
 function summary(object: ManifestObject): ObjectSummary {
   return {
     definitionId: object.id,
     apiName: object.apiName,
     label: object.label,
     pluralLabel: object.pluralLabel,
-    ...(object.description !== undefined
-      ? { description: object.description }
-      : {}),
+    ...described(object.description),
   };
 }
 
-/** Build a metadata-only view of the capabilities statically available to one actor. */
+/** Caches one frozen value per key; discovery is a pure function of an actor snapshot. */
+function memoize<T>(build: (key: string) => T) {
+  const cache = new Map<string, T>();
+
+  return (key: string): T => {
+    if (!cache.has(key)) cache.set(key, build(key));
+
+    return cache.get(key)!;
+  };
+}
+
+/**
+ * Build a metadata-only view of the capabilities statically available to one
+ * actor. It applies the same role-level gates as enforcement (`allowsObject`,
+ * `traversalAllowed`, `actionAllowed`), so a listed capability is one the
+ * runtime will attempt; record-level policy still decides each result.
+ */
 export function createDiscovery(manifest: Manifest, principal: Principal) {
   const objectById = new Map(
     manifest.objects.map((object) => [object.id, object]),
   );
-  const canRead = (object: ManifestObject | undefined) => {
-    if (!object) return false;
+  const policyFor = (id: string) =>
+    Object.hasOwn(manifest.policies, id) ? manifest.policies[id] : undefined;
+  const readable = (id: string | undefined) => {
+    const object = id === undefined ? undefined : objectById.get(id);
 
-    const policy = manifest.policies[object.id];
-
-    return Boolean(policy && principal.roles.includes(policy.read.role));
+    return object && allowsObject(principal, policyFor(object.id))
+      ? object
+      : undefined;
   };
-  const visibleObjects = manifest.objects.filter(canRead);
-  const visibleActions = (manifest.actions ?? []).filter(
-    (action) =>
-      Boolean(
-        action.execute &&
-        principal.id.trim() &&
-        principal.roles.includes(action.execute.role),
-      ) &&
-      Object.values(action.input).every(
-        (field) =>
-          !field.references || canRead(objectById.get(field.references)),
-      ),
-  );
   const actionFields = (fields: Readonly<Record<string, ActionField>>) =>
     Object.entries(fields).map(([name, field]) => {
       const { description, references, ...schema } = field;
-      const target = references ? objectById.get(references) : undefined;
+      const target = readable(references);
 
       return {
         name,
-        ...(description !== undefined ? { description } : {}),
+        ...described(description),
         schema,
-        ...(target && canRead(target) ? { references: summary(target) } : {}),
+        ...(target ? { references: summary(target) } : {}),
       } satisfies ActionFieldDescription;
     });
+  const visibleActions = () =>
+    (manifest.actions ?? []).filter((action) =>
+      actionAllowed(manifest, principal, action),
+    );
 
-  const describeObject = (
-    definitionId: string,
-  ): ObjectDescription | undefined => {
-    const object = objectById.get(definitionId);
+  const describeObject = memoize(
+    (definitionId: string): ObjectDescription | undefined => {
+      const object = readable(definitionId);
 
-    if (!object || !canRead(object)) return undefined;
+      if (!object) return undefined;
 
-    const policy = manifest.policies[object.id]!;
-    const properties = object.properties.flatMap((property) => {
-      if (!allowsField(principal, policy, property.access)) return [];
+      const policy = policyFor(object.id)!;
+      const properties = object.properties.flatMap((property) => {
+        if (!allowsField(principal, policy, property.access)) return [];
 
-      const referenceId =
-        property.origin.kind === 'reference' ||
-        property.origin.kind === 'native-reference'
-          ? property.origin.targetObjectDefinitionId
-          : undefined;
-      const target = referenceId ? objectById.get(referenceId) : undefined;
+        const referenceId =
+          property.origin.kind === 'reference' ||
+          property.origin.kind === 'native-reference'
+            ? property.origin.targetObjectDefinitionId
+            : undefined;
+        const target = readable(referenceId);
 
-      if (referenceId && !canRead(target)) return [];
+        if (referenceId && !target) return [];
 
-      return [
-        {
-          definitionId: property.id,
-          name: property.name,
-          ...(property.description !== undefined
-            ? { description: property.description }
-            : {}),
-          kind:
-            property.origin.kind === 'object-id'
-              ? ('object-id' as const)
-              : referenceId
-                ? ('reference' as const)
-                : ('value' as const),
-          schema: property.schema,
-          ...(target ? { references: summary(target) } : {}),
-        },
-      ];
-    });
-    const traversals = (manifest.relationships ?? []).flatMap(
-      (relationship) => {
-        let direction:
-          | {
-              traversal: {
-                readonly name: string;
-                readonly cardinality: 'one' | 'many';
-                readonly description?: string | undefined;
-              };
-              targetId: string;
-            }
-          | undefined;
+        return [
+          {
+            definitionId: property.id,
+            name: property.name,
+            ...described(property.description),
+            kind:
+              property.origin.kind === 'object-id'
+                ? ('object-id' as const)
+                : target
+                  ? ('reference' as const)
+                  : ('value' as const),
+            schema: property.schema,
+            ...(target ? { references: summary(target) } : {}),
+          },
+        ];
+      });
+      const traversals = traversalsFrom(manifest, object.id).flatMap((edge) => {
+        const { relationship, forward } = edge;
+        const traversal = forward ? relationship.forward : relationship.reverse;
+        const target = readable(
+          forward
+            ? relationship.toObjectDefinitionId
+            : relationship.fromObjectDefinitionId,
+        );
 
-        if (relationship.fromObjectDefinitionId === object.id)
-          direction = {
-            traversal: relationship.forward,
-            targetId: relationship.toObjectDefinitionId,
-          };
-        else if (relationship.toObjectDefinitionId === object.id)
-          direction = {
-            traversal: relationship.reverse,
-            targetId: relationship.fromObjectDefinitionId,
-          };
-
-        if (!direction) return [];
-
-        const target = objectById.get(direction.targetId);
-        const anchorId =
-          'through' in relationship
-            ? relationship.through.objectDefinitionId
-            : relationship.toObjectDefinitionId;
-        const anchor = objectById.get(anchorId);
-        const anchorPolicy = anchor && manifest.policies[anchor.id];
-        const referenceIds =
-          'through' in relationship
-            ? [
-                relationship.through.fromReferencePropertyDefinitionId,
-                relationship.through.toReferencePropertyDefinitionId,
-              ]
-            : [relationship.referencePropertyDefinitionId];
-        const referencesVisible =
-          anchor &&
-          anchorPolicy &&
-          principal.roles.includes(anchorPolicy.read.role) &&
-          referenceIds.every((id) => {
-            const property = anchor.properties.find(
-              (candidate) => candidate.id === id,
-            );
-
-            return Boolean(
-              property && allowsField(principal, anchorPolicy, property.access),
-            );
-          });
-
-        if (!target || !canRead(target) || !referencesVisible) return [];
+        if (
+          !target ||
+          !traversalSupported(manifest, relationship) ||
+          !traversalAllowed(manifest, principal, edge)
+        )
+          return [];
 
         return [
           {
             relationshipDefinitionId: relationship.id,
-            name: direction.traversal.name,
-            ...(direction.traversal.description !== undefined
-              ? { description: direction.traversal.description }
-              : {}),
-            cardinality: direction.traversal.cardinality,
+            name: traversal.name,
+            ...described(traversal.description),
+            cardinality: traversal.cardinality,
             target: summary(target),
           },
         ];
-      },
-    );
+      });
 
-    return deepFreeze({
-      ...summary(object),
-      operations: {
-        get: true as const,
-        query: { collectionScope: 'graph-membership' as const },
-      },
-      properties,
-      traversals,
-    });
-  };
-
-  const describeAction = (
-    definitionId: string,
-  ): ActionDescription | undefined => {
-    const action = visibleActions.find(
-      (candidate) => candidate.id === definitionId,
-    );
-
-    if (!action) return undefined;
-
-    return deepFreeze({
-      definitionId: action.id,
-      apiName: action.apiName,
-      ...(action.description !== undefined
-        ? { description: action.description }
-        : {}),
-      input: actionFields(action.input),
-      output: actionFields(action.output),
-      errors: Object.fromEntries(
-        Object.entries(action.errors ?? {}).map(([code, fields]) => [
-          code,
-          actionFields(fields),
-        ]),
-      ),
-      creates: action.creates.flatMap((id) => {
-        const object = objectById.get(id);
-
-        return object && canRead(object) ? [summary(object)] : [];
-      }),
-    });
-  };
-
-  return Object.freeze({
-    describe(): GraphDescription {
       return deepFreeze({
-        definitionId: manifest.graphDefinitionId,
-        ...(manifest.description !== undefined
-          ? { description: manifest.description }
-          : {}),
-        objects: visibleObjects.map(summary),
-        actions: visibleActions.map((action) => ({
-          definitionId: action.id,
-          apiName: action.apiName,
-          ...(action.description !== undefined
-            ? { description: action.description }
-            : {}),
-        })),
+        ...summary(object),
+        operations: {
+          get: true as const,
+          query: { collectionScope: 'graph-membership' as const },
+        },
+        properties,
+        traversals,
       });
     },
-    describeObject,
-    describeAction,
+  );
+
+  const describeAction = memoize(
+    (definitionId: string): ActionDescription | undefined => {
+      const action = visibleActions().find(
+        (candidate) => candidate.id === definitionId,
+      );
+
+      if (!action) return undefined;
+
+      return deepFreeze({
+        definitionId: action.id,
+        apiName: action.apiName,
+        ...described(action.description),
+        input: actionFields(action.input),
+        output: actionFields(action.output),
+        errors: Object.fromEntries(
+          Object.entries(action.errors ?? {}).map(([code, fields]) => [
+            code,
+            actionFields(fields),
+          ]),
+        ),
+        creates: action.creates.flatMap((id) => {
+          const object = readable(id);
+
+          return object ? [summary(object)] : [];
+        }),
+      });
+    },
+  );
+
+  let graph: GraphDescription | undefined;
+  const describe = () =>
+    (graph ??= deepFreeze({
+      definitionId: manifest.graphDefinitionId,
+      ...described(manifest.description),
+      objects: manifest.objects.filter((o) => readable(o.id)).map(summary),
+      actions: visibleActions().map((action) => ({
+        definitionId: action.id,
+        apiName: action.apiName,
+        ...described(action.description),
+      })),
+    }));
+
+  return Object.freeze({
+    describe: (): GraphDescription => describe(),
+    describeObject: (definitionId: string) => describeObject(definitionId),
+    describeAction: (definitionId: string) => describeAction(definitionId),
   });
 }

@@ -345,6 +345,18 @@ export function nativeActionContract(
             idempotencyKey: 'review',
           }),
       ).rejects.toMatchObject({ code: 'denied' });
+
+      // Discovery hides an action whose input references an unreadable type;
+      // invocation denies it for the same reason instead of failing later.
+      const blind = relate.as({ ...ana, roles: ['account-manager'] });
+
+      expect(blind.actions.addAccountReview.describe()).toBeUndefined();
+      await expect(
+        blind.actions.addAccountReview({
+          input: { customer, note: 'No' },
+          idempotencyKey: 'review',
+        }),
+      ).rejects.toMatchObject({ code: 'denied' });
       await expect(
         relate.as(ana).actions.addAccountReview({
           input: { customer, note: 3 } as never,

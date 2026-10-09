@@ -69,12 +69,14 @@ export const AddAccountReview = defineAction({
   get a `create` method in the handler, and each must have `nativeMembership()`.
 - **`errors`** is optional. Each key is a failure code with a schema for its
   details.
-- **`policy.execute`** is a single-role gate. Created objects are also checked
-  against their `create` policy; see
-  [Access Control](../authoring/access-control.md#5-create-rules-create).
+- **`policy.execute`** is a single-role gate. The actor must also hold the read
+  role of every object type the input references; otherwise invocation fails
+  with `denied`. Created objects are also checked against their `create` policy;
+  see [Access Control](../authoring/access-control.md#5-create-rules-create).
 - **`description` and field descriptions**: explain the action to people and
-  agents through discovery. Use Zod `.describe()` for ordinary fields and the
-  `referenceInput` option for branded object IDs.
+  agents through discovery. Use Zod `.describe()` for ordinary fields; for
+  branded object IDs, the `referenceInput` option and `.describe()` are
+  equivalent. Blank descriptions are rejected at compile time.
 
 Register the action in the graph. The key becomes the method name callers use:
 

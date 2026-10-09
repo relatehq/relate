@@ -170,3 +170,14 @@ it('requires recompilation of manifests from the previous naming contract', () =
     }),
   ).toThrow();
 });
+
+it.each(['', '  '])('rejects a blank description %j', (description) => {
+  const { Customer, customerGraph } = createCustomerGraph();
+
+  expect(() =>
+    compile({
+      ...customerGraph,
+      objects: { Customer: defineObject({ ...Customer, description }) },
+    }),
+  ).toThrow();
+});

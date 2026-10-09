@@ -39,7 +39,8 @@ export function referenceInput<
       ? base.describe(options.description)
       : base;
 
-  referenceSchemas.set(schema, object.id);
+  // Keyed by definition so `.describe()` and `.meta()` clones stay references.
+  referenceSchemas.set(schema.def, object.id);
 
   return schema as unknown as z.ZodType<ObjectId<O['id']>, ObjectId<O['id']>>;
 }
@@ -207,6 +208,9 @@ export function reference<O extends ObjectDefinition, const Id extends string>(
 ): ReferenceProperty<O['id'], O> & { readonly id: Id } {
   return Object.freeze({
     id: options.id,
+    ...(options.description !== undefined
+      ? { description: options.description }
+      : {}),
     access: options.access,
     schema: z.string(),
     references: target.id,

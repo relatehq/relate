@@ -25,7 +25,8 @@ const dependencies: Record<string, readonly string[]> = {
   traversal: ['authorization', 'reads', 'storage'],
   queries: ['authorization', 'reads', 'storage'],
   authorization: ['storage'],
-  discovery: ['authorization'],
+  // Discovery reuses the enforcement gates rather than restating them.
+  discovery: ['authorization', 'actions', 'traversal'],
   observations: ['storage'],
   reads: [],
   storage: ['observations'],

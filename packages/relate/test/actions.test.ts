@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineAction, implementAction } from 'relate';
+import { defineAction, implementAction, referenceInput } from 'relate';
 import { compile } from 'relate/compiler';
 import { validateManifest } from 'relate/model';
 import { createRuntime } from '@relate/node';
@@ -123,4 +123,27 @@ it('requires exactly one matching server implementation per registered action', 
       actionImplementations: [addAccountReview, addAccountReview],
     }),
   ).toThrow('Duplicate action implementation');
+});
+
+it('keeps a described reference input a reference', () => {
+  const model = compile({
+    ...graph,
+    actions: {
+      addAccountReview: defineAction({
+        ...AddAccountReview,
+        input: z.object({
+          customer: referenceInput(Customer).describe('Customer to review.'),
+          note: z.string(),
+        }),
+      }),
+    },
+  });
+
+  expect(model.manifest.actions?.[0]?.input.customer).toEqual({
+    type: 'string',
+    optional: false,
+    nullable: false,
+    references: Customer.id,
+    description: 'Customer to review.',
+  });
 });

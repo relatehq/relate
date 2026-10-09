@@ -19,7 +19,12 @@ Graphs, properties, directional traversals, actions, and action fields may now
 carry descriptions. Action-field descriptions use Zod `.describe()`, while
 object-reference fields use `referenceInput(Object, { description })`.
 Descriptions are presentation metadata; stable definition IDs and API names
-remain independent.
+remain independent. Blank or whitespace-only descriptions fail compilation.
+
+Invoking an action now fails with `denied` before any handler runs when the
+actor lacks the read role for an object type its input references. Previously
+the call passed the execute gate and then failed with `not-found` while checking
+the reference. Discovery hides such actions for the same reason.
 
 Compiled manifests use format 5. It adds the optional discovery metadata and
 requires format 4 manifests to be recompiled. The new manifest produces a new

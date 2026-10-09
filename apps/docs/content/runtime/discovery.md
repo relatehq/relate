@@ -33,10 +33,13 @@ Action detail includes its described input and output fields, declared failures,
 and readable object types it may create.
 
 Discovery filters objects, restricted properties, traversals, and actions using
-the principal's roles. A record-level rule such as “customers in the actor's
-portfolio” is evaluated only when data is read or an action runs. Discovery
-means the operation may be attempted; it is not a promise that any particular
-record is accessible.
+the principal's roles, through the same checks the runtime applies when the
+operation runs. An action is listed only when the actor holds its execute role
+and may read every object type its input references; a traversal is listed only
+when the actor may read its link fields and destination. A record-level rule
+such as “customers in the actor's portfolio” is evaluated only when data is read
+or an action runs. Discovery means the operation may be attempted; it is not a
+promise that any particular record is accessible.
 
 Queries report `collectionScope: 'graph-membership'`. An exhausted query or
 traversal has enumerated the currently adopted graph membership. It does not

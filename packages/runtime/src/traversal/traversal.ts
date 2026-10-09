@@ -16,6 +16,11 @@ import { validateReadRequest, project, cursorCodec } from '../reads/index.js';
 import { traversalScope } from './scope.js';
 
 import { createThroughTraversal } from './through.js';
+import {
+  traversalAllowed,
+  traversalsFrom,
+  traversalSupported,
+} from './available.js';
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
@@ -61,16 +66,13 @@ export function createTraversal(options: TraversalOptions) {
         Object.entries(input).filter(([, value]) => value !== undefined),
       ),
     );
-    const match = (manifest.relationships ?? []).flatMap((r) => [
-      ...(r.fromObjectDefinitionId === typeId && r.forward.name === name
-        ? [{ relationship: r, forward: true }]
-        : []),
-      ...(r.toObjectDefinitionId === typeId && r.reverse.name === name
-        ? [{ relationship: r, forward: false }]
-        : []),
-    ])[0];
+    const match = traversalsFrom(manifest, typeId).find(
+      ({ relationship: r, forward }) =>
+        (forward ? r.forward : r.reverse).name === name,
+    );
 
-    if (!match) throw new ReadError('invalid-request');
+    if (!match || !traversalSupported(manifest, match.relationship))
+      throw new ReadError('invalid-request');
 
     const { relationship, forward } = match;
     const limit = request.limit ?? 25;
@@ -114,8 +116,6 @@ export function createTraversal(options: TraversalOptions) {
       (p) => p.id === relationship.referencePropertyDefinitionId,
     )!;
 
-    if (!owner.sourceDefinitionId) throw new ReadError('invalid-request');
-
     const ownerPolicy = manifest.policies[owner.id];
     // Evidence mode is presentation only, so it stays out of the cursor scope.
     const {
@@ -136,7 +136,7 @@ export function createTraversal(options: TraversalOptions) {
     const unavailable = () =>
       forward ? empty() : { status: 'not-found' as const };
 
-    if (!ownerPolicy || !allowsField(principal, ownerPolicy, via.access))
+    if (!ownerPolicy || !traversalAllowed(manifest, principal, match))
       return unavailable();
 
     const root = await read(principal, typeId, id, {
