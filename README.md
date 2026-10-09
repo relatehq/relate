@@ -308,7 +308,7 @@ for complete declarations, ordering, access rules, and bounded-scan pagination.
 | Role gates, claim filters, field-level access           | Writing back to source systems                    |
 | Per-field evidence and freshness bounds                 | Migrating between model revisions                 |
 | Relate-owned objects, idempotent actions and receipts   | Published npm packages                            |
-| In-memory and Postgres stores                           |                                                   |
+| In-memory and Postgres stores                           | Work lineage graph of agent reads and actions     |
 | SQLite, Stripe and Salesforce (read-only) connectors    |                                                   |
 | `relate dev` model inspector                            |                                                   |
 
@@ -316,6 +316,10 @@ Relate runs embedded in a Node application today. Agent access through MCP is
 the next major piece. The intended shape is `get`, `query` and `traverse` tools
 per object plus one tool per action, all scoped to the authenticated caller. It
 isn't built yet.
+
+After that comes work lineage: a graph of how an agent's work unfolded, linking
+each object it read, each traversal it followed and each action it took, so you
+can see what it looked at and why it did what it did.
 
 ## Compact evidence
 
