@@ -126,6 +126,25 @@ to the records it returns. See [Graph Modeling](./authoring/graph.md) for
 registration and [Reading Data](./runtime/reading-data.md) for pagination and
 traversal coverage.
 
+For many-to-many collections, a relationship can instead use two references on
+an explicit junction object:
+
+```ts
+const PlaylistSongs = defineRelationship({
+  id: 'playlist.songs',
+  forward: 'songs',
+  reverse: 'playlists',
+  through: {
+    from: Membership.properties.playlist,
+    to: Membership.properties.song,
+  },
+});
+```
+
+This exposes `Playlist.traverse.songs` and `Song.traverse.playlists`, returning
+distinct destination objects while keeping entry metadata on `Membership`. See
+[Many-to-many relationships](./authoring/graph.md#many-to-many-relationships).
+
 ## Access Definitions, Policies, and Principals
 
 An **access definition** declares the roles, claims, and field groups available

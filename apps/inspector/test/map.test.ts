@@ -129,3 +129,22 @@ it('highlights only unambiguous IDs present in the displayed model', () => {
   expect(highlightable(ambiguous, [Customer.id]).nodes.size).toBe(0);
   expect(highlightable(ambiguous, [Customer.id]).edges.size).toBe(0);
 });
+
+it('maps many-to-many endpoints while retaining the junction details', async () => {
+  const { createPlaylistGraph } =
+    await import('../../../tests/support/playlist-graph.js');
+  const { graph } = createPlaylistGraph();
+  const model = mapManifest(compile(graph).manifest);
+
+  expect(
+    model.edges.find((edge) => edge.id === 'playlist.songs'),
+  ).toMatchObject({
+    source: 'playlist',
+    target: 'song',
+    data: {
+      forward: { name: 'songs', cardinality: 'many' },
+      reverse: { name: 'playlists', cardinality: 'many' },
+      through: { objectId: 'membership', from: 'playlist', to: 'song' },
+    },
+  });
+});

@@ -431,9 +431,11 @@ function Selection(props: {
       <dl className="detail-rows facts">
         <dt>ID</dt>
         <dd>{edge.id}</dd>
-        <dt>Via</dt>
+        <dt>{edge.data.through ? 'Through' : 'Via'}</dt>
         <dd>
-          {nameOf(edge.target)}.{edge.data.viaProperty}
+          {edge.data.through
+            ? `${nameOf(edge.data.through.objectId)}.${edge.data.through.from} → ${edge.data.through.to}`
+            : `${nameOf(edge.target)}.${edge.data.viaProperty}`}
         </dd>
       </dl>
     </>

@@ -6,6 +6,29 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Explicit many-to-many traversal
+
+`defineRelationship({ through: { from: Membership.properties.playlist, to: Membership.properties.song }, forward: 'songs', reverse: 'playlists', id })`
+adds direct, distinct destination traversal in both directions. The references
+must be distinct, belong to one registered junction, and target the registered
+endpoints. Source-backed and native records are supported. Existing `via`
+relationships retain their declaration, manifest representation, and revisions.
+
+Manifest format 4 now accepts a second relationship shape with `through` holding
+`objectDefinitionId`, `fromReferencePropertyDefinitionId`, and
+`toReferencePropertyDefinitionId`; both cardinalities are `many`. Consumers that
+inspect manifests must handle this union instead of assuming every relationship
+has `referencePropertyDefinitionId`. Upgrade readers before using a graph with
+`through`; older readers reject this new shape. Adding a relationship changes
+the graph revision and remains subject to installed-revision pinning. There is
+no storage schema migration or package version bump.
+
+Reads use bounded destination/membership scans, with distinct destinations in
+object-ID order and opaque continuation cursors. Membership metadata and
+ordering remain on the junction; no automatic link writes or new mutation
+operations are introduced. The docs site covers declaration, traversal,
+authorization, and scan costs.
+
 ## Graph queries and native enumeration
 
 Add `objects.Type.query({ where?, select?, limit?, cursor?, ...readOptions })`

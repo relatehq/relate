@@ -302,19 +302,30 @@ export interface Traversal {
   readonly cardinality: 'one' | 'many';
 }
 
-export interface RelationshipDefinition<
+export type RelationshipDefinition<
   From extends ObjectDefinition = ObjectDefinition,
   To extends ObjectDefinition = ObjectDefinition,
   Forward extends Traversal = Traversal,
   Reverse extends Traversal = Traversal,
-> {
+> = {
   readonly id: string;
   readonly from: From;
   readonly to: To;
   readonly forward: Forward;
   readonly reverse: Reverse;
-  readonly via: BoundProperty<ReferenceProperty<From['id'], From>, To>;
-}
+} & (
+  | {
+      readonly via: BoundProperty<ReferenceProperty<From['id'], From>, To>;
+      readonly through?: never;
+    }
+  | {
+      readonly via?: never;
+      readonly through: {
+        readonly from: BoundProperty<ReferenceProperty<From['id'], From>>;
+        readonly to: BoundProperty<ReferenceProperty<To['id'], To>>;
+      };
+    }
+);
 
 export function defineRelationship<
   Via extends BoundProperty<ReferenceProperty>,
@@ -325,20 +336,85 @@ export function defineRelationship<
   forward: Forward;
   reverse: Reverse;
   via: Via;
+  through?: never;
 }): RelationshipDefinition<
   Via['target'],
   Via['owner'],
   { readonly name: Forward; readonly cardinality: 'many' },
   { readonly name: Reverse; readonly cardinality: 'one' }
-> {
+> & { readonly via: Via; readonly through?: never };
+
+export function defineRelationship<
+  From extends BoundProperty<ReferenceProperty>,
+  To extends BoundProperty<ReferenceProperty, From['owner']>,
+  const Forward extends string,
+  const Reverse extends string,
+>(definition: {
+  id: string;
+  forward: Forward;
+  reverse: Reverse;
+  via?: never;
+  through: { from: From; to: To };
+}): RelationshipDefinition<
+  From['target'],
+  To['target'],
+  { readonly name: Forward; readonly cardinality: 'many' },
+  { readonly name: Reverse; readonly cardinality: 'many' }
+> & {
+  readonly via?: never;
+  readonly through: { readonly from: From; readonly to: To };
+};
+
+export function defineRelationship(definition: {
+  id: string;
+  forward: string;
+  reverse: string;
+  via?: BoundProperty<ReferenceProperty>;
+  through?: {
+    from: BoundProperty<ReferenceProperty>;
+    to: BoundProperty<ReferenceProperty>;
+  };
+}): RelationshipDefinition {
+  if (Boolean(definition.via) === Boolean(definition.through))
+    throw new Error('A relationship requires exactly one of via or through');
+
+  if (definition.through) {
+    const { from, to } = definition.through;
+
+    return recordProvenance(
+      Object.freeze({
+        id: definition.id,
+        from: from.target,
+        to: to.target,
+        through: Object.freeze({ from, to }),
+        forward: Object.freeze({
+          name: definition.forward,
+          cardinality: 'many' as const,
+        }),
+        reverse: Object.freeze({
+          name: definition.reverse,
+          cardinality: 'many' as const,
+        }),
+      }),
+    );
+  }
+
+  const via = definition.via!;
+
   return recordProvenance(
     Object.freeze({
       id: definition.id,
-      from: definition.via.target,
-      to: definition.via.owner,
-      via: definition.via,
-      forward: Object.freeze({ name: definition.forward, cardinality: 'many' }),
-      reverse: Object.freeze({ name: definition.reverse, cardinality: 'one' }),
+      from: via.target,
+      to: via.owner,
+      via,
+      forward: Object.freeze({
+        name: definition.forward,
+        cardinality: 'many' as const,
+      }),
+      reverse: Object.freeze({
+        name: definition.reverse,
+        cardinality: 'one' as const,
+      }),
     }),
   );
 }

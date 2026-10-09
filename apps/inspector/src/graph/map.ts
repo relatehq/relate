@@ -48,6 +48,11 @@ export type RelationshipEdgeData = {
   readonly forward: ManifestRelationship['forward'];
   readonly reverse: ManifestRelationship['reverse'];
   readonly viaProperty: string;
+  readonly through?: {
+    readonly objectId: string;
+    readonly from: string;
+    readonly to: string;
+  };
 };
 
 export interface GraphNode {
@@ -130,12 +135,37 @@ export function mapManifest(manifest: Manifest): GraphModel {
     .sort(byId)
     .flatMap((relationship): GraphEdge[] => {
       const owner = objects.get(relationship.toObjectDefinitionId);
-      const via = owner?.properties.find(
-        (p) => p.id === relationship.referencePropertyDefinitionId,
-      );
+      const throughOwner =
+        'through' in relationship
+          ? objects.get(relationship.through.objectDefinitionId)
+          : undefined;
+      const throughFrom =
+        'through' in relationship
+          ? throughOwner?.properties.find(
+              (p) =>
+                p.id === relationship.through.fromReferencePropertyDefinitionId,
+            )
+          : undefined;
+      const throughTo =
+        'through' in relationship
+          ? throughOwner?.properties.find(
+              (p) =>
+                p.id === relationship.through.toReferencePropertyDefinitionId,
+            )
+          : undefined;
+      const via =
+        'referencePropertyDefinitionId' in relationship
+          ? owner?.properties.find(
+              (p) => p.id === relationship.referencePropertyDefinitionId,
+            )
+          : undefined;
 
       // A validated manifest always resolves these; stay defensive anyway.
-      if (!objects.has(relationship.fromObjectDefinitionId) || !owner || !via)
+      if (
+        !objects.has(relationship.fromObjectDefinitionId) ||
+        !owner ||
+        (!via && !(throughFrom && throughTo))
+      )
         return [];
 
       return [
@@ -147,7 +177,18 @@ export function mapManifest(manifest: Manifest): GraphModel {
             id: relationship.id,
             forward: relationship.forward,
             reverse: relationship.reverse,
-            viaProperty: via.name,
+            viaProperty:
+              via?.name ??
+              `${throughOwner!.apiName}.${throughFrom!.name} → ${throughTo!.name}`,
+            ...(throughOwner && throughFrom && throughTo
+              ? {
+                  through: {
+                    objectId: throughOwner.id,
+                    from: throughFrom.name,
+                    to: throughTo.name,
+                  },
+                }
+              : {}),
           },
         },
       ];
