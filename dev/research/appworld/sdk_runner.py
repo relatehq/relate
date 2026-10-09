@@ -33,6 +33,7 @@ Complete via await apis.supervisor.complete_task({answer: ...}) for a question; 
 Do not access databases, files on the real machine, task solutions, or evaluation internals. Imports and host filesystem/network access are not available.
 """
 AUTH = """\nAll three apps are already authenticated equally by the host. The variable tokens contains spotify, phone and venmo access tokens. Use the appropriate token with original APIs; do not log in again. Work with real API data; never invent records.\n"""
+COMPLETION = """\nPrinting a result does not complete the task. When finished, call the completion API described above with your final answer. For numeric questions, submit only the numeric value, without explanatory text, currency symbols, or units. For questions asking for a name or title, submit only that name or title, without explanatory text. Follow any answer-format requirements stated in the task.\n"""
 SOURCES = ["sdk_runner.py", "sdk-repl.mjs", "sdk-graph.mjs", "acquire.py", "runner.py"]
 
 
@@ -231,6 +232,7 @@ def run(args, key, task_id, condition, repeat, spent):
                 "Use execute_code to run the next TypeScript cell.",
             )
             + AUTH
+            + COMPLETION
             + "\nWork iteratively: write one short cell, inspect its printed results, then choose the next cell. Read documentation output before attempting the documented operation.\n",
         }
     ]
@@ -503,6 +505,7 @@ def main():
             "sdk_prompt": SDK_PROMPT,
             "raw_prompt": BASE,
             "static_notes": SEMANTICS,
+            "completion_instruction": COMPLETION,
             "source_acquisition": "fixed music+payments union for every SDK episode",
             "pricing_per_million": {
                 "nano": [0.20, 0.02, 1.25],
