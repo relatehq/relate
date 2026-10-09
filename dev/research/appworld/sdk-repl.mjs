@@ -57,8 +57,7 @@ let snapshot;
 let nextCall = 0;
 const pending = new Map();
 
-// The only host capability available to agent code is task submission.
-// Source APIs and their credentials stay in the Python acquisition host.
+// Task submission is shared by both Node modes. SDK mode has no app API proxy.
 repl.context.completeTask = (options = {}) =>
   new Promise((resolve, reject) => {
     const id = ++nextCall;
@@ -115,7 +114,7 @@ let busy = false;
 lines.on('line', async (line) => {
   const message = JSON.parse(line);
 
-  if (message.type === 'completion-result') {
+  if (message.type === 'completion-result' || message.type === 'api-result') {
     const waiter = pending.get(message.id);
 
     pending.delete(message.id);
@@ -136,13 +135,36 @@ lines.on('line', async (line) => {
 
   try {
     if (message.type === 'init') {
-      snapshot = await createSdkSnapshot(message.rows);
-      repl.context.relate = snapshot.consumer;
+      if (message.mode === 'sdk') {
+        snapshot = await createSdkSnapshot(message.rows);
+        repl.context.relate = snapshot.consumer;
+      } else if (message.mode === 'raw_ts') {
+        repl.context.tokens = message.tokens;
+        repl.context.apis = new Proxy(
+          {},
+          {
+            get: (_, app) =>
+              new Proxy(
+                {},
+                {
+                  get:
+                    (_, api) =>
+                    (args = {}) =>
+                      new Promise((resolve, reject) => {
+                        const id = ++nextCall;
+                        pending.set(id, { resolve, reject });
+                        send({ type: 'api', id, app, api, args });
+                      }),
+                },
+              ),
+          },
+        );
+      } else throw new Error('Unknown Node mode');
       output = '';
-      send({ type: 'ready', snapshot_fetches: snapshot.fetchCount() });
+      send({ type: 'ready', snapshot_fetches: snapshot?.fetchCount() ?? 0 });
     } else if (message.type === 'execute') {
       output = '';
-      const before = snapshot.fetchCount();
+      const before = snapshot?.fetchCount() ?? 0;
       let error = null;
 
       try {
@@ -156,7 +178,7 @@ lines.on('line', async (line) => {
         type: 'result',
         output,
         error,
-        snapshot_fetches: snapshot.fetchCount() - before,
+        snapshot_fetches: (snapshot?.fetchCount() ?? 0) - before,
       });
     } else if (message.type === 'close') {
       await snapshot?.close();

@@ -19,22 +19,20 @@ from acquire import music, payments
 from appworld import AppWorld, load_task_ids
 from appworld.common.path_store import path_store
 from dotenv import dotenv_values
-from runner import BASE, SCHEMA, SEMANTICS
+from prompts import prompt
+from runner import SCHEMA
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
-SDK_PROMPT = """You are an agent operating simulated apps to complete a user's task.
-Return JSON with exactly one key, code, containing executable TypeScript. No markdown.
-Your TypeScript runs in a persistent Node REPL: bindings persist and top-level await is supported. Use console.log to inspect results; only printed output is visible.
-Use the authenticated Relate SDK consumer `relate` for graph reads. Start by discovering the graph with relate.describe() and object details with relate.objects[apiName].describe(). Read descriptions before guessing fields or relationships.
-The graph is your only application-data interface. Original application APIs and their credentials are not exposed in this environment.
-Always finish pagination. Use TypeScript loops for bulk work.
-Complete via await completeTask({answer: ...}) for a question; omit answer for an action task.
-Do not access databases, files on the real machine, task solutions, or evaluation internals. Imports and host filesystem/network access are not available.
-"""
-AUTH = """\nAll three apps are already authenticated equally by the host. The variable tokens contains spotify, phone and venmo access tokens. Use the appropriate token with original APIs; do not log in again. Work with real API data; never invent records.\n"""
-COMPLETION = """\nPrinting a result does not complete the task. When finished, call the completion API described above with your final answer. For numeric questions, submit only the numeric value, without explanatory text, currency symbols, or units. For questions asking for a name or title, submit only that name or title, without explanatory text. Follow any answer-format requirements stated in the task.\n"""
-SOURCES = ["sdk_runner.py", "sdk-repl.mjs", "sdk-graph.mjs", "acquire.py", "runner.py"]
+SDK_PROMPT = prompt("sdk")
+SOURCES = [
+    "sdk_runner.py",
+    "sdk-repl.mjs",
+    "sdk-graph.mjs",
+    "acquire.py",
+    "runner.py",
+    "prompts.py",
+]
 
 
 def dump(value):
@@ -42,7 +40,12 @@ def dump(value):
 
 
 class NodeRepl:
-    def __init__(self, world, rows):
+    def __init__(self, world, rows=None, *, mode="sdk", tokens=None):
+        if mode not in {"sdk", "raw_ts"}:
+            raise ValueError("Unknown Node mode")
+        if mode == "raw_ts" and rows is not None:
+            raise ValueError("Raw TypeScript must not receive acquired rows")
+        self.mode = mode
         self.world = world
         # Permission checks also constrain escaped JS contexts: no arbitrary host
         # files, subprocesses, workers or network. Only code/dependencies readable.
@@ -74,7 +77,13 @@ class NodeRepl:
         self.buffer = b""
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.process.stdout, selectors.EVENT_READ)
-        self.request({"type": "init", "rows": rows})
+        self.request(
+            {
+                "type": "init",
+                "mode": mode,
+                **({"rows": rows} if mode == "sdk" else {"tokens": tokens}),
+            }
+        )
 
     def send(self, value):
         self.process.stdin.write(dump(value) + "\n")
@@ -101,8 +110,13 @@ class NodeRepl:
             if event["type"] == "complete":
                 try:
                     options = event.get("options")
-                    if not isinstance(options, dict) or set(options) - {"answer"}:
-                        raise ValueError("completeTask accepts only an optional answer")
+                    if not isinstance(options, dict) or set(options) - {
+                        "answer",
+                        "status",
+                    }:
+                        raise ValueError(
+                            "completeTask accepts only optional answer and status"
+                        )
                     result = self.world.apis.supervisor.complete_task(**options)
                     response = {
                         "type": "completion-result",
@@ -112,6 +126,26 @@ class NodeRepl:
                 except Exception as error:
                     response = {
                         "type": "completion-result",
+                        "id": event["id"],
+                        "error": f"{type(error).__name__}: {error}",
+                    }
+                self.send(response)
+            elif event["type"] == "api" and self.mode == "raw_ts":
+                try:
+                    app, api = event["app"], event["api"]
+                    if app == "admin" or app.startswith("_") or api.startswith("_"):
+                        raise ValueError("Private app APIs are unavailable")
+                    result = getattr(getattr(self.world.apis, app), api)(
+                        **event["args"]
+                    )
+                    response = {
+                        "type": "api-result",
+                        "id": event["id"],
+                        "result": result,
+                    }
+                except Exception as error:
+                    response = {
+                        "type": "api-result",
                         "id": event["id"],
                         "error": f"{type(error).__name__}: {error}",
                     }
@@ -207,27 +241,7 @@ def run(args, key, task_id, condition, repeat, spent):
     acquisition_calls = 0
     acquisition_seconds = 0
     setup_seconds = 0
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                SDK_PROMPT
-                if condition == "sdk"
-                else BASE + (SEMANTICS if condition == "static" else "")
-            )
-            .replace(
-                "Return JSON with exactly one key, code, containing executable Python. No markdown.",
-                "Use execute_code to run the next Python cell.",
-            )
-            .replace(
-                "Return JSON with exactly one key, code, containing executable TypeScript. No markdown.",
-                "Use execute_code to run the next TypeScript cell.",
-            )
-            + ("" if condition == "sdk" else AUTH)
-            + COMPLETION
-            + "\nWork iteratively: write one short cell, inspect its printed results, then choose the next cell. Read documentation output before attempting the documented operation.\n",
-        }
-    ]
+    messages = [{"role": "system", "content": prompt(condition)}]
     with AppWorld(
         task_id=task_id,
         experiment_name=name,
@@ -262,6 +276,8 @@ def run(args, key, task_id, condition, repeat, spent):
                 )
                 acquisition_seconds = clock.real_perf_counter() - acquire_start
                 node = NodeRepl(world, rows)
+            elif condition == "raw_ts":
+                node = NodeRepl(world, mode="raw_ts", tokens=tokens)
             setup_seconds = clock.real_perf_counter() - start
             messages.append(
                 {
@@ -395,7 +411,7 @@ def run(args, key, task_id, condition, repeat, spent):
         # Direct host API calls update the in-memory world. AppWorld's evaluator
         # reads the normal output DBs; save_state() alone writes a checkpoint.
         # A no-op public execution flushes the current state to evaluator input.
-        if condition == "sdk":
+        if node:
             flushed = world.execute("pass")
             if flushed.startswith("Execution failed"):
                 raise RuntimeError("Unable to persist SDK world for evaluation")
@@ -446,8 +462,8 @@ def main():
     parser.add_argument(
         "--conditions",
         nargs="+",
-        choices=["raw", "static", "sdk"],
-        default=["raw", "static", "sdk"],
+        choices=["raw", "static", "raw_ts", "sdk"],
+        default=["raw", "static", "raw_ts", "sdk"],
     )
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument(
@@ -494,11 +510,10 @@ def main():
             "provider_seed": None,
             "action_protocol": "single execute_code function call; stateless encrypted reasoning replay",
             "world_seed": 100,
-            "sdk_prompt": SDK_PROMPT,
+            "prompts": {condition: prompt(condition) for condition in args.conditions},
+            "prompt_protocol": "uniform-zero-shot-appworld-react-v1",
             "sdk_capabilities": "relate SDK reads and completeTask only; no original APIs or credentials",
-            "raw_prompt": BASE,
-            "static_notes": SEMANTICS,
-            "completion_instruction": COMPLETION,
+            "raw_ts_capabilities": "original app APIs and completeTask; no SDK or acquired snapshot",
             "source_acquisition": "fixed music+payments union for every SDK episode",
             "pricing_per_million": {
                 "nano": [0.20, 0.02, 1.25],
