@@ -758,23 +758,42 @@ export function compile(graph: GraphDefinition): CompiledModel {
     // Erased JavaScript callers can pass partial relationship objects.
     const from = relationship?.from as ObjectDefinition | undefined;
     const to = relationship?.to as ObjectDefinition | undefined;
-    const via = relationship?.via as Property | undefined;
+    const via = relationship?.via;
+    const through = relationship?.through;
+    const registeredReference = (
+      property: typeof via,
+      owner: ObjectDefinition | undefined,
+      target: ObjectDefinition | undefined,
+    ) =>
+      Boolean(
+        property &&
+        owner &&
+        target &&
+        objects.includes(owner) &&
+        property.owner === owner &&
+        property.target === target &&
+        Object.values(owner.properties).includes(property) &&
+        (property.origin.kind === 'reference' ||
+          property.origin.kind === 'native-reference'),
+      );
+    const valid = through
+      ? !via &&
+        through.from !== through.to &&
+        through.from?.owner === through.to?.owner &&
+        registeredReference(through.from, through.from?.owner, from) &&
+        registeredReference(through.to, through.from?.owner, to)
+      : registeredReference(via, to, from);
 
     if (
-      !relationship ||
-      typeof relationship !== 'object' ||
       !from ||
       !to ||
-      !via ||
       !objects.includes(from) ||
       !objects.includes(to) ||
-      relationship.via.owner !== to ||
-      relationship.via.target !== from ||
-      !Object.values(to.properties).includes(relationship.via)
+      !valid
     )
       issues.report(
         'relationship.invalid-endpoints',
-        `Unregistered relationship endpoint or reference: relationship ${name} ('${relationship?.id}') connects '${from?.id}' to '${to?.id}' via '${via?.id}'`,
+        `Unregistered relationship endpoint or reference: relationship ${name} ('${relationship?.id}') connects '${from?.id}' to '${to?.id}' ${through ? `through '${through.from?.owner?.id}' references '${through.from?.id}' and '${through.to?.id}'` : `via '${via?.id}'`}`,
         ['relationships', name],
         typeof relationship?.id === 'string' ? relationship.id : undefined,
       );
@@ -820,7 +839,15 @@ export function compile(graph: GraphDefinition): CompiledModel {
               id: r.id,
               fromObjectDefinitionId: r.from.id,
               toObjectDefinitionId: r.to.id,
-              referencePropertyDefinitionId: r.via.id,
+              ...(r.through
+                ? {
+                    through: {
+                      objectDefinitionId: r.through.from.owner.id,
+                      fromReferencePropertyDefinitionId: r.through.from.id,
+                      toReferencePropertyDefinitionId: r.through.to.id,
+                    },
+                  }
+                : { referencePropertyDefinitionId: r.via.id }),
               forward: r.forward,
               reverse: r.reverse,
             }))

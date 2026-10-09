@@ -104,14 +104,40 @@ export const manifestSchema = z.strictObject({
   ),
   relationships: z
     .array(
-      z.strictObject({
-        id: text,
-        fromObjectDefinitionId: text,
-        toObjectDefinitionId: text,
-        referencePropertyDefinitionId: text,
-        forward: z.strictObject({ name: text, cardinality: z.literal('many') }),
-        reverse: z.strictObject({ name: text, cardinality: z.literal('one') }),
-      }),
+      z.union([
+        z.strictObject({
+          id: text,
+          fromObjectDefinitionId: text,
+          toObjectDefinitionId: text,
+          referencePropertyDefinitionId: text,
+          forward: z.strictObject({
+            name: text,
+            cardinality: z.literal('many'),
+          }),
+          reverse: z.strictObject({
+            name: text,
+            cardinality: z.literal('one'),
+          }),
+        }),
+        z.strictObject({
+          id: text,
+          fromObjectDefinitionId: text,
+          toObjectDefinitionId: text,
+          through: z.strictObject({
+            objectDefinitionId: text,
+            fromReferencePropertyDefinitionId: text,
+            toReferencePropertyDefinitionId: text,
+          }),
+          forward: z.strictObject({
+            name: text,
+            cardinality: z.literal('many'),
+          }),
+          reverse: z.strictObject({
+            name: text,
+            cardinality: z.literal('many'),
+          }),
+        }),
+      ]),
     )
     .optional(),
   policies: z.record(text, policySchema),
@@ -595,26 +621,49 @@ export function validateManifest(input: unknown): Manifest {
     register(relationship.id, at('id'));
     const from = objectById.get(relationship.fromObjectDefinitionId);
     const to = objectById.get(relationship.toObjectDefinitionId);
-    const via = to?.properties.find(
-      (p) => p.id === relationship.referencePropertyDefinitionId,
-    );
+    const referenceTargets = (
+      owner: typeof to,
+      propertyId: string,
+      target: typeof from,
+    ) => {
+      const property = owner?.properties.find((p) => p.id === propertyId);
 
-    if (
-      !from ||
-      !to ||
-      !via ||
-      (via.origin.kind !== 'reference' &&
-        via.origin.kind !== 'native-reference') ||
-      via.origin.targetObjectDefinitionId !== from.id
-    ) {
+      return Boolean(
+        target &&
+        property &&
+        (property.origin.kind === 'reference' ||
+          property.origin.kind === 'native-reference') &&
+        property.origin.targetObjectDefinitionId === target.id,
+      );
+    };
+    const valid =
+      'through' in relationship
+        ? relationship.through.fromReferencePropertyDefinitionId !==
+            relationship.through.toReferencePropertyDefinitionId &&
+          referenceTargets(
+            objectById.get(relationship.through.objectDefinitionId),
+            relationship.through.fromReferencePropertyDefinitionId,
+            from,
+          ) &&
+          referenceTargets(
+            objectById.get(relationship.through.objectDefinitionId),
+            relationship.through.toReferencePropertyDefinitionId,
+            to,
+          )
+        : referenceTargets(
+            to,
+            relationship.referencePropertyDefinitionId,
+            from,
+          );
+
+    if (!from || !to || !valid) {
       issues.report(
         'relationship.invalid-endpoints',
-        `Invalid relationship endpoints or reference: relationship '${relationship.id}' from '${relationship.fromObjectDefinitionId}' to '${relationship.toObjectDefinitionId}' via '${relationship.referencePropertyDefinitionId}'`,
+        `Invalid relationship endpoints or reference: relationship '${relationship.id}' from '${relationship.fromObjectDefinitionId}' to '${relationship.toObjectDefinitionId}'`,
         at(),
         relationship.id,
       );
 
-      // Traversal checks need resolved endpoints.
       return;
     }
 

@@ -265,6 +265,38 @@ and sync from sources are coming; neither is implemented yet.** For now, your
 application discovers source records and adopts them by ID. Comparisons such as
 `dueDate < today`, sorting and aggregates are also outside this first query API.
 
+## Many-to-many relationships
+
+Expose direct collections over an explicit junction object:
+
+```ts
+const PlaylistSongs = defineRelationship({
+  id: 'playlist.songs',
+  forward: 'songs',
+  reverse: 'playlists',
+  through: {
+    from: Membership.properties.playlist,
+    to: Membership.properties.song,
+  },
+});
+
+// After registering the objects, relationship, and read policies:
+await objects.Playlist.traverse.songs(playlistId, { select: ['title'] });
+await objects.Song.traverse.playlists(songId, { select: ['name'] });
+```
+
+Both references belong to the same registered junction object. Both directions
+return paginated, distinct destinations; junction metadata remains queryable on
+`Membership`. Traversal enforces access to the root, membership, both
+references, and destination. Source-backed and native junctions are supported.
+This adds read traversal; writes remain with the junction's owning system.
+
+See
+[many-to-many modeling](apps/docs/content/authoring/graph.md#many-to-many-relationships)
+and
+[traversal behavior](apps/docs/content/runtime/reading-data.md#many-to-many-traversal)
+for complete declarations, ordering, access rules, and bounded-scan pagination.
+
 ## Status
 
 | Works today                                             | Not yet                                           |

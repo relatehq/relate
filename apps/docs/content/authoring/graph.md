@@ -176,6 +176,107 @@ Once `CustomerInvoices` is registered under `relationships`:
 
 See [Reading Data](../runtime/reading-data.md) for traversal results.
 
+### Many-to-many relationships
+
+Use `through` to expose direct collections in both directions over an explicit
+junction object. For example, a playlist has songs and a song belongs to
+playlists. The junction can retain its own position and other metadata.
+
+Given registered `Playlist` and `Song` objects, define the junction and
+relationship:
+
+```ts
+import { z } from 'zod';
+import {
+  defineObject,
+  defineRelationship,
+  defineSource,
+  from,
+  objectId,
+  reference,
+  source,
+} from 'relate';
+
+const memberships = defineSource({
+  id: 'music.memberships',
+  idField: 'id',
+  schema: z.object({
+    id: z.string(),
+    playlist_id: z.string(),
+    song_id: z.string(),
+    position: z.number(),
+  }),
+});
+
+const Membership = defineObject({
+  id: 'membership',
+  membership: source(memberships),
+  properties: {
+    id: objectId({ id: 'membership.id' }),
+    playlist: reference(Playlist, {
+      id: 'membership.playlist',
+      from: memberships.fields.playlist_id,
+    }),
+    song: reference(Song, {
+      id: 'membership.song',
+      from: memberships.fields.song_id,
+    }),
+    position: from(memberships.fields.position, {
+      id: 'membership.position',
+    }),
+  },
+});
+
+const PlaylistSongs = defineRelationship({
+  id: 'playlist.songs',
+  forward: 'songs',
+  reverse: 'playlists',
+  through: {
+    from: Membership.properties.playlist,
+    to: Membership.properties.song,
+  },
+});
+```
+
+Register `objects: { Playlist, Song, Membership }` and
+`relationships: { PlaylistSongs }` in `defineGraph`, with read policies for all
+three objects. Both references must be distinct properties of the same
+registered junction object. Relate infers the endpoints from their targets and
+sets both traversal cardinalities to `many`. Use either `via` or `through` in a
+relationship, never both. Two references to the same target object can also
+model a self relationship, with different forward and reverse traversal names.
+
+The junction and endpoints may be source-backed or native. Source-backed records
+must be adopted before traversal; native records must already exist. The
+relationship itself does not create records, adopt provider data, or copy links
+into separate storage.
+
+A direct traversal returns distinct destination objects in object-ID order. It
+does not expose membership metadata or follow a membership's `position`. To work
+with individual playlist entries, including repeated songs, register an
+additional ordinary relationship:
+
+```ts
+const PlaylistEntries = defineRelationship({
+  id: 'playlist.entries',
+  forward: 'entries',
+  reverse: 'playlist',
+  via: Membership.properties.playlist,
+});
+```
+
+Include `PlaylistEntries` in the relationship registry, then use
+`objects.Playlist.traverse.entries(playlistId, { select: ['song', 'position'] })`
+and apply your desired ordering to the collected entries. You can also query
+`objects.Membership` directly.
+
+Adding or removing a link remains an operation on the junction's owning system.
+Use existing native actions for supported native writes; this API adds read
+traversal and does not add generic `connect`, `disconnect`, update, or delete
+operations. See [Actions](../runtime/actions.md) for the supported native write
+surface and [Reading Data](../runtime/reading-data.md#many-to-many-traversal)
+for traversal examples and access behavior.
+
 ---
 
 ## 4. Graph Compilation & Revision Pinning
@@ -186,7 +287,8 @@ it directly to inspect or store the result. Compilation:
 
 1. Verifies property IDs, source fields, reference targets, field groups, and
    policy dependencies, throwing a `CompileError` that lists every issue.
-2. Produces an immutable, serializable manifest (format 4).
+2. Produces an immutable, serializable manifest (format 4), including the
+   junction object and both reference IDs for `through` relationships.
 3. Computes a deterministic SHA-256 definition revision of that manifest.
 
 ```ts

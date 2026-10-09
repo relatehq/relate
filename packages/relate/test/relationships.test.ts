@@ -112,8 +112,9 @@ it('validates portable endpoint, reference, cardinality and traversal-name contr
       m.relationships![0]!.toObjectDefinitionId = Customer.id;
     },
     (m: typeof original) => {
-      m.relationships![0]!.referencePropertyDefinitionId =
-        Invoice.properties.status.id;
+      Object.assign(m.relationships![0]!, {
+        referencePropertyDefinitionId: Invoice.properties.status.id,
+      });
     },
     (m: typeof original) => {
       m.relationships![0]!.forward.name = '__proto__';

@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-import { canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
@@ -11,15 +9,18 @@ import type {
   FullPageResult as PageResult,
 } from '@relate/protocol';
 import type { ObservationStore, StorageScope } from '../storage.js';
-import { compareObjectIds } from '../storage.js';
+import { scanBatch } from '../storage.js';
 import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import { validateReadRequest, project, cursorCodec } from '../reads/index.js';
+import { traversalScope } from './scope.js';
+
+import { createThroughTraversal } from './through.js';
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
 /** Reference-backed traversal composes the same authorized read path in both directions. */
-export function createTraversal(options: {
+export interface TraversalOptions {
   manifest: Manifest;
   graphId: string;
   revision: string;
@@ -35,7 +36,10 @@ export function createTraversal(options: {
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
   ): Promise<ReadResult>;
-}) {
+}
+
+export function createTraversal(options: TraversalOptions) {
+  const through = createThroughTraversal(options);
   const { manifest, store, read, clock, scopeFor } = options;
   const codec = cursorCodec(options.cursorKey);
   const empty = (): PageResult => ({ data: [], meta: { exhausted: true } });
@@ -77,7 +81,8 @@ export function createTraversal(options: {
       limit > 100 ||
       (request.cursor !== undefined &&
         (typeof request.cursor !== 'string' || !request.cursor)) ||
-      (!forward &&
+      (relationship.reverse.cardinality === 'one' &&
+        !forward &&
         (request.limit !== undefined || request.cursor !== undefined)) ||
       Object.keys(request).some(
         (key) =>
@@ -95,6 +100,9 @@ export function createTraversal(options: {
       )
     )
       throw new ReadError('invalid-request');
+
+    if ('through' in relationship)
+      return through(principal, typeId, id, relationship, forward, request);
 
     const targetType = forward
       ? relationship.toObjectDefinitionId
@@ -116,23 +124,14 @@ export function createTraversal(options: {
       evidence: _evidence,
       ...readRequest
     } = request;
-    const scope = createHash('sha256')
-      .update(
-        canonicalJson({
-          graphId: options.graphId,
-          revision: options.revision,
-          principal,
-          typeId,
-          id,
-          relationship: relationship.id,
-          forward,
-          query: { ...readRequest, limit },
-          bindings: manifest.objects
-            .filter((o) => o.sourceDefinitionId)
-            .map((o) => scopeFor(o.id, o.sourceDefinitionId!)),
-        }),
-      )
-      .digest('hex');
+    const scope = traversalScope(options, {
+      principal,
+      typeId,
+      id,
+      relationship: relationship.id,
+      forward,
+      query: { ...readRequest, limit },
+    });
     let after = cursor ? codec.decode(cursor, scope, clock()) : undefined;
     const unavailable = () =>
       forward ? empty() : { status: 'not-found' as const };
@@ -250,45 +249,24 @@ export function createTraversal(options: {
     let more = true;
 
     while (more && scanned < 100 && pending.length < limit) {
-      let batch;
-
-      try {
-        batch = await store.scan(
-          scopeFor(owner.id, owner.sourceDefinitionId!),
-          {
-            ...(after ? { after } : {}),
-            limit: Math.min(100 - scanned, limit - pending.length),
-          },
-        );
-      } catch {
-        throw new ReadError('unavailable');
-      }
+      const batch = await scanBatch(
+        (input) =>
+          store.scan(scopeFor(owner.id, owner.sourceDefinitionId!), input),
+        after,
+        Math.min(100 - scanned, limit - pending.length),
+      );
 
       more = batch.hasMore;
 
-      if (!batch.objects.length) {
-        if (more) throw new ReadError('unavailable');
-
-        break;
-      }
-
-      for (const candidate of batch.objects) {
-        // Tokens are encrypted with a fresh nonce. Compare scan positions here:
-        // different token strings cannot detect a store that repeats its boundary.
-        if (
-          typeof candidate.objectId !== 'string' ||
-          candidate.objectId.length === 0 ||
-          (after !== undefined &&
-            compareObjectIds(candidate.objectId, after) <= 0)
-        )
-          throw new ReadError('incomplete');
-
-        after = candidate.objectId;
+      for (const candidate of batch.ids) {
+        after = candidate;
         scanned++;
-        const result = await member(candidate.objectId);
+        const result = await member(candidate);
 
-        if (result) pending.push({ id: candidate.objectId, result });
+        if (result) pending.push({ id: candidate, result });
       }
+
+      if (!batch.ids.length) break;
     }
 
     const authorized: ((typeof pending)[number] & {

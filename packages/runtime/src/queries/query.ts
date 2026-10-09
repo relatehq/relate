@@ -15,10 +15,10 @@ import type {
   NativeScope,
   NativeTransaction,
 } from '../storage.js';
+import { scanBatch } from '../storage.js';
 import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import { validateReadRequest, project, cursorCodec } from '../reads/index.js';
-import { compareObjectIds } from '../storage.js';
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
@@ -211,55 +211,26 @@ export function createGraphQuery(options: {
     let more = true;
 
     while (more && scanned < 100 && pending.length < limit) {
-      const batchLimit = Math.min(100 - scanned, limit - pending.length);
-      let batch;
-
-      try {
-        const scan = {
-          ...(after !== undefined ? { after } : {}),
-          limit: batchLimit,
-        };
-
-        batch = object.sourceDefinitionId
-          ? await store.scan(
-              options.scopeFor(type, object.sourceDefinitionId),
-              scan,
-            )
-          : transaction
-            ? await transaction.scan(type, scan)
-            : await store.native?.scan(options.scope, type, scan);
-      } catch {
-        throw new ReadError('unavailable');
-      }
-
-      if (
-        !batch ||
-        typeof batch.hasMore !== 'boolean' ||
-        batch.objects.length > batchLimit
-      )
-        throw new ReadError('incomplete');
+      const batch = await scanBatch(
+        (scan) =>
+          object.sourceDefinitionId
+            ? store.scan(
+                options.scopeFor(type, object.sourceDefinitionId),
+                scan,
+              )
+            : transaction
+              ? transaction.scan(type, scan)
+              : store.native!.scan(options.scope, type, scan),
+        after,
+        Math.min(100 - scanned, limit - pending.length),
+      );
 
       more = batch.hasMore;
 
-      if (!batch.objects.length) {
-        if (more) throw new ReadError('incomplete');
+      if (!batch.ids.length) break;
 
-        break;
-      }
-
-      for (const candidate of batch.objects) {
-        if (
-          typeof candidate.objectId !== 'string' ||
-          !candidate.objectId ||
-          (after !== undefined &&
-            compareObjectIds(candidate.objectId, after) <= 0)
-        )
-          throw new ReadError('incomplete');
-
-        after = candidate.objectId;
-      }
-
-      scanned += batch.objects.length;
+      after = batch.ids.at(-1);
+      scanned += batch.ids.length;
 
       // Transactions share one connection; independent reads can overlap. Each
       // candidate is evaluated as soon as its read settles, while evidence is fresh.
@@ -281,12 +252,10 @@ export function createGraphQuery(options: {
       const evaluated: Awaited<ReturnType<typeof evaluate>>[] = [];
       const concurrency = transaction ? 1 : 8;
 
-      for (let i = 0; i < batch.objects.length; i += concurrency)
+      for (let i = 0; i < batch.ids.length; i += concurrency)
         evaluated.push(
           ...(await Promise.all(
-            batch.objects
-              .slice(i, i + concurrency)
-              .map((candidate) => evaluate(candidate.objectId)),
+            batch.ids.slice(i, i + concurrency).map(evaluate),
           )),
         );
 
