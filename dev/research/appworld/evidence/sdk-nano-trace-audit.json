@@ -1,0 +1,1027 @@
+[
+  {
+    "episode": "82e2fac_1__raw__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 6,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 4,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 5,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 6,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "82e2fac_1__raw__1",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 8,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 7,
+        "category": "disallowed-import"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "82e2fac_1__raw__2",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 10,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 4,
+        "category": "disallowed-import"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "82e2fac_1__sdk__0",
+    "success": true,
+    "completed": true,
+    "termination": "completed",
+    "turns": 6,
+    "status_only_turns": 1,
+    "sdk_mentions": {
+      "relate.": [3, 4, 5],
+      ".describe(": [3, 4],
+      ".query(": [5],
+      ".traverse.": [],
+      "for await": [5]
+    },
+    "errors": [],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores.",
+    "manual_review": "Manually reviewed: successful query iteration and exact-title submission; no traversal."
+  },
+  {
+    "episode": "82e2fac_1__sdk__1",
+    "success": true,
+    "completed": true,
+    "termination": "completed",
+    "turns": 10,
+    "status_only_turns": 4,
+    "sdk_mentions": {
+      "relate.": [2, 4, 5, 6],
+      ".describe(": [2, 4, 5],
+      ".query(": [6],
+      ".traverse.": [],
+      "for await": [6]
+    },
+    "errors": [
+      {
+        "turn": 4,
+        "category": "redeclaration"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores.",
+    "manual_review": "Manually reviewed: successful query iteration and exact-title submission after a redeclaration failure."
+  },
+  {
+    "episode": "82e2fac_1__sdk__2",
+    "success": true,
+    "completed": true,
+    "termination": "completed",
+    "turns": 8,
+    "status_only_turns": 4,
+    "sdk_mentions": {
+      "relate.": [2, 4, 6],
+      ".describe(": [2, 4],
+      ".query(": [6],
+      ".traverse.": [],
+      "for await": [6]
+    },
+    "errors": [],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "82e2fac_1__static__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 2,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 4,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 10,
+        "category": "api-validation"
+      },
+      {
+        "turn": 13,
+        "category": "other-execution"
+      },
+      {
+        "turn": 14,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "82e2fac_1__static__1",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 3,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 3,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 4,
+        "category": "disallowed-import"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "82e2fac_1__static__2",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 9,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 5,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 10,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 12,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_1__raw__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 7,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 9,
+        "category": "disallowed-import"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_1__raw__1",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 5,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 14,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_1__raw__2",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 5,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 4,
+        "category": "disallowed-import"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_1__sdk__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 6,
+    "sdk_mentions": {
+      "relate.": [2, 4, 6, 9, 13, 14],
+      ".describe(": [2, 4, 9],
+      ".query(": [6, 13, 14],
+      ".traverse.": [14],
+      "for await": [6, 13, 14]
+    },
+    "errors": [
+      {
+        "turn": 13,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 14,
+        "category": "redeclaration"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores.",
+    "manual_review": "Traversal code on turn 14 did not execute: redeclaration error."
+  },
+  {
+    "episode": "d0b1f43_1__sdk__1",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 3,
+    "sdk_mentions": {
+      "relate.": [2, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14],
+      ".describe(": [2, 4, 5],
+      ".query(": [6, 9, 10, 11, 12, 13, 14],
+      ".traverse.": [],
+      "for await": [9, 10, 11, 12, 13, 14]
+    },
+    "errors": [
+      {
+        "turn": 10,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 11,
+        "category": "redeclaration"
+      }
+    ],
+    "output_truncations": [9],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores.",
+    "manual_review": "Manually reviewed: aggregate printed on final turn; no completion call."
+  },
+  {
+    "episode": "d0b1f43_1__sdk__2",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 3,
+    "sdk_mentions": {
+      "relate.": [6, 8, 9, 10, 12, 13],
+      ".describe(": [6, 8, 10],
+      ".query(": [9, 12, 13],
+      ".traverse.": [13],
+      "for await": [9, 12, 13]
+    },
+    "errors": [],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores.",
+    "manual_review": "Manually reviewed: sentTransactions traversal returned results on turn 13; turn 14 printed submit but did not call completion.",
+    "confirmed_traversal_turns": [13]
+  },
+  {
+    "episode": "d0b1f43_1__static__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 4,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 4,
+        "category": "other-execution"
+      },
+      {
+        "turn": 8,
+        "category": "api-validation"
+      },
+      {
+        "turn": 13,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_1__static__1",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 4,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 4,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 5,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 7,
+        "category": "other-execution"
+      },
+      {
+        "turn": 13,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_1__static__2",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 3,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 3,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 12,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_2__raw__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 3,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 9,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_2__raw__1",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 4,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 4,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 5,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 6,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 14,
+        "category": "disallowed-import"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_2__raw__2",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 3,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 12,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_2__sdk__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 2,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 4,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 13,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 14,
+        "category": "redeclaration"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_2__sdk__1",
+    "success": false,
+    "completed": true,
+    "termination": "completed",
+    "turns": 10,
+    "status_only_turns": 2,
+    "sdk_mentions": {
+      "relate.": [2, 3, 4, 6, 7],
+      ".describe(": [2, 3],
+      ".query(": [4, 6, 7],
+      ".traverse.": [],
+      "for await": [4, 6, 7]
+    },
+    "errors": [],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores.",
+    "manual_review": "Manually reviewed: bare numeric string submitted; wrong transaction-direction condition and missing contact-group filter."
+  },
+  {
+    "episode": "d0b1f43_2__sdk__2",
+    "success": false,
+    "completed": true,
+    "termination": "completed",
+    "turns": 14,
+    "status_only_turns": 3,
+    "sdk_mentions": {
+      "relate.": [4, 5, 6, 8, 9, 10, 11],
+      ".describe(": [4, 5, 6],
+      ".query(": [8, 9, 10],
+      ".traverse.": [11],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 8,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores.",
+    "manual_review": "Manually reviewed: receivedTransactions on coworkers executed on turn 11; wrong direction for money received by the user. Numeric answer submitted and rejected.",
+    "confirmed_traversal_turns": [11]
+  },
+  {
+    "episode": "d0b1f43_2__static__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 6,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 6,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 14,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_2__static__1",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 4,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 7,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 8,
+        "category": "disallowed-import"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "d0b1f43_2__static__2",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 7,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 8,
+        "category": "disallowed-import"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "e7a10f8_1__raw__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 5,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "e7a10f8_1__raw__1",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 3,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 1,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 5,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 6,
+        "category": "disallowed-import"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "e7a10f8_1__raw__2",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 3,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 3,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 4,
+        "category": "other-execution"
+      },
+      {
+        "turn": 13,
+        "category": "api-validation"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "e7a10f8_1__sdk__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 1,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 3,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 6,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 8,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 10,
+        "category": "api-validation"
+      },
+      {
+        "turn": 11,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 12,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 14,
+        "category": "redeclaration"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "e7a10f8_1__sdk__1",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 1,
+    "sdk_mentions": {
+      "relate.": [3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+      ".describe(": [3, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      ".query(": [14],
+      ".traverse.": [],
+      "for await": [14]
+    },
+    "errors": [
+      {
+        "turn": 3,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 5,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 7,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 10,
+        "category": "redeclaration"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "e7a10f8_1__sdk__2",
+    "success": true,
+    "completed": true,
+    "termination": "completed",
+    "turns": 12,
+    "status_only_turns": 1,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 5,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 7,
+        "category": "redeclaration"
+      },
+      {
+        "turn": 10,
+        "category": "redeclaration"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores.",
+    "manual_review": "Manually reviewed: official pass using original APIs only; no Relate call."
+  },
+  {
+    "episode": "e7a10f8_1__static__0",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 4,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "e7a10f8_1__static__1",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 3,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 12,
+        "category": "other-execution"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  },
+  {
+    "episode": "e7a10f8_1__static__2",
+    "success": false,
+    "completed": false,
+    "termination": "step-budget",
+    "turns": 14,
+    "status_only_turns": 2,
+    "sdk_mentions": {
+      "relate.": [],
+      ".describe(": [],
+      ".query(": [],
+      ".traverse.": [],
+      "for await": []
+    },
+    "errors": [
+      {
+        "turn": 2,
+        "category": "disallowed-import"
+      },
+      {
+        "turn": 6,
+        "category": "other-execution"
+      },
+      {
+        "turn": 12,
+        "category": "other-execution"
+      },
+      {
+        "turn": 14,
+        "category": "api-validation"
+      }
+    ],
+    "output_truncations": [],
+    "diagnostic_method": "Syntactic code mentions and exact literal-only print matching; execution errors from worker error or AppWorld failure prefix. Categories are heuristics; not official scores."
+  }
+]

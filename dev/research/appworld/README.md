@@ -1,6 +1,11 @@
 # AppWorld interface research
 
-The current study compares Python AppWorld API agents with TypeScript agents
+The latest rerun uses nano, current SDK operation discovery and a one-time
+completion instruction on four training tasks. Read
+[SDK-NANO-RERUN.md](SDK-NANO-RERUN.md) for results, trajectory analysis, and the
+local HTML explorer.
+
+The preceding study compares Python AppWorld API agents with TypeScript agents
 using the actual Relate SDK. Read [SDK-STUDY.md](SDK-STUDY.md) for its protocol,
 results and reproduction command. SDK agents discover the graph through
 `describe()`, use public `query()`/`get()`/traversal, and receive compact
