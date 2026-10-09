@@ -1,4 +1,4 @@
-import { accepts } from 'relate/model';
+import { accepts, isPlainObject } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import type { Json } from '@relate/protocol';
 import type { Observation } from '../storage.js';
@@ -80,12 +80,7 @@ function validJson(value: unknown): boolean {
 
   if (Array.isArray(value)) return value.every(validJson);
 
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    Object.getPrototypeOf(value) === Object.prototype &&
-    Object.values(value).every(validJson)
-  );
+  return isPlainObject(value) && Object.values(value).every(validJson);
 }
 
 export function observation(

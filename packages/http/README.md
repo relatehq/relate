@@ -13,10 +13,10 @@ Direct HTTP API over narrow runtime consumer capabilities.
 
 ## Planned responsibility
 
-Expose the consumer operations of a composed runtime over HTTP: `get`,
-`traverse`, actions and, once implemented, queries. Requests and responses use
-the `@relate/protocol` shapes unchanged, so a remote caller receives the same
-results, evidence and sanitized errors as an embedded `@relate/node` consumer.
+Expose the consumer operations of a composed runtime over HTTP: `get`, `query`,
+`traverse`, and actions. Requests and responses use the `@relate/protocol`
+shapes unchanged, so a remote caller receives the same results, evidence and
+sanitized errors as an embedded `@relate/node` consumer.
 
 The surface stays narrow by design:
 
@@ -30,10 +30,9 @@ The surface stays narrow by design:
 
 - Depends on `@relate/runtime` (execution) and `@relate/protocol` (wire shapes).
 - Paired with `@relate/client`, the typed caller for browsers and servers.
-- Third step in the implementation sequence, after the embedded read and native
-  write path in `@relate/runtime` and `@relate/postgres` is complete. The
-  [inspector specification](../../apps/inspector/SPEC.md) expects a development
-  worker to serve this package behind a supervisor proxy at `/api`.
+- The [inspector specification](../../apps/inspector/SPEC.md) describes a future
+  development worker serving this package behind a supervisor proxy at `/api`.
+  Today's Inspector compiles definitions only and does not serve consumer reads.
 
 No request or route shape is fixed yet. The behavior to preserve is defined by
 the embedded path; see [`@relate/node`](../node/README.md).

@@ -30,4 +30,4 @@ own separate application fixtures in `tests/support/salesforce/`; no connector
 or test depends on example code. The default runner registers cleanup before
 setup, retains recovery state on failure, and uses a one-day expiration as a
 backstop. See
-[connector setup and lifecycle guidance](../../connectors/salesforce/README.md).
+[development setup and lifecycle guidance](../../dev/salesforce/README.md).

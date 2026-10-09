@@ -13,6 +13,7 @@
     "build": "tsc -b packages/protocol packages/relate packages/runtime packages/postgres packages/node connectors/sqlite connectors/stripe connectors/salesforce apps/inspector/tsconfig.server.json packages/cli && pnpm --filter @relate/inspector build:client",
     "docs:dev": "pnpm --filter @relate/docs dev",
     "docs:build": "pnpm --filter @relate/docs build",
+    "docs:check": "pnpm exec vitest run --project unit apps/docs/test/validation.test.ts && pnpm docs:build && node --import tsx apps/docs/scripts/check.ts",
     "example:hello-world": "node scripts/examples/run.mjs hello-world",
     "example:postgres": "node scripts/examples/run.mjs postgres",
     "check": "pnpm check:development && pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && pnpm test:packaging",

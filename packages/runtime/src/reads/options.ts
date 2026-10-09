@@ -1,5 +1,6 @@
 import { ReadError } from '@relate/protocol';
 import type { Json, RequestIssue } from '@relate/protocol';
+import { isPlainObject } from 'relate/model';
 import type { ScalarSchema } from 'relate/model';
 
 /** The read operations a caller can invoke; options and errors are defined per kind. */
@@ -27,12 +28,6 @@ const every: readonly ReadOperation[] = [
 const paged: readonly ReadOperation[] = ['query', 'traverse-many'];
 const unsafe = ['__proto__', 'constructor', 'prototype'];
 
-const plainObject = (value: unknown) =>
-  Boolean(value) &&
-  typeof value === 'object' &&
-  !Array.isArray(value) &&
-  Object.getPrototypeOf(value) === Object.prototype;
-
 /**
  * The single source for read options: validation, discovery and error messages
  * all read this table, so a documented option is exactly an accepted option.
@@ -44,7 +39,7 @@ const rules: readonly OptionRule[] = [
     description:
       "Equality filters on property names, combined with AND. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
     operations: ['query'],
-    valid: plainObject,
+    valid: isPlainObject,
   },
   {
     name: 'select',

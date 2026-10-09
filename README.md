@@ -238,64 +238,30 @@ doesn't exist.
 
 ## Querying the graph
 
-Use `query()` to enumerate records, or add equality filters to find matches:
+Query existing graph members with equality filters, or omit `where` to
+enumerate:
 
 ```ts
 const page = await objects.Invoice.query({
   where: { status: 'Overdue' },
   select: ['status', 'total'],
-  limit: 100,
+  limit: 25,
 });
-
-// No filter enumerates the caller's accessible invoices.
-for await (const invoice of objects.Invoice.query()) {
-  console.log(invoice.id, invoice.data);
-}
 ```
 
-`await` returns one page; `for await` walks every page. `limit` is the page
-size. Multiple filters mean AND, and reference filters use Relate object IDs.
-Queries apply the same access rules and field evidence as individual reads,
-including inside actions. There is no separate `list` method.
-
-**Queries currently cover records already in the graph:** adopted source records
-and Relate-owned records. “All overdue invoices” means all matching invoices in
-that graph, not every invoice in your billing system. **Direct source queries
-and sync from sources are coming; neither is implemented yet.** For now, your
-application discovers source records and adopts them by ID. Comparisons such as
-`dueDate < today`, sorting and aggregates are also outside this first query API.
+Await one page or use `for await` to follow all pages. Queries cover adopted
+source records and Relate-owned records; they do not discover provider records.
+See
+[Reading Data](apps/docs/content/runtime/reading-data.md#querying-objects-query)
+for filters, access rules, pagination, and current limits.
 
 ## Many-to-many relationships
 
-Expose direct collections over an explicit junction object:
-
-```ts
-const PlaylistSongs = defineRelationship({
-  id: 'playlist.songs',
-  forward: 'songs',
-  reverse: 'playlists',
-  through: {
-    from: Membership.properties.playlist,
-    to: Membership.properties.song,
-  },
-});
-
-// After registering the objects, relationship, and read policies:
-await objects.Playlist.traverse.songs(playlistId, { select: ['title'] });
-await objects.Song.traverse.playlists(songId, { select: ['name'] });
-```
-
-Both references belong to the same registered junction object. Both directions
-return paginated, distinct destinations; junction metadata remains queryable on
-`Membership`. Traversal enforces access to the root, membership, both
-references, and destination. Source-backed and native junctions are supported.
-This adds read traversal; writes remain with the junction's owning system.
-
-See
-[many-to-many modeling](apps/docs/content/authoring/graph.md#many-to-many-relationships)
-and
-[traversal behavior](apps/docs/content/runtime/reading-data.md#many-to-many-traversal)
-for complete declarations, ordering, access rules, and bounded-scan pagination.
+Model collections in both directions using an explicit junction object and
+`defineRelationship({ through: { from, to }, ... })`. Traversal returns distinct
+destinations while keeping membership metadata on the junction. See
+[Graph Modeling](apps/docs/content/authoring/graph.md#many-to-many-relationships)
+for a complete example.
 
 ## Status
 
@@ -323,16 +289,11 @@ can see what it looked at and why it did what it did.
 
 ## Compact evidence
 
-Reads, queries and traversals return compact evidence by default. Pass
-`evidence: 'full'` in the read options to inspect every selected field's
-provenance. Both modes preserve values, authorization, completeness, degradation
-and the definition revision. Compact responses retain exceptional field evidence
-and nonempty warnings; `meta.fields` and `meta.warnings` may otherwise be
-omitted. Full responses always include both, and `meta.evidence` identifies the
-returned mode.
-
-See [Read Responses & Evidence](apps/docs/content/reference/read-responses.md)
-for the complete reference.
+Reads default to compact evidence, preserving exceptional field states and
+warnings. Pass `evidence: 'full'` for every selected field's provenance and
+freshness. See
+[Read Responses & Evidence](apps/docs/content/reference/read-responses.md) for
+the canonical response and options reference.
 
 ## Feedback
 
