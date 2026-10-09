@@ -57,9 +57,34 @@ export interface SourceDefinition {
   readonly schema: z.ZodObject;
 }
 
+/**
+ * Define the shape and identity of records supplied by a data source.
+ *
+ * The returned `fields` expose typed references for mapping source fields onto
+ * object properties. Bind the source to a connector when configuring the app.
+ *
+ * @param definition - Stable source identity and its record schema.
+ * @returns An immutable source definition with typed field references.
+ * @example
+ * ```ts
+ * import { defineSource } from 'relate';
+ * import { z } from 'zod';
+ *
+ * const customers = defineSource({
+ *   id: 'crm-customers',
+ *   idField: 'id',
+ *   schema: z.object({ id: z.string(), name: z.string() }),
+ * });
+ *
+ * customers.fields.name; // Typed field reference for property mappings.
+ * ```
+ */
 export function defineSource<S extends Record<string, z.ZodType>>(definition: {
+  /** Stable identity of this source definition. */
   id: string;
+  /** Schema field containing the provider record key. */
   idField: Extract<keyof S, string>;
+  /** Schema describing the provider record. */
   schema: z.ZodObject<S>;
 }) {
   const fields = Object.fromEntries(
