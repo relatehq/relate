@@ -12,6 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RUNS = [
+    "sdk-nano-writes-v1",
     "sdk-nano-uniform-ts-v1",
     "sdk-nano-discovery-v1",
     "sdk-mini-main-v3",
@@ -19,6 +20,7 @@ RUNS = [
     "sdk-nano-tool-pilot-v2",
 ]
 LABELS = {
+    "sdk-nano-writes-v1": "Nano · first write-action pilot",
     "sdk-nano-uniform-ts-v1": "Nano · uniform prompts · raw TS comparison",
     "sdk-nano-discovery-v1": "Nano · previous mixed SDK · prompt once",
     "sdk-mini-main-v3": "Mini · previous SDK · primary",
@@ -26,6 +28,7 @@ LABELS = {
     "sdk-nano-tool-pilot-v2": "Nano · previous SDK · pilot",
 }
 NOTES = {
+    "sdk-nano-writes-v1": "Write pilot: two training write variants + one read control × four conditions × two repeats. Main realm fix 5a0af21; two SDK actions; original evaluator; no mid-run prompt changes.",
     "sdk-nano-uniform-ts-v1": "New comparison: six tasks × four conditions × three repeats. Uniform AppWorld-inspired prompts; original APIs in Python and TypeScript; SDK-only in the same Node REPL. No per-turn reminders.",
     "sdk-nano-discovery-v1": "Previous mixed-access rerun: four tasks × three conditions × three repeats. Current SDK operation contracts and errors; completion/answer-format instructions once in the system prompt. No per-turn reminders.",
     "sdk-mini-main-v3": "Previous mini primary: two tasks × three conditions × three repeats. Earlier SDK discovery; no per-turn completion feedback. Do not pool with the current rerun.",
@@ -85,6 +88,9 @@ def build(destination, findings):
                         "id": parent.name,
                         "result": result,
                         "steps": steps,
+                        "api_calls": json.loads(
+                            (parent / "api_calls.json").read_text()
+                        ),
                         "messages": json.loads(
                             (parent / "initial_messages.json").read_text()
                         ),
@@ -118,6 +124,8 @@ def build(destination, findings):
     (destination / "data.json").write_text(json.dumps(data))
     shutil.copyfile(HERE / "explorer.html", destination / "index.html")
     for filename in [
+        "WRITE-PILOT.md",
+        "WRITE-PILOT-PLAN.md",
         "TS-COMPARISON.md",
         "PROMPT-PROVENANCE.md",
         "SDK-NANO-RERUN.md",
@@ -125,6 +133,9 @@ def build(destination, findings):
     ]:
         if (HERE / filename).exists():
             shutil.copyfile(HERE / filename, destination / filename)
+    (destination / "evidence").mkdir(exist_ok=True)
+    for evidence in (HERE / "evidence").glob("write-pilot*.json"):
+        shutil.copyfile(evidence, destination / "evidence" / evidence.name)
     print(destination)
     print(f"{sum(len(run['episodes']) for run in data)} episodes")
 

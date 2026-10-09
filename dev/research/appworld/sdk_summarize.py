@@ -30,7 +30,9 @@ def summarize(names):
             row["error"] = row["error"].split(":", 1)[0] if row["error"] else None
             row["run"] = name
             row["study_role"] = (
-                "uniform-raw-ts-comparison"
+                "write-action-pilot"
+                if name == "sdk-nano-writes-v1"
+                else "uniform-raw-ts-comparison"
                 if name == "sdk-nano-uniform-ts-v1"
                 else "nano-discovery-rerun"
                 if name == "sdk-nano-discovery-v1"

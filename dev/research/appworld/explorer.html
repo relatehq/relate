@@ -400,13 +400,36 @@
         using uniform prompts.
       </p>
       <div class="band">
-        Six training tasks, four conditions, three repeats. Nano throughout. SDK
-        agents can only read through Relate; raw TypeScript agents call original
-        APIs. No per-turn completion reminders.
+        First write pilot: two training write variants and one read control,
+        four conditions, two repeats. Nano throughout. SDK agents can now like
+        and comment through Relate actions. No per-turn completion reminders.
       </div>
       <div id="currentMetrics" class="metrics"></div>
       <div id="overview"></div>
-      <h2>What changed</h2>
+      <h2>Writes through the existing SDK</h2>
+      <div class="panel">
+        <p>
+          Research-authored actions call the original Venmo APIs. The agent
+          discovers actions from <code>relate.describe()</code> and their inputs
+          from <code>relate.actions[apiName].describe()</code>. The system
+          prompt supplies generic invocation syntax once.
+        </p>
+        <pre>
+await relate.actions.likeTransaction({
+  input: { transaction: canonicalTransactionId },
+  idempotencyKey: "like-payment-1"
+});
+await relate.actions.commentOnTransaction({
+  input: { transaction: canonicalTransactionId, comment: "Example text" },
+  idempotencyKey: "comment-payment-1"
+});</pre>
+        <p>
+          These are illustrative calls, not benchmark answers. Main commit
+          <code>5a0af21</code> fixes plain-object validation across JavaScript
+          contexts. No input-cloning wrapper is used.
+        </p>
+      </div>
+      <h2>Controls retained from the preceding study</h2>
       <div class="grid">
         <div class="panel">
           <h3>A raw TypeScript control</h3>
@@ -467,17 +490,15 @@ await completeTask({answer: result});</pre>
       </p>
       <div class="band">
         This is an exploratory training-task experiment, not a benchmark
-        leaderboard score. The six instances span three task families; the two
-        additions are same-family variants. Raw TypeScript versus SDK holds the
-        Node environment constant, but acquisition, normalized collections and
-        authored graph semantics still differ. Historical runs also used
-        different prompts and SDK access; do not pool them.
+        leaderboard score. The current three instances span two task families;
+        the two write tasks are variants of one family. Raw TypeScript versus
+        SDK holds the Node environment constant, but acquisition, normalized
+        collections and authored graph semantics still differ. Historical runs
+        also used different prompts and SDK access; do not pool them.
       </div>
       <p>
-        <a href="TS-COMPARISON.md"
-          >Read / download the updated Markdown report</a
-        >
-        · <a href="SDK-STUDY.md">Previous direct-SDK study</a>
+        <a href="WRITE-PILOT.md">Read / download the write-pilot report</a>
+        · <a href="TS-COMPARISON.md">Previous four-arm read comparison</a>
       </p>
     </section>
     <section id="architecture" class="page">
@@ -539,6 +560,14 @@ SDK TypeScript cell
   → relate.objects.Object.operation(...)
   → real Relate runtime
   → acquired task-local snapshot
+
+SDK write action
+  → relate.actions.actionName({input, idempotencyKey})
+  → SDK authorization / validation / receipt handling
+  → research implementation resolves canonical ID
+  → narrow host RPC → original Venmo mutation
+  → original API readback → refresh SDK observation
+  → action receipt
 
 Both environments
   → completeTask({answer})
@@ -660,8 +689,10 @@ await relate.objects.Playlist.traverse.songs(id, {
           <td>Source mutations</td>
           <td>
             Raw TS delegates source operations to AppWorld and has no snapshot.
-            The current SDK condition exposes graph reads and completion only;
-            source mutations and snapshot refresh are unavailable.
+            The write-pilot SDK exposes two Venmo mutations, followed by source
+            readback and observation refresh. Older SDK runs had no writes.
+            Successful same-key replay avoids a duplicate call in the live
+            runtime; source mutation and receipt persistence are not atomic.
           </td>
         </tr>
         <tr>
@@ -699,6 +730,9 @@ await relate.objects.Playlist.traverse.songs(id, {
             <option value="pass">Succeeded</option>
             <option value="fail">Failed</option>
             <option value="unscored">Unscored</option>
+            <option value="write-answer-only">
+              Correct writes, failed answer
+            </option>
           </select></label
         ><label
           >Task<select id="task">
@@ -820,6 +854,8 @@ await relate.objects.Playlist.traverse.songs(id, {
       ei = 0,
       ti = 0;
     const taskNames = {
+      afc0fce_1: 'Like and comment: coworker payments',
+      afc0fce_2: 'Like and comment: friend payments',
       e7a10f8_1: 'Longest playlist',
       d0b1f43_1: 'Outgoing roommate payments',
       '82e2fac_1': 'Playlist song popularity',
@@ -913,6 +949,16 @@ await relate.objects.Playlist.traverse.songs(id, {
         .map((l) => '<span>' + esc(l) + '</span>')
         .join('');
     }
+    function writeAnswerOnly(e) {
+      return (
+        e.result.task_id.startsWith('afc0fce_') &&
+        e.result.success === false &&
+        e.evaluation.failures.length > 0 &&
+        e.evaluation.failures.every(
+          (f) => f.requirement === 'assert answers match.',
+        )
+      );
+    }
     function list() {
       let r = runs[ri],
         c = $('#condition').value,
@@ -925,11 +971,13 @@ await relate.objects.Playlist.traverse.songs(id, {
           ([e]) =>
             (c === 'all' || e.result.condition === c) &&
             (o === 'all' ||
-              (o === 'pass'
-                ? e.result.success === true
-                : o === 'fail'
-                  ? e.result.success === false
-                  : e.result.success === null)) &&
+              (o === 'write-answer-only'
+                ? writeAnswerOnly(e)
+                : o === 'pass'
+                  ? e.result.success === true
+                  : o === 'fail'
+                    ? e.result.success === false
+                    : e.result.success === null)) &&
             (t === 'all' || e.result.task_id === t) &&
             (!q ||
               (r.id + '/' + e.id).toLowerCase().includes(q) ||
@@ -976,7 +1024,7 @@ await relate.objects.Playlist.traverse.songs(id, {
         x = e.result;
       ti = Math.min(ti, e.steps.length - 1);
       $('#episodeDetail').innerHTML =
-        `<h2 style="margin-top:0">${esc(taskNames[x.task_id] || x.task_id)} <span class="pill">${esc(x.condition)} · ${esc(x.model)}</span></h2><p>Trajectory ID: <code class="trajectory-id">${esc(runs[ri].id + '/' + e.id)}</code></p><p class="muted">The condition describes available tools. ${x.condition === 'sdk' ? e.steps.filter((s) => s.code.includes('relate.')).length + ' turns mention relate.; this is a code indicator, not a successful-call count.' : 'This condition executes ' + (x.condition === 'raw_ts' ? 'TypeScript' : 'Python') + ' against the original APIs.'}</p><p><b class="${x.success ? 'ok' : 'bad'}">Official evaluator: ${x.success ? 'pass' : 'fail'}</b> · Task ${esc(x.task_id)} · Stopped: ${esc(x.termination)} · Marked complete: ${x.completed ? 'yes' : 'no'}</p><div class="metrics">${metric(fmt(x.seconds) + 's', 'Episode wall time')}${metric(fmt(x.prompt_tokens, 0), 'Input tokens')}${metric(fmt(x.generated_tokens, 0), 'Output tokens')}${metric('$' + fmt(x.estimated_usd, 4), 'Estimated model cost')}</div><details><summary>Task and exact initial messages</summary>${e.messages.map((m) => `<h4>${esc(m.role)}</h4><pre>${esc(m.content)}</pre>`).join('')}</details><details><summary>Setup, source calls and full episode metrics</summary><p>Source calls include host authentication and acquisition, plus agent API calls; completion polling is excluded. Snapshot fetches are connector instrumentation, not a count of SDK queries.</p><pre>${esc(JSON.stringify(x, null, 2))}</pre></details><div class="toolbar"><h3>Usage by turn</h3><label>Chart metric<select id="chartMetric"><option value="model">Model time (seconds)</option><option value="execution">Execution time (seconds)</option><option value="input">Input tokens</option><option value="output">Output tokens</option><option value="cost">Estimated cost (USD)</option></select></label></div><div class="chart" id="chart"></div><small class="muted">Bar height shows the selected metric. Hover for the value; select a bar or turn. Red underline = recorded execution error; green = code mentions a completion function.</small><div class="turns" id="turns"></div><div id="cell"></div><details><summary>Original evaluator result</summary><pre>${esc(JSON.stringify(e.evaluation, null, 2))}</pre></details>`;
+        `<h2 style="margin-top:0">${esc(taskNames[x.task_id] || x.task_id)} <span class="pill">${esc(x.condition)} · ${esc(x.model)}</span></h2><p>Trajectory ID: <code class="trajectory-id">${esc(runs[ri].id + '/' + e.id)}</code></p><p class="muted">The condition describes available tools. ${x.condition === 'sdk' ? e.steps.filter((s) => s.code.includes('relate.')).length + ' turns mention relate.; this is a code indicator, not a successful-call count.' : 'This condition executes ' + (x.condition === 'raw_ts' ? 'TypeScript' : 'Python') + ' against the original APIs.'}</p><p><b class="${x.success ? 'ok' : 'bad'}">Official evaluator: ${x.success ? 'pass' : 'fail'}</b> · Task ${esc(x.task_id)} · Stopped: ${esc(x.termination)} · Marked complete: ${x.completed ? 'yes' : 'no'}</p><div class="metrics">${metric(fmt(x.seconds) + 's', 'Episode wall time')}${metric(fmt(x.prompt_tokens, 0), 'Input tokens')}${metric(fmt(x.generated_tokens, 0), 'Output tokens')}${metric('$' + fmt(x.estimated_usd, 4), 'Estimated model cost')}</div><details><summary>Task and exact initial messages</summary>${e.messages.map((m) => `<h4>${esc(m.role)}</h4><pre>${esc(m.content)}</pre>`).join('')}</details><details><summary>Setup, source calls and full episode metrics</summary><p>Source calls include host authentication and acquisition, plus agent API calls; completion polling is excluded. Snapshot fetches are connector instrumentation, not a count of SDK queries.</p><pre>${esc(JSON.stringify(x, null, 2))}</pre></details><div class="toolbar"><h3>Usage by turn</h3><label>Chart metric<select id="chartMetric"><option value="model">Model time (seconds)</option><option value="execution">Execution time (seconds)</option><option value="input">Input tokens</option><option value="output">Output tokens</option><option value="cost">Estimated cost (USD)</option></select></label></div><div class="chart" id="chart"></div><small class="muted">Bar height shows the selected metric. Hover for the value; select a bar or turn. Red underline = recorded execution error; green = code mentions a completion function.</small><div class="turns" id="turns"></div><div id="cell"></div>${writeAnswerOnly(e) ? '<div class="band">All write-state checks passed. Official failure: the submitted answer did not match the required no-answer completion. This remains a failed benchmark episode.</div>' : ''}<details><summary>Original API request log (simulated credentials redacted)</summary><pre>${esc(JSON.stringify(e.api_calls || [], null, 2))}</pre></details><details><summary>Original evaluator result</summary><pre>${esc(JSON.stringify(e.evaluation, null, 2))}</pre></details>`;
       $('#chartMetric').onchange = turn;
       turn();
     }
@@ -1081,6 +1129,9 @@ await relate.objects.Playlist.traverse.songs(id, {
         rows +
         '</table></div><p class="muted">Rows are separate experiments; never pool older prompts or mixed-access SDK arms with the new uniform-prompt comparison. Superseded harness pilots are documented in the previous study, not counted here.</p>';
       const taskRows = Object.entries(taskNames)
+        .filter(([task]) =>
+          runs[0].episodes.some((e) => e.result.task_id === task),
+        )
         .map(
           ([task, name]) =>
             '<tr><td>' +

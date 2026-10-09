@@ -1,9 +1,24 @@
 # AppWorld interface research
 
-## Current four-way comparison
+## Current write-action pilot
 
-The latest study uses uniform prompts adapted from AppWorld, nano, six training
-instances and three repeats per condition (72 episodes). Read
+Main `5a0af21` is merged. The first write increment adds two research-authored
+Relate actions for Venmo likes and comments, with source readback and refreshed
+SDK observations. All four methods remain; no original APIs or credentials are
+exposed to the SDK agent.
+
+Read [WRITE-PILOT.md](WRITE-PILOT.md) for the 24-episode results, action
+contracts, source/receipt guarantees, example trajectories, all timing/token
+measurements, and proposed next tests. All methods scored 0/4 on write tasks.
+Relate passed 2/2 read controls; one write failure nevertheless passed all
+world-state checks and failed only answer submission. This is a development
+diagnostic, not a held-out benchmark score. The previous study below is
+preserved separately.
+
+## Previous four-way read comparison
+
+The preceding read study uses uniform prompts adapted from AppWorld, nano, six
+training instances and three repeats per condition (72 episodes). Read
 [TS-COMPARISON.md](TS-COMPARISON.md) for results and reproduction,
 [PROMPT-PROVENANCE.md](PROMPT-PROVENANCE.md) for the exact upstream source and
 adaptations, and [TS-COMPARISON-PLAN.md](TS-COMPARISON-PLAN.md) for the plan
