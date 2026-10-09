@@ -12,6 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RUNS = [
+    "sdk-nano-no-answer-v1",
     "sdk-nano-writes-28-v1",
     "sdk-nano-writes-v1",
     "sdk-nano-uniform-ts-v1",
@@ -21,6 +22,7 @@ RUNS = [
     "sdk-nano-tool-pilot-v2",
 ]
 LABELS = {
+    "sdk-nano-no-answer-v1": "Nano · explicit no-answer example · 28 turns",
     "sdk-nano-writes-28-v1": "Nano · write tasks · 28 turns",
     "sdk-nano-writes-v1": "Nano · write tasks · 14 turns",
     "sdk-nano-uniform-ts-v1": "Nano · uniform prompts · raw TS comparison",
@@ -30,6 +32,7 @@ LABELS = {
     "sdk-nano-tool-pilot-v2": "Nano · previous SDK · pilot",
 }
 NOTES = {
+    "sdk-nano-no-answer-v1": "Three methods, same tasks and 28-turn budget. Explicit no-answer completion example once in each system prompt. Static notes retired. Fresh stochastic runs; no SDK changes.",
     "sdk-nano-writes-28-v1": "Budget comparison: same three tasks, four methods and two repeats; 28 turns instead of 14. Exact same prompts and execution code. Fresh stochastic trajectories, not continuations of the earlier run.",
     "sdk-nano-writes-v1": "Write pilot: two training write variants + one read control × four conditions × two repeats. Main realm fix 5a0af21; two SDK actions; original evaluator; no mid-run prompt changes.",
     "sdk-nano-uniform-ts-v1": "New comparison: six tasks × four conditions × three repeats. Uniform AppWorld-inspired prompts; original APIs in Python and TypeScript; SDK-only in the same Node REPL. No per-turn reminders.",
@@ -48,7 +51,7 @@ def clean(value):
                 if re.search(
                     r"password|access_token|refresh_token|authorization|api_key|encrypted_content",
                     key,
-                    re.I,
+                    re.IGNORECASE,
                 )
                 else clean(item)
             )
@@ -127,6 +130,8 @@ def build(destination, findings):
     (destination / "data.json").write_text(json.dumps(data))
     shutil.copyfile(HERE / "explorer.html", destination / "index.html")
     for filename in [
+        "COMPLETION.md",
+        "COMPLETION-PLAN.md",
         "WRITE-BUDGET.md",
         "WRITE-BUDGET-PLAN.md",
         "WRITE-PILOT.md",
@@ -139,7 +144,7 @@ def build(destination, findings):
         if (HERE / filename).exists():
             shutil.copyfile(HERE / filename, destination / filename)
     (destination / "evidence").mkdir(exist_ok=True)
-    for evidence in (HERE / "evidence").glob("write-*.json"):
+    for evidence in (HERE / "evidence").glob("*.json"):
         shutil.copyfile(evidence, destination / "evidence" / evidence.name)
     print(destination)
     print(f"{sum(len(run['episodes']) for run in data)} episodes")

@@ -53,3 +53,11 @@ examples. Only `static` receives the existing relationship-note ablation.
 Removed from the old custom prompt: the conflicting login instruction, the extra
 “one short cell” ending, and repeated completion feedback. We do not add an
 anti-no-op rule, a task-solving algorithm, or a task-specific answer hint.
+
+## Explicit no-answer experiment
+
+`sdk-nano-no-answer-v1` adds the no-argument completion example once in the
+system prompt for all three retained methods: `apis.supervisor.complete_task()`
+in Python and `await completeTask()` in both Node environments. Static notes are
+retired from future comparisons; their implementation is retained solely for
+historical reproducibility. The prompt contains no new solving strategy.

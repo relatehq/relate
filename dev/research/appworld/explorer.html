@@ -400,20 +400,24 @@
         using uniform prompts.
       </p>
       <div class="band">
-        28-turn comparison: same two training write variants, one read control,
-        four methods and two repeats. Only the turn limit changed. Prompts, nano
-        and other budgets are unchanged. No per-turn completion reminders.
+        Completion experiment: three methods, two write variants, one read
+        control, two repeats and 28 turns. An explicit no-answer completion
+        example is added once in each system prompt. Static notes are retired
+        from new comparisons.
       </div>
       <div id="currentMetrics" class="metrics"></div>
-      <div id="budgetComparison"></div>
+      <div id="completionComparison"></div>
+      <details>
+        <summary>Historical turn-budget comparison</summary>
+        <div id="budgetComparison"></div>
+      </details>
       <div id="overview"></div>
       <h2>What this comparison can tell us</h2>
       <p>
-        These are fresh runs on the same task/method/repeat cases. There is no
-        provider seed and graph IDs are newly generated, so their first 14 turns
-        can differ. A success after turn 14 used the additional budget; an
-        improvement completed earlier is not direct evidence of a turn-limit
-        effect.
+        These are fresh stochastic runs, not continuations. Compare the three
+        retained methods with their previous 28-turn results. Sampling and new
+        graph IDs can change outcomes; this small diagnostic does not establish
+        a causal effect. The SDK, acquisition and evaluator are unchanged.
       </p>
       <h2>Writes through the existing SDK</h2>
       <div class="panel">
@@ -465,7 +469,8 @@ await completeTask({answer: result});</pre>
             execution, real values, phone-contact relationships, time
             boundaries, documentation, pagination and minimal completion
             answers. Language and data access sections differ only where the
-            environments require it. Static notes are the explicit ablation.
+            environments require it. Static notes are retained only in
+            historical experiments.
           </p>
           <p>
             The conflicting login request and extra “one short cell” instruction
@@ -506,6 +511,9 @@ await completeTask({answer: result});</pre>
         also used different prompts and SDK access; do not pool them.
       </div>
       <p>
+        <a href="COMPLETION.md"
+          >Read / download the latest completion experiment</a
+        ><br />
         <a href="WRITE-BUDGET.md">Read / download the turn-budget comparison</a>
         · <a href="WRITE-PILOT.md">Original 14-turn write pilot</a> ·
         <a href="TS-COMPARISON.md">Previous read comparison</a>
@@ -970,6 +978,25 @@ await relate.objects.Playlist.traverse.songs(id, {
       );
     }
     function list() {
+      const conditionSelect = $('#condition');
+      const previousCondition = conditionSelect.value;
+      const availableConditions = new Set(
+        runs[ri].episodes.map((e) => e.result.condition),
+      );
+      conditionSelect.innerHTML =
+        '<option value="all">All conditions</option>' +
+        Object.entries({
+          sdk: 'Relate SDK / TypeScript',
+          raw: 'Raw API / Python',
+          raw_ts: 'Raw API / TypeScript',
+          static: 'Static notes / Python (historical)',
+        })
+          .filter(([c]) => availableConditions.has(c))
+          .map(([c, label]) => `<option value="${c}">${label}</option>`)
+          .join('');
+      conditionSelect.value = availableConditions.has(previousCondition)
+        ? previousCondition
+        : 'all';
       let r = runs[ri],
         c = $('#condition').value,
         q = $('#search').value.toLowerCase(),
@@ -1026,7 +1053,10 @@ await relate.objects.Playlist.traverse.songs(id, {
       source();
     }
     function counterpart(e) {
-      const names = ['sdk-nano-writes-28-v1', 'sdk-nano-writes-v1'];
+      const names =
+        runs[ri].id === 'sdk-nano-writes-v1'
+          ? ['sdk-nano-writes-v1', 'sdk-nano-writes-28-v1']
+          : ['sdk-nano-no-answer-v1', 'sdk-nano-writes-28-v1'];
       if (!names.includes(runs[ri].id)) return null;
       const other = runs.findIndex(
         (r) => names.includes(r.id) && r.id !== runs[ri].id,
@@ -1045,7 +1075,7 @@ await relate.objects.Playlist.traverse.songs(id, {
       const paired = counterpart(e);
       ti = Math.min(ti, e.steps.length - 1);
       $('#episodeDetail').innerHTML =
-        `<h2 style="margin-top:0">${esc(taskNames[x.task_id] || x.task_id)} <span class="pill">${esc(x.condition)} · ${esc(x.model)}</span></h2><p>Trajectory ID: <code class="trajectory-id">${esc(runs[ri].id + '/' + e.id)}</code></p>${paired ? '<p><button id="counterpart">View matched case in the ' + (runs[paired.run].id.includes('-28-') ? '28' : '14') + '-turn run</button> <small>Same task, method and repeat index; fresh trajectory.</small></p>' : ''}<p class="muted">The condition describes available tools. ${x.condition === 'sdk' ? e.steps.filter((s) => s.code.includes('relate.')).length + ' turns mention relate.; this is a code indicator, not a successful-call count.' : 'This condition executes ' + (x.condition === 'raw_ts' ? 'TypeScript' : 'Python') + ' against the original APIs.'}</p><p><b class="${x.success ? 'ok' : 'bad'}">Official evaluator: ${x.success ? 'pass' : 'fail'}</b> · Task ${esc(x.task_id)} · Stopped: ${esc(x.termination)} · Marked complete: ${x.completed ? 'yes' : 'no'}</p><div class="metrics">${metric(fmt(x.seconds) + 's', 'Episode wall time')}${metric(fmt(x.prompt_tokens, 0), 'Input tokens')}${metric(fmt(x.generated_tokens, 0), 'Output tokens')}${metric('$' + fmt(x.estimated_usd, 4), 'Estimated model cost')}</div><details><summary>Task and exact initial messages</summary>${e.messages.map((m) => `<h4>${esc(m.role)}</h4><pre>${esc(m.content)}</pre>`).join('')}</details><details><summary>Setup, source calls and full episode metrics</summary><p>Source calls include host authentication and acquisition, plus agent API calls; completion polling is excluded. Snapshot fetches are connector instrumentation, not a count of SDK queries.</p><pre>${esc(JSON.stringify(x, null, 2))}</pre></details><div class="toolbar"><h3>Usage by turn</h3><label>Chart metric<select id="chartMetric"><option value="model">Model time (seconds)</option><option value="execution">Execution time (seconds)</option><option value="input">Input tokens</option><option value="output">Output tokens</option><option value="cost">Estimated cost (USD)</option></select></label></div><div class="chart" id="chart"></div><small class="muted">Bar height shows the selected metric. Hover for the value; select a bar or turn. Red underline = recorded execution error; green = code mentions a completion function.</small><div class="turns" id="turns"></div><div id="cell"></div>${writeAnswerOnly(e) ? '<div class="band">All write-state checks passed. Official failure: the submitted answer did not match the required no-answer completion. This remains a failed benchmark episode.</div>' : ''}<details><summary>Original API request log (simulated credentials redacted)</summary><pre>${esc(JSON.stringify(e.api_calls || [], null, 2))}</pre></details><details><summary>Original evaluator result</summary><pre>${esc(JSON.stringify(e.evaluation, null, 2))}</pre></details>`;
+        `<h2 style="margin-top:0">${esc(taskNames[x.task_id] || x.task_id)} <span class="pill">${esc(x.condition)} · ${esc(x.model)}</span></h2><p>Trajectory ID: <code class="trajectory-id">${esc(runs[ri].id + '/' + e.id)}</code></p>${paired ? '<p><button id="counterpart">View matched case in the ' + esc(runs[paired.run].label) + ' run</button> <small>Same task, method and repeat index; fresh trajectory.</small></p>' : ''}<p class="muted">The condition describes available tools. ${x.condition === 'sdk' ? e.steps.filter((s) => s.code.includes('relate.')).length + ' turns mention relate.; this is a code indicator, not a successful-call count.' : 'This condition executes ' + (x.condition === 'raw_ts' ? 'TypeScript' : 'Python') + ' against the original APIs.'}</p><p><b class="${x.success ? 'ok' : 'bad'}">Official evaluator: ${x.success ? 'pass' : 'fail'}</b> · Task ${esc(x.task_id)} · Stopped: ${esc(x.termination)} · Marked complete: ${x.completed ? 'yes' : 'no'}</p><div class="metrics">${metric(fmt(x.seconds) + 's', 'Episode wall time')}${metric(fmt(x.prompt_tokens, 0), 'Input tokens')}${metric(fmt(x.generated_tokens, 0), 'Output tokens')}${metric('$' + fmt(x.estimated_usd, 4), 'Estimated model cost')}</div><details><summary>Task and exact initial messages</summary>${e.messages.map((m) => `<h4>${esc(m.role)}</h4><pre>${esc(m.content)}</pre>`).join('')}</details><details><summary>Setup, source calls and full episode metrics</summary><p>Source calls include host authentication and acquisition, plus agent API calls; completion polling is excluded. Snapshot fetches are connector instrumentation, not a count of SDK queries.</p><pre>${esc(JSON.stringify(x, null, 2))}</pre></details><div class="toolbar"><h3>Usage by turn</h3><label>Chart metric<select id="chartMetric"><option value="model">Model time (seconds)</option><option value="execution">Execution time (seconds)</option><option value="input">Input tokens</option><option value="output">Output tokens</option><option value="cost">Estimated cost (USD)</option></select></label></div><div class="chart" id="chart"></div><small class="muted">Bar height shows the selected metric. Hover for the value; select a bar or turn. Red underline = recorded execution error; green = code mentions a completion function.</small><div class="turns" id="turns"></div><div id="cell"></div>${writeAnswerOnly(e) ? '<div class="band">All write-state checks passed. Official failure: the submitted answer did not match the required no-answer completion. This remains a failed benchmark episode.</div>' : ''}<details><summary>Original API request log (simulated credentials redacted)</summary><pre>${esc(JSON.stringify(e.api_calls || [], null, 2))}</pre></details><details><summary>Original evaluator result</summary><pre>${esc(JSON.stringify(e.evaluation, null, 2))}</pre></details>`;
       if (paired)
         $('#counterpart').onclick = () => {
           ri = paired.run;
@@ -1161,6 +1191,24 @@ await relate.objects.Playlist.traverse.songs(id, {
         '<h2>All retained comparison results</h2><div style="overflow:auto"><table><tr><th>Experiment</th><th>Arm</th><th>Passed</th><th>Completed</th><th>Mean turns</th><th>Mean time</th><th>Mean input tokens</th><th>Mean output tokens</th><th>Total cost</th><th>Trajectories</th></tr>' +
         rows +
         '</table></div><p class="muted">Rows are separate experiments; never pool older prompts or mixed-access SDK arms with the new uniform-prompt comparison. Superseded harness pilots are documented in the previous study, not counted here.</p>';
+      const prior = runs.find((r) => r.id === 'sdk-nano-writes-28-v1');
+      const latest = runs.find((r) => r.id === 'sdk-nano-no-answer-v1');
+      if (prior && latest) {
+        const passed = (es) =>
+          es.filter((e) => e.result.success === true).length;
+        $('#completionComparison').innerHTML =
+          '<h2>Explicit no-answer example: before → after</h2><table><tr><th>Method</th><th>Official success</th><th>Write success</th><th>Write answer-check failures</th></tr>' +
+          ['raw', 'raw_ts', 'sdk']
+            .map((c) => {
+              const a = prior.episodes.filter((e) => e.result.condition === c),
+                b = latest.episodes.filter((e) => e.result.condition === c);
+              const writes = (es) =>
+                es.filter((e) => e.result.task_id.startsWith('afc0fce_'));
+              return `<tr><td>${c}</td><td>${passed(a)}/6 → ${passed(b)}/6</td><td>${passed(writes(a))}/4 → ${passed(writes(b))}/4</td><td>${writes(a).filter((e) => e.evaluation.failures.some((f) => f.requirement === 'assert answers match.')).length}/4 → ${writes(b).filter((e) => e.evaluation.failures.some((f) => f.requirement === 'assert answers match.')).length}/4</td></tr>`;
+            })
+            .join('') +
+          '</table><p>Both runs use 28 turns. Historical static-note episodes are excluded from this comparison.</p>';
+      }
       const baseline = runs.find((r) => r.id === 'sdk-nano-writes-v1');
       const candidate = runs.find((r) => r.id === 'sdk-nano-writes-28-v1');
       if (baseline && candidate) {
@@ -1214,7 +1262,7 @@ await relate.objects.Playlist.traverse.songs(id, {
             '<tr><td>' +
             esc(name) +
             '</td>' +
-            ['raw', 'static', 'raw_ts', 'sdk']
+            ['raw', 'raw_ts', 'sdk']
               .map((c) => {
                 const es = runs[0].episodes.filter(
                   (e) => e.result.task_id === task && e.result.condition === c,
@@ -1232,7 +1280,7 @@ await relate.objects.Playlist.traverse.songs(id, {
         )
         .join('');
       $('#overview').innerHTML +=
-        '<h3>Current four-arm comparison, by task</h3><table><tr><th>Task</th><th>Raw API</th><th>Static notes</th><th>Raw TS</th><th>Relate SDK</th></tr>' +
+        '<h3>Current three-method comparison, by task</h3><table><tr><th>Task</th><th>Raw API</th><th>Raw TS</th><th>Relate SDK</th></tr>' +
         taskRows +
         '</table>';
       document.querySelectorAll('[data-open-run]').forEach(

@@ -1,11 +1,19 @@
 # AppWorld interface research
 
-## Current turn-budget comparison
+## Latest completion-prompt experiment
 
-The latest run doubles the turn limit from 14 to 28 while retaining identical
-prompts, execution code, nano, three tasks and all four methods. Overall
-official success is 2/24 → 6/24; 4 new successes finished after turn 14. These
-are fresh stochastic runs, not continuations of matched prefixes.
+Static notes are retired from future comparisons. The current methods are raw
+Python, raw TypeScript and Relate SDK. [COMPLETION.md](COMPLETION.md) reports
+the 28-turn rerun with an explicit no-answer completion example once in each
+system prompt. See [COMPLETION-PLAN.md](COMPLETION-PLAN.md) for the frozen plan.
+Historical static-note results remain available for reference.
+
+## Previous turn-budget comparison
+
+That run doubles the turn limit from 14 to 28 while retaining identical prompts,
+execution code, nano, three tasks and all four methods. Overall official success
+is 2/24 → 6/24; 4 new successes finished after turn 14. These are fresh
+stochastic runs, not continuations of matched prefixes.
 
 Read [WRITE-BUDGET.md](WRITE-BUDGET.md) for the full comparison, per-case
 metrics, concrete failure analysis and next proposals. The explorer retains both
