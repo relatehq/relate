@@ -75,6 +75,16 @@ checks the referenced records, actor claims, current authorization, and
 availability. Discovery never exposes source IDs, connector fields, role names,
 claim names, or policy predicates.
 
+`consumer.describe().operations` is the runtime's SDK-owned read contract:
+signatures, accepted option names, each option's type/default/description once,
+result shapes, paging and errors. It is identical for every graph and actor.
+Object detail adds this SDK's call paths: `operations.get.call`,
+`operations.query.call` and each traversal's `call`, such as
+`objects.Customer.traverse.invoices(id, options?)`, beside the runtime's
+`returns` types and each property's `filter` text. `String(operation)` and
+`util.inspect(operation)` return the call signature for `get`, `query` and each
+traversal function, not implementation source.
+
 Every object detail reports `query.collectionScope: 'graph-membership'`. Queries
 and traversal enumerate adopted source-backed records or Relate-native records;
 exhaustion is not a claim that every matching provider record has been

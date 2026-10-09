@@ -202,5 +202,41 @@ performed can throw `ReadError('unavailable')`; incomplete required evidence can
 throw `ReadError('incomplete')`. These are errors, not additional `status`
 values. Compact mode does not hide them.
 
+## Request errors
+
+An invalid request reports every problem at once, before any record is read:
+
+```ts
+await consumer.objects.Customer.query({ pageSize: 10, pageIndex: 0 });
+```
+
+```text
+ReadError: invalid-request in Customer.query:
+- pageSize: unknown option; use "limit" (integer 1–100).
+- pageIndex: unknown option; there is no offset or page-number paging; pass page.meta.continuationCursor from the previous page as "cursor", or iterate with for await.
+Accepted options: where, select, limit, cursor, evidence, stale, maxAgeMs, refresh, requireComplete, timeoutMs.
+```
+
+The same detail is structured on the error:
+
+```ts
+error.operation; // 'Customer.query'
+error.issues; // [{ path: ['pageSize'], problem: 'unknown-option', message: '…' }, …]
+error.acceptedOptions; // present when an option was unknown
+```
+
+| `problem`           | Meaning                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------- |
+| `unknown-option`    | Not a read option. Common paging, filter and selection names point to the generic option.   |
+| `not-supported`     | A read option this operation does not take, such as `where` on a traversal.                 |
+| `invalid-value`     | An option, filter value or argument has the wrong type or range; the message says expected. |
+| `unknown-property`  | A `where` name that is not a filterable property for this reader; `accepted` lists them.    |
+| `unknown-traversal` | A traversal this reader cannot use from that object; `accepted` lists those it can.         |
+| `invalid-cursor`    | A cursor from a different call or options, altered, or expired.                             |
+
+Issues name only options, arguments and properties the reader can already
+discover. A property the reader may not read and one that does not exist give
+the same issue, and the cursor issue does not say why a cursor was rejected.
+
 HTTP and MCP adapters remain planned. This reference describes the currently
 implemented embedded APIs and the shared protocol they will use.

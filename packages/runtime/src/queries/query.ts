@@ -16,9 +16,26 @@ import type {
   NativeTransaction,
 } from '../storage.js';
 import { scanBatch } from '../storage.js';
-import { allowsField, allowsObject } from '../authorization/index.js';
+import {
+  allowsField,
+  allowsObject,
+  operationName,
+  readableProperties,
+} from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
-import { validateReadRequest, project, cursorCodec } from '../reads/index.js';
+import {
+  cursorCodec,
+  invalidValue,
+  project,
+  requestIssues,
+  schemaText,
+  throwIssues,
+} from '../reads/index.js';
+
+const isPlain = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) &&
+  typeof value === 'object' &&
+  Object.getPrototypeOf(value) === Object.prototype;
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
@@ -52,55 +69,67 @@ export function createGraphQuery(options: {
     transaction?: NativeTransaction,
     onRead?: (id: string, result: Available) => void,
   ): Promise<PageResult> => {
-    validateReadRequest(input);
     const object = manifest.objects.find((o) => o.id === type);
     const policy = object && manifest.policies[object.id];
-    const limit = input.limit ?? 25;
-    const where = input.where ?? {};
+    const operation = operationName(manifest, principal, type, 'query');
+    const issues = requestIssues(input, 'query');
+    const where: Record<string, unknown> =
+      input && typeof input === 'object' && isPlain(input.where)
+        ? input.where
+        : {};
 
-    if (
-      !object ||
-      !Number.isInteger(limit) ||
-      limit < 1 ||
-      limit > 100 ||
-      (input.cursor !== undefined &&
-        (typeof input.cursor !== 'string' || !input.cursor)) ||
-      (input.where !== undefined &&
-        (!input.where ||
-          typeof input.where !== 'object' ||
-          Array.isArray(input.where) ||
-          Object.getPrototypeOf(input.where) !== Object.prototype)) ||
-      Object.keys(input).some(
-        (key) =>
-          ![
-            'select',
-            'evidence',
-            'maxAgeMs',
-            'refresh',
-            'stale',
-            'requireComplete',
-            'timeoutMs',
-            'limit',
-            'cursor',
-            'where',
-          ].includes(key),
-      )
-    )
-      throw new ReadError('invalid-request');
-
+    if (!object)
+      issues.push({
+        path: [],
+        problem: 'invalid-value',
+        message: 'unknown object type.',
+      });
     // Validate filters before consulting membership, including empty populations.
-    for (const [name, value] of Object.entries(where)) {
-      const property = object.properties.find((p) => p.name === name);
+    // An unreadable type returns an empty page below, with or without filters,
+    // so its property names are neither checked nor offered.
+    else if (Object.keys(where).length && allowsObject(principal, policy)) {
+      // Filterable means discoverable: names outside that set share one answer,
+      // so an error never confirms that a hidden field exists.
+      const filterable = readableProperties(manifest, principal, object).map(
+        ({ property, target }) => ({
+          name: property.name,
+          schema: property.schema,
+          references:
+            target?.apiName ??
+            (property.origin.kind === 'object-id' ? object.apiName : undefined),
+        }),
+      );
 
-      if (
-        !property ||
-        !policy ||
-        !allowsField(principal, policy, property.access) ||
-        value === undefined ||
-        !accepts(property.schema, value)
-      )
-        throw new ReadError('invalid-request');
+      for (const [name, value] of Object.entries(where)) {
+        const property = filterable.find((p) => p.name === name);
+
+        if (!property)
+          issues.push({
+            path: ['where', name],
+            problem: 'unknown-property',
+            message: `not a filterable property of ${object.apiName} for this reader.`,
+            accepted: filterable.map((p) => p.name),
+          });
+        else if (value === undefined)
+          issues.push({
+            path: ['where', name],
+            problem: 'invalid-value',
+            message: 'filter value is undefined; omit the filter instead.',
+          });
+        else if (!accepts(property.schema, value))
+          issues.push(
+            invalidValue(
+              ['where', name],
+              schemaText(property.schema, property.references),
+              value,
+            ),
+          );
+      }
     }
+
+    if (!object || issues.length) throwIssues(operation, 'query', issues);
+
+    const limit = input.limit ?? 25;
 
     const request: QueryRequest = structuredClone(
       Object.fromEntries(
@@ -129,7 +158,13 @@ export function createGraphQuery(options: {
     // An omitted selection already covers every readable filter field, so it keeps
     // get's unbounded default; only an explicit selection/filter union is capped.
     if (readRequest.select && needed.length > 100)
-      throw new ReadError('invalid-request');
+      throwIssues(operation, 'query', [
+        {
+          path: ['select'],
+          problem: 'invalid-value',
+          message: 'select and where together name more than 100 properties.',
+        },
+      ]);
 
     if (transaction && !transactions.has(transaction))
       transactions.set(transaction, randomUUID());
@@ -148,7 +183,9 @@ export function createGraphQuery(options: {
         }),
       )
       .digest('hex');
-    let after = cursor ? codec.decode(cursor, scope, clock()) : undefined;
+    let after = cursor
+      ? codec.decode(cursor, scope, clock(), operation)
+      : undefined;
 
     if (!allowsObject(principal, policy))
       return { data: [], meta: { exhausted: true } };

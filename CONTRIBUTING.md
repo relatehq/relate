@@ -1,7 +1,5 @@
 # Contributing
 
-Placeholder, we will fill in later.
-
 Dependency updates use the latest stable releases, with exact versions retained
 in manifests and the lockfile. Check with `pnpm outdated -r`; keep duplicated
 runtime dependencies aligned across packages and examples.
@@ -38,10 +36,14 @@ workspace packages with their own dependencies and no Relate imports. Consumers
 import simulators by package name, not by reaching into their directories.
 Design declarations and acceptance material remain under `dev/fixtures`.
 
-The planned SQLite and Stripe connectors belong in `connectors/sqlite` and
-`connectors/stripe`; their runnable customer/billing application belongs in
-`examples/customer-billing`. Add those packages with their implementations.
-SQLite source access is separate from Relate's own persistence adapters.
+Provider connectors live under `connectors/<provider>`. SQLite, Stripe and
+Salesforce are current read-only connectors; each owns its provider-specific
+transport, identity, resource-selection, and error behavior. Application object
+models, mappings and policies belong in runnable numbered examples, not in the
+connector packages. See `examples/02-customer-accounts`,
+`examples/03-customer-workspace`, and `examples/05-salesforce` for current
+compositions. SQLite source access is separate from Relate's own persistence
+adapters.
 
 ## Package boundaries
 
@@ -108,10 +110,11 @@ must start with a Conventional Commit type such as `feat/` or `fix/`. It then:
 3. Creates those two databases, runs `pnpm install`, and runs `pnpm build`.
 
 `worktree:delete` drops the two databases, removes the worktree, and deletes the
-branch if it is merged into `main`. It refuses a worktree with uncommitted
-changes unless you pass `--force`, and it only drops databases named
-`relate_<name>` and `relate_<name>_test` on a local server. Use `--keep-branch`
-to keep a merged branch. Both commands accept `--dry-run`.
+branch if all of its changes are in `main` (or `origin/main`), whether it was
+merged, rebased or squash-merged. It refuses a worktree with uncommitted changes
+unless you pass `--force`, and it only drops databases named `relate_<name>` and
+`relate_<name>_test` on a local server. Use `--keep-branch` to keep a merged
+branch. Both commands accept `--dry-run`.
 
 Delete worktrees with `worktree:delete`, not `git worktree remove`, so their
 databases do not accumulate.

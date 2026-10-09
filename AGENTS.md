@@ -108,115 +108,66 @@ Keep unit tests with their owning package or application in its `test/` folder.
 Tests of an example (checking that the tutorial itself still works) belong in
 that example's `test/` folder; they are the only tests that import example code.
 
-## Implementation approach
+## Repository scope and sources of truth
 
-We are building the OSS external version of relate here, using what we have
-designed and learnt from the `relate-internal` package. Here is our plan of
-action:
+This repository is the OSS Relate implementation. Do not change the sibling
+`relate-internal` repository unless the owner explicitly includes it in the
+task.
 
-**Build the new implementation using the prototype as a behavioral reference,
-selectively porting proven pieces.** We’ve learned enough to improve the
-structure, but rewriting every algorithm would risk losing correctness already
-worked out.
+Treat exported package source, package contracts, and executable tests as the
+source of truth for implemented behavior. Use the root `README.md` status table
+and public docs to distinguish current product behavior from planned work.
+`dev/fixtures` and `relate-internal` may inform a design, but they can contain
+proposals, declaration shims, or historical scenarios. A typechecking fixture is
+not proof of execution, authorization, atomicity, persistence, or durability.
 
-The useful distinction is **what behavior to preserve versus what implementation
-to preserve**.
+When a public contract changes, update its owning package documentation and the
+public docs or examples that teach it. Record breaking-change and migration
+guidance in `DEVELOPMENT_NOTES.md` while releases remain disabled.
 
-**Implement agreed behavior through complete application paths**
+## Architecture and ownership
 
-Use the existing neutral model:
+Keep dependencies aligned with the policies in
+`tests/architecture/package-boundaries.ts` and
+`tests/architecture/runtime-boundaries.ts`. Declaring a workspace dependency
+does not grant permission to import it.
 
-- API-owned customers.
-- Postgres-owned invoices.
-- Relate-owned account reviews.
-- Relationships between them.
-- An authorized read and a native action.
+| Area                                               | Responsibility                                                                                                                                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/relate`                                  | Portable authoring, compilation, public model/result types, and connector/storage contracts. The main `relate` entry point must remain independent of the compiler and Node runtime. |
+| `packages/protocol`                                | Transport-safe request, result, evidence, discovery, receipt, and error shapes shared across consumer boundaries.                                                                    |
+| `packages/runtime`                                 | Authorization, reads, traversal, queries, actions, evidence, transactions, and runtime-owned execution.                                                                              |
+| `packages/node`                                    | Node composition, lifecycle, source bindings, action implementations, and the typed embedded consumer API.                                                                           |
+| `packages/postgres`                                | Postgres persistence and migrations behind runtime storage contracts.                                                                                                                |
+| `packages/client`, `packages/http`, `packages/mcp` | Remote client or transport surfaces over protocol/runtime contracts; their presence does not imply that a planned interface is complete.                                             |
+| `packages/cli`, `apps/inspector`                   | Local development workflow and Inspector UI/server integration.                                                                                                                      |
+| `connectors/*`                                     | Provider-specific system/resource access through `relate/connectors`; connectors do not own application graphs or policies.                                                          |
+| `examples/*`                                       | Runnable, user-facing learning applications built only from public APIs.                                                                                                             |
+| `tests/support`                                    | Shared test-owned models and acceptance-contract factories for package and persistence implementations.                                                                              |
+| `dev/simulators`, `dev/salesforce`                 | Independent provider-development tooling. Keep application models and public behavior out of these tools.                                                                            |
+| `dev/fixtures`                                     | Exploratory design evidence only; never a public API or library-test dependency.                                                                                                     |
 
-The customer-graph acceptance fixture has established the intended application
-API. Source-backed reads, references and traversal already execute through the
-packages. The first native `addAccountReview` path now also executes get/create,
-authorization, rollback and successful receipt storage on memory and Postgres.
-Actor-bound receipt lookup/replay also executes with current-access checks.
-Declared business failures now roll back native effects and save actor-bound
-recoverable receipts. Durable pending execution remains a subsequent slice. Do
-not keep expanding a declaration-only API instead of implementing agreed
-behavior.
+Prefer completing behavior through a real public application path over widening
+declaration-only surfaces. Keep portable graph/app authoring separate from Node
+execution and provider tooling. Provider access denial must remain distinct from
+temporary unavailability and must never authorize stale data.
 
-For each authorized slice:
+## Validation
 
-- Implement the public API in its owning packages and exercise it through real
-  package imports. Use the fixture to identify required behavior, not as a
-  second implementation or a permanent public API declaration.
-- Keep authoring/type tests in `packages/relate/test`, execution tests in
-  `packages/runtime/test`, and typed application tests in `packages/node/test`.
-  Share memory/Postgres acceptance cases in `tests/support`, with database
-  execution in `tests/integration`.
-- Replace covered declarations in
-  `dev/fixtures/customer-graph/validation/target.ts` with package
-  imports/re-exports as their complete contract becomes available. Keep any
-  remaining proposed capability explicitly marked unimplemented.
-- `dev/` may retain exploratory examples, application fixtures and simulators.
-  Typechecking a proposed API is useful design evidence, but is not proof of
-  execution, authorization, atomicity or durability. Moving files alone is not
-  an implementation milestone.
-- Complete one end-to-end behavior before broadening the API. The first native
-  action path is `addAccountReview`: real definitions/compilation, authorized
-  native creation, reference validation, transaction rollback and a successful
-  receipt and actor-bound recovery. Durable pending execution and external
-  effects are subsequent slices, not implicit requirements to build now.
+Use focused checks while iterating, then validate in proportion to the affected
+contract:
 
-Package responsibilities along these paths:
+- Run the owning package, connector, application, or example tests for local
+  behavior changes.
+- Run `pnpm check:boundaries` after changing imports, entry points, package
+  ownership, or workspace declarations.
+- Run `pnpm test:onboarding` when changing installation or example startup.
+- Run `pnpm test:packaging` when changing public exports, builds, or packed
+  package behavior.
+- Run `pnpm check` before completing a repository-wide implementation change. It
+  requires the disposable Postgres database configured by
+  `RELATE_TEST_DATABASE_URL`; use `pnpm test:unit` when no test database is
+  available and report that limitation explicitly.
 
-| Order | Build                    | What it establishes                                                    |
-| ----- | ------------------------ | ---------------------------------------------------------------------- |
-| 1     | `relate` \+ `protocol`   | Authoring API, compiled model, public results and evidence             |
-| 2     | `runtime` \+ `postgres`  | One complete embedded read and native-write path with real durability  |
-| 3     | `http` \+ `client`       | The same behavior through a remote interface                           |
-| 4     | `mcp`                    | The same operations exposed to agents                                  |
-| 5     | `node`                   | Typed embedded composition now; startup/workers as those features land |
-| 6     | `cli` \+ `create-relate` | A polished workflow around APIs that already work                      |
-
-Compose the embedded path through `node` while implementing it; do not postpone
-the callable application API until after transports. This is an implementation
-sequence, not a reduction of the product vision. Grow capabilities through those
-paths rather than trying to finish each package independently.
-
-**What I would take from the prototype**
-
-The most valuable material is its **behavioral scenarios and regression
-evidence**:
-
-- Authorization filtering and avoiding private-data leakage.
-- Stale fallback and freshness evidence.
-- Observation ordering and checkpoint atomicity.
-- Identity and relationship integrity.
-- Action idempotency, uncertain outcomes, and recovery.
-- Migration integrity and installed-package compatibility.
-
-Adapt these into tests against the new public interfaces. Keep expected outcomes
-independently understandable; tests should not merely compare the new engine
-with whatever the prototype happens to return.
-
-I would also selectively port well-understood algorithms, schemas, and SQL after
-checking their ownership and dependencies. There is little value in inventing a
-different implementation of a correct concurrency rule just to call it a
-rewrite.
-
-**What I would implement more cleanly**
-
-- **Public interfaces:** deliberate authoring, consumer, and extension contracts
-  instead of carrying forward every experimental integration export.
-- **Composition:** portable app definitions separated from Node hosting and
-  local development tooling.
-- **Observation handling:** shared pure logic with clear ownership, rather than
-  resolution reaching into synchronization internals.
-- **Runtime organization:** smaller operations and explicit capability
-  interfaces instead of growing the prototype’s large runtime files.
-- **Persistence boundaries:** module-owned operations and explicit transaction
-  coordination, preserving the prototype’s atomicity guarantees.
-- **Compilation:** keep authoring imports separate from compiler/platform
-  dependencies.
-
-Those are targeted improvements supported by what we observed. I would avoid
-building speculative abstractions for every future platform before we have a
-second implementation to validate them.
+Do not claim a full check passed when only a focused command ran. Preserve the
+exact failure output when an environment dependency prevents validation.

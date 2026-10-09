@@ -128,10 +128,74 @@ export interface QueryRequest extends TraversalRequest {
   readonly where?: Readonly<Record<string, Json>>;
 }
 
+/**
+ * One problem with a caller's read request. Paths name request options, filter
+ * properties or arguments; the reader could already see every name listed, so
+ * an issue never reveals a hidden field, traversal or record.
+ */
+export interface RequestIssue {
+  readonly path: readonly string[];
+  readonly problem:
+    | 'unknown-option'
+    | 'invalid-value'
+    | 'unknown-property'
+    | 'unknown-traversal'
+    | 'invalid-cursor'
+    | 'not-supported';
+  readonly message: string;
+  /** Names the reader may use instead, when that list is useful. */
+  readonly accepted?: readonly string[];
+}
+
+export interface ReadErrorDetails {
+  /** The called operation, such as `Person.query` or `Playlist.traverse.songs`. */
+  readonly operation: string;
+  readonly issues: readonly RequestIssue[];
+  /** Every option the operation accepts, listed when an option was unknown. */
+  readonly acceptedOptions?: readonly string[];
+}
+
+function readErrorMessage(code: string, details?: ReadErrorDetails) {
+  if (!details) return code;
+
+  return [
+    `${code} in ${details.operation}:`,
+    ...details.issues.map(
+      (issue) => `- ${issue.path.join('.') || 'request'}: ${issue.message}`,
+    ),
+    ...(details.acceptedOptions
+      ? [`Accepted options: ${details.acceptedOptions.join(', ')}.`]
+      : []),
+  ].join('\n');
+}
+
 export class ReadError extends Error {
-  constructor(readonly code: 'incomplete' | 'invalid-request' | 'unavailable') {
-    super(code);
+  readonly operation?: string;
+  readonly issues: readonly RequestIssue[];
+  readonly acceptedOptions?: readonly string[];
+
+  constructor(
+    readonly code: 'incomplete' | 'invalid-request' | 'unavailable',
+    details?: ReadErrorDetails,
+  ) {
+    super(readErrorMessage(code, details));
     this.name = 'ReadError';
+    this.issues = Object.freeze(
+      (details?.issues ?? []).map((issue) =>
+        Object.freeze({
+          ...issue,
+          path: Object.freeze([...issue.path]),
+          ...(issue.accepted
+            ? { accepted: Object.freeze([...issue.accepted]) }
+            : {}),
+        }),
+      ),
+    );
+
+    if (details) this.operation = details.operation;
+
+    if (details?.acceptedOptions)
+      this.acceptedOptions = Object.freeze([...details.acceptedOptions]);
   }
 }
 

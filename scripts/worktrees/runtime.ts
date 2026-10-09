@@ -44,6 +44,36 @@ export function succeeds(command: string, args: string[], cwd: string) {
   return spawnSync(command, args, { cwd, stdio: 'ignore' }).status === 0;
 }
 
+/**
+ * How `branch` reached `target`: as an ancestor (merge commit or fast-forward),
+ * or by content when merging it would leave `target`'s tree unchanged, as after
+ * a squash or rebase merge. Undefined when its changes are not all in `target`.
+ */
+export function mergedInto(
+  branch: string,
+  target: string,
+  cwd: string,
+): 'ancestor' | 'content' | undefined {
+  if (succeeds('git', ['merge-base', '--is-ancestor', branch, target], cwd))
+    return 'ancestor';
+
+  const merged = spawnSync(
+    'git',
+    ['merge-tree', '--write-tree', target, branch],
+    { cwd, encoding: 'utf8' },
+  );
+  const tree = spawnSync('git', ['rev-parse', `${target}^{tree}`], {
+    cwd,
+    encoding: 'utf8',
+  });
+
+  return merged.status === 0 &&
+    tree.status === 0 &&
+    merged.stdout.split('\n')[0]!.trim() === tree.stdout.trim()
+    ? 'content'
+    : undefined;
+}
+
 export function listWorktrees(cwd = process.cwd()) {
   return parseWorktreeList(
     output('git', ['worktree', 'list', '--porcelain'], cwd),

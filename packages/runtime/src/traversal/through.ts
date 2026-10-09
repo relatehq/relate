@@ -65,6 +65,7 @@ export function createThroughTraversal(options: TraversalOptions) {
     relationship: Through,
     forward: boolean,
     request: TraversalRequest,
+    operation: string,
   ): Promise<FullPageResult> => {
     const owner = manifest.objects.find(
       (o) => o.id === relationship.through.objectDefinitionId,
@@ -94,7 +95,7 @@ export function createThroughTraversal(options: TraversalOptions) {
       query: { ...readRequest, limit },
     });
     const position: Position = cursor
-      ? JSON.parse(codec.decode(cursor, scope, clock()))
+      ? JSON.parse(codec.decode(cursor, scope, clock(), operation))
       : {};
     const encode = (next: Position) =>
       codec.encode(scope, JSON.stringify(next), clock() + 900_000);

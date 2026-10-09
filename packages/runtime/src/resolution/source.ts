@@ -17,6 +17,7 @@ import {
   allowsObject,
   conditions,
   createAuthorization,
+  operationName,
 } from '../authorization/index.js';
 import type {
   Principal,
@@ -127,7 +128,10 @@ export function createSourceOperations(options: {
     captureAuthorization?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
   ): Promise<ReadResult> {
-    validateReadRequest(request);
+    validateReadRequest(
+      request,
+      operationName(manifest, principal, objectDefinitionId, 'get'),
+    );
     const maxAge = request.maxAgeMs ?? 60_000;
 
     const object = manifest.objects.find((o) => o.id === objectDefinitionId);

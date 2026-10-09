@@ -17,6 +17,7 @@ import {
   allowsField,
   allowsObject,
   createAuthorization,
+  operationName,
 } from '../authorization/index.js';
 import type {
   Principal,
@@ -133,7 +134,10 @@ export function createNativeOperations(options: {
       transaction?: NativeTransaction,
       capture?: (check: () => Promise<boolean>) => void,
     ): Promise<ReadResult> {
-      validateReadRequest(request);
+      validateReadRequest(
+        request,
+        operationName(manifest, principal, objectDefinitionId, 'get'),
+      );
       const object = manifest.objects.find((o) => o.id === objectDefinitionId);
       const policy = Object.hasOwn(manifest.policies, objectDefinitionId)
         ? manifest.policies[objectDefinitionId]

@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it, onTestFinished } from 'vitest';
 import {
   buildWorktreePlan,
   droppableDatabaseUrls,
@@ -7,6 +11,7 @@ import {
   renderWorktreeEnv,
   slugFromBranchName,
 } from '../../scripts/worktrees/planning.js';
+import { mergedInto } from '../../scripts/worktrees/runtime.js';
 
 const plan = buildWorktreePlan({
   branchName: 'feat/receipt-lookup',
@@ -141,5 +146,52 @@ describe('worktree lookup', () => {
       ),
     ).toBe(target);
     expect(findWorktree(entries, 'missing', '/dev/vs/relate')).toBeUndefined();
+  });
+});
+
+describe('worktree branch cleanup', () => {
+  function createRepository() {
+    const cwd = mkdtempSync(join(tmpdir(), 'relate-worktree-merge-'));
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd, encoding: 'utf8' });
+    const commit = (file: string, text: string) => {
+      writeFileSync(join(cwd, file), text);
+      git('add', file);
+      git('commit', '--quiet', '-m', `change ${file}`);
+    };
+
+    onTestFinished(() => rmSync(cwd, { recursive: true, force: true }));
+    git('init', '--quiet', '--initial-branch', 'main');
+    git('config', 'user.email', 'test@example.com');
+    git('config', 'user.name', 'Test');
+    commit('a.txt', 'a');
+
+    return { cwd, git, commit };
+  }
+
+  it('recognises merged, squash-merged and unmerged branches', () => {
+    const { cwd, git, commit } = createRepository();
+
+    git('switch', '--quiet', '-c', 'feat/merged');
+    commit('b.txt', 'b');
+    git('switch', '--quiet', 'main');
+    git('merge', '--quiet', '--ff-only', 'feat/merged');
+
+    git('switch', '--quiet', '-c', 'feat/squashed');
+    commit('c.txt', 'c');
+    commit('c.txt', 'c2');
+    git('switch', '--quiet', 'main');
+    commit('d.txt', 'd');
+    git('merge', '--quiet', '--squash', 'feat/squashed');
+    git('commit', '--quiet', '-m', 'feat: squashed (#1)');
+
+    git('switch', '--quiet', '-c', 'feat/open');
+    commit('e.txt', 'e');
+    git('switch', '--quiet', 'main');
+
+    expect(mergedInto('feat/merged', 'main', cwd)).toBe('ancestor');
+    expect(mergedInto('feat/squashed', 'main', cwd)).toBe('content');
+    expect(mergedInto('feat/open', 'main', cwd)).toBeUndefined();
+    expect(mergedInto('feat/open', 'origin/main', cwd)).toBeUndefined();
   });
 });

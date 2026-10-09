@@ -21,8 +21,30 @@ import type { Principal } from '@relate/runtime';
 import type {
   ActionDescription,
   GraphDescription,
-  ObjectDescription,
+  ObjectDescription as RuntimeObjectDescription,
+  TraversalDescription as RuntimeTraversalDescription,
 } from '@relate/runtime';
+
+/** A traversal with this SDK's call path, e.g. `objects.Playlist.traverse.songs(id, options?)`. */
+export interface TraversalDescription extends RuntimeTraversalDescription {
+  readonly call: string;
+}
+
+/** Object detail with this SDK's call paths for get, query and each traversal. */
+export interface ObjectDescription extends Omit<
+  RuntimeObjectDescription,
+  'operations' | 'traversals'
+> {
+  readonly operations: {
+    readonly get: RuntimeObjectDescription['operations']['get'] & {
+      readonly call: string;
+    };
+    readonly query: RuntimeObjectDescription['operations']['query'] & {
+      readonly call: string;
+    };
+  };
+  readonly traversals: readonly TraversalDescription[];
+}
 
 export type { ReadOptions, ObjectResult } from 'relate';
 
