@@ -153,14 +153,21 @@ export function queryContract(
       await seed('b');
       const objects = app.as(actor).objects;
 
-      for (const evidence of [undefined, 'compact', 'full'] as const) {
+      // Evidence mode is presentation only, so a cursor continues in any mode.
+      for (const [evidence, nextEvidence] of [
+        [undefined, 'full'],
+        ['compact', undefined],
+        ['full', 'compact'],
+      ] as const) {
         const options = {
           select: ['status'] as const,
           where: { paid: false },
           limit: 1,
-          ...(evidence ? { evidence } : {}),
         };
-        const first = await objects.Invoice.query(options);
+        const first = await objects.Invoice.query({
+          ...options,
+          ...(evidence ? { evidence } : {}),
+        });
 
         expect(first.data[0]?.meta.evidence).toBe(evidence ?? 'compact');
         expect(first.data[0]?.data).toEqual({ status: 'Overdue' });
@@ -169,10 +176,12 @@ export function queryContract(
 
         const next = await objects.Invoice.query({
           ...options,
+          ...(nextEvidence ? { evidence: nextEvidence } : {}),
           cursor: first.meta.continuationCursor,
         });
 
         expect(next.data).toHaveLength(1);
+        expect(next.data[0]?.meta.evidence).toBe(nextEvidence ?? 'compact');
         expect(next.data[0]?.id).not.toBe(first.data[0]?.id);
         expect(next.meta).toEqual({ exhausted: true });
       }

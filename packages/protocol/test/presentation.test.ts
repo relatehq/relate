@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { presentRead, presentPage } from '@relate/protocol';
+import { present } from '@relate/protocol';
 import type { FieldEvidence, FullReadMeta } from '@relate/protocol';
 
 const available = {
@@ -33,7 +33,7 @@ it('compacts only evidence envelopes without mutating data or the full result', 
   const full = { status: 'ok' as const, data, meta };
   const before = structuredClone(full);
 
-  expect(presentRead(full)).toEqual({
+  expect(present(full)).toEqual({
     status: 'ok',
     data,
     meta: {
@@ -43,9 +43,9 @@ it('compacts only evidence envelopes without mutating data or the full result', 
       definitionRevision: 'sha256:test',
     },
   });
-  expect(presentRead(full, 'full')).toEqual(full);
+  expect(present(full, 'full')).toEqual(full);
   expect(full).toEqual(before);
-  expect(presentRead({ status: 'not-found' })).toEqual({ status: 'not-found' });
+  expect(present({ status: 'not-found' })).toEqual({ status: 'not-found' });
 });
 
 it('preserves every exceptional state including fresh retention and ordering failures', () => {
@@ -61,7 +61,7 @@ it('preserves every exceptional state including fresh retention and ordering fai
     invalid: { ...available, refresh: 'invalid' },
     superseded: { ...available, refresh: 'superseded' },
   };
-  const result = presentRead({
+  const result = present({
     status: 'ok',
     data: {},
     meta: {
@@ -105,7 +105,7 @@ it('preserves every exceptional state including fresh retention and ordering fai
 
 it('preserves continuation even on an empty page and presents each record independently', () => {
   expect(
-    presentPage({
+    present({
       data: [],
       meta: { exhausted: false, continuationCursor: 'token' },
     }),
@@ -127,7 +127,7 @@ it('preserves continuation even on an empty page and presents each record indepe
   };
   const page = { data: [record], meta: { exhausted: true as const } };
 
-  expect(presentPage(page).data[0]).toEqual({
+  expect(present(page).data[0]).toEqual({
     ...record,
     meta: {
       evidence: 'compact',
@@ -136,5 +136,30 @@ it('preserves continuation even on an empty page and presents each record indepe
       definitionRevision: 'r',
     },
   });
-  expect(presentPage(page, 'full')).toEqual(page);
+  expect(present(page, 'full')).toEqual(page);
+});
+
+it('never shares evidence objects between the resolved result and the response', () => {
+  const meta: FullReadMeta = {
+    evidence: 'full',
+    completeness: 'partial',
+    degraded: true,
+    definitionRevision: 'r',
+    fields: { stale: { ...available, freshness: 'stale' } },
+    warnings: ['retention_unconfirmed'],
+  };
+  const resolved = { status: 'ok' as const, data: {}, meta };
+  const before = structuredClone(resolved);
+
+  for (const mode of ['compact', 'full'] as const) {
+    const response = present(resolved, mode);
+
+    if (response.status !== 'ok') throw new Error('Expected result');
+
+    response.meta.warnings!.push('ordering_unconfirmed');
+    Object.assign(response.meta.fields!['stale']!, { freshness: 'fresh' });
+    response.meta.fields!['added'] = { status: 'unavailable' };
+  }
+
+  expect(resolved).toEqual(before);
 });

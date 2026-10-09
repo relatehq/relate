@@ -218,9 +218,8 @@ const detailed = await objects.Customer.get(customerId, {
   evidence: 'full',
 });
 
-if (detailed.status === 'ok' && detailed.meta.evidence === 'full') {
-  console.log(detailed.meta.fields.name);
-}
+// Requesting full evidence types `meta.fields` as always present.
+if (detailed.status === 'ok') console.log(detailed.meta.fields.name);
 ```
 
 See [Read Responses & Evidence](../reference/read-responses.md) in **Reference**

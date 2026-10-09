@@ -107,9 +107,11 @@ export function createGraphQuery(options: {
         Object.entries(input).filter(([, value]) => value !== undefined),
       ),
     );
+    // Evidence mode is presentation only, so it stays out of the cursor scope.
     const {
       cursor,
       limit: _limit,
+      evidence: _evidence,
       where: filters = {},
       ...readRequest
     } = request;

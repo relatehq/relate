@@ -109,7 +109,13 @@ export function createTraversal(options: {
     if (!owner.sourceDefinitionId) throw new ReadError('invalid-request');
 
     const ownerPolicy = manifest.policies[owner.id];
-    const { cursor, limit: _limit, ...readRequest } = request;
+    // Evidence mode is presentation only, so it stays out of the cursor scope.
+    const {
+      cursor,
+      limit: _limit,
+      evidence: _evidence,
+      ...readRequest
+    } = request;
     const scope = createHash('sha256')
       .update(
         canonicalJson({

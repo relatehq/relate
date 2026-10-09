@@ -171,4 +171,5 @@ export class ActionError extends Error {
   }
 }
 
-export { presentRead, presentRecord, presentPage } from './presentation.js';
+export { present } from './presentation.js';
+export type { Presentable, Presented } from './presentation.js';

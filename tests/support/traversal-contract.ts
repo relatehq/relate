@@ -135,14 +135,17 @@ export function traversalContract(
 
         if (first.meta.exhausted) throw new Error('Expected continuation');
 
+        // A cursor continues in either mode; the mode only shapes evidence.
+        const nextEvidence = evidence === 'full' ? 'compact' : 'full';
         const next = await objects.Customer.traverse.invoices(customer, {
           select: ['status'],
           limit: 1,
-          evidence,
+          evidence: nextEvidence,
           cursor: first.meta.continuationCursor,
         });
 
         expect(next.data).toHaveLength(1);
+        expect(next.data[0]?.meta.evidence).toBe(nextEvidence);
         expect(next.data[0]?.id).not.toBe(first.data[0]?.id);
         expect(next.meta).toEqual({ exhausted: true });
         const owner = await objects.Invoice.traverse.customer(invoice, {

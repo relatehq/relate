@@ -161,11 +161,11 @@ permitted fields, so it does not enumerate forbidden fields.
 }
 ```
 
-| Field                     | Meaning and use                                                                                                                                                                                                 |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data`                    | Array of authorized records. Each has `id`, `data`, and the same per-record `meta` described above, but no `status` member.                                                                                     |
-| `meta.exhausted`          | `true` when the graph scan has finished. `false` means continuation is required, even when this page has no records.                                                                                            |
-| `meta.continuationCursor` | Opaque continuation token, present exactly when `exhausted` is `false`. Pass it as `cursor` with the same operation, principal, selection, filters, evidence mode and other options. Do not decode or alter it. |
+| Field                     | Meaning and use                                                                                                                                                                                                                              |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data`                    | Array of authorized records. Each has `id`, `data`, and the same per-record `meta` described above, but no `status` member.                                                                                                                  |
+| `meta.exhausted`          | `true` when the graph scan has finished. `false` means continuation is required, even when this page has no records.                                                                                                                         |
+| `meta.continuationCursor` | Opaque continuation token, present exactly when `exhausted` is `false`. Pass it as `cursor` with the same operation, principal, selection, filters and other options; the evidence mode may change between pages. Do not decode or alter it. |
 
 Collections enumerate **adopted graph members**, not all provider records.
 Exhaustion does not establish provider-wide coverage. Pages are not a frozen

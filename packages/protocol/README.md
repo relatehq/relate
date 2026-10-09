@@ -91,10 +91,11 @@ JSON; the runtime validates what it produces and accepts.
 - [Pagination](../runtime/CONTRACT.md#pagination): the implemented helper that
   follows the page contract.
 
-`presentRead`, `presentRecord`, and `presentPage` render full resolved results
-as compact (default) or full responses. They transform only known evidence
-envelopes, never business data, and do not perform authorization or validation.
-Inputs must already be authorized, resolved `FullReadResult`,
-`FullObjectRecord`, or `FullPageResult` values. Compact responses preserve
-nonempty warnings and all exceptional field evidence. See the
+`present` renders a full resolved read, object, or page result as a compact
+(default) or full response. It transforms only known evidence envelopes, never
+business data, and does not perform authorization or validation. Inputs must
+already be authorized, resolved `FullReadResult`, `FullObjectResult`, or
+`FullPageResult` values. Responses never share evidence objects with the input.
+Compact responses preserve nonempty warnings and all exceptional field evidence.
+See the
 [response reference](../../apps/docs/content/reference/read-responses.md).

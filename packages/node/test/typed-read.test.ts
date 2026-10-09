@@ -453,6 +453,19 @@ it('defaults to compact, permits full evidence, and rejects invalid modes', asyn
         evidence: 'none',
       }),
     ).rejects.toMatchObject({ code: 'invalid-request' });
+
+    // The mode is read once, so a changing request cannot alter presentation.
+    const modes = ['full', 'compact'] as const;
+    let reads = 0;
+    const shifting = await objects.Customer.get(id, {
+      select: ['name'],
+      get evidence() {
+        return modes[Math.min(reads++, 1)]!;
+      },
+    });
+
+    expect(shifting).toMatchObject({ meta: { evidence: 'full' } });
+    expect(reads).toBe(1);
   } finally {
     await relate.close();
   }

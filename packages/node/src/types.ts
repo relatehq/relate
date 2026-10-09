@@ -15,7 +15,7 @@ import type {
   ObjectRecord,
   PageOptions,
 } from 'relate';
-import type { Page as ResultPage } from '@relate/protocol';
+import type { EvidenceMode, Page as ResultPage } from '@relate/protocol';
 import type { QueryResult } from '@relate/runtime';
 import type { Principal } from '@relate/runtime';
 
@@ -43,14 +43,15 @@ type Edges<R extends RelationshipRegistry, O extends ObjectDefinition> = {
 type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
   readonly [E in Edges<R, O> as E['traversal']['name']]: <
     K extends PropertyNames<E['target']> = PropertyNames<E['target']>,
+    M extends EvidenceMode = 'compact',
   >(
     id: ObjectId<O['id']>,
     options?: E['traversal']['cardinality'] extends 'many'
-      ? PageOptions<K>
-      : ReadOptions<K>,
+      ? PageOptions<K, M>
+      : ReadOptions<K, M>,
   ) => E['traversal']['cardinality'] extends 'many'
-    ? QueryResult<ObjectRecord<E['target'], K>>
-    : Promise<ObjectResult<E['target'], K>>;
+    ? QueryResult<ObjectRecord<E['target'], K, M>>
+    : Promise<ObjectResult<E['target'], K, M>>;
 };
 
 export interface ObjectOperations<
@@ -58,13 +59,19 @@ export interface ObjectOperations<
   R extends RelationshipRegistry = {},
 > {
   readonly traverse: Traversals<R, O>;
-  query<K extends PropertyNames<O> = PropertyNames<O>>(
-    options?: QueryOptions<O, K>,
-  ): QueryResult<ObjectRecord<O, K>>;
-  get<K extends PropertyNames<O> = PropertyNames<O>>(
+  query<
+    K extends PropertyNames<O> = PropertyNames<O>,
+    E extends EvidenceMode = 'compact',
+  >(
+    options?: QueryOptions<O, K, E>,
+  ): QueryResult<ObjectRecord<O, K, E>>;
+  get<
+    K extends PropertyNames<O> = PropertyNames<O>,
+    E extends EvidenceMode = 'compact',
+  >(
     id: ObjectId<O['id']>,
-    options?: ReadOptions<K>,
-  ): Promise<ObjectResult<O, K>>;
+    options?: ReadOptions<K, E>,
+  ): Promise<ObjectResult<O, K, E>>;
 }
 
 export interface Consumer<

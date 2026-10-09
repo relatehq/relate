@@ -83,7 +83,7 @@ try {
     .objects.Customer.get(id, { select: ['name'], evidence: 'full' });
 
   // Retained fields report retentionDurability: 'persistent'.
-  if (customer.status === 'ok') console.log(customer.meta.fields?.name);
+  if (customer.status === 'ok') console.log(customer.meta.fields.name);
 } finally {
   await relate.close();
   await store.close();

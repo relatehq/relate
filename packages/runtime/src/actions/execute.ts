@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { accepts, canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
-import {
-  ActionError,
-  ReadError,
-  presentRead,
-  presentPage,
-} from '@relate/protocol';
+import { ActionError, ReadError } from '@relate/protocol';
 import type {
   FullReadResult,
   FullPageResult,
@@ -18,6 +13,7 @@ import type {
   ActionReceipt,
   FailedReceipt,
 } from '@relate/protocol';
+import { presenting } from '../reads/index.js';
 import {
   NativeCommitUncertain,
   NativeConflict,
@@ -410,32 +406,34 @@ export function createActionExecutor(options: {
                     throw domainSignal;
                   },
                   query: (type, request = {}) =>
-                    run(async () =>
-                      presentPage(
-                        await options.query(
+                    run(() =>
+                      presenting(request, (r) =>
+                        options.query(
                           actor,
                           type,
-                          request,
+                          r,
                           transaction,
                           (id, result) => recordRead(type, id, result),
                         ),
-                        request.evidence,
                       ),
                     ),
                   read: (type, id, request = {}) =>
-                    run(async () => {
-                      const result = await options.read(
-                        actor,
-                        type,
-                        id,
-                        request,
-                        transaction,
-                      );
+                    run(() =>
+                      presenting(request, async (r) => {
+                        const result = await options.read(
+                          actor,
+                          type,
+                          id,
+                          r,
+                          transaction,
+                        );
 
-                      if (result.status === 'ok') recordRead(type, id, result);
+                        if (result.status === 'ok')
+                          recordRead(type, id, result);
 
-                      return presentRead(result, request.evidence);
-                    }),
+                        return result;
+                      }),
+                    ),
                   create: (type, values) =>
                     run(async () => {
                       const object = manifest.objects.find(

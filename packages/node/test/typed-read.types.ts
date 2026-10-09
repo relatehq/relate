@@ -93,12 +93,36 @@ void [name, revenue, unasserted, forbiddenEvidence, unavailableEvidence];
 if (selected.status === 'ok') {
   // @ts-expect-error compact metadata may omit the field map
   selected.meta.fields.name;
+  const compact: 'compact' = selected.meta.evidence;
 
-  if (selected.meta.evidence === 'full') {
-    const field: FieldEvidence | undefined = selected.meta.fields.name;
+  void compact;
+}
 
-    // @ts-expect-error full evidence is still scoped to the selection
-    selected.meta.fields.revenue;
+const full = await consumer.objects.Customer.get(id, {
+  select: ['name'],
+  evidence: 'full',
+});
+
+if (full.status === 'ok') {
+  // Requesting full evidence makes the field map required without narrowing.
+  const field: FieldEvidence | undefined = full.meta.fields.name;
+  const warnings: readonly string[] = full.meta.warnings;
+
+  // @ts-expect-error full evidence is still scoped to the selection
+  full.meta.fields.revenue;
+  void [field, warnings];
+}
+
+declare const mode: 'compact' | 'full';
+const either = await consumer.objects.Customer.get(id, { evidence: mode });
+
+if (either.status === 'ok') {
+  // @ts-expect-error an unknown mode still needs narrowing
+  either.meta.fields.name;
+
+  if (either.meta.evidence === 'full') {
+    const field: FieldEvidence | undefined = either.meta.fields.name;
+
     void field;
   }
 }
