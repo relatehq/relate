@@ -22,7 +22,11 @@ import type {
   Principal,
   AuthorizationEvidence,
 } from '../authorization/index.js';
-import { validateReadRequest, summarize } from '../reads/index.js';
+import {
+  operationName,
+  validateReadRequest,
+  summarize,
+} from '../reads/index.js';
 
 type ObjectType = Manifest['objects'][number];
 
@@ -133,7 +137,10 @@ export function createNativeOperations(options: {
       transaction?: NativeTransaction,
       capture?: (check: () => Promise<boolean>) => void,
     ): Promise<ReadResult> {
-      validateReadRequest(request);
+      validateReadRequest(
+        request,
+        operationName(manifest, objectDefinitionId, 'get'),
+      );
       const object = manifest.objects.find((o) => o.id === objectDefinitionId);
       const policy = Object.hasOwn(manifest.policies, objectDefinitionId)
         ? manifest.policies[objectDefinitionId]

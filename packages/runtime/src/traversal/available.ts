@@ -2,6 +2,7 @@ import type { Manifest } from 'relate/model';
 import {
   allowsField,
   allowsObject,
+  readableObject,
   type Principal,
 } from '../authorization/index.js';
 
@@ -87,4 +88,38 @@ export function traversalAllowed(
       );
     }),
   );
+}
+
+/**
+ * The traversals an actor may attempt from an object: executable, gated by
+ * `traversalAllowed`, and leading to a readable type. Discovery lists exactly
+ * these, and request errors offer only these names.
+ */
+export function availableTraversals(
+  manifest: Manifest,
+  principal: Principal,
+  objectDefinitionId: string,
+) {
+  return traversalsFrom(manifest, objectDefinitionId).flatMap((edge) => {
+    const { relationship, forward } = edge;
+    const target = readableObject(
+      manifest,
+      principal,
+      forward
+        ? relationship.toObjectDefinitionId
+        : relationship.fromObjectDefinitionId,
+    );
+
+    return target &&
+      traversalSupported(manifest, relationship) &&
+      traversalAllowed(manifest, principal, edge)
+      ? [
+          {
+            ...edge,
+            traversal: forward ? relationship.forward : relationship.reverse,
+            target,
+          },
+        ]
+      : [];
+  });
 }

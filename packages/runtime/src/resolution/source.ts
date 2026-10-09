@@ -29,7 +29,11 @@ import {
   SourceAccessDenied,
 } from '../observations/index.js';
 import type { SourceBinding } from 'relate/connectors';
-import { validateReadRequest, summarize } from '../reads/index.js';
+import {
+  operationName,
+  validateReadRequest,
+  summarize,
+} from '../reads/index.js';
 import { refreshObservation } from './refresh.js';
 
 /** Source operations receive cross-object evidence resolution from composition. */
@@ -127,7 +131,10 @@ export function createSourceOperations(options: {
     captureAuthorization?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
   ): Promise<ReadResult> {
-    validateReadRequest(request);
+    validateReadRequest(
+      request,
+      operationName(manifest, objectDefinitionId, 'get'),
+    );
     const maxAge = request.maxAgeMs ?? 60_000;
 
     const object = manifest.objects.find((o) => o.id === objectDefinitionId);

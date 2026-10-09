@@ -6,6 +6,25 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Discoverable operation contracts and request errors
+
+`relate.as(principal).describe()` now includes `operations`: how to call get,
+query and traversals, which options each accepts, every option's type and
+default, result shapes and paging. Object detail adds `call` paths
+(`objects.Customer.traverse.invoices(id, options?)`), `returns` types and a
+`filter` description on every property.
+
+Breaking: object detail `operations.get` was `true` and is now
+`{ returns, call }`; `operations.query` gains `returns` and `call`. Code that
+checked `operations.get === true` should check that `operations.get` exists.
+
+`ReadError('invalid-request')` keeps its code and now carries `operation`,
+`issues` and, for unknown options, `acceptedOptions`. Its message lists each
+issue instead of only the code. `get` and to-one traversal now reject unknown
+options (previously `get` ignored them). A `where` filter on a reference whose
+target type the reader cannot read is rejected as `invalid-request`; it
+previously passed validation.
+
 ## Actor-bound graph discovery
 
 `relate.as(principal).describe()` now returns the graph's objects and actions

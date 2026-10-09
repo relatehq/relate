@@ -37,11 +37,22 @@ it('describes only the objects, fields, traversals, and actions available to an 
   });
   expect(employee.describeObject(Customer.id)).toMatchObject({
     apiName: 'Customer',
-    operations: { get: true, query: { collectionScope: 'graph-membership' } },
+    operations: {
+      get: { returns: 'Promise<ObjectResult<Customer>>' },
+      query: {
+        returns: 'QueryResult<Customer>',
+        collectionScope: 'graph-membership',
+      },
+    },
     properties: [
-      { name: 'id', kind: 'object-id' },
-      { name: 'name', kind: 'value', description: 'Registered business name.' },
-      { name: 'portfolio', kind: 'value' },
+      { name: 'id', kind: 'object-id', filter: 'Customer object ID' },
+      {
+        name: 'name',
+        kind: 'value',
+        description: 'Registered business name.',
+        filter: 'string',
+      },
+      { name: 'portfolio', kind: 'value', filter: 'string' },
     ],
     traversals: [
       {
@@ -49,6 +60,7 @@ it('describes only the objects, fields, traversals, and actions available to an 
         cardinality: 'many',
         description: 'Invoices billed to this customer.',
         target: { apiName: 'Invoice' },
+        returns: 'QueryResult<Invoice>',
       },
     ],
   });
@@ -57,6 +69,7 @@ it('describes only the objects, fields, traversals, and actions available to an 
       name: 'customer',
       kind: 'reference',
       description: 'Customer billed by this invoice.',
+      filter: 'Customer object ID',
     }),
   );
   expect(employee.describeObject(Customer.id)?.properties).not.toContainEqual(
@@ -80,6 +93,8 @@ it('describes only the objects, fields, traversals, and actions available to an 
   });
 
   expect(outsider.describe().objects).toEqual([]);
+  // The read contract is SDK-owned: identical for every graph and actor.
+  expect(outsider.describe().operations).toBe(employee.describe().operations);
   expect(outsider.describeObject(Customer.id)).toBeUndefined();
 
   const actions = createDiscovery(compile(actionGraph).manifest, manager);

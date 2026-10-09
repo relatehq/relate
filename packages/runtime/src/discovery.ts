@@ -1,16 +1,14 @@
 import type { Manifest, ScalarSchema } from 'relate/model';
 import { deepFreeze } from 'relate/model';
 import {
-  allowsField,
-  allowsObject,
+  readableObject,
+  readableProperties,
   type Principal,
 } from './authorization/index.js';
 import { actionAllowed } from './actions/index.js';
-import {
-  traversalAllowed,
-  traversalsFrom,
-  traversalSupported,
-} from './traversal/index.js';
+import { availableTraversals } from './traversal/index.js';
+import { operationContracts, type OperationContracts } from './contracts.js';
+import { schemaText } from './reads/index.js';
 
 type ManifestObject = Manifest['objects'][number];
 
@@ -37,6 +35,8 @@ export interface GraphDescription {
   readonly description?: string;
   readonly objects: readonly ObjectSummary[];
   readonly actions: readonly ActionSummary[];
+  /** How to call get, query and traversals; the same for every graph. */
+  readonly operations: OperationContracts;
 }
 
 export interface PropertyDescription {
@@ -46,6 +46,8 @@ export interface PropertyDescription {
   readonly kind: 'object-id' | 'value' | 'reference';
   readonly schema: ScalarSchema;
   readonly references?: ObjectSummary;
+  /** The value `query({ where })` matches by equality, such as `Person object ID`. */
+  readonly filter: string;
 }
 
 export interface TraversalDescription {
@@ -54,12 +56,17 @@ export interface TraversalDescription {
   readonly description?: string;
   readonly cardinality: 'one' | 'many';
   readonly target: ObjectSummary;
+  /** `QueryResult<Target>` for many, `Promise<ObjectResult<Target>>` for one. */
+  readonly returns: string;
 }
 
 export interface ObjectDescription extends ObjectSummary {
   readonly operations: {
-    readonly get: true;
-    readonly query: { readonly collectionScope: 'graph-membership' };
+    readonly get: { readonly returns: string };
+    readonly query: {
+      readonly returns: string;
+      readonly collectionScope: 'graph-membership';
+    };
   };
   readonly properties: readonly PropertyDescription[];
   readonly traversals: readonly TraversalDescription[];
@@ -112,18 +119,8 @@ function memoize<T>(build: (key: string) => T) {
  * runtime will attempt; record-level policy still decides each result.
  */
 export function createDiscovery(manifest: Manifest, principal: Principal) {
-  const objectById = new Map(
-    manifest.objects.map((object) => [object.id, object]),
-  );
-  const policyFor = (id: string) =>
-    Object.hasOwn(manifest.policies, id) ? manifest.policies[id] : undefined;
-  const readable = (id: string | undefined) => {
-    const object = id === undefined ? undefined : objectById.get(id);
-
-    return object && allowsObject(principal, policyFor(object.id))
-      ? object
-      : undefined;
-  };
+  const readable = (id: string | undefined) =>
+    readableObject(manifest, principal, id);
   const actionFields = (fields: Readonly<Record<string, ActionField>>) =>
     Object.entries(fields).map(([name, field]) => {
       const { description, references, ...schema } = field;
@@ -147,67 +144,51 @@ export function createDiscovery(manifest: Manifest, principal: Principal) {
 
       if (!object) return undefined;
 
-      const policy = policyFor(object.id)!;
-      const properties = object.properties.flatMap((property) => {
-        if (!allowsField(principal, policy, property.access)) return [];
-
-        const referenceId =
-          property.origin.kind === 'reference' ||
-          property.origin.kind === 'native-reference'
-            ? property.origin.targetObjectDefinitionId
-            : undefined;
-        const target = readable(referenceId);
-
-        if (referenceId && !target) return [];
-
-        return [
-          {
-            definitionId: property.id,
-            name: property.name,
-            ...described(property.description),
-            kind:
-              property.origin.kind === 'object-id'
-                ? ('object-id' as const)
-                : target
-                  ? ('reference' as const)
-                  : ('value' as const),
-            schema: property.schema,
-            ...(target ? { references: summary(target) } : {}),
-          },
-        ];
-      });
-      const traversals = traversalsFrom(manifest, object.id).flatMap((edge) => {
-        const { relationship, forward } = edge;
-        const traversal = forward ? relationship.forward : relationship.reverse;
-        const target = readable(
-          forward
-            ? relationship.toObjectDefinitionId
-            : relationship.fromObjectDefinitionId,
-        );
-
-        if (
-          !target ||
-          !traversalSupported(manifest, relationship) ||
-          !traversalAllowed(manifest, principal, edge)
-        )
-          return [];
-
-        return [
-          {
-            relationshipDefinitionId: relationship.id,
-            name: traversal.name,
-            ...described(traversal.description),
-            cardinality: traversal.cardinality,
-            target: summary(target),
-          },
-        ];
-      });
+      const properties = readableProperties(manifest, principal, object).map(
+        ({ property, target }) => ({
+          definitionId: property.id,
+          name: property.name,
+          ...described(property.description),
+          kind:
+            property.origin.kind === 'object-id'
+              ? ('object-id' as const)
+              : target
+                ? ('reference' as const)
+                : ('value' as const),
+          schema: property.schema,
+          ...(target ? { references: summary(target) } : {}),
+          filter: schemaText(
+            property.schema,
+            property.origin.kind === 'object-id'
+              ? object.apiName
+              : target?.apiName,
+          ),
+        }),
+      );
+      const traversals = availableTraversals(
+        manifest,
+        principal,
+        object.id,
+      ).map(({ relationship, traversal, target }) => ({
+        relationshipDefinitionId: relationship.id,
+        name: traversal.name,
+        ...described(traversal.description),
+        cardinality: traversal.cardinality,
+        target: summary(target),
+        returns:
+          traversal.cardinality === 'many'
+            ? `QueryResult<${target.apiName}>`
+            : `Promise<ObjectResult<${target.apiName}>>`,
+      }));
 
       return deepFreeze({
         ...summary(object),
         operations: {
-          get: true as const,
-          query: { collectionScope: 'graph-membership' as const },
+          get: { returns: `Promise<ObjectResult<${object.apiName}>>` },
+          query: {
+            returns: `QueryResult<${object.apiName}>`,
+            collectionScope: 'graph-membership' as const,
+          },
         },
         properties,
         traversals,
@@ -255,6 +236,7 @@ export function createDiscovery(manifest: Manifest, principal: Principal) {
         apiName: action.apiName,
         ...described(action.description),
       })),
+      operations: operationContracts,
     }));
 
   return Object.freeze({

@@ -1,4 +1,18 @@
 export { validateReadRequest } from './request.js';
+
+export {
+  cursorIssue,
+  invalidValue,
+  objectName,
+  operationName,
+  optionDescriptions,
+  rejectIssues,
+  requestIssues,
+  schemaText,
+  throwIssues,
+} from './options.js';
+
+export type { OptionDescription, ReadOperation } from './options.js';
 export { summarize, supplied } from './evidence.js';
 export { project } from './project.js';
 export { cursorCodec } from './cursors.js';

@@ -28,9 +28,84 @@ const addReview = consumer.actions.addAccountReview.describe();
 
 Object detail includes its stable definition ID, API name, display labels,
 description, authorized properties, and available traversal directions. Each
-property carries its scalar schema, reference target, and authored description.
-Action detail includes its described input and output fields, declared failures,
-and readable object types it may create.
+property carries its scalar schema, reference target, authored description, and
+the value a `where` filter on it matches. Action detail includes its described
+input and output fields, declared failures, and readable object types it may
+create.
+
+## Learning the operations
+
+Discovery also says how to call each read, so an agent without TypeScript types
+(a REPL, plain JavaScript, or another transport) does not have to guess. The
+overview carries one SDK-owned contract shared by every graph:
+
+```ts
+const { operations } = consumer.describe();
+
+operations.query.options; // ['where', 'select', 'limit', 'cursor', 'evidence', …]
+operations.traverse.description; // traverse is an object of named functions…
+operations.options; // each option once: name, type, default, description
+operations.shapes.QueryResult; // await → one Page; for await → every record
+```
+
+Object detail fills in the concrete calls and types:
+
+```json
+{
+  "apiName": "Invoice",
+  "operations": {
+    "get": {
+      "call": "objects.Invoice.get(id, options?)",
+      "returns": "Promise<ObjectResult<Invoice>>"
+    },
+    "query": {
+      "call": "objects.Invoice.query(options?)",
+      "returns": "QueryResult<Invoice>",
+      "collectionScope": "graph-membership"
+    }
+  },
+  "properties": [
+    { "name": "customer", "kind": "reference", "filter": "Customer object ID" },
+    { "name": "status", "kind": "value", "filter": "string" }
+  ],
+  "traversals": [
+    {
+      "name": "customer",
+      "cardinality": "one",
+      "call": "objects.Invoice.traverse.customer(id, options?)",
+      "returns": "Promise<ObjectResult<Customer>>"
+    }
+  ]
+}
+```
+
+A reference filter matches a Relate object ID: a record's `id`, or another
+record's reference value. Source-system IDs are not object IDs, and an ID that
+is not in the graph matches nothing:
+
+```ts
+const invoices = await consumer.objects.Invoice.query({
+  where: { customer: customerId },
+  limit: 10,
+});
+
+if (!invoices.meta.exhausted)
+  await consumer.objects.Invoice.query({
+    where: { customer: customerId },
+    limit: 10,
+    cursor: invoices.meta.continuationCursor,
+  });
+```
+
+Printing an operation shows its call signature rather than its implementation:
+
+```ts
+String(consumer.objects.Customer.traverse.invoices);
+// objects.Customer.traverse.invoices(id: ObjectId<Customer>, options?: { select?, limit?, cursor?, … }): QueryResult<Invoice>
+```
+
+A wrong call fails with a `ReadError` that names each problem and the accepted
+options. See [Read responses](../reference/read-responses.md#request-errors).
 
 Discovery filters objects, restricted properties, traversals, and actions using
 the principal's roles, through the same checks the runtime applies when the

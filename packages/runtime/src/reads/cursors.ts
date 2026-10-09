@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { ReadError } from '@relate/protocol';
+import { cursorIssue } from './options.js';
 
 // Encryption also hides a continuation boundary belonging to a denied record.
 export function cursorCodec(key: Uint8Array = randomBytes(32)) {
@@ -20,7 +21,12 @@ export function cursorCodec(key: Uint8Array = randomBytes(32)) {
         'base64url',
       );
     },
-    decode(token: string, scope: string, now: number): string {
+    decode(
+      token: string,
+      scope: string,
+      now: number,
+      operation = 'read',
+    ): string {
       try {
         if (token.length > 8192 || !/^[A-Za-z0-9_-]+$/.test(token))
           throw new Error();
@@ -59,7 +65,11 @@ export function cursorCodec(key: Uint8Array = randomBytes(32)) {
 
         return decoded.after;
       } catch {
-        throw new ReadError('invalid-request');
+        // One answer for forged, expired and foreign cursors: the token stays opaque.
+        throw new ReadError('invalid-request', {
+          operation,
+          issues: [cursorIssue()],
+        });
       }
     },
   };
