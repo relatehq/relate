@@ -4,6 +4,8 @@ import type {
   NativeScope,
   NativeRecord,
   NativeInvocation,
+  NativeScanOptions,
+  NativeScanResult,
 } from '@relate/runtime/storage';
 import {
   NativeConflict,
@@ -28,6 +30,15 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
       : undefined;
   }
 
+  function record(row: pg.QueryResultRow): NativeRecord {
+    return {
+      objectDefinitionId: row.object_type,
+      objectId: row.object_key,
+      values: row.values,
+      createdAt: Number(row.created_at),
+    };
+  }
+
   async function load(
     client: Pick<pg.Pool, 'query'> | pg.PoolClient,
     scope: NativeScope,
@@ -42,17 +53,45 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
     );
     const row = result.rows[0];
 
-    return row
-      ? {
-          objectDefinitionId: row.object_type,
-          objectId: row.object_key,
-          values: row.values,
-          createdAt: Number(row.created_at),
-        }
-      : undefined;
+    return row ? record(row) : undefined;
+  }
+
+  async function scan(
+    client: Pick<pg.Pool, 'query'> | pg.PoolClient,
+    scope: NativeScope,
+    type: string,
+    options: NativeScanOptions,
+  ): Promise<NativeScanResult> {
+    if (
+      !Number.isInteger(options.limit) ||
+      options.limit < 1 ||
+      options.limit > 100
+    )
+      throw new Error('Invalid scan limit');
+
+    const result = await client.query(
+      `SELECT n.object_type,n.object_key,n.values,n.created_at FROM relate.native_objects n
+       JOIN relate.graphs g USING(graph_id)
+       WHERE n.graph_id=$1 AND g.definition_revision=$2 AND n.object_type=$3
+       AND ($4::text IS NULL OR n.object_key COLLATE "C" > $4::text COLLATE "C")
+       ORDER BY n.object_key COLLATE "C" LIMIT $5`,
+      [
+        scope.graphId,
+        scope.definitionRevision,
+        type,
+        options.after ?? null,
+        options.limit + 1,
+      ],
+    );
+
+    return {
+      objects: result.rows.slice(0, options.limit).map(record),
+      hasMore: result.rows.length > options.limit,
+    };
   }
 
   return {
+    scan: (scope, type, options) => scan(pool, scope, type, options),
     async loadInvocation(scope, actionDefinitionId, idempotencyKey) {
       const result = await pool.query(
         `SELECT n.* FROM relate.native_invocations n JOIN relate.graphs g USING(graph_id) WHERE n.graph_id=$1 AND g.definition_revision=$2 AND n.action_id=$3 AND n.idempotency_key=$4`,
@@ -113,6 +152,11 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
         );
         const result = await Promise.race([
           operation({
+            async scan(type, options) {
+              check();
+
+              return scan(client, scope, type, options);
+            },
             async savepoint(operation) {
               check();
               const name = `native_effects_${++savepointSequence}`;

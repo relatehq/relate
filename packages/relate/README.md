@@ -248,3 +248,28 @@ model migrations, external actions.
   graph.
 - [Native actions](../node/NATIVE_ACTIONS.md): `defineAction` and
   `implementAction` end to end.
+
+## Many-to-many relationships
+
+`defineRelationship` also accepts an explicit junction:
+
+```ts
+const PlaylistSongs = defineRelationship({
+  id: 'playlist.songs',
+  forward: 'songs',
+  reverse: 'playlists',
+  through: {
+    from: Membership.properties.playlist,
+    to: Membership.properties.song,
+  },
+});
+```
+
+The endpoints are inferred from two distinct references on the same registered
+junction object. Both directions have cardinality `many`. Register the junction
+and endpoints in `objects` and provide their policies. Use either `via` or
+`through`. Consumers receive distinct destination objects; membership metadata
+remains accessible separately. See the
+[modeling guide](../../apps/docs/content/authoring/graph.md#many-to-many-relationships)
+and
+[traversal guide](../../apps/docs/content/runtime/reading-data.md#many-to-many-traversal).

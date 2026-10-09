@@ -15,15 +15,17 @@ it('exports the same note limits on action input and native property for discove
   const property = manifest.objects
     .find((o) => o.id === AccountReview.id)!
     .properties.find((p) => p.name === 'note')!;
+  const { description, ...inputSchema } = input!;
 
-  expect(input).toEqual({
+  expect(description).toBe('Assessment and recommended next steps.');
+  expect(inputSchema).toEqual({
     type: 'string',
     optional: false,
     nullable: false,
     minLength: 1,
     maxLength: 4000,
   });
-  expect(property.schema).toEqual(input);
+  expect(property.schema).toEqual(inputSchema);
 });
 
 it.each([

@@ -1,9 +1,12 @@
 # Runtime read acceptance cases
 
 Status: **current async authoring direction, 2026-10-06**. These are behavioral
-requirements, not passing runtime tests. Upfront required-read declarations have
-been removed. Reads happen through authorized runtime object operations as the
-implementation executes.
+requirements; the full scenario is not a passing runtime test. Graph queries now
+execute through public packages in
+[`query-contract.ts`](../../../tests/support/query-contract.ts), including
+filter authorization, pagination, native read-your-writes and failure rollback.
+Upfront required-read declarations have been removed. Reads happen through
+authorized runtime object operations as the implementation executes.
 
 Consumers and action implementations share `get`, `query` and `traverse`.
 `query()` and `query({ select, limit, cursor })` enumerate without a filter;

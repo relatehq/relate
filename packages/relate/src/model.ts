@@ -8,6 +8,9 @@ export type { IssuePath, ModelIssue, ModelIssueCode } from './diagnostics.js';
 
 const text = z.string().min(1);
 
+/** Explanatory text must say something; blank descriptions are authoring mistakes. */
+const prose = z.string().regex(/\S/, 'Description must not be blank');
+
 export const scalarSchema = z.strictObject({
   type: z.enum(['string', 'number', 'boolean']),
   optional: z.boolean(),
@@ -23,6 +26,7 @@ export const scalarSchema = z.strictObject({
 export type ScalarSchema = z.infer<typeof scalarSchema>;
 
 export const actionFieldSchema = scalarSchema.extend({
+  description: prose.optional(),
   references: text.optional(),
 });
 
@@ -55,6 +59,7 @@ export type Policy = z.infer<typeof policySchema>;
 const propertySchema = z.strictObject({
   id: text,
   name: text,
+  description: prose.optional(),
   access: text,
   schema: scalarSchema,
   origin: z.discriminatedUnion('kind', [
@@ -79,8 +84,9 @@ const propertySchema = z.strictObject({
 });
 
 export const manifestSchema = z.strictObject({
-  formatVersion: z.literal(4),
+  formatVersion: z.literal(5),
   graphDefinitionId: text,
+  description: prose.optional(),
   fieldGroups: z.array(text),
   roles: z.array(text),
   claims: z.record(text, scalarSchema),
@@ -97,21 +103,51 @@ export const manifestSchema = z.strictObject({
       apiName: text,
       label: text.refine((value) => value.trim().length > 0),
       pluralLabel: text.refine((value) => value.trim().length > 0),
-      description: z.string().optional(),
+      description: prose.optional(),
       sourceDefinitionId: text.optional(),
       properties: z.array(propertySchema),
     }),
   ),
   relationships: z
     .array(
-      z.strictObject({
-        id: text,
-        fromObjectDefinitionId: text,
-        toObjectDefinitionId: text,
-        referencePropertyDefinitionId: text,
-        forward: z.strictObject({ name: text, cardinality: z.literal('many') }),
-        reverse: z.strictObject({ name: text, cardinality: z.literal('one') }),
-      }),
+      z.union([
+        z.strictObject({
+          id: text,
+          fromObjectDefinitionId: text,
+          toObjectDefinitionId: text,
+          referencePropertyDefinitionId: text,
+          forward: z.strictObject({
+            name: text,
+            cardinality: z.literal('many'),
+            description: prose.optional(),
+          }),
+          reverse: z.strictObject({
+            name: text,
+            cardinality: z.literal('one'),
+            description: prose.optional(),
+          }),
+        }),
+        z.strictObject({
+          id: text,
+          fromObjectDefinitionId: text,
+          toObjectDefinitionId: text,
+          through: z.strictObject({
+            objectDefinitionId: text,
+            fromReferencePropertyDefinitionId: text,
+            toReferencePropertyDefinitionId: text,
+          }),
+          forward: z.strictObject({
+            name: text,
+            cardinality: z.literal('many'),
+            description: prose.optional(),
+          }),
+          reverse: z.strictObject({
+            name: text,
+            cardinality: z.literal('many'),
+            description: prose.optional(),
+          }),
+        }),
+      ]),
     )
     .optional(),
   policies: z.record(text, policySchema),
@@ -121,6 +157,7 @@ export const manifestSchema = z.strictObject({
       z.strictObject({
         id: text,
         apiName: text,
+        description: prose.optional(),
         input: z.record(text, actionFieldSchema),
         output: z.record(text, actionFieldSchema),
         errors: z.record(text, z.record(text, actionFieldSchema)).optional(),
@@ -595,26 +632,49 @@ export function validateManifest(input: unknown): Manifest {
     register(relationship.id, at('id'));
     const from = objectById.get(relationship.fromObjectDefinitionId);
     const to = objectById.get(relationship.toObjectDefinitionId);
-    const via = to?.properties.find(
-      (p) => p.id === relationship.referencePropertyDefinitionId,
-    );
+    const referenceTargets = (
+      owner: typeof to,
+      propertyId: string,
+      target: typeof from,
+    ) => {
+      const property = owner?.properties.find((p) => p.id === propertyId);
 
-    if (
-      !from ||
-      !to ||
-      !via ||
-      (via.origin.kind !== 'reference' &&
-        via.origin.kind !== 'native-reference') ||
-      via.origin.targetObjectDefinitionId !== from.id
-    ) {
+      return Boolean(
+        target &&
+        property &&
+        (property.origin.kind === 'reference' ||
+          property.origin.kind === 'native-reference') &&
+        property.origin.targetObjectDefinitionId === target.id,
+      );
+    };
+    const valid =
+      'through' in relationship
+        ? relationship.through.fromReferencePropertyDefinitionId !==
+            relationship.through.toReferencePropertyDefinitionId &&
+          referenceTargets(
+            objectById.get(relationship.through.objectDefinitionId),
+            relationship.through.fromReferencePropertyDefinitionId,
+            from,
+          ) &&
+          referenceTargets(
+            objectById.get(relationship.through.objectDefinitionId),
+            relationship.through.toReferencePropertyDefinitionId,
+            to,
+          )
+        : referenceTargets(
+            to,
+            relationship.referencePropertyDefinitionId,
+            from,
+          );
+
+    if (!from || !to || !valid) {
       issues.report(
         'relationship.invalid-endpoints',
-        `Invalid relationship endpoints or reference: relationship '${relationship.id}' from '${relationship.fromObjectDefinitionId}' to '${relationship.toObjectDefinitionId}' via '${relationship.referencePropertyDefinitionId}'`,
+        `Invalid relationship endpoints or reference: relationship '${relationship.id}' from '${relationship.fromObjectDefinitionId}' to '${relationship.toObjectDefinitionId}'`,
         at(),
         relationship.id,
       );
 
-      // Traversal checks need resolved endpoints.
       return;
     }
 

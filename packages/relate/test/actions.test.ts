@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineAction, implementAction } from 'relate';
+import { defineAction, implementAction, referenceInput } from 'relate';
 import { compile } from 'relate/compiler';
 import { validateManifest } from 'relate/model';
 import { createRuntime } from '@relate/node';
@@ -19,16 +19,19 @@ it('compiles native membership, reference identity, create authorization and act
     {
       id: AddAccountReview.id,
       apiName: 'addAccountReview',
+      description: 'Record a new assessment of a customer account.',
       creates: [AccountReview.id],
       execute: { role: 'account-manager' },
       input: {
         customer: {
+          description: 'Customer being reviewed.',
           type: 'string',
           optional: false,
           nullable: false,
           references: Customer.id,
         },
         note: {
+          description: 'Assessment and recommended next steps.',
           type: 'string',
           optional: false,
           nullable: false,
@@ -38,6 +41,7 @@ it('compiles native membership, reference identity, create authorization and act
       },
       output: {
         reviewId: {
+          description: 'New account review ID.',
           type: 'string',
           optional: false,
           nullable: false,
@@ -119,4 +123,27 @@ it('requires exactly one matching server implementation per registered action', 
       actionImplementations: [addAccountReview, addAccountReview],
     }),
   ).toThrow('Duplicate action implementation');
+});
+
+it('keeps a described reference input a reference', () => {
+  const model = compile({
+    ...graph,
+    actions: {
+      addAccountReview: defineAction({
+        ...AddAccountReview,
+        input: z.object({
+          customer: referenceInput(Customer).describe('Customer to review.'),
+          note: z.string(),
+        }),
+      }),
+    },
+  });
+
+  expect(model.manifest.actions?.[0]?.input.customer).toEqual({
+    type: 'string',
+    optional: false,
+    nullable: false,
+    references: Customer.id,
+    description: 'Customer to review.',
+  });
 });

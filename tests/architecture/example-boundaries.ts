@@ -42,7 +42,11 @@ async function files(directory: string): Promise<string[]> {
   ).flat();
 }
 
-/** Unlike production dependency checks, this rule includes tests and their helpers. */
+/**
+ * Unlike production dependency checks, this rule includes tests and their helpers.
+ * Neither `examples/` (learning material) nor `dev/fixtures/` (exploratory design)
+ * may serve as setup for packages, apps, connectors or repository tests.
+ */
 export async function assertNoExampleDependencies(
   root: string,
   workspaces: readonly { name: string; path: string }[],
@@ -50,6 +54,9 @@ export async function assertNoExampleDependencies(
   const examples = resolve(root, 'examples');
   const insideExamples = (path: string) =>
     path === examples || path.startsWith(examples + sep);
+  const fixtures = resolve(root, 'dev/fixtures');
+  const insideFixtures = (path: string) =>
+    path === fixtures || path.startsWith(fixtures + sep);
   const exampleNames = workspaces
     .filter((workspace) => insideExamples(resolve(workspace.path)))
     .map((workspace) => workspace.name);
@@ -144,6 +151,14 @@ export async function assertNoExampleDependencies(
         )
           throw new Error(
             `Forbidden example dependency: ${relative(root, file)}: ${name}`,
+          );
+
+        if (
+          (lexical && insideFixtures(lexical)) ||
+          (resolved && insideFixtures(resolve(resolved)))
+        )
+          throw new Error(
+            `Forbidden dev fixture dependency: ${relative(root, file)}: ${name}`,
           );
       }
 

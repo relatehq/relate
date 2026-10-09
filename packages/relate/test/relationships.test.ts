@@ -2,13 +2,10 @@ import { expect, it } from 'vitest';
 import { compile } from 'relate/compiler';
 import { validateManifest } from 'relate/model';
 import { defineObject, defineRelationship, reference } from 'relate';
-import {
-  graph,
-  Customer,
-  Invoice,
-  CustomerInvoices,
-  invoices,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { graph, Customer, Invoice, CustomerInvoices, invoices } =
+  createInvoiceGraph();
 
 it('binds fresh immutable properties without mutating or sharing their owner', () => {
   const customer = reference(Customer, {
@@ -57,8 +54,16 @@ it('compiles both traversal directions through one registered reference', () => 
       fromObjectDefinitionId: Customer.id,
       toObjectDefinitionId: Invoice.id,
       referencePropertyDefinitionId: Invoice.properties.customer.id,
-      forward: { name: 'invoices', cardinality: 'many' },
-      reverse: { name: 'customer', cardinality: 'one' },
+      forward: {
+        name: 'invoices',
+        cardinality: 'many',
+        description: 'Invoices billed to this customer.',
+      },
+      reverse: {
+        name: 'customer',
+        cardinality: 'one',
+        description: 'Customer billed by this invoice.',
+      },
     },
   ]);
 });
@@ -115,8 +120,9 @@ it('validates portable endpoint, reference, cardinality and traversal-name contr
       m.relationships![0]!.toObjectDefinitionId = Customer.id;
     },
     (m: typeof original) => {
-      m.relationships![0]!.referencePropertyDefinitionId =
-        Invoice.properties.status.id;
+      Object.assign(m.relationships![0]!, {
+        referencePropertyDefinitionId: Invoice.properties.status.id,
+      });
     },
     (m: typeof original) => {
       m.relationships![0]!.forward.name = '__proto__';
@@ -141,4 +147,32 @@ it('validates portable endpoint, reference, cardinality and traversal-name contr
 
   Object.assign(invalid.relationships![0]!.forward, { cardinality: 'one' });
   expect(() => validateManifest(invalid)).toThrow();
+});
+
+it('keeps reference property descriptions in the manifest', () => {
+  const fresh = createInvoiceGraph();
+
+  expect(
+    compile(fresh.graph)
+      .manifest.objects.find((o) => o.id === fresh.Invoice.id)!
+      .properties.find((p) => p.name === 'customer'),
+  ).toMatchObject({ description: 'Customer billed by this invoice.' });
+});
+
+it('rejects a blank traversal description', () => {
+  const fresh = createInvoiceGraph();
+
+  expect(() =>
+    compile({
+      ...fresh.graph,
+      relationships: {
+        CustomerInvoices: defineRelationship({
+          id: fresh.CustomerInvoices.id,
+          forward: { name: 'invoices', description: ' ' },
+          reverse: 'customer',
+          via: fresh.Invoice.properties.customer,
+        }),
+      },
+    }),
+  ).toThrow();
 });

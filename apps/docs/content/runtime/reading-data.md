@@ -4,8 +4,8 @@ Once your graph is defined, you read it through the `@relate/node` embedded
 runtime.
 
 Every read is **scoped to an authenticated principal**, **typed** by your graph,
-and returns **evidence** describing where each field came from and how fresh it
-is.
+and returns **compact evidence** by default. Request full evidence to inspect
+where each field came from and how fresh it is.
 
 ---
 
@@ -118,7 +118,7 @@ if (result.status === 'not-found') {
   console.log('Customer not found or not visible.');
 } else {
   console.log(result.id, result.data.name);
-  console.log(result.meta.fields.revenue); // { status: 'forbidden' } without `finance`
+  console.log(result.meta.fields?.revenue); // { status: 'forbidden' } without `finance`
 }
 ```
 
@@ -140,8 +140,9 @@ assertFields(result, ['name']); // throws unless `name` is present
 console.log(result.data.name.toUpperCase());
 ```
 
-Read options also include `maxAgeMs`, `refresh`, `stale`, `requireComplete`, and
-`timeoutMs`; see [Evidence and Freshness](#evidence-and-freshness).
+Read options also include `evidence`, `maxAgeMs`, `refresh`, `stale`,
+`requireComplete`, and `timeoutMs`; see
+[Evidence and Freshness](#evidence-and-freshness).
 
 ---
 
@@ -195,49 +196,84 @@ const owner = await objects.Invoice.traverse.customer(invoiceId, {
 });
 ```
 
-Traversals include only adopted records. For each one, Relate:
+Source-backed traversals include only adopted records. For each one, Relate:
 
 1. Checks the caller's read access to the starting record.
 2. Resolves the reference between the two objects.
 3. Applies the target object's policy and field groups to each record.
 4. Leaves out records the caller may not see, as if they did not exist.
 
+### Many-to-many traversal
+
+A registered
+[`through` relationship](../authoring/graph.md#many-to-many-relationships)
+exposes a to-many traversal in each direction:
+
+```ts
+const songs = await objects.Playlist.traverse.songs(playlistId, {
+  select: ['title'],
+  limit: 25,
+});
+
+for await (const playlist of objects.Song.traverse.playlists(songId, {
+  select: ['name'],
+})) {
+  console.log(playlist.id, playlist.data.name);
+}
+```
+
+Both calls return the same lazy page/async-iteration interface as other to-many
+traversals. Selections and compact/full evidence describe the destination
+object. Duplicate memberships yield one destination, including across pages.
+Results use destination object-ID order; playlist position and repeated entries
+remain available through the junction object.
+
+Relate checks access to the starting object, the junction record, both reference
+fields, and the destination. A hidden junction or restricted reference cannot be
+bypassed by selecting only the destination's title. A destination needs at least
+one readable connecting membership. Provider denial does not fall back to a
+retained link. Membership changes and deletions are observed according to the
+read's freshness options; use `refresh: true` to request fresh source data.
+
+Traversal covers existing graph records, including native endpoints and native
+junctions. It does not discover or adopt external records. Each page makes one
+pass over the junction records, scanning at most 100 per call, and returns the
+smallest destinations it found. Cost grows with the number of junction records,
+not with the number of destination objects. A junction with more than 100
+records takes several calls per page, including empty pages with
+`meta.exhausted: false`. Follow the continuation cursor or use `for await`; an
+empty page alone does not mean the traversal is finished. This is a bounded scan
+implementation, not an indexed database join.
+
+Cursors preserve the junction scan position and pending destinations without
+revealing hidden IDs. They expire after 15 minutes and are scoped to the graph
+revision, source bindings, caller, starting object, relationship direction,
+selection, read options, and page size. Switching between compact and full
+evidence is allowed. Pagination is not a snapshot: concurrent membership changes
+can affect later pages.
+
 ---
 
 ## Evidence and Freshness
 
-Every successful read carries `meta`:
+Every successful read carries compact evidence by default. It includes the
+selection's completeness, degradation flag and graph revision. Exceptional field
+evidence and nonempty warnings are preserved; routine field evidence is omitted.
+Request `evidence: 'full'` for all selected fields' provenance.
 
 ```ts
-{
-  completeness: 'complete' | 'partial', // partial when any selected field was withheld
-  degraded: boolean,                    // true when data was stale or could not be supplied
-  definitionRevision: 'sha256:…',       // the compiled graph revision that served the read
-  fields: Record<string, FieldEvidence>,
-  warnings: ('observation_not_retained' | 'retention_unconfirmed' | 'ordering_unconfirmed')[],
-}
+const detailed = await objects.Customer.get(customerId, {
+  select: ['name'],
+  evidence: 'full',
+});
+
+// Requesting full evidence types `meta.fields` as always present.
+if (detailed.status === 'ok') console.log(detailed.meta.fields.name);
 ```
 
-Evidence is reported per field:
-
-```ts
-type FieldEvidence =
-  | { status: 'forbidden' } // the caller lacks the field group's role
-  | { status: 'unavailable' } // no value could be supplied
-  | {
-      status: 'available' | 'absent';
-      freshness: 'fresh' | 'stale';
-      observedAt: string; // ISO 8601
-      source: 'native' | 'source';
-      sourceDefinitionId?: string;
-      refresh:
-        'not-needed' | 'succeeded' | 'unavailable' | 'invalid' | 'superseded';
-      retention: 'confirmed' | 'failed' | 'unconfirmed';
-      retentionDurability: 'volatile' | 'persistent';
-      ordering: 'confirmed' | 'unconfirmed';
-      orderingBasis?: 'source-version' | 'fetch-start';
-    };
-```
+See [Read Responses & Evidence](../reference/read-responses.md) in **Reference**
+for every response field, evidence status, warning, read option and pagination
+rule, with compact and full examples.
 
 Freshness is controlled by read options, not by the policy:
 

@@ -4,15 +4,15 @@
 > Not ready for application use. APIs and behavior are incomplete and may change
 > without notice.
 
-The execution engine: authorized reads, traversal and native actions over a
-compiled model, with explicit storage and connector contracts. Private and
-unpublished.
+The execution engine: authorized reads, queries, traversal and native actions
+over a compiled model, with explicit storage and connector contracts. Private
+and unpublished.
 
 ## Responsibility
 
 - `createRuntime({ model, graphId, sources, store?, actionHandlers?, … })`
   returns an engine with the trusted host operation `adopt` and the consumer
-  operations `read`, `traverse` and `invoke`.
+  operations `read`, `query`, `traverse` and `invoke`.
 - Default-deny policy evaluation, field groups, selection, freshness, stale
   fallback and per-field evidence.
 - Observation validation and the pure ordering rule (`compareObservation`).
@@ -95,7 +95,7 @@ const result = await runtime.read(ana, 'business.customer', id, {
 
 if (result.status === 'ok') {
   result.data; // { name?: Json; region?: Json }: fields can be withheld
-  result.meta.fields.name; // FieldEvidence: freshness, retention, ordering
+  result.meta.fields?.name; // Exceptional evidence; routine evidence is omitted
 }
 ```
 
@@ -124,7 +124,7 @@ const financial = await runtime.read(ana, 'business.customer', id, {
 });
 
 if (financial.status === 'ok') {
-  financial.meta.fields.revenue; // { status: 'forbidden' }
+  financial.meta.fields?.revenue; // { status: 'forbidden' }
   // completeness: 'partial', degraded: false (if otherwise healthy)
 }
 ```
@@ -176,3 +176,7 @@ implementation exposed to storage; storage never imports the fetch barrel. The
 checker rejects reverse dependencies, private cross-module imports and execution
 cycles, including literal dynamic imports. Type-only cycles between observation
 algorithms and storage contracts are allowed.
+
+Reads default to compact evidence. Pass `evidence: 'full'` for every selected
+field's provenance. See the
+[response reference](../../apps/docs/content/reference/read-responses.md).

@@ -9,6 +9,7 @@ export default defineConfig({
           include: [
             'packages/*/test/**/*.test.ts',
             'connectors/*/test/**/*.test.ts',
+            'dev/salesforce/test/**/*.test.ts',
             'apps/*/test/**/*.test.ts',
             'examples/*/test/**/*.test.ts',
             'tests/unit/**/*.test.ts',

@@ -1,14 +1,8 @@
 import { defineGraph, referenceInput } from 'relate';
-import {
-  access,
-  Customer,
-  Invoice,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
 import { createRuntime } from '@relate/node';
-import {
-  graph,
-  ana,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { access, Customer, Invoice, graph, ana } = createInvoiceGraph();
 
 const gate = access.role('employee');
 const evidenceMaxAgeMs = 1000;

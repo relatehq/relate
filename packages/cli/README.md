@@ -37,6 +37,9 @@ export { default } from './src/relate/app.js';
 Top-level imports of that module must be safe to evaluate; put connector and
 credential work in `setup`, which the inspector never calls.
 
+Use `--quiet` to hide routine status lines while keeping the inspector URL,
+application output, warnings and errors visible.
+
 ### What it prints
 
 ```text

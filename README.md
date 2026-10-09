@@ -25,14 +25,17 @@ caller and says where each value came from and how fresh it is.
 
 ## Try it in two minutes
 
-You need Node 26.9+ and pnpm 12 (`npm i -g pnpm@12`). No database, Docker or
-credentials.
+You need **Node 22 (22.16+), 24 or 26** and pnpm 12 (`npm i -g pnpm@12.9.1`). No
+database, Docker or credentials.
 
 ```sh
 git clone https://github.com/relatehq/relate && cd relate
 pnpm install
 pnpm example:customer-workspace
 ```
+
+Preparation runs quietly; add `--verbose` to see build logs. Build failures and
+runtime errors are always shown.
 
 A small app opens in your browser. Its customer comes from an HTTP CRM, its
 invoices from a SQLite database and its account reviews from Relate itself.
@@ -194,27 +197,25 @@ const invoices = await objects.Customer.traverse.invoices(northwind, {
 });
 ```
 
-Ana gets the status. The amount is withheld, and every field says why it's there
-or why it isn't:
+Ana gets the status. Compact evidence keeps the explanation for the withheld
+amount. Each record in the page looks like this:
 
-```jsonc
+```json
 {
+  "id": "invoice-uuid",
   "data": { "status": "Overdue" },
   "meta": {
+    "evidence": "compact",
     "completeness": "partial",
-    "fields": {
-      "status": {
-        "status": "available",
-        "freshness": "fresh",
-        "observedAt": "2026-10-08T13:09:34.028Z",
-        "sourceDefinitionId": "billing.invoices",
-        // …
-      },
-      "total": { "status": "forbidden" },
-    },
-  },
+    "degraded": false,
+    "definitionRevision": "sha256:…",
+    "fields": { "total": { "status": "forbidden" } }
+  }
 }
 ```
+
+Pass `evidence: 'full'` to include every selected field's provenance and
+freshness details.
 
 A customer outside Ana's portfolio returns `not-found`, the same as one that
 doesn't exist.
@@ -225,9 +226,9 @@ doesn't exist.
   (including through references, such as "invoices of customers in my
   portfolio") and field groups are declared once. They are enforced on every
   read, traversal and action, so no consumer can forget to check.
-- **Every value carries evidence.** Each field reports whether it is available,
-  forbidden or unavailable, where it came from and when it was observed. Policy
-  checks can demand evidence no older than a set age.
+- **Every value has evidence.** Compact responses preserve exceptional field
+  states; full responses report provenance and freshness for every selected
+  field. Policy checks can demand evidence no older than a set age.
 - **Writes are actions with receipts.** Typed, authorized actions run in a
   transaction. They return a receipt for success or for a declared business
   failure, and retrying with the same idempotency key replays the receipt rather
@@ -235,24 +236,99 @@ doesn't exist.
 - **Source systems stay in charge.** Relate keeps the identities and
   observations it needs. It doesn't copy your CRM into a new silo.
 
+## Querying the graph
+
+Use `query()` to enumerate records, or add equality filters to find matches:
+
+```ts
+const page = await objects.Invoice.query({
+  where: { status: 'Overdue' },
+  select: ['status', 'total'],
+  limit: 100,
+});
+
+// No filter enumerates the caller's accessible invoices.
+for await (const invoice of objects.Invoice.query()) {
+  console.log(invoice.id, invoice.data);
+}
+```
+
+`await` returns one page; `for await` walks every page. `limit` is the page
+size. Multiple filters mean AND, and reference filters use Relate object IDs.
+Queries apply the same access rules and field evidence as individual reads,
+including inside actions. There is no separate `list` method.
+
+**Queries currently cover records already in the graph:** adopted source records
+and Relate-owned records. “All overdue invoices” means all matching invoices in
+that graph, not every invoice in your billing system. **Direct source queries
+and sync from sources are coming; neither is implemented yet.** For now, your
+application discovers source records and adopts them by ID. Comparisons such as
+`dueDate < today`, sorting and aggregates are also outside this first query API.
+
+## Many-to-many relationships
+
+Expose direct collections over an explicit junction object:
+
+```ts
+const PlaylistSongs = defineRelationship({
+  id: 'playlist.songs',
+  forward: 'songs',
+  reverse: 'playlists',
+  through: {
+    from: Membership.properties.playlist,
+    to: Membership.properties.song,
+  },
+});
+
+// After registering the objects, relationship, and read policies:
+await objects.Playlist.traverse.songs(playlistId, { select: ['title'] });
+await objects.Song.traverse.playlists(songId, { select: ['name'] });
+```
+
+Both references belong to the same registered junction object. Both directions
+return paginated, distinct destinations; junction metadata remains queryable on
+`Membership`. Traversal enforces access to the root, membership, both
+references, and destination. Source-backed and native junctions are supported.
+This adds read traversal; writes remain with the junction's owning system.
+
+See
+[many-to-many modeling](apps/docs/content/authoring/graph.md#many-to-many-relationships)
+and
+[traversal behavior](apps/docs/content/runtime/reading-data.md#many-to-many-traversal)
+for complete declarations, ordering, access rules, and bounded-scan pagination.
+
 ## Status
 
-| Works today                                             | Not yet                                                  |
-| ------------------------------------------------------- | -------------------------------------------------------- |
-| TypeScript authoring, compiler and diagnostics          | Listing and querying (records are adopted by ID for now) |
-| Objects backed by one source; references across sources | One object enriched from several sources                 |
-| Two-way relationship traversal                          | **MCP and HTTP interfaces** (designed, not built)        |
-| Role gates, claim filters, field-level access           | Writing back to source systems                           |
-| Per-field evidence and freshness bounds                 | Migrating between model revisions                        |
-| Relate-owned objects, idempotent actions and receipts   | Published npm packages                                   |
-| In-memory and Postgres stores                           |                                                          |
-| SQLite and Stripe (read-only) connectors                |                                                          |
-| `relate dev` model inspector                            |                                                          |
+| Works today                                             | Not yet                                           |
+| ------------------------------------------------------- | ------------------------------------------------- |
+| TypeScript authoring, compiler and diagnostics          | Direct source queries and sync from sources       |
+| Objects backed by one source; references across sources | One object enriched from several sources          |
+| Graph queries with equality filters                     | Comparison filters, sorting and aggregates        |
+| Two-way relationship traversal                          | **MCP and HTTP interfaces** (designed, not built) |
+| Role gates, claim filters, field-level access           | Writing back to source systems                    |
+| Per-field evidence and freshness bounds                 | Migrating between model revisions                 |
+| Relate-owned objects, idempotent actions and receipts   | Published npm packages                            |
+| In-memory and Postgres stores                           |                                                   |
+| SQLite, Stripe and Salesforce (read-only) connectors    |                                                   |
+| `relate dev` model inspector                            |                                                   |
 
 Relate runs embedded in a Node application today. Agent access through MCP is
 the next major piece. The intended shape is `get`, `query` and `traverse` tools
 per object plus one tool per action, all scoped to the authenticated caller. It
 isn't built yet.
+
+## Compact evidence
+
+Reads, queries and traversals return compact evidence by default. Pass
+`evidence: 'full'` in the read options to inspect every selected field's
+provenance. Both modes preserve values, authorization, completeness, degradation
+and the definition revision. Compact responses retain exceptional field evidence
+and nonempty warnings; `meta.fields` and `meta.warnings` may otherwise be
+omitted. Full responses always include both, and `meta.evidence` identifies the
+returned mode.
+
+See [Read Responses & Evidence](apps/docs/content/reference/read-responses.md)
+for the complete reference.
 
 ## Feedback
 

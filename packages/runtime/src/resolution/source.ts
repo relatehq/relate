@@ -2,7 +2,7 @@ import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
   ReadRequest,
-  ReadResult,
+  FullReadResult as ReadResult,
   FieldEvidence,
   Json,
 } from '@relate/protocol';
@@ -14,6 +14,7 @@ import type {
 } from '../storage.js';
 import {
   allowsField,
+  allowsObject,
   conditions,
   createAuthorization,
 } from '../authorization/index.js';
@@ -134,11 +135,7 @@ export function createSourceOperations(options: {
       ? manifest.policies[objectDefinitionId]
       : undefined;
 
-    if (
-      !object?.sourceDefinitionId ||
-      !policy ||
-      !principal.roles.includes(policy.read.role)
-    )
+    if (!object?.sourceDefinitionId || !allowsObject(principal, policy))
       return { status: 'not-found' };
 
     await install();
@@ -310,6 +307,7 @@ export function createSourceOperations(options: {
       status: 'ok',
       data,
       meta: {
+        evidence: 'full',
         ...summary,
         definitionRevision: revision,
         fields,

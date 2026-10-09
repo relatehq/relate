@@ -9,20 +9,22 @@ Relate consumer surface. Private and unpublished.
 
 ## Responsibility
 
-- Requests: `ReadRequest` (`select`, `maxAgeMs`, `refresh`, `stale`,
+- Requests: `ReadRequest` (`evidence`, `select`, `maxAgeMs`, `refresh`, `stale`,
   `requireComplete`, `timeoutMs`) and `TraversalRequest` (`limit`, `cursor`).
 - Results: `ObjectResult` and `ObjectRecord` (`ok` with the canonical `id`,
   partial `data` and `meta`, or `not-found`), `Page<T>` with `PageMeta`, and the
   engine-level `ReadResult`.
-- Evidence: `FieldEvidence` for each selected field: availability, freshness,
-  source identity, retention, ordering and refresh outcome.
+- Evidence: compact by default, or `evidence: 'full'` for each selected field:
+  availability, freshness, source identity, retention, ordering and refresh
+  outcome.
 - Errors and receipts: `ReadError` and `ActionError` with sanitized codes and no
   private detail, and successful/declared-failure receipts (`SucceededReceipt`,
   `FailedReceipt`, `ActionReceipt`).
 - `Json`.
 
-These are types plus two error classes. The package has no runtime, database,
-provider or schema-library dependency and performs no validation itself.
+These are types, two error classes and pure evidence presentation helpers. The
+package has no runtime, database, provider or schema-library dependency and
+performs no validation itself.
 
 ## How it fits
 
@@ -45,7 +47,7 @@ function customerName(result: ObjectResult): string | undefined {
 
   // Selection never guarantees presence: authorization or availability can
   // withhold a field. Evidence says why a value is what it is.
-  const evidence = result.meta.fields.name;
+  const evidence = result.meta.fields?.name;
 
   if (evidence?.status === 'forbidden') {
     // The caller's roles do not grant this field; retrying cannot change that.
@@ -88,3 +90,12 @@ JSON; the runtime validates what it produces and accepts.
   consumer-side presence check and its narrowing rules.
 - [Pagination](../runtime/CONTRACT.md#pagination): the implemented helper that
   follows the page contract.
+
+`present` renders a full resolved read, object, or page result as a compact
+(default) or full response. It transforms only known evidence envelopes, never
+business data, and does not perform authorization or validation. Inputs must
+already be authorized, resolved `FullReadResult`, `FullObjectResult`, or
+`FullPageResult` values. Responses never share evidence objects with the input.
+Compact responses preserve nonempty warnings and all exceptional field evidence.
+See the
+[response reference](../../apps/docs/content/reference/read-responses.md).

@@ -83,7 +83,11 @@ export const RelationshipEdge = memo(function RelationshipEdge(
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             }}
             data-definition-id={data.id}
-            title={`${data.id} via ${data.viaProperty}`}
+            title={
+              data.through
+                ? `${data.id} through ${data.through.from} → ${data.through.to}`
+                : `${data.id} via ${data.viaProperty}`
+            }
           >
             <span className="names">
               {data.forward.name} <span className="arrows">⇄</span>{' '}

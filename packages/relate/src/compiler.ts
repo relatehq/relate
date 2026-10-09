@@ -78,6 +78,11 @@ function schemaIssue(schema: z.ZodType): string | undefined {
   }
 }
 
+/** Omits absent descriptions so manifests keep exact optional properties. */
+function described(description: string | undefined) {
+  return description !== undefined ? { description } : {};
+}
+
 // Presentation only: this value never determines API addressing or identity.
 function humanize(apiName: string): string {
   const words = apiName
@@ -642,12 +647,19 @@ export function compile(graph: GraphDefinition): CompiledModel {
 
     return Object.fromEntries(
       Object.entries((schema as z.ZodObject).shape).map(([name, field]) => {
-        const references = referenceSchemas.get(field);
+        const references = referenceSchemas.get(field.def);
+        const description = field.description;
 
         if (references)
           return [
             name,
-            { type: 'string', nullable: false, optional: false, references },
+            {
+              type: 'string',
+              nullable: false,
+              optional: false,
+              references,
+              ...described(description),
+            },
           ];
 
         const problem = schemaIssue(field);
@@ -660,7 +672,13 @@ export function compile(graph: GraphDefinition): CompiledModel {
             actionId,
           );
 
-        return [name, portable(field)];
+        return [
+          name,
+          {
+            ...portable(field),
+            ...described(description),
+          },
+        ];
       }),
     );
   };
@@ -712,6 +730,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
         return {
           id: action.id,
           apiName,
+          ...described(action.description),
           input: actionShape(
             action.input,
             at('input'),
@@ -758,23 +777,42 @@ export function compile(graph: GraphDefinition): CompiledModel {
     // Erased JavaScript callers can pass partial relationship objects.
     const from = relationship?.from as ObjectDefinition | undefined;
     const to = relationship?.to as ObjectDefinition | undefined;
-    const via = relationship?.via as Property | undefined;
+    const via = relationship?.via;
+    const through = relationship?.through;
+    const registeredReference = (
+      property: typeof via,
+      owner: ObjectDefinition | undefined,
+      target: ObjectDefinition | undefined,
+    ) =>
+      Boolean(
+        property &&
+        owner &&
+        target &&
+        objects.includes(owner) &&
+        property.owner === owner &&
+        property.target === target &&
+        Object.values(owner.properties).includes(property) &&
+        (property.origin.kind === 'reference' ||
+          property.origin.kind === 'native-reference'),
+      );
+    const valid = through
+      ? !via &&
+        through.from !== through.to &&
+        through.from?.owner === through.to?.owner &&
+        registeredReference(through.from, through.from?.owner, from) &&
+        registeredReference(through.to, through.from?.owner, to)
+      : registeredReference(via, to, from);
 
     if (
-      !relationship ||
-      typeof relationship !== 'object' ||
       !from ||
       !to ||
-      !via ||
       !objects.includes(from) ||
       !objects.includes(to) ||
-      relationship.via.owner !== to ||
-      relationship.via.target !== from ||
-      !Object.values(to.properties).includes(relationship.via)
+      !valid
     )
       issues.report(
         'relationship.invalid-endpoints',
-        `Unregistered relationship endpoint or reference: relationship ${name} ('${relationship?.id}') connects '${from?.id}' to '${to?.id}' via '${via?.id}'`,
+        `Unregistered relationship endpoint or reference: relationship ${name} ('${relationship?.id}') connects '${from?.id}' to '${to?.id}' ${through ? `through '${through.from?.owner?.id}' references '${through.from?.id}' and '${through.to?.id}'` : `via '${via?.id}'`}`,
         ['relationships', name],
         typeof relationship?.id === 'string' ? relationship.id : undefined,
       );
@@ -784,8 +822,9 @@ export function compile(graph: GraphDefinition): CompiledModel {
 
   const relationships = relationshipEntries.map(([, r]) => r);
   const manifestInput = {
-    formatVersion: 4,
+    formatVersion: 5,
     graphDefinitionId: graph.id,
+    ...described(graph.description),
     fieldGroups: [...graph.access.fieldGroups].sort(),
     roles: [...graph.access.roles].sort(),
     claims,
@@ -798,7 +837,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
         apiName,
         label: o.label ?? humanize(apiName),
         pluralLabel: o.pluralLabel ?? o.label ?? humanize(apiName),
-        ...(o.description !== undefined ? { description: o.description } : {}),
+        ...described(o.description),
         ...('resource' in o.membership
           ? { sourceDefinitionId: o.membership.resource.id }
           : {}),
@@ -806,6 +845,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
           .map(([name, p]) => ({
             id: p.id,
             name,
+            ...described(p.description),
             access: p.access === undefined ? 'ordinary' : p.access.name,
             schema: portable(p.schema),
             origin: p.origin,
@@ -820,7 +860,15 @@ export function compile(graph: GraphDefinition): CompiledModel {
               id: r.id,
               fromObjectDefinitionId: r.from.id,
               toObjectDefinitionId: r.to.id,
-              referencePropertyDefinitionId: r.via.id,
+              ...(r.through
+                ? {
+                    through: {
+                      objectDefinitionId: r.through.from.owner.id,
+                      fromReferencePropertyDefinitionId: r.through.from.id,
+                      toReferencePropertyDefinitionId: r.through.to.id,
+                    },
+                  }
+                : { referencePropertyDefinitionId: r.via.id }),
               forward: r.forward,
               reverse: r.reverse,
             }))

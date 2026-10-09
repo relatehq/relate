@@ -1,25 +1,31 @@
-import { createHash } from 'node:crypto';
-import { canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
   ReadRequest,
-  ReadResult,
+  FullReadResult as ReadResult,
   TraversalRequest,
-  ObjectRecord,
-  ObjectResult,
-  PageResult,
+  FullObjectRecord as ObjectRecord,
+  FullObjectResult as ObjectResult,
+  FullPageResult as PageResult,
 } from '@relate/protocol';
 import type { ObservationStore, StorageScope } from '../storage.js';
+import { scanBatch } from '../storage.js';
 import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
-import { cursorCodec } from './cursors.js';
-import { validateReadRequest, summarize, supplied } from '../reads/index.js';
+import { validateReadRequest, project, cursorCodec } from '../reads/index.js';
+import { traversalScope } from './scope.js';
+
+import { createThroughTraversal } from './through.js';
+import {
+  traversalAllowed,
+  traversalsFrom,
+  traversalSupported,
+} from './available.js';
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
 /** Reference-backed traversal composes the same authorized read path in both directions. */
-export function createTraversal(options: {
+export interface TraversalOptions {
   manifest: Manifest;
   graphId: string;
   revision: string;
@@ -35,7 +41,10 @@ export function createTraversal(options: {
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
   ): Promise<ReadResult>;
-}) {
+}
+
+export function createTraversal(options: TraversalOptions) {
+  const through = createThroughTraversal(options);
   const { manifest, store, read, clock, scopeFor } = options;
   const codec = cursorCodec(options.cursorKey);
   const empty = (): PageResult => ({ data: [], meta: { exhausted: true } });
@@ -57,16 +66,13 @@ export function createTraversal(options: {
         Object.entries(input).filter(([, value]) => value !== undefined),
       ),
     );
-    const match = (manifest.relationships ?? []).flatMap((r) => [
-      ...(r.fromObjectDefinitionId === typeId && r.forward.name === name
-        ? [{ relationship: r, forward: true }]
-        : []),
-      ...(r.toObjectDefinitionId === typeId && r.reverse.name === name
-        ? [{ relationship: r, forward: false }]
-        : []),
-    ])[0];
+    const match = traversalsFrom(manifest, typeId).find(
+      ({ relationship: r, forward }) =>
+        (forward ? r.forward : r.reverse).name === name,
+    );
 
-    if (!match) throw new ReadError('invalid-request');
+    if (!match || !traversalSupported(manifest, match.relationship))
+      throw new ReadError('invalid-request');
 
     const { relationship, forward } = match;
     const limit = request.limit ?? 25;
@@ -77,12 +83,14 @@ export function createTraversal(options: {
       limit > 100 ||
       (request.cursor !== undefined &&
         (typeof request.cursor !== 'string' || !request.cursor)) ||
-      (!forward &&
+      (relationship.reverse.cardinality === 'one' &&
+        !forward &&
         (request.limit !== undefined || request.cursor !== undefined)) ||
       Object.keys(request).some(
         (key) =>
           ![
             'select',
+            'evidence',
             'maxAgeMs',
             'refresh',
             'stale',
@@ -95,6 +103,9 @@ export function createTraversal(options: {
     )
       throw new ReadError('invalid-request');
 
+    if ('through' in relationship)
+      return through(principal, typeId, id, relationship, forward, request);
+
     const targetType = forward
       ? relationship.toObjectDefinitionId
       : relationship.fromObjectDefinitionId;
@@ -105,32 +116,27 @@ export function createTraversal(options: {
       (p) => p.id === relationship.referencePropertyDefinitionId,
     )!;
 
-    if (!owner.sourceDefinitionId) throw new ReadError('invalid-request');
-
     const ownerPolicy = manifest.policies[owner.id];
-    const { cursor, limit: _limit, ...readRequest } = request;
-    const scope = createHash('sha256')
-      .update(
-        canonicalJson({
-          graphId: options.graphId,
-          revision: options.revision,
-          principal,
-          typeId,
-          id,
-          relationship: relationship.id,
-          forward,
-          query: { ...readRequest, limit },
-          bindings: manifest.objects
-            .filter((o) => o.sourceDefinitionId)
-            .map((o) => scopeFor(o.id, o.sourceDefinitionId!)),
-        }),
-      )
-      .digest('hex');
+    // Evidence mode is presentation only, so it stays out of the cursor scope.
+    const {
+      cursor,
+      limit: _limit,
+      evidence: _evidence,
+      ...readRequest
+    } = request;
+    const scope = traversalScope(options, {
+      principal,
+      typeId,
+      id,
+      relationship: relationship.id,
+      forward,
+      query: { ...readRequest, limit },
+    });
     let after = cursor ? codec.decode(cursor, scope, clock()) : undefined;
     const unavailable = () =>
       forward ? empty() : { status: 'not-found' as const };
 
-    if (!ownerPolicy || !allowsField(principal, ownerPolicy, via.access))
+    if (!ownerPolicy || !traversalAllowed(manifest, principal, match))
       return unavailable();
 
     const root = await read(principal, typeId, id, {
@@ -243,44 +249,24 @@ export function createTraversal(options: {
     let more = true;
 
     while (more && scanned < 100 && pending.length < limit) {
-      let batch;
-
-      try {
-        batch = await store.scan(
-          scopeFor(owner.id, owner.sourceDefinitionId!),
-          {
-            ...(after ? { after } : {}),
-            limit: Math.min(100 - scanned, limit - pending.length),
-          },
-        );
-      } catch {
-        throw new ReadError('unavailable');
-      }
+      const batch = await scanBatch(
+        (input) =>
+          store.scan(scopeFor(owner.id, owner.sourceDefinitionId!), input),
+        after,
+        Math.min(100 - scanned, limit - pending.length),
+      );
 
       more = batch.hasMore;
 
-      if (!batch.objects.length) {
-        if (more) throw new ReadError('unavailable');
-
-        break;
-      }
-
-      for (const candidate of batch.objects) {
-        // Tokens are encrypted with a fresh nonce. Compare scan positions here:
-        // different token strings cannot detect a store that repeats its boundary.
-        if (
-          typeof candidate.objectId !== 'string' ||
-          candidate.objectId.length === 0 ||
-          (after !== undefined && candidate.objectId <= after)
-        )
-          throw new ReadError('incomplete');
-
-        after = candidate.objectId;
+      for (const candidate of batch.ids) {
+        after = candidate;
         scanned++;
-        const result = await member(candidate.objectId);
+        const result = await member(candidate);
 
-        if (result) pending.push({ id: candidate.objectId, result });
+        if (result) pending.push({ id: candidate, result });
       }
+
+      if (!batch.ids.length) break;
     }
 
     const authorized: ((typeof pending)[number] & {
@@ -348,53 +334,5 @@ export function createTraversal(options: {
           }
         : { exhausted: true },
     };
-  };
-}
-
-function project(
-  id: string,
-  result: Available,
-  selected: readonly string[],
-  request: ReadRequest,
-  now: number,
-): ObjectRecord {
-  const data: ObjectRecord['data'] = {};
-  const fields: ObjectRecord['meta']['fields'] = {};
-
-  for (const name of selected) {
-    let evidence = result.meta.fields[name] ?? {
-      status: 'unavailable' as const,
-    };
-
-    if (supplied(evidence) && evidence.source === 'source') {
-      const age = now - Date.parse(evidence.observedAt);
-      const stale = age < 0 || age > (request.maxAgeMs ?? 60_000);
-
-      evidence =
-        stale && request.stale === 'omit'
-          ? { status: 'unavailable' }
-          : { ...evidence, freshness: stale ? 'stale' : 'fresh' };
-    }
-
-    fields[name] = evidence;
-
-    if (supplied(evidence) && Object.hasOwn(result.data, name))
-      data[name] = result.data[name]!;
-  }
-
-  const summary = summarize(fields);
-
-  if (summary.completeness === 'partial' && request.requireComplete)
-    throw new ReadError('incomplete');
-
-  return {
-    id,
-    data,
-    meta: {
-      ...result.meta,
-      fields,
-      completeness: summary.completeness,
-      degraded: result.meta.degraded || summary.degraded,
-    },
   };
 }

@@ -2,7 +2,7 @@ import type { Manifest, Policy } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
   ReadRequest,
-  ReadResult,
+  FullReadResult as ReadResult,
   Json,
   FieldEvidence,
 } from '@relate/protocol';
@@ -13,7 +13,11 @@ import type {
   NativeScope,
   StoredObject,
 } from '../storage.js';
-import { allowsField, createAuthorization } from '../authorization/index.js';
+import {
+  allowsField,
+  allowsObject,
+  createAuthorization,
+} from '../authorization/index.js';
 import type {
   Principal,
   AuthorizationEvidence,
@@ -135,7 +139,7 @@ export function createNativeOperations(options: {
         ? manifest.policies[objectDefinitionId]
         : undefined;
 
-      if (!object || !policy || !principal.roles.includes(policy.read.role))
+      if (!object || !allowsObject(principal, policy))
         return { status: 'not-found' };
 
       await options.install();
@@ -236,6 +240,7 @@ export function createNativeOperations(options: {
         status: 'ok',
         data,
         meta: {
+          evidence: 'full',
           ...summary,
           definitionRevision: scope.definitionRevision,
           fields,

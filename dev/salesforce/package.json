@@ -1,0 +1,13 @@
+{
+  "name": "@relate/dev-salesforce",
+  "version": "0.0.0-dev.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./harness": "./harness.ts"
+  },
+  "dependencies": {
+    "@relate/connector-salesforce": "workspace:*",
+    "zod": "4.6.5"
+  }
+}

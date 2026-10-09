@@ -45,8 +45,8 @@ if (selected.status === 'ok') {
   // @ts-expect-error unselected property is absent from the type
   selected.data.revenue;
   // @ts-expect-error evidence is scoped to selection too
-  selected.meta.fields.revenue;
-  const evidence = selected.meta.fields.name;
+  selected.meta.fields?.revenue;
+  const evidence = selected.meta.fields?.name;
 
   if (evidence?.status === 'forbidden') {
     const status: 'forbidden' = evidence.status;
@@ -89,3 +89,67 @@ if (all.status === 'ok') {
 }
 
 void [name, revenue, unasserted, forbiddenEvidence, unavailableEvidence];
+
+if (selected.status === 'ok') {
+  // @ts-expect-error compact metadata may omit the field map
+  selected.meta.fields.name;
+  const compact: 'compact' = selected.meta.evidence;
+
+  void compact;
+}
+
+const full = await consumer.objects.Customer.get(id, {
+  select: ['name'],
+  evidence: 'full',
+});
+
+if (full.status === 'ok') {
+  // Requesting full evidence makes the field map required without narrowing.
+  const field: FieldEvidence | undefined = full.meta.fields.name;
+  const warnings: readonly string[] = full.meta.warnings;
+
+  // @ts-expect-error full evidence is still scoped to the selection
+  full.meta.fields.revenue;
+  void [field, warnings];
+}
+
+declare const mode: 'compact' | 'full';
+const either = await consumer.objects.Customer.get(id, { evidence: mode });
+
+if (either.status === 'ok') {
+  // @ts-expect-error an unknown mode still needs narrowing
+  either.meta.fields.name;
+
+  if (either.meta.evidence === 'full') {
+    const field: FieldEvidence | undefined = either.meta.fields.name;
+
+    void field;
+  }
+}
+
+// @ts-expect-error only compact and full are public modes
+consumer.objects.Customer.get(id, { evidence: 'none' });
+
+// Optional full evidence is not a promise that the runtime receives that option.
+const optionalFull: import('relate').ReadOptions<'name', 'full'> = {
+  select: ['name'],
+};
+const optionalResult = await consumer.objects.Customer.get(id, optionalFull);
+
+if (optionalResult.status === 'ok') {
+  // @ts-expect-error omitted evidence produces compact at runtime
+  optionalResult.meta.fields.name;
+  // @ts-expect-error an optional full option cannot promise a full result
+  const promisedFull: 'full' = optionalResult.meta.evidence;
+
+  if (optionalResult.meta.evidence === 'full') optionalResult.meta.fields.name;
+
+  void promisedFull;
+}
+
+const explicitGeneric = await consumer.objects.Customer.get<'name', 'full'>(id);
+
+if (explicitGeneric.status === 'ok') {
+  // @ts-expect-error a type argument alone cannot request full evidence
+  explicitGeneric.meta.fields.name;
+}

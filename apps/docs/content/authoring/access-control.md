@@ -208,7 +208,7 @@ const result = await objects.Customer.get(id, {
 });
 // For an `employee` without `finance`:
 // result.data          → { name: 'Northwind' }
-// result.meta.fields   → { name: { status: 'available', … }, revenue: { status: 'forbidden' } }
+// result.meta.fields   → { revenue: { status: 'forbidden' } } (compact default)
 // result.meta.completeness → 'partial'
 ```
 

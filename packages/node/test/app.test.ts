@@ -3,13 +3,9 @@ import { CompileError } from 'relate';
 import { createMemoryStore } from '@relate/runtime';
 import { createRuntime, startApp } from '@relate/node';
 import { connect, defineApp } from 'relate';
-import {
-  Customer,
-  ana,
-  customers,
-  graph,
-  invoices,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { Customer, ana, customers, graph, invoices } = createInvoiceGraph();
 
 const connector = (record: Record<string, unknown>) => ({
   identify: async () => 'example-account',

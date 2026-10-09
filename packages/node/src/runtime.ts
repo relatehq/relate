@@ -1,4 +1,11 @@
-import { ActionError, type TraversalRequest } from '@relate/protocol';
+import {
+  ActionError,
+  ReadError,
+  type Page,
+  type QueryRequest,
+  type QueryResult,
+  type TraversalRequest,
+} from '@relate/protocol';
 import { compile } from 'relate/compiler';
 import type {
   ActionDefinition,
@@ -14,6 +21,30 @@ import type { Principal } from '@relate/runtime';
 import type { SourceBinding } from 'relate/connectors';
 import type { ActionHandler } from '@relate/runtime';
 import type { Consumer, Relate } from './types.js';
+
+/** Bind paged options once; request errors reject the handle like other operations. */
+function paged<R extends { readonly cursor?: string }, T>(
+  request: R,
+  readPage: (request: R) => Promise<Page<T>>,
+): QueryResult<T> {
+  try {
+    let captured: R;
+
+    try {
+      captured = structuredClone(request);
+    } catch {
+      throw new ReadError('invalid-request');
+    }
+
+    return createQuery(
+      (cursor) =>
+        readPage({ ...captured, ...(cursor !== undefined ? { cursor } : {}) }),
+      captured.cursor !== undefined ? { cursor: captured.cursor } : {},
+    );
+  } catch (error) {
+    return createQuery(() => Promise.reject(error));
+  }
+}
 
 export interface AppOptions<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
@@ -77,6 +108,8 @@ export function createRuntime<
           objects.map(([name, object]) => [
             name,
             Object.freeze({
+              query: (request: QueryRequest = {}) =>
+                paged(request, (page) => context.query(object.id, page)),
               get: async (id: string, request = {}) => {
                 const result = await context.read(object.id, id, request);
 
@@ -131,10 +164,16 @@ export function createRuntime<
 
       // A handle binds a snapshot of the host-authenticated principal.
       const actor = structuredClone(principal);
+      const discovery = engine.discover(actor);
       const operations = Object.fromEntries(
         objects.map(([name, object]) => [
           name,
           Object.freeze({
+            describe: () => {
+              if (closed) throw new Error('Relate is closed');
+
+              return discovery.describeObject(object.id);
+            },
             traverse: Object.freeze(
               Object.fromEntries(
                 (model.manifest.relationships ?? [])
@@ -191,6 +230,10 @@ export function createRuntime<
                   ]),
               ),
             ),
+            query: (request: QueryRequest = {}) =>
+              paged(request, (page) =>
+                run(() => engine.query(actor, object.id, page)),
+              ),
             get: (id: string, request = {}) =>
               run(async () => {
                 const result = await engine.read(actor, object.id, id, request);
@@ -204,6 +247,11 @@ export function createRuntime<
       // Compilation validates schema support; the engine validates values and selection.
       // The registry gives each operation exactly the definition used by that compiler.
       return Object.freeze({
+        describe: () => {
+          if (closed) throw new Error('Relate is closed');
+
+          return discovery.describe();
+        },
         objects: Object.freeze(operations),
         receipts: Object.freeze({
           get: (action: ActionDefinition, invocationId: string) =>
@@ -216,11 +264,23 @@ export function createRuntime<
         }),
         actions: Object.freeze(
           Object.fromEntries(
-            actions.map(([name, action]) => [
-              name,
-              (request: { input: unknown; idempotencyKey: string }) =>
-                run(() => engine.invoke(actor, action.id, request)),
-            ]),
+            actions.map(([name, action]) => {
+              const invoke = (request: {
+                input: unknown;
+                idempotencyKey: string;
+              }) => run(() => engine.invoke(actor, action.id, request));
+
+              Object.defineProperty(invoke, 'describe', {
+                value: () => {
+                  if (closed) throw new Error('Relate is closed');
+
+                  return discovery.describeAction(action.id);
+                },
+                enumerable: true,
+              });
+
+              return [name, Object.freeze(invoke)];
+            }),
           ),
         ),
       }) as unknown as Consumer<G>;

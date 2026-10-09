@@ -3,12 +3,17 @@ import { accepts, canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
+  FullReadResult,
+  FullPageResult,
   Json,
+  QueryRequest,
+  PageResult,
   ReadRequest,
   ReadResult,
   ActionReceipt,
   FailedReceipt,
 } from '@relate/protocol';
+import { presenting } from '../reads/index.js';
 import {
   NativeCommitUncertain,
   NativeConflict,
@@ -24,6 +29,7 @@ import type {
 } from '../storage.js';
 import type { Principal } from '../authorization/index.js';
 import { createActionDeadline } from './deadline.js';
+import { actionAllowed } from './available.js';
 
 type Action = NonNullable<Manifest['actions']>[number];
 
@@ -33,6 +39,7 @@ export interface ActionExecutionContext {
   readonly actor: Principal;
   readonly input: Record<string, Json>;
   read(type: string, id: string, request?: ReadRequest): Promise<ReadResult>;
+  query(type: string, request?: QueryRequest): Promise<PageResult>;
   fail(code: string, details: unknown): never;
   create(type: string, values: unknown): Promise<{ id: string }>;
 }
@@ -85,7 +92,17 @@ export function createActionExecutor(options: {
     request: ReadRequest,
     transaction: NativeTransaction,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
-  ): Promise<ReadResult>;
+  ): Promise<FullReadResult>;
+  query(
+    principal: Principal,
+    type: string,
+    request: QueryRequest,
+    transaction: NativeTransaction,
+    onRead: (
+      id: string,
+      result: Extract<FullReadResult, { status: 'ok' }>,
+    ) => void,
+  ): Promise<FullPageResult>;
   validate(
     principal: Principal,
     type: ObjectType,
@@ -98,11 +115,7 @@ export function createActionExecutor(options: {
   function authorizedAction(actor: Principal, actionId: string) {
     const action = manifest.actions?.find((a) => a.id === actionId);
 
-    if (
-      !action?.execute ||
-      !actor.roles.includes(action.execute.role) ||
-      !actor.id.trim()
-    )
+    if (!action || !actionAllowed(manifest, actor, action))
       throw new ActionError('denied');
 
     return action;
@@ -262,6 +275,26 @@ export function createActionExecutor(options: {
             }
 
             const reads: NativeReceiptRead[] = [];
+            const definitions = new Map(manifest.objects.map((o) => [o.id, o]));
+            const recordRead = (
+              type: string,
+              id: string,
+              result: Extract<FullReadResult, { status: 'ok' }>,
+            ) => {
+              const object = definitions.get(type)!;
+
+              reads.push({
+                objectDefinitionId: type,
+                objectId: id,
+                propertyIds: object.properties
+                  .filter((p) =>
+                    ['available', 'absent'].includes(
+                      result.meta.fields[p.name]?.status ?? '',
+                    ),
+                  )
+                  .map((p) => p.id),
+              });
+            };
             const created: NativeRecord[] = [];
             let accepting = true;
             let failure: unknown;
@@ -369,36 +402,35 @@ export function createActionExecutor(options: {
 
                     throw domainSignal;
                   },
+                  query: (type, request = {}) =>
+                    run(() =>
+                      presenting(request, (r) =>
+                        options.query(
+                          actor,
+                          type,
+                          r,
+                          transaction,
+                          (id, result) => recordRead(type, id, result),
+                        ),
+                      ),
+                    ),
                   read: (type, id, request = {}) =>
-                    run(async () => {
-                      const result = await options.read(
-                        actor,
-                        type,
-                        id,
-                        request,
-                        transaction,
-                      );
+                    run(() =>
+                      presenting(request, async (r) => {
+                        const result = await options.read(
+                          actor,
+                          type,
+                          id,
+                          r,
+                          transaction,
+                        );
 
-                      if (result.status === 'ok') {
-                        const object = manifest.objects.find(
-                          (o) => o.id === type,
-                        )!;
+                        if (result.status === 'ok')
+                          recordRead(type, id, result);
 
-                        reads.push({
-                          objectDefinitionId: type,
-                          objectId: id,
-                          propertyIds: object.properties
-                            .filter((p) =>
-                              ['available', 'absent'].includes(
-                                result.meta.fields[p.name]?.status ?? '',
-                              ),
-                            )
-                            .map((p) => p.id),
-                        });
-                      }
-
-                      return result;
-                    }),
+                        return result;
+                      }),
+                    ),
                   create: (type, values) =>
                     run(async () => {
                       const object = manifest.objects.find(

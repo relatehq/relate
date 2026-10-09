@@ -7,12 +7,9 @@ import {
   layoutSignature,
   mapManifest,
 } from '../src/graph/map.js';
-import {
-  Customer,
-  CustomerInvoices,
-  Invoice,
-  graph,
-} from '../../../dev/fixtures/customer-graph/invoice-read/model.js';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+
+const { Customer, CustomerInvoices, Invoice, graph } = createInvoiceGraph();
 
 const { manifest } = compile(graph);
 
@@ -56,8 +53,16 @@ it('maps declared relationships to edges and never invents edges from references
       target: Invoice.id,
       data: {
         id: CustomerInvoices.id,
-        forward: { name: 'invoices', cardinality: 'many' },
-        reverse: { name: 'customer', cardinality: 'one' },
+        forward: {
+          name: 'invoices',
+          cardinality: 'many',
+          description: 'Invoices billed to this customer.',
+        },
+        reverse: {
+          name: 'customer',
+          cardinality: 'one',
+          description: 'Customer billed by this invoice.',
+        },
         viaProperty: 'customer',
       },
     },
@@ -131,4 +136,23 @@ it('highlights only unambiguous IDs present in the displayed model', () => {
 
   expect(highlightable(ambiguous, [Customer.id]).nodes.size).toBe(0);
   expect(highlightable(ambiguous, [Customer.id]).edges.size).toBe(0);
+});
+
+it('maps many-to-many endpoints while retaining the junction details', async () => {
+  const { createPlaylistGraph } =
+    await import('../../../tests/support/playlist-graph.js');
+  const { graph } = createPlaylistGraph();
+  const model = mapManifest(compile(graph).manifest);
+
+  expect(
+    model.edges.find((edge) => edge.id === 'playlist.songs'),
+  ).toMatchObject({
+    source: 'playlist',
+    target: 'song',
+    data: {
+      forward: { name: 'songs', cardinality: 'many' },
+      reverse: { name: 'playlists', cardinality: 'many' },
+      through: { objectId: 'membership', from: 'playlist', to: 'song' },
+    },
+  });
 });

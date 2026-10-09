@@ -10,4 +10,17 @@ export type { QueryResult } from './pagination.js';
 
 export type { ActionHandler, ActionExecutionContext } from './actions/index.js';
 
+export { createDiscovery } from './discovery.js';
+
+export type {
+  ActionDescription,
+  ActionFieldDescription,
+  ActionSummary,
+  GraphDescription,
+  ObjectDescription,
+  ObjectSummary,
+  PropertyDescription,
+  TraversalDescription,
+} from './discovery.js';
+
 export { ActionError } from '@relate/protocol';

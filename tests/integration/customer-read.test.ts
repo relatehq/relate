@@ -113,7 +113,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
   if (initial.status !== 'ok') throw new Error('Expected customer');
 
   expect(initial.data).not.toHaveProperty('revenue');
-  expect(initial.meta.fields.revenue).toEqual({ status: 'forbidden' });
+  expect(initial.meta.fields?.revenue).toEqual({ status: 'forbidden' });
   expect(
     await runtime.read(
       { ...employee, claims: { portfolio: 'other' } },
@@ -125,6 +125,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
   await crm.update({ display_name: 'Northwind Studio' });
   time.now += 1_000;
   const refreshed = await runtime.read(finance, Customer.id, key, {
+    evidence: 'full',
     select: ['name', 'revenue'],
     refresh: true,
   });
@@ -357,6 +358,7 @@ it('distinguishes an unconfirmed commit, successful readback, and unavailable or
 
   expect(
     await lostAck.read(employee, Customer.id, key, {
+      evidence: 'full',
       select: ['name'],
       refresh: true,
     }),
@@ -541,7 +543,10 @@ it('refuses a provider-denied refresh without fallback and leaves cached reads t
   ).toEqual({ status: 'not-found' });
   // Record denial is not persisted: fresh cached reads only verify account identity.
   expect(
-    await runtime.read(employee, Customer.id, key, { select: ['name'] }),
+    await runtime.read(employee, Customer.id, key, {
+      select: ['name'],
+      evidence: 'full',
+    }),
   ).toMatchObject({
     status: 'ok',
     data: { name: 'Northwind' },
@@ -549,11 +554,17 @@ it('refuses a provider-denied refresh without fallback and leaves cached reads t
   });
   time.now += 60_001;
   expect(
-    await runtime.read(employee, Customer.id, key, { select: ['name'] }),
+    await runtime.read(employee, Customer.id, key, {
+      select: ['name'],
+      evidence: 'full',
+    }),
   ).toEqual({ status: 'not-found' });
   crm.setAccess('granted');
   expect(
-    await runtime.read(employee, Customer.id, key, { select: ['name'] }),
+    await runtime.read(employee, Customer.id, key, {
+      select: ['name'],
+      evidence: 'full',
+    }),
   ).toMatchObject({
     status: 'ok',
     data: { name: 'Northwind' },
@@ -787,7 +798,7 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
     data: { note: null },
     meta: {
       completeness: 'complete',
-      fields: { note: { status: 'available' } },
+      evidence: 'compact',
     },
   });
   record = { id: 'source-1' };

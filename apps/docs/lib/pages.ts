@@ -76,6 +76,14 @@ export const pages: readonly DocPage[] = [
     section: 'Runtime',
   },
   {
+    slug: ['reference', 'read-responses'],
+    name: 'Read Responses',
+    title: 'Read Responses & Evidence',
+    description:
+      'Compact and full evidence, response fields, pagination, and read options.',
+    section: 'Reference',
+  },
+  {
     slug: ['deployment', 'postgres'],
     name: 'Persistence',
     title: 'Persistence',

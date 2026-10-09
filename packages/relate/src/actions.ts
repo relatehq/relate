@@ -1,5 +1,9 @@
 import type { z } from 'zod';
-import type { SucceededReceipt, FailedReceipt } from '@relate/protocol';
+import type {
+  EvidenceMode,
+  SucceededReceipt,
+  FailedReceipt,
+} from '@relate/protocol';
 import type {
   GraphDefinition,
   ObjectDefinition,
@@ -9,12 +13,19 @@ import type {
   NativeMembership,
 } from './index.js';
 import type { RoleGate } from './authorization.js';
-import type { ObjectResult, ReadOptions } from './operations.js';
+import type {
+  ObjectResult,
+  ReadOptions,
+  QueryOptions,
+  QueryResult,
+  ObjectRecord,
+} from './operations.js';
 import { CompileError } from './diagnostics.js';
 import { recordProvenance } from './provenance.js';
 
 export const actionKeys: readonly string[] = Object.freeze([
   'id',
+  'description',
   'input',
   'output',
   'creates',
@@ -35,6 +46,8 @@ export interface ActionDefinition<
   >,
 > {
   readonly id: string;
+  /** Explanatory text for people, documentation, and agents. */
+  readonly description?: string;
   readonly input: Input;
   readonly output: Output;
   readonly creates: Creates;
@@ -51,6 +64,7 @@ export function defineAction<
   const Errors extends Readonly<Record<string, z.ZodType>> = {},
 >(definition: {
   id: Id;
+  description?: string;
   input: Input;
   output: Output;
   creates: Creates;
@@ -112,14 +126,40 @@ export interface ActionContext<
   ) => never;
   readonly objects: {
     readonly [K in keyof G['objects']]: {
+      query<
+        N extends PropertyNames<G['objects'][K]> = PropertyNames<
+          G['objects'][K]
+        >,
+      >(
+        options: QueryOptions<G['objects'][K], N, 'full'> & {
+          readonly evidence: 'full';
+        },
+      ): QueryResult<ObjectRecord<G['objects'][K], N, 'full'>>;
+      query<
+        N extends PropertyNames<G['objects'][K]> = PropertyNames<
+          G['objects'][K]
+        >,
+        E extends EvidenceMode = 'compact',
+      >(
+        options?: QueryOptions<G['objects'][K], N, E>,
+      ): QueryResult<ObjectRecord<G['objects'][K], N, E | 'compact'>>;
       get<
         N extends PropertyNames<G['objects'][K]> = PropertyNames<
           G['objects'][K]
         >,
       >(
         id: ObjectId<G['objects'][K]['id']>,
-        options?: ReadOptions<N>,
-      ): Promise<ObjectResult<G['objects'][K], N>>;
+        options: ReadOptions<N, 'full'> & { readonly evidence: 'full' },
+      ): Promise<ObjectResult<G['objects'][K], N, 'full'>>;
+      get<
+        N extends PropertyNames<G['objects'][K]> = PropertyNames<
+          G['objects'][K]
+        >,
+        E extends EvidenceMode = 'compact',
+      >(
+        id: ObjectId<G['objects'][K]['id']>,
+        options?: ReadOptions<N, E>,
+      ): Promise<ObjectResult<G['objects'][K], N, E | 'compact'>>;
     } & (G['objects'][K] extends A['creates'][number]
       ? {
           create(

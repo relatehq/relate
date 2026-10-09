@@ -5,16 +5,24 @@ import {
 } from './actions/index.js';
 import type { ActionHandler } from './actions/index.js';
 import type { NativeTransaction, StorageScope } from './storage.js';
+import { createGraphQuery } from './queries/index.js';
 import { createTraversal } from './traversal/index.js';
 import { createSourceOperations } from './resolution/index.js';
 import type { SourceBinding } from 'relate/connectors';
 import { createMemoryStore } from './memory.js';
+import { presenting } from './reads/index.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
-import type { ReadRequest, ReadResult } from '@relate/protocol';
+import type {
+  QueryRequest,
+  ReadRequest,
+  TraversalRequest,
+  FullReadResult as ReadResult,
+} from '@relate/protocol';
 import type { ObservationStore } from './storage.js';
 import type { Principal } from './authorization/index.js';
+import { createDiscovery } from './discovery.js';
 
 export interface RuntimeOptions {
   readonly model: CompiledModel;
@@ -174,17 +182,52 @@ export function createRuntime(options: RuntimeOptions) {
     );
   }
 
+  const query = createGraphQuery({
+    manifest,
+    scope: nativeScope,
+    store,
+    clock,
+    install,
+    scopeFor,
+    read: readObject,
+    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+  });
+
+  const traverse = createTraversal({
+    manifest,
+    graphId: options.graphId,
+    revision,
+    store,
+    clock,
+    scopeFor,
+    read: readObject,
+    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+  });
+
   return {
+    discover: (principal: Principal) => createDiscovery(manifest, principal),
     adopt: source.adopt,
-    read(
+    async query(
+      principal: Principal,
+      objectDefinitionId: string,
+      request: QueryRequest = {},
+    ) {
+      return presenting(request, (r) =>
+        query(principal, objectDefinitionId, r),
+      );
+    },
+    async read(
       principal: Principal,
       objectDefinitionId: string,
       objectId: string,
       request: ReadRequest = {},
     ) {
-      return readObject(principal, objectDefinitionId, objectId, request);
+      return presenting(request, (r) =>
+        readObject(principal, objectDefinitionId, objectId, r),
+      );
     },
     ...createActionExecutor({
+      query,
       manifest,
       scope: nativeScope,
       store,
@@ -204,15 +247,16 @@ export function createRuntime(options: RuntimeOptions) {
           transaction,
         ),
     }),
-    traverse: createTraversal({
-      manifest,
-      graphId: options.graphId,
-      revision,
-      store,
-      clock,
-      scopeFor,
-      read: readObject,
-      ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
-    }),
+    async traverse(
+      principal: Principal,
+      typeId: string,
+      id: string,
+      name: string,
+      request: TraversalRequest = {},
+    ) {
+      return presenting(request, (r) =>
+        traverse(principal, typeId, id, name, r),
+      );
+    },
   };
 }

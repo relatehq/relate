@@ -1,7 +1,11 @@
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
 
+export type EvidenceMode = 'compact' | 'full';
+
 export interface ReadRequest {
+  /** Evidence presentation only; defaults to compact. */
+  readonly evidence?: EvidenceMode;
   readonly select?: readonly string[];
   readonly maxAgeMs?: number;
   readonly refresh?: boolean;
@@ -20,6 +24,10 @@ export interface Page<T> {
   readonly data: readonly T[];
   readonly meta: PageMeta;
 }
+
+/** Await one page, or iterate records across pages. */
+export interface QueryResult<T>
+  extends PromiseLike<Page<T>>, AsyncIterable<T> {}
 
 export type Refresh =
   'not-needed' | 'succeeded' | 'unavailable' | 'invalid' | 'superseded';
@@ -52,23 +60,51 @@ export type FieldEvidence =
       refresh: Refresh;
     };
 
+export type EvidenceWarning =
+  'observation_not_retained' | 'retention_unconfirmed' | 'ordering_unconfirmed';
+
+interface ReadSummary {
+  completeness: 'complete' | 'partial';
+  degraded: boolean;
+  definitionRevision: string;
+}
+
+export interface FullReadMeta extends ReadSummary {
+  evidence: 'full';
+  fields: Record<string, FieldEvidence>;
+  warnings: EvidenceWarning[];
+}
+
+export interface CompactReadMeta extends ReadSummary {
+  evidence: 'compact';
+  /** Only exceptional fields. Omitted when there are none. */
+  fields?: Record<string, FieldEvidence>;
+  /** Nonempty warnings are always preserved. */
+  warnings?: EvidenceWarning[];
+}
+
+export type ReadMeta = FullReadMeta | CompactReadMeta;
+
 export type ReadResult =
   | { status: 'not-found' }
-  | {
-      status: 'ok';
-      data: Record<string, Json>;
-      meta: {
-        completeness: 'complete' | 'partial';
-        degraded: boolean;
-        definitionRevision: string;
-        fields: Record<string, FieldEvidence>;
-        warnings: (
-          | 'observation_not_retained'
-          | 'retention_unconfirmed'
-          | 'ordering_unconfirmed'
-        )[];
-      };
-    };
+  | { status: 'ok'; data: Record<string, Json>; meta: ReadMeta };
+
+/** Complete evidence used during resolution, before response presentation. */
+export type FullReadResult =
+  | { status: 'not-found' }
+  | { status: 'ok'; data: Record<string, Json>; meta: FullReadMeta };
+
+export interface FullObjectRecord {
+  readonly id: string;
+  readonly data: Record<string, Json>;
+  readonly meta: FullReadMeta;
+}
+
+export type FullObjectResult =
+  | { readonly status: 'not-found' }
+  | ({ readonly status: 'ok' } & FullObjectRecord);
+
+export type FullPageResult = Page<FullObjectRecord>;
 
 export interface ObjectRecord {
   readonly id: string;
@@ -85,6 +121,11 @@ export type PageResult = Page<ObjectRecord>;
 export interface TraversalRequest extends ReadRequest {
   readonly limit?: number;
   readonly cursor?: string;
+}
+
+/** Equality filters address object properties, never provider columns. */
+export interface QueryRequest extends TraversalRequest {
+  readonly where?: Readonly<Record<string, Json>>;
 }
 
 export class ReadError extends Error {
@@ -129,3 +170,6 @@ export class ActionError extends Error {
     this.name = 'ActionError';
   }
 }
+
+export { present } from './presentation.js';
+export type { Presentable, Presented } from './presentation.js';

@@ -96,11 +96,7 @@ export function createAuthorization(options: {
 
     const policy = policyFor(target);
 
-    if (
-      authorizeTarget &&
-      (!policy || !principal.roles.includes(policy.read.role))
-    )
-      return undefined;
+    if (authorizeTarget && !allowsObject(principal, policy)) return undefined;
 
     const evidence = await resolve(
       target,
@@ -184,7 +180,7 @@ export function createAuthorization(options: {
     evidence: AuthorizationEvidence,
     policy = policyFor(object),
   ): Promise<boolean> {
-    if (!policy || !principal.roles.includes(policy.read.role)) return false;
+    if (!allowsObject(principal, policy)) return false;
 
     for (const stored of new Set([
       evidence.permissionCandidate,
@@ -245,6 +241,14 @@ export function createAuthorization(options: {
       return current.evidence.candidate.objectId;
     },
   };
+}
+
+/** The role-level read gate; record-level conditions are evaluated per read. */
+export function allowsObject(
+  principal: Principal,
+  policy: Policy | undefined,
+): policy is Policy {
+  return Boolean(policy && principal.roles.includes(policy.read.role));
 }
 
 export function allowsField(

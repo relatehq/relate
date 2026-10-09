@@ -48,13 +48,14 @@ field classifications, and policy dependencies, then returns an immutable,
 serializable manifest. Property renames preserve their IDs and change the
 definition revision.
 
-The current manifest format is **4**. Source observations, native values,
+The current manifest format is **5**. Source observations, native values,
 authorization evidence and persisted value history use stable property IDs;
-consumer results retain property names. Formats 1, 2 and 3 must be recompiled.
-Format 4 adds portable scalar bounds and declared action failure schemas.
-Recompilation also changes the installed revision, preventing an existing
-name-keyed store from being read as ID-keyed data. Existing installations need
-an explicit data/revision migration; see the
+consumer results retain property names. Formats 1 through 4 must be recompiled.
+Format 4 added portable scalar bounds and declared action failure schemas;
+format 5 adds portable graph discovery descriptions. Recompilation also changes
+the installed revision, preventing an existing name-keyed store from being read
+as ID-keyed data. Existing installations need an explicit data/revision
+migration; see the
 [storage contract](../runtime/STORE_CONTRACT.md#property-identity).
 
 This slice supports a single membership source per object, scalar string/number/
@@ -91,7 +92,7 @@ The object registry key is the canonical public API name. For example,
 use this machine name, never a display label. Separate route and SDK name
 overrides are not part of the contract.
 
-Objects optionally declare presentation metadata:
+Graphs and objects optionally declare presentation metadata:
 
 ```ts
 const AccountReview = defineObject({
@@ -101,6 +102,12 @@ const AccountReview = defineObject({
   description: 'An assessment of a customer account and its next steps.',
   // membership and properties…
 });
+
+const graph = defineGraph({
+  id: 'business',
+  description: 'Customer accounts, invoices, and account reviews.',
+  // objects, access, and policies…
+});
 ```
 
 `label` defaults to a humanized registry key (`AccountReview` becomes
@@ -109,18 +116,25 @@ does not guess plurals. Supply explicit collection labels such as `People` where
 needed. `description` stays absent when omitted. Supplied labels must be
 nonblank; different object types may share display labels.
 
-Compilation resolves labels and preserves `apiName`, `label`, `pluralLabel`, and
-any `description` in the portable manifest. Display changes preserve API
-addressing and definition IDs. Registry key changes rename the public API but
-preserve definition IDs. Both changes affect the definition revision; the
-existing installed-graph revision checks still apply.
+Compilation resolves labels and preserves graph and object descriptions plus
+`apiName`, `label`, and `pluralLabel` in the portable manifest. Display changes
+preserve API addressing and definition IDs. Registry key changes rename the
+public API but preserve definition IDs. Both changes affect the definition
+revision; the existing installed-graph revision checks still apply.
 
 Migration: replace object-level `name` with `label`, optionally add
 `pluralLabel` and `description`, and recompile. Manifest format 2 introduced the
-replacement of object `name` with `apiName` and the resolved display labels.
-Format 1 manifests are rejected; their discarded registry keys cannot be
-recovered safely from display labels. Property and relationship names retain
-their existing meaning.
+replacement of object `name` with `apiName` and the resolved display labels. Old
+manifests are rejected; format 1's discarded registry keys cannot be recovered
+safely from display labels. Property and relationship names retain their
+existing meaning.
+
+Properties, directional traversals, actions, and action fields can also explain
+their business meaning. Property helpers accept `description`; relationship
+directions accept `{ name, description }`; actions accept `description`.
+Ordinary action fields use Zod `.describe()`, while branded references use
+`referenceInput(Customer, { description })`. These descriptions affect the
+definition revision but never API addressing, identity, access, or validation.
 
 Each object declares exactly one `objectId({ id })` property, conventionally
 named `id`. Relate owns its string schema and generates its value on adoption.
@@ -377,7 +391,9 @@ both. An empty array asserts only `status: 'ok'`.
 The current embedded runtime returns partial JSON records. The customer graph
 [action fixture](../../dev/fixtures/customer-graph/source/actions/review-invoice.server.ts)
 demonstrates schema-specific narrowing with this implemented helper, but its
-full query/escalation operations remain proposed APIs. The smaller
+full escalation scenario remains a proposed API. Graph queries now execute for
+consumers and native action implementations; see the
+[query contract](../runtime/CONTRACT.md#graph-queries). The smaller
 [native account-review path](../node/NATIVE_ACTIONS.md) is executable.
 
 ### Presence, freshness, and completeness
@@ -389,11 +405,12 @@ full query/escalation operations remain proposed APIs. The smaller
 | `null` from a nullable schema | Passes                           | An explicit null value was supplied.                                     |
 | Missing or `undefined`        | Throws `ReadError('incomplete')` | No usable value was supplied for this field.                             |
 
-An action requiring freshness can inspect the checked field's evidence:
+An action requiring freshness can request `evidence: 'full'` on its read and
+inspect the checked field's evidence:
 
 ```ts
 assertFields(customer, ['name']);
-const evidence = customer.meta.fields.name;
+const evidence = customer.meta.fields?.name;
 
 if (evidence?.status !== 'available' || evidence.freshness !== 'fresh') {
   throw new Error('A fresh customer name is required');

@@ -197,8 +197,8 @@ try {
     console.log(result.data);
     // { name: 'Acme Corp', status: 'active' }
 
-    console.log(result.meta.fields.name);
-    // { status: 'available', freshness: 'fresh', observedAt: '…', source: 'source', … }
+    console.log(result.meta.fields?.name);
+    // undefined for routine available/fresh evidence in compact mode
   }
 } finally {
   await relate.close();
@@ -207,9 +207,11 @@ try {
 
 `get` returns `{ status: 'not-found' }` or `{ status: 'ok', id, data, meta }`.
 `data` holds only the selected properties, and each one stays optional because a
-read can withhold a field. `meta.fields` reports, per field, whether it was
-available, forbidden, or unavailable, how fresh it is, and where it came from.
-Use `assertFields(result, ['name'])` when your code requires a field.
+read can withhold a field. `meta.fields` preserves exceptional field evidence by
+default; use `evidence: 'full'` to report every selected field. Full evidence
+reports whether it was available, forbidden, or unavailable, how fresh it is,
+and where it came from. Use `assertFields(result, ['name'])` when your code
+requires a field.
 
 If Ana reads the adopted `cust_102` customer in `'apac'`, the result is
 `{ status: 'not-found' }`. A record the caller may not read looks the same as
