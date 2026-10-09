@@ -41,7 +41,9 @@ it('defaults to isolated memory and supports sharing an explicit store', async (
   const first = createRuntime(options);
   const id = await first.adopt(Customer.id, '1');
 
-  expect(await first.read(employee, Customer.id, id)).toMatchObject({
+  expect(
+    await first.read(employee, Customer.id, id, { evidence: 'full' }),
+  ).toMatchObject({
     status: 'ok',
     data: { id, name: 'Ada' },
     meta: {

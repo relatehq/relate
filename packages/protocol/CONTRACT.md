@@ -50,3 +50,17 @@ An empty page can have a continuation. Consumers must follow exhaustion, not
 record count. The implemented pagination helper in
 [`@relate/runtime`](../runtime/CONTRACT.md#pagination) handles this contract;
 collection query execution remains unimplemented.
+
+## Compact evidence
+
+Reads, queries and traversals return compact evidence by default. Pass
+`evidence: 'full'` in the read options to inspect every selected field's
+provenance. Both modes preserve values, authorization, completeness, degradation
+and the definition revision. Compact responses retain exceptional field evidence
+and nonempty warnings; `meta.fields` and `meta.warnings` may otherwise be
+omitted. Full responses always include both, and `meta.evidence` identifies the
+returned mode.
+
+See
+[Read Responses & Evidence](../../apps/docs/content/reference/read-responses.md)
+for the complete reference.

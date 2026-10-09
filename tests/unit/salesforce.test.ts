@@ -82,7 +82,7 @@ test('temporary failures may retain authorized stale values', async () => {
 
     assertFields(result, ['name']);
     expect(result.data.name).toBe('Northwind');
-    expect(result.meta.fields.name).toMatchObject({ refresh: 'unavailable' });
+    expect(result.meta.fields?.name).toMatchObject({ refresh: 'unavailable' });
   } finally {
     await app.close();
   }

@@ -80,10 +80,10 @@ try {
   const id = await relate.host.adopt(Customer, 'crm_456');
   const customer = await relate
     .as({ id: 'ana', roles: ['employee'], claims: { portfolio: 'emea' } })
-    .objects.Customer.get(id, { select: ['name'] });
+    .objects.Customer.get(id, { select: ['name'], evidence: 'full' });
 
   // Retained fields report retentionDurability: 'persistent'.
-  if (customer.status === 'ok') console.log(customer.meta.fields.name);
+  if (customer.status === 'ok') console.log(customer.meta.fields?.name);
 } finally {
   await relate.close();
   await store.close();

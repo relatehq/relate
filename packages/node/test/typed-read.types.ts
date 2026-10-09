@@ -45,8 +45,8 @@ if (selected.status === 'ok') {
   // @ts-expect-error unselected property is absent from the type
   selected.data.revenue;
   // @ts-expect-error evidence is scoped to selection too
-  selected.meta.fields.revenue;
-  const evidence = selected.meta.fields.name;
+  selected.meta.fields?.revenue;
+  const evidence = selected.meta.fields?.name;
 
   if (evidence?.status === 'forbidden') {
     const status: 'forbidden' = evidence.status;
@@ -89,3 +89,19 @@ if (all.status === 'ok') {
 }
 
 void [name, revenue, unasserted, forbiddenEvidence, unavailableEvidence];
+
+if (selected.status === 'ok') {
+  // @ts-expect-error compact metadata may omit the field map
+  selected.meta.fields.name;
+
+  if (selected.meta.evidence === 'full') {
+    const field: FieldEvidence | undefined = selected.meta.fields.name;
+
+    // @ts-expect-error full evidence is still scoped to the selection
+    selected.meta.fields.revenue;
+    void field;
+  }
+}
+
+// @ts-expect-error only compact and full are public modes
+consumer.objects.Customer.get(id, { evidence: 'none' });

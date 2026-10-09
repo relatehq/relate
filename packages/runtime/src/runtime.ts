@@ -1,3 +1,4 @@
+import { presentRead, presentPage, presentRecord } from '@relate/protocol';
 import {
   createNativeOperations,
   nativeEvidence,
@@ -13,7 +14,11 @@ import { createMemoryStore } from './memory.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
-import type { QueryRequest, ReadRequest, ReadResult } from '@relate/protocol';
+import type {
+  QueryRequest,
+  ReadRequest,
+  FullReadResult as ReadResult,
+} from '@relate/protocol';
 import type { ObservationStore } from './storage.js';
 import type { Principal } from './authorization/index.js';
 
@@ -186,22 +191,39 @@ export function createRuntime(options: RuntimeOptions) {
     ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
   });
 
+  const traverse = createTraversal({
+    manifest,
+    graphId: options.graphId,
+    revision,
+    store,
+    clock,
+    scopeFor,
+    read: readObject,
+    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+  });
+
   return {
     adopt: source.adopt,
-    query(
+    async query(
       principal: Principal,
       objectDefinitionId: string,
       request: QueryRequest = {},
     ) {
-      return query(principal, objectDefinitionId, request);
+      return presentPage(
+        await query(principal, objectDefinitionId, request),
+        request.evidence,
+      );
     },
-    read(
+    async read(
       principal: Principal,
       objectDefinitionId: string,
       objectId: string,
       request: ReadRequest = {},
     ) {
-      return readObject(principal, objectDefinitionId, objectId, request);
+      return presentRead(
+        await readObject(principal, objectDefinitionId, objectId, request),
+        request.evidence,
+      );
     },
     ...createActionExecutor({
       query,
@@ -224,15 +246,16 @@ export function createRuntime(options: RuntimeOptions) {
           transaction,
         ),
     }),
-    traverse: createTraversal({
-      manifest,
-      graphId: options.graphId,
-      revision,
-      store,
-      clock,
-      scopeFor,
-      read: readObject,
-      ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
-    }),
+    async traverse(...args: Parameters<typeof traverse>) {
+      const result = await traverse(...args);
+      const mode = args[4]?.evidence;
+
+      if ('status' in result)
+        return result.status === 'not-found'
+          ? result
+          : { status: result.status, ...presentRecord(result, mode) };
+
+      return presentPage(result, mode);
+    },
   };
 }

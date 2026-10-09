@@ -167,6 +167,7 @@ export function deletedReferenceContract(
           status: 'not-found',
         });
         const result = await objects.Task.get(taskId, {
+          evidence: 'full',
           select: ['assignee', 'invoice'],
         });
 

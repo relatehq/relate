@@ -1,8 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { accepts, canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
-import { ActionError, ReadError } from '@relate/protocol';
+import {
+  ActionError,
+  ReadError,
+  presentRead,
+  presentPage,
+} from '@relate/protocol';
 import type {
+  FullReadResult,
+  FullPageResult,
   Json,
   QueryRequest,
   PageResult,
@@ -88,14 +95,17 @@ export function createActionExecutor(options: {
     request: ReadRequest,
     transaction: NativeTransaction,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
-  ): Promise<ReadResult>;
+  ): Promise<FullReadResult>;
   query(
     principal: Principal,
     type: string,
     request: QueryRequest,
     transaction: NativeTransaction,
-    onRead: (id: string, result: Extract<ReadResult, { status: 'ok' }>) => void,
-  ): Promise<PageResult>;
+    onRead: (
+      id: string,
+      result: Extract<FullReadResult, { status: 'ok' }>,
+    ) => void,
+  ): Promise<FullPageResult>;
   validate(
     principal: Principal,
     type: ObjectType,
@@ -276,7 +286,7 @@ export function createActionExecutor(options: {
             const recordRead = (
               type: string,
               id: string,
-              result: Extract<ReadResult, { status: 'ok' }>,
+              result: Extract<FullReadResult, { status: 'ok' }>,
             ) => {
               const object = definitions.get(type)!;
 
@@ -400,13 +410,16 @@ export function createActionExecutor(options: {
                     throw domainSignal;
                   },
                   query: (type, request = {}) =>
-                    run(() =>
-                      options.query(
-                        actor,
-                        type,
-                        request,
-                        transaction,
-                        (id, result) => recordRead(type, id, result),
+                    run(async () =>
+                      presentPage(
+                        await options.query(
+                          actor,
+                          type,
+                          request,
+                          transaction,
+                          (id, result) => recordRead(type, id, result),
+                        ),
+                        request.evidence,
                       ),
                     ),
                   read: (type, id, request = {}) =>
@@ -421,7 +434,7 @@ export function createActionExecutor(options: {
 
                       if (result.status === 'ok') recordRead(type, id, result);
 
-                      return result;
+                      return presentRead(result, request.evidence);
                     }),
                   create: (type, values) =>
                     run(async () => {

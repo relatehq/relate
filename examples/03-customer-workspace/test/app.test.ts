@@ -17,7 +17,7 @@ describe('interactive customer workspace', () => {
         data: { name: 'Northwind' },
       });
       expect(ana.invoices.data).toHaveLength(2);
-      expect(ana.invoices.data[0]?.meta.fields.totalMinor).toEqual({
+      expect(ana.invoices.data[0]?.meta.fields?.totalMinor).toEqual({
         status: 'forbidden',
       });
       expect(

@@ -1,5 +1,9 @@
 import { ReadError } from '@relate/protocol';
-import type { ReadResult, ReadRequest, ObjectRecord } from '@relate/protocol';
+import type {
+  FullReadResult as ReadResult,
+  ReadRequest,
+  FullObjectRecord as ObjectRecord,
+} from '@relate/protocol';
 import { summarize, supplied } from './evidence.js';
 
 type Available = Extract<ReadResult, { status: 'ok' }>;

@@ -11,6 +11,14 @@ export type ReadOptions<K extends string> = Omit<ReadRequest, 'select'> & {
   readonly select?: readonly K[];
 };
 
+type TypedMeta<M, K extends string> = M extends { fields: unknown }
+  ? Omit<M, 'fields'> & {
+      readonly fields: { readonly [N in K]?: FieldEvidence };
+    }
+  : Omit<M, 'fields'> & {
+      readonly fields?: { readonly [N in K]?: FieldEvidence };
+    };
+
 type Ok = Extract<ReadResult, { status: 'ok' }>;
 
 export type ObjectResult<
@@ -22,9 +30,7 @@ export type ObjectResult<
       readonly status: 'ok';
       readonly id: ObjectId<O['id']>;
       readonly data: ObjectData<O, K>;
-      readonly meta: Omit<Ok['meta'], 'fields'> & {
-        readonly fields: { readonly [N in K]?: FieldEvidence };
-      };
+      readonly meta: TypedMeta<Ok['meta'], K>;
     };
 
 export type PageOptions<K extends string> = ReadOptions<K> & {

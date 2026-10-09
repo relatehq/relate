@@ -91,6 +91,7 @@ it('adopts once and reads selected fields through a principal-bound object', asy
     expect(
       await relate.as(ana).objects.Customer.get(id, {
         select: ['name', 'revenue'],
+        evidence: 'full',
       }),
     ).toMatchObject({
       status: 'ok',
@@ -227,7 +228,7 @@ it('distinguishes permission omission from omitted stale values after a failed r
 
   if (unavailable.status !== 'ok') throw new Error('Expected customer');
 
-  expect(unavailable.meta.fields.revenue).toEqual({ status: 'unavailable' });
+  expect(unavailable.meta.fields?.revenue).toEqual({ status: 'unavailable' });
   await expect(
     relate.as(finance).objects.Customer.get(id, {
       ...request,
@@ -403,4 +404,56 @@ it('denies objects with no policy even when they have been adopted', async () =>
     status: 'not-found',
   });
   await relate.close();
+});
+
+it('defaults to compact, permits full evidence, and rejects invalid modes', async () => {
+  const { relate, calls } = fixture();
+
+  try {
+    const id = await relate.host.adopt(Customer, 'crm_456');
+    const objects = relate.as(ana).objects;
+    const before = calls();
+    const compact = await objects.Customer.get(id, { select: ['name'] });
+    const full = await objects.Customer.get(id, {
+      select: ['name'],
+      evidence: 'full',
+    });
+
+    expect(compact).toMatchObject({
+      status: 'ok',
+      id,
+      data: { name: 'Northwind' },
+      meta: { evidence: 'compact' },
+    });
+
+    if (compact.status !== 'ok' || full.status !== 'ok')
+      throw new Error('Expected reads');
+
+    expect(compact.data).toEqual(full.data);
+    expect(compact.meta.fields).toBeUndefined();
+    expect(compact.meta.warnings).toBeUndefined();
+    expect(full.meta).toMatchObject({
+      evidence: 'full',
+      fields: {
+        name: {
+          status: 'available',
+          freshness: 'fresh',
+          retentionDurability: 'volatile',
+        },
+      },
+      warnings: [],
+    });
+    expect(calls()).toBe(before);
+    expect(
+      await objects.Customer.get(id, { select: ['name'], evidence: 'compact' }),
+    ).toEqual(compact);
+    await expect(
+      objects.Customer.get(id, {
+        // @ts-expect-error validate untyped callers too
+        evidence: 'none',
+      }),
+    ).rejects.toMatchObject({ code: 'invalid-request' });
+  } finally {
+    await relate.close();
+  }
 });

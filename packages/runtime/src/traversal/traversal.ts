@@ -4,11 +4,11 @@ import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
   ReadRequest,
-  ReadResult,
+  FullReadResult as ReadResult,
   TraversalRequest,
-  ObjectRecord,
-  ObjectResult,
-  PageResult,
+  FullObjectRecord as ObjectRecord,
+  FullObjectResult as ObjectResult,
+  FullPageResult as PageResult,
 } from '@relate/protocol';
 import type { ObservationStore, StorageScope } from '../storage.js';
 import { compareObjectIds } from '../storage.js';
@@ -83,6 +83,7 @@ export function createTraversal(options: {
         (key) =>
           ![
             'select',
+            'evidence',
             'maxAgeMs',
             'refresh',
             'stale',

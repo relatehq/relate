@@ -4,8 +4,8 @@ Once your graph is defined, you read it through the `@relate/node` embedded
 runtime.
 
 Every read is **scoped to an authenticated principal**, **typed** by your graph,
-and returns **evidence** describing where each field came from and how fresh it
-is.
+and returns **compact evidence** by default. Request full evidence to inspect
+where each field came from and how fresh it is.
 
 ---
 
@@ -118,7 +118,7 @@ if (result.status === 'not-found') {
   console.log('Customer not found or not visible.');
 } else {
   console.log(result.id, result.data.name);
-  console.log(result.meta.fields.revenue); // { status: 'forbidden' } without `finance`
+  console.log(result.meta.fields?.revenue); // { status: 'forbidden' } without `finance`
 }
 ```
 
@@ -140,8 +140,9 @@ assertFields(result, ['name']); // throws unless `name` is present
 console.log(result.data.name.toUpperCase());
 ```
 
-Read options also include `maxAgeMs`, `refresh`, `stale`, `requireComplete`, and
-`timeoutMs`; see [Evidence and Freshness](#evidence-and-freshness).
+Read options also include `evidence`, `maxAgeMs`, `refresh`, `stale`,
+`requireComplete`, and `timeoutMs`; see
+[Evidence and Freshness](#evidence-and-freshness).
 
 ---
 
@@ -206,38 +207,25 @@ Traversals include only adopted records. For each one, Relate:
 
 ## Evidence and Freshness
 
-Every successful read carries `meta`:
+Every successful read carries compact evidence by default. It includes the
+selection's completeness, degradation flag and graph revision. Exceptional field
+evidence and nonempty warnings are preserved; routine field evidence is omitted.
+Request `evidence: 'full'` for all selected fields' provenance.
 
 ```ts
-{
-  completeness: 'complete' | 'partial', // partial when any selected field was withheld
-  degraded: boolean,                    // true when data was stale or could not be supplied
-  definitionRevision: 'sha256:…',       // the compiled graph revision that served the read
-  fields: Record<string, FieldEvidence>,
-  warnings: ('observation_not_retained' | 'retention_unconfirmed' | 'ordering_unconfirmed')[],
+const detailed = await objects.Customer.get(customerId, {
+  select: ['name'],
+  evidence: 'full',
+});
+
+if (detailed.status === 'ok' && detailed.meta.evidence === 'full') {
+  console.log(detailed.meta.fields.name);
 }
 ```
 
-Evidence is reported per field:
-
-```ts
-type FieldEvidence =
-  | { status: 'forbidden' } // the caller lacks the field group's role
-  | { status: 'unavailable' } // no value could be supplied
-  | {
-      status: 'available' | 'absent';
-      freshness: 'fresh' | 'stale';
-      observedAt: string; // ISO 8601
-      source: 'native' | 'source';
-      sourceDefinitionId?: string;
-      refresh:
-        'not-needed' | 'succeeded' | 'unavailable' | 'invalid' | 'superseded';
-      retention: 'confirmed' | 'failed' | 'unconfirmed';
-      retentionDurability: 'volatile' | 'persistent';
-      ordering: 'confirmed' | 'unconfirmed';
-      orderingBasis?: 'source-version' | 'fetch-start';
-    };
-```
+See [Read Responses & Evidence](../reference/read-responses.md) in **Reference**
+for every response field, evidence status, warning, read option and pagination
+rule, with compact and full examples.
 
 Freshness is controlled by read options, not by the policy:
 

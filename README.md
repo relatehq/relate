@@ -197,27 +197,25 @@ const invoices = await objects.Customer.traverse.invoices(northwind, {
 });
 ```
 
-Ana gets the status. The amount is withheld, and every field says why it's there
-or why it isn't:
+Ana gets the status. Compact evidence keeps the explanation for the withheld
+amount. Each record in the page looks like this:
 
-```jsonc
+```json
 {
+  "id": "invoice-uuid",
   "data": { "status": "Overdue" },
   "meta": {
+    "evidence": "compact",
     "completeness": "partial",
-    "fields": {
-      "status": {
-        "status": "available",
-        "freshness": "fresh",
-        "observedAt": "2026-10-08T13:09:34.028Z",
-        "sourceDefinitionId": "billing.invoices",
-        // …
-      },
-      "total": { "status": "forbidden" },
-    },
-  },
+    "degraded": false,
+    "definitionRevision": "sha256:…",
+    "fields": { "total": { "status": "forbidden" } }
+  }
 }
 ```
+
+Pass `evidence: 'full'` to include every selected field's provenance and
+freshness details.
 
 A customer outside Ana's portfolio returns `not-found`, the same as one that
 doesn't exist.
@@ -228,9 +226,9 @@ doesn't exist.
   (including through references, such as "invoices of customers in my
   portfolio") and field groups are declared once. They are enforced on every
   read, traversal and action, so no consumer can forget to check.
-- **Every value carries evidence.** Each field reports whether it is available,
-  forbidden or unavailable, where it came from and when it was observed. Policy
-  checks can demand evidence no older than a set age.
+- **Every value has evidence.** Compact responses preserve exceptional field
+  states; full responses report provenance and freshness for every selected
+  field. Policy checks can demand evidence no older than a set age.
 - **Writes are actions with receipts.** Typed, authorized actions run in a
   transaction. They return a receipt for success or for a declared business
   failure, and retrying with the same idempotency key replays the receipt rather
@@ -286,6 +284,19 @@ Relate runs embedded in a Node application today. Agent access through MCP is
 the next major piece. The intended shape is `get`, `query` and `traverse` tools
 per object plus one tool per action, all scoped to the authenticated caller. It
 isn't built yet.
+
+## Compact evidence
+
+Reads, queries and traversals return compact evidence by default. Pass
+`evidence: 'full'` in the read options to inspect every selected field's
+provenance. Both modes preserve values, authorization, completeness, degradation
+and the definition revision. Compact responses retain exceptional field evidence
+and nonempty warnings; `meta.fields` and `meta.warnings` may otherwise be
+omitted. Full responses always include both, and `meta.evidence` identifies the
+returned mode.
+
+See [Read Responses & Evidence](apps/docs/content/reference/read-responses.md)
+for the complete reference.
 
 ## Feedback
 

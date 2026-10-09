@@ -169,7 +169,11 @@ export function nativeActionContract(
         output: { reviewId: expect.any(String) },
       });
       expect(
-        await relate.as(ana).objects.AccountReview.get(receipt.output.reviewId),
+        await relate
+          .as(ana)
+          .objects.AccountReview.get(receipt.output.reviewId, {
+            evidence: 'full',
+          }),
       ).toMatchObject({
         status: 'ok',
         data: {

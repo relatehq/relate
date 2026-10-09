@@ -131,7 +131,7 @@ export function fieldEvidenceContract(
             degraded: false,
             definitionRevision: model.definitionRevision,
             fields: { revenue: { status: 'forbidden' } },
-            warnings: [],
+            evidence: 'compact',
           },
         });
         expect(
@@ -158,7 +158,6 @@ export function fieldEvidenceContract(
           meta: {
             degraded: true,
             fields: {
-              revenue: { status: 'available' },
               unknown: { status: 'unavailable' },
             },
           },
@@ -178,7 +177,7 @@ export function fieldEvidenceContract(
 
         if (result.status !== 'ok') throw new Error('Expected customer');
 
-        expect(result.meta.fields).not.toHaveProperty('revenue');
+        expect(result.meta.fields).toBeUndefined();
         expect(
           await runtime.read({ ...ana, roles: [] }, object.id, id(), {
             select: ['revenue', 'unknown'],

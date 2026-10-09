@@ -216,7 +216,11 @@ assert.equal(read.data.name, 'Ada');
 const graphPage = await runtime.query({ id: 'reader', roles: ['reader'], claims: {} }, 'customer', { where: { name: 'Ada' }, select: ['name'] });
 assert.deepEqual(graphPage.data.map(row => row.id), [objectIdValue]);
 assert.equal(graphPage.meta.exhausted, true);
-assert.equal(read.meta.fields.name.retentionDurability, 'volatile');
+assert.equal(read.meta.evidence, 'compact');
+assert.equal(read.meta.fields, undefined);
+const detailed = await runtime.read({ id: 'reader', roles: ['reader'], claims: {} }, 'customer', objectIdValue, { evidence: 'full' });
+assert.equal(detailed.meta.evidence, 'full');
+assert.equal(detailed.meta.fields.name.retentionDurability, 'volatile');
 const store = createPostgresStore({ connectionString: 'postgresql://unused@127.0.0.1:1/unused' });
 await store.close();
 assert.equal(new ReadError('incomplete').code, 'incomplete');
@@ -546,7 +550,8 @@ try {
   assert.notEqual(read.id, '1');
   assert.deepEqual(read.data, { name: 'Ada' });
   assert.equal(read.typedName, 'Ada');
-  assert.equal(read.meta.fields.name.retentionDurability, 'volatile');
+  assert.equal(read.meta.evidence, 'compact');
+  assert.equal(read.meta.fields, undefined);
   console.log(
     'A typed, authorized read runs from installed tarballs in plain Node ESM.',
   );

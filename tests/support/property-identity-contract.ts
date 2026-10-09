@@ -101,6 +101,7 @@ export function propertyIdentityContract(
           ).toEqual(expected);
           const result = await runtime.read(employee, Customer.id, id, {
             select: [field, 'revenue'],
+            evidence: 'full',
           });
 
           expect(result).toMatchObject({
