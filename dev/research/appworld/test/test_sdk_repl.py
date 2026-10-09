@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from sdk_runner import SDK_PROMPT, NodeRepl, final_code
+from sdk_runner import SDK_PROMPT, NodeRepl, code_action
 
 
 def records():
@@ -101,22 +101,30 @@ console.log(JSON.stringify({x, total, evidence: playlists.data[0].meta.evidence}
         self.assertIsNotNone(result["error"])
         self.assertNotIn("root:", result["output"])
 
-    def test_final_response_does_not_concatenate_commentary_and_final_code(self):
+    def test_only_the_explicit_code_tool_executes(self):
         response = {
             "output": [
                 {
                     "type": "message",
                     "phase": "commentary",
-                    "content": [{"type": "output_text", "text": '{"code":"first"}'}],
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"code":"do not execute commentary"}',
+                        }
+                    ],
                 },
                 {
-                    "type": "message",
-                    "phase": "final_answer",
-                    "content": [{"type": "output_text", "text": '{"code":"second"}'}],
+                    "type": "function_call",
+                    "name": "execute_code",
+                    "call_id": "call-1",
+                    "arguments": '{"code":"console.log(1)"}',
                 },
             ]
         }
-        self.assertEqual(final_code(response), '{"code":"second"}')
+        self.assertEqual(code_action(response), ('{"code":"console.log(1)"}', "call-1"))
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            code_action({"output": response["output"] + [response["output"][1]]})
 
     def test_prompt_contains_discovery_entry_points_not_domain_schema(self):
         self.assertIn("relate.describe()", SDK_PROMPT)

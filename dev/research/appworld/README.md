@@ -1,20 +1,30 @@
 # AppWorld interface research
 
-This experiment asks which parts of Relate help a local agent: semantic
-explanations, bulk acquisition, executable relationships, or evidence
-presentation. It uses real Relate packages and AppWorld's original outcome
-evaluator.
+The current study compares Python AppWorld API agents with TypeScript agents
+using the actual Relate SDK. Read [SDK-STUDY.md](SDK-STUDY.md) for its protocol,
+results and reproduction command. SDK agents discover the graph through
+`describe()`, use public `query()`/`get()`/traversal, and receive compact
+evidence by default. No `research()` interface is exposed to them.
 
-Read [FINDINGS.md](FINDINGS.md) for results and development recommendations,
-[PLAN.md](PLAN.md) for experimental boundaries and
-[BENCHMARKS.md](BENCHMARKS.md) for alternative benchmarks.
+The earlier local-model study is retained as historical evidence: semantic
+notes, bulk acquisition, graph traversal and experimental evidence presentation.
+Read [FINDINGS.md](FINDINGS.md) for those results, [PLAN.md](PLAN.md) for the
+original boundaries and [BENCHMARKS.md](BENCHMARKS.md) for alternatives.
 
 This is an **AppWorld-based interface experiment**, not a leaderboard
 submission. Predefined source adapters change the permitted tool interface.
 Train/development results are exploratory; test-normal and test-challenge are
 not used.
 
-## Reproduce
+## Reproduce the original Ollama study
+
+For the direct-SDK study, use the separate commands in
+[SDK-STUDY.md](SDK-STUDY.md) and Node 26 (the REPL uses its filesystem and
+network permission controls). The original recorded runs used commit `50b83f1`;
+use that revision or the archived source snapshots for historical reproduction.
+The compatibility adapter now explicitly requests full evidence before its old
+projection so current compact-by-default packages do not silently change the old
+arm labels.
 
 From the repository root, run `pnpm install` and `pnpm build`. Then:
 

@@ -1,5 +1,8 @@
 # What to develop next from the AppWorld experiment
 
+> These are the original Ollama/wrapper findings. The subsequent direct-SDK
+> TypeScript experiment is reported separately in [SDK-STUDY.md](SDK-STUDY.md).
+
 The useful question is which work the graph removes from an agent. This study
 separates semantic notes, bulk acquisition, Relate execution and evidence
 presentation. It uses local Ollama models and real Relate reads/traversals.

@@ -143,20 +143,13 @@ class NodeRepl:
             stream.close()
 
 
-def final_code(result):
-    output_messages = [
-        item for item in result.get("output", []) if item.get("type") == "message"
+def code_action(result):
+    calls = [
+        item for item in result.get("output", []) if item.get("type") == "function_call"
     ]
-    final_messages = [
-        item for item in output_messages if item.get("phase") == "final_answer"
-    ]
-    final = (final_messages or output_messages)[-1] if output_messages else {}
-    content = "".join(
-        part.get("text", "")
-        for part in final.get("content", [])
-        if part.get("type") == "output_text"
-    )
-    return content
+    if len(calls) != 1 or calls[0].get("name") != "execute_code":
+        raise ValueError("Expected exactly one execute_code tool call")
+    return calls[0]["arguments"], calls[0]["call_id"]
 
 
 def model_call(key, model, messages, max_output, reasoning):
@@ -170,14 +163,18 @@ def model_call(key, model, messages, max_output, reasoning):
             "input": messages,
             "reasoning": {"effort": reasoning},
             "max_output_tokens": max_output,
-            "text": {
-                "format": {
-                    "type": "json_schema",
-                    "name": "agent_code",
+            "include": ["reasoning.encrypted_content"],
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "execute_code",
+                    "description": "Execute the next code cell in the persistent interpreter and return its printed output. Inspect the result before choosing the next cell.",
                     "strict": True,
-                    "schema": SCHEMA,
+                    "parameters": SCHEMA,
                 }
-            },
+            ],
+            "tool_choice": {"type": "function", "name": "execute_code"},
+            "parallel_tool_calls": False,
         },
         timeout=180,
     )
@@ -185,7 +182,7 @@ def model_call(key, model, messages, max_output, reasoning):
         # Do not persist request headers or a requests exception object.
         raise RuntimeError(f"OpenAI HTTP {response.status_code}: {response.text[:600]}")
     result = response.json()
-    content = final_code(result)
+    content, call_id = code_action(result)
     usage = result["usage"]
     cached = usage.get("input_tokens_details", {}).get("cached_tokens", 0)
     rates = (0.20, 0.02, 1.25) if "nano" in model else (0.75, 0.075, 4.5)
@@ -197,6 +194,7 @@ def model_call(key, model, messages, max_output, reasoning):
     return content, {
         "usage": usage,
         "provider_output": result.get("output", []),
+        "call_id": call_id,
         "estimated_usd": cost,
         "model": result["model"],
         "status": result["status"],
@@ -223,6 +221,14 @@ def run(args, key, task_id, condition, repeat, spent):
                 SDK_PROMPT
                 if condition == "sdk"
                 else BASE + (SEMANTICS if condition == "static" else "")
+            )
+            .replace(
+                "Return JSON with exactly one key, code, containing executable Python. No markdown.",
+                "Use execute_code to run the next Python cell.",
+            )
+            .replace(
+                "Return JSON with exactly one key, code, containing executable TypeScript. No markdown.",
+                "Use execute_code to run the next TypeScript cell.",
             )
             + AUTH
             + "\nWork iteratively: write one short cell, inspect its printed results, then choose the next cell. Read documentation output before attempting the documented operation.\n",
@@ -293,9 +299,9 @@ def run(args, key, task_id, condition, repeat, spent):
                     key, args.model, messages, args.max_output_tokens, args.reasoning
                 )
                 spent[0] += model["estimated_usd"]
-                messages.append(
-                    {"role": "assistant", "content": content, "phase": "final_answer"}
-                )
+                # Preserve reasoning (encrypted for stateless requests), message
+                # phases and the actual call; only the tool's arguments execute.
+                messages.extend(model["provider_output"])
                 execution_start = clock.real_perf_counter()
                 before = len(world.requester.request_tracker.requests)
                 event = {}
@@ -317,8 +323,9 @@ def run(args, key, task_id, condition, repeat, spent):
                     visible += "\n[OUTPUT TRUNCATED: select fewer fields/records or compute a summary in code]"
                 messages.append(
                     {
-                        "role": "user",
-                        "content": visible or "Execution produced no printed output.",
+                        "type": "function_call_output",
+                        "call_id": model["call_id"],
+                        "output": visible or "Execution produced no printed output.",
                     }
                 )
                 step = {
@@ -463,6 +470,7 @@ def main():
             },
             "reasoning": args.reasoning,
             "provider_seed": None,
+            "action_protocol": "single execute_code function call; stateless encrypted reasoning replay",
             "world_seed": 100,
             "sdk_prompt": SDK_PROMPT,
             "raw_prompt": BASE,

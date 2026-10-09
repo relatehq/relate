@@ -6,7 +6,7 @@ persistent Python interpreter. The Relate agent uses a persistent TypeScript
 REPL in a separate Node process. It receives the actual authenticated consumer,
 not a replacement graph API.
 
-## Protocol fixed before the first paid pilot
+## Initial protocol fixed before the first paid pilot
 
 - SDK baseline: upstream main `1556498`, including query (#13), compact evidence
   (#15), explicit through traversal (#16), and actor-bound discovery (#17).
@@ -101,7 +101,7 @@ cd dev/research/appworld
   --run sdk-reproduction \
   --tasks e7a10f8_1 d0b1f43_1 \
   --conditions raw static sdk --repeats 3 \
-  --model gpt-5.4-nano \
+  --model gpt-5.4-mini --reasoning low \
   --credentials /path/to/local/credentials.env \
   --max-cost-usd 5
 ```
@@ -110,7 +110,7 @@ The credential file must contain `OPENAI_API_KEY`. Only the host reads it; the
 path and value are excluded from saved configuration. No cloud fallback exists
 in the original Ollama runner. This new runner explicitly uses OpenAI.
 
-## Pilot decisions and frozen main comparison
+## Harness development and retained diagnostics
 
 The initial nano pilot used a 1,600-token per-response cap and no reasoning. It
 repeatedly truncated long code generations. The first mini pilot raised the cap
@@ -138,6 +138,33 @@ execution failures rather than infrastructure failures, record completion
 explicitly, and extract response selection into a tested helper. These cases did
 not occur in corrected pilot v2.
 
+## Final protocol: explicit code execution
+
+`sdk-mini-main-v1` is retained as a diagnostic, not the final comparison. During
+that run, a response contained multiple commentary-phase proposed cells and a
+final inability answer, without an execution boundary between them. Selecting
+only the final message discarded the proposed cells. That was a code-action
+protocol confound shared by every arm, not evidence of SDK failure.
+
+The final runner uses one strict `execute_code` function tool, forced as the
+next action with parallel tool calls disabled. Its argument is `{code: string}`;
+it runs Python for raw/static and TS for SDK. It is an interpreter tool, not a
+new graph API. Each call gets its actual output before the next model request.
+The runner replays provider output items (including message phases and encrypted
+reasoning for stateless requests) and attaches a matching
+`function_call_output`. No commentary or final-message text is executed as code.
+The old system prompt's JSON-output instruction becomes a language-specific
+`execute_code` instruction; all other task/domain and iteration instructions
+stay the same.
+
+`sdk-mini-tool-pilot-v1` checks that loop, `sdk-nano-tool-pilot-v1` checks nano
+on the corrected loop, and `sdk-mini-main-v2` is the final 18-episode
+comparison. Both models use low reasoning, a 4,096-output-token cap and the same
+task/turn/ output budgets. The mini main run repeats each task/condition three
+times. No model-quality ranking is inferred from differently configured earlier
+pilots. The final comparison is frozen before it starts; SDK usability failures
+remain observations rather than triggers to add task-solving prompt examples.
+
 ## Results
 
-Results will be recorded after the frozen repeated run finishes.
+Results will be recorded after the final repeated run finishes.

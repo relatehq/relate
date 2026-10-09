@@ -72,7 +72,8 @@ def summarize(names):
                 )
             )
             row["evaluation_valid"] = not (
-                name.endswith("pilot-v1") and row["condition"] == "sdk"
+                name in {"sdk-nano-pilot-v1", "sdk-mini-pilot-v1"}
+                and row["condition"] == "sdk"
             )
             if not row["evaluation_valid"]:
                 row["unreliable_pilot_evaluator_success"] = row["success"]
