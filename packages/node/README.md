@@ -211,10 +211,12 @@ const page = await relate.as(principal).objects.Person.query({
 });
 ```
 
-`query()` without options enumerates accessible graph members. Equality filters
-combine with AND; references accept typed Relate IDs. Await one page or iterate
-records with `for await`. Each record retains the same selected data and field
-evidence as `get`. Filters must be readable even when omitted from `select`.
+`query()` without options enumerates accessible graph members. Properties and
+operators combine with AND. Use scalar equality or `eq`/`in`; numbers and
+timestamps additionally support `gt`/`gte`/`lt`/`lte`. References accept typed
+Relate IDs, including in sets. Await one page or iterate records with
+`for await`. Each record retains the same selected data and field evidence as
+`get`. Filters must be readable even when omitted from `select`.
 
 Source-backed queries cover adopted records only; native queries cover records
 created in Relate. Direct source queries and source sync are planned. See the

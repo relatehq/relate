@@ -222,3 +222,28 @@ No stored data migration is needed. Reissue collection queries after upgrading:
 continuation tokens are not an upgrade compatibility contract. Exceptional field
 evidence and nonempty warnings remain available in compact mode. Data,
 authorization and action receipt dependency tracking are unchanged.
+
+## Scalar query predicates and timestamps
+
+`query({ where })` now accepts `eq` and `in` on scalar properties, and
+`gt`/`gte`/`lt`/`lte` on numbers and timestamps. Existing scalar equality syntax
+is preserved. Filters and operators combine with AND. Timestamp schemas use
+`z.iso.datetime({ offset: true, precision: 3 })`, with optional/nullable
+wrappers; comparison uses instants while returned strings retain their supplied
+offset. Date-only/local timestamps and other precisions must be normalized by
+the application before ingestion. Query operands accept any timezone-qualified
+ISO instant with at most millisecond precision. Range operands on numbers are
+not limited by the property's declared bounds. Ordinary strings retain exact
+text equality.
+
+The portable manifest format advances from 5 to 6. Recompile older models;
+installed graphs remain revision-pinned and require explicit revision/data
+migration before activation. Relate does not automatically reinterpret stored
+plain strings as timestamps. Package versions remain `0.0.0-dev.0`.
+
+Queries now reject more than 100 filter properties or 100 operands in one `in`.
+Empty operator objects, undefined operands, invalid formats and unsupported
+operators reject before scanning. Discovery includes each readable property's
+`filterOperators`. Normalized predicates are part of cursor scope, so cursors
+issued before this change must be restarted. Traversal filters and indexes are
+not part of this change; scans, authorization and freshness behavior remain.

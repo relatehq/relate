@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { defineObject, native, nativeMembership } from 'relate';
 import { createRuntime } from '@relate/node';
 import { implementAction, referenceInput } from 'relate';
 import type { QueryResult, ObjectRecord } from 'relate';
@@ -26,8 +28,26 @@ objects.Invoice.query({ where: { id: 'raw-id' } });
 objects.Invoice.query({ where: { total: '10' } });
 // @ts-expect-error unknown property
 objects.Invoice.query({ where: { typo: 'x' } });
-// @ts-expect-error no operators in equality-only queries
 objects.Invoice.query({ where: { total: { gt: 10 } } });
+objects.Invoice.query({
+  where: {
+    total: { gte: 0, lt: 10, in: [5, null] },
+    customer: { in: [customer] },
+    paid: { eq: false },
+  },
+});
+// @ts-expect-error references retain their target brand in sets
+objects.Invoice.query({ where: { customer: { in: [invoice] } } });
+// @ts-expect-error range operands cannot be null
+objects.Invoice.query({ where: { total: { gt: null } } });
+// @ts-expect-error booleans have no range operators
+objects.Invoice.query({ where: { paid: { gt: false } } });
+// @ts-expect-error ordinary strings have no range operators
+objects.Invoice.query({ where: { status: { gte: 'a' } } });
+// @ts-expect-error references have no range operators
+objects.Invoice.query({ where: { customer: { gt: customer } } });
+// @ts-expect-error set operands keep the scalar type
+objects.Invoice.query({ where: { total: { in: ['10'] } } });
 // @ts-expect-error unknown selection
 objects.Invoice.query({ select: ['typo'] });
 // @ts-expect-error filters do not broaden selection
@@ -120,3 +140,29 @@ implementAction(graph, Run, async ({ objects }) => {
 
   return { count: 0 };
 });
+
+const Event = defineObject({
+  id: 'event',
+  membership: nativeMembership(),
+  properties: {
+    at: native(
+      z.iso.datetime({ offset: true, precision: 3 }).optional().nullable(),
+      { id: 'event.at' },
+    ),
+  },
+});
+const timestampOptions: import('relate').QueryOptions<typeof Event> = {
+  where: {
+    at: {
+      gte: '2026-10-01T00:00:00.000Z',
+      lt: '2026-11-01T00:00:00.000Z',
+      in: [null],
+    },
+  },
+};
+const invalidTimestamp: import('relate').QueryOptions<typeof Event> = {
+  // @ts-expect-error timestamps take ISO strings, not Date objects
+  where: { at: { gt: new Date() } },
+};
+
+void [timestampOptions, invalidTimestamp];

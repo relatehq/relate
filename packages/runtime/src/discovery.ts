@@ -16,7 +16,7 @@ import {
 import { actionAllowed } from './actions/index.js';
 import { availableTraversals } from './traversal/index.js';
 import { operationContracts } from './contracts.js';
-import { schemaText } from './reads/index.js';
+import { schemaText, filterOperators } from './reads/index.js';
 
 type ManifestObject = Manifest['objects'][number];
 
@@ -98,6 +98,7 @@ export function createDiscovery(
                 : ('value' as const),
           schema: property.schema,
           ...(target ? { references: summary(target) } : {}),
+          filterOperators: filterOperators(property.schema),
           filter: schemaText(
             property.schema,
             property.origin.kind === 'object-id'

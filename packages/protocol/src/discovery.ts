@@ -8,6 +8,7 @@ export interface ScalarSchema {
   readonly type: 'string' | 'number' | 'boolean';
   readonly optional: boolean;
   readonly nullable: boolean;
+  readonly format?: 'timestamp' | undefined;
   readonly minLength?: number | undefined;
   readonly maxLength?: number | undefined;
   readonly minimum?: number | undefined;
@@ -91,8 +92,10 @@ export interface PropertyDescription {
   readonly kind: 'object-id' | 'value' | 'reference';
   readonly schema: ScalarSchema;
   readonly references?: ObjectSummary;
-  /** The value `query({ where })` matches by equality, such as `Person object ID`. */
+  /** Operand type for this property's `query({ where })` filters, such as `Person object ID`. */
   readonly filter: string;
+  /** Operators accepted in this property's where object. */
+  readonly filterOperators: readonly string[];
 }
 
 export interface TraversalDescription {

@@ -142,12 +142,33 @@ continuations.
 Portable request/result types live in `@relate/protocol`; typed `QueryOptions`
 and object records live in `relate`.
 
-- Omit `where` or pass `{}` to enumerate. Otherwise each property is an exact
-  scalar equality test, combined with AND. Values must satisfy the property's
-  compiled schema. References and object-ID properties use canonical Relate IDs.
-  `null` matches explicit null; known absent optional values do not match. There
-  is no `undefined` filter, nested predicate, comparison, sorting or
-  aggregation.
+- Omit `where` or pass `{}` to enumerate. Scalar values are equality shorthand;
+  operator objects support `eq` and `in` on every property, and `gt`, `gte`,
+  `lt`, `lte` on numbers and timestamps. Properties and operators combine with
+  AND. `eq`/`in` operands must satisfy the property's compiled schema. Range
+  operands must match the property's type (finite numbers, or timestamps) but
+  are not limited by its declared value bounds, and cannot be null. A bare array
+  is rejected with a pointer to `in`. References and object-ID properties use
+  canonical Relate IDs. `null` matches explicit null; known absent optional
+  values never match. Empty `in` matches nothing, but does not bypass evidence
+  checks. Contradictory bounds match nothing. Reject empty operator objects,
+  unknown operators, undefined operands and incompatible types before scanning.
+  At most 100 filter properties and 100 operands per `in` are accepted. No
+  recursive predicates, traversal filters, sorting or aggregation are supported.
+- Timestamp properties compile from
+  `z.iso.datetime({ offset: true, precision: 3 })` (optionally
+  nullable/optional). The manifest marks these strings with
+  `format: 'timestamp'`. Source, native and action values are validated as
+  timezone-qualified ISO instants with exactly three fractional digits. Query
+  operands accept any timezone-qualified ISO instant with at most millisecond
+  precision, so normalization to milliseconds stays exact. Equality, sets and
+  ranges compare instant milliseconds, not text; returned values retain their
+  original representation. Plain strings do not acquire timestamp semantics by
+  resembling a date.
+- Predicate compilation normalizes equality shorthand, timestamp operands,
+  operator order and set order/duplicates once per request. Cursor binding uses
+  those normalized predicates. Evaluation still follows bounded authorized
+  reads; this implementation does not introduce indexes or storage pushdown.
 - Membership is adopted source identities or native records in this graph and
   revision. Source queries may refresh known records through existing `get`
   behavior, but never discover/adopt provider records. Exhaustion describes this
