@@ -7,7 +7,7 @@ type ReadOptions<K, E> = Omit<ReadRequest, "select" | "evidence"> & {
 };
 ```
 
-Defined in: packages/relate/src/operations.ts:29
+Defined in: packages/relate/src/operations.ts:31
 
 Select properties and control evidence detail for an object read.
 

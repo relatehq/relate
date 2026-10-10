@@ -48,14 +48,14 @@ field classifications, and policy dependencies, then returns an immutable,
 serializable manifest. Property renames preserve their IDs and change the
 definition revision.
 
-The current manifest format is **5**. Source observations, native values,
+The current manifest format is **6**. Source observations, native values,
 authorization evidence and persisted value history use stable property IDs;
-consumer results retain property names. Formats 1 through 4 must be recompiled.
+consumer results retain property names. Formats 1 through 5 must be recompiled.
 Format 4 added portable scalar bounds and declared action failure schemas;
-format 5 adds portable graph discovery descriptions. Recompilation also changes
-the installed revision, preventing an existing name-keyed store from being read
-as ID-keyed data. Existing installations need an explicit data/revision
-migration; see the
+format 5 added portable graph discovery descriptions; format 6 adds timestamp
+semantics to scalar schemas. Recompilation also changes the installed revision,
+preventing an existing name-keyed store from being read as ID-keyed data.
+Existing installations need an explicit data/revision migration; see the
 [storage contract](../runtime/STORE_CONTRACT.md#property-identity).
 
 This slice supports a single membership source per object, scalar string/number/

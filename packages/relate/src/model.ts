@@ -15,6 +15,7 @@ export const scalarSchema = z.strictObject({
   type: z.enum(['string', 'number', 'boolean']),
   optional: z.boolean(),
   nullable: z.boolean(),
+  format: z.literal('timestamp').optional(),
   minLength: z.number().int().nonnegative().optional(),
   maxLength: z.number().int().nonnegative().optional(),
   minimum: z.number().finite().optional(),
@@ -84,7 +85,7 @@ const propertySchema = z.strictObject({
 });
 
 export const manifestSchema = z.strictObject({
-  formatVersion: z.literal(5),
+  formatVersion: z.literal(6),
   graphDefinitionId: text,
   description: prose.optional(),
   fieldGroups: z.array(text),
@@ -227,6 +228,8 @@ export function deepFreeze<T>(value: T): T {
   return value;
 }
 
+const timestamp = z.iso.datetime({ offset: true, precision: 3 });
+
 export function accepts(schema: ScalarSchema, value: unknown): boolean {
   if (value === undefined) return schema.optional;
 
@@ -235,6 +238,9 @@ export function accepts(schema: ScalarSchema, value: unknown): boolean {
   if (typeof value !== schema.type) return false;
 
   if (typeof value === 'string') {
+    if (schema.format === 'timestamp' && !timestamp.safeParse(value).success)
+      return false;
+
     if (schema.minLength === undefined && schema.maxLength === undefined)
       return true;
 
@@ -362,7 +368,9 @@ export function validateManifest(input: unknown): Manifest {
   for (const { schema, path, definitionId } of scalars) {
     if (
       (schema.type !== 'string' &&
-        (schema.minLength !== undefined || schema.maxLength !== undefined)) ||
+        (schema.minLength !== undefined ||
+          schema.maxLength !== undefined ||
+          schema.format !== undefined)) ||
       (schema.type !== 'number' &&
         [
           schema.minimum,

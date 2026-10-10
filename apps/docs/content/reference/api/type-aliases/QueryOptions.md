@@ -2,15 +2,16 @@
 
 ```ts
 type QueryOptions<O, K, E> = PageOptions<K, E> & {
-  where?: { readonly [N in PropertyNames<O>]?: Exclude<PropertyValue<O, N>, undefined> };
+  where?: { readonly [N in PropertyNames<O>]?: PropertyFilter<O["properties"][N], Exclude<PropertyValue<O, N>, undefined>> };
 };
 ```
 
-Defined in: packages/relate/src/operations.ts:84
+Defined in: packages/relate/src/operations.ts:111
 
 Filter and page through objects already adopted into the graph.
 
-Filters combine with AND and use exact equality. Reference properties take
+Properties and operators combine with AND. Use scalar equality, eq/in, or
+gt/gte/lt/lte on numbers and timestamps. Reference properties take
 Relate object IDs. Queries do not discover provider-wide records.
 
 ## Type Declaration
@@ -18,10 +19,10 @@ Relate object IDs. Queries do not discover provider-wide records.
 ### where?
 
 ```ts
-readonly optional where?: { readonly [N in PropertyNames<O>]?: Exclude<PropertyValue<O, N>, undefined> };
+readonly optional where?: { readonly [N in PropertyNames<O>]?: PropertyFilter<O["properties"][N], Exclude<PropertyValue<O, N>, undefined>> };
 ```
 
-Exact-match filters keyed by object property name.
+Typed scalar predicates keyed by object property name.
 
 ## Type Parameters
 

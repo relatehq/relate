@@ -285,6 +285,147 @@ export function queryContract(
       expect(new Set(all).size).toBe(2);
     });
 
+    it('combines operators with AND and matches typed reference sets', async () => {
+      const customer = await app.host.adopt(model.Customer, 'north');
+
+      await seed('a', 'Overdue', 'north', 0);
+      const middle = await seed('b', 'Overdue', 'north', 10);
+
+      await seed('c', 'Paid', 'north', 20);
+      await seed('d', 'Overdue', 'north', null);
+      const page = await app.as(fin).objects.Invoice.query({
+        where: {
+          customer: { in: [customer] },
+          total: { gt: 0, gte: 10, lt: 20, lte: 10 },
+          status: { eq: 'Overdue', in: ['Overdue', 'Paid'] },
+          paid: { in: [false] },
+        },
+        select: ['status'],
+      });
+
+      expect(page.data.map((row) => row.id)).toEqual([middle]);
+      expect(page.data[0]!.data).toEqual({ status: 'Overdue' });
+      expect(
+        (
+          await app
+            .as(fin)
+            .objects.Invoice.query({ where: { total: { in: [null] } } })
+        ).data,
+      ).toHaveLength(1);
+      expect(
+        (
+          await app
+            .as(fin)
+            .objects.Invoice.query({ where: { total: { in: [] } } })
+        ).data,
+      ).toEqual([]);
+      expect(
+        (
+          await app
+            .as(fin)
+            .objects.Invoice.query({ where: { total: { gt: 20, lt: 0 } } })
+        ).data,
+      ).toEqual([]);
+    });
+
+    it('validates operator operands before any scan, including empty populations', async () => {
+      const scan = vi.spyOn(backing.store, 'scan');
+
+      for (const where of [
+        { total: {} },
+        { total: { gt: null } },
+        { total: { gt: '10' } },
+        { total: { eq: undefined } },
+        { total: { eq: Infinity } },
+        { total: { in: [10, undefined] } },
+        { total: { in: '10' } },
+        { total: { in: Array(101).fill(10) } },
+        { paid: { gt: true } },
+        { customer: { gte: 'north' } },
+        { status: { contains: 'Over' } },
+        { status: { eq: { eq: 'Overdue' } } },
+        Object.fromEntries(
+          Array.from({ length: 101 }, (_, i) => [`field${i}`, 0]),
+        ),
+      ])
+        await expect(
+          app.as(fin).objects.Invoice.query({ where } as never),
+        ).rejects.toMatchObject({ code: 'invalid-request' });
+
+      expect(scan).not.toHaveBeenCalled();
+    });
+
+    it('refreshes cached non-matches and preserves incomplete evidence for operator queries', async () => {
+      const id = await seed('a', 'Overdue', 'north', 10);
+
+      records.get('a')!.total = 100;
+      expect(
+        (
+          await app.as(fin).objects.Invoice.query({
+            where: { total: { gt: 50 } },
+            refresh: true,
+          })
+        ).data.map((row) => row.id),
+      ).toEqual([id]);
+      records.get('a')!.total = 10;
+      expect(
+        (
+          await app.as(fin).objects.Invoice.query({
+            where: { total: { gt: 50 } },
+            refresh: true,
+          })
+        ).data,
+      ).toEqual([]);
+      now += 61_000;
+      offline = true;
+      await expect(
+        app.as(fin).objects.Invoice.query({
+          where: { status: { in: [] }, total: { gt: 50 } },
+          stale: 'omit',
+        }),
+      ).rejects.toMatchObject({ code: 'incomplete' });
+      offline = false;
+      denied = true;
+      expect(
+        (
+          await app.as(fin).objects.Invoice.query({
+            where: { total: { gte: 0 } },
+            refresh: true,
+          })
+        ).data,
+      ).toEqual([]);
+    });
+
+    it('normalizes equality and set predicates for cursors but rejects changed bounds', async () => {
+      await seed('a');
+      await seed('b');
+      const page = await app.as(fin).objects.Invoice.query({
+        where: { status: 'Overdue', total: { in: [10, 20, 10], gte: 0 } },
+        limit: 1,
+      });
+
+      expect(page.meta.exhausted).toBe(false);
+
+      if (page.meta.exhausted) return;
+
+      const cursor = page.meta.continuationCursor;
+      const next = await app.as(fin).objects.Invoice.query({
+        where: { total: { gte: 0, in: [20, 10] }, status: { eq: 'Overdue' } },
+        limit: 1,
+        cursor,
+      });
+
+      expect(next.data).toHaveLength(1);
+      expect(next.data[0]!.id).not.toBe(page.data[0]!.id);
+      await expect(
+        app.as(fin).objects.Invoice.query({
+          where: { status: 'Overdue', total: { in: [10, 20], gte: 1 } },
+          limit: 1,
+          cursor,
+        }),
+      ).rejects.toMatchObject({ code: 'invalid-request' });
+    });
+
     it('validates filters even for empty graphs and rejects forbidden probes without scanning', async () => {
       const scan = vi.spyOn(backing.store, 'scan');
 
@@ -293,7 +434,7 @@ export function queryContract(
         { where: { status: 42 } },
         { where: { typo: 'x' } },
         { where: { status: undefined } },
-        { where: { status: { eq: 'Overdue' } } },
+        { where: { status: { gt: 'Overdue' } } },
         { where: null },
         { where: [] },
         { limit: 0 },
@@ -367,7 +508,7 @@ export function queryContract(
       handler = async ({ objects }) => ({
         count: (
           await objects.Invoice.query({
-            where: { status: 'Overdue' },
+            where: { status: { in: ['Overdue'] } },
             stale: 'omit',
             select: [],
           })
@@ -388,9 +529,10 @@ export function queryContract(
 
       await seed('a', 'Overdue', 'south');
       await expect(
-        app
-          .as(actor)
-          .objects.Invoice.query({ where: { customer: south }, select: [] }),
+        app.as(actor).objects.Invoice.query({
+          where: { customer: { in: [south] } },
+          select: [],
+        }),
       ).rejects.toMatchObject({ code: 'incomplete' });
       denied = true;
       expect(
@@ -583,7 +725,7 @@ export function queryContract(
         expect(
           (
             await objects.Review.query({
-              where: { note: 'first' },
+              where: { note: { eq: 'first', in: ['first', 'third'] } },
               select: ['note'],
             })
           ).data,
@@ -648,7 +790,10 @@ export function queryContract(
       await seed('a');
       handler = async ({ objects }) => ({
         count: (
-          await objects.Invoice.query({ where: { total: 10 }, select: [] })
+          await objects.Invoice.query({
+            where: { total: { gte: 10, lte: 10 } },
+            select: [],
+          })
         ).data.length,
       });
       const receipt = await app

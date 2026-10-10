@@ -97,8 +97,24 @@ export function portable(schema: z.ZodType): ScalarSchema {
     }
   }
 
-  // Formats such as z.email() carry validation on the schema itself.
-  if ('format' in current.def) throw new Error('Unsupported schema format');
+  // Only this explicitly supported timestamp format has portable instant semantics.
+  // Other formats and string().datetime() checks remain unsupported.
+  if ('format' in current.def) {
+    if (
+      current.def.format !== 'datetime' ||
+      !('offset' in current.def) ||
+      current.def.offset !== true ||
+      !('local' in current.def) ||
+      current.def.local !== false ||
+      !('precision' in current.def) ||
+      current.def.precision !== 3
+    )
+      throw new Error(
+        'Unsupported schema format; use z.iso.datetime({ offset: true, precision: 3 }) for timestamps',
+      );
+
+    result.format = 'timestamp';
+  }
 
   return result;
 }

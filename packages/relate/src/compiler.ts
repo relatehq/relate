@@ -822,7 +822,7 @@ export function compile(graph: GraphDefinition): CompiledModel {
 
   const relationships = relationshipEntries.map(([, r]) => r);
   const manifestInput = {
-    formatVersion: 5,
+    formatVersion: 6,
     graphDefinitionId: graph.id,
     ...described(graph.description),
     fieldGroups: [...graph.access.fieldGroups].sort(),
