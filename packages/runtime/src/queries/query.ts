@@ -1,10 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { canonicalJson, isPlainObject } from 'relate/model';
+import { canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
   QueryRequest,
-  FilterScalar,
   ReadRequest,
   FullReadResult as ReadResult,
   FullPageResult as PageResult,
@@ -20,14 +19,14 @@ import { scanBatch } from '../storage.js';
 import {
   allowsField,
   allowsObject,
+  filterableProperties,
   operationName,
-  readableProperties,
 } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import {
   cursorCodec,
-  compilePredicate,
-  matchesPredicate,
+  compileWhere,
+  predicateMatcher,
   type Predicate,
   project,
   requestIssues,
@@ -70,14 +69,6 @@ export function createGraphQuery(options: {
     const policy = object && manifest.policies[object.id];
     const operation = operationName(manifest, principal, type, 'query');
     const issues = requestIssues(input, 'query');
-    const where: Record<string, unknown> =
-      input &&
-      typeof input === 'object' &&
-      isPlainObject(input.where) &&
-      Object.keys(input.where).length <= 100
-        ? input.where
-        : {};
-
     const predicates: Predicate[] = [];
 
     if (!object)
@@ -89,37 +80,15 @@ export function createGraphQuery(options: {
     // Validate filters before consulting membership, including empty populations.
     // An unreadable type returns an empty page below, with or without filters,
     // so its property names are neither checked nor offered.
-    else if (Object.keys(where).length && allowsObject(principal, policy)) {
-      // Filterable means discoverable: names outside that set share one answer,
-      // so an error never confirms that a hidden field exists.
-      const filterable = readableProperties(manifest, principal, object).map(
-        ({ property, target }) => ({
-          id: property.id,
-          name: property.name,
-          schema: property.schema,
-          references:
-            target?.apiName ??
-            (property.origin.kind === 'object-id' ? object.apiName : undefined),
-        }),
+    else if (input?.where !== undefined && allowsObject(principal, policy))
+      predicates.push(
+        ...compileWhere(
+          object.apiName,
+          () => filterableProperties(manifest, principal, object),
+          input.where,
+          issues,
+        ),
       );
-
-      for (const [name, value] of Object.entries(where)) {
-        const property = filterable.find((p) => p.name === name);
-
-        if (!property)
-          issues.push({
-            path: ['where', name],
-            problem: 'unknown-property',
-            message: `not a filterable property of ${object.apiName} for this reader.`,
-            accepted: filterable.map((p) => p.name),
-          });
-        else predicates.push(compilePredicate(property, value, issues));
-      }
-    }
-
-    predicates.sort((a, b) =>
-      a.propertyId < b.propertyId ? -1 : a.propertyId > b.propertyId ? 1 : 0,
-    );
 
     if (!object || issues.length) throwIssues(operation, 'query', issues);
 
@@ -189,32 +158,7 @@ export function createGraphQuery(options: {
     if (!object.sourceDefinitionId && !store.native)
       throw new ReadError('unavailable');
 
-    const usable = (record: ObjectRecord) =>
-      filterNames.every((name) => {
-        const status = record.meta.fields[name]?.status;
-
-        return status === 'available' || status === 'absent';
-      });
-    const matches = (record: ObjectRecord) => {
-      if (!usable(record)) throw new ReadError('incomplete');
-
-      return predicates.every(
-        (predicate) =>
-          Object.hasOwn(record.data, predicate.name) &&
-          matchesPredicate(
-            predicate,
-            record.data[predicate.name] as FilterScalar,
-          ),
-      );
-    };
-    const evidence = (id: string, result: Available, at: number) =>
-      project(
-        id,
-        result,
-        needed,
-        { ...readRequest, requireComplete: false },
-        at,
-      );
+    const filter = predicateMatcher(predicates, readRequest, clock);
     const readCandidate = async (id: string) => {
       let allowed = async () => false;
       const result = await options.read(
@@ -280,7 +224,7 @@ export function createGraphQuery(options: {
           result,
           at,
           allowed,
-          match: matches(evidence(id, result, at)),
+          match: filter.matches(id, result, at),
         };
       };
       const evaluated: Awaited<ReturnType<typeof evaluate>>[] = [];
@@ -307,30 +251,19 @@ export function createGraphQuery(options: {
     for (const item of pending) {
       if (!(await item.allowed())) continue;
 
-      // Time may have advanced while processing other members. Re-evaluate filter
-      // evidence under the caller's freshness rules before emitting a match.
-      let at = clock();
+      const at = await filter.confirm(item, async () => {
+        const reread = await readCandidate(item.id);
 
-      if (at !== item.at) {
-        let current = evidence(item.id, item.result, at);
+        if (reread.result.status !== 'ok' || !(await reread.allowed()))
+          return undefined;
 
-        if (!usable(current)) {
-          // Evidence expired after matching; refresh this member, not the page.
-          const reread = await readCandidate(item.id);
+        onRead?.(item.id, reread.result);
 
-          if (reread.result.status !== 'ok' || !(await reread.allowed()))
-            continue;
+        return reread.result;
+      });
 
-          onRead?.(item.id, reread.result);
-          item.result = reread.result;
-          at = clock();
-          current = evidence(item.id, item.result, at);
-        }
-
-        if (!matches(current)) continue;
-      }
-
-      data.push(project(item.id, item.result, selected, readRequest, at));
+      if (at !== undefined)
+        data.push(project(item.id, item.result, selected, readRequest, at));
     }
 
     return {

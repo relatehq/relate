@@ -79,12 +79,18 @@ it('discovers the generic read contract and each object’s concrete calls', asy
     'requireComplete',
     'timeoutMs',
   ]);
-  expect(consumer.describe().operations.traverse.many.options).not.toContain(
-    'where',
+  expect(consumer.describe().operations.traverse.many.options).toEqual(
+    consumer.describe().operations.query.options,
   );
-  expect(consumer.describe().operations.traverse.one.options).not.toContain(
-    'limit',
-  );
+  expect(consumer.describe().operations.traverse.one.options).toEqual([
+    'select',
+    'evidence',
+    'stale',
+    'maxAgeMs',
+    'refresh',
+    'requireComplete',
+    'timeoutMs',
+  ]);
   expect(
     consumer.describe().operations.options.map((option) => option.name),
   ).toEqual(consumer.describe().operations.query.options);
@@ -140,7 +146,7 @@ it('prints operations as call signatures instead of implementation source', asyn
   const { Customer, Invoice } = relate.as(ana).objects;
 
   expect(String(Customer.traverse.invoices)).toBe(
-    'objects.Customer.traverse.invoices(id: ObjectId<Customer>, options?: { select?, limit?, cursor?, evidence?, stale?, maxAgeMs?, refresh?, requireComplete?, timeoutMs? }): QueryResult<Invoice>',
+    'objects.Customer.traverse.invoices(id: ObjectId<Customer>, options?: { where?, select?, limit?, cursor?, evidence?, stale?, maxAgeMs?, refresh?, requireComplete?, timeoutMs? }): QueryResult<Invoice>',
   );
   expect(inspect(Invoice.traverse.customer)).toBe(
     'objects.Invoice.traverse.customer(id: ObjectId<Invoice>, options?: { select?, evidence?, stale?, maxAgeMs?, refresh?, requireComplete?, timeoutMs? }): Promise<ObjectResult<Customer>>',
@@ -236,14 +242,44 @@ it('explains traversal call mistakes without querying records', async () => {
   const { relate, ana } = createInvoiceApp();
   const { Customer, Invoice } = relate.as(ana).objects;
 
+  // Filters name the destination's properties and are checked before any read,
+  // alongside every other issue in the call.
   expect(
     (
       await readError(() =>
         Customer.traverse.invoices(
-          'c1' as never,
+          '' as never,
           {
-            where: { status: 'Open' },
+            where: { portfolio: 'north', status: { gt: 'Open' } },
           } as never,
+        ),
+      )
+    ).issues,
+  ).toEqual([
+    {
+      path: ['id'],
+      problem: 'invalid-value',
+      message: 'expected a nonblank Customer object ID string; got string.',
+    },
+    {
+      path: ['where', 'portfolio'],
+      problem: 'unknown-property',
+      message: 'not a filterable property of Invoice for this reader.',
+      accepted: ['customer', 'id', 'status'],
+    },
+    {
+      path: ['where', 'status', 'gt'],
+      problem: 'invalid-value',
+      message: 'unsupported filter operator for this property.',
+      accepted: ['eq', 'in'],
+    },
+  ]);
+  expect(
+    (
+      await readError(() =>
+        Invoice.traverse.customer(
+          'i1' as never,
+          { where: { name: 'Northwind' } } as never,
         ),
       )
     ).issues,
@@ -252,7 +288,7 @@ it('explains traversal call mistakes without querying records', async () => {
       path: ['where'],
       problem: 'not-supported',
       message:
-        'not accepted here; traversals do not filter; query the target object with "where", or filter the returned records.',
+        'not accepted here; this operation returns a single record and does not page or filter.',
     },
   ]);
   expect(

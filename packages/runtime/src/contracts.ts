@@ -70,7 +70,7 @@ export const operationContracts: OperationContracts = deepFreeze({
       signature: '<Object>.traverse.<name>(id: ObjectId, options?)',
       returns: 'QueryResult<ObjectRecord>',
       description:
-        'Records related to one starting record, paged like query. Traversals do not filter: use select here, or query the target object with where.',
+        "Records related to one starting record, paged and filtered like query. where addresses the related records' properties; results are always limited to the relationship.",
       options: names('traverse-many'),
     },
     one: {

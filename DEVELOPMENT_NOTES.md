@@ -6,6 +6,34 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Collection traversal filters
+
+To-many traversals accept `where` with the same operators, validation and
+normalization as `query`. Filters address the destination object's properties
+and combine with relationship membership using AND, for reference and `through`
+relationships alike:
+
+```ts
+objects.Person.traverse.receivedTransactions(meId, {
+  where: {
+    sender: { in: coworkerIds },
+    createdAt: { gte: start, lt: end },
+  },
+  select: ['sender', 'amount', 'createdAt'],
+});
+```
+
+To-one traversals are unchanged and reject `where`.
+
+Breaking for protocol consumers: `where` moved from `QueryRequest` to
+`TraversalRequest`, and `QueryRequest` is now an alias of `TraversalRequest`.
+`operationContracts.traverse.many.options` now lists `where`, and its
+description no longer says traversals do not filter. A `where` on a to-one
+traversal now explains that the operation returns a single record; previously
+the message pointed callers to `query`. Traversal cursor scope now includes
+normalized filters, so traversal cursors issued before this change must be
+restarted.
+
 ## Discoverable operation contracts and request errors
 
 `relate.as(principal).describe()` now includes `operations`: how to call get,
@@ -196,11 +224,15 @@ authorization and action receipt dependency tracking are unchanged.
 is preserved. Filters and operators combine with AND. Timestamp schemas use
 `z.iso.datetime({ offset: true, precision: 3 })`, with optional/nullable
 wrappers; comparison uses instants while returned strings retain their supplied
-offset. Date-only/local timestamps and other precisions must be normalized by
-the application before ingestion. Query operands accept any timezone-qualified
-ISO instant with at most millisecond precision. Range operands on numbers are
-not limited by the property's declared bounds. Ordinary strings retain exact
-text equality.
+offset. Applications must supply exactly three fractional-second digits for
+stored timestamp values; changing precision must preserve the established
+instant. Converting a local datetime to an instant requires an established
+timezone and a policy for ambiguous or nonexistent local times. Calendar dates
+and deliberately timezone-free values should retain their original meaning as
+ordinary strings; do not append `Z` to imply UTC without a source contract.
+Query operands accept any timezone-qualified ISO instant with at most
+millisecond precision. Range operands on numbers are not limited by the
+property's declared bounds. Ordinary strings retain exact text equality.
 
 The portable manifest format advances from 5 to 6. Recompile older models;
 installed graphs remain revision-pinned and require explicit revision/data

@@ -12,13 +12,16 @@ import type { ObservationStore, StorageScope } from '../storage.js';
 import { scanBatch } from '../storage.js';
 import {
   allowsField,
+  filterableProperties,
   operationName,
   visibleName,
 } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import {
+  compileWhere,
   cursorCodec,
   invalidValue,
+  predicateMatcher,
   project,
   rejectIssues,
   requestIssues,
@@ -97,15 +100,41 @@ export function createTraversal(options: TraversalOptions) {
         ),
       );
 
+    // Filters address the destination; its readable properties are discoverable
+    // because the traversal itself is.
+    const predicates =
+      kind === 'traverse-many'
+        ? compileWhere(
+            match.target.apiName,
+            () => filterableProperties(manifest, principal, match.target),
+            input?.where,
+            issues,
+          )
+        : [];
+
     rejectIssues(operation, kind, issues);
 
-    const request: TraversalRequest = structuredClone(
+    const { where: _where, ...request }: TraversalRequest = structuredClone(
       Object.fromEntries(
         Object.entries(input).filter(([, value]) => value !== undefined),
       ),
     );
     const { relationship, forward } = match;
     const limit = request.limit ?? 25;
+
+    // Filter fields join the private selection. An omitted selection already
+    // covers them, so only an explicit selection/filter union is capped.
+    if (
+      request.select &&
+      new Set([...request.select, ...predicates.map((p) => p.name)]).size > 100
+    )
+      throwIssues(operation, kind, [
+        {
+          path: ['select'],
+          problem: 'invalid-value',
+          message: 'select and where together name more than 100 properties.',
+        },
+      ]);
 
     if ('through' in relationship)
       return through(
@@ -116,6 +145,7 @@ export function createTraversal(options: TraversalOptions) {
         forward,
         request,
         operation,
+        predicates,
       );
 
     const targetType = forward
@@ -142,7 +172,7 @@ export function createTraversal(options: TraversalOptions) {
       id,
       relationship: relationship.id,
       forward,
-      query: { ...readRequest, limit },
+      query: { ...readRequest, where: predicates, limit },
     });
     let after = cursor
       ? codec.decode(cursor, scope, clock(), operation)
@@ -236,16 +266,22 @@ export function createTraversal(options: TraversalOptions) {
             .map((p) => p.name),
       ),
     ];
+    const filter = predicateMatcher(predicates, readRequest, clock);
+    const needed = [...new Set([...selected, ...filter.names])];
 
     // The engine includes the membership field privately after validating the
     // public selection. Projection removes it unless the caller requested it.
-    async function member(objectId: string): Promise<Available | undefined> {
+    async function member(
+      objectId: string,
+      capture?: (check: () => Promise<boolean>) => void,
+    ): Promise<Available | undefined> {
       const target = await read(
         principal,
         targetType,
         objectId,
-        { ...readRequest, select: selected, requireComplete: false },
+        { ...readRequest, select: needed, requireComplete: false },
         via.name,
+        capture,
       );
 
       if (target.status !== 'ok') return undefined;
@@ -258,7 +294,7 @@ export function createTraversal(options: TraversalOptions) {
       return target;
     }
 
-    const pending: { id: string; result: Available }[] = [];
+    const pending: { id: string; result: Available; at: number }[] = [];
     let scanned = 0;
     let more = true;
 
@@ -276,8 +312,10 @@ export function createTraversal(options: TraversalOptions) {
         after = candidate;
         scanned++;
         const result = await member(candidate);
+        const at = clock();
 
-        if (result) pending.push({ id: candidate, result });
+        if (result && filter.matches(candidate, result, at))
+          pending.push({ id: candidate, result, at });
       }
 
       if (!batch.ids.length) break;
@@ -331,10 +369,19 @@ export function createTraversal(options: TraversalOptions) {
     const data: ObjectRecord[] = [];
 
     for (const item of authorized) {
-      if (await item.allowed())
-        data.push(
-          project(item.id, item.result, selected, readRequest, clock()),
-        );
+      if (!(await item.allowed())) continue;
+
+      const at = await filter.confirm(item, async () => {
+        let allowed = async () => false;
+        const result = await member(item.id, (check) => {
+          allowed = check;
+        });
+
+        return result && (await allowed()) ? result : undefined;
+      });
+
+      if (at !== undefined)
+        data.push(project(item.id, item.result, selected, readRequest, at));
     }
 
     if (!(await rootAllowed())) return empty();

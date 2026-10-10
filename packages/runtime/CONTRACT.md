@@ -188,7 +188,7 @@ and object records live in `relate`.
   checks. Contradictory bounds match nothing. Reject empty operator objects,
   unknown operators, undefined operands and incompatible types before scanning.
   At most 100 filter properties and 100 operands per `in` are accepted. No
-  recursive predicates, traversal filters, sorting or aggregation are supported.
+  recursive predicates, sorting or aggregation are supported.
 - Timestamp properties compile from
   `z.iso.datetime({ offset: true, precision: 3 })` (optionally
   nullable/optional). The manifest marks these strings with
@@ -246,6 +246,36 @@ and object records live in `relate`.
 Shared acceptance cases in `tests/support/query-contract.ts` execute on memory
 and Postgres. Type probes cover caller/action filters, reference IDs, selection
 and iteration; installed-package smoke checks exercise graph query execution.
+
+## Traversal filters
+
+To-many traversals accept the query `where` (`reads/predicates.ts`
+`compileWhere`/`predicateMatcher`); to-one traversals reject it as
+`not-supported`.
+
+- Filters address the destination object's properties. Membership in the
+  relationship and the filters combine with AND; a `through` junction's own
+  properties are not filterable from the traversal. The filterable set is the
+  destination's discoverable properties for this actor, validated with the
+  starting ID and every other option before any read.
+- Reference traversal reads each scanned owner record with the selection plus
+  filter fields, then evaluates predicates under the caller's freshness rules.
+  Unavailable filter evidence on a readable member rejects with `incomplete`.
+- Through traversal reads a destination during the junction pass only when it
+  could still enter the pass's candidate set, and admits only matches. A
+  destination that fails within one call is not read again in that call. Final
+  destination reads re-evaluate the filter before link and destination
+  authorization are rechecked.
+- Before emitting, every path re-evaluates filter evidence at the current time.
+  Evidence that expired after matching is read once more, with authorization
+  captured on that read; members that no longer match are withheld. Through
+  traversals also recheck junction authorization after the destination refresh,
+  withholding members whose link evidence expired during that read.
+- Normalized predicates join the traversal cursor scope, so equivalent filters
+  continue a cursor and changed filters reject it as `invalid-cursor`.
+
+Shared acceptance cases in `tests/support/traversal-filter-contract.ts` execute
+on memory and Postgres.
 
 ## Request errors and operation contracts
 

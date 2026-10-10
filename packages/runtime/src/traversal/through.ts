@@ -8,7 +8,12 @@ import type {
 import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import { compareObjectIds, scanBatch } from '../storage.js';
-import { cursorCodec, project } from '../reads/index.js';
+import {
+  cursorCodec,
+  predicateMatcher,
+  project,
+  type Predicate,
+} from '../reads/index.js';
 import { traversalScope } from './scope.js';
 import { traversalAllowed } from './available.js';
 import type { TraversalOptions } from './traversal.js';
@@ -41,6 +46,8 @@ const SERIALIZED_CANDIDATES = 26;
  * smallest `limit + 1` distinct destinations connected to the root, so pages
  * stay in destination-ID order without an unbounded seen-ID cursor. A page
  * costs one junction scan, the same as reference traversal over its owner.
+ * Filters admit only matching destinations, so a filtered pass reads each
+ * destination that could still enter the set.
  */
 export function createThroughTraversal(options: TraversalOptions) {
   const { manifest, store, read, clock, scopeFor } = options;
@@ -66,6 +73,7 @@ export function createThroughTraversal(options: TraversalOptions) {
     forward: boolean,
     request: TraversalRequest,
     operation: string,
+    predicates: readonly Predicate[],
   ): Promise<FullPageResult> => {
     const owner = manifest.objects.find(
       (o) => o.id === relationship.through.objectDefinitionId,
@@ -85,14 +93,20 @@ export function createThroughTraversal(options: TraversalOptions) {
       : relationship.through.fromReferencePropertyDefinitionId;
     const from = owner.properties.find((p) => p.id === fromId)!;
     const to = owner.properties.find((p) => p.id === toId)!;
-    const { cursor, limit = 25, evidence: _evidence, ...readRequest } = request;
+    const {
+      cursor,
+      limit = 25,
+      evidence: _evidence,
+      where: _where,
+      ...readRequest
+    } = request;
     const scope = traversalScope(options, {
       principal,
       typeId,
       id,
       relationship: relationship.id,
       forward,
-      query: { ...readRequest, limit },
+      query: { ...readRequest, where: predicates, limit },
     });
     const position: Position = cursor
       ? JSON.parse(codec.decode(cursor, scope, clock(), operation))
@@ -124,18 +138,29 @@ export function createThroughTraversal(options: TraversalOptions) {
 
     // A hidden or deleted destination makes the reference unavailable, the
     // same as a link to another root; neither is a membership of this root.
-    function keep(link: string, member: FullReadResult) {
-      const destination = member.status === 'ok' && member.data[to.name];
+    function destination(member: FullReadResult): string | undefined {
+      const value = member.status === 'ok' && member.data[to.name];
 
-      if (
-        member.status !== 'ok' ||
+      return member.status !== 'ok' ||
         member.data[from.name] !== id ||
-        typeof destination !== 'string' ||
-        (afterTarget !== undefined &&
-          compareObjectIds(destination, afterTarget) <= 0)
-      )
-        return;
+        typeof value !== 'string' ||
+        (afterTarget !== undefined && compareObjectIds(value, afterTarget) <= 0)
+        ? undefined
+        : value;
+    }
 
+    /** Whether a destination not yet held would enter the candidate set. */
+    function admits(destination: string): boolean {
+      const last = candidates.at(-1);
+
+      return (
+        !candidates.some(([t]) => t === destination) &&
+        (candidates.length < capacity ||
+          compareObjectIds(destination, last![0]) < 0)
+      );
+    }
+
+    function keep(destination: string, link: string) {
       const at = candidates.findIndex(
         ([t]) => compareObjectIds(t, destination) >= 0,
       );
@@ -146,6 +171,31 @@ export function createThroughTraversal(options: TraversalOptions) {
         candidates.splice(at, 0, [destination, link]);
         candidates.length = Math.min(candidates.length, capacity);
       }
+    }
+
+    const filter = predicateMatcher(predicates, readRequest, clock);
+    const filterRequest: ReadRequest = {
+      ...readRequest,
+      select: filter.names,
+      requireComplete: false,
+    };
+    // Destinations this call already read and found hidden or not matching.
+    const rejected = new Set<string>();
+
+    async function screen(destinations: readonly string[]) {
+      const unseen = [...new Set(destinations)].filter(
+        (d) => !rejected.has(d) && admits(d),
+      );
+      const results = await Promise.all(
+        unseen.map((d) => read(principal, target.id, d, filterRequest)),
+      );
+
+      unseen.forEach((d, j) => {
+        const result = results[j]!;
+
+        if (result.status !== 'ok' || !filter.matches(d, result, clock()))
+          rejected.add(d);
+      });
     }
 
     let scanned = 0;
@@ -163,7 +213,17 @@ export function createThroughTraversal(options: TraversalOptions) {
           links.map((link) => read(principal, owner.id, link, linkRequest)),
         );
 
-        links.forEach((link, j) => keep(link, members[j]!));
+        const found = links.flatMap((link, j) => {
+          const d = destination(members[j]!);
+
+          return d === undefined ? [] : [[d, link] as Candidate];
+        });
+
+        // A candidate set only shrinks toward smaller IDs, so a destination it
+        // would not admit now is never admitted later in this pass.
+        if (predicates.length) await screen(found.map(([d]) => d));
+
+        for (const [d, link] of found) if (!rejected.has(d)) keep(d, link);
       }
 
       afterLink = batch.ids.at(-1) ?? afterLink;
@@ -202,21 +262,30 @@ export function createThroughTraversal(options: TraversalOptions) {
             .map((p) => p.name),
       ),
     ];
+    const targetRequest: ReadRequest = {
+      ...readRequest,
+      select: [...new Set([...selected, ...filter.names])],
+      requireComplete: false,
+    };
     const authorized: {
       id: string;
       result: Available;
+      at: number;
       linkAllowed(): Promise<boolean>;
       targetAllowed(): Promise<boolean>;
     }[] = [];
 
     for (const [destination, linkId] of page) {
-      const result = await read(principal, target.id, destination, {
-        ...readRequest,
-        select: selected,
-        requireComplete: false,
-      });
+      const result = await read(
+        principal,
+        target.id,
+        destination,
+        targetRequest,
+      );
+      const at = clock();
 
-      if (result.status !== 'ok') continue;
+      if (result.status !== 'ok' || !filter.matches(destination, result, at))
+        continue;
 
       let linkAllowed = async () => false;
       const link = await read(
@@ -254,6 +323,7 @@ export function createThroughTraversal(options: TraversalOptions) {
         authorized.push({
           id: destination,
           result,
+          at,
           linkAllowed,
           targetAllowed,
         });
@@ -276,10 +346,33 @@ export function createThroughTraversal(options: TraversalOptions) {
     const data: Array<FullPageResult['data'][number]> = [];
 
     for (const item of authorized) {
-      if ((await item.linkAllowed()) && (await item.targetAllowed()))
-        data.push(
-          project(item.id, item.result, selected, readRequest, clock()),
+      if (!(await item.linkAllowed()) || !(await item.targetAllowed()))
+        continue;
+
+      const at = await filter.confirm(item, async () => {
+        let allowed = async () => false;
+        const result = await read(
+          principal,
+          target.id,
+          item.id,
+          targetRequest,
+          undefined,
+          (check) => {
+            allowed = check;
+          },
         );
+
+        // Refreshing the destination can outlast the junction's authorization
+        // evidence. Both the destination and its link must still permit disclosure.
+        return result.status === 'ok' &&
+          (await allowed()) &&
+          (await item.linkAllowed())
+          ? result
+          : undefined;
+      });
+
+      if (at !== undefined)
+        data.push(project(item.id, item.result, selected, readRequest, at));
     }
 
     if (!(await rootAllowed())) return empty();

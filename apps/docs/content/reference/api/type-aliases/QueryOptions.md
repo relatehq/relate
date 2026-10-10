@@ -6,13 +6,16 @@ type QueryOptions<O, K, E> = PageOptions<K, E> & {
 };
 ```
 
-Defined in: packages/relate/src/operations.ts:111
+Defined in: [packages/relate/src/operations.ts:117](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L117)
 
-Filter and page through objects already adopted into the graph.
+Filter and page through objects already adopted into the graph, or through
+the records a to-many traversal reaches.
 
 Properties and operators combine with AND. Use scalar equality, eq/in, or
 gt/gte/lt/lte on numbers and timestamps. Reference properties take
-Relate object IDs. Queries do not discover provider-wide records.
+Relate object IDs. Queries do not discover provider-wide records. A
+traversal's filters address the related object's properties and apply in
+addition to the relationship.
 
 ## Type Declaration
 
@@ -39,5 +42,8 @@ const customers = await objects.Customer.query({
   select: ['name', 'status'],
   where: { status: 'active' },
   limit: 20,
+});
+const open = await objects.Customer.traverse.invoices(customerId, {
+  where: { status: 'open', totalMinor: { gte: 10_000 } },
 });
 ```

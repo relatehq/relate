@@ -13,7 +13,6 @@ import type {
   ActionRequest,
   QueryOptions,
   ObjectRecord,
-  PageOptions,
 } from 'relate';
 import type { EvidenceMode, Page as ResultPage } from '@relate/protocol';
 import type { QueryResult } from '@relate/runtime';
@@ -72,7 +71,7 @@ type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
     <K extends PropertyNames<E['target']> = PropertyNames<E['target']>>(
       id: ObjectId<O['id']>,
       options: (E['traversal']['cardinality'] extends 'many'
-        ? PageOptions<K, 'full'>
+        ? QueryOptions<E['target'], K, 'full'>
         : ReadOptions<K, 'full'>) & { readonly evidence: 'full' },
     ): E['traversal']['cardinality'] extends 'many'
       ? QueryResult<ObjectRecord<E['target'], K, 'full'>>
@@ -83,7 +82,7 @@ type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
     >(
       id: ObjectId<O['id']>,
       options?: E['traversal']['cardinality'] extends 'many'
-        ? PageOptions<K, M>
+        ? QueryOptions<E['target'], K, M>
         : ReadOptions<K, M>,
     ): E['traversal']['cardinality'] extends 'many'
       ? QueryResult<ObjectRecord<E['target'], K, M | 'compact'>>

@@ -118,11 +118,6 @@ export type ObjectResult =
 /** Pages enumerate adopted graph members, not provider-wide coverage. */
 export type PageResult = Page<ObjectRecord>;
 
-export interface TraversalRequest extends ReadRequest {
-  readonly limit?: number;
-  readonly cursor?: string;
-}
-
 /** Scalar predicate operands remain JSON scalars on every transport. */
 export type FilterScalar = string | number | boolean | null;
 
@@ -135,10 +130,19 @@ export interface FilterOperators {
   readonly lte?: string | number;
 }
 
-/** Filters address object properties; schema-specific operators are validated by the runtime. */
-export interface QueryRequest extends TraversalRequest {
+/**
+ * Collection reads page and filter. Filters address the returned object's
+ * properties; schema-specific operators are validated by the runtime. A to-one
+ * traversal accepts neither paging nor filters.
+ */
+export interface TraversalRequest extends ReadRequest {
+  readonly limit?: number;
+  readonly cursor?: string;
   readonly where?: Readonly<Record<string, FilterScalar | FilterOperators>>;
 }
+
+/** A query pages and filters graph members of one object type. */
+export type QueryRequest = TraversalRequest;
 
 /**
  * One problem with a caller's read request. Paths name request options, filter

@@ -23,7 +23,7 @@ export function readableObject(
 /**
  * Properties of a readable object the actor's roles may read. A reference to a
  * type the actor cannot read is omitted, so its target is never named.
- * Discovery and query filters share this set.
+ * Discovery and filters share this set.
  */
 export function readableProperties(
   manifest: Manifest,
@@ -48,6 +48,24 @@ export function readableProperties(
 
     return [{ property, ...(target ? { target } : {}) }];
   });
+}
+
+/** The properties a `where` may name: readable ones, with their operand type names. */
+export function filterableProperties(
+  manifest: Manifest,
+  principal: Principal,
+  object: ManifestObject,
+) {
+  return readableProperties(manifest, principal, object).map(
+    ({ property, target }) => ({
+      id: property.id,
+      name: property.name,
+      schema: property.schema,
+      references:
+        target?.apiName ??
+        (property.origin.kind === 'object-id' ? object.apiName : undefined),
+    }),
+  );
 }
 
 /**
