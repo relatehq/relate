@@ -245,7 +245,7 @@ test('contact labels query by owner and kind, with canonical traversals in both 
     );
     assert.match(
       description.properties.find((p) => p.name === 'kind').description,
-      /Exact relationship label/,
+      /owner and kind/,
     );
     assert.ok(
       !objects.Person.describe().properties.some((p) =>

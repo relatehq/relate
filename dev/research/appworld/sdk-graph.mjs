@@ -33,9 +33,9 @@ export function model() {
     Person:
       'A phone contact, Venmo participant or supervisor, joined by exact email. ContactRelationship records describe the contact labels assigned by an owner to another person.',
     ContactRelationship:
-      'One contact label assigned by the owner to the contact in the owner’s phone contacts. A contact may have multiple labels. These are directed, owner-scoped relationships, not global attributes of a person.',
+      'One label assigned by an owner to a contact. To select a contact group, match both owner and kind. Matching owner alone includes all relationship kinds. A contact can have several labels; deduplicate contact IDs when combining labels.',
     Transaction:
-      'An own Venmo transaction. sender and receiver are canonical Person references.',
+      'An own Venmo payment, incoming or outgoing. sender is the payer and receiver is the payee, using canonical Person references. Direction does not imply a contact group; group membership comes from ContactRelationship owner and kind.',
   };
   const access = defineAccess({
     roles: ['reader'],
@@ -102,7 +102,7 @@ export function model() {
     ContactRelationship: {
       owner: 'Person whose phone contacts assign this label.',
       contact: 'Person to whom the owner assigned the label.',
-      kind: 'Exact relationship label from the phone contact, one label per record. Multiple labels produce separate records.',
+      kind: 'Exact contact-group label. Match the requested group using owner and kind together; one person may appear under multiple kinds.',
     },
     Transaction: {
       sourceId:
