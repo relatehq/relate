@@ -16,6 +16,14 @@ Private and unpublished while implementation is in progress.
   `objectId`, `from`, `native` and `reference`; `source` and `nativeMembership`;
   `implementAction`; and the boundary helpers `referenceInput` and
   `assertFields`; `connect`, `defineApp`, and `isAppDefinition`.
+- `relate/consumer`: the typed consumer facade shared by every surface:
+  `createConsumer(graph, operations)` builds `objects.Customer.get`,
+  `objects.Customer.query`, `objects.Customer.traverse.invoices`,
+  `actions.addAccountReview`, `describe()` and `receipts.get` over the
+  `ConsumerOperations` contract from `@relate/protocol`; `createQuery` and
+  `createPagedQuery` page lazily; the `Consumer`, `ObjectOperations`,
+  `QueryOptions`, `ObjectResult` and `QueryResult` types. Browser safe: no
+  compiler, engine or Node import.
 - `relate/connectors`: resource adapter contracts (`SourceConnector`,
   `SourceRecord`, `SourceVersion`, `SourceBinding`) and `SourceAccessDenied`.
 - `relate/storage`: type-only storage adapter contracts used by application
@@ -37,8 +45,9 @@ imports stay free of compiler and Node dependencies.
 ## How it fits
 
 - Depends on `zod` and `@relate/protocol` (result and evidence types).
-- `@relate/node` compiles an authored graph and infers the typed consumer API
-  from its object registry.
+- `@relate/node` compiles an authored graph, binds the engine to
+  `ConsumerOperations` per principal and returns `createConsumer` over it. The
+  planned `@relate/client` returns the same facade over HTTP.
 - `@relate/runtime` uses `relate/model`, `relate/connectors`, and
   `relate/storage`; it executes compiled manifests without importing graph
   authoring.

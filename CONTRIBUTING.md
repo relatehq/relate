@@ -59,12 +59,13 @@ production code cannot import excluded code to bypass the checks. The Postgres
 example imports its provider simulator through the private workspace package
 `@relate/dev-crm-simulator`.
 
-The `relate` authoring entry point must not reach the compiler, even through
-helpers, re-exports or type imports. `relate/model` can depend on model helpers
-under `src/model/`, but must not reach authoring or compiler modules. Runtime
-module ownership is enforced separately by
-`tests/architecture/runtime-boundaries.ts`. Boundary regression tests exercise
-the CLI against temporary workspaces without changing the checkout.
+The `relate` authoring entry point and the `relate/consumer` facade must not
+reach the compiler, even through helpers, re-exports or type imports.
+`relate/model` can depend on model helpers under `src/model/`, but must not
+reach authoring or compiler modules. Runtime module ownership is enforced
+separately by `tests/architecture/runtime-boundaries.ts`. Boundary regression
+tests exercise the CLI against temporary workspaces without changing the
+checkout.
 
 ## Postgres integration tests
 

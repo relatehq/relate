@@ -103,6 +103,9 @@ import { app } from './built/app.types.js';
 assert.ok(isAppDefinition(app));
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
 assert.deepEqual(Object.keys(await import('relate/storage')), []);
+const consumer = await import('relate/consumer');
+assert.equal(typeof consumer.createConsumer, 'function');
+assert.equal(typeof consumer.createQuery, 'function');
 await assert.rejects(import('@relate/node'), { code: 'ERR_MODULE_NOT_FOUND' });
 await assert.rejects(import('@relate/runtime'), { code: 'ERR_MODULE_NOT_FOUND' });
 console.log('Portable app and connector contracts work without Node host or runtime packages.');
@@ -181,7 +184,7 @@ import { SourceAccessDenied } from 'relate/connectors';
 import { createPostgresStore } from '@relate/postgres';
 import { assertFields } from 'relate';
 import { ReadError } from '@relate/protocol';
-import { createQuery } from '@relate/runtime';
+import { createQuery } from 'relate/consumer';
 assert.equal('assertFields' in (await import('@relate/protocol')), false);
 const pageRequests = [];
 const query = createQuery(async (cursor) => {
@@ -288,7 +291,7 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
   await writeFile(
     join(consumer, 'pagination.types.ts'),
     await readFile(
-      resolve(root, 'packages/runtime/test/pagination.types.ts'),
+      resolve(root, 'packages/relate/test/pagination.types.ts'),
       'utf8',
     ),
   );

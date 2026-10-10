@@ -17,8 +17,9 @@ and unpublished.
   fallback and per-field evidence.
 - Observation validation and the pure ordering rule (`compareObservation`).
   Storage owns atomic acceptance; the runtime owns the rule.
-- `createMemoryStore()` for volatile storage and `createQuery()` for lazy,
-  awaitable pagination.
+- `createMemoryStore()` for volatile storage.
+- `createDiscovery(manifest, principal)` and `operationContracts`: the
+  actor-bound metadata that `@relate/protocol` describes.
 - `@relate/runtime/storage`: the adapter extension boundary. `ObservationStore`,
   `NativeStore`, `NativeTransaction` and their errors are the contract that
   `@relate/postgres` and custom stores implement.
@@ -34,9 +35,11 @@ concrete store or connector.
 - Storage adapters implement `@relate/runtime/storage` and are injected.
   Connectors implement `SourceConnector`; shared service authorization is the
   only supported mode in this slice.
-- `@relate/node` composes this engine with an authored graph and adds types. The
-  planned `@relate/http` and `@relate/mcp` expose the same consumer operations
-  remotely.
+- `@relate/node` composes this engine with an authored graph, binds it to the
+  `ConsumerOperations` contract per principal and adds the `relate/consumer`
+  facade. The planned `@relate/http` and `@relate/mcp` serve the same contract
+  remotely. Lazy pagination (`createQuery`) lives in `relate/consumer`, not
+  here.
 
 ## Public API
 
@@ -167,7 +170,6 @@ New top-level modules need an explicit owner in the checker.
 | `reads/`                        | Request validation and field-evidence summaries            | No other runtime modules                                        |
 | `storage.ts`                    | Adapter capabilities and errors                            | Pure observation ordering re-export only                        |
 | `memory.ts`, `native-memory.ts` | In-memory implementations                                  | Storage contracts and pure ordering                             |
-| `pagination.ts`                 | Lazy page/iterator consumption                             | No other runtime modules                                        |
 
 Composition injects read and evidence-resolution callbacks. Actions and
 traversal cannot import source resolution, and authorization cannot fetch data

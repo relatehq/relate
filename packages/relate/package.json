@@ -16,6 +16,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./consumer": {
+      "types": "./dist/consumer.d.ts",
+      "import": "./dist/consumer.js"
+    },
     "./compiler": {
       "types": "./dist/compiler.d.ts",
       "import": "./dist/compiler.js"

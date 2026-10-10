@@ -17,7 +17,12 @@ and unpublished while implementation is in progress.
 - `relate.as(principal)` returns consumer operations whose names and types are
   inferred from the graph's object registry: `objects.Customer.get`,
   `objects.Customer.query`, `objects.Customer.traverse.invoices`,
-  `actions.addAccountReview`.
+  `actions.addAccountReview`. The facade itself is `createConsumer` from
+  `relate/consumer`, shared with the planned HTTP client.
+- `relate.operations(principal)` returns the engine bound to that principal as
+  the `ConsumerOperations` contract from `@relate/protocol`: untyped, addressed
+  by definition IDs, and the surface the planned `@relate/http` and
+  `@relate/mcp` adapters serve. Calls after `close()` reject.
 - The same actor-bound handle exposes progressive discovery through
   `describe()`, `objects.Customer.describe()`, and
   `actions.addAccountReview.describe()`.
@@ -32,10 +37,10 @@ injected store is borrowed.
 
 ## How it fits
 
-- Depends on `relate` and `relate/compiler`, `@relate/runtime` and
-  `@relate/protocol`.
+- Depends on `relate`, `relate/compiler` and `relate/consumer`,
+  `@relate/runtime` and `@relate/protocol`.
 - The embedded entry point for applications today. Planned HTTP and MCP adapters
-  will expose runtime consumer operations. The existing CLI inspects definitions
+  serve `relate.operations(principal)`. The existing CLI inspects definitions
   without starting a runtime.
 
 ## Public API

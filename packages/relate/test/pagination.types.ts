@@ -1,5 +1,5 @@
-import { createQuery } from '@relate/runtime';
-import type { QueryResult } from '@relate/runtime';
+import { createQuery } from 'relate/consumer';
+import type { QueryResult } from 'relate/consumer';
 import type { Page, PageMeta } from '@relate/protocol';
 
 const final: PageMeta = { exhausted: true };

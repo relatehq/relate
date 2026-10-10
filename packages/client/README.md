@@ -27,20 +27,41 @@ Constraints the package will keep:
 
 ## How it will fit
 
-**TODO — open decision before implementing the client:** decide where shared
-consumer types and the `createQuery` pagination helper belong. `Consumer` is
-currently in `@relate/node`, `QueryResult` is a portable `@relate/protocol`
-type, and `createQuery` lives in `@relate/runtime`. A browser-safe
-`relate/consumer` entry point is one option, not an agreed API. Avoid
-duplicating these contracts or importing the engine into the browser; review the
-client dependency policy when choosing their home. This decision does not
-require merging the Node and runtime packages.
+The client implements the `ConsumerOperations` contract from `@relate/protocol`
+over HTTP and hands it to the shared facade in `relate/consumer`. It does not
+own a typed API of its own:
 
-- Depends only on `@relate/protocol`.
-- Pairs with the planned `@relate/http` adapter.
+```ts
+import { createConsumer } from 'relate/consumer';
+import type { ConsumerOperations } from '@relate/protocol';
+
+// Planned: fetch the actor's discovery snapshot once, then bind every operation.
+declare function createHttpOperations(options: {
+  baseUrl: string;
+  credentials: unknown;
+}): Promise<ConsumerOperations>;
+
+const consumer = createConsumer(
+  graph,
+  await createHttpOperations({ baseUrl: '/api', credentials }),
+);
+const page = await consumer.objects.Customer.query({
+  where: { status: 'active' },
+});
+```
+
+- Depends on `@relate/protocol` (wire shapes and the operations contract) and
+  `relate` / `relate/consumer` (graph types and the typed facade). Both `relate`
+  entry points are browser safe; `pnpm check:boundaries` enforces that they
+  never reach the compiler.
+- `Consumer`, `QueryResult` and `createQuery` are shared with `@relate/node`
+  through `relate/consumer`; the client never duplicates them or imports the
+  engine.
+- Pairs with the planned `@relate/http` adapter, which serves the same
+  `ConsumerOperations` from `relate.operations(principal)`.
 - The [inspector specification](../../apps/inspector/SPEC.md) proposes this
   client for future consumer screens. The current model graph does not use it.
 
-No request or type shape is fixed yet. See
+No request or route shape is fixed yet. See
 [`@relate/protocol`](../protocol/README.md) for the shapes the client will
 carry.

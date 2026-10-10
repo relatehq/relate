@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ScalarSchema } from '@relate/protocol';
 import { ManifestValidationError } from './diagnostics.js';
 import type { ModelIssue, ModelIssueCode } from './diagnostics.js';
 
@@ -11,6 +12,7 @@ const text = z.string().min(1);
 /** Explanatory text must say something; blank descriptions are authoring mistakes. */
 const prose = z.string().regex(/\S/, 'Description must not be blank');
 
+/** The portable shape is declared in `@relate/protocol`; this validator must produce it. */
 export const scalarSchema = z.strictObject({
   type: z.enum(['string', 'number', 'boolean']),
   optional: z.boolean(),
@@ -21,9 +23,9 @@ export const scalarSchema = z.strictObject({
   maximum: z.number().finite().optional(),
   exclusiveMinimum: z.number().finite().optional(),
   exclusiveMaximum: z.number().finite().optional(),
-});
+}) satisfies z.ZodType<ScalarSchema>;
 
-export type ScalarSchema = z.infer<typeof scalarSchema>;
+export type { ScalarSchema } from '@relate/protocol';
 
 export const actionFieldSchema = scalarSchema.extend({
   description: prose.optional(),

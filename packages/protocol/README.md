@@ -20,6 +20,14 @@ Relate consumer surface. Private and unpublished.
 - Errors and receipts: `ReadError` and `ActionError` with sanitized codes and no
   private detail, and successful/declared-failure receipts (`SucceededReceipt`,
   `FailedReceipt`, `ActionReceipt`).
+- Discovery: `GraphDescription`, `ObjectDescription`, `ActionDescription`,
+  `OperationContracts` and the portable `ScalarSchema` they report, plus the
+  actor-bound `Discovery` interface.
+- `ConsumerOperations`: the actor-bound, definition-ID-addressed operations
+  every consumer surface shares (`read`, `query`, `traverse`, `invoke`,
+  `getReceipt`, `discovery`). The engine implements it, `@relate/http` serves
+  it, `@relate/client` implements it over a transport, and `relate/consumer`
+  types it.
 - `Json`.
 
 These are types, two error classes and pure evidence presentation helpers. The
@@ -29,9 +37,10 @@ performs no validation itself.
 ## How it fits
 
 - Dependencies: none.
-- `relate` uses these shapes for `assertFields` and typed results.
-  `@relate/runtime` produces them. `@relate/node` re-exports typed
-  specializations of them.
+- `relate` uses these shapes for `assertFields`, typed results and the
+  `relate/consumer` facade; `relate/model` validates manifests against
+  `ScalarSchema`. `@relate/runtime` produces results and discovery.
+  `@relate/node` binds the engine to `ConsumerOperations` per principal.
 - The planned `@relate/http`, `@relate/client` and `@relate/mcp` carry exactly
   these shapes over the wire, so embedded and remote consumers see the same
   results and evidence.
@@ -78,9 +87,10 @@ function isIncomplete(error: unknown): boolean {
 
 ## Status
 
-Results, pages, evidence and errors are implemented and used by the engine. HTTP
-and MCP encodings are not implemented. The types alone do not validate incoming
-JSON; the runtime validates what it produces and accepts.
+Results, pages, evidence, errors, discovery shapes and the consumer operations
+contract are implemented and used by the engine. HTTP and MCP encodings are not
+implemented. The types alone do not validate incoming JSON; the runtime
+validates what it produces and accepts.
 
 ## Further reading
 
@@ -88,7 +98,7 @@ JSON; the runtime validates what it produces and accepts.
   retention, and the page contract.
 - [`assertFields`](../relate/CONTRACT.md#require-values-after-a-read): the
   consumer-side presence check and its narrowing rules.
-- [Pagination](../runtime/CONTRACT.md#pagination): the implemented helper that
+- [Pagination](../relate/CONTRACT.md#pagination): the implemented helper that
   follows the page contract.
 
 `present` renders a full resolved read, object, or page result as a compact
