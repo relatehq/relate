@@ -80,7 +80,19 @@ def build(destination, findings):
         raise ValueError("Generated protected data must be outside the repository")
     destination.mkdir(parents=True, exist_ok=True)
     data = []
-    for name in RUNS:
+    experiments = sorted(
+        p.name
+        for p in (HERE / ".local/runs").glob("sdk-nano-ergonomics-*")
+        if len(list(p.glob("*/result.json"))) == 12
+    )
+    for name in experiments:
+        LABELS[name] = "Nano · independent spike · " + name.removeprefix(
+            "sdk-nano-ergonomics-"
+        )
+        NOTES[name] = (
+            "Independent SDK/graph experiment: six tasks, two repeats, unchanged prompt and 28-turn limit. Compare with the baseline in the same round; repeat indices are case labels, not shared model seeds. See ERGONOMICS.md."
+        )
+    for name in experiments + RUNS:
         base = HERE / ".local/runs" / name
         episodes = []
         for path in sorted(base.glob("*__*/result.json")):
@@ -136,6 +148,8 @@ def build(destination, findings):
     (destination / "data.json").write_text(json.dumps(data))
     shutil.copyfile(HERE / "explorer.html", destination / "index.html")
     for filename in [
+        "ERGONOMICS.md",
+        "ERGONOMICS-PLAN.md",
         "QUERIES.md",
         "QUERIES-PLAN.md",
         "GRAPH-SHAPE.md",

@@ -400,13 +400,17 @@
         using uniform prompts.
       </p>
       <div class="band">
-        Main query update: six training tasks, three methods, two repeats and 28
-        turns. Scalar query predicates and the shared consumer implementation
-        are merged, with improved graph field descriptions. Prompts and
-        execution limits are unchanged.
+        Independent ergonomics experiments: one change at a time, fresh SDK
+        controls, six training tasks and unchanged prompts. Screening and
+        confirmation are shown separately.
+        <a href="ERGONOMICS.md">Full report</a>.
       </div>
       <div id="currentMetrics" class="metrics"></div>
-      <div id="queriesComparison"></div>
+      <div id="ergonomicsComparison"></div>
+      <details>
+        <summary>Historical main-query comparison</summary>
+        <div id="queriesComparison"></div>
+      </details>
       <details>
         <summary>Historical contact graph comparison</summary>
         <div id="graphShapeComparison"></div>
@@ -422,12 +426,11 @@
       <div id="overview"></div>
       <h2>What this comparison can tell us</h2>
       <p>
-        These are fresh stochastic runs, not continuations. Compare the three
-        retained methods with their previous 28-turn results. Sampling and new
-        graph IDs can change outcomes; this small diagnostic does not establish
-        a causal effect. Main changes SDK query capabilities and the shared
-        consumer. Graph descriptions also changed. Task coverage expanded; the
-        original subset is compared separately.
+        These are fresh stochastic runs, not continuations. Each ergonomics arm
+        changes only its named intervention. The SDK, prompts, tasks and limits
+        otherwise stay fixed. A second round checks promising screening results.
+        This small development sample cannot establish a general benchmark lift.
+        Earlier raw API comparisons remain available below.
       </p>
       <h2>Writes through the existing SDK</h2>
       <div class="panel">
@@ -496,7 +499,7 @@ await completeTask({answer: result});</pre>
           </p>
         </div>
       </div>
-      <h2>Findings from the rerun</h2>
+      <h2>Historical main-query findings</h2>
       <div id="findings"></div>
       <h2>Reading the measurements</h2>
       <p>
@@ -1070,6 +1073,18 @@ await relate.objects.Playlist.traverse.songs(id, {
       source();
     }
     function counterpart(e) {
+      if (
+        runs[ri].id.startsWith('sdk-nano-ergonomics-') &&
+        !runs[ri].id.includes('-baseline-')
+      ) {
+        const round = runs[ri].id.split('-').at(-1);
+        const other = runs.findIndex(
+          (r) => r.id === 'sdk-nano-ergonomics-baseline-' + round,
+        );
+        const index =
+          other < 0 ? -1 : runs[other].episodes.findIndex((x) => x.id === e.id);
+        return index < 0 ? null : { run: other, episode: index };
+      }
       const names =
         runs[ri].id === 'sdk-nano-writes-v1'
           ? ['sdk-nano-writes-v1', 'sdk-nano-writes-28-v1']
@@ -1187,11 +1202,21 @@ await relate.objects.Playlist.traverse.songs(id, {
       URL.revokeObjectURL(a.href);
     };
     function overview() {
-      const current = runs[0].episodes;
+      const spikeRuns = runs.filter((r) =>
+        r.id.startsWith('sdk-nano-ergonomics-'),
+      );
+      const current = spikeRuns.length
+        ? spikeRuns.flatMap((r) => r.episodes)
+        : runs[0].episodes;
       const total = (key) =>
         current.reduce((sum, e) => sum + (e.result[key] || 0), 0);
       $('#currentMetrics').innerHTML =
-        metric(current.length, 'Current run episodes') +
+        metric(
+          current.length,
+          spikeRuns.length
+            ? 'Ergonomics experiment episodes'
+            : 'Current run episodes',
+        ) +
         metric(total('steps'), 'Recorded agent turns') +
         metric(
           fmt(total('seconds') / 60) + ' min',
@@ -1212,6 +1237,32 @@ await relate.objects.Playlist.traverse.songs(id, {
         '<h2>All retained comparison results</h2><div style="overflow:auto"><table><tr><th>Experiment</th><th>Arm</th><th>Passed</th><th>Completed</th><th>Mean turns</th><th>Mean time</th><th>Mean input tokens</th><th>Mean output tokens</th><th>Total cost</th><th>Trajectories</th></tr>' +
         rows +
         '</table></div><p class="muted">Rows are separate experiments; never pool older prompts or mixed-access SDK arms with the new uniform-prompt comparison. Superseded harness pilots are documented in the previous study, not counted here.</p>';
+      const experiments = runs.filter((r) =>
+        r.id.startsWith('sdk-nano-ergonomics-'),
+      );
+      if (experiments.length) {
+        const average = (run, key) =>
+          run.episodes.reduce((n, e) => n + e.result[key], 0) /
+          run.episodes.length;
+        const delta = (run, control, key) => {
+          const change = 100 * (average(run, key) / average(control, key) - 1);
+          return (change > 0 ? '+' : '') + fmt(change, 1) + '%';
+        };
+        const experimentRows = experiments
+          .map((run) => {
+            const round = run.id.split('-').at(-1);
+            const control = experiments.find(
+              (r) => r.id === 'sdk-nano-ergonomics-baseline-' + round,
+            );
+            const label = run.id.replace('sdk-nano-ergonomics-', '');
+            return `<tr><td>${esc(label)}</td><td>${run.episodes.filter((e) => e.result.success).length}/12</td><td>${fmt(average(run, 'steps'))}</td><td>${fmt(average(run, 'prompt_tokens'), 0)}</td><td>${control && control !== run ? delta(run, control, 'steps') : 'Control'}</td><td>${control && control !== run ? delta(run, control, 'prompt_tokens') : 'Control'}</td><td><button data-open-run="${runs.indexOf(run)}" data-open-condition="sdk">Explore</button></td></tr>`;
+          })
+          .join('');
+        $('#ergonomicsComparison').innerHTML =
+          '<h2>Independent ergonomics experiments</h2><p><strong>Retained: contact descriptions in the research graph.</strong> Across both rounds: 18/24 successes versus 16/24 for controls, similar turns and 6.5% fewer input tokens. No SDK fix qualified for a new PR. The date cue eliminated its targeted error but did not preserve accuracy in confirmation.</p><p>Each arm is separate. Baseline-v1 is the screening control; baseline-v2 is the confirmation control. Accuracy and turn/token changes determine promotion; timing is descriptive. Negative efficiency percentages mean less usage.</p><div style="overflow:auto"><table><tr><th>Arm / round</th><th>Passed</th><th>Mean turns</th><th>Mean input tokens</th><th>Turns vs control</th><th>Input vs control</th><th>Traces</th></tr>' +
+          experimentRows +
+          '</table></div><p>Repeated case numbers identify the same task, not an identical random draw. <a href="ERGONOMICS.md">The full report</a> records the frozen promotion rule, failure mechanisms and any SDK PRs.</p>';
+      }
       const queryBefore = runs.find(
         (r) => r.id === 'sdk-nano-contact-graph-v1',
       );
@@ -1326,9 +1377,10 @@ await relate.objects.Playlist.traverse.songs(id, {
             .join('') +
           '</table></div>';
       }
+      const methodComparison = queryAfter || runs[0];
       const taskRows = Object.entries(taskNames)
         .filter(([task]) =>
-          runs[0].episodes.some((e) => e.result.task_id === task),
+          methodComparison.episodes.some((e) => e.result.task_id === task),
         )
         .map(
           ([task, name]) =>
@@ -1337,7 +1389,7 @@ await relate.objects.Playlist.traverse.songs(id, {
             '</td>' +
             ['raw', 'raw_ts', 'sdk']
               .map((c) => {
-                const es = runs[0].episodes.filter(
+                const es = methodComparison.episodes.filter(
                   (e) => e.result.task_id === task && e.result.condition === c,
                 );
                 return (
@@ -1353,7 +1405,7 @@ await relate.objects.Playlist.traverse.songs(id, {
         )
         .join('');
       $('#overview').innerHTML +=
-        '<h3>Current three-method comparison, by task</h3><table><tr><th>Task</th><th>Raw API</th><th>Raw TS</th><th>Relate SDK</th></tr>' +
+        '<h3>Historical main-query three-method comparison, by task</h3><table><tr><th>Task</th><th>Raw API</th><th>Raw TS</th><th>Relate SDK</th></tr>' +
         taskRows +
         '</table>';
       document.querySelectorAll('[data-open-run]').forEach(
@@ -1371,7 +1423,7 @@ await relate.objects.Playlist.traverse.songs(id, {
             document.querySelector('[data-page="traces"]').click();
           }),
       );
-      $('#findings').innerHTML = runs[0].findings
+      $('#findings').innerHTML = methodComparison.findings
         .map(
           (f) =>
             '<div class="panel"><h3>' +

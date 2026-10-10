@@ -1,6 +1,19 @@
 # AppWorld interface research
 
-## Latest main-query and expanded-task experiment
+## Latest independent ergonomics experiments
+
+[ERGONOMICS.md](ERGONOMICS.md) compares SDK receipt discovery, request error
+messages, query-consumption examples and two graph-description changes, one at a
+time. Fresh controls and a predeclared confirmation rule determine which SDK
+fixes qualify for separate PRs into main. No SDK implementation is stored in
+this research branch. Protocol: [ERGONOMICS-PLAN.md](ERGONOMICS-PLAN.md).
+
+Only the contact-description change confirmed: 18/24 versus 16/24 successes,
+with similar turns and 6.5% fewer input tokens. Its three description strings
+are retained in `sdk-graph.mjs`. The other graph variant remains an experiment;
+none of the SDK spikes qualified for a PR. All 120 new episodes are retained.
+
+## Previous main-query and expanded-task experiment
 
 [QUERIES.md](QUERIES.md) reports six tasks, three methods and two repeats after
 merging main's scalar predicates and shared consumer implementation. It retains
