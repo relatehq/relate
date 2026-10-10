@@ -30,7 +30,9 @@ def summarize(names):
             row["error"] = row["error"].split(":", 1)[0] if row["error"] else None
             row["run"] = name
             row["study_role"] = (
-                "explicit-contact-graph-comparison"
+                "main-query-expanded-comparison"
+                if name == "sdk-nano-queries-v1"
+                else "explicit-contact-graph-comparison"
                 if name == "sdk-nano-contact-graph-v1"
                 else "explicit-no-answer-comparison"
                 if name == "sdk-nano-no-answer-v1"

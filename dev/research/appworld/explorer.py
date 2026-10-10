@@ -12,6 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 RUNS = [
+    "sdk-nano-queries-v1",
     "sdk-nano-contact-graph-v1",
     "sdk-nano-no-answer-v1",
     "sdk-nano-writes-28-v1",
@@ -23,6 +24,7 @@ RUNS = [
     "sdk-nano-tool-pilot-v2",
 ]
 LABELS = {
+    "sdk-nano-queries-v1": "Nano · main queries · expanded six tasks",
     "sdk-nano-contact-graph-v1": "Nano · explicit contact graph · 28 turns",
     "sdk-nano-no-answer-v1": "Nano · explicit no-answer example · 28 turns",
     "sdk-nano-writes-28-v1": "Nano · write tasks · 28 turns",
@@ -34,6 +36,7 @@ LABELS = {
     "sdk-nano-tool-pilot-v2": "Nano · previous SDK · pilot",
 }
 NOTES = {
+    "sdk-nano-queries-v1": "Main query update plus improved field descriptions. Six tasks, three methods, two repeats, 28 turns. Prompts and execution protocol unchanged. Compare the original three-task subset separately; added tasks have no matched baseline in the preceding run.",
     "sdk-nano-contact-graph-v1": "Local graph experiment: explicit owner-scoped contact labels, Person.email and property descriptions. Same prompts, SDK packages, tasks, acquisition calls and 28-turn budget as the no-answer run. Fresh stochastic trajectories.",
     "sdk-nano-no-answer-v1": "Three methods, same tasks and 28-turn budget. Explicit no-answer completion example once in each system prompt. Static notes retired. Fresh stochastic runs; no SDK changes.",
     "sdk-nano-writes-28-v1": "Budget comparison: same three tasks, four methods and two repeats; 28 turns instead of 14. Exact same prompts and execution code. Fresh stochastic trajectories, not continuations of the earlier run.",
@@ -133,6 +136,8 @@ def build(destination, findings):
     (destination / "data.json").write_text(json.dumps(data))
     shutil.copyfile(HERE / "explorer.html", destination / "index.html")
     for filename in [
+        "QUERIES.md",
+        "QUERIES-PLAN.md",
         "GRAPH-SHAPE.md",
         "GRAPH-SHAPE-PLAN.md",
         "COMPLETION.md",

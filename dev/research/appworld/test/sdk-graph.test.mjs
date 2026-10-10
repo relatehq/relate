@@ -105,8 +105,10 @@ test('source actions refresh observations and replay receipts without duplicate 
     },
     async (request) => {
       calls.push(request);
+
       if (request.operation === 'likeTransaction') transaction.likeCount++;
       else transaction.commentCount++;
+
       return {
         transaction: { ...transaction },
         output:
@@ -116,9 +118,11 @@ test('source actions refresh observations and replay receipts without duplicate 
       };
     },
   );
+
   try {
     const api = snapshot.consumer;
     const id = (await api.objects.Transaction.query()).data[0].id;
+
     assert.deepEqual(
       api
         .describe()
@@ -131,8 +135,10 @@ test('source actions refresh observations and replay receipts without duplicate 
       idempotencyKey: 'comment-1',
     };
     const receipt = await api.actions.commentOnTransaction(request);
+
     assert.equal(receipt.output.commentId, '99');
     const replay = await api.actions.commentOnTransaction(request);
+
     assert.equal(replay.output.commentId, '99');
     assert.equal(calls.length, 1);
     assert.equal((await api.objects.Transaction.get(id)).data.commentCount, 1);
@@ -192,37 +198,47 @@ test('contact labels query by owner and kind, with canonical traversals in both 
       },
     ],
   });
+
   try {
     const { objects } = snapshot.consumer;
     const me = (await objects.Person.query({ where: { email: 'owner@test' } }))
       .data[0];
     const friends = [];
+
     for await (const row of objects.ContactRelationship.query({
       where: { owner: me.id, kind: 'friend' },
       limit: 1,
     }))
       friends.push(row);
+
     assert.equal(friends.length, 1);
     const friend = await objects.ContactRelationship.traverse.contact(
       friends[0].id,
     );
+
     assert.equal(friend.data.email, 'contact@test');
     const owner = await objects.ContactRelationship.traverse.owner(
       friends[0].id,
     );
+
     assert.equal(owner.id, me.id);
     const labels = [];
+
     for await (const row of objects.Person.traverse.contactRelationships(
       me.id,
       { limit: 1 },
     ))
       labels.push(row.data.kind);
+
     assert.deepEqual(labels.sort(), ['coworker', 'friend']);
     const incoming = [];
+
     for await (const row of objects.Person.traverse.labelsFromOthers(friend.id))
       incoming.push(row);
+
     assert.equal(incoming.length, 3);
     const description = objects.ContactRelationship.describe();
+
     assert.equal(
       description.properties.find((p) => p.name === 'owner').references.apiName,
       'Person',

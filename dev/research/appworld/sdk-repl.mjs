@@ -145,6 +145,7 @@ lines.on('line', async (line) => {
           (request) =>
             new Promise((resolve, reject) => {
               const id = ++nextCall;
+
               pending.set(id, { resolve, reject });
               send({ type: 'source-write', id, ...request });
             }),
@@ -164,6 +165,7 @@ lines.on('line', async (line) => {
                     (args = {}) =>
                       new Promise((resolve, reject) => {
                         const id = ++nextCall;
+
                         pending.set(id, { resolve, reject });
                         send({ type: 'api', id, app, api, args });
                       }),
@@ -172,6 +174,7 @@ lines.on('line', async (line) => {
           },
         );
       } else throw new Error('Unknown Node mode');
+
       output = '';
       send({ type: 'ready', snapshot_fetches: snapshot?.fetchCount() ?? 0 });
     } else if (message.type === 'execute') {

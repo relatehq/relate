@@ -400,13 +400,17 @@
         using uniform prompts.
       </p>
       <div class="band">
-        Contact graph experiment: three methods, two write variants, one read
-        control, two repeats and 28 turns. Explicit owner-scoped contact labels,
-        an email property and field descriptions. Prompts and SDK packages are
-        unchanged.
+        Main query update: six training tasks, three methods, two repeats and 28
+        turns. Scalar query predicates and the shared consumer implementation
+        are merged, with improved graph field descriptions. Prompts and
+        execution limits are unchanged.
       </div>
       <div id="currentMetrics" class="metrics"></div>
-      <div id="graphShapeComparison"></div>
+      <div id="queriesComparison"></div>
+      <details>
+        <summary>Historical contact graph comparison</summary>
+        <div id="graphShapeComparison"></div>
+      </details>
       <details>
         <summary>Historical completion-prompt comparison</summary>
         <div id="completionComparison"></div>
@@ -421,8 +425,9 @@
         These are fresh stochastic runs, not continuations. Compare the three
         retained methods with their previous 28-turn results. Sampling and new
         graph IDs can change outcomes; this small diagnostic does not establish
-        a causal effect. The SDK, acquired API data and evaluator are unchanged;
-        the local graph represents the contact data differently.
+        a causal effect. Main changes SDK query capabilities and the shared
+        consumer. Graph descriptions also changed. Task coverage expanded; the
+        original subset is compared separately.
       </p>
       <h2>Writes through the existing SDK</h2>
       <div class="panel">
@@ -509,13 +514,15 @@ await completeTask({answer: result});</pre>
       </p>
       <div class="band">
         This is an exploratory training-task experiment, not a benchmark
-        leaderboard score. The current three instances span two task families;
-        the two write tasks are variants of one family. Raw TypeScript versus
+        leaderboard score. The current six instances span four task families;
+        the three write tasks are variants of one family. Raw TypeScript versus
         SDK holds the Node environment constant, but acquisition, normalized
         collections and authored graph semantics still differ. Historical runs
         also used different prompts and SDK access; do not pool them.
       </div>
       <p>
+        <a href="QUERIES.md">Read / download the expanded query experiment</a
+        ><br />
         <a href="GRAPH-SHAPE.md">Read / download the contact graph experiment</a
         ><br />
         <a href="COMPLETION.md">Previous completion experiment</a><br />
@@ -880,6 +887,8 @@ await relate.objects.Playlist.traverse.songs(id, {
       ei = 0,
       ti = 0;
     const taskNames = {
+      afc0fce_3: 'Like and comment: roommate payments',
+      e7a10f8_3: 'Longest playlist: additional instance',
       afc0fce_1: 'Like and comment: coworker payments',
       afc0fce_2: 'Like and comment: friend payments',
       e7a10f8_1: 'Longest playlist',
@@ -1066,7 +1075,9 @@ await relate.objects.Playlist.traverse.songs(id, {
           ? ['sdk-nano-writes-v1', 'sdk-nano-writes-28-v1']
           : runs[ri].id === 'sdk-nano-writes-28-v1'
             ? ['sdk-nano-no-answer-v1', 'sdk-nano-writes-28-v1']
-            : ['sdk-nano-contact-graph-v1', 'sdk-nano-no-answer-v1'];
+            : runs[ri].id === 'sdk-nano-no-answer-v1'
+              ? ['sdk-nano-contact-graph-v1', 'sdk-nano-no-answer-v1']
+              : ['sdk-nano-queries-v1', 'sdk-nano-contact-graph-v1'];
       if (!names.includes(runs[ri].id)) return null;
       const other = runs.findIndex(
         (r) => names.includes(r.id) && r.id !== runs[ri].id,
@@ -1201,6 +1212,34 @@ await relate.objects.Playlist.traverse.songs(id, {
         '<h2>All retained comparison results</h2><div style="overflow:auto"><table><tr><th>Experiment</th><th>Arm</th><th>Passed</th><th>Completed</th><th>Mean turns</th><th>Mean time</th><th>Mean input tokens</th><th>Mean output tokens</th><th>Total cost</th><th>Trajectories</th></tr>' +
         rows +
         '</table></div><p class="muted">Rows are separate experiments; never pool older prompts or mixed-access SDK arms with the new uniform-prompt comparison. Superseded harness pilots are documented in the previous study, not counted here.</p>';
+      const queryBefore = runs.find(
+        (r) => r.id === 'sdk-nano-contact-graph-v1',
+      );
+      const queryAfter = runs.find((r) => r.id === 'sdk-nano-queries-v1');
+      if (queryBefore && queryAfter) {
+        const original = new Set(['afc0fce_1', 'afc0fce_2', 'd0b1f43_1']);
+        const passed = (es) =>
+          es.filter((e) => e.result.success === true).length;
+        const score = (es) => `${passed(es)}/${es.length}`;
+        const turns = (es) =>
+          fmt(es.reduce((n, e) => n + e.result.steps, 0) / es.length);
+        $('#queriesComparison').innerHTML =
+          '<h2>Main queries: existing tasks and additions</h2><table><tr><th>Method</th><th>Original subset before → after</th><th>Added tasks</th><th>All six tasks</th><th>Original mean turns before → after</th></tr>' +
+          ['raw', 'raw_ts', 'sdk']
+            .map((c) => {
+              const a = queryBefore.episodes.filter(
+                  (e) => e.result.condition === c,
+                ),
+                all = queryAfter.episodes.filter(
+                  (e) => e.result.condition === c,
+                ),
+                b = all.filter((e) => original.has(e.result.task_id)),
+                added = all.filter((e) => !original.has(e.result.task_id));
+              return `<tr><td>${c}</td><td>${score(a)} → ${score(b)}</td><td>${score(added)}</td><td>${score(all)}</td><td>${turns(a)} → ${turns(b)}</td></tr>`;
+            })
+            .join('') +
+          '</table><p>The original subset is three tasks × two repeats. The added subset is three more instances × two repeats. Scores across different subsets are not interchangeable.</p>';
+      }
       const graphBefore = runs.find((r) => r.id === 'sdk-nano-no-answer-v1');
       const graphAfter = runs.find((r) => r.id === 'sdk-nano-contact-graph-v1');
       if (graphBefore && graphAfter) {

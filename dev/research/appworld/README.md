@@ -1,6 +1,14 @@
 # AppWorld interface research
 
-## Latest contact-graph experiment
+## Latest main-query and expanded-task experiment
+
+[QUERIES.md](QUERIES.md) reports six tasks, three methods and two repeats after
+merging main's scalar predicates and shared consumer implementation. It retains
+the improved graph property descriptions and unchanged prompts. Results for the
+original three tasks are separated from the three additions. Protocol:
+[QUERIES-PLAN.md](QUERIES-PLAN.md).
+
+## Previous contact-graph experiment
 
 [GRAPH-SHAPE.md](GRAPH-SHAPE.md) compares explicit owner-scoped contact
 relationships, Person.email and field descriptions with the preceding graph.
@@ -10,9 +18,9 @@ Prompts and SDK packages remain unchanged. The same 18-episode, three-method,
 Subsequent model documentation clarifies transaction occurrence time, payment
 amount units, and song duration, release date, counts and artist encoding at the
 property level. AppWorld deliberately uses timezone-free datetimes; the graph
-preserves these strings without assigning UTC. These description edits have not
-been evaluated in a new agent run. The reported results and frozen execution
-sources remain those of the recorded contact-graph experiment.
+preserves these strings without assigning UTC. These description edits are
+evaluated with the main query update in [QUERIES.md](QUERIES.md). The older
+contact-graph report and its frozen execution sources remain unchanged.
 
 ## Previous completion-prompt experiment
 

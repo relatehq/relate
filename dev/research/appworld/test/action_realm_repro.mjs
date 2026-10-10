@@ -22,16 +22,19 @@ const snapshot = await createSdkSnapshot(
   },
   async () => {
     writes++;
+
     return {
       transaction: { ...transaction, likeCount: writes },
       output: { message: 'Liked' },
     };
   },
 );
+
 try {
   const relate = snapshot.consumer;
   const id = (await relate.objects.Transaction.query()).data[0].id;
   const input = runInNewContext('({transaction: id})', { id });
+
   assert.notEqual(Object.getPrototypeOf(input), Object.prototype);
   await relate.actions.likeTransaction({ input, idempotencyKey: 'foreign' });
   assert.equal(writes, 1, 'Cross-realm input reaches the source write');

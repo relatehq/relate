@@ -1,0 +1,34 @@
+[
+  {
+    "title": "Original subset: SDK 4/6 \u2192 2/6",
+    "text": "Mean SDK turns rise 15.7 \u2192 18.2 and input tokens 113,736 \u2192 126,119. Raw Python changes 4/6 \u2192 1/6 and raw TS 1/6 \u2192 2/6. The run does not show an accuracy gain; sampling changes even the unchanged controls."
+  },
+  {
+    "title": "Expanded subset: SDK and raw TS tie at 6/12",
+    "text": "Both pass 5/6 reads and 1/6 writes. Raw Python passes 4/12 (2/6 each). SDK averages 15.8 turns, raw TS 18.3, but SDK uses 104,764 input tokens versus 88,608. The expanded task mix must not be compared directly with the earlier three-task score."
+  },
+  {
+    "title": "Added music tasks: SDK 4/4",
+    "text": "All four SDK music episodes pass, averaging 8.25 turns. Playlist duration uses traverse.songs and the documented seconds unit. Popularity uses the acquired Song collection. These cases do not have matched baselines in the preceding run."
+  },
+  {
+    "title": "Predicates work; date ranges are not enabled on strings",
+    "text": "Agents successfully use eq and in. Seven of eight SDK payment episodes attempt unsupported date ranges. Discovery shows createdAt as string with eq/in; its contract is visible. The research graph deliberately preserves AppWorld timezone-free dates."
+  },
+  {
+    "title": "A correct write spoiled by result inspection and retry",
+    "text": "afc0fce_3__sdk__1 performs the correct writes at turn 18, reads .message on the receipt instead of .output.message, then uses a new key to retry at turn 20. A duplicate comment is the sole evaluator failure. Original receipt replay would require the same key."
+  },
+  {
+    "title": "Selection and REPL friction remain",
+    "text": "Friend-write failures omit the exact contact kind or skip the relationship. The failed roommate sum takes IDs from a displayed sample and omits one roommate. Across 12 SDK episodes, 40 turns hit variable redeclaration errors. These are distinct from query validation failures."
+  },
+  {
+    "title": "Matched successful SDK cases: mixed efficiency",
+    "text": "Across two original cases that pass both times, mean turns 19 \u2192 20, input tokens 128,874 \u2192 140,430 and output tokens 4,065 \u2192 3,044. The coworker write improves while the payment sum gets worse. No overall turn/input gain in this matched set."
+  },
+  {
+    "title": "36 scored episodes; all history retained",
+    "text": "635 turns, 16.6 minutes summed episode wall time and $0.3290 estimated model cost. No infrastructure failures or retries. All 258 historical/current trajectories remain available with IDs, method/task/outcome filters and matched-case navigation. Prompts and execution settings are unchanged."
+  }
+]
