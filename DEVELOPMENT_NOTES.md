@@ -197,7 +197,10 @@ is preserved. Filters and operators combine with AND. Timestamp schemas use
 `z.iso.datetime({ offset: true, precision: 3 })`, with optional/nullable
 wrappers; comparison uses instants while returned strings retain their supplied
 offset. Date-only/local timestamps and other precisions must be normalized by
-the application before ingestion. Ordinary strings retain exact text equality.
+the application before ingestion. Query operands accept any timezone-qualified
+ISO instant with at most millisecond precision. Range operands on numbers are
+not limited by the property's declared bounds. Ordinary strings retain exact
+text equality.
 
 The portable manifest format advances from 5 to 6. Recompile older models;
 installed graphs remain revision-pinned and require explicit revision/data

@@ -229,6 +229,19 @@ export function deepFreeze<T>(value: T): T {
 }
 
 const timestamp = z.iso.datetime({ offset: true, precision: 3 });
+const instant = z.iso.datetime({ offset: true });
+
+/**
+ * Query operands for timestamp properties: any timezone-qualified ISO instant
+ * with at most millisecond precision, so normalization to milliseconds is exact.
+ */
+export function acceptsInstant(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    !/\.\d{4}/.test(value) &&
+    instant.safeParse(value).success
+  );
+}
 
 export function accepts(schema: ScalarSchema, value: unknown): boolean {
   if (value === undefined) return schema.optional;

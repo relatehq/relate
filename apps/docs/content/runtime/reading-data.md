@@ -195,18 +195,22 @@ const incoming = objects.Transaction.query({
 
 This example assumes `sender` and `receiver` are Person references and
 `createdAt` maps a source field declared with
-`z.iso.datetime({ offset: true, precision: 3 })`. Timestamp strings must include
-a timezone and exactly three fractional digits. Comparisons use instants:
+`z.iso.datetime({ offset: true, precision: 3 })`. Stored timestamp strings must
+include a timezone and exactly three fractional digits. Filter operands accept
+any timezone-qualified ISO instant with at most millisecond precision, such as
+`2026-10-01T00:00:00Z`. Comparisons use instants:
 `2026-10-01T01:00:00.000+01:00` equals `2026-10-01T00:00:00.000Z`. Returned
 strings retain their original representation. Ordinary `z.string()` properties
 do not support range operators.
 
 Operators on the same property also combine with AND. `in: []` matches nothing;
-`eq: null` matches explicit null, not absence. Range operands cannot be null.
-Empty operator objects, undefined operands, invalid timestamps, and unsupported
-operators reject as `invalid-request`. At most 100 filter properties and 100
-values per `in` are supported. Equivalent equality shorthand, timestamp offsets,
-and reordered/deduplicated sets can continue the same cursor.
+`eq: null` matches explicit null, not absence. Range operands cannot be null,
+and a number property's declared bounds do not limit them: `{ gt: 0 }` is valid
+on `z.number().positive()`. Pass several values with `in`; a bare array is
+rejected. Empty operator objects, undefined operands, invalid timestamps, and
+unsupported operators reject as `invalid-request`. At most 100 filter properties
+and 100 values per `in` are supported. Equivalent equality shorthand, timestamp
+offsets, and reordered/deduplicated sets can continue the same cursor.
 
 Filters still use bounded scans and authorized reads. They reduce handwritten
 filtering but do not add indexes or provider-wide queries. Traversal filters,

@@ -37,7 +37,7 @@ const rules: readonly OptionRule[] = [
     name: 'where',
     type: '{ [property]: scalar | { eq?, in?, gt?, gte?, lt?, lte? } } (at most 100 properties)',
     description:
-      "Scalar equality or operator objects on property names, combined with AND. eq/in work on every scalar; gt/gte/lt/lte require numbers or timestamps. Operator entries also combine with AND. in accepts at most 100 values; [] matches nothing. Timestamp operands require timezone-qualified ISO instants with exactly three fractional digits; comparison uses the instant. null matches only explicit null; absence does not match. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
+      "Scalar equality or operator objects on property names, combined with AND. eq/in work on every scalar; gt/gte/lt/lte require numbers or timestamps. Operator entries also combine with AND. in accepts at most 100 values; [] matches nothing. Range operands are not limited by a number property's value bounds. Timestamp operands accept any timezone-qualified ISO instant with at most millisecond precision (for example 2026-10-01T00:00:00Z); comparison uses the instant. Use in, not a bare array, to match several values. null matches only explicit null; absence does not match. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
     operations: ['query'],
     valid: (value) => isPlainObject(value) && Object.keys(value).length <= 100,
   },
@@ -274,7 +274,7 @@ export function schemaText(schema: ScalarSchema, references?: string): string {
     return `${references} object ID${schema.nullable ? ' or null' : ''}`;
 
   if (schema.format === 'timestamp')
-    return `ISO timestamp with timezone and exactly three fractional digits${schema.nullable ? ' or null' : ''}`;
+    return `ISO timestamp with timezone, at most millisecond precision${schema.nullable ? ' or null' : ''}`;
 
   const bounds: string[] = [];
 

@@ -283,7 +283,9 @@ source schema or a `native(...)` property. Optional and nullable wrappers are
 supported. These are ISO strings with a timezone (`Z` or an explicit offset) and
 exactly three fractional-second digits. Date-only values, local times, other
 precisions, and `z.string().datetime()` are not supported timestamp schemas.
-Normalize provider timestamps before supplying records to Relate.
+Normalize provider timestamps before supplying records to Relate. Query operands
+are more lenient: any timezone-qualified ISO instant with at most millisecond
+precision, such as `2026-10-01T00:00:00Z`, is accepted.
 
 ```ts
 const events = defineSource({

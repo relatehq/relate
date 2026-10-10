@@ -171,6 +171,10 @@ export function timestampQueryContract(
         { eq: '2026-10-01T00:00:00.000Z' },
         { in: ['2026-10-01T00:00:00.000Z'] },
         { gt: '2026-09-30T23:59:59.999Z', lte: '2026-10-01T00:00:00.000Z' },
+        // Operands need only be unambiguous instants at millisecond precision.
+        '2026-10-01T00:00:00Z',
+        { in: ['2026-10-01T01:00:00+01:00'] },
+        { gt: '2026-09-30T23:59:59.9Z', lte: '2026-10-01T00:00:00.00Z' },
       ]) {
         const result = await consumer.objects.Event.query({
           where: { at },
@@ -225,7 +229,7 @@ export function timestampQueryContract(
         { gt: '2026-10-01' },
         { gte: '2026-02-29T00:00:00.000Z' },
         { eq: '2026-10-01T00:00:00.000' },
-        { lt: '2026-10-01T00:00:00Z' },
+        { lt: '2026-10-01T00:00Z' },
         { in: ['2026-10-01T00:00:00.0001Z'] },
         { gt: null },
       ])

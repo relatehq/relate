@@ -326,6 +326,14 @@ export function queryContract(
             .objects.Invoice.query({ where: { total: { gt: 20, lt: 0 } } })
         ).data,
       ).toEqual([]);
+      // total is declared 0–100; range thresholds are not limited by value bounds.
+      expect(
+        (
+          await app
+            .as(fin)
+            .objects.Invoice.query({ where: { total: { gt: -1, lt: 1000 } } })
+        ).data,
+      ).toHaveLength(3);
     });
 
     it('validates operator operands before any scan, including empty populations', async () => {
@@ -337,6 +345,9 @@ export function queryContract(
         { total: { gt: '10' } },
         { total: { eq: undefined } },
         { total: { eq: Infinity } },
+        { total: { gt: NaN } },
+        { total: { eq: -1 } },
+        { total: { in: [10, 101] } },
         { total: { in: [10, undefined] } },
         { total: { in: '10' } },
         { total: { in: Array(101).fill(10) } },
@@ -352,6 +363,19 @@ export function queryContract(
           app.as(fin).objects.Invoice.query({ where } as never),
         ).rejects.toMatchObject({ code: 'invalid-request' });
 
+      await expect(
+        app
+          .as(fin)
+          .objects.Invoice.query({ where: { total: [10, 20] } } as never),
+      ).rejects.toMatchObject({
+        code: 'invalid-request',
+        issues: [
+          {
+            path: ['where', 'total'],
+            message: expect.stringContaining('{ in: [...] }'),
+          },
+        ],
+      });
       expect(scan).not.toHaveBeenCalled();
     });
 

@@ -1,4 +1,9 @@
-import { accepts, canonicalJson, isPlainObject } from 'relate/model';
+import {
+  accepts,
+  acceptsInstant,
+  canonicalJson,
+  isPlainObject,
+} from 'relate/model';
 import type { ScalarSchema } from 'relate/model';
 import type { FilterScalar, RequestIssue } from '@relate/protocol';
 import { invalidValue, schemaText } from './options.js';
@@ -46,6 +51,23 @@ export function compilePredicate(
     : [['eq', input]];
   const conditions: Condition[] = [];
 
+  // A bare array is the likeliest carry-over from plain equality filters.
+  if (Array.isArray(input)) {
+    issues.push({
+      path,
+      problem: 'invalid-value',
+      message:
+        'an array is not a filter value; use { in: [...] } to match any of several values.',
+    });
+
+    return {
+      propertyId: property.id,
+      name: property.name,
+      timestamp,
+      conditions,
+    };
+  }
+
   if (entries.length > 6) {
     issues.push(invalidValue(path, 'at most six scalar operators', input));
 
@@ -85,27 +107,35 @@ export function compilePredicate(
     const operands = operator === 'in' ? (value as unknown[]) : [value];
     const normalized: FilterScalar[] = [];
     const range = operator !== 'eq' && operator !== 'in';
+    // Value bounds describe stored values, not thresholds: { gt: 0 } is valid on
+    // a positive number. Ranges keep only type, finiteness and timestamp format.
+    const schema: ScalarSchema = range
+      ? {
+          type: property.schema.type,
+          optional: false,
+          nullable: false,
+          ...(timestamp ? { format: 'timestamp' as const } : {}),
+        }
+      : property.schema;
 
     for (const [index, operand] of operands.entries()) {
       const operandPath =
         operator === 'in' ? [...location, String(index)] : location;
+      const valid =
+        operand !== undefined &&
+        (timestamp && typeof operand === 'string'
+          ? acceptsInstant(operand)
+          : accepts(schema, operand));
 
-      if (
-        operand === undefined ||
-        (range && operand === null) ||
-        !accepts(property.schema, operand)
-      ) {
+      if (!valid)
         issues.push(
           invalidValue(
             operandPath,
-            schemaText(
-              range ? { ...property.schema, nullable: false } : property.schema,
-              property.references,
-            ),
+            schemaText(schema, property.references),
             operand,
           ),
         );
-      } else normalized.push(normalize(operand as FilterScalar));
+      else normalized.push(normalize(operand as FilterScalar));
     }
 
     if (normalized.length !== operands.length) continue;

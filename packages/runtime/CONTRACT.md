@@ -179,22 +179,26 @@ and object records live in `relate`.
 - Omit `where` or pass `{}` to enumerate. Scalar values are equality shorthand;
   operator objects support `eq` and `in` on every property, and `gt`, `gte`,
   `lt`, `lte` on numbers and timestamps. Properties and operators combine with
-  AND. Operands must satisfy the property's compiled schema; range operands
-  cannot be null. References and object-ID properties use canonical Relate IDs.
-  `null` matches explicit null; known absent optional values never match. Empty
-  `in` matches nothing, but does not bypass evidence checks. Contradictory
-  bounds match nothing. Reject empty operator objects, unknown operators,
-  undefined operands and incompatible types before scanning. At most 100 filter
-  properties and 100 operands per `in` are accepted. No recursive predicates,
-  traversal filters, sorting or aggregation are supported.
+  AND. `eq`/`in` operands must satisfy the property's compiled schema. Range
+  operands must match the property's type (finite numbers, or timestamps) but
+  are not limited by its declared value bounds, and cannot be null. A bare array
+  is rejected with a pointer to `in`. References and object-ID properties use
+  canonical Relate IDs. `null` matches explicit null; known absent optional
+  values never match. Empty `in` matches nothing, but does not bypass evidence
+  checks. Contradictory bounds match nothing. Reject empty operator objects,
+  unknown operators, undefined operands and incompatible types before scanning.
+  At most 100 filter properties and 100 operands per `in` are accepted. No
+  recursive predicates, traversal filters, sorting or aggregation are supported.
 - Timestamp properties compile from
   `z.iso.datetime({ offset: true, precision: 3 })` (optionally
   nullable/optional). The manifest marks these strings with
-  `format: 'timestamp'`. Source, native and action values and query operands are
-  validated as timezone-qualified ISO instants with exactly three fractional
-  digits. Equality, sets and ranges compare instant milliseconds, not text;
-  returned values retain their original representation. Plain strings do not
-  acquire timestamp semantics by resembling a date.
+  `format: 'timestamp'`. Source, native and action values are validated as
+  timezone-qualified ISO instants with exactly three fractional digits. Query
+  operands accept any timezone-qualified ISO instant with at most millisecond
+  precision, so normalization to milliseconds stays exact. Equality, sets and
+  ranges compare instant milliseconds, not text; returned values retain their
+  original representation. Plain strings do not acquire timestamp semantics by
+  resembling a date.
 - Predicate compilation normalizes equality shorthand, timestamp operands,
   operator order and set order/duplicates once per request. Cursor binding uses
   those normalized predicates. Evaluation still follows bounded authorized
