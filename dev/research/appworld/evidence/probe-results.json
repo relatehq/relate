@@ -1,0 +1,54 @@
+{
+  "rows": [
+    {
+      "condition": "flat",
+      "select": null,
+      "bytes": 19302,
+      "records": 57,
+      "snapshot_fetches": 0
+    },
+    {
+      "condition": "flat",
+      "select": ["sourceId", "title", "likeCount"],
+      "bytes": 7650,
+      "records": 57,
+      "snapshot_fetches": 0
+    },
+    {
+      "condition": "full",
+      "select": null,
+      "bytes": 185742,
+      "records": 57,
+      "snapshot_fetches": 0
+    },
+    {
+      "condition": "full",
+      "select": ["sourceId", "title", "likeCount"],
+      "bytes": 65562,
+      "records": 57,
+      "snapshot_fetches": 0
+    },
+    {
+      "condition": "compact",
+      "select": null,
+      "bytes": 22266,
+      "records": 57,
+      "snapshot_fetches": 0
+    },
+    {
+      "condition": "compact",
+      "select": ["sourceId", "title", "likeCount"],
+      "bytes": 10614,
+      "records": 57,
+      "snapshot_fetches": 0
+    }
+  ],
+  "acquisition": {
+    "op": "load",
+    "source_calls": 59,
+    "seconds": 0.11421858286485076,
+    "response_bytes": 128,
+    "kind": null,
+    "select": null
+  }
+}

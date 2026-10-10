@@ -1,0 +1,19 @@
+{
+  "candidate": "sdk-nano-contact-graph-v1",
+  "episodes": 18,
+  "comparison_episodes": 36,
+  "package_source_identical": true,
+  "only_local_graph_and_normalization_changed": true,
+  "exact_initial_messages_and_acquisition_call_counts_unchanged": true,
+  "all_episodes_scored": true,
+  "metric_sums_verified": true,
+  "source_hashes_and_exact_prompts_verified": true,
+  "archive_files_roundtripped": 1557,
+  "archive_sha256": "022654e40b9da68906180223911bf20dd8157e4e1436fee55eef542cb96789c8",
+  "explorer_episodes": 222,
+  "secret_redaction_verified": true,
+  "python_harness_tests": "18 passed",
+  "node_tests": "11 passed",
+  "original_appworld_write_smoke": "passed",
+  "full_repository_check": "Not rerun; no package code changed"
+}

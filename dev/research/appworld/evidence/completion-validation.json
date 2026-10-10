@@ -1,0 +1,16 @@
+{
+  "candidate": "sdk-nano-no-answer-v1",
+  "episodes": 18,
+  "comparison_episodes": 36,
+  "package_source_identical": true,
+  "only_prompt_example_and_default_conditions_changed": true,
+  "all_episodes_scored": true,
+  "metric_sums_verified": true,
+  "source_hashes_and_exact_prompts_verified": true,
+  "archive_files_roundtripped": 1459,
+  "archive_sha256": "10d9eaee182db8a93cf14063d8bbdf6206d4d7a49eaf13ed1367bd291affee5a",
+  "explorer_episodes": 204,
+  "secret_redaction_verified": true,
+  "python_harness_tests": "17 passed",
+  "full_repository_check": "Not rerun; no package code changed"
+}

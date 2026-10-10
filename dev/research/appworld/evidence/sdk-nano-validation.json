@@ -1,0 +1,39 @@
+{
+  "run": "sdk-nano-discovery-v1",
+  "frozen_head": "49af6005c5a958d30cefd990bcc8f40b3eec6c49",
+  "sdk_main": "60f0ff2",
+  "sdk_feature_pr": 18,
+  "episodes_expected": 36,
+  "episodes_scored": 36,
+  "infrastructure_errors": 0,
+  "source_hashes_verified": {
+    "sdk_runner.py": "2ef1aebb3e30deebbc9799aa23aebb73487f388234af33228c027389d82cccfc",
+    "sdk-repl.mjs": "266bcad647c598f3c9838b9499eef438a0155ef6429afcf312d4f6e09666ff2c",
+    "sdk-graph.mjs": "b332f0d68ad2088b8958cc6485c0d6a6ab90ce7fc4692cf11ce1e2793b5a55c0",
+    "acquire.py": "88ac8573fa9d6021037438d15261e72d5d6263273908fc37c717128594f6eefe",
+    "runner.py": "c30216c0561e8d08bce18b3c855b656e84e77f5d9b6848f97a597e5cd43c13cb"
+  },
+  "initial_prompt_completion_once": true,
+  "per_turn_completion_feedback": false,
+  "metric_sums_verified": true,
+  "protected_archive_roundtrip_files": 737,
+  "archive_bytes": 3590450,
+  "archive_sha256": "26a67a22b70e4f0cf42f5d2fd282db0dcb6c53cf384dd8333bf1b0d7db655cf4",
+  "public_secret_scan": "authorized provider key absent; no simulated gmail addresses or JWTs in new public JSON",
+  "checks": {
+    "package_build": "passed",
+    "research_node_tests": 9,
+    "research_python_tests": 13,
+    "focused_operation_contract_request_error_tests": 11,
+    "appworld_evaluator_persistence_regression": "passed",
+    "python_lint": "passed",
+    "html_javascript_syntax": "passed",
+    "focused_formatting": "passed",
+    "browser": "filters, turn selection and token chart verified; final refresh checked separately"
+  },
+  "repository_wide_check": "not run; scoped research/report change with merged upstream implementation",
+  "runtime": {
+    "node": "v26.9.0",
+    "python": "3.11.6"
+  }
+}

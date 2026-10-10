@@ -1,0 +1,38 @@
+{
+  "baseline": "sdk-nano-writes-v1",
+  "candidate": "sdk-nano-writes-28-v1",
+  "episodes_each": 24,
+  "source_hashes": {
+    "sdk_runner.py": "86a2a25641a34f0a42c031476d63cd3c328aca3677bc86a204c9d78d467f46f2",
+    "sdk-repl.mjs": "c6b9c8ce169a4bf3a4af8c8c6a64084437113935f3c30ca33001ae054135987e",
+    "sdk-graph.mjs": "0274c776ba5d01b895db8c69d5faf1439821bb8917a8148ad46b71f5e667a470",
+    "acquire.py": "278979fc64a954faacce43064f7140964bcbc2f410b9c02960aabde252e858c7",
+    "runner.py": "c30216c0561e8d08bce18b3c855b656e84e77f5d9b6848f97a597e5cd43c13cb",
+    "prompts.py": "39f1ac0f3344de300a233ed9bfc83f5566c8a52a5819d2fe28f66e3e8ad78500"
+  },
+  "config_difference_fields": ["git_head", "run", "steps"],
+  "baseline_head": "278ea263dcdc15655d104d1b45d3dae1075eeaf3",
+  "candidate_head": "161200e25984de6a9331adb5a956b03136f4ca97",
+  "package_source_identical": true,
+  "execution_source_identical": true,
+  "prompts_identical": true,
+  "completion_guidance_once": true,
+  "per_turn_feedback": false,
+  "metric_sums_verified": true,
+  "request_log_turn_partition_verified": true,
+  "all_episodes_scored": true,
+  "archive_files_roundtripped": 1361,
+  "archive_sha256": "37c688fdc88e8c524bb5c046e332abc3bdb24416684e4eb53a66b0994665a00e",
+  "archive_bytes": 6846864,
+  "explorer_episodes": 186,
+  "secret_scan": "provider key absent from new public files and explorer; public JSON excludes simulated email addresses and JWTs; explorer redacts JWTs and omits private provider continuation payloads",
+  "scope": "Analysis/report changes only. Execution and SDK tests passed in the preceding pilot; no package or harness implementation changed here.",
+  "manual_and_tool_checks": {
+    "python_lint": "passed",
+    "python_formatting": "passed",
+    "html_javascript_syntax": "passed",
+    "focused_prettier": "passed",
+    "browser": "passed: comparison totals, all 24 new episodes, six successes, three answer-only write failures, matched-case navigation in both directions, turn 15 marker, frozen prompt source",
+    "repository_wide_check": "not rerun; no harness or package implementation changes"
+  }
+}

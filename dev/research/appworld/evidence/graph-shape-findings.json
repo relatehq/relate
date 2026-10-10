@@ -1,0 +1,30 @@
+[
+  {
+    "title": "SDK accuracy unchanged: 4/6 overall, 2/4 writes",
+    "text": "Both coworker writes pass; both friend writes fail. Previously one coworker and one friend write passed. Total success across all methods remains 9/18. These fresh stochastic runs do not establish an accuracy improvement."
+  },
+  {
+    "title": "Used in four successes, skipped in two failures",
+    "text": "All four successful SDK episodes mention and use ContactRelationship or its traversals. Neither friend-write failure queries that surface; both mutate overly broad transaction sets. Making a constraint queryable did not ensure the model applied it."
+  },
+  {
+    "title": "A concrete successful use: owner plus exact kind",
+    "text": "afc0fce_1__sdk__0 discovers ContactRelationship at turn 6, queries owner-scoped labels at turn 7, then exact kind at turn 8. It writes at turn 9 and passes at turn 10. Its previous counterpart omitted the contact-group filter."
+  },
+  {
+    "title": "No efficiency gain in this run",
+    "text": "SDK mean turns 13.2 \u2192 15.7; mean input tokens 76,814 \u2192 113,736; mean episode time 29.3s \u2192 34.2s. SDK redeclaration-error turns rise from 14 to 24. These reflect whole trajectories, not an isolated measure of graph-discovery overhead."
+  },
+  {
+    "title": "Graph only; prompts and SDK packages unchanged",
+    "text": "Person.email replaces the ambiguous sourceId property. ContactRelationship stores owner, contact and exact kind, with canonical references and traversals. The same acquired API data and public supervisor context supply all records; acquisition call counts and exact initial messages match the preceding run."
+  },
+  {
+    "title": "Raw controls show substantial variability",
+    "text": "Raw Python moves 3/6 \u2192 4/6; raw TypeScript 2/6 \u2192 1/6 despite unchanged environments. One raw-TS episode hits 28 turns without completing. All 18 episodes scored, with no infrastructure errors."
+  },
+  {
+    "title": "Inspect all results and matched trajectories",
+    "text": "About 9.9 minutes of summed episode wall time, 332 turns and $0.1892 estimated model cost. The explorer now retains 222 trajectories. The matched-case button connects this graph experiment to the previous no-answer run."
+  }
+]

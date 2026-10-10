@@ -1,0 +1,22 @@
+{
+  "relate_base": "a043f59",
+  "checks": {
+    "pnpm check:development": "passed",
+    "pnpm typecheck": "passed",
+    "pnpm check:boundaries": "passed: 20 packages, 126 modules",
+    "pnpm test:unit": "passed: 55 files, 571 tests",
+    "pnpm test:integration": "passed: 13 files, 159 tests; isolated worktree database",
+    "pnpm test:packaging": "passed: installed tarballs, Node ESM, native actions, inspector CLI",
+    "pnpm test:release": "passed: 7 tests; no release preparation or publication",
+    "node --test test/*.test.mjs": "passed: 8 tests",
+    ".venv/bin/python -m unittest discover -s test -p 'test_*.py' -v": "passed: 7 tests",
+    "ruff 0.15.0 check": "passed",
+    "primary prompt compatibility": "original condition strings preserved without --clarify-interface",
+    "formatting equivalence": "graph and acquisition ASTs unchanged from primary snapshot",
+    "archive round trip": "109 original files match SHA-256; only two license files added",
+    "pnpm lint": "passed",
+    "pnpm format:check": "passed",
+    "final source snapshot": "runner.py, graph.mjs and acquire.py hashes match interface-docs-v2 config"
+  },
+  "limits": "Research tests are explicit commands, not included in the repository vitest suites. Model runs are local exploratory experiments, not CI or leaderboard results."
+}

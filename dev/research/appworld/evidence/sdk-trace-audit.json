@@ -1,0 +1,168 @@
+{
+  "run": "sdk-mini-main-v3",
+  "method": "Manual review of executed code, printed calculations, submitted answers and original evaluator outcomes. This is a post-hoc diagnostic, not a replacement accuracy metric. No answer values or task records are redistributed.",
+  "episodes": [
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "raw",
+      "repeat": 0,
+      "official_success": false,
+      "correct_numerical_result_observed": false,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "raw",
+      "repeat": 1,
+      "official_success": false,
+      "correct_numerical_result_observed": false,
+      "completion_issue": "incorrect-result-and-answer-format",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "raw",
+      "repeat": 2,
+      "official_success": false,
+      "correct_numerical_result_observed": false,
+      "completion_issue": "incorrect-result-and-answer-format",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "sdk",
+      "repeat": 0,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "sdk",
+      "repeat": 1,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "non-numeric-answer-format",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "sdk",
+      "repeat": 2,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "non-numeric-answer-format",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "static",
+      "repeat": 0,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "static",
+      "repeat": 1,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "static",
+      "repeat": 2,
+      "official_success": false,
+      "correct_numerical_result_observed": false,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "raw",
+      "repeat": 0,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "raw",
+      "repeat": 1,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "raw",
+      "repeat": 2,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "sdk",
+      "repeat": 0,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "sdk",
+      "repeat": 1,
+      "official_success": true,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "none",
+      "successful_through_traversal_observed": true
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "sdk",
+      "repeat": 2,
+      "official_success": true,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "none",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "static",
+      "repeat": 0,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "static",
+      "repeat": 1,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "static",
+      "repeat": 2,
+      "official_success": false,
+      "correct_numerical_result_observed": true,
+      "completion_issue": "not-submitted",
+      "successful_through_traversal_observed": false
+    }
+  ]
+}

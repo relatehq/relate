@@ -1,0 +1,34 @@
+[
+  {
+    "title": "Official success: 2/24 \u2192 6/24",
+    "text": "Only the configured turn limit changed. 20/24 new episodes used turns beyond 14; 4 successful episodes finished after turn 14. These are fresh stochastic runs, not continuations of the same first 14 turns."
+  },
+  {
+    "title": "Static notes: 3/4 correct write effects, 0/4 official passes",
+    "text": "Three static-notes write episodes passed every world-state check but failed their unnecessary answer submission. The SDK reached mutations in all four write episodes but passed none of their target-set checks. These small-sample diagnostics separate record selection from completion; they do not replace official scoring."
+  },
+  {
+    "title": "A raw TypeScript write passed on turn 15",
+    "text": "afc0fce_1__raw_ts__1 completed its mutations at turn 14 and submitted without an unnecessary answer at turn 15. It passed the original evaluator. The additional opportunity can matter even when it is used only for submission."
+  },
+  {
+    "title": "More execution does not guarantee the right records",
+    "text": "The SDK coworker-payment repeat 0 recovered its action-call syntax after turn 14, then changed an over-broad transaction set. Repeat 1 stopped at turn 11 after using a rolling-time window that excluded part of the first calendar day."
+  },
+  {
+    "title": "The graph data must still be used",
+    "text": "The SDK friend-payment repeat 1 called its selection inRangeFriends but never checked the friend group. It applied date and receiver filters, executed actions and stopped at turn 12. Unused turn allowance cannot repair early incorrect completion."
+  },
+  {
+    "title": "Correct effects and correct completion remain separate",
+    "text": "Static-notes coworker-payment repeat 0 performed the correct mutations at turn 23, then failed by submitting a count at turn 25. The existing prompt already said to omit unnecessary answers. A concrete no-answer example is a proposed next ablation, not a change in this run."
+  },
+  {
+    "title": "Inspect the same case at both budgets",
+    "text": "Each write-pilot trajectory has a button to open the same task, method and repeat in the other run. Turns beyond 14 are labeled. Matching case IDs does not imply identical sampling or graph IDs."
+  },
+  {
+    "title": "Additional time and cost are visible",
+    "text": "The new run totals 13.0 minutes of recorded episode time and $0.2385 estimated model cost, versus 8.7 minutes and $0.1574. Calls after turn 14 account for $0.0763 of the new run cost."
+  }
+]

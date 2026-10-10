@@ -1,0 +1,44 @@
+{
+  "run": "sdk-nano-writes-v1",
+  "frozen_head": "278ea263dcdc15655d104d1b45d3dae1075eeaf3",
+  "sdk_main": "5a0af21",
+  "episodes_expected": 24,
+  "episodes_scored": 24,
+  "infrastructure_errors": 0,
+  "source_hashes_verified": {
+    "sdk_runner.py": "86a2a25641a34f0a42c031476d63cd3c328aca3677bc86a204c9d78d467f46f2",
+    "sdk-repl.mjs": "c6b9c8ce169a4bf3a4af8c8c6a64084437113935f3c30ca33001ae054135987e",
+    "sdk-graph.mjs": "0274c776ba5d01b895db8c69d5faf1439821bb8917a8148ad46b71f5e667a470",
+    "acquire.py": "278979fc64a954faacce43064f7140964bcbc2f410b9c02960aabde252e858c7",
+    "runner.py": "c30216c0561e8d08bce18b3c855b656e84e77f5d9b6848f97a597e5cd43c13cb",
+    "prompts.py": "39f1ac0f3344de300a233ed9bfc83f5566c8a52a5819d2fe28f66e3e8ad78500"
+  },
+  "initial_prompt_exact_match": true,
+  "shared_prompt_rules_verified": true,
+  "completion_instruction_once": true,
+  "per_turn_completion_feedback": false,
+  "raw_ts_no_acquisition_or_snapshot_fetches": true,
+  "metric_sums_verified": true,
+  "protected_archive_roundtrip_files": 1233,
+  "archive_bytes": 5970335,
+  "archive_sha256": "72f7b21d4836b654b1406649f0ca69f06199f73bd2ff5348c12582b6160e9b0a",
+  "public_secret_scan": "authorized provider key absent; no simulated gmail addresses or JWTs in new public JSON; local explorer redacts JWTs and excludes provider continuation payloads",
+  "checks": {
+    "research_node_tests": 10,
+    "research_python_tests": 17,
+    "cross_realm_action_regression": "passed",
+    "real_appworld_write_refresh_replay": "passed",
+    "package_boundaries": "passed",
+    "sdk_evaluator_persistence": "passed",
+    "python_lint": "passed",
+    "html_javascript_syntax": "passed",
+    "focused_formatting": "passed",
+    "browser": "passed: 24 latest episodes; success and write-answer-only filters; full-ID search; turn navigation; metrics and frozen action source"
+  },
+  "explorer_episodes": 162,
+  "repository_wide_check": "not run; scoped research/report change, no package implementation changes",
+  "runtime": {
+    "node": "v26.9.0",
+    "python": "3.11.6"
+  }
+}
