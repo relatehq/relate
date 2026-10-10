@@ -249,3 +249,21 @@ export class ActionError extends Error {
 
 export { present } from './presentation.js';
 export type { Presentable, Presented } from './presentation.js';
+
+export type {
+  ActionDescription,
+  ActionFieldDescription,
+  ActionSummary,
+  Discovery,
+  GraphDescription,
+  ObjectDescription,
+  ObjectSummary,
+  OperationContract,
+  OperationContracts,
+  OptionDescription,
+  PropertyDescription,
+  ScalarSchema,
+  TraversalDescription,
+} from './discovery.js';
+
+export type { ConsumerOperations } from './consumer.js';

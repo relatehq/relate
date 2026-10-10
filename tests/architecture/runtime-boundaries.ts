@@ -7,7 +7,6 @@ const dependencies: Record<string, readonly string[]> = {
     'discovery',
     'observations',
     'memory',
-    'pagination',
   ],
   composition: [
     'actions',
@@ -32,7 +31,6 @@ const dependencies: Record<string, readonly string[]> = {
   reads: [],
   storage: ['observations'],
   memory: ['storage', 'observations'],
-  pagination: ['reads'],
 };
 const roots: Record<string, string> = {
   'index.ts': 'public',
@@ -42,7 +40,6 @@ const roots: Record<string, string> = {
   'native-memory.ts': 'memory',
   'discovery.ts': 'discovery',
   'contracts.ts': 'discovery',
-  'pagination.ts': 'pagination',
 };
 const folders = new Set([
   'actions',

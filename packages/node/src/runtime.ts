@@ -1,11 +1,4 @@
-import {
-  ActionError,
-  ReadError,
-  type Page,
-  type QueryRequest,
-  type QueryResult,
-  type TraversalRequest,
-} from '@relate/protocol';
+import type { ConsumerOperations, QueryRequest } from '@relate/protocol';
 import { compile } from 'relate/compiler';
 import type {
   ActionDefinition,
@@ -16,106 +9,13 @@ import type {
   ObjectRegistry,
   AppBindings,
 } from 'relate';
-import {
-  createRuntime as createEngine,
-  createQuery,
-  operationContracts,
-} from '@relate/runtime';
-import type { ObjectDescription as RuntimeObjectDescription } from '@relate/runtime';
+import { createConsumer, createPagedQuery } from 'relate/consumer';
+import type { Consumer } from 'relate/consumer';
+import { createRuntime as createEngine } from '@relate/runtime';
 import type { Principal } from '@relate/runtime';
 import type { SourceBinding } from 'relate/connectors';
 import type { ActionHandler } from '@relate/runtime';
-import type { Consumer, ObjectDescription, Relate } from './types.js';
-
-/** Bind paged options once; request errors reject the handle like other operations. */
-function paged<R extends { readonly cursor?: string }, T>(
-  operation: string,
-  request: R,
-  readPage: (request: R) => Promise<Page<T>>,
-): QueryResult<T> {
-  try {
-    let captured: R;
-
-    try {
-      captured = structuredClone(request);
-    } catch {
-      throw new ReadError('invalid-request', {
-        operation,
-        issues: [
-          {
-            path: [],
-            problem: 'invalid-value',
-            message:
-              'options must be plain data, without functions, symbols or class instances.',
-          },
-        ],
-      });
-    }
-
-    return createQuery(
-      (cursor) =>
-        readPage({ ...captured, ...(cursor !== undefined ? { cursor } : {}) }),
-      {
-        operation,
-        ...(captured.cursor !== undefined ? { cursor: captured.cursor } : {}),
-      },
-    );
-  } catch (error) {
-    return createQuery(() => Promise.reject(error));
-  }
-}
-
-const inspect = Symbol.for('nodejs.util.inspect.custom');
-
-/**
- * Printing an operation shows how to call it rather than its implementation, so
- * a REPL or log teaches the same contract discovery describes.
- */
-function documented<F extends (...args: never[]) => unknown>(
-  operation: F,
-  signature: string,
-): F {
-  for (const key of ['toString', inspect])
-    Object.defineProperty(operation, key, { value: () => signature });
-
-  return operation;
-}
-
-const optionNames = (options: readonly string[]) =>
-  `{ ${options.map((option) => `${option}?`).join(', ')} }`;
-
-/** Add this SDK's call paths to the runtime's surface-neutral object detail. */
-function withCalls(
-  path: string,
-  description: RuntimeObjectDescription | undefined,
-): ObjectDescription | undefined {
-  if (!description) return undefined;
-
-  // Runtime detail is already frozen; freeze only the members added here.
-  const { freeze } = Object;
-
-  return freeze({
-    ...description,
-    operations: freeze({
-      get: freeze({
-        ...description.operations.get,
-        call: `${path}.get(id, options?)`,
-      }),
-      query: freeze({
-        ...description.operations.query,
-        call: `${path}.query(options?)`,
-      }),
-    }),
-    traversals: freeze(
-      description.traversals.map((traversal) =>
-        freeze({
-          ...traversal,
-          call: `${path}.traverse.${traversal.name}(id, options?)`,
-        }),
-      ),
-    ),
-  });
-}
+import type { Relate } from './types.js';
 
 export interface AppOptions<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
@@ -128,6 +28,16 @@ export function createRuntime<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(options: AppOptions<G>): Relate<G> {
   const model = compile(options.graph);
+  // Keep every later facade aligned with this compiled model. Definitions are
+  // immutable, but the graph and its caller-owned registries need not be.
+  const consumerGraph = {
+    ...options.graph,
+    objects: { ...options.graph.objects },
+    ...(options.graph.relationships
+      ? { relationships: { ...options.graph.relationships } }
+      : {}),
+    ...(options.graph.actions ? { actions: { ...options.graph.actions } } : {}),
+  };
   const objects = Object.entries(options.graph.objects);
   const registered = new Set<ObjectDefinition>(
     objects.map(([, object]) => object),
@@ -180,7 +90,7 @@ export function createRuntime<
             name,
             Object.freeze({
               query: (request: QueryRequest = {}) =>
-                paged(`${name}.query`, request, (page) =>
+                createPagedQuery(`${name}.query`, request, (page) =>
                   context.query(object.id, page),
                 ),
               get: async (id: string, request = {}) => {
@@ -217,30 +127,11 @@ export function createRuntime<
   });
   let closed = false;
   const pending = new Set<Promise<unknown>>();
-  const apiNames = new Map(
-    objects.map(([name, object]) => [object.id, name] as const),
-  );
-  const traversalsOf = (objectId: string) =>
-    (model.manifest.relationships ?? []).flatMap((r) => [
-      ...(r.fromObjectDefinitionId === objectId
-        ? [
-            {
-              traversal: r.forward,
-              target: apiNames.get(r.toObjectDefinitionId),
-            },
-          ]
-        : []),
-      ...(r.toObjectDefinitionId === objectId
-        ? [
-            {
-              traversal: r.reverse,
-              target: apiNames.get(r.fromObjectDefinitionId),
-            },
-          ]
-        : []),
-    ]);
-  const run = async <T>(operation: () => Promise<T>): Promise<T> => {
+  const open = () => {
     if (closed) throw new Error('Relate is closed');
+  };
+  const run = async <T>(operation: () => Promise<T>): Promise<T> => {
+    open();
 
     const result = operation();
 
@@ -253,145 +144,60 @@ export function createRuntime<
     }
   };
 
-  return {
-    as(principal: Principal): Consumer<G> {
-      if (closed) throw new Error('Relate is closed');
+  /** Bind one host-authenticated principal; every call is tracked for `close()`. */
+  function operations(principal: Principal): ConsumerOperations {
+    open();
 
-      // A handle binds a snapshot of the host-authenticated principal.
-      const actor = structuredClone(principal);
-      const discovery = engine.discover(actor);
-      const operations = Object.fromEntries(
-        objects.map(([name, object]) => {
-          const path = `objects.${name}`;
-          let described: ObjectDescription | undefined;
-
-          return [
-            name,
-            Object.freeze({
-              describe: () => {
-                if (closed) throw new Error('Relate is closed');
-
-                return (described ??= withCalls(
-                  path,
-                  discovery.describeObject(object.id),
-                ));
-              },
-              traverse: Object.freeze(
-                Object.fromEntries(
-                  traversalsOf(object.id).map(({ traversal, target }) => {
-                    const operation = `${name}.traverse.${traversal.name}`;
-                    const signature =
-                      traversal.cardinality === 'one'
-                        ? `${path}.traverse.${traversal.name}(id: ObjectId<${name}>, options?: ${optionNames(operationContracts.traverse.one.options)}): Promise<ObjectResult<${target}>>`
-                        : `${path}.traverse.${traversal.name}(id: ObjectId<${name}>, options?: ${optionNames(operationContracts.traverse.many.options)}): QueryResult<${target}>`;
-
-                    return [
-                      traversal.name,
-                      documented(
-                        (id: string, request: TraversalRequest = {}) => {
-                          if (traversal.cardinality === 'one')
-                            return run(() =>
-                              engine.traverse(
-                                actor,
-                                object.id,
-                                id,
-                                traversal.name,
-                                request,
-                              ),
-                            );
-
-                          return paged(operation, request, (page) =>
-                            run(async () => {
-                              const result = await engine.traverse(
-                                actor,
-                                object.id,
-                                id,
-                                traversal.name,
-                                page,
-                              );
-
-                              if ('status' in result)
-                                throw new Error(
-                                  'Invalid to-many traversal result',
-                                );
-
-                              return result;
-                            }),
-                          );
-                        },
-                        signature,
-                      ),
-                    ];
-                  }),
-                ),
-              ),
-              query: documented(
-                (request: QueryRequest = {}) =>
-                  paged(`${name}.query`, request, (page) =>
-                    run(() => engine.query(actor, object.id, page)),
-                  ),
-                `${path}.query(options?: ${optionNames(operationContracts.query.options)}): QueryResult<${name}>`,
-              ),
-              get: documented(
-                (id: string, request = {}) =>
-                  run(async () => {
-                    const result = await engine.read(
-                      actor,
-                      object.id,
-                      id,
-                      request,
-                    );
-
-                    return result.status === 'ok' ? { ...result, id } : result;
-                  }),
-                `${path}.get(id: ObjectId<${name}>, options?: ${optionNames(operationContracts.get.options)}): Promise<ObjectResult<${name}>>`,
-              ),
-            }),
-          ];
-        }),
-      );
-
-      // Compilation validates schema support; the engine validates values and selection.
-      // The registry gives each operation exactly the definition used by that compiler.
-      return Object.freeze({
+    // A handle binds a snapshot of the host-authenticated principal.
+    const actor = structuredClone(principal);
+    const discovery = engine.discover(actor);
+    const bound: ConsumerOperations = {
+      discovery: Object.freeze({
         describe: () => {
-          if (closed) throw new Error('Relate is closed');
+          open();
 
           return discovery.describe();
         },
-        objects: Object.freeze(operations),
-        receipts: Object.freeze({
-          get: (action: ActionDefinition, invocationId: string) =>
-            run(async () => {
-              if (!actions.some(([, registered]) => registered === action))
-                throw new ActionError('denied');
+        describeObject: (objectDefinitionId: string) => {
+          open();
 
-              return engine.getReceipt(actor, action.id, invocationId);
-            }),
-        }),
-        actions: Object.freeze(
-          Object.fromEntries(
-            actions.map(([name, action]) => {
-              const invoke = (request: {
-                input: unknown;
-                idempotencyKey: string;
-              }) => run(() => engine.invoke(actor, action.id, request));
+          return discovery.describeObject(objectDefinitionId);
+        },
+        describeAction: (actionDefinitionId: string) => {
+          open();
 
-              Object.defineProperty(invoke, 'describe', {
-                value: () => {
-                  if (closed) throw new Error('Relate is closed');
-
-                  return discovery.describeAction(action.id);
-                },
-                enumerable: true,
-              });
-
-              return [name, Object.freeze(invoke)];
-            }),
+          return discovery.describeAction(actionDefinitionId);
+        },
+      }),
+      read: (objectDefinitionId, objectId, request) =>
+        run(() => engine.read(actor, objectDefinitionId, objectId, request)),
+      query: (objectDefinitionId, request) =>
+        run(() => engine.query(actor, objectDefinitionId, request)),
+      traverse: (objectDefinitionId, objectId, traversal, request) =>
+        run(() =>
+          engine.traverse(
+            actor,
+            objectDefinitionId,
+            objectId,
+            traversal,
+            request,
           ),
         ),
-      }) as unknown as Consumer<G>;
+      invoke: (actionDefinitionId, request) =>
+        run(() => engine.invoke(actor, actionDefinitionId, request)),
+      getReceipt: (actionDefinitionId, invocationId) =>
+        run(() => engine.getReceipt(actor, actionDefinitionId, invocationId)),
+    };
+
+    return Object.freeze(bound);
+  }
+
+  return {
+    as(principal: Principal): Consumer<G> {
+      // Compilation validated schema support; the engine validates values and selection.
+      return createConsumer(consumerGraph, operations(principal));
     },
+    operations,
     host: Object.freeze({
       adopt: <
         O extends Extract<

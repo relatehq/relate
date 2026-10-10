@@ -1,51 +1,9 @@
+import type { OperationContracts } from '@relate/protocol';
 import { deepFreeze } from 'relate/model';
-import {
-  optionDescriptions,
-  type OptionDescription,
-  type ReadOperation,
-} from './reads/index.js';
+import { optionDescriptions, type ReadOperation } from './reads/index.js';
 
 const names = (operation: ReadOperation) =>
   optionDescriptions(operation).map((option) => option.name);
-
-export type { OptionDescription };
-
-/** How to call one read operation, independent of graph and actor. */
-export interface OperationContract {
-  readonly signature: string;
-  readonly returns: string;
-  readonly description: string;
-  /** Accepted option names; each is described once in `OperationContracts.options`. */
-  readonly options: readonly string[];
-}
-
-/**
- * The SDK-owned read contract. It is the same for every graph and actor; each
- * object's description supplies the concrete names, types and calls.
- */
-export interface OperationContracts {
-  readonly get: OperationContract;
-  readonly query: OperationContract & {
-    readonly collectionScope: 'graph-membership';
-  };
-  readonly traverse: {
-    readonly description: string;
-    readonly many: OperationContract;
-    readonly one: OperationContract;
-  };
-  /** Every read option, described once. */
-  readonly options: readonly OptionDescription[];
-  /** Result and value shapes named by `returns` and option types. */
-  readonly shapes: {
-    readonly ObjectId: string;
-    readonly ObjectResult: string;
-    readonly ObjectRecord: string;
-    readonly ReadMeta: string;
-    readonly Page: string;
-    readonly QueryResult: string;
-  };
-  readonly errors: string;
-}
 
 export const operationContracts: OperationContracts = deepFreeze({
   get: {

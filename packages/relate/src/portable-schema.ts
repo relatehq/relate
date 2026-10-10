@@ -33,7 +33,8 @@ export function portable(schema: z.ZodType): ScalarSchema {
     );
   }
 
-  const result: ScalarSchema = {
+  // Built in place, then returned as the portable read-only shape.
+  const result: { -readonly [K in keyof ScalarSchema]: ScalarSchema[K] } = {
     type: type as ScalarSchema['type'],
     optional,
     nullable,

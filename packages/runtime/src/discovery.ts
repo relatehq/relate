@@ -1,4 +1,12 @@
-import type { Manifest, ScalarSchema } from 'relate/model';
+import type {
+  ActionDescription,
+  ActionFieldDescription,
+  Discovery,
+  GraphDescription,
+  ObjectDescription,
+  ObjectSummary,
+} from '@relate/protocol';
+import type { Manifest } from 'relate/model';
 import { deepFreeze } from 'relate/model';
 import {
   readableObject,
@@ -7,7 +15,7 @@ import {
 } from './authorization/index.js';
 import { actionAllowed } from './actions/index.js';
 import { availableTraversals } from './traversal/index.js';
-import { operationContracts, type OperationContracts } from './contracts.js';
+import { operationContracts } from './contracts.js';
 import { schemaText, filterOperators } from './reads/index.js';
 
 type ManifestObject = Manifest['objects'][number];
@@ -15,78 +23,6 @@ type ManifestObject = Manifest['objects'][number];
 type ManifestAction = NonNullable<Manifest['actions']>[number];
 
 type ActionField = ManifestAction['input'][string];
-
-export interface ObjectSummary {
-  readonly definitionId: string;
-  readonly apiName: string;
-  readonly label: string;
-  readonly pluralLabel: string;
-  readonly description?: string;
-}
-
-export interface ActionSummary {
-  readonly definitionId: string;
-  readonly apiName: string;
-  readonly description?: string;
-}
-
-export interface GraphDescription {
-  readonly definitionId: string;
-  readonly description?: string;
-  readonly objects: readonly ObjectSummary[];
-  readonly actions: readonly ActionSummary[];
-  /** How to call get, query and traversals; the same for every graph. */
-  readonly operations: OperationContracts;
-}
-
-export interface PropertyDescription {
-  readonly definitionId: string;
-  readonly name: string;
-  readonly description?: string;
-  readonly kind: 'object-id' | 'value' | 'reference';
-  readonly schema: ScalarSchema;
-  readonly references?: ObjectSummary;
-  /** Operand type for this property's `query({ where })` filters, such as `Person object ID`. */
-  readonly filter: string;
-  /** Operators accepted in this property's where object. */
-  readonly filterOperators: readonly string[];
-}
-
-export interface TraversalDescription {
-  readonly relationshipDefinitionId: string;
-  readonly name: string;
-  readonly description?: string;
-  readonly cardinality: 'one' | 'many';
-  readonly target: ObjectSummary;
-  /** `QueryResult<Target>` for many, `Promise<ObjectResult<Target>>` for one. */
-  readonly returns: string;
-}
-
-export interface ObjectDescription extends ObjectSummary {
-  readonly operations: {
-    readonly get: { readonly returns: string };
-    readonly query: {
-      readonly returns: string;
-      readonly collectionScope: 'graph-membership';
-    };
-  };
-  readonly properties: readonly PropertyDescription[];
-  readonly traversals: readonly TraversalDescription[];
-}
-
-export interface ActionFieldDescription {
-  readonly name: string;
-  readonly description?: string;
-  readonly schema: ScalarSchema;
-  readonly references?: ObjectSummary;
-}
-
-export interface ActionDescription extends ActionSummary {
-  readonly input: readonly ActionFieldDescription[];
-  readonly output: readonly ActionFieldDescription[];
-  readonly errors: Readonly<Record<string, readonly ActionFieldDescription[]>>;
-  readonly creates: readonly ObjectSummary[];
-}
 
 /** Omits absent descriptions so results keep exact optional properties. */
 function described(description: string | undefined) {
@@ -120,7 +56,10 @@ function memoize<T>(build: (key: string) => T) {
  * `traversalAllowed`, `actionAllowed`), so a listed capability is one the
  * runtime will attempt; record-level policy still decides each result.
  */
-export function createDiscovery(manifest: Manifest, principal: Principal) {
+export function createDiscovery(
+  manifest: Manifest,
+  principal: Principal,
+): Discovery {
   const readable = (id: string | undefined) =>
     readableObject(manifest, principal, id);
   const actionFields = (fields: Readonly<Record<string, ActionField>>) =>
