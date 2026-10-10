@@ -16,3 +16,5 @@ apps/docs/out/
 apps/docs/public/assets/brand/
 dev/research/appworld/.venv/
 dev/research/appworld/.local/
+apps/docs/content/reference/api/
+apps/docs/lib/generated-reference.json

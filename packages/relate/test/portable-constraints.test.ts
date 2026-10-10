@@ -30,6 +30,25 @@ it('exports the same note limits on action input and native property for discove
 
 it.each([
   {
+    schema: z.iso
+      .datetime({ offset: true, precision: 3 })
+      .optional()
+      .nullable(),
+    bounds: { format: 'timestamp' },
+    values: [
+      undefined,
+      null,
+      '2024-02-29T00:00:00.000Z',
+      '2026-10-01T01:00:00.000+01:00',
+      '2026-02-29T00:00:00.000Z',
+      '2026-10-01',
+      '2026-10-01T00:00:00.000',
+      '2026-10-01T00:00:00Z',
+      '2026-10-01T00:00:00.0001Z',
+      0,
+    ],
+  },
+  {
     schema: z.string().min(2).max(4),
     bounds: { minLength: 2, maxLength: 4 },
     values: [
@@ -114,6 +133,11 @@ it.each([
   z.string().regex(/hi/),
   z.string().trim(),
   z.email(),
+  z.iso.datetime(),
+  z.iso.datetime({ offset: true, precision: 6 }),
+  z.iso.datetime({ offset: true, local: true, precision: 3 }),
+  z.string().datetime({ offset: true, precision: 3 }),
+  z.iso.datetime({ offset: true, precision: 3 }).refine(() => true),
   z.number().int(),
   z.string().default('x'),
   z.string().refine((v) => v.length > 0),
@@ -137,6 +161,8 @@ it.each([
   { minimum: 2 },
   { exclusiveMaximum: Infinity },
   { pattern: '.*' },
+  { format: 'date' },
+  { type: 'number', format: 'timestamp' },
 ])(
   'rejects invalid or mismatched discovery constraints (%#. case)',
   (change) => {

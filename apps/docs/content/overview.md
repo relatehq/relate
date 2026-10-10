@@ -123,10 +123,13 @@ a Postgres store and passes it to `createRuntime`.
 
 - **[`relate`](../../../packages/relate/src/index.ts)**: Authoring APIs
   (`defineSource`, `defineObject`, `defineGraph`, `defineAccess`,
-  `defineAction`) and the compiler (`relate/compiler`). The authoring imports do
-  not depend on Node or a database; the compiler uses `node:crypto`.
+  `defineAction`), the compiler (`relate/compiler`) and the typed consumer
+  facade (`relate/consumer`) that `relate.as(principal)` returns. The authoring
+  and consumer imports do not depend on Node or a database; the compiler uses
+  `node:crypto`.
 - **[`@relate/protocol`](../../../packages/protocol/src/index.ts)**: Shared
-  result, evidence, and receipt types.
+  result, evidence, receipt and discovery types, and the `ConsumerOperations`
+  contract every consumer surface implements or serves.
 - **[`@relate/runtime`](../../../packages/runtime/src/index.ts)**: Query
   execution, policy evaluation, relationship traversal, action coordination, and
   the in-memory store.

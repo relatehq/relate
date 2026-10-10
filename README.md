@@ -238,7 +238,7 @@ doesn't exist.
 
 ## Querying the graph
 
-Query existing graph members with equality filters, or omit `where` to
+Query existing graph members with scalar predicates, or omit `where` to
 enumerate:
 
 ```ts
@@ -269,7 +269,7 @@ for a complete example.
 | ------------------------------------------------------- | ------------------------------------------------- |
 | TypeScript authoring, compiler and diagnostics          | Direct source queries and sync from sources       |
 | Objects backed by one source; references across sources | One object enriched from several sources          |
-| Graph queries with equality filters                     | Comparison filters, sorting and aggregates        |
+| Graph queries with scalar and timestamp filters         | Traversal filters, sorting and aggregates         |
 | Two-way relationship traversal                          | **MCP and HTTP interfaces** (designed, not built) |
 | Role gates, claim filters, field-level access           | Writing back to source systems                    |
 | Per-field evidence and freshness bounds                 | Migrating between model revisions                 |

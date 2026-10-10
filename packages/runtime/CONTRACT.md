@@ -126,62 +126,49 @@ contract, errors, lifecycle and adapter verification requirements.
 
 ## Pagination
 
-`createQuery(readPage, { cursor? })` wraps an authorized page reader in a
-`QueryResult<T>`. Await the handle to obtain one `Page<T>`; use `for await` to
-iterate records across pages. This is implemented infrastructure for queries and
-to-many traversals. The graph query engine below supplies authorized pages; the
-helper itself does not implement filtering or action transactions.
-
-```ts
-import { createQuery } from '@relate/runtime';
-import type { Page } from '@relate/protocol';
-
-// An operation supplies its authorized reader, bound to query options/context.
-declare const readPage: (cursor: string | undefined) => Promise<Page<Invoice>>;
-const query = createQuery(readPage);
-const page = await query; // One page; page.data remains available.
-
-for await (const invoice of query) {
-  // Each record, including its evidence, passes through unchanged.
-}
-```
-
-Execution is lazy. The first page request and any failure are shared across
-awaits and iterators on the same handle. Each iterator has independent
-continuation state; later pages are fetched on demand and may be fetched again
-on reiteration. There is no prefetch: `break` or a thrown business error stops
-further page requests. The handle supports `await`/`then` and async iteration,
-not the full `Promise` API.
-
-The helper validates each page before exposing its records. Missing, empty,
-contradictory or unchanged continuations throw `ReadError('incomplete')`, as do
-cursor cycles within an iterator. Empty non-final pages are followed. Reader
-failures propagate unchanged; the reader must already sanitize errors and
-validate/authorize records. No operation is retried or committed by this helper.
-Separate explicit-page handles only know their own request cursor, not the
-history of earlier independent requests.
-
-The page reader owns stable query/context binding, real scan progress, cursor
-scope, ordering, resource budgets and cancellation of its I/O. Different opaque
-tokens cannot prove progress or snapshot consistency. This helper introduces no
-cross-source snapshot or automatic native rollback; those belong to the query
-engine and action transaction owner. Page size and an application's total work
-bound remain separate.
+The engine returns one authorized `Page` per `query` or to-many `traverse` call.
+Lazy, awaitable `QueryResult` handles are built by `createQuery` and
+`createPagedQuery` in [`relate/consumer`](../relate/CONTRACT.md#pagination); the
+facade and native action contexts use them over the engine's pages. The engine
+owns stable query binding, real scan progress, cursor scope, ordering and
+resource budgets; the helper only validates page envelopes and follows
+continuations.
 
 ## Graph queries
 
 `runtime.query(principal, objectDefinitionId, request?)` returns one
-`PageResult`. The Node consumer and action APIs expose
+`PageResult`. The `relate/consumer` facade and action APIs expose
 `objects.Invoice.query(options?)` as an awaitable, async-iterable `QueryResult`.
 Portable request/result types live in `@relate/protocol`; typed `QueryOptions`
 and object records live in `relate`.
 
-- Omit `where` or pass `{}` to enumerate. Otherwise each property is an exact
-  scalar equality test, combined with AND. Values must satisfy the property's
-  compiled schema. References and object-ID properties use canonical Relate IDs.
-  `null` matches explicit null; known absent optional values do not match. There
-  is no `undefined` filter, nested predicate, comparison, sorting or
-  aggregation.
+- Omit `where` or pass `{}` to enumerate. Scalar values are equality shorthand;
+  operator objects support `eq` and `in` on every property, and `gt`, `gte`,
+  `lt`, `lte` on numbers and timestamps. Properties and operators combine with
+  AND. `eq`/`in` operands must satisfy the property's compiled schema. Range
+  operands must match the property's type (finite numbers, or timestamps) but
+  are not limited by its declared value bounds, and cannot be null. A bare array
+  is rejected with a pointer to `in`. References and object-ID properties use
+  canonical Relate IDs. `null` matches explicit null; known absent optional
+  values never match. Empty `in` matches nothing, but does not bypass evidence
+  checks. Contradictory bounds match nothing. Reject empty operator objects,
+  unknown operators, undefined operands and incompatible types before scanning.
+  At most 100 filter properties and 100 operands per `in` are accepted. No
+  recursive predicates, traversal filters, sorting or aggregation are supported.
+- Timestamp properties compile from
+  `z.iso.datetime({ offset: true, precision: 3 })` (optionally
+  nullable/optional). The manifest marks these strings with
+  `format: 'timestamp'`. Source, native and action values are validated as
+  timezone-qualified ISO instants with exactly three fractional digits. Query
+  operands accept any timezone-qualified ISO instant with at most millisecond
+  precision, so normalization to milliseconds stays exact. Equality, sets and
+  ranges compare instant milliseconds, not text; returned values retain their
+  original representation. Plain strings do not acquire timestamp semantics by
+  resembling a date.
+- Predicate compilation normalizes equality shorthand, timestamp operands,
+  operator order and set order/duplicates once per request. Cursor binding uses
+  those normalized predicates. Evaluation still follows bounded authorized
+  reads; this implementation does not introduce indexes or storage pushdown.
 - Membership is adopted source identities or native records in this graph and
   revision. Source queries may refresh known records through existing `get`
   behavior, but never discover/adopt provider records. Exhaustion describes this

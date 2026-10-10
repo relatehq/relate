@@ -6,6 +6,40 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Shared consumer facade and operations contract
+
+The typed consumer API that `relate.as(principal)` returns is now built by
+`createConsumer(graph, operations)` in the new browser-safe `relate/consumer`
+entry point, over the `ConsumerOperations` contract in `@relate/protocol`. The
+planned `@relate/http` serves that contract and `@relate/client` implements it,
+so a remote consumer gets the same `Consumer<G>` as an embedded one without
+duplicating the facade or importing the engine.
+
+`@relate/node` gains `relate.operations(principal)`: the engine bound to one
+principal, addressed by definition IDs, for transport adapters. `as(principal)`
+is unchanged for callers.
+
+Moved, with the same behavior:
+
+- `createQuery` and the `QueryResult` re-export: from `@relate/runtime` to
+  `relate/consumer`. `@relate/runtime` no longer exports either; import
+  `createQuery` from `relate/consumer` and `QueryResult` from `relate`,
+  `relate/consumer`, `@relate/node` or `@relate/protocol`.
+- `Consumer`, `ObjectOperations`, `ActionOperations`, `ObjectDescription`,
+  `TraversalDescription` and `Page`: from `@relate/node` to `relate/consumer`.
+  `@relate/node` still re-exports them.
+- Discovery shapes (`GraphDescription`, `ObjectDescription`,
+  `ActionDescription`, `OperationContract(s)`, `OptionDescription`, summaries
+  and field descriptions): from `@relate/runtime` to `@relate/protocol`.
+  `@relate/runtime` no longer exports them; `@relate/node` re-exports them from
+  the protocol.
+- `ScalarSchema`: declared in `@relate/protocol`; `relate/model` re-exports it
+  and its `scalarSchema` validator must produce that shape. The type is now
+  read-only.
+
+New: `createPagedQuery(operation, request, readPage)` in `relate/consumer`, the
+request-binding wrapper the facade and native action contexts page with.
+
 ## Discoverable operation contracts and request errors
 
 `relate.as(principal).describe()` now includes `operations`: how to call get,
@@ -188,3 +222,28 @@ No stored data migration is needed. Reissue collection queries after upgrading:
 continuation tokens are not an upgrade compatibility contract. Exceptional field
 evidence and nonempty warnings remain available in compact mode. Data,
 authorization and action receipt dependency tracking are unchanged.
+
+## Scalar query predicates and timestamps
+
+`query({ where })` now accepts `eq` and `in` on scalar properties, and
+`gt`/`gte`/`lt`/`lte` on numbers and timestamps. Existing scalar equality syntax
+is preserved. Filters and operators combine with AND. Timestamp schemas use
+`z.iso.datetime({ offset: true, precision: 3 })`, with optional/nullable
+wrappers; comparison uses instants while returned strings retain their supplied
+offset. Date-only/local timestamps and other precisions must be normalized by
+the application before ingestion. Query operands accept any timezone-qualified
+ISO instant with at most millisecond precision. Range operands on numbers are
+not limited by the property's declared bounds. Ordinary strings retain exact
+text equality.
+
+The portable manifest format advances from 5 to 6. Recompile older models;
+installed graphs remain revision-pinned and require explicit revision/data
+migration before activation. Relate does not automatically reinterpret stored
+plain strings as timestamps. Package versions remain `0.0.0-dev.0`.
+
+Queries now reject more than 100 filter properties or 100 operands in one `in`.
+Empty operator objects, undefined operands, invalid formats and unsupported
+operators reject before scanning. Discovery includes each readable property's
+`filterOperators`. Normalized predicates are part of cursor scope, so cursors
+issued before this change must be restarted. Traversal filters and indexes are
+not part of this change; scans, authorization and freshness behavior remain.

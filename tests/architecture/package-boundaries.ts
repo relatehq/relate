@@ -65,11 +65,15 @@ export const packagePolicies: Record<
       'relate',
       'relate/compiler',
       'relate/connectors',
+      'relate/consumer',
       '@relate/runtime',
       '@relate/protocol',
     ],
   },
-  'packages/client': { imports: ['@relate/protocol'] },
+  // Browser safe: the typed facade and authoring types, never the engine.
+  'packages/client': {
+    imports: ['@relate/protocol', 'relate', 'relate/consumer'],
+  },
   'packages/http': { imports: ['@relate/runtime', '@relate/protocol'] },
   'packages/mcp': { imports: ['@relate/runtime', '@relate/protocol'] },
   'packages/cli': {
@@ -100,6 +104,8 @@ export const packagePolicies: Record<
       'next/navigation',
       'react',
       '@fumadocs/mdx-remote',
+      'typedoc',
+      'typedoc-plugin-markdown',
       'fumadocs-core/mdx-plugins',
       'beautiful-mermaid',
       'fumadocs-ui/provider/next',
@@ -163,6 +169,7 @@ export function assertRelateEntryPoints(
 ): void {
   for (const entry of [
     'src/index.ts',
+    'src/consumer.ts',
     'src/model.ts',
     'src/connectors.ts',
     'src/storage.ts',

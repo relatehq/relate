@@ -17,7 +17,12 @@ and unpublished while implementation is in progress.
 - `relate.as(principal)` returns consumer operations whose names and types are
   inferred from the graph's object registry: `objects.Customer.get`,
   `objects.Customer.query`, `objects.Customer.traverse.invoices`,
-  `actions.addAccountReview`.
+  `actions.addAccountReview`. The facade itself is `createConsumer` from
+  `relate/consumer`, shared with the planned HTTP client.
+- `relate.operations(principal)` returns the engine bound to that principal as
+  the `ConsumerOperations` contract from `@relate/protocol`: untyped, addressed
+  by definition IDs, and the surface the planned `@relate/http` and
+  `@relate/mcp` adapters serve. Calls after `close()` reject.
 - The same actor-bound handle exposes progressive discovery through
   `describe()`, `objects.Customer.describe()`, and
   `actions.addAccountReview.describe()`.
@@ -32,10 +37,10 @@ injected store is borrowed.
 
 ## How it fits
 
-- Depends on `relate` and `relate/compiler`, `@relate/runtime` and
-  `@relate/protocol`.
+- Depends on `relate`, `relate/compiler` and `relate/consumer`,
+  `@relate/runtime` and `@relate/protocol`.
 - The embedded entry point for applications today. Planned HTTP and MCP adapters
-  will expose runtime consumer operations. The existing CLI inspects definitions
+  serve `relate.operations(principal)`. The existing CLI inspects definitions
   without starting a runtime.
 
 ## Public API
@@ -206,10 +211,12 @@ const page = await relate.as(principal).objects.Person.query({
 });
 ```
 
-`query()` without options enumerates accessible graph members. Equality filters
-combine with AND; references accept typed Relate IDs. Await one page or iterate
-records with `for await`. Each record retains the same selected data and field
-evidence as `get`. Filters must be readable even when omitted from `select`.
+`query()` without options enumerates accessible graph members. Properties and
+operators combine with AND. Use scalar equality or `eq`/`in`; numbers and
+timestamps additionally support `gt`/`gte`/`lt`/`lte`. References accept typed
+Relate IDs, including in sets. Await one page or iterate records with
+`for await`. Each record retains the same selected data and field evidence as
+`get`. Filters must be readable even when omitted from `select`.
 
 Source-backed queries cover adopted records only; native queries cover records
 created in Relate. Direct source queries and source sync are planned. See the

@@ -1,9 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { accepts, canonicalJson, isPlainObject } from 'relate/model';
+import { canonicalJson, isPlainObject } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
   QueryRequest,
+  FilterScalar,
   ReadRequest,
   FullReadResult as ReadResult,
   FullPageResult as PageResult,
@@ -25,10 +26,11 @@ import {
 import type { Principal } from '../authorization/index.js';
 import {
   cursorCodec,
-  invalidValue,
+  compilePredicate,
+  matchesPredicate,
+  type Predicate,
   project,
   requestIssues,
-  schemaText,
   throwIssues,
 } from '../reads/index.js';
 
@@ -69,9 +71,14 @@ export function createGraphQuery(options: {
     const operation = operationName(manifest, principal, type, 'query');
     const issues = requestIssues(input, 'query');
     const where: Record<string, unknown> =
-      input && typeof input === 'object' && isPlainObject(input.where)
+      input &&
+      typeof input === 'object' &&
+      isPlainObject(input.where) &&
+      Object.keys(input.where).length <= 100
         ? input.where
         : {};
+
+    const predicates: Predicate[] = [];
 
     if (!object)
       issues.push({
@@ -87,6 +94,7 @@ export function createGraphQuery(options: {
       // so an error never confirms that a hidden field exists.
       const filterable = readableProperties(manifest, principal, object).map(
         ({ property, target }) => ({
+          id: property.id,
           name: property.name,
           schema: property.schema,
           references:
@@ -105,22 +113,13 @@ export function createGraphQuery(options: {
             message: `not a filterable property of ${object.apiName} for this reader.`,
             accepted: filterable.map((p) => p.name),
           });
-        else if (value === undefined)
-          issues.push({
-            path: ['where', name],
-            problem: 'invalid-value',
-            message: 'filter value is undefined; omit the filter instead.',
-          });
-        else if (!accepts(property.schema, value))
-          issues.push(
-            invalidValue(
-              ['where', name],
-              schemaText(property.schema, property.references),
-              value,
-            ),
-          );
+        else predicates.push(compilePredicate(property, value, issues));
       }
     }
+
+    predicates.sort((a, b) =>
+      a.propertyId < b.propertyId ? -1 : a.propertyId > b.propertyId ? 1 : 0,
+    );
 
     if (!object || issues.length) throwIssues(operation, 'query', issues);
 
@@ -171,7 +170,7 @@ export function createGraphQuery(options: {
           type,
           principal,
           transaction: transaction ? transactions.get(transaction)! : null,
-          query: { ...readRequest, where: filters, limit },
+          query: { ...readRequest, where: predicates, limit },
           bindings: manifest.objects
             .filter((o) => o.sourceDefinitionId)
             .map((o) => options.scopeFor(o.id, o.sourceDefinitionId!)),
@@ -199,10 +198,13 @@ export function createGraphQuery(options: {
     const matches = (record: ObjectRecord) => {
       if (!usable(record)) throw new ReadError('incomplete');
 
-      return filterNames.every(
-        (name) =>
-          Object.hasOwn(record.data, name) &&
-          record.data[name] === filters[name],
+      return predicates.every(
+        (predicate) =>
+          Object.hasOwn(record.data, predicate.name) &&
+          matchesPredicate(
+            predicate,
+            record.data[predicate.name] as FilterScalar,
+          ),
       );
     };
     const evidence = (id: string, result: Available, at: number) =>

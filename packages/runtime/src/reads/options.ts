@@ -1,18 +1,16 @@
 import { ReadError } from '@relate/protocol';
-import type { Json, RequestIssue } from '@relate/protocol';
+import type {
+  Json,
+  OptionDescription,
+  RequestIssue,
+  ScalarSchema,
+} from '@relate/protocol';
 import { isPlainObject } from 'relate/model';
-import type { ScalarSchema } from 'relate/model';
+
+export type { OptionDescription };
 
 /** The read operations a caller can invoke; options and errors are defined per kind. */
 export type ReadOperation = 'get' | 'query' | 'traverse-many' | 'traverse-one';
-
-/** A caller option as discovery presents it. */
-export interface OptionDescription {
-  readonly name: string;
-  readonly type: string;
-  readonly default?: Json;
-  readonly description: string;
-}
 
 interface OptionRule extends OptionDescription {
   readonly operations: readonly ReadOperation[];
@@ -35,11 +33,11 @@ const unsafe = ['__proto__', 'constructor', 'prototype'];
 const rules: readonly OptionRule[] = [
   {
     name: 'where',
-    type: '{ [property]: value }',
+    type: '{ [property]: scalar | { eq?, in?, gt?, gte?, lt?, lte? } } (at most 100 properties)',
     description:
-      "Equality filters on property names, combined with AND. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
+      "Scalar equality or operator objects on property names, combined with AND. eq/in work on every scalar; gt/gte/lt/lte require numbers or timestamps. Operator entries also combine with AND. in accepts at most 100 values; [] matches nothing. Range operands are not limited by a number property's value bounds. Timestamp operands accept any timezone-qualified ISO instant with at most millisecond precision (for example 2026-10-01T00:00:00Z); comparison uses the instant. Use in, not a bare array, to match several values. null matches only explicit null; absence does not match. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
     operations: ['query'],
-    valid: isPlainObject,
+    valid: (value) => isPlainObject(value) && Object.keys(value).length <= 100,
   },
   {
     name: 'select',
@@ -205,7 +203,7 @@ const aliases: readonly {
   {
     names: ['filter', 'filters', 'query', 'conditions', 'criteria', 'match'],
     option: 'where',
-    hint: 'use "where" with { property: value } equality filters',
+    hint: 'use "where" with { property: value } or { property: { eq, in, gt, gte, lt, lte } }; ranges require numbers or timestamps',
   },
   {
     names: [
@@ -272,6 +270,9 @@ const describeValue = (value: unknown) =>
 export function schemaText(schema: ScalarSchema, references?: string): string {
   if (references !== undefined)
     return `${references} object ID${schema.nullable ? ' or null' : ''}`;
+
+  if (schema.format === 'timestamp')
+    return `ISO timestamp with timezone, at most millisecond precision${schema.nullable ? ' or null' : ''}`;
 
   const bounds: string[] = [];
 

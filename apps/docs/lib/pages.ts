@@ -1,3 +1,5 @@
+import generatedReference from './generated-reference.json';
+
 export interface DocPage {
   /** Route segments; empty for the home page. */
   readonly slug: readonly string[];
@@ -114,6 +116,7 @@ export const pages: readonly DocPage[] = [
       'Diagnose model errors, missing records, unavailable fields, and revision conflicts.',
     section: 'Reference',
   },
+  ...generatedReference,
   {
     slug: ['deployment', 'postgres'],
     name: 'Persistence',
