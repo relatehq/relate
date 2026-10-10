@@ -218,7 +218,7 @@ export function nativeActionContract(
       const reopened = app(undefined, reconnected ?? backing.store);
 
       await expect(
-        reopened.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+        reopened.as(ana).receipts.get('addAccountReview', receipt.invocationId),
       ).resolves.toEqual(receipt);
       await expect(
         reopened.as(ana).actions.addAccountReview({
@@ -589,7 +589,7 @@ export function nativeActionContract(
           caller.actions.addAccountReview(request),
         ).rejects.toMatchObject({ code: 'denied' });
         await expect(
-          caller.receipts.get(AddAccountReview, receipt.invocationId),
+          caller.receipts.get('addAccountReview', receipt.invocationId),
         ).rejects.toMatchObject({ code: 'denied' });
       }
 
@@ -600,15 +600,19 @@ export function nativeActionContract(
         }),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(
-        relate.as(ana).receipts.get(AddAccountReview, 'missing'),
+        relate.as(ana).receipts.get('addAccountReview', 'missing'),
       ).rejects.toMatchObject({ code: 'denied' });
+      // Receipt lookup uses the action registry name; unknown names are denied.
+      await expect(
+        relate.as(ana).receipts.get('addAccountReview', receipt.invocationId),
+      ).resolves.toEqual(receipt);
       await expect(
         relate
           .as(ana)
-          .receipts.get({ ...AddAccountReview }, receipt.invocationId),
+          .receipts.get('unregistered' as never, receipt.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(
-        relate.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+        relate.as(ana).receipts.get('addAccountReview', receipt.invocationId),
       ).resolves.toEqual(receipt);
       await expect(
         relate.as(ana).actions.addAccountReview(request),
@@ -619,7 +623,7 @@ export function nativeActionContract(
       portfolio = 'south';
       now += 30_001;
       await expect(
-        relate.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+        relate.as(ana).receipts.get('addAccountReview', receipt.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(
         relate.as(ana).actions.addAccountReview(request),
@@ -637,13 +641,13 @@ export function nativeActionContract(
       portfolio = 'north';
       now += 30_001;
       await expect(
-        relate.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+        relate.as(ana).receipts.get('addAccountReview', receipt.invocationId),
       ).resolves.toEqual(receipt);
       const originalGraph = graphId;
 
       graphId = randomUUID();
       await expect(
-        app().as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+        app().as(ana).receipts.get('addAccountReview', receipt.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
       graphId = originalGraph;
     });
@@ -1096,7 +1100,7 @@ export function nativeActionContract(
       await expect(
         app()
           .as(ana)
-          .receipts.get(AddAccountReview, saved!.receipt.invocationId),
+          .receipts.get('addAccountReview', saved!.receipt.invocationId),
       ).resolves.toEqual(saved!.receipt);
       expect(attempted).toHaveLength(1);
     });

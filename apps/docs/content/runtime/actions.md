@@ -213,7 +213,10 @@ ends in one of two ways:
 A receipt can be fetched again later by the same principal:
 
 ```ts
-const again = await caller.receipts.get(AddAccountReview, receipt.invocationId);
+const again = await caller.receipts.get(
+  'addAccountReview',
+  receipt.invocationId,
+);
 ```
 
 ### Idempotency and Replay

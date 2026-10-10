@@ -40,11 +40,14 @@ async function caller() {
   consumer.objects.AccountReview.create({ customer, author: 'ana', note: 'n' });
   // @ts-expect-error host adoption cannot create a native object
   relate.host.adopt(AccountReview, 'provider-key');
-  const recovered = await consumer.receipts.get(AddAccountReview, invocationId);
+  const recovered = await consumer.receipts.get(
+    'addAccountReview',
+    invocationId,
+  );
   const recoveredId: ObjectId<typeof AccountReview.id> =
     recovered.output.reviewId;
 
-  // @ts-expect-error lookup requires a registered action definition and invocation ID
+  // @ts-expect-error lookup requires a registered action name and invocation ID
   consumer.receipts.get('one');
   // @ts-expect-error an object is not an action contract
   consumer.receipts.get(Customer, invocationId);

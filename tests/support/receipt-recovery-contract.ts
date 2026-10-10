@@ -166,10 +166,10 @@ export function receiptRecoveryContract(
         code: 'denied',
       });
       await expect(
-        reduced.receipts.get(Reject, receipt.invocationId),
+        reduced.receipts.get('reject', receipt.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(
-        relate.as(actor).receipts.get(Reject, receipt.invocationId),
+        relate.as(actor).receipts.get('reject', receipt.invocationId),
       ).resolves.toEqual(receipt);
       expect(executions).toBe(1);
     });
@@ -193,13 +193,13 @@ export function receiptRecoveryContract(
           .status,
       ).toBe('ok');
       await expect(
-        restricted.receipts.get(Reveal, saved.invocationId),
+        restricted.receipts.get('reveal', saved.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(restricted.actions.reveal(request)).rejects.toMatchObject({
         code: 'denied',
       });
       await expect(
-        relate.as(actor).receipts.get(Reveal, saved.invocationId),
+        relate.as(actor).receipts.get('reveal', saved.invocationId),
       ).resolves.toEqual(saved);
       await expect(relate.as(actor).actions.reveal(request)).resolves.toEqual(
         saved,
@@ -208,8 +208,8 @@ export function receiptRecoveryContract(
       // Returned receipt objects never expose mutable store state.
       saved.output.value = 'caller mutation';
       expect(
-        (await relate.as(actor).receipts.get(Reveal, saved.invocationId)).output
-          .value,
+        (await relate.as(actor).receipts.get('reveal', saved.invocationId))
+          .output.value,
       ).toBe('Private amount');
     });
 
@@ -221,11 +221,11 @@ export function receiptRecoveryContract(
       });
       const errors = await Promise.all(
         [
-          relate.as(actor).receipts.get(Other, saved.invocationId),
-          relate.as(actor).receipts.get(Create, 'unknown'),
+          relate.as(actor).receipts.get('other', saved.invocationId),
+          relate.as(actor).receipts.get('create', 'unknown'),
           relate
             .as({ ...actor, id: 'ben' })
-            .receipts.get(Create, saved.invocationId),
+            .receipts.get('create', saved.invocationId),
         ].map((operation) => operation.catch((error: unknown) => error)),
       );
 
@@ -235,7 +235,7 @@ export function receiptRecoveryContract(
       );
       graphId = randomUUID();
       await expect(
-        app().as(actor).receipts.get(Create, saved.invocationId),
+        app().as(actor).receipts.get('create', saved.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
     });
 
@@ -255,13 +255,13 @@ export function receiptRecoveryContract(
       await expect(
         relate
           .as({ ...actor, roles: ['employee'] })
-          .receipts.get(Other, saved.invocationId),
+          .receipts.get('other', saved.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(
         relate.as({ ...actor, roles: ['employee'] }).actions.other(request),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(
-        relate.as(actor).receipts.get(Other, saved.invocationId),
+        relate.as(actor).receipts.get('other', saved.invocationId),
       ).resolves.toEqual(saved);
       expect(executions).toBe(1);
     });
@@ -295,7 +295,7 @@ export function receiptRecoveryContract(
         };
 
         await expect(
-          app(failing).as(actor).receipts.get(Create, saved.invocationId),
+          app(failing).as(actor).receipts.get('create', saved.invocationId),
         ).rejects.toMatchObject({ code });
       }
 
@@ -314,10 +314,10 @@ export function receiptRecoveryContract(
       };
 
       await expect(
-        app(stalled, 20).as(actor).receipts.get(Create, saved.invocationId),
+        app(stalled, 20).as(actor).receipts.get('create', saved.invocationId),
       ).rejects.toMatchObject({ code: 'unavailable' });
       await expect(
-        relate.as(actor).receipts.get(Create, saved.invocationId),
+        relate.as(actor).receipts.get('create', saved.invocationId),
       ).resolves.toEqual(saved);
       const uncertain: ObservationStore = {
         ...backing.store,
@@ -331,13 +331,13 @@ export function receiptRecoveryContract(
       };
 
       await expect(
-        app(uncertain).as(actor).receipts.get(Create, saved.invocationId),
+        app(uncertain).as(actor).receipts.get('create', saved.invocationId),
       ).rejects.toMatchObject({ code: 'unavailable' });
       const caller = relate.as(actor);
 
       await relate.close();
       await expect(
-        caller.receipts.get(Create, saved.invocationId),
+        caller.receipts.get('create', saved.invocationId),
       ).rejects.toThrow('Relate is closed');
     });
   });

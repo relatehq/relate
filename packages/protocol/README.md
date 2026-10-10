@@ -24,10 +24,10 @@ Relate consumer surface. Private and unpublished.
   `OperationContracts` and the portable `ScalarSchema` they report, plus the
   actor-bound `Discovery` interface.
 - `ConsumerOperations`: the actor-bound, definition-ID-addressed operations
-  every consumer surface shares (`read`, `query`, `traverse`, `invoke`,
-  `getReceipt`, `discovery`). The engine implements it, `@relate/http` serves
-  it, `@relate/client` implements it over a transport, and `relate/consumer`
-  types it.
+  every consumer surface shares (`get`, `query`, `traverse`, `invoke`,
+  `getReceipt`, `discovery`), each returning the complete public result. The
+  engine implements it, `@relate/http` serves it, `@relate/client` implements it
+  over a transport, and `relate/consumer` types it.
 - `Json`.
 
 These are types, two error classes and pure evidence presentation helpers. The

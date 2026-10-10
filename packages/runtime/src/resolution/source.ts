@@ -2,7 +2,7 @@ import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
   ReadRequest,
-  FullReadResult as ReadResult,
+  FullObjectResult as ReadResult,
   FieldEvidence,
   Json,
 } from '@relate/protocol';
@@ -309,6 +309,7 @@ export function createSourceOperations(options: {
 
     return {
       status: 'ok',
+      id: candidate.objectId,
       data,
       meta: {
         evidence: 'full',

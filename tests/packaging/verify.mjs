@@ -388,16 +388,20 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
 
   for (const [owner, name] of [
     ['relate', 'actions.types.ts'],
+    ['relate', 'consumer.types.ts'],
     ['node', 'native-action.types.ts'],
   ]) {
     await writeFile(
       join(consumer, name),
-      (
-        await readFile(resolve(root, 'packages', owner, 'test', name), 'utf8')
-      ).replaceAll(
-        '../../../tests/support/native-action-model.js',
-        './native-action-model.js',
-      ),
+      (await readFile(resolve(root, 'packages', owner, 'test', name), 'utf8'))
+        .replaceAll(
+          '../../../tests/support/native-action-model.js',
+          './native-action-model.js',
+        )
+        .replaceAll(
+          '../../../tests/support/invoice-graph.js',
+          './invoice-graph.js',
+        ),
     );
   }
 
@@ -407,6 +411,8 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
 import assert from 'node:assert/strict';
 import { createRuntime } from '@relate/node';
 import { connect } from 'relate';
+import { createConsumer } from 'relate/consumer';
+import { compile } from 'relate/compiler';
 import { graph, AddAccountReview, addAccountReview, ana, Customer, customers, invoices } from './built/native-action-model.js';
 const app = createRuntime({ graph, actionImplementations: [addAccountReview], connections: [
   connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Northwind', portfolio: 'north' } }) } }),
@@ -417,7 +423,9 @@ try {
   const receipt = await app.as(ana).actions.addAccountReview({ input: { customer, note: 'Packed native action' }, idempotencyKey: 'one' });
   assert.equal(receipt.state, 'succeeded');
   assert.equal(typeof receipt.invocationId, 'string');
-  assert.deepEqual(await app.as(ana).receipts.get(AddAccountReview, receipt.invocationId), receipt);
+  const description = JSON.parse(JSON.stringify(compile(graph).consumer));
+  const fromJson = createConsumer(description, app.operations(ana));
+  assert.deepEqual(await fromJson.receipts.get('addAccountReview', receipt.invocationId), receipt);
   assert.deepEqual(await app.as(ana).actions.addAccountReview({ input: { customer, note: 'Packed native action' }, idempotencyKey: 'one' }), receipt);
   const review = await app.as(ana).objects.AccountReview.get(receipt.output.reviewId);
   assert.equal(review.status, 'ok');
