@@ -27,7 +27,7 @@ const targets = {
 export function model() {
   const descriptions = {
     Playlist: 'A playlist in the user’s Spotify playlist library.',
-    Song: 'A song occurring in that playlist library. duration is seconds; likeCount is public popularity, not the user’s personal liking. artistsJson is a JSON string.',
+    Song: 'A song occurring in that playlist library.',
     Membership:
       'A playlist-to-song association. sourceId joins the original playlist and song IDs with a colon.',
     Person:
@@ -35,7 +35,7 @@ export function model() {
     ContactRelationship:
       'One contact label assigned by the owner to the contact in the owner’s phone contacts. A contact may have multiple labels. These are directed, owner-scoped relationships, not global attributes of a person.',
     Transaction:
-      'An own Venmo transaction. sender and receiver are canonical Person references. sourceId is the original transaction ID as a string; createdAt is the source timestamp.',
+      'An own Venmo transaction. sender and receiver are canonical Person references.',
   };
   const access = defineAccess({
     roles: ['reader'],
@@ -83,6 +83,17 @@ export function model() {
     }),
   };
   const propertyDescriptions = {
+    Song: {
+      duration: 'Duration of the song in seconds.',
+      releaseDate:
+        'Release date of the song, preserved as the source datetime string. AppWorld datetimes are deliberately timezone-free and do not identify UTC instants.',
+      likeCount:
+        'Total number of times the song has been liked across users; not whether the current user liked it.',
+      playCount:
+        'Total number of times the song has been played across users; not the current user’s play count.',
+      artistsJson:
+        'JSON-encoded array of the song’s artist records from the source API.',
+    },
     Person: {
       email:
         'Exact email address used to join phone contacts, Venmo participants and the supervisor identity supplied with the task.',
@@ -98,8 +109,9 @@ export function model() {
         'Original Venmo transaction ID, not the canonical Relate object ID used by actions.',
       sender: 'Person who sent this payment.',
       receiver: 'Person who received this payment.',
+      amount: 'Amount of the transaction in dollars, in major currency units.',
       createdAt:
-        'Original simulator timestamp, preserved without conversion. Source strings have no UTC offset; use the same simulator time convention as the task date. No timezone has been inferred.',
+        'Date and time when the transaction occurred in AppWorld, preserved without conversion. Uses AppWorld’s simulated, deliberately timezone-free clock, shared with the task date. The value has no UTC offset and does not identify a UTC instant.',
       likeCount:
         'Total likes on the transaction; not whether the current user liked it.',
       commentCount: 'Total comments on the transaction, not comment contents.',
@@ -130,11 +142,13 @@ export function model() {
         ['Person', 'ContactRelationship'].includes(kind)
       )
         continue;
+
       const description = propertyDescriptions[kind]?.[field];
       const options = {
         id: `${kind}.${field}`,
         ...(description ? { description } : {}),
       };
+
       properties[field] = targets[kind]?.[field]
         ? reference(objects[targets[kind][field]], {
             ...options,
@@ -259,10 +273,13 @@ export async function createSdkSnapshot(rows, writeSource) {
           const transaction = await contextObjects.Transaction.get(
             input.transaction,
           );
+
           if (transaction.status !== 'ok')
             throw new Error('Transaction unavailable');
+
           if (!writeSource)
             throw new Error('Source writes unavailable in this environment');
+
           const result = await writeSource({
             operation,
             sourceId: transaction.data.sourceId,
@@ -270,6 +287,7 @@ export async function createSdkSnapshot(rows, writeSource) {
               ? { comment: input.comment }
               : {}),
           });
+
           // The bridge reads the original record after mutation. Refresh the same
           // runtime observation, preserving canonical IDs and idempotency receipts.
           maps.Transaction.set(result.transaction.sourceId, result.transaction);
@@ -277,10 +295,12 @@ export async function createSdkSnapshot(rows, writeSource) {
             input.transaction,
             { refresh: true },
           );
+
           if (refreshed.status !== 'ok')
             throw new Error(
               'Write succeeded but graph refresh failed; inspect source state before retrying',
             );
+
           return result.output;
         },
       ),

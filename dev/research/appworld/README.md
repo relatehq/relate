@@ -7,6 +7,13 @@ relationships, Person.email and field descriptions with the preceding graph.
 Prompts and SDK packages remain unchanged. The same 18-episode, three-method,
 28-turn protocol is frozen in [GRAPH-SHAPE-PLAN.md](GRAPH-SHAPE-PLAN.md).
 
+Subsequent model documentation clarifies transaction occurrence time, payment
+amount units, and song duration, release date, counts and artist encoding at the
+property level. AppWorld deliberately uses timezone-free datetimes; the graph
+preserves these strings without assigning UTC. These description edits have not
+been evaluated in a new agent run. The reported results and frozen execution
+sources remain those of the recorded contact-graph experiment.
+
 ## Previous completion-prompt experiment
 
 Static notes are retired from future comparisons. The current methods are raw
