@@ -324,20 +324,45 @@ behavior are unchanged.
 
 ## Consumer facade
 
-`createConsumer(graph, operations)` from `relate/consumer` builds the typed
-consumer API of an authored graph over the `ConsumerOperations` contract from
-`@relate/protocol`. Names and types come from the graph's registries; every call
-is carried out by `operations`, which is already bound to one actor.
-`@relate/node` passes the engine bound to a principal; the planned
-`@relate/client` passes an HTTP implementation. Both produce the same
+`createConsumer(description, operations)` from `relate/consumer` builds the
+typed consumer API of a graph over the `ConsumerOperations` contract from
+`@relate/protocol`. Every call is carried out by `operations`, which is already
+bound to one actor. `@relate/node` passes the engine bound to a principal; the
+planned `@relate/client` passes an HTTP implementation. Both produce the same
 `Consumer<G>`.
+
+Two inputs hide in a graph: the TypeScript information that infers
+`Consumer<G>`, and the runtime information that routes its methods. The facade
+depends only on the latter, a `ConsumerDescription`:
+
+```ts
+interface ConsumerDescription<G> {
+  objects: {
+    [name: string]: {
+      definitionId: string;
+      traversals: {
+        [name: string]: { cardinality: 'one' | 'many'; target: string };
+      };
+    };
+  };
+  actions: { [name: string]: { definitionId: string } };
+}
+```
+
+`describeConsumer(graph)` reduces an authored graph to this frozen, JSON-safe
+shape; passing the graph itself to `createConsumer` does that for you. A
+generated client can ship the description next to generated types and never
+import the authoring graph. The description is actor independent: discovery
+omits what an actor may not see, so it cannot stand in for it; a facade routed
+from discovery would turn a hidden object into a `TypeError` instead of the
+engine's `ReadError`.
 
 ```ts
 import { createConsumer } from 'relate/consumer';
 import type { ConsumerOperations } from '@relate/protocol';
 
 declare const operations: ConsumerOperations; // actor already bound
-const consumer = createConsumer(graph, operations);
+const consumer = createConsumer(graph, operations); // or describeConsumer(graph)
 
 const customer = await consumer.objects.Customer.get(id, { select: ['name'] });
 for await (const invoice of consumer.objects.Customer.traverse.invoices(id)) {
@@ -349,13 +374,13 @@ const receipt = await consumer.actions.addAccountReview({
 });
 ```
 
-The facade only routes. It maps registry names to definition IDs, adds the
-canonical `id` to an `ok` result of `get`, pages `query` and to-many traversals
-with `createPagedQuery`, rejects a traversal result whose shape contradicts the
-relationship's cardinality, and decorates `describe()` detail with its own
-`call` paths (`objects.Customer.traverse.invoices(id, options?)`). It does not
-validate requests, authorize, cache results or retry; the operations do.
-`receipts.get` accepts only actions registered in this graph and rejects any
+The facade only routes. It maps registry names to definition IDs, passes results
+through unchanged, pages `query` and to-many traversals with `createPagedQuery`,
+rejects a traversal result whose shape contradicts the relationship's
+cardinality, and decorates `describe()` detail with its own `call` paths
+(`objects.Customer.traverse.invoices(id, options?)`). It does not validate
+requests, authorize, cache results or retry; the operations do. `receipts.get`
+accepts only actions whose definition ID the description lists and rejects any
 other with `ActionError('denied')` before calling the operations.
 
 Printing an operation (`String(consumer.objects.Customer.get)` or

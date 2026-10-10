@@ -6,6 +6,26 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Consumer description and complete port results
+
+`createConsumer` now depends on a `ConsumerDescription`: registry names,
+definition IDs and traversal shapes, nothing from authoring.
+`describeConsumer(graph)` produces it, and `createConsumer(graph, operations)`
+still accepts an authored graph as a convenience. A generated client can ship
+the description next to generated types without importing the authoring graph.
+`receipts.get` now matches registered actions by definition ID rather than
+object identity.
+
+Breaking: `ConsumerOperations.read` is renamed to `get` and returns a complete
+`ObjectResult` including the canonical `id`; the facade no longer adds it.
+Implementations of the contract must supply the ID themselves.
+
+`GraphDescription` gains `definitionRevision`, the same value reads report in
+`meta.definitionRevision`, so a consumer that prefetched discovery can detect
+that its operations run against a different model.
+`createDiscovery(manifest, definitionRevision, principal)` in `@relate/runtime`
+takes the revision as its second argument.
+
 ## Shared consumer facade and operations contract
 
 The typed consumer API that `relate.as(principal)` returns is now built by

@@ -17,13 +17,15 @@ Private and unpublished while implementation is in progress.
   `implementAction`; and the boundary helpers `referenceInput` and
   `assertFields`; `connect`, `defineApp`, and `isAppDefinition`.
 - `relate/consumer`: the typed consumer facade shared by every surface:
-  `createConsumer(graph, operations)` builds `objects.Customer.get`,
+  `createConsumer(description, operations)` builds `objects.Customer.get`,
   `objects.Customer.query`, `objects.Customer.traverse.invoices`,
   `actions.addAccountReview`, `describe()` and `receipts.get` over the
-  `ConsumerOperations` contract from `@relate/protocol`; `createQuery` and
-  `createPagedQuery` page lazily; the `Consumer`, `ObjectOperations`,
-  `QueryOptions`, `ObjectResult` and `QueryResult` types. Browser safe: no
-  compiler, engine or Node import.
+  `ConsumerOperations` contract from `@relate/protocol`;
+  `describeConsumer(graph)` reduces an authored graph to the routing
+  `ConsumerDescription` the facade needs; `createQuery` and `createPagedQuery`
+  page lazily; the `Consumer`, `ObjectOperations`, `QueryOptions`,
+  `ObjectResult` and `QueryResult` types. Browser safe: no compiler, engine or
+  Node import.
 - `relate/connectors`: resource adapter contracts (`SourceConnector`,
   `SourceRecord`, `SourceVersion`, `SourceBinding`) and `SourceAccessDenied`.
 - `relate/storage`: type-only storage adapter contracts used by application

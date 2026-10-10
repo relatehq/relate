@@ -41,8 +41,9 @@ declare function createHttpOperations(options: {
   credentials: unknown;
 }): Promise<ConsumerOperations>;
 
+// A generated ConsumerDescription and generated types replace the authored graph.
 const consumer = createConsumer(
-  graph,
+  description,
   await createHttpOperations({ baseUrl: '/api', credentials }),
 );
 const page = await consumer.objects.Customer.query({
@@ -56,7 +57,11 @@ const page = await consumer.objects.Customer.query({
   never reach the compiler.
 - `Consumer`, `QueryResult` and `createQuery` are shared with `@relate/node`
   through `relate/consumer`; the client never duplicates them or imports the
-  engine.
+  engine. The facade routes from a `ConsumerDescription`, so a client needs only
+  that description and generated types, not the authoring graph.
+- Its discovery snapshot and operations must belong to the same authenticated
+  identity and model; `GraphDescription.definitionRevision` lets the client
+  detect model drift against `meta.definitionRevision` on reads.
 - Pairs with the planned `@relate/http` adapter, which serves the same
   `ConsumerOperations` from `relate.operations(principal)`.
 - The [inspector specification](../../apps/inspector/SPEC.md) proposes this

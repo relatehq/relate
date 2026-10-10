@@ -6,7 +6,6 @@ import type {
   Page,
   QueryRequest,
   ReadRequest,
-  ReadResult,
   TraversalRequest,
 } from './index.js';
 import type { Discovery } from './discovery.js';
@@ -26,11 +25,12 @@ import type { Discovery } from './discovery.js';
 export interface ConsumerOperations {
   /** Metadata available to this actor; a snapshot a remote caller can prefetch. */
   readonly discovery: Discovery;
-  read(
+  /** The complete public result, including the canonical `id`, or `not-found`. */
+  get(
     objectDefinitionId: string,
     objectId: string,
     request?: ReadRequest,
-  ): Promise<ReadResult>;
+  ): Promise<ObjectResult>;
   query(
     objectDefinitionId: string,
     request?: QueryRequest,

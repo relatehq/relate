@@ -78,6 +78,12 @@ export interface ActionSummary {
 
 export interface GraphDescription {
   readonly definitionId: string;
+  /**
+   * The compiled model this snapshot describes, as reads report it in
+   * `meta.definitionRevision`. A consumer that prefetched discovery can detect
+   * that its operations now run against a different model.
+   */
+  readonly definitionRevision: string;
   readonly description?: string;
   readonly objects: readonly ObjectSummary[];
   readonly actions: readonly ActionSummary[];

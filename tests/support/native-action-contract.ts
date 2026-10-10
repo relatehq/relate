@@ -602,10 +602,20 @@ export function nativeActionContract(
       await expect(
         relate.as(ana).receipts.get(AddAccountReview, 'missing'),
       ).rejects.toMatchObject({ code: 'denied' });
+      // Registration is by stable definition ID: a copy of the definition is
+      // the same action, an unregistered ID is denied before any lookup.
       await expect(
         relate
           .as(ana)
           .receipts.get({ ...AddAccountReview }, receipt.invocationId),
+      ).resolves.toEqual(receipt);
+      await expect(
+        relate
+          .as(ana)
+          .receipts.get(
+            { ...AddAccountReview, id: 'business.unregistered' } as never,
+            receipt.invocationId,
+          ),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(
         relate.as(ana).receipts.get(AddAccountReview, receipt.invocationId),

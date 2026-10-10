@@ -58,6 +58,7 @@ function memoize<T>(build: (key: string) => T) {
  */
 export function createDiscovery(
   manifest: Manifest,
+  definitionRevision: string,
   principal: Principal,
 ): Discovery {
   const readable = (id: string | undefined) =>
@@ -171,6 +172,7 @@ export function createDiscovery(
   const describe = () =>
     (graph ??= deepFreeze({
       definitionId: manifest.graphDefinitionId,
+      definitionRevision,
       ...described(manifest.description),
       objects: manifest.objects.filter((o) => readable(o.id)).map(summary),
       actions: visibleActions().map((action) => ({

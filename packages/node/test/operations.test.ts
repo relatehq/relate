@@ -59,13 +59,16 @@ it('exposes the engine as definition-ID operations bound to one principal', asyn
   ];
   const operations = relate.operations(ana);
 
-  // Engine envelope: no `id`; the facade adds it.
-  const read = await operations.read(Customer.id, customerId, {
+  // The complete public result: the port, not the facade, supplies the id.
+  const customer = await operations.get(Customer.id, customerId, {
     select: ['name'],
   });
 
-  expect(read).toMatchObject({ status: 'ok', data: { name: 'Northwind' } });
-  expect(read).not.toHaveProperty('id');
+  expect(customer).toMatchObject({
+    status: 'ok',
+    id: customerId,
+    data: { name: 'Northwind' },
+  });
 
   const page = await operations.query(Invoice.id, {
     where: { status: 'Open' },
@@ -87,16 +90,24 @@ it('exposes the engine as definition-ID operations bound to one principal', asyn
       invoices.data.map((invoice) => invoice.id).sort(),
   ).toEqual([...invoiceIds].sort());
 
-  const customer = await operations.traverse(
+  const billed = await operations.traverse(
     Invoice.id,
     invoiceIds[0]!,
     'customer',
   );
 
-  expect(customer).toMatchObject({ status: 'ok', id: customerId });
+  expect(billed).toMatchObject({ status: 'ok', id: customerId });
 
-  expect(operations.discovery.describe().objects.map((o) => o.apiName)).toEqual(
-    ['Customer', 'Invoice'],
+  const overview = operations.discovery.describe();
+
+  expect(overview.objects.map((o) => o.apiName)).toEqual([
+    'Customer',
+    'Invoice',
+  ]);
+  // The snapshot names the model it describes, as every read does.
+  expect(overview.definitionRevision).toMatch(/^sha256:/);
+  expect(customer.status === 'ok' && customer.meta.definitionRevision).toBe(
+    overview.definitionRevision,
   );
   expect(operations.discovery.describeObject(Customer.id)?.apiName).toBe(
     'Customer',
@@ -115,7 +126,7 @@ it('keeps authorization and request validation in the engine, not the caller', a
     claims: { portfolio: 'south' },
   });
 
-  await expect(stranger.read(Customer.id, customerId)).resolves.toEqual({
+  await expect(stranger.get(Customer.id, customerId)).resolves.toEqual({
     status: 'not-found',
   });
   await expect(
@@ -152,7 +163,7 @@ it('rejects every operation and discovery call after close', async () => {
 
   await relate.close();
 
-  await expect(operations.read(Customer.id, customerId)).rejects.toThrow(
+  await expect(operations.get(Customer.id, customerId)).rejects.toThrow(
     'closed',
   );
   await expect(operations.query(Customer.id)).rejects.toThrow('closed');

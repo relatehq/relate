@@ -205,7 +205,8 @@ export function createRuntime(options: RuntimeOptions) {
   });
 
   return {
-    discover: (principal: Principal) => createDiscovery(manifest, principal),
+    discover: (principal: Principal) =>
+      createDiscovery(manifest, revision, principal),
     adopt: source.adopt,
     async query(
       principal: Principal,

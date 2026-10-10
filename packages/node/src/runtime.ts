@@ -9,7 +9,11 @@ import type {
   ObjectRegistry,
   AppBindings,
 } from 'relate';
-import { createConsumer, createPagedQuery } from 'relate/consumer';
+import {
+  createConsumer,
+  createPagedQuery,
+  describeConsumer,
+} from 'relate/consumer';
 import type { Consumer } from 'relate/consumer';
 import { createRuntime as createEngine } from '@relate/runtime';
 import type { Principal } from '@relate/runtime';
@@ -30,14 +34,7 @@ export function createRuntime<
   const model = compile(options.graph);
   // Keep every later facade aligned with this compiled model. Definitions are
   // immutable, but the graph and its caller-owned registries need not be.
-  const consumerGraph = {
-    ...options.graph,
-    objects: { ...options.graph.objects },
-    ...(options.graph.relationships
-      ? { relationships: { ...options.graph.relationships } }
-      : {}),
-    ...(options.graph.actions ? { actions: { ...options.graph.actions } } : {}),
-  };
+  const description = describeConsumer(options.graph);
   const objects = Object.entries(options.graph.objects);
   const registered = new Set<ObjectDefinition>(
     objects.map(([, object]) => object),
@@ -169,8 +166,17 @@ export function createRuntime<
           return discovery.describeAction(actionDefinitionId);
         },
       }),
-      read: (objectDefinitionId, objectId, request) =>
-        run(() => engine.read(actor, objectDefinitionId, objectId, request)),
+      get: (objectDefinitionId, objectId, request) =>
+        run(async () => {
+          const result = await engine.read(
+            actor,
+            objectDefinitionId,
+            objectId,
+            request,
+          );
+
+          return result.status === 'ok' ? { ...result, id: objectId } : result;
+        }),
       query: (objectDefinitionId, request) =>
         run(() => engine.query(actor, objectDefinitionId, request)),
       traverse: (objectDefinitionId, objectId, traversal, request) =>
@@ -195,7 +201,7 @@ export function createRuntime<
   return {
     as(principal: Principal): Consumer<G> {
       // Compilation validated schema support; the engine validates values and selection.
-      return createConsumer(consumerGraph, operations(principal));
+      return createConsumer(description, operations(principal));
     },
     operations,
     host: Object.freeze({

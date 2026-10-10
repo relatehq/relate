@@ -15,7 +15,7 @@ import {
   source,
 } from 'relate';
 import type { ObjectId } from 'relate';
-import { createConsumer } from 'relate/consumer';
+import { createConsumer, describeConsumer } from 'relate/consumer';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
   ActionDescription,
@@ -86,6 +86,7 @@ function createGraph() {
 
 const graphDescription: GraphDescription = {
   definitionId: 'graph',
+  definitionRevision: 'sha256:test',
   objects: [],
   actions: [],
   operations: {
@@ -191,10 +192,11 @@ function createOperations() {
         id === 'add-review' ? actionDetail : undefined,
       ),
     },
-    read: vi.fn<ConsumerOperations['read']>(async () => ({
+    get: vi.fn<ConsumerOperations['get']>(async (_type, id) => ({
       status: 'ok',
+      id,
       data: { name: 'Ada' },
-      meta: record('x').meta,
+      meta: record(id).meta,
     })),
     query: vi.fn<ConsumerOperations['query']>(async () =>
       finalPage('r1', 'r2'),
@@ -225,7 +227,7 @@ function createOperations() {
   return operations;
 }
 
-it('routes typed calls to definition IDs and adds the canonical id to get', async () => {
+it('routes typed calls to definition IDs and passes complete results through', async () => {
   const { graph } = createGraph();
   const operations = createOperations();
   const consumer = createConsumer(graph, operations);
@@ -235,9 +237,10 @@ it('routes typed calls to definition IDs and adds the canonical id to get', asyn
     select: ['name'],
   });
 
-  expect(operations.read).toHaveBeenCalledWith('customer', 'c1', {
+  expect(operations.get).toHaveBeenCalledWith('customer', 'c1', {
     select: ['name'],
   });
+  expect(customer).toEqual(await operations.get.mock.results[0]!.value);
   expect(customer).toMatchObject({
     status: 'ok',
     id: 'c1',
@@ -414,11 +417,86 @@ it('surfaces operation failures unchanged', async () => {
   const { graph } = createGraph();
   const operations = createOperations();
 
-  operations.read.mockRejectedValue(new ReadError('unavailable'));
+  operations.get.mockRejectedValue(new ReadError('unavailable'));
 
   const consumer = createConsumer(graph, operations);
 
   await expect(
     consumer.objects.Customer.get('c1' as ObjectId<'customer'>),
   ).rejects.toMatchObject({ name: 'ReadError', code: 'unavailable' });
+});
+
+it('reduces an authored graph to the frozen routing description the facade needs', () => {
+  const { graph } = createGraph();
+
+  const description = describeConsumer(graph);
+
+  expect(description).toEqual({
+    objects: {
+      Customer: {
+        definitionId: 'customer',
+        traversals: { reviews: { cardinality: 'many', target: 'Review' } },
+      },
+      Review: {
+        definitionId: 'review',
+        traversals: { customer: { cardinality: 'one', target: 'Customer' } },
+      },
+    },
+    actions: { addReview: { definitionId: 'add-review' } },
+  });
+  expect(Object.isFrozen(description)).toBe(true);
+  expect(Object.isFrozen(description.objects.Customer!.traversals)).toBe(true);
+  // Nothing from authoring leaks: no schemas, access, policies or definitions.
+  expect(JSON.parse(JSON.stringify(description))).toEqual(description);
+});
+
+it('builds the same facade from a description as from the graph it was taken from', async () => {
+  const { graph, AddReview } = createGraph();
+  const operations = createOperations();
+  const fromDescription = createConsumer(describeConsumer(graph), operations);
+  const fromGraph = createConsumer(graph, operations);
+  const id = 'c1' as ObjectId<'customer'>;
+
+  expect(Object.keys(fromDescription.objects)).toEqual(
+    Object.keys(fromGraph.objects),
+  );
+  expect(Object.keys(fromDescription.objects.Customer.traverse)).toEqual([
+    'reviews',
+  ]);
+  expect(String(fromDescription.objects.Review.traverse.customer)).toBe(
+    String(fromGraph.objects.Review.traverse.customer),
+  );
+  await expect(fromDescription.objects.Customer.get(id)).resolves.toEqual(
+    await fromGraph.objects.Customer.get(id),
+  );
+  // Receipt lookup matches registered actions by definition ID, not identity.
+  await expect(
+    fromDescription.receipts.get({ ...AddReview }, 'inv-1'),
+  ).resolves.toMatchObject({ invocationId: 'inv-1' });
+});
+
+it('rejects a relationship whose endpoint is not a registered object', () => {
+  const { graph, Customer } = createGraph();
+  const stranger = defineObject({
+    id: 'stranger',
+    membership: nativeMembership(),
+    properties: {
+      id: objectId({ id: 'stranger.id' }),
+      customer: reference(Customer, { id: 'stranger.customer' }),
+    },
+  });
+
+  expect(() =>
+    describeConsumer({
+      ...graph,
+      relationships: {
+        strangers: defineRelationship({
+          id: 'customer-strangers',
+          forward: 'strangers',
+          reverse: 'customer',
+          via: stranger.properties.customer,
+        }),
+      },
+    }),
+  ).toThrow("Relationship endpoint 'stranger' is not a graph object");
 });

@@ -26,6 +26,9 @@ const customer = consumer.objects.Customer.describe();
 const addReview = consumer.actions.addAccountReview.describe();
 ```
 
+The overview also carries `definitionRevision`, the compiled model it describes;
+every read reports the same value in `meta.definitionRevision`.
+
 Object detail includes its stable definition ID, API name, display labels,
 description, authorized properties, and available traversal directions. Each
 property carries its scalar schema, reference target, authored description, and

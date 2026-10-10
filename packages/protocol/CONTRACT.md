@@ -76,7 +76,7 @@ to one authenticated actor and addressed by definition IDs:
 ```ts
 interface ConsumerOperations {
   readonly discovery: Discovery;
-  read(objectDefinitionId, objectId, request?): Promise<ReadResult>;
+  get(objectDefinitionId, objectId, request?): Promise<ObjectResult>;
   query(objectDefinitionId, request?): Promise<Page<ObjectRecord>>;
   traverse(
     objectDefinitionId,
@@ -100,12 +100,16 @@ every implementation keeps:
 - Requests arrive unvalidated. Malformed requests reject with
   `ReadError('invalid-request')` or `ActionError('invalid')`; the facade adds no
   validation of its own.
-- `read` returns the engine envelope without `id`; the facade adds the canonical
-  ID it was called with. A to-one `traverse` returns an `ObjectResult`, a
-  to-many `traverse` returns one `Page`; the facade rejects a result of the
-  wrong shape.
+- Every result is the complete public shape. `get` returns an `ObjectResult`
+  with the canonical `id`, whatever the engine's internal envelope looks like. A
+  to-one `traverse` returns an `ObjectResult`, a to-many `traverse` returns one
+  `Page`; the facade rejects a result of the wrong shape.
 - `discovery` is synchronous. A transport fetches the actor's snapshot before
   binding operations rather than making every `describe()` call asynchronous.
+  The snapshot must belong to the same authenticated identity and model as the
+  operations: `GraphDescription.definitionRevision` names that model, the same
+  value every read reports in `meta.definitionRevision`, so a consumer can
+  detect drift and refresh its snapshot.
 
 ## Compact evidence
 
