@@ -2,7 +2,7 @@ import type { Manifest, Policy } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
   ReadRequest,
-  FullReadResult as ReadResult,
+  FullObjectResult as ReadResult,
   Json,
   FieldEvidence,
 } from '@relate/protocol';
@@ -242,6 +242,7 @@ export function createNativeOperations(options: {
 
       return {
         status: 'ok',
+        id: record.objectId,
         data,
         meta: {
           evidence: 'full',

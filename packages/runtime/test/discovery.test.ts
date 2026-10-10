@@ -25,7 +25,7 @@ import {
 function discover(graph: GraphDefinition, principal: Principal) {
   const model = compile(graph);
 
-  return createDiscovery(model.manifest, model.definitionRevision, principal);
+  return createDiscovery(model, principal);
 }
 
 it('describes only the objects, fields, traversals, and actions available to an actor', () => {

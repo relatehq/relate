@@ -127,3 +127,11 @@ Descriptions are authored on the graph, objects, property helpers, relationship
 directions, actions, and action fields. See
 [Defining the Graph](../authoring/graph.md) and
 [Actions, Mutations & Receipts](./actions.md).
+
+A generated client's routing artifact is `compile(graph).consumer`. It includes
+its expected graph and model revision. `createConsumer(description, operations)`
+checks these against discovery when binding. The artifact is actor independent;
+discovery and execution remain actor bound. Refreshing discovery alone does not
+update a generated client's types or routing. Future HTTP operations must
+enforce model compatibility for every request, including actions and empty
+results.

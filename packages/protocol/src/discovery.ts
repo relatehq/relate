@@ -80,8 +80,9 @@ export interface GraphDescription {
   readonly definitionId: string;
   /**
    * The compiled model this snapshot describes, as reads report it in
-   * `meta.definitionRevision`. A consumer that prefetched discovery can detect
-   * that its operations now run against a different model.
+   * `meta.definitionRevision` on successful records. Empty pages, not-found and
+   * action receipts do not carry this revision; remote operations must enforce
+   * their bound model independently of returned records.
    */
   readonly definitionRevision: string;
   readonly description?: string;

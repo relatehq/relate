@@ -6,7 +6,7 @@ import type {
   ObjectDescription,
   ObjectSummary,
 } from '@relate/protocol';
-import type { Manifest } from 'relate/model';
+import type { Manifest, CompiledModel } from 'relate/model';
 import { deepFreeze } from 'relate/model';
 import {
   readableObject,
@@ -57,8 +57,7 @@ function memoize<T>(build: (key: string) => T) {
  * runtime will attempt; record-level policy still decides each result.
  */
 export function createDiscovery(
-  manifest: Manifest,
-  definitionRevision: string,
+  { manifest, definitionRevision }: CompiledModel,
   principal: Principal,
 ): Discovery {
   const readable = (id: string | undefined) =>

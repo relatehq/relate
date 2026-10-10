@@ -15,7 +15,8 @@ import {
   source,
 } from 'relate';
 import type { ObjectId } from 'relate';
-import { createConsumer, describeConsumer } from 'relate/consumer';
+import { createConsumer } from 'relate/consumer';
+import { compile } from 'relate/compiler';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
   ActionDescription,
@@ -181,10 +182,11 @@ const finalPage = (...ids: string[]): Page<ObjectRecord> => ({
 });
 
 /** Every operation records its call; results are plain protocol values. */
-function createOperations() {
+function createOperations(graph: ReturnType<typeof createGraph>['graph']) {
+  const definitionRevision = compile(graph).definitionRevision;
   const operations = {
     discovery: {
-      describe: vi.fn(() => graphDescription),
+      describe: vi.fn(() => ({ ...graphDescription, definitionRevision })),
       describeObject: vi.fn((id: string) =>
         id === 'customer' ? customerDetail : undefined,
       ),
@@ -196,7 +198,7 @@ function createOperations() {
       status: 'ok',
       id,
       data: { name: 'Ada' },
-      meta: record(id).meta,
+      meta: { ...record(id).meta, definitionRevision },
     })),
     query: vi.fn<ConsumerOperations['query']>(async () =>
       finalPage('r1', 'r2'),
@@ -229,8 +231,8 @@ function createOperations() {
 
 it('routes typed calls to definition IDs and passes complete results through', async () => {
   const { graph } = createGraph();
-  const operations = createOperations();
-  const consumer = createConsumer(graph, operations);
+  const operations = createOperations(graph);
+  const consumer = createConsumer(compile(graph).consumer, operations);
   const id = 'c1' as ObjectId<'customer'>;
 
   const customer = await consumer.objects.Customer.get(id, {
@@ -257,8 +259,8 @@ it('routes typed calls to definition IDs and passes complete results through', a
 
 it('pages to-many traversals and awaits to-one traversals by cardinality', async () => {
   const { graph } = createGraph();
-  const operations = createOperations();
-  const consumer = createConsumer(graph, operations);
+  const operations = createOperations(graph);
+  const consumer = createConsumer(compile(graph).consumer, operations);
   const customerId = 'c1' as ObjectId<'customer'>;
   const reviewId = 'r1' as ObjectId<'review'>;
 
@@ -293,13 +295,13 @@ it('pages to-many traversals and awaits to-one traversals by cardinality', async
 
 it('rejects operations whose result shape does not match the traversal cardinality', async () => {
   const { graph } = createGraph();
-  const operations = createOperations();
+  const operations = createOperations(graph);
 
   operations.traverse.mockImplementation(async (_t, _i, traversal) =>
     traversal === 'customer' ? finalPage('c1') : { status: 'not-found' },
   );
 
-  const consumer = createConsumer(graph, operations);
+  const consumer = createConsumer(compile(graph).consumer, operations);
 
   await expect(
     consumer.objects.Review.traverse.customer('r1' as ObjectId<'review'>),
@@ -311,8 +313,8 @@ it('rejects operations whose result shape does not match the traversal cardinali
 
 it('rejects paged options that are not plain data through the handle, not synchronously', async () => {
   const { graph } = createGraph();
-  const operations = createOperations();
-  const consumer = createConsumer(graph, operations);
+  const operations = createOperations(graph);
+  const consumer = createConsumer(compile(graph).consumer, operations);
 
   const handle = consumer.objects.Review.query({
     where: { note: () => 'n' } as never,
@@ -328,10 +330,13 @@ it('rejects paged options that are not plain data through the handle, not synchr
 
 it('decorates discovery with this facade’s call paths and asks discovery every time', () => {
   const { graph } = createGraph();
-  const operations = createOperations();
-  const consumer = createConsumer(graph, operations);
+  const operations = createOperations(graph);
+  const consumer = createConsumer(compile(graph).consumer, operations);
 
-  expect(consumer.describe()).toBe(graphDescription);
+  expect(consumer.describe()).toEqual({
+    ...graphDescription,
+    definitionRevision: compile(graph).definitionRevision,
+  });
 
   const detail = consumer.objects.Customer.describe();
 
@@ -362,13 +367,13 @@ it('decorates discovery with this facade’s call paths and asks discovery every
 
 it('prints operations without option names when discovery is unavailable', () => {
   const { graph } = createGraph();
-  const operations = createOperations();
+  const operations = createOperations(graph);
+
+  const consumer = createConsumer(compile(graph).consumer, operations);
 
   operations.discovery.describe.mockImplementation(() => {
     throw new Error('Relate is closed');
   });
-
-  const consumer = createConsumer(graph, operations);
 
   expect(String(consumer.objects.Review.query)).toBe(
     'objects.Review.query(options?: { … }): QueryResult<Review>',
@@ -377,9 +382,9 @@ it('prints operations without option names when discovery is unavailable', () =>
 });
 
 it('invokes registered actions and only looks up receipts of registered actions', async () => {
-  const { graph, AddReview } = createGraph();
-  const operations = createOperations();
-  const consumer = createConsumer(graph, operations);
+  const { graph } = createGraph();
+  const operations = createOperations(graph);
+  const consumer = createConsumer(compile(graph).consumer, operations);
 
   const receipt = await consumer.actions.addReview({
     input: { customer: 'c1', note: 'Follow up' },
@@ -393,33 +398,25 @@ it('invokes registered actions and only looks up receipts of registered actions'
   expect(receipt.state).toBe('succeeded');
 
   await expect(
-    consumer.receipts.get(AddReview, 'inv-1'),
+    consumer.receipts.get('addReview', 'inv-1'),
   ).resolves.toMatchObject({
     invocationId: 'inv-1',
   });
   expect(operations.getReceipt).toHaveBeenCalledWith('add-review', 'inv-1');
 
-  const foreign = defineAction({
-    id: 'foreign',
-    input: z.object({}),
-    output: z.object({}),
-    creates: [],
-    policy: { execute: graph.access.role('reader') },
-  });
-
   await expect(
-    consumer.receipts.get(foreign as never, 'inv-1'),
+    consumer.receipts.get('foreign' as never, 'inv-1'),
   ).rejects.toBeInstanceOf(ActionError);
   expect(operations.getReceipt).toHaveBeenCalledTimes(1);
 });
 
 it('surfaces operation failures unchanged', async () => {
   const { graph } = createGraph();
-  const operations = createOperations();
+  const operations = createOperations(graph);
 
   operations.get.mockRejectedValue(new ReadError('unavailable'));
 
-  const consumer = createConsumer(graph, operations);
+  const consumer = createConsumer(compile(graph).consumer, operations);
 
   await expect(
     consumer.objects.Customer.get('c1' as ObjectId<'customer'>),
@@ -429,9 +426,12 @@ it('surfaces operation failures unchanged', async () => {
 it('reduces an authored graph to the frozen routing description the facade needs', () => {
   const { graph } = createGraph();
 
-  const description = describeConsumer(graph);
+  const description = compile(graph).consumer;
 
   expect(description).toEqual({
+    formatVersion: 1,
+    graphDefinitionId: 'graph',
+    definitionRevision: compile(graph).definitionRevision,
     objects: {
       Customer: {
         definitionId: 'customer',
@@ -450,11 +450,14 @@ it('reduces an authored graph to the frozen routing description the facade needs
   expect(JSON.parse(JSON.stringify(description))).toEqual(description);
 });
 
-it('builds the same facade from a description as from the graph it was taken from', async () => {
-  const { graph, AddReview } = createGraph();
-  const operations = createOperations();
-  const fromDescription = createConsumer(describeConsumer(graph), operations);
-  const fromGraph = createConsumer(graph, operations);
+it('builds the same facade from serialized and compiler-produced descriptions', async () => {
+  const { graph } = createGraph();
+  const operations = createOperations(graph);
+  const fromDescription = createConsumer<typeof graph>(
+    JSON.parse(JSON.stringify(compile(graph).consumer)),
+    operations,
+  );
+  const fromGraph = createConsumer(compile(graph).consumer, operations);
   const id = 'c1' as ObjectId<'customer'>;
 
   expect(Object.keys(fromDescription.objects)).toEqual(
@@ -469,9 +472,9 @@ it('builds the same facade from a description as from the graph it was taken fro
   await expect(fromDescription.objects.Customer.get(id)).resolves.toEqual(
     await fromGraph.objects.Customer.get(id),
   );
-  // Receipt lookup matches registered actions by definition ID, not identity.
+  // Receipt lookup needs only the registry name, without authored definitions.
   await expect(
-    fromDescription.receipts.get({ ...AddReview }, 'inv-1'),
+    fromDescription.receipts.get('addReview', 'inv-1'),
   ).resolves.toMatchObject({ invocationId: 'inv-1' });
 });
 
@@ -487,7 +490,7 @@ it('rejects a relationship whose endpoint is not a registered object', () => {
   });
 
   expect(() =>
-    describeConsumer({
+    compile({
       ...graph,
       relationships: {
         strangers: defineRelationship({
@@ -498,5 +501,190 @@ it('rejects a relationship whose endpoint is not a registered object', () => {
         }),
       },
     }),
-  ).toThrow("Relationship endpoint 'stranger' is not a graph object");
+  ).toThrow();
+});
+
+it('captures JSON routing without freezing or retaining caller-owned maps', async () => {
+  const { graph } = createGraph();
+  const description = JSON.parse(JSON.stringify(compile(graph).consumer));
+  const operations = createOperations(graph);
+  const consumer = createConsumer<typeof graph>(description, operations);
+
+  description.objects.Customer.definitionId = 'other';
+  description.objects.Customer.traversals.reviews.cardinality = 'one';
+  description.objects.Customer.traversals.reviews.target = 'Customer';
+  description.actions.addReview.definitionId = 'other-action';
+  delete description.objects.Review;
+
+  const handle = consumer.objects.Customer.traverse.reviews(
+    'c1' as ObjectId<'customer'>,
+  );
+  const ids: string[] = [];
+
+  for await (const item of handle) ids.push(item.id);
+
+  expect(ids).toEqual(['r1']);
+  expect(String(consumer.objects.Customer.traverse.reviews)).toContain(
+    'QueryResult<Review>',
+  );
+  await consumer.receipts.get('addReview', 'inv-1');
+  expect(operations.getReceipt).toHaveBeenCalledWith('add-review', 'inv-1');
+  await consumer.objects.Customer.get('c1' as ObjectId<'customer'>);
+  expect(operations.get).toHaveBeenCalledWith('customer', 'c1', {});
+});
+
+it('rejects malformed loaded descriptions at construction with a description error', () => {
+  const { graph } = createGraph();
+  const operations = createOperations(graph);
+
+  for (const change of [
+    (d: any) => {
+      delete d.actions;
+    },
+    (d: any) => {
+      delete d.objects.Customer.traversals;
+    },
+    (d: any) => {
+      d.formatVersion = 2;
+    },
+    (d: any) => {
+      d.definitionRevision = 'wrong';
+    },
+    (d: any) => {
+      d.objects.Customer.definitionId = 'review';
+    },
+    (d: any) => {
+      d.objects.Customer.traversals.reviews.target = 'Missing';
+    },
+    (d: any) => {
+      d.objects.Customer.traversals.reviews.cardinality = 'some';
+    },
+    (d: any) => {
+      Object.defineProperty(d.objects.Customer.traversals, '__proto__', {
+        value: { cardinality: 'one', target: 'Review' },
+        enumerable: true,
+      });
+    },
+  ]) {
+    const description = JSON.parse(JSON.stringify(compile(graph).consumer));
+
+    change(description);
+    expect(() => createConsumer(description, operations)).toThrow(
+      'Invalid consumer description',
+    );
+  }
+
+  // Authored graphs are no longer guessed to be descriptions.
+  expect(() => createConsumer(graph as never, operations)).toThrow(
+    'Invalid consumer description',
+  );
+});
+
+it('rejects a different model before dispatching any operation', () => {
+  const { graph, Review } = createGraph();
+  const description = compile(graph).consumer;
+  const changedReview = defineObject({
+    ...Review,
+    properties: {
+      ...Review.properties,
+      note: native(z.number(), { id: 'review.note' }),
+    },
+  });
+  const changed = compile({
+    ...graph,
+    objects: { ...graph.objects, Review: changedReview },
+    relationships: {
+      reviews: defineRelationship({
+        id: 'customer-reviews',
+        forward: 'reviews',
+        reverse: 'customer',
+        via: changedReview.properties.customer,
+      }),
+    },
+    actions: {},
+  });
+  const operations = createOperations(graph);
+
+  operations.discovery.describe.mockReturnValue({
+    ...graphDescription,
+    definitionRevision: changed.definitionRevision,
+  });
+  expect(() => createConsumer(description, operations)).toThrow(
+    'does not match',
+  );
+  operations.discovery.describe.mockReturnValue({
+    ...graphDescription,
+    definitionId: 'other-graph',
+    definitionRevision: description.definitionRevision,
+  });
+  expect(() => createConsumer(description, operations)).toThrow(
+    'does not match',
+  );
+  expect(operations.get).not.toHaveBeenCalled();
+  expect(operations.invoke).not.toHaveBeenCalled();
+});
+
+it('turns synchronous get and action failures into promise rejections', async () => {
+  const { graph } = createGraph();
+  const operations = createOperations(graph);
+  const consumer = createConsumer(compile(graph).consumer, operations);
+
+  operations.get.mockImplementation(() => {
+    throw new Error('closed');
+  });
+  operations.invoke.mockImplementation(() => {
+    throw new Error('closed');
+  });
+
+  const get = consumer.objects.Customer.get('c1' as ObjectId<'customer'>);
+  const action = consumer.actions.addReview({
+    input: { customer: 'c1', note: 'n' },
+    idempotencyKey: 'k',
+  });
+
+  await expect(get).rejects.toThrow('closed');
+  await expect(action).rejects.toThrow('closed');
+});
+
+it('exports empty maps for a graph with no actions or relationships', () => {
+  const { graph, Customer } = createGraph();
+  const model = compile(
+    defineGraph({
+      id: 'empty-edges',
+      objects: { Customer },
+      access: graph.access,
+      policies: { Customer: { read: 'deny' } },
+    }),
+  );
+  const operations = createOperations(graph);
+
+  operations.discovery.describe.mockReturnValue({
+    ...graphDescription,
+    definitionId: 'empty-edges',
+    definitionRevision: model.definitionRevision,
+  });
+  const consumer = createConsumer(model.consumer, operations);
+
+  expect(consumer.actions).toEqual({});
+  expect(consumer.objects.Customer.traverse).toEqual({});
+});
+
+it('refuses invalid traversals before producing a consumer artifact', () => {
+  const { graph, Review } = createGraph();
+
+  for (const name of ['__proto__', 'reviews'])
+    expect(() =>
+      compile({
+        ...graph,
+        relationships: {
+          ...graph.relationships,
+          other: defineRelationship({
+            id: 'other',
+            via: Review.properties.customer,
+            forward: name,
+            reverse: 'otherCustomer',
+          }),
+        },
+      }),
+    ).toThrow('Invalid or duplicate traversal name');
 });

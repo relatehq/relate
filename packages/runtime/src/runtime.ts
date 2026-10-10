@@ -18,7 +18,7 @@ import type {
   QueryRequest,
   ReadRequest,
   TraversalRequest,
-  FullReadResult as ReadResult,
+  FullObjectResult as ReadResult,
 } from '@relate/protocol';
 import type { ObservationStore } from './storage.js';
 import type { Principal } from './authorization/index.js';
@@ -206,7 +206,7 @@ export function createRuntime(options: RuntimeOptions) {
 
   return {
     discover: (principal: Principal) =>
-      createDiscovery(manifest, revision, principal),
+      createDiscovery({ manifest, definitionRevision: revision }, principal),
     adopt: source.adopt,
     async query(
       principal: Principal,

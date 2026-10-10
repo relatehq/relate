@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { SourceConnector } from 'relate/connectors';
 import { createRuntime } from '@relate/node';
 import { createConsumer } from 'relate/consumer';
+import { compile } from 'relate/compiler';
 import { ActionError } from '@relate/protocol';
 import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
 
@@ -146,7 +147,7 @@ it('is the port behind as(): the facade over operations() behaves identically', 
     select: ['name'],
   });
   const viaPort = await createConsumer(
-    graph,
+    compile(graph).consumer,
     relate.operations(ana),
   ).objects.Customer.get(customerId, { select: ['name'] });
 
@@ -261,6 +262,6 @@ it('keeps registered actions and receipts when the caller changes the graph or o
     output: { message: 'pong' },
   });
   await expect(
-    consumer.receipts.get(Ping, receipt.invocationId),
+    consumer.receipts.get('ping', receipt.invocationId),
   ).resolves.toEqual(receipt);
 });

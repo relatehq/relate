@@ -331,39 +331,56 @@ bound to one actor. `@relate/node` passes the engine bound to a principal; the
 planned `@relate/client` passes an HTTP implementation. Both produce the same
 `Consumer<G>`.
 
-Two inputs hide in a graph: the TypeScript information that infers
-`Consumer<G>`, and the runtime information that routes its methods. The facade
-depends only on the latter, a `ConsumerDescription`:
+The compiler exports the facade's runtime routing data as
+`compile(graph).consumer`. It projects the validated manifest, so endpoint,
+duplicate-name and unsafe-key checks have one owner. The artifact is deeply
+frozen and JSON-safe:
 
 ```ts
-interface ConsumerDescription<G> {
+// Shape example; ConsumerDescription<G> maps names, IDs, targets and cardinalities to G.
+{
+  formatVersion: 1,
+  graphDefinitionId: 'business',
+  definitionRevision: 'sha256:…',
   objects: {
-    [name: string]: {
-      definitionId: string;
-      traversals: {
-        [name: string]: { cardinality: 'one' | 'many'; target: string };
-      };
-    };
-  };
-  actions: { [name: string]: { definitionId: string } };
+    Customer: {
+      definitionId: 'business.customer',
+      traversals: { invoices: { cardinality: 'many', target: 'Invoice' } },
+    },
+    Invoice: {
+      definitionId: 'business.invoice',
+      traversals: { customer: { cardinality: 'one', target: 'Customer' } },
+    },
+  },
+  actions: { addAccountReview: { definitionId: 'business.add-account-review' } },
 }
 ```
 
-`describeConsumer(graph)` reduces an authored graph to this frozen, JSON-safe
-shape; passing the graph itself to `createConsumer` does that for you. A
-generated client can ship the description next to generated types and never
-import the authoring graph. The description is actor independent: discovery
-omits what an actor may not see, so it cannot stand in for it; a facade routed
-from discovery would turn a hidden object into a `TypeError` instead of the
-engine's `ReadError`.
+Empty `actions` and `traversals` maps are required and exported explicitly.
+Construction validates the artifact's format, identifiers, maps, cardinalities
+and target references, then captures private frozen routing values. It does not
+retain or freeze caller-owned JSON. `ConsumerDescription<G>` also checks object
+and action keys, definition IDs and traversal shapes against the graph type.
+
+`createConsumer` accepts only a description. It checks graph identity and exact
+model revision against `operations.discovery.describe()` at construction and
+throws on mismatch before any operation is dispatched. This requires discovery
+to be available at binding. A later discovery failure does not prevent printing
+a method's signature. Runtime validation of the artifact cannot validate erased
+TypeScript declarations: generated types and JSON must be built together.
+
+The description is actor independent; it describes a static SDK surface, not
+permission. Discovery still filters metadata for the authenticated actor and the
+runtime authorizes every operation. Generated clients ship the description and
+type declarations, without importing the authoring graph or compiler at runtime.
 
 ```ts
+// Build/host side:
+import { compile } from 'relate/compiler';
 import { createConsumer } from 'relate/consumer';
-import type { ConsumerOperations } from '@relate/protocol';
 
-declare const operations: ConsumerOperations; // actor already bound
-const consumer = createConsumer(graph, operations); // or describeConsumer(graph)
-
+const model = compile(graph);
+const consumer = createConsumer(model.consumer, operations);
 const customer = await consumer.objects.Customer.get(id, { select: ['name'] });
 for await (const invoice of consumer.objects.Customer.traverse.invoices(id)) {
   invoice.id;
@@ -372,16 +389,26 @@ const receipt = await consumer.actions.addAccountReview({
   input: { customer: id, note: 'Follow up' },
   idempotencyKey: 'review-1',
 });
+const saved = await consumer.receipts.get(
+  'addAccountReview',
+  receipt.invocationId,
+);
 ```
 
-The facade only routes. It maps registry names to definition IDs, passes results
-through unchanged, pages `query` and to-many traversals with `createPagedQuery`,
-rejects a traversal result whose shape contradicts the relationship's
-cardinality, and decorates `describe()` detail with its own `call` paths
-(`objects.Customer.traverse.invoices(id, options?)`). It does not validate
-requests, authorize, cache results or retry; the operations do. `receipts.get`
-accepts only actions whose definition ID the description lists and rejects any
-other with `ActionError('denied')` before calling the operations.
+After binding, the facade maps registry names to definition IDs, passes results
+through unchanged, pages queries and to-many traversals with `createPagedQuery`,
+checks traversal result cardinality, and decorates discovery with call paths. It
+does not authorize, validate requests or record payloads, cache results or
+retry. `get` and action invocation return promises even when a port throws
+synchronously. Receipt lookup uses registered action names and infers the
+receipt from the selected action; unknown names reject with
+`ActionError('denied')`.
+
+Operations implementations own complete result shapes and remain bound to the
+model used at construction. A future remote implementation must check/pin the
+model on every request, including actions and responses without records. A newer
+discovery snapshot cannot update compiled types or the captured facade; rebuild
+or rebind a compatible client. No automatic mutation replay is implied.
 
 Printing an operation (`String(consumer.objects.Customer.get)` or
 `util.inspect`) shows its call signature with the option names discovery reports

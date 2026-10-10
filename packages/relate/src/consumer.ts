@@ -1,4 +1,6 @@
 import { ActionError, ReadError } from '@relate/protocol';
+import { captureConsumerDescription } from './consumer-description.js';
+import type { ConsumerRoutingDescription } from './consumer-description.js';
 import type {
   ActionDescription,
   ConsumerOperations,
@@ -304,107 +306,66 @@ type ConsumerGraph = GraphDefinition & { readonly objects: ObjectRegistry };
 
 declare const consumerGraph: unique symbol;
 
+type GraphActions<G extends ConsumerGraph> = G extends {
+  readonly actions: infer A extends Readonly<Record<string, ActionDefinition>>;
+}
+  ? A
+  : {};
+
+type GraphRelationships<G extends ConsumerGraph> = G extends {
+  readonly relationships: infer R extends RelationshipRegistry;
+}
+  ? R
+  : {};
+
+type RegistryName<G extends ConsumerGraph, O extends ObjectDefinition> = {
+  [N in keyof G['objects']]: G['objects'][N]['id'] extends O['id'] ? N : never;
+}[keyof G['objects']];
+
+type ActionAt<
+  G extends ConsumerGraph,
+  N extends keyof GraphActions<G>,
+> = Extract<GraphActions<G>[N], ActionDefinition>;
+
+type TraversalRoutes<
+  G extends ConsumerGraph,
+  R extends RelationshipRegistry,
+  O extends ObjectDefinition,
+> = {
+  readonly [E in Edges<R, O> as E['traversal']['name']]: {
+    readonly cardinality: E['traversal']['cardinality'];
+    readonly target: RegistryName<G, E['target']>;
+  };
+};
+
 /**
- * What the facade needs to route calls: registry names, definition IDs and
- * traversal shapes. Nothing about schemas, access or policies. An authored
- * graph supplies it through `describeConsumer`; a generated client can ship it
- * next to generated types without the authoring graph. It is actor independent:
- * discovery omits what an actor may not see, so it cannot stand in for this.
+ * Versioned, actor-independent routing exported by `compile(graph).consumer`.
+ * Generated clients ship this JSON beside type declarations, without schemas or
+ * policies. The mapped keys and IDs keep hand-authored artifacts honest too.
  */
-export interface ConsumerDescription<G extends ConsumerGraph = ConsumerGraph> {
+export type ConsumerDescription<G extends ConsumerGraph = ConsumerGraph> = Omit<
+  ConsumerRoutingDescription,
+  'objects' | 'actions'
+> & {
+  readonly graphDefinitionId: G['id'];
   readonly objects: {
-    readonly [name: string]: {
-      readonly definitionId: string;
-      readonly traversals: {
-        readonly [name: string]: {
-          readonly cardinality: 'one' | 'many';
-          /** Registry name of the related object. */
-          readonly target: string;
-        };
-      };
+    readonly [N in keyof G['objects']]: {
+      readonly definitionId: G['objects'][N]['id'];
+      readonly traversals: TraversalRoutes<
+        G,
+        GraphRelationships<G>,
+        G['objects'][N]
+      >;
     };
   };
   readonly actions: {
-    readonly [name: string]: { readonly definitionId: string };
+    readonly [N in keyof GraphActions<G>]: {
+      readonly definitionId: ActionAt<G, N>['id'];
+    };
   };
-  /** Type-level only: the graph this description was taken from. */
+  /** Retains graph inference through the compiler-produced artifact. */
   readonly [consumerGraph]?: G;
-}
-
-/** Reduce an authored graph to its consumer description. The result is frozen. */
-export function describeConsumer<G extends ConsumerGraph>(
-  graph: G,
-): ConsumerDescription<G> {
-  const names = new Map(
-    Object.entries(graph.objects).map(([name, object]) => [object.id, name]),
-  );
-  const nameOf = (object: ObjectDefinition) => {
-    const name = names.get(object.id);
-
-    if (name === undefined)
-      throw new Error(
-        `Relationship endpoint '${object.id}' is not a graph object`,
-      );
-
-    return name;
-  };
-  const traversals: Record<
-    string,
-    Record<string, { cardinality: 'one' | 'many'; target: string }>
-  > = Object.fromEntries(Object.keys(graph.objects).map((name) => [name, {}]));
-
-  for (const relationship of Object.values(graph.relationships ?? {})) {
-    const from = nameOf(relationship.from),
-      to = nameOf(relationship.to);
-
-    traversals[from]![relationship.forward.name] = {
-      cardinality: relationship.forward.cardinality,
-      target: to,
-    };
-    traversals[to]![relationship.reverse.name] = {
-      cardinality: relationship.reverse.cardinality,
-      target: from,
-    };
-  }
-
-  const { freeze } = Object;
-
-  return freeze({
-    objects: freeze(
-      Object.fromEntries(
-        Object.entries(graph.objects).map(([name, object]) => [
-          name,
-          freeze({
-            definitionId: object.id,
-            traversals: freeze(
-              Object.fromEntries(
-                Object.entries(traversals[name]!).map(([traversal, edge]) => [
-                  traversal,
-                  freeze(edge),
-                ]),
-              ),
-            ),
-          }),
-        ]),
-      ),
-    ),
-    actions: freeze(
-      Object.fromEntries(
-        Object.entries(graph.actions ?? {}).map(([name, action]) => [
-          name,
-          freeze({ definitionId: action.id }),
-        ]),
-      ),
-    ),
-  });
-}
-
-/** A graph carries policies; a description never does. */
-function isGraph(
-  source: ConsumerDescription | ConsumerGraph,
-): source is ConsumerGraph {
-  return 'policies' in source && 'access' in source;
-}
+};
 
 /**
  * The typed, actor-bound consumer API of one graph: `objects.Customer.get`,
@@ -416,18 +377,10 @@ function isGraph(
 export interface Consumer<G extends ConsumerGraph> {
   describe(): GraphDescription;
   readonly receipts: {
-    get<
-      A extends (G extends {
-        readonly actions: infer Actions extends Readonly<
-          Record<string, ActionDefinition>
-        >;
-      }
-        ? Actions[keyof Actions]
-        : never),
-    >(
-      action: A,
+    get<N extends keyof GraphActions<G> & string>(
+      action: N,
       invocationId: string,
-    ): Promise<Receipt<A>>;
+    ): Promise<Receipt<ActionAt<G, N>>>;
   };
   readonly actions: G extends {
     readonly actions: infer A extends Readonly<
@@ -505,8 +458,8 @@ function withCalls(
 /**
  * Build the typed consumer facade over actor-bound operations.
  *
- * The facade depends on a `ConsumerDescription`; passing an authored graph is a
- * convenience that calls `describeConsumer` for you. It only routes: it maps
+ * The facade accepts the versioned description exported by the compiler. It
+ * checks model compatibility at binding and captures routing. It maps
  * registry names to definition IDs, pages queries and to-many traversals with
  * `createPagedQuery`, checks that traversal results match their cardinality,
  * and decorates discovery with its own call paths. It does not validate
@@ -515,12 +468,18 @@ function withCalls(
  * remote client share one facade over different operations.
  */
 export function createConsumer<G extends ConsumerGraph>(
-  source: ConsumerDescription<G> | G,
+  source: ConsumerDescription<G>,
   operations: ConsumerOperations,
 ): Consumer<G> {
-  const description: ConsumerDescription<G> = isGraph(source)
-    ? describeConsumer(source)
-    : source;
+  const description = captureConsumerDescription(source);
+  const actual = operations.discovery.describe();
+
+  if (
+    actual.definitionId !== description.graphDefinitionId ||
+    actual.definitionRevision !== description.definitionRevision
+  )
+    throw new Error('Consumer description does not match the operations model');
+
   const objects = Object.entries(description.objects);
   const actions = Object.entries(description.actions);
   const { discovery } = operations;
@@ -622,7 +581,7 @@ export function createConsumer<G extends ConsumerGraph>(
               `${path}.query(options?: ${optionText((c) => c.query.options)}): QueryResult<${name}>`,
           ),
           get: documented(
-            (id: string, request = {}) =>
+            async (id: string, request = {}) =>
               operations.get(definitionId, id, request),
             () =>
               `${path}.get(id: ObjectId<${name}>, options?: ${optionText((c) => c.get.options)}): Promise<ObjectResult<${name}>>`,
@@ -632,7 +591,9 @@ export function createConsumer<G extends ConsumerGraph>(
     }),
   );
 
-  const actionIds = new Set(actions.map(([, action]) => action.definitionId));
+  const actionIds = new Map(
+    actions.map(([name, action]) => [name, action.definitionId]),
+  );
 
   // The description names exactly the definitions the host compiled; the
   // operations validate values and selection against that model.
@@ -640,16 +601,18 @@ export function createConsumer<G extends ConsumerGraph>(
     describe: () => discovery.describe(),
     objects: Object.freeze(objectOperations),
     receipts: Object.freeze({
-      get: async (action: ActionDefinition, invocationId: string) => {
-        if (!actionIds.has(action.id)) throw new ActionError('denied');
+      get: async (action: string, invocationId: string) => {
+        const id = actionIds.get(action);
 
-        return operations.getReceipt(action.id, invocationId);
+        if (id === undefined) throw new ActionError('denied');
+
+        return operations.getReceipt(id, invocationId);
       },
     }),
     actions: Object.freeze(
       Object.fromEntries(
         actions.map(([name, { definitionId }]) => {
-          const invoke = (request: {
+          const invoke = async (request: {
             readonly input: Json;
             readonly idempotencyKey: string;
           }) => operations.invoke(definitionId, request);

@@ -9,11 +9,7 @@ import type {
   ObjectRegistry,
   AppBindings,
 } from 'relate';
-import {
-  createConsumer,
-  createPagedQuery,
-  describeConsumer,
-} from 'relate/consumer';
+import { createConsumer, createPagedQuery } from 'relate/consumer';
 import type { Consumer } from 'relate/consumer';
 import { createRuntime as createEngine } from '@relate/runtime';
 import type { Principal } from '@relate/runtime';
@@ -34,7 +30,7 @@ export function createRuntime<
   const model = compile(options.graph);
   // Keep every later facade aligned with this compiled model. Definitions are
   // immutable, but the graph and its caller-owned registries need not be.
-  const description = describeConsumer(options.graph);
+  const description = model.consumer;
   const objects = Object.entries(options.graph.objects);
   const registered = new Set<ObjectDefinition>(
     objects.map(([, object]) => object),
@@ -90,11 +86,8 @@ export function createRuntime<
                 createPagedQuery(`${name}.query`, request, (page) =>
                   context.query(object.id, page),
                 ),
-              get: async (id: string, request = {}) => {
-                const result = await context.read(object.id, id, request);
-
-                return result.status === 'ok' ? { ...result, id } : result;
-              },
+              get: (id: string, request = {}) =>
+                context.read(object.id, id, request),
               ...(implementation.action.creates.includes(object as never)
                 ? {
                     create: (values: unknown) =>
@@ -167,16 +160,7 @@ export function createRuntime<
         },
       }),
       get: (objectDefinitionId, objectId, request) =>
-        run(async () => {
-          const result = await engine.read(
-            actor,
-            objectDefinitionId,
-            objectId,
-            request,
-          );
-
-          return result.status === 'ok' ? { ...result, id: objectId } : result;
-        }),
+        run(() => engine.read(actor, objectDefinitionId, objectId, request)),
       query: (objectDefinitionId, request) =>
         run(() => engine.query(actor, objectDefinitionId, request)),
       traverse: (objectDefinitionId, objectId, traversal, request) =>

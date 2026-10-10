@@ -125,6 +125,7 @@ export function fieldEvidenceContract(
 
         expect(denied).toEqual({
           status: 'ok',
+          id: id(),
           data: {},
           meta: {
             completeness: 'partial',

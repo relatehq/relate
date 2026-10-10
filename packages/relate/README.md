@@ -20,12 +20,11 @@ Private and unpublished while implementation is in progress.
   `createConsumer(description, operations)` builds `objects.Customer.get`,
   `objects.Customer.query`, `objects.Customer.traverse.invoices`,
   `actions.addAccountReview`, `describe()` and `receipts.get` over the
-  `ConsumerOperations` contract from `@relate/protocol`;
-  `describeConsumer(graph)` reduces an authored graph to the routing
-  `ConsumerDescription` the facade needs; `createQuery` and `createPagedQuery`
-  page lazily; the `Consumer`, `ObjectOperations`, `QueryOptions`,
-  `ObjectResult` and `QueryResult` types. Browser safe: no compiler, engine or
-  Node import.
+  `ConsumerOperations` contract from `@relate/protocol`; the compiler supplies
+  the versioned `ConsumerDescription` the facade needs; `createQuery` and
+  `createPagedQuery` page lazily; the `Consumer`, `ObjectOperations`,
+  `QueryOptions`, `ObjectResult` and `QueryResult` types. Browser safe: no
+  compiler, engine or Node import.
 - `relate/connectors`: resource adapter contracts (`SourceConnector`,
   `SourceRecord`, `SourceVersion`, `SourceBinding`) and `SourceAccessDenied`.
 - `relate/storage`: type-only storage adapter contracts used by application
@@ -33,7 +32,9 @@ Private and unpublished while implementation is in progress.
   runtime/storage packages.
 - `relate/compiler`: `compile(graph)` validates a definition and returns an
   immutable, serializable `CompiledModel` with a deterministic `sha256:`
-  definition revision.
+  definition revision and a typed `consumer` routing artifact. The facade
+  accepts `createConsumer(model.consumer, operations)` and checks model
+  compatibility.
 - `relate/model`: the manifest schema, `validateManifest`, and the types that
   runtime integrations consume.
 - `relate/diagnostics`: platform-neutral issue types (`ModelIssue`, `IssuePath`,
