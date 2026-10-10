@@ -123,9 +123,21 @@ export interface TraversalRequest extends ReadRequest {
   readonly cursor?: string;
 }
 
-/** Equality filters address object properties, never provider columns. */
+/** Scalar predicate operands remain JSON scalars on every transport. */
+export type FilterScalar = string | number | boolean | null;
+
+export interface FilterOperators {
+  readonly eq?: FilterScalar;
+  readonly in?: readonly FilterScalar[];
+  readonly gt?: string | number;
+  readonly gte?: string | number;
+  readonly lt?: string | number;
+  readonly lte?: string | number;
+}
+
+/** Filters address object properties; schema-specific operators are validated by the runtime. */
 export interface QueryRequest extends TraversalRequest {
-  readonly where?: Readonly<Record<string, Json>>;
+  readonly where?: Readonly<Record<string, FilterScalar | FilterOperators>>;
 }
 
 /**

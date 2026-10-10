@@ -8,7 +8,7 @@ import {
 import { actionAllowed } from './actions/index.js';
 import { availableTraversals } from './traversal/index.js';
 import { operationContracts, type OperationContracts } from './contracts.js';
-import { schemaText } from './reads/index.js';
+import { schemaText, filterOperators } from './reads/index.js';
 
 type ManifestObject = Manifest['objects'][number];
 
@@ -46,8 +46,10 @@ export interface PropertyDescription {
   readonly kind: 'object-id' | 'value' | 'reference';
   readonly schema: ScalarSchema;
   readonly references?: ObjectSummary;
-  /** The value `query({ where })` matches by equality, such as `Person object ID`. */
+  /** Operand type for this property's `query({ where })` filters, such as `Person object ID`. */
   readonly filter: string;
+  /** Operators accepted in this property's where object. */
+  readonly filterOperators: readonly string[];
 }
 
 export interface TraversalDescription {
@@ -157,6 +159,7 @@ export function createDiscovery(manifest: Manifest, principal: Principal) {
                 : ('value' as const),
           schema: property.schema,
           ...(target ? { references: summary(target) } : {}),
+          filterOperators: filterOperators(property.schema),
           filter: schemaText(
             property.schema,
             property.origin.kind === 'object-id'

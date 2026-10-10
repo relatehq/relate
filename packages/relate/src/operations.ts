@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import type {
   EvidenceMode,
   FieldEvidence,
@@ -9,6 +10,7 @@ import type {
   ObjectDefinition,
   ObjectId,
   PropertyNames,
+  Property,
   PropertyValue,
 } from './index.js';
 
@@ -66,10 +68,35 @@ export type PageOptions<
   readonly cursor?: string;
 };
 
+type UnwrapSchema<S> = S extends
+  z.ZodOptional<infer Inner> | z.ZodNullable<infer Inner>
+  ? UnwrapSchema<Inner>
+  : S;
+
+type EqualityOperators<V> = {
+  readonly eq?: V;
+  readonly in?: readonly V[];
+};
+
+type RangeOperators<V> = {
+  readonly gt?: NonNullable<V>;
+  readonly gte?: NonNullable<V>;
+  readonly lt?: NonNullable<V>;
+  readonly lte?: NonNullable<V>;
+};
+
+type PropertyFilter<P extends Property, V> =
+  | V
+  | (EqualityOperators<V> &
+      (UnwrapSchema<P['schema']> extends z.ZodNumber | z.iso.ZodISODateTime
+        ? RangeOperators<V>
+        : unknown));
+
 /**
  * Filter and page through objects already adopted into the graph.
  *
- * Filters combine with AND and use exact equality. Reference properties take
+ * Properties and operators combine with AND. Use scalar equality, eq/in, or
+ * gt/gte/lt/lte on numbers and timestamps. Reference properties take
  * Relate object IDs. Queries do not discover provider-wide records.
  *
  * @example
@@ -86,9 +113,12 @@ export type QueryOptions<
   K extends PropertyNames<O> = PropertyNames<O>,
   E extends EvidenceMode = EvidenceMode,
 > = PageOptions<K, E> & {
-  /** Exact-match filters keyed by object property name. */
+  /** Typed scalar predicates keyed by object property name. */
   readonly where?: {
-    readonly [N in PropertyNames<O>]?: Exclude<PropertyValue<O, N>, undefined>;
+    readonly [N in PropertyNames<O>]?: PropertyFilter<
+      O['properties'][N],
+      Exclude<PropertyValue<O, N>, undefined>
+    >;
   };
 };
 
