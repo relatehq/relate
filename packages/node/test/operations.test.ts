@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { connect } from 'relate';
+import { connect, defineAction, defineGraph, implementAction } from 'relate';
+import { z } from 'zod';
 import type { SourceConnector } from 'relate/connectors';
 import { createRuntime } from '@relate/node';
 import { createConsumer } from 'relate/consumer';
@@ -160,4 +161,95 @@ it('rejects every operation and discovery call after close', async () => {
     'closed',
   );
   expect(() => relate.operations(ana)).toThrow('closed');
+});
+
+it('keeps later consumers aligned with the compiled object and relationship registries', async ({
+  onTestFinished,
+}) => {
+  const { relate, graph, ana, Customer, Invoice } = createInvoiceApp();
+
+  onTestFinished(() => relate.close());
+
+  const customerId = await relate.host.adopt(Customer, 'c1');
+  const invoiceId = await relate.host.adopt(Invoice, 'i1');
+
+  // Definitions are frozen, but the registries supplied by the caller are not.
+  Reflect.deleteProperty(graph.objects, 'Invoice');
+  Reflect.deleteProperty(graph.relationships, 'CustomerInvoices');
+
+  const consumer = relate.as(ana);
+
+  expect(Object.keys(consumer.objects)).toEqual(['Customer', 'Invoice']);
+  expect(consumer.objects.Customer.describe()?.traversals[0]?.name).toBe(
+    'invoices',
+  );
+  const page = await consumer.objects.Customer.traverse.invoices(customerId);
+
+  expect(page.data.map((invoice) => invoice.id)).toEqual([invoiceId]);
+  await expect(consumer.objects.Invoice.get(invoiceId)).resolves.toMatchObject({
+    status: 'ok',
+    id: invoiceId,
+  });
+});
+
+it('keeps registered actions and receipts when the caller changes the graph or options', async ({
+  onTestFinished,
+}) => {
+  const { graph: base, Customer, ana } = createInvoiceGraph();
+  const access = base.access;
+  const Ping = defineAction({
+    id: 'ping',
+    input: z.object({}),
+    output: z.object({ message: z.string() }),
+    creates: [],
+    policy: { execute: access.role('employee') },
+  });
+  const graph = defineGraph({
+    ...base,
+    objects: { Customer },
+    relationships: {},
+    actions: { ping: Ping },
+    access,
+    policies: { Customer: { read: 'deny' } },
+  });
+  const options = {
+    graph,
+    connections: [
+      connect(base.objects.Customer.membership.resource, {
+        connectionId: 'crm',
+        connector: {
+          identity: 'application' as const,
+          fetch: async () => ({ state: 'deleted' as const }),
+        },
+      }),
+    ],
+    actionImplementations: [
+      implementAction(graph, Ping, async () => ({ message: 'pong' })),
+    ],
+  };
+  const relate = createRuntime(options);
+
+  onTestFinished(() => relate.close());
+  Reflect.deleteProperty(graph.actions, 'ping');
+  options.graph = {
+    ...graph,
+    objects: { ...graph.objects },
+    actions: { ...graph.actions },
+  };
+
+  const consumer = relate.as(ana);
+
+  expect(Object.keys(consumer.actions)).toEqual(['ping']);
+  const receipt = await consumer.actions.ping({
+    input: {},
+    idempotencyKey: 'ping-1',
+  });
+
+  expect(receipt).toMatchObject({
+    state: 'succeeded',
+    output: { message: 'pong' },
+  });
+  await expect(
+    consumer.receipts.get(Ping, receipt.invocationId),
+  ).resolves.toEqual(receipt);
 });

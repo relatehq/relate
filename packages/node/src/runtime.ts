@@ -28,6 +28,16 @@ export function createRuntime<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(options: AppOptions<G>): Relate<G> {
   const model = compile(options.graph);
+  // Keep every later facade aligned with this compiled model. Definitions are
+  // immutable, but the graph and its caller-owned registries need not be.
+  const consumerGraph = {
+    ...options.graph,
+    objects: { ...options.graph.objects },
+    ...(options.graph.relationships
+      ? { relationships: { ...options.graph.relationships } }
+      : {}),
+    ...(options.graph.actions ? { actions: { ...options.graph.actions } } : {}),
+  };
   const objects = Object.entries(options.graph.objects);
   const registered = new Set<ObjectDefinition>(
     objects.map(([, object]) => object),
@@ -185,7 +195,7 @@ export function createRuntime<
   return {
     as(principal: Principal): Consumer<G> {
       // Compilation validated schema support; the engine validates values and selection.
-      return createConsumer(options.graph, operations(principal));
+      return createConsumer(consumerGraph, operations(principal));
     },
     operations,
     host: Object.freeze({
