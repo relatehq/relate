@@ -50,9 +50,12 @@ def build_digest(root):
 
 def variant(source, arm):
     if arm == "datetime":
+        assert source.count("createdAt: z.string(),") == 1, "Temporal adoption patch drifted"
         source = source.replace("  connect,", "  connect,\n  localDateTime,")
         source = source.replace("createdAt: z.string(),", "createdAt: localDateTime({ precision: 'second' }),")
     if arm == "coverage":
+        assert "    graph,\n    actionImplementations:" in source, "Coverage setup patch drifted"
+        assert "          });\n\n          if (result.mutationState" in source, "Coverage invalidation patch drifted"
         source = source.replace("  let fetches = 0;", "  let fetches = 0;\n  let acquisitionAuthorized = true;")
         source = source.replace("    graph,\n    actionImplementations:", """    graph,
     collectionCoverage: {
@@ -75,8 +78,9 @@ def prepare(arms):
     prepared = {}
     for arm in arms:
         root = WORKTREES / ARMS[arm]
-        if git(root, "status", "--porcelain", "--untracked-files=no"):
+        if git(root, "status", "--porcelain"):
             raise RuntimeError(f"Commit SDK changes before freezing {arm}")
+        subprocess.run(["pnpm", "exec", "tsc", "-b", "packages/protocol", "packages/relate", "packages/runtime", "packages/postgres", "packages/node", "--force"], cwd=root, check=True)
         support = root / "dev/research/appworld"
         support.mkdir(parents=True, exist_ok=True)
         (support / ".gitignore").write_text("# Local experiment support, not SDK implementation.\n*\n")
@@ -107,7 +111,7 @@ def prepare(arms):
 def verify(arm, prepared):
     entry = prepared[arm]
     root = Path(entry["checkout"])
-    if git(root, "rev-parse", "HEAD") != entry["sdk_commit"] or git(root, "status", "--porcelain", "--untracked-files=no"):
+    if git(root, "rev-parse", "HEAD") != entry["sdk_commit"] or git(root, "status", "--porcelain"):
         raise RuntimeError(f"SDK changed since preparation: {arm}")
     if build_digest(root) != entry["build_sha256"]:
         raise RuntimeError(f"SDK build changed: {arm}")
