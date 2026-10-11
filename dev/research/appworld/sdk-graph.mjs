@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createRuntime } from '@relate/node';
+import { ActionError, createRuntime } from '@relate/node';
 import {
   connect,
   implementAction,
@@ -75,6 +75,7 @@ export function model() {
       createdAt: z.string(),
       likeCount: z.number(),
       commentCount: z.number(),
+      syncState: z.string().describe('current or pending'),
     }),
     Membership: z.object({
       sourceId: z.string(),
@@ -114,7 +115,10 @@ export function model() {
         'Date and time when the transaction occurred in AppWorld, preserved without conversion. Uses AppWorld’s simulated, deliberately timezone-free clock, shared with the task date. The value has no UTC offset and does not identify a UTC instant.',
       likeCount:
         'Total likes on the transaction; not whether the current user liked it.',
-      commentCount: 'Total comments on the transaction, not comment contents.',
+      commentCount:
+        'Last observed total comments; may be stale when syncState is pending.',
+      syncState:
+        'Whether the last source write or explicit refresh has been read back into the graph. Pending means counts may be stale; use refreshTransaction with a new request key.',
     },
   };
   const sources = Object.fromEntries(
@@ -216,25 +220,48 @@ export function model() {
     likeTransaction: defineAction({
       id: 'venmo.like-transaction',
       description:
-        'Like an own Venmo transaction as the authenticated user. Updates its likeCount; does not transfer money.',
+        'Like an own Venmo transaction as the authenticated user. A confirmed write can return refreshState pending; use refreshTransaction to update stale counts. An uncertain error must not be retried with a new key.',
       input: z.object({ transaction: referenceInput(objects.Transaction) }),
-      output: z.object({ message: z.string() }),
+      output: z.object({
+        message: z.string(),
+        operationId: z.string(),
+        refreshState: z.string().describe('current or pending'),
+      }),
       creates: [],
       policy: { execute: access.role('reader') },
     }),
     commentOnTransaction: defineAction({
       id: 'venmo.comment-on-transaction',
       description:
-        'Add a comment to an own Venmo transaction as the authenticated user. Updates its commentCount; does not transfer money.',
+        'Add a comment to an own Venmo transaction as the authenticated user. A confirmed write can return refreshState pending; use refreshTransaction to update stale counts. An uncertain error must not be retried with a new key.',
       input: z.object({
         transaction: referenceInput(objects.Transaction),
         comment: z.string(),
       }),
-      output: z.object({ message: z.string(), commentId: z.string() }),
+      output: z.object({
+        message: z.string(),
+        commentId: z.string(),
+        operationId: z.string(),
+        refreshState: z.string().describe('current or pending'),
+      }),
       creates: [],
       policy: { execute: access.role('reader') },
     }),
   };
+
+  actions.refreshTransaction = defineAction({
+    id: 'venmo.refresh-transaction',
+    description:
+      'Read an own transaction again without a mutation. Use after a write returns refreshState pending. Use a new idempotency key for each refresh attempt; replaying a receipt does not perform another read. This cannot resolve an uncertain write outcome.',
+    input: z.object({ transaction: referenceInput(objects.Transaction) }),
+    output: z.object({
+      message: z.string(),
+      operationId: z.string(),
+      refreshState: z.string().describe('current or pending'),
+    }),
+    creates: [],
+    policy: { execute: access.role('reader') },
+  });
   const graph = defineGraph({
     id: 'appworld-sdk-snapshot',
     description:
@@ -251,15 +278,20 @@ export function model() {
     ),
   });
 
-  return { graph, sources, objects, actions };
+  return { graph, sources, objects, actions, schemas };
 }
 
 export async function createSdkSnapshot(rows, writeSource) {
-  const { graph, sources, objects, actions } = model();
+  const { graph, sources, objects, actions, schemas } = model();
   const maps = Object.fromEntries(
     Object.keys(objects).map((kind) => [
       kind,
-      new Map((rows[kind] ?? []).map((row) => [row.sourceId, row])),
+      new Map(
+        (rows[kind] ?? []).map((row) => [
+          row.sourceId,
+          kind === 'Transaction' ? { syncState: 'current', ...row } : row,
+        ]),
+      ),
     ]),
   );
   let fetches = 0;
@@ -269,7 +301,7 @@ export async function createSdkSnapshot(rows, writeSource) {
       implementAction(
         graph,
         action,
-        async ({ input, objects: contextObjects }) => {
+        async ({ input, operationId, objects: contextObjects }) => {
           const transaction = await contextObjects.Transaction.get(
             input.transaction,
           );
@@ -280,7 +312,11 @@ export async function createSdkSnapshot(rows, writeSource) {
           if (!writeSource)
             throw new Error('Source writes unavailable in this environment');
 
+          if (typeof operationId !== 'string' || !operationId)
+            throw new Error('SDK with ActionContext.operationId is required');
+
           const result = await writeSource({
+            operationId,
             operation,
             sourceId: transaction.data.sourceId,
             ...(operation === 'commentOnTransaction'
@@ -288,20 +324,73 @@ export async function createSdkSnapshot(rows, writeSource) {
               : {}),
           });
 
-          // The bridge reads the original record after mutation. Refresh the same
-          // runtime observation, preserving canonical IDs and idempotency receipts.
-          maps.Transaction.set(result.transaction.sourceId, result.transaction);
-          const refreshed = await contextObjects.Transaction.get(
-            input.transaction,
-            { refresh: true },
+          if (result.mutationState === 'conflict')
+            throw new ActionError('conflict');
+
+          if (result.mutationState === 'uncertain') {
+            const previous = maps.Transaction.get(transaction.data.sourceId);
+
+            maps.Transaction.set(transaction.data.sourceId, {
+              ...previous,
+              syncState: 'pending',
+            });
+            await contextObjects.Transaction.get(input.transaction, {
+              refresh: true,
+            });
+            throw new ActionError('uncertain');
+          }
+
+          if (
+            result.mutationState !==
+            (operation === 'refreshTransaction' ? 'none' : 'confirmed')
+          )
+            throw new Error('Invalid source mutation outcome');
+
+          // The provider outcome is already journaled outside this SDK transaction.
+          // Readback/graph refresh failures cannot authorize another provider write.
+          const sourceId = transaction.data.sourceId;
+          const readback = schemas.Transaction.safeParse({
+            ...result.transaction,
+            syncState: 'current',
+          });
+          let refreshState =
+            result.refreshState === 'current' &&
+            readback.success &&
+            readback.data.sourceId === sourceId
+              ? 'current'
+              : 'pending';
+
+          maps.Transaction.set(
+            sourceId,
+            refreshState === 'current'
+              ? readback.data
+              : { ...maps.Transaction.get(sourceId), syncState: 'pending' },
           );
 
-          if (refreshed.status !== 'ok')
-            throw new Error(
-              'Write succeeded but graph refresh failed; inspect source state before retrying',
+          try {
+            const refreshed = await contextObjects.Transaction.get(
+              input.transaction,
+              { refresh: true, evidence: 'full' },
             );
 
-          return result.output;
+            if (
+              refreshed.status !== 'ok' ||
+              ['commentCount', 'likeCount', 'syncState'].some(
+                (field) => refreshed.meta.fields[field]?.status !== 'available',
+              )
+            )
+              refreshState = 'pending';
+          } catch {
+            refreshState = 'pending';
+          }
+
+          if (refreshState === 'pending')
+            maps.Transaction.set(sourceId, {
+              ...maps.Transaction.get(sourceId),
+              syncState: 'pending',
+            });
+
+          return { ...result.output, operationId, refreshState };
         },
       ),
     ),

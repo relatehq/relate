@@ -11,16 +11,18 @@ import os
 import selectors
 import shutil
 import subprocess
+import uuid
 from pathlib import Path
 
 import freezegun.api as clock
 import requests
-from acquire import graph_payments, music, transaction_row
+from acquire import graph_payments, music
 from appworld import AppWorld, load_task_ids
 from appworld.common.path_store import path_store
 from dotenv import dotenv_values
 from prompts import prompt
 from runner import SCHEMA
+from source_writes import SourceWrites
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -29,6 +31,7 @@ SOURCES = [
     "sdk_runner.py",
     "sdk-repl.mjs",
     "sdk-graph.mjs",
+    "source_writes.py",
     "acquire.py",
     "runner.py",
     "prompts.py",
@@ -40,7 +43,7 @@ def dump(value):
 
 
 class NodeRepl:
-    def __init__(self, world, rows=None, *, mode="sdk", tokens=None):
+    def __init__(self, world, rows=None, *, mode="sdk", tokens=None, journal_path=None):
         if mode not in {"sdk", "raw_ts"}:
             raise ValueError("Unknown Node mode")
         if mode == "raw_ts" and rows is not None:
@@ -51,6 +54,16 @@ class NodeRepl:
         self.writable_ids = {
             row["sourceId"] for row in (rows or {}).get("Transaction", [])
         }
+        self.writes = None
+        if mode == "sdk" and self.writable_ids:
+            self.writes = SourceWrites(
+                journal_path
+                or HERE / ".local/write-journals" / f"{uuid.uuid4().hex}.sqlite3",
+                world.apis.venmo,
+                self.tokens["venmo"],
+                self.writable_ids,
+                world.task.supervisor.email,
+            )
         # Permission checks also constrain escaped JS contexts: no arbitrary host
         # files, subprocesses, workers or network. Only code/dependencies readable.
         readable = [
@@ -136,41 +149,12 @@ class NodeRepl:
                 self.send(response)
             elif event["type"] == "source-write" and self.mode == "sdk":
                 response = {"type": "source-write-result", "id": event["id"]}
-                wrote = False
                 try:
-                    operation, source_id = event["operation"], event["sourceId"]
-                    if source_id not in self.writable_ids:
-                        raise ValueError("Transaction is outside the acquired graph")
-                    args = {
-                        "transaction_id": int(source_id),
-                        "access_token": self.tokens["venmo"],
-                    }
-                    if operation == "likeTransaction":
-                        result = self.world.apis.venmo.like_transaction(**args)
-                        output = {"message": result["message"]}
-                    elif operation == "commentOnTransaction":
-                        result = self.world.apis.venmo.create_transaction_comment(
-                            **args, comment=event["comment"]
-                        )
-                        output = {
-                            "message": result["message"],
-                            "commentId": str(result["comment_id"]),
-                        }
-                    else:
-                        raise ValueError("Unsupported source write")
-                    wrote = True
-                    record = self.world.apis.venmo.show_transaction(**args)
-                    response["result"] = {
-                        "output": output,
-                        "transaction": transaction_row(record),
-                    }
+                    if self.writes is None:
+                        raise ValueError("No writable transactions were acquired")
+                    response["result"] = self.writes.execute(event)
                 except Exception as error:
-                    prefix = (
-                        "Write succeeded but readback failed; inspect source state before retrying. "
-                        if wrote
-                        else ""
-                    )
-                    response["error"] = prefix + f"{type(error).__name__}: {error}"
+                    response["error"] = f"{type(error).__name__}: {error}"
                 self.send(response)
             elif event["type"] == "api" and self.mode == "raw_ts":
                 try:
@@ -207,6 +191,8 @@ class NodeRepl:
             except Exception:
                 self.process.kill()
                 self.process.wait(timeout=5)
+        if self.writes is not None:
+            self.writes.close()
         self.selector.close()
         for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
             stream.close()
@@ -322,7 +308,12 @@ def run(args, key, task_id, condition, repeat, spent):
                     len(world.requester.request_tracker.requests) - setup_calls
                 )
                 acquisition_seconds = clock.real_perf_counter() - acquire_start
-                node = NodeRepl(world, rows, tokens=tokens)
+                node = NodeRepl(
+                    world,
+                    rows,
+                    tokens=tokens,
+                    journal_path=out / "source-writes.sqlite3",
+                )
             elif condition == "raw_ts":
                 node = NodeRepl(world, mode="raw_ts", tokens=tokens)
             setup_seconds = clock.real_perf_counter() - start

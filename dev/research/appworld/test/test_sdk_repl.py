@@ -1,4 +1,6 @@
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -43,6 +45,132 @@ class SdkReplTests(unittest.TestCase):
         node = NodeRepl(world, records())
         self.addCleanup(node.close)
         return node
+
+    def start_writes(self, *, lose_response=False):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        state = {"writes": 0, "fail_read": True}
+
+        def post(**args):
+            state["writes"] += 1
+            if lose_response:
+                raise TimeoutError("Provider response lost")
+            return {"message": "Commented", "comment_id": 99}
+
+        def read(**args):
+            if state["fail_read"]:
+                raise TimeoutError("Readback failed")
+            return {
+                "transaction_id": 1,
+                "sender": {"email": "me@test"},
+                "receiver": {"email": "me@test"},
+                "amount": 10,
+                "description": "Test",
+                "created_at": "2023-01-01",
+                "like_count": 0,
+                "comment_count": state["writes"],
+            }
+
+        world = SimpleNamespace(
+            task=SimpleNamespace(supervisor=SimpleNamespace(email="me@test")),
+            apis=SimpleNamespace(
+                venmo=SimpleNamespace(
+                    create_transaction_comment=post,
+                    show_transaction=read,
+                )
+            ),
+        )
+        rows = {
+            "Person": [{"sourceId": "me@test", "name": "Me", "email": "me@test"}],
+            "Transaction": [
+                {
+                    "sourceId": "1",
+                    "sender": "me@test",
+                    "receiver": "me@test",
+                    "amount": 10,
+                    "description": "Test",
+                    "createdAt": "2023-01-01",
+                    "likeCount": 0,
+                    "commentCount": 0,
+                }
+            ],
+        }
+        node = NodeRepl(
+            world,
+            rows,
+            tokens={"venmo": "test-token"},
+            journal_path=Path(temp.name) / "writes.sqlite3",
+        )
+        self.addCleanup(node.close)
+        setup = node.request(
+            {
+                "type": "execute",
+                "code": """
+const tx = (await relate.objects.Transaction.query()).data[0].id;
+const request = {input: {transaction: tx, comment: 'Thanks'}, idempotencyKey: 'same'};
+""",
+            }
+        )
+        self.assertIsNone(setup["error"])
+        return node, state
+
+    def test_readback_failure_replays_one_write_and_explicit_refresh_recovers(self):
+        node, state = self.start_writes()
+        result = node.request(
+            {
+                "type": "execute",
+                "code": """
+const first = await relate.actions.commentOnTransaction(request);
+const replay = await relate.actions.commentOnTransaction(request);
+console.log(JSON.stringify({first, replay, row: await relate.objects.Transaction.get(tx)}));
+""",
+            }
+        )
+        self.assertIsNone(result["error"], result)
+        observed = json.loads(result["output"])
+        self.assertEqual(observed["first"]["state"], "succeeded")
+        self.assertEqual(observed["first"]["output"]["commentId"], "99")
+        self.assertEqual(observed["first"]["output"]["refreshState"], "pending")
+        self.assertEqual(observed["first"], observed["replay"])
+        self.assertEqual(observed["row"]["data"]["commentCount"], 0)
+        self.assertEqual(observed["row"]["data"]["syncState"], "pending")
+        self.assertEqual(state["writes"], 1)
+        state["fail_read"] = False
+        result = node.request(
+            {
+                "type": "execute",
+                "code": """
+const refreshed = await relate.actions.refreshTransaction({input: {transaction: tx}, idempotencyKey: 'refresh-1'});
+console.log(JSON.stringify({refreshed, row: await relate.objects.Transaction.get(tx)}));
+""",
+            }
+        )
+        self.assertIsNone(result["error"], result)
+        observed = json.loads(result["output"])
+        self.assertEqual(observed["refreshed"]["output"]["refreshState"], "current")
+        self.assertEqual(observed["row"]["data"]["commentCount"], 1)
+        self.assertEqual(observed["row"]["data"]["syncState"], "current")
+        self.assertEqual(state["writes"], 1)
+
+    def test_lost_provider_response_stays_uncertain_without_duplicate_write(self):
+        node, state = self.start_writes(lose_response=True)
+        for _ in range(2):
+            result = node.request(
+                {
+                    "type": "execute",
+                    "code": "await relate.actions.commentOnTransaction(request);",
+                }
+            )
+            self.assertIn("uncertain", result["error"], result)
+        self.assertEqual(state["writes"], 1)
+        result = node.request(
+            {
+                "type": "execute",
+                "code": "await relate.actions.commentOnTransaction({...request, input: {...request.input, comment: 'Changed'}});",
+            }
+        )
+        self.assertIn("conflict", result["error"], result)
+        self.assertEqual(state["writes"], 1)
 
     def test_persistent_typescript_discovery_query_and_through_traversal(self):
         node = self.start()

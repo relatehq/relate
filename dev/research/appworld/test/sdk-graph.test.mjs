@@ -110,6 +110,8 @@ test('source actions refresh observations and replay receipts without duplicate 
       else transaction.commentCount++;
 
       return {
+        mutationState: 'confirmed',
+        refreshState: 'current',
         transaction: { ...transaction },
         output:
           request.operation === 'likeTransaction'
@@ -128,7 +130,7 @@ test('source actions refresh observations and replay receipts without duplicate 
         .describe()
         .actions.map((a) => a.apiName)
         .sort(),
-      ['commentOnTransaction', 'likeTransaction'],
+      ['commentOnTransaction', 'likeTransaction', 'refreshTransaction'],
     );
     const request = {
       input: { transaction: id, comment: 'Thank you' },
@@ -137,6 +139,8 @@ test('source actions refresh observations and replay receipts without duplicate 
     const receipt = await api.actions.commentOnTransaction(request);
 
     assert.equal(receipt.output.commentId, '99');
+    assert.equal(receipt.output.refreshState, 'current');
+    assert.equal(calls[0].operationId, receipt.output.operationId);
     const replay = await api.actions.commentOnTransaction(request);
 
     assert.equal(replay.output.commentId, '99');
@@ -256,3 +260,106 @@ test('contact labels query by owner and kind, with canonical traversals in both 
     await snapshot.close();
   }
 });
+
+for (const failure of ['bridge-response', 'invalid-readback']) {
+  test(`confirmed write survives ${failure} failure`, async () => {
+    const transaction = {
+      sourceId: '1',
+      sender: 'me@test',
+      receiver: 'me@test',
+      amount: 10,
+      description: 'Test',
+      createdAt: '2023-01-01',
+      likeCount: 0,
+      commentCount: 0,
+    };
+    const journal = new Map();
+    const operationIds = [];
+    let attempts = 0;
+    let writes = 0;
+    const snapshot = await createSdkSnapshot(
+      {
+        Person: [{ sourceId: 'me@test', name: 'Me', email: 'me@test' }],
+        Transaction: [transaction],
+      },
+      async (request) => {
+        attempts++;
+        const refresh = request.operation === 'refreshTransaction';
+
+        if (!refresh) {
+          operationIds.push(request.operationId);
+
+          if (!journal.has(request.operationId)) {
+            writes++;
+            journal.set(request.operationId, {
+              message: 'Commented',
+              commentId: '99',
+            });
+          }
+        }
+
+        if (attempts === 1 && failure === 'bridge-response')
+          throw new Error('Bridge response lost after journaling the write');
+
+        return {
+          mutationState: refresh ? 'none' : 'confirmed',
+          refreshState: 'current',
+          output: refresh
+            ? { message: 'Refreshed' }
+            : journal.get(request.operationId),
+          transaction: {
+            ...transaction,
+            commentCount: attempts === 1 ? 'invalid' : 1,
+          },
+        };
+      },
+    );
+
+    try {
+      const api = snapshot.consumer;
+      const id = (await api.objects.Transaction.query()).data[0].id;
+      const request = {
+        input: { transaction: id, comment: 'Thanks' },
+        idempotencyKey: 'same',
+      };
+
+      if (failure === 'bridge-response') {
+        await assert.rejects(api.actions.commentOnTransaction(request), {
+          code: 'internal',
+        });
+        const receipt = await api.actions.commentOnTransaction(request);
+
+        assert.equal(receipt.output.commentId, '99');
+        assert.equal(operationIds.length, 2);
+        assert.equal(operationIds[0], operationIds[1]);
+      } else {
+        const receipt = await api.actions.commentOnTransaction(request);
+
+        assert.equal(receipt.output.refreshState, 'pending');
+        assert.equal(
+          (await api.objects.Transaction.get(id)).data.syncState,
+          'pending',
+        );
+        assert.deepEqual(
+          await api.actions.commentOnTransaction(request),
+          receipt,
+        );
+        assert.equal(attempts, 1);
+        const recovered = await api.actions.refreshTransaction({
+          input: { transaction: id },
+          idempotencyKey: 'refresh-1',
+        });
+
+        assert.equal(recovered.output.refreshState, 'current');
+        assert.equal(
+          (await api.objects.Transaction.get(id)).data.commentCount,
+          1,
+        );
+      }
+
+      assert.equal(writes, 1);
+    } finally {
+      await snapshot.close();
+    }
+  });
+}
