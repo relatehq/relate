@@ -139,7 +139,7 @@ lines.on('line', async (line) => {
 
   try {
     if (message.type === 'init') {
-      if (message.mode === 'sdk') {
+      if (message.mode === 'sdk' || message.mode === 'snapshot_ts') {
         snapshot = await createSdkSnapshot(
           message.rows,
           (request) =>
@@ -149,8 +149,65 @@ lines.on('line', async (line) => {
               pending.set(id, { resolve, reject });
               send({ type: 'source-write', id, ...request });
             }),
+          { coverage: message.coverage },
         );
-        repl.context.relate = snapshot.consumer;
+
+        if (message.mode === 'sdk') repl.context.relate = snapshot.consumer;
+        else {
+          // Control isolates read/query ergonomics. Writes keep the identical SDK
+          // action adapter and durable provider journal in both conditions.
+          const records = {};
+          const descriptions = {};
+          const graph = snapshot.consumer.describe();
+          const reload = async () => {
+            for (const { apiName } of graph.objects) {
+              records[apiName] = [];
+
+              for await (const record of snapshot.consumer.objects[
+                apiName
+              ].query())
+                records[apiName].push(structuredClone(record));
+            }
+          };
+
+          for (const { apiName } of graph.objects) {
+            const { operations: _operations, ...description } =
+              snapshot.consumer.objects[apiName].describe();
+
+            descriptions[apiName] = description;
+          }
+
+          await reload();
+          const actions = {};
+
+          for (const { apiName } of graph.actions) {
+            const action = snapshot.consumer.actions[apiName];
+
+            actions[apiName] = Object.assign(
+              async (request) => {
+                const receipt = await action(request);
+
+                await reload();
+
+                return receipt;
+              },
+              { describe: () => action.describe() },
+            );
+          }
+
+          repl.context.snapshot = {
+            records,
+            actions,
+            describe: () => ({
+              description: graph.description,
+              objects: graph.objects,
+              actions: graph.actions,
+              reads:
+                'snapshot.records[apiName] is an array of {id, data, meta}; use ordinary TypeScript filter/map/reduce and join by canonical reference IDs.',
+            }),
+            describeObject: (apiName) => descriptions[apiName],
+          };
+        }
       } else if (message.mode === 'raw_ts') {
         repl.context.tokens = message.tokens;
         repl.context.apis = new Proxy(

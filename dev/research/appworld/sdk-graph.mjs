@@ -281,7 +281,8 @@ export function model() {
   return { graph, sources, objects, actions, schemas };
 }
 
-export async function createSdkSnapshot(rows, writeSource) {
+export async function createSdkSnapshot(rows, writeSource, options = {}) {
+  void options; // Reserved for host acquisition evidence in the coverage experiment.
   const { graph, sources, objects, actions, schemas } = model();
   const maps = Object.fromEntries(
     Object.keys(objects).map((kind) => [

@@ -23,6 +23,7 @@ from dotenv import dotenv_values
 from prompts import prompt
 from runner import SCHEMA
 from source_writes import SourceWrites
+from explainer_support import acquisition_coverage
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -32,6 +33,7 @@ SOURCES = [
     "sdk-repl.mjs",
     "sdk-graph.mjs",
     "source_writes.py",
+    "explainer_support.py",
     "acquire.py",
     "runner.py",
     "prompts.py",
@@ -43,8 +45,8 @@ def dump(value):
 
 
 class NodeRepl:
-    def __init__(self, world, rows=None, *, mode="sdk", tokens=None, journal_path=None):
-        if mode not in {"sdk", "raw_ts"}:
+    def __init__(self, world, rows=None, *, mode="sdk", tokens=None, journal_path=None, coverage=None):
+        if mode not in {"sdk", "raw_ts", "snapshot_ts"}:
             raise ValueError("Unknown Node mode")
         if mode == "raw_ts" and rows is not None:
             raise ValueError("Raw TypeScript must not receive acquired rows")
@@ -55,7 +57,7 @@ class NodeRepl:
             row["sourceId"] for row in (rows or {}).get("Transaction", [])
         }
         self.writes = None
-        if mode == "sdk" and self.writable_ids:
+        if mode in {"sdk", "snapshot_ts"} and self.writable_ids:
             self.writes = SourceWrites(
                 journal_path
                 or HERE / ".local/write-journals" / f"{uuid.uuid4().hex}.sqlite3",
@@ -98,7 +100,7 @@ class NodeRepl:
             {
                 "type": "init",
                 "mode": mode,
-                **({"rows": rows} if mode == "sdk" else {"tokens": tokens}),
+                **({"rows": rows, "coverage": coverage} if mode in {"sdk", "snapshot_ts"} else {"tokens": tokens}),
             }
         )
 
@@ -147,7 +149,7 @@ class NodeRepl:
                         "error": f"{type(error).__name__}: {error}",
                     }
                 self.send(response)
-            elif event["type"] == "source-write" and self.mode == "sdk":
+            elif event["type"] == "source-write" and self.mode in {"sdk", "snapshot_ts"}:
                 response = {"type": "source-write-result", "id": event["id"]}
                 try:
                     if self.writes is None:
@@ -295,7 +297,7 @@ def run(args, key, task_id, condition, repeat, spent):
             }
             setup_calls = len(world.requester.request_tracker.requests)
             world.shell.user_ns["tokens"] = tokens
-            if condition == "sdk":
+            if condition in {"sdk", "snapshot_ts"}:
                 acquire_start = clock.real_perf_counter()
                 # Same fixed coverage for every task; no task-id/answer-based routing.
                 rows = music(world.apis, tokens["spotify"]) | graph_payments(
@@ -311,6 +313,8 @@ def run(args, key, task_id, condition, repeat, spent):
                 node = NodeRepl(
                     world,
                     rows,
+                    mode=condition,
+                    coverage=acquisition_coverage(rows),
                     tokens=tokens,
                     journal_path=out / "source-writes.sqlite3",
                 )
@@ -539,7 +543,7 @@ def main():
     parser.add_argument(
         "--conditions",
         nargs="+",
-        choices=["raw", "static", "raw_ts", "sdk"],
+        choices=["raw", "static", "raw_ts", "sdk", "snapshot_ts"],
         default=["raw", "raw_ts", "sdk"],
     )
     parser.add_argument("--repeats", type=int, default=1)
@@ -591,6 +595,7 @@ def main():
             "prompt_protocol": "uniform-zero-shot-appworld-react-v1",
             "sdk_capabilities": "relate SDK reads, likeTransaction, commentOnTransaction and completeTask; no original API proxy or credentials",
             "raw_ts_capabilities": "original app APIs and completeTask; no SDK or acquired snapshot",
+            "snapshot_ts_capabilities": "same acquired normalized records as arrays, shared SDK-backed action adapters, no consumer query/traversal methods",
             "source_acquisition": "fixed music+payments union for every SDK episode",
             "pricing_per_million": {
                 "nano": [0.20, 0.02, 1.25],

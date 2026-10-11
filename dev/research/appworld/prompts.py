@@ -65,14 +65,21 @@ Invoke an action with await relate.actions[apiName]({input: {...}, idempotencyKe
 Use a fresh key for each intended operation; reuse the same key only when retrying that same operation.
 """
 
+SNAPSHOT_TS = """
+The host-acquired, normalized snapshot is available as plain arrays in snapshot.records[apiName], each containing {id, data, meta}. Use ordinary TypeScript operations to filter, join and aggregate records; all acquired records are already present. Source identity mapping and scope descriptions are shared with the SDK condition. Original APIs and credentials are unavailable.
+Discover scope and names with console.log(snapshot.describe()).
+Discover properties and relationships with console.log(snapshot.describeObject(apiName)).
+Writes use the same action adapter as the SDK condition: console.log(snapshot.actions[apiName].describe()); await snapshot.actions[apiName]({input: {...}, idempotencyKey: "unique-operation-key"}). The snapshot arrays are refreshed after a successful action. Use a fresh key for each intended operation; reuse it only for a retry of that operation. No consumer query or traversal methods are available.
+"""
+
 
 def prompt(condition):
-    if condition not in {"raw", "static", "raw_ts", "sdk"}:
+    if condition not in {"raw", "static", "raw_ts", "sdk", "snapshot_ts"}:
         raise ValueError("Unknown condition")
     environment = (
         PYTHON + AUTH
         if condition in {"raw", "static"}
-        else NODE + (RAW_TS + AUTH if condition == "raw_ts" else SDK)
+        else NODE + (RAW_TS + AUTH if condition == "raw_ts" else SNAPSHOT_TS if condition == "snapshot_ts" else SDK)
     )
     complete = (
         "Completion: if no answer is required, apis.supervisor.complete_task(); if an answer is requested, apis.supervisor.complete_task(answer=value), or apis.supervisor.complete_task(status='fail').\n"
