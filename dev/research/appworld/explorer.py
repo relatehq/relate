@@ -10,6 +10,8 @@ import re
 import shutil
 from pathlib import Path
 
+from retained_usage import arm_status, episode_usage, read_json
+
 HERE = Path(__file__).resolve().parent
 RUNS = [
     "sdk-nano-queries-v1",
@@ -83,7 +85,7 @@ def build(destination, findings):
     experiments = sorted(
         p.name
         for p in (HERE / ".local/runs").glob("sdk-nano-ergonomics-*")
-        if len(list(p.glob("*/result.json"))) == 12
+        if (p / "config.json").exists()
     )
     for name in experiments:
         LABELS[name] = "Nano · independent spike · " + name.removeprefix(
@@ -95,10 +97,29 @@ def build(destination, findings):
     for name in experiments + RUNS:
         base = HERE / ".local/runs" / name
         episodes = []
-        for path in sorted(base.glob("*__*/result.json")):
-            result = json.loads(path.read_text())
-            parent = path.parent
-            steps = json.loads((parent / "steps.json").read_text())
+        status = (
+            arm_status(base, read_json(base / "config.json", {}))
+            if name in experiments
+            else {}
+        )
+        for parent in sorted(p for p in base.glob("*__*__*") if p.is_dir()):
+            task, condition, repeat = parent.name.rsplit("__", 2)
+            steps = read_json(parent / "steps.json", [])
+            result = read_json(
+                parent / "result.json",
+                {
+                    "task_id": task,
+                    "condition": condition,
+                    "repeat": int(repeat),
+                    "success": None,
+                    "completed": False,
+                    "termination": "in-progress",
+                    "model": "",
+                    "seconds": 0,
+                    "steps": len(steps),
+                },
+            )
+            result.update(episode_usage(parent))
             for step in steps:
                 content = step.pop("content", "")
                 try:
@@ -112,23 +133,28 @@ def build(destination, findings):
                         "id": parent.name,
                         "result": result,
                         "steps": steps,
-                        "api_calls": json.loads(
-                            (parent / "api_calls.json").read_text()
-                        ),
-                        "messages": json.loads(
-                            (parent / "initial_messages.json").read_text()
-                        ),
-                        "evaluation": json.loads(
-                            (parent / "evaluation.json").read_text()
-                        ),
+                        "api_calls": read_json(parent / "api_calls.json", []),
+                        "messages": read_json(parent / "initial_messages.json", []),
+                        "evaluation": read_json(parent / "evaluation.json", {}),
                     }
                 )
             )
         data.append(
             {
+                **status,
                 "id": name,
                 "label": LABELS[name],
-                "note": NOTES[name],
+                "note": NOTES[name]
+                + (
+                    f" Completed episodes: {status['completed_episodes']}/{status['expected_episodes']}. "
+                    + (
+                        "Eligible for comparison."
+                        if status["comparison_eligible"]
+                        else "Not eligible for comparison."
+                    )
+                    if status
+                    else ""
+                ),
                 "episodes": episodes,
                 "findings": findings if name == RUNS[0] else [],
                 "sources": {

@@ -392,6 +392,15 @@
   },
   "runs": {
     "sdk-nano-ergonomics-baseline-v1": {
+      "completed_episodes": 12,
+      "expected_episodes": 12,
+      "comparison_eligible": true,
+      "attempted_requests": 169,
+      "requests_without_usage": 0,
+      "estimated_usd": 0.11613029999999999,
+      "prompt_tokens": 1373858,
+      "generated_tokens": 33814,
+      "screening_improvement": null,
       "git_head": "cfb75bcf61bc2b8e7b447693ecf8b51605708de7",
       "sdk_patch_sha256": null,
       "package_diff": [],
@@ -1956,10 +1965,18 @@
           "query_page_error_turns": [],
           "action_validation_turns": []
         }
-      ],
-      "screening_improvement": null
+      ]
     },
     "sdk-nano-ergonomics-baseline-v2": {
+      "completed_episodes": 12,
+      "expected_episodes": 12,
+      "comparison_eligible": true,
+      "attempted_requests": 182,
+      "requests_without_usage": 0,
+      "estimated_usd": 0.11195832000000001,
+      "prompt_tokens": 1246128,
+      "generated_tokens": 31320,
+      "screening_improvement": null,
       "git_head": "cfb75bcf61bc2b8e7b447693ecf8b51605708de7",
       "sdk_patch_sha256": null,
       "package_diff": [],
@@ -3595,10 +3612,18 @@
           "query_page_error_turns": [],
           "action_validation_turns": []
         }
-      ],
-      "screening_improvement": null
+      ]
     },
     "sdk-nano-ergonomics-contacts-v1": {
+      "completed_episodes": 12,
+      "expected_episodes": 12,
+      "comparison_eligible": true,
+      "attempted_requests": 188,
+      "requests_without_usage": 0,
+      "estimated_usd": 0.11985349999999999,
+      "prompt_tokens": 1356984,
+      "generated_tokens": 33502,
+      "screening_improvement": true,
       "git_head": "2cf7f9283d807ec83e183895cf2e8141ba045ca3",
       "sdk_patch_sha256": null,
       "package_diff": [],
@@ -5266,10 +5291,18 @@
           "query_page_error_turns": [],
           "action_validation_turns": []
         }
-      ],
-      "screening_improvement": true
+      ]
     },
     "sdk-nano-ergonomics-contacts-v2": {
+      "completed_episodes": 12,
+      "expected_episodes": 12,
+      "comparison_eligible": true,
+      "attempted_requests": 164,
+      "requests_without_usage": 0,
+      "estimated_usd": 0.09945566,
+      "prompt_tokens": 1091658,
+      "generated_tokens": 27214,
+      "screening_improvement": null,
       "git_head": "2cf7f9283d807ec83e183895cf2e8141ba045ca3",
       "sdk_patch_sha256": null,
       "package_diff": [],
@@ -6815,10 +6848,18 @@
           "query_page_error_turns": [],
           "action_validation_turns": []
         }
-      ],
-      "screening_improvement": null
+      ]
     },
     "sdk-nano-ergonomics-dates-v1": {
+      "completed_episodes": 12,
+      "expected_episodes": 12,
+      "comparison_eligible": true,
+      "attempted_requests": 151,
+      "requests_without_usage": 0,
+      "estimated_usd": 0.09389639,
+      "prompt_tokens": 1089968,
+      "generated_tokens": 22355,
+      "screening_improvement": true,
       "git_head": "2cf7f9283d807ec83e183895cf2e8141ba045ca3",
       "sdk_patch_sha256": null,
       "package_diff": [],
@@ -8298,10 +8339,18 @@
           "query_page_error_turns": [],
           "action_validation_turns": []
         }
-      ],
-      "screening_improvement": true
+      ]
     },
     "sdk-nano-ergonomics-dates-v2": {
+      "completed_episodes": 12,
+      "expected_episodes": 12,
+      "comparison_eligible": true,
+      "attempted_requests": 168,
+      "requests_without_usage": 0,
+      "estimated_usd": 0.0957608,
+      "prompt_tokens": 1003250,
+      "generated_tokens": 24008,
+      "screening_improvement": null,
       "git_head": "2cf7f9283d807ec83e183895cf2e8141ba045ca3",
       "sdk_patch_sha256": null,
       "package_diff": [],
@@ -9865,10 +9914,18 @@
           "query_page_error_turns": [],
           "action_validation_turns": []
         }
-      ],
-      "screening_improvement": null
+      ]
     },
     "sdk-nano-ergonomics-errors-v1": {
+      "completed_episodes": 12,
+      "expected_episodes": 12,
+      "comparison_eligible": true,
+      "attempted_requests": 206,
+      "requests_without_usage": 0,
+      "estimated_usd": 0.12123159,
+      "prompt_tokens": 1421630,
+      "generated_tokens": 31339,
+      "screening_improvement": false,
       "git_head": "245cab79e86d662505709f8bfb58f225e27e2f78",
       "sdk_patch_sha256": "7f30c99152181b85c0a3fbb894e1c799cad2a322045373cb33dfbb711a67bc8e",
       "package_diff": [
@@ -11634,10 +11691,18 @@
           "query_page_error_turns": [],
           "action_validation_turns": []
         }
-      ],
-      "screening_improvement": false
+      ]
     },
     "sdk-nano-ergonomics-query-v1": {
+      "completed_episodes": 12,
+      "expected_episodes": 12,
+      "comparison_eligible": true,
+      "attempted_requests": 176,
+      "requests_without_usage": 0,
+      "estimated_usd": 0.10954125,
+      "prompt_tokens": 1215151,
+      "generated_tokens": 29237,
+      "screening_improvement": true,
       "git_head": "fbf96541d58260cd4428cd3a0d87ad9a8e95a0ae",
       "sdk_patch_sha256": "fc66c49ffc463fce1c68e0527ca0327e0174d65481dc134d7c637b9f53d21cf6",
       "package_diff": [
@@ -13248,10 +13313,18 @@
           "query_page_error_turns": [],
           "action_validation_turns": []
         }
-      ],
-      "screening_improvement": true
+      ]
     },
     "sdk-nano-ergonomics-query-v2": {
+      "completed_episodes": 12,
+      "expected_episodes": 12,
+      "comparison_eligible": true,
+      "attempted_requests": 196,
+      "requests_without_usage": 0,
+      "estimated_usd": 0.12139027000000001,
+      "prompt_tokens": 1540218,
+      "generated_tokens": 30887,
+      "screening_improvement": null,
       "git_head": "fbf96541d58260cd4428cd3a0d87ad9a8e95a0ae",
       "sdk_patch_sha256": "fc66c49ffc463fce1c68e0527ca0327e0174d65481dc134d7c637b9f53d21cf6",
       "package_diff": [
@@ -14972,10 +15045,18 @@
           "query_page_error_turns": [],
           "action_validation_turns": []
         }
-      ],
-      "screening_improvement": null
+      ]
     },
     "sdk-nano-ergonomics-receipts-v1": {
+      "completed_episodes": 12,
+      "expected_episodes": 12,
+      "comparison_eligible": true,
+      "attempted_requests": 183,
+      "requests_without_usage": 0,
+      "estimated_usd": 0.11844954999999997,
+      "prompt_tokens": 1332219,
+      "generated_tokens": 35051,
+      "screening_improvement": false,
       "git_head": "ed01e889033067d488894eb5e61eb8b451a82d4f",
       "sdk_patch_sha256": "1ab6b927c35d550476605cf0817cac40b4133795a871ecb8404eab06a416c6db",
       "package_diff": [
@@ -16625,9 +16706,10 @@
           "query_page_error_turns": [],
           "action_validation_turns": []
         }
-      ],
-      "screening_improvement": false
+      ]
     }
   },
-  "estimated_usd": 1.10766763
+  "estimated_usd": 1.10766763,
+  "attempted_requests": 1783,
+  "requests_without_usage": 0
 }

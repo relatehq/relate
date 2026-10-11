@@ -291,3 +291,24 @@ records.
 Sources: [AppWorld](https://github.com/StonyBrookNLP/appworld),
 [EvoOntology](https://arxiv.org/abs/2609.15779),
 [Ollama chat API](https://docs.ollama.com/api/chat).
+
+### Retained request accounting
+
+The SDK runner journals each attempted model request in local `requests.json`
+and saves each returned response and its usage in `steps.json` before execution.
+Each step records whether execution is pending, finished, or failed. Generated
+token limits are clamped to the episode's remaining allowance before each call.
+
+Ergonomics reports and the local explorer retain incomplete arms, including
+episodes with saved responses but no final result. Arm-level spending and
+request counts cover all retained attempts; comparison metrics cover finished
+episodes. Only an exact set of 12 expected SDK results without infrastructure
+failures is eligible for comparison, and both candidate and control must
+qualify. Requests without retained usage are counted separately; the budget
+validator rejects unknown usage instead of treating it as free.
+
+Run the synthetic accounting regressions without paid model calls:
+
+```sh
+dev/research/appworld/.venv/bin/python -m unittest discover -s dev/research/appworld/test -p 'test_accounting.py' -v
+```

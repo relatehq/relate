@@ -15,10 +15,17 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def validate_spending(computed, limit=2):
+    assert computed["estimated_usd"] <= limit
+    assert computed["requests_without_usage"] == 0, (
+        "Cannot validate budget with unknown request usage"
+    )
+
+
 def validate(credentials, explorer):
     computed = analyze()
     assert computed == json.loads((HERE / "evidence/ergonomics.json").read_text())
-    assert computed["estimated_usd"] <= 2
+    validate_spending(computed)
     assert len(computed["runs"]) >= 6
     assert all(
         not run["package_diff"]
@@ -89,9 +96,12 @@ def validate(credentials, explorer):
     experiments = {run["id"]: run for run in runs if run["id"].startswith(PREFIX)}
     assert set(experiments) == set(computed["runs"])
     for name, run in experiments.items():
-        assert len(run["episodes"]) == 12
         assert (
-            sum(e["result"]["success"] for e in run["episodes"])
+            run["comparison_eligible"] == computed["runs"][name]["comparison_eligible"]
+        )
+        assert run["estimated_usd"] == computed["runs"][name]["estimated_usd"]
+        assert (
+            sum(e["result"]["success"] is True for e in run["episodes"])
             == computed["runs"][name]["metrics"]["success"]
         )
         assert all(
@@ -99,7 +109,9 @@ def validate(credentials, explorer):
             for e in run["episodes"]
             for step in e["steps"]
         )
-    assert sum(len(run["episodes"]) for run in runs) == 258 + 12 * len(experiments)
+    assert sum(len(run["episodes"]) for run in runs) == 258 + sum(
+        len(r["episodes"]) for r in experiments.values()
+    )
     print(
         f"Validated {len(experiments)} experiment arms, {count} restored files, accounting, frozen sources and redaction."
     )

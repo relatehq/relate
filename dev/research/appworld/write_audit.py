@@ -6,6 +6,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from retained_usage import code_from_step
+
 HERE = Path(__file__).resolve().parent
 
 
@@ -18,7 +20,7 @@ def audit(name):
         evaluation = json.loads((path.parent / "evaluation.json").read_text())
         failures = evaluation.get("failures", [])
         passes = evaluation.get("passes", [])
-        codes = [json.loads(s["content"]).get("code", "") for s in steps]
+        codes = [code_from_step(s) for s in steps]
         endpoints = Counter()
         for call in calls:
             method, url = call["method"].upper(), call["url"]

@@ -9,6 +9,7 @@ from pathlib import Path
 from statistics import mean
 
 from budget_compare import annotate
+from retained_usage import arm_status, code_from_step
 
 HERE = Path(__file__).resolve().parent
 PREFIX = "sdk-nano-ergonomics-"
@@ -24,7 +25,7 @@ MAIN = "2cf7f9283d807ec83e183895cf2e8141ba045ca3"
 
 
 def turn_kind(step):
-    code = json.loads(step["content"]).get("code", "")
+    code = code_from_step(step)
     output = step["output"]
     if step["error"]:
         if "has already been declared" in output:
@@ -57,15 +58,17 @@ def metrics(rows):
     return {
         "episodes": len(rows),
         "success": len(successes),
-        "write_success": sum(r["success"] for r in writes),
+        "write_success": sum(r["success"] is True for r in writes),
         "write_state_success": sum(
             r["write_state_checks_passed"] is True for r in writes
         ),
-        "read_success": sum(r["success"] for r in rows if r not in writes),
-        "mean_turns": mean(r["steps"] for r in rows),
-        "mean_input_tokens": mean(r["prompt_tokens"] for r in rows),
-        "mean_output_tokens": mean(r["generated_tokens"] for r in rows),
-        "mean_seconds": mean(r["seconds"] for r in rows),
+        "read_success": sum(r["success"] is True for r in rows if r not in writes),
+        "mean_turns": mean(r["steps"] for r in rows) if rows else None,
+        "mean_input_tokens": mean(r["prompt_tokens"] for r in rows) if rows else None,
+        "mean_output_tokens": mean(r["generated_tokens"] for r in rows)
+        if rows
+        else None,
+        "mean_seconds": mean(r["seconds"] for r in rows) if rows else None,
         "estimated_usd": sum(r["estimated_usd"] for r in rows),
         "date_range_error_turns": sum(len(r["date_range_error_turns"]) for r in rows),
         "query_page_error_turns": sum(len(r["query_page_error_turns"]) for r in rows),
@@ -100,9 +103,7 @@ def analyze():
     )
     for root in sorted((HERE / ".local/runs").glob(PREFIX + "*")):
         config = json.loads((root / "config.json").read_text())
-        paths = list(root.glob("*/result.json"))
-        if len(paths) != 12:
-            continue
+        accounting = arm_status(root, config)
         for key, value in baseline.items():
             if key not in {"run", "git_head", "source_sha256"}:
                 assert config[key] == value, (root.name, key)
@@ -119,10 +120,6 @@ def analyze():
         graph_arm = any(x in root.name for x in ["contacts", "dates"])
         assert changed_sources == (["sdk-graph.mjs"] if graph_arm else [])
         rows = annotate(root.name)
-        assert len({(r["task_id"], r["repeat"]) for r in rows}) == 12
-        assert all(
-            r["error_category"] is None and r["condition"] == "sdk" for r in rows
-        )
         treatment_exposures = Counter()
         for row in rows:
             case = HERE / ".local/runs" / row["trajectory_id"]
@@ -190,6 +187,8 @@ def analyze():
             if name.startswith("packages/")
         ]
         runs[root.name] = {
+            **accounting,
+            "screening_improvement": None,
             "git_head": config["git_head"],
             "sdk_patch_sha256": hashlib.sha256(implementation).hexdigest()
             if implementation
@@ -205,23 +204,25 @@ def analyze():
         for name, run in runs.items():
             run["screening_improvement"] = (
                 improvement(run["metrics"], control["metrics"])
-                if name.endswith("-v1") and name != PREFIX + "baseline-v1"
+                if name.endswith("-v1")
+                and name != PREFIX + "baseline-v1"
+                and run["comparison_eligible"]
+                and control["comparison_eligible"]
                 else None
             )
+    eligible_runs = {n: r for n, r in runs.items() if r["comparison_eligible"]}
     comparisons = {}
     for arm in ARMS:
         if arm == "baseline":
             continue
-        candidates = [
-            runs[PREFIX + arm + "-" + v]
+        rounds = [
+            v
             for v in ["v1", "v2"]
-            if PREFIX + arm + "-" + v in runs
+            if PREFIX + arm + "-" + v in eligible_runs
+            and PREFIX + "baseline-" + v in eligible_runs
         ]
-        controls = [
-            runs[PREFIX + "baseline-" + v]
-            for v in ["v1", "v2"]
-            if PREFIX + arm + "-" + v in runs and PREFIX + "baseline-" + v in runs
-        ]
+        candidates = [eligible_runs[PREFIX + arm + "-" + v] for v in rounds]
+        controls = [eligible_runs[PREFIX + "baseline-" + v] for v in rounds]
         if not candidates or len(candidates) != len(controls):
             continue
         a = [r for run in controls for r in run["episodes"]]
@@ -268,7 +269,11 @@ def analyze():
         "main": MAIN,
         "arms": ARMS,
         "runs": runs,
-        "estimated_usd": sum(r["metrics"]["estimated_usd"] for r in runs.values()),
+        "estimated_usd": sum(r["estimated_usd"] for r in runs.values()),
+        "attempted_requests": sum(r["attempted_requests"] for r in runs.values()),
+        "requests_without_usage": sum(
+            r["requests_without_usage"] for r in runs.values()
+        ),
     }
 
 

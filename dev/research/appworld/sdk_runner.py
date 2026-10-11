@@ -277,6 +277,8 @@ def run(args, key, task_id, condition, repeat, spent):
     out.mkdir()
     start = clock.real_perf_counter()
     steps, error, node = [], None, None
+    requests_log = []
+    (out / "steps.json").write_text(dump(steps))
     termination = "step-budget"
     completed = False
     polling = 0
@@ -338,6 +340,13 @@ def run(args, key, task_id, condition, repeat, spent):
             )
             (out / "initial_messages.json").write_text(dump(messages))
             for turn in range(args.steps):
+                remaining = args.generated_budget - sum(
+                    s["model"]["usage"]["output_tokens"] for s in steps
+                )
+                if remaining <= 0:
+                    termination = "generated-budget"
+                    break
+                max_output = min(args.max_output_tokens, remaining)
                 # Conservative reservation excludes cache discounts and uses a
                 # byte upper bound for input tokens, leaving no overshoot per call.
                 rate_in, rate_out = (
@@ -345,14 +354,38 @@ def run(args, key, task_id, condition, repeat, spent):
                 )
                 reserve = (
                     len(dump(messages).encode()) * rate_in
-                    + args.max_output_tokens * rate_out
+                    + max_output * rate_out
                 ) / 1_000_000
                 if spent[0] + reserve > args.max_cost_usd:
                     termination = "cost-budget"
                     break
-                content, model = model_call(
-                    key, args.model, messages, args.max_output_tokens, args.reasoning
-                )
+                request = {"turn": turn + 1, "status": "pending"}
+                requests_log.append(request)
+                (out / "requests.json").write_text(dump(requests_log))
+                try:
+                    content, model = model_call(
+                        key, args.model, messages, max_output, args.reasoning
+                    )
+                except Exception:
+                    request["status"] = "failed"
+                    (out / "requests.json").write_text(dump(requests_log))
+                    raise
+                step = {
+                    "turn": turn + 1,
+                    "content": content,
+                    "model": model,
+                    "output": "",
+                    "visible_output": "",
+                    "execution_seconds": 0,
+                    "api_calls": 0,
+                    "snapshot_fetches": 0,
+                    "error": None,
+                    "execution_status": "pending",
+                }
+                steps.append(step)
+                (out / "steps.json").write_text(dump(steps))
+                request["status"] = "responded"
+                (out / "requests.json").write_text(dump(requests_log))
                 spent[0] += model["estimated_usd"]
                 # Preserve reasoning (encrypted for stateless requests), message
                 # phases and the actual call; only the tool's arguments execute.
@@ -376,6 +409,7 @@ def run(args, key, task_id, condition, repeat, spent):
                     output = f"Execution timed out: {exc}"
                     termination = "execution-timeout"
                 except (ValueError, KeyError, TypeError) as exc:
+                    event = {"error": str(exc)}
                     output = f"Invalid response: {exc}"
                 visible = output[: args.output_chars]
                 if len(output) > args.output_chars:
@@ -389,18 +423,17 @@ def run(args, key, task_id, condition, repeat, spent):
                             or "Execution produced no printed output.",
                         }
                     )
-                step = {
-                    "turn": turn + 1,
-                    "content": content,
-                    "output": output,
-                    "visible_output": visible,
-                    "model": model,
-                    "execution_seconds": clock.real_perf_counter() - execution_start,
-                    "api_calls": len(world.requester.request_tracker.requests) - before,
-                    "snapshot_fetches": event.get("snapshot_fetches", 0),
-                    "error": event.get("error"),
-                }
-                steps.append(step)
+                step.update(
+                    {
+                        "output": output,
+                        "visible_output": visible,
+                        "execution_seconds": clock.real_perf_counter() - execution_start,
+                        "api_calls": len(world.requester.request_tracker.requests) - before,
+                        "snapshot_fetches": event.get("snapshot_fetches", 0),
+                        "error": event.get("error"),
+                        "execution_status": "failed" if event.get("error") else "finished",
+                    }
+                )
                 (out / "steps.json").write_text(dump(steps))
                 print(
                     dump(
@@ -448,6 +481,14 @@ def run(args, key, task_id, condition, repeat, spent):
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"
             termination = "infrastructure-error"
+            if steps and steps[-1]["execution_status"] == "pending":
+                steps[-1].update(
+                    execution_status="failed",
+                    error=error,
+                    execution_seconds=clock.real_perf_counter() - execution_start,
+                    api_calls=len(world.requester.request_tracker.requests) - before,
+                )
+                (out / "steps.json").write_text(dump(steps))
         finally:
             if node:
                 node.close()
