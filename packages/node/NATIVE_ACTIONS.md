@@ -347,3 +347,21 @@ cannot start new requests after the invocation ends, and cursors are scoped to
 their original transaction. Source queries still cover adopted graph members
 only and do not imply a source snapshot. See the
 [graph query contract](../runtime/CONTRACT.md#graph-queries).
+
+## External operation identity
+
+Handlers receive `operationId`, an opaque deterministic string scoped to
+`graphId`, actor ID, action definition ID and caller idempotency key. It stays
+stable after rollback, runtime restart and definition revision changes. Input is
+excluded so an integration can detect conflicting retries in its journal. Use
+distinct stable graph IDs for independent deployments sharing a provider. The
+operation ID is neither the successful receipt's `invocationId` nor an access
+token; it grants no authorization.
+
+Forward it to an integration-owned journal or provider idempotency API. External
+mutations are outside the native transaction: the adapter must reserve and
+compare input under a provider-account-scoped identity, retain confirmed
+outcomes independently of rollback, separate refresh from mutation, and
+reconcile ambiguous responses before another write. Stable identity alone
+provides no external deduplication or exactly-once guarantee. Native receipt
+replay still skips the handler, so pending refresh needs its own recovery path.

@@ -78,7 +78,14 @@ const Review = defineAction({
 });
 const domainGraph = defineGraph({ ...graph, actions: { review: Review } });
 
-implementAction(domainGraph, Review, async ({ fail }) => {
+implementAction(domainGraph, Review, async (context) => {
+  const operationId: string = context.operationId;
+
+  // @ts-expect-error operation identity is runtime-owned
+  context.operationId = 'replacement';
+  void operationId;
+  const { fail } = context;
+
   // @ts-expect-error empty detail schemas still require an object
   fail('inactive', 'customer inactive');
   // @ts-expect-error empty detail schemas still require an object

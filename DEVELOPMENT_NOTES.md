@@ -6,6 +6,18 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Stable action operation identity
+
+`ActionContext` and the runtime's `ActionExecutionContext` now include readonly
+`operationId`. Custom adapters or test doubles constructing these contexts must
+supply the field. Existing action callers and handler registrations are
+unchanged.
+
+The identity is scoped to graph instance, actor, action and idempotency key and
+survives rollback and restart. Integrations can forward it to their provider or
+operation journal. This does not extend native transaction guarantees to
+external writes; see the public Actions guide for recovery requirements.
+
 ## Consumer description and complete port results
 
 `compile(graph)` now returns `{ manifest, definitionRevision, consumer }`. The

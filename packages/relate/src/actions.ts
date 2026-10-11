@@ -109,6 +109,11 @@ export interface ActionContext<
   G extends GraphDefinition,
   A extends ActionDefinition,
 > {
+  /** Stable across retries for the same graph instance, actor, action and key.
+   * Forward to an external operation journal or provider idempotency API.
+   * This identity alone does not make external writes atomic or deduplicate them.
+   */
+  readonly operationId: string;
   readonly actor: {
     readonly id: string;
     readonly roles: readonly string[];
