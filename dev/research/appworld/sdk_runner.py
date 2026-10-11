@@ -20,10 +20,10 @@ from acquire import graph_payments, music
 from appworld import AppWorld, load_task_ids
 from appworld.common.path_store import path_store
 from dotenv import dotenv_values
+from explainer_support import acquisition_coverage
 from prompts import prompt
 from runner import SCHEMA
 from source_writes import SourceWrites
-from explainer_support import acquisition_coverage
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -45,7 +45,16 @@ def dump(value):
 
 
 class NodeRepl:
-    def __init__(self, world, rows=None, *, mode="sdk", tokens=None, journal_path=None, coverage=None):
+    def __init__(
+        self,
+        world,
+        rows=None,
+        *,
+        mode="sdk",
+        tokens=None,
+        journal_path=None,
+        coverage=None,
+    ):
         if mode not in {"sdk", "raw_ts", "snapshot_ts"}:
             raise ValueError("Unknown Node mode")
         if mode == "raw_ts" and rows is not None:
@@ -100,7 +109,11 @@ class NodeRepl:
             {
                 "type": "init",
                 "mode": mode,
-                **({"rows": rows, "coverage": coverage} if mode in {"sdk", "snapshot_ts"} else {"tokens": tokens}),
+                **(
+                    {"rows": rows, "coverage": coverage}
+                    if mode in {"sdk", "snapshot_ts"}
+                    else {"tokens": tokens}
+                ),
             }
         )
 
@@ -149,7 +162,10 @@ class NodeRepl:
                         "error": f"{type(error).__name__}: {error}",
                     }
                 self.send(response)
-            elif event["type"] == "source-write" and self.mode in {"sdk", "snapshot_ts"}:
+            elif event["type"] == "source-write" and self.mode in {
+                "sdk",
+                "snapshot_ts",
+            }:
                 response = {"type": "source-write-result", "id": event["id"]}
                 try:
                     if self.writes is None:
@@ -348,8 +364,7 @@ def run(args, key, task_id, condition, repeat, spent):
                     (0.20, 1.25) if "nano" in args.model else (0.75, 4.5)
                 )
                 reserve = (
-                    len(dump(messages).encode()) * rate_in
-                    + max_output * rate_out
+                    len(dump(messages).encode()) * rate_in + max_output * rate_out
                 ) / 1_000_000
                 if spent[0] + reserve > args.max_cost_usd:
                     termination = "cost-budget"
@@ -422,11 +437,15 @@ def run(args, key, task_id, condition, repeat, spent):
                     {
                         "output": output,
                         "visible_output": visible,
-                        "execution_seconds": clock.real_perf_counter() - execution_start,
-                        "api_calls": len(world.requester.request_tracker.requests) - before,
+                        "execution_seconds": clock.real_perf_counter()
+                        - execution_start,
+                        "api_calls": len(world.requester.request_tracker.requests)
+                        - before,
                         "snapshot_fetches": event.get("snapshot_fetches", 0),
                         "error": event.get("error"),
-                        "execution_status": "failed" if event.get("error") else "finished",
+                        "execution_status": "failed"
+                        if event.get("error")
+                        else "finished",
                     }
                 )
                 (out / "steps.json").write_text(dump(steps))

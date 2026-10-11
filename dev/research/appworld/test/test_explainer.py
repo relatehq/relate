@@ -1,7 +1,9 @@
 """Offline guards for treatment isolation and source coverage claims."""
+
 import sys
 import unittest
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from explainer_experiments import variant
 from explainer_support import acquisition_coverage
@@ -10,9 +12,20 @@ from explainer_support import acquisition_coverage
 class ExplainerTests(unittest.TestCase):
     def test_only_named_graph_treatments_change_the_graph(self):
         source = (Path(__file__).resolve().parents[1] / "sdk-graph.mjs").read_text()
-        for arm in ["baseline", "actions", "errors", "collections", "relationships", "filters", "snapshot_ts"]:
+        for arm in [
+            "baseline",
+            "actions",
+            "errors",
+            "collections",
+            "relationships",
+            "filters",
+            "snapshot_ts",
+        ]:
             self.assertEqual(variant(source, arm), source)
-        self.assertIn("createdAt: localDateTime({ precision: 'second' })", variant(source, "datetime"))
+        self.assertIn(
+            "createdAt: localDateTime({ precision: 'second' })",
+            variant(source, "datetime"),
+        )
         coverage = variant(source, "coverage")
         self.assertIn("collectionCoverage:", coverage)
         self.assertIn("acquisitionAuthorized = false", coverage)

@@ -79,7 +79,14 @@ def prompt(condition):
     environment = (
         PYTHON + AUTH
         if condition in {"raw", "static"}
-        else NODE + (RAW_TS + AUTH if condition == "raw_ts" else SNAPSHOT_TS if condition == "snapshot_ts" else SDK)
+        else NODE
+        + (
+            RAW_TS + AUTH
+            if condition == "raw_ts"
+            else SNAPSHOT_TS
+            if condition == "snapshot_ts"
+            else SDK
+        )
     )
     complete = (
         "Completion: if no answer is required, apis.supervisor.complete_task(); if an answer is requested, apis.supervisor.complete_task(answer=value), or apis.supervisor.complete_task(status='fail').\n"

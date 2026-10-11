@@ -1,7 +1,8 @@
 """Offline train/dev preflight of acquisition and each real public SDK surface."""
+
 import argparse
 import json
-from pathlib import Path
+
 from acquire import graph_payments, music
 from appworld import AppWorld, load_task_ids
 from appworld.common.path_store import path_store
@@ -10,12 +11,38 @@ from sdk_runner import HERE, NodeRepl
 
 
 def smoke(arm, task):
-    with AppWorld(task_id=task, experiment_name=f"explainer-preflight-{arm}", random_seed=100, timeout_seconds=60, load_ground_truth=False) as world:
-        passwords = {row["account_name"]: row["password"] for row in world.apis.supervisor.show_account_passwords()}
-        tokens = {app: getattr(world.apis, app).login(username=world.task.supervisor.phone_number if app == "phone" else world.task.supervisor.email, password=passwords[app])["access_token"] for app in ["spotify", "phone", "venmo"]}
-        rows = music(world.apis, tokens["spotify"]) | graph_payments(world.apis, tokens["phone"], tokens["venmo"], dict(world.task.supervisor))
+    with AppWorld(
+        task_id=task,
+        experiment_name=f"explainer-preflight-{arm}",
+        random_seed=100,
+        timeout_seconds=60,
+        load_ground_truth=False,
+    ) as world:
+        passwords = {
+            row["account_name"]: row["password"]
+            for row in world.apis.supervisor.show_account_passwords()
+        }
+        tokens = {
+            app: getattr(world.apis, app).login(
+                username=world.task.supervisor.phone_number
+                if app == "phone"
+                else world.task.supervisor.email,
+                password=passwords[app],
+            )["access_token"]
+            for app in ["spotify", "phone", "venmo"]
+        }
+        rows = music(world.apis, tokens["spotify"]) | graph_payments(
+            world.apis, tokens["phone"], tokens["venmo"], dict(world.task.supervisor)
+        )
         mode = "snapshot_ts" if arm == "snapshot_ts" else "sdk"
-        node = NodeRepl(world, rows, mode=mode, tokens=tokens, coverage=acquisition_coverage(rows), journal_path=HERE / ".local/preflight-journals" / f"{arm}-{task}.sqlite3")
+        node = NodeRepl(
+            world,
+            rows,
+            mode=mode,
+            tokens=tokens,
+            coverage=acquisition_coverage(rows),
+            journal_path=HERE / ".local/preflight-journals" / f"{arm}-{task}.sqlite3",
+        )
         try:
             if mode == "snapshot_ts":
                 code = """if (typeof relate !== 'undefined') throw new Error('SDK leaked into snapshot control');
@@ -46,10 +73,15 @@ for (const object of description.objects) {
                 code += extras[arm] + "\nconsole.log('offline-ok');"
             result = node.request({"type": "execute", "code": code})
             if result.get("error") or "offline-ok" not in result.get("output", ""):
-                raise RuntimeError(f"{arm}/{task}: {result.get('error') or 'Missing success marker'}")
+                raise RuntimeError(
+                    f"{arm}/{task}: {result.get('error') or 'Missing success marker'}"
+                )
         finally:
             node.close()
-    print(json.dumps({"arm": arm, "task": task, "offline": "passed", "model_calls": 0}), flush=True)
+    print(
+        json.dumps({"arm": arm, "task": task, "offline": "passed", "model_calls": 0}),
+        flush=True,
+    )
 
 
 def main():
