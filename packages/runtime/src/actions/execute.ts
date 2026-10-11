@@ -9,7 +9,8 @@ import type {
   QueryRequest,
   PageResult,
   ReadRequest,
-  ReadResult,
+  ObjectResult,
+  FullObjectResult,
   ActionReceipt,
   FailedReceipt,
 } from '@relate/protocol';
@@ -38,7 +39,7 @@ type ObjectType = Manifest['objects'][number];
 export interface ActionExecutionContext {
   readonly actor: Principal;
   readonly input: Record<string, Json>;
-  read(type: string, id: string, request?: ReadRequest): Promise<ReadResult>;
+  read(type: string, id: string, request?: ReadRequest): Promise<ObjectResult>;
   query(type: string, request?: QueryRequest): Promise<PageResult>;
   fail(code: string, details: unknown): never;
   create(type: string, values: unknown): Promise<{ id: string }>;
@@ -86,7 +87,7 @@ export function createActionExecutor(options: {
     request: ReadRequest,
     transaction: NativeTransaction,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
-  ): Promise<FullReadResult>;
+  ): Promise<FullObjectResult>;
   query(
     principal: Principal,
     type: string,

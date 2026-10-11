@@ -6,10 +6,47 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Consumer description and complete port results
+
+`compile(graph)` now returns `{ manifest, definitionRevision, consumer }`. The
+additional `consumer` artifact is a frozen `ConsumerDescription<typeof graph>`
+projected from the validated manifest. It contains `formatVersion: 1`,
+`graphDefinitionId`, `definitionRevision`, object/action registry names and IDs,
+and traversal shapes. Its maps are checked against the graph type.
+
+Breaking: construct the facade with
+`createConsumer(compile(graph).consumer, operations)` instead of passing a
+graph. `describeConsumer` is removed; there is one compiler/export path and no
+graph versus description duck typing. Browser clients ship the artifact
+alongside generated declarations without importing the compiler or authored
+definitions. Construction validates and captures the description and rejects a
+graph/revision mismatch with the operations' discovery snapshot before
+dispatching any calls.
+
+Breaking: receipt lookup uses the action registry key:
+`consumer.receipts.get('addAccountReview', invocationId)`, replacing
+`consumer.receipts.get(AddAccountReview, invocationId)`. Output and domain-error
+types still come from that registered action. Unknown names are denied.
+
+Breaking: `ConsumerOperations.read` is renamed to `get` and returns a complete
+`ObjectResult`. Runtime `read` and action-context `read` now also return
+complete object results, taking the canonical ID from the resolved record. Node
+and the facade pass these through. `get` and action invocation always return
+promises, even when an operations implementation throws synchronously.
+
+`GraphDescription` gains `definitionRevision`. The exported discovery helper is
+now `createDiscovery(model, principal)`, accepting manifest and revision
+together. A remote implementation must bind discovery and operations to one
+actor/model and reject model changes before execution, including empty/not-found
+reads and actions. Binding checks do not implement that future HTTP protocol:
+refreshing discovery alone cannot repair generated types, and mutations must not
+be replayed automatically. Transport response decoding remains the client's
+responsibility.
+
 ## Shared consumer facade and operations contract
 
 The typed consumer API that `relate.as(principal)` returns is now built by
-`createConsumer(graph, operations)` in the new browser-safe `relate/consumer`
+`createConsumer(description, operations)` in the browser-safe `relate/consumer`
 entry point, over the `ConsumerOperations` contract in `@relate/protocol`. The
 planned `@relate/http` serves that contract and `@relate/client` implements it,
 so a remote consumer gets the same `Consumer<G>` as an embedded one without

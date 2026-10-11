@@ -215,7 +215,7 @@ export function domainActionContract(
           relate.as(ana).actions.review(request(customer)),
         ).resolves.toEqual(receipt);
         await expect(
-          relate.as(ana).receipts.get(Review, receipt.invocationId),
+          relate.as(ana).receipts.get('review', receipt.invocationId),
         ).resolves.toEqual(receipt);
         expect(calls).toBe(1);
         await expect(
@@ -232,7 +232,7 @@ export function domainActionContract(
           other.as(ana).actions.review(request(customer)),
         ).resolves.toEqual(receipt);
         await expect(
-          other.as(ana).receipts.get(Review, receipt.invocationId),
+          other.as(ana).receipts.get('review', receipt.invocationId),
         ).resolves.toEqual(receipt);
         expect(calls).toBe(1);
         await other.close();
@@ -391,14 +391,14 @@ export function domainActionContract(
           relate.as(actor).actions.review(request(customer)),
         ).rejects.toMatchObject({ code: 'denied' });
         await expect(
-          relate.as(actor).receipts.get(Review, receipt.invocationId),
+          relate.as(actor).receipts.get('review', receipt.invocationId),
         ).rejects.toMatchObject({ code: 'denied' });
       }
 
       portfolio = 'south';
       now += 30_001;
       await expect(
-        relate.as(ana).receipts.get(Review, receipt.invocationId),
+        relate.as(ana).receipts.get('review', receipt.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
       expect(
         (

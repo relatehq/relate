@@ -263,7 +263,10 @@ const receipt = await caller.actions.addAccountReview(request);
 console.log(receipt.output.reviewId);
 
 // Read the saved outcome without executing the implementation.
-const saved = await caller.receipts.get(AddAccountReview, receipt.invocationId);
+const saved = await caller.receipts.get(
+  'addAccountReview',
+  receipt.invocationId,
+);
 
 // Also works when the first response, including invocationId, was lost.
 const recovered = await caller.actions.addAccountReview(request);

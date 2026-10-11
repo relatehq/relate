@@ -30,14 +30,7 @@ export function createRuntime<
   const model = compile(options.graph);
   // Keep every later facade aligned with this compiled model. Definitions are
   // immutable, but the graph and its caller-owned registries need not be.
-  const consumerGraph = {
-    ...options.graph,
-    objects: { ...options.graph.objects },
-    ...(options.graph.relationships
-      ? { relationships: { ...options.graph.relationships } }
-      : {}),
-    ...(options.graph.actions ? { actions: { ...options.graph.actions } } : {}),
-  };
+  const description = model.consumer;
   const objects = Object.entries(options.graph.objects);
   const registered = new Set<ObjectDefinition>(
     objects.map(([, object]) => object),
@@ -93,11 +86,8 @@ export function createRuntime<
                 createPagedQuery(`${name}.query`, request, (page) =>
                   context.query(object.id, page),
                 ),
-              get: async (id: string, request = {}) => {
-                const result = await context.read(object.id, id, request);
-
-                return result.status === 'ok' ? { ...result, id } : result;
-              },
+              get: (id: string, request = {}) =>
+                context.read(object.id, id, request),
               ...(implementation.action.creates.includes(object as never)
                 ? {
                     create: (values: unknown) =>
@@ -169,7 +159,7 @@ export function createRuntime<
           return discovery.describeAction(actionDefinitionId);
         },
       }),
-      read: (objectDefinitionId, objectId, request) =>
+      get: (objectDefinitionId, objectId, request) =>
         run(() => engine.read(actor, objectDefinitionId, objectId, request)),
       query: (objectDefinitionId, request) =>
         run(() => engine.query(actor, objectDefinitionId, request)),
@@ -195,7 +185,7 @@ export function createRuntime<
   return {
     as(principal: Principal): Consumer<G> {
       // Compilation validated schema support; the engine validates values and selection.
-      return createConsumer(consumerGraph, operations(principal));
+      return createConsumer(description, operations(principal));
     },
     operations,
     host: Object.freeze({
