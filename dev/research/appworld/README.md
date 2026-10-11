@@ -1,5 +1,12 @@
 # AppWorld interface research
 
+## Prepared explainer experiments
+
+[EXPLAINER-STATUS.md](EXPLAINER-STATUS.md) lists seven independent SDK branches,
+full local validation, a plain-array read control and commands for offline
+preflight and later online evaluation. All suggestions are implemented locally;
+none has a new measured task-performance result or a promotion decision yet.
+
 ## Latest independent ergonomics experiments
 
 [ERGONOMICS.md](ERGONOMICS.md) compares SDK receipt discovery, request error
