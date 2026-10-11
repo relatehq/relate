@@ -313,9 +313,43 @@ def run(args, prepared):
                         )
 
 
+def check(arms):
+    """Check committed SDK code without linting copied research evidence."""
+    results = []
+    for arm in arms:
+        root = WORKTREES / ARMS[arm]
+        support = root / "dev/research/appworld"
+        held = (
+            Path(git(root, "rev-parse", "--absolute-git-dir"))
+            / "explainer-check-support"
+        )
+        if held.exists():
+            raise RuntimeError(f"Previous held support needs restoration: {held}")
+        moved = support.exists()
+        log = HERE / ".local" / f"explainer-check-{arm}.log"
+        if moved:
+            support.rename(held)
+        try:
+            with log.open("w") as output:
+                result = subprocess.run(
+                    ["pnpm", "check"],
+                    cwd=root,
+                    stdout=output,
+                    stderr=subprocess.STDOUT,
+                    check=False,
+                )
+        finally:
+            if moved:
+                held.rename(support)
+        results.append({"arm": arm, "exit": result.returncode, "log": str(log)})
+        print(json.dumps(results[-1]), flush=True)
+    if any(result["exit"] for result in results):
+        raise SystemExit("SDK checks failed; see logs")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["prepare", "preflight", "run"])
+    parser.add_argument("command", choices=["prepare", "preflight", "check", "run"])
     parser.add_argument("--arms", nargs="+", choices=list(ARMS), default=list(ARMS))
     parser.add_argument("--tasks", nargs="+", default=TASKS)
     parser.add_argument("--credentials", type=Path)
@@ -330,7 +364,9 @@ def main():
         parser.error("positive repeats and a batch cap in (0, 5] are required")
     if args.command == "run" and not any(arm != "baseline" for arm in args.arms):
         parser.error("run requires a candidate arm; its paired baseline is automatic")
-    if args.command == "prepare":
+    if args.command == "check":
+        check(args.arms)
+    elif args.command == "prepare":
         prepare(args.arms)
     else:
         prepared = json.loads((HERE / ".local/explainer-prepared.json").read_text())

@@ -105,7 +105,7 @@ class NodeRepl:
         self.buffer = b""
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.process.stdout, selectors.EVENT_READ)
-        self.request(
+        initialized = self.request(
             {
                 "type": "init",
                 "mode": mode,
@@ -116,6 +116,8 @@ class NodeRepl:
                 ),
             }
         )
+
+        self.setup_snapshot_fetches = initialized.get("snapshot_fetches", 0)
 
     def send(self, value):
         self.process.stdin.write(dump(value) + "\n")
@@ -548,6 +550,7 @@ def run(args, key, task_id, condition, repeat, spent):
         "model_seconds": sum(s["model"]["seconds"] for s in steps),
         "estimated_usd": sum(s["model"]["estimated_usd"] for s in steps),
         "snapshot_fetches": sum(s["snapshot_fetches"] for s in steps),
+        "setup_snapshot_fetches": getattr(node, "setup_snapshot_fetches", 0),
         "error": error,
     }
     (out / "result.json").write_text(dump(result))
