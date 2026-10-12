@@ -1,0 +1,29 @@
+{
+  "batch": "explainer-main-confirm-20261012",
+  "episodes": 72,
+  "configuration_and_frozen_runner_sources": "verified",
+  "ledger_sha256": "cf652f1b349f9848e25e605ce68de92351b48da1fe22e868fd631862788d6073",
+  "usage": {
+    "estimated_usd": 0.6617057699999999,
+    "attempted_requests": 1039,
+    "requests_without_usage": 0
+  },
+  "provider_model_calls": {
+    "gpt-5.4-nano-2026-03-17": 1039
+  },
+  "error_turns": {
+    "read_error": 33,
+    "redeclaration": 184,
+    "other_error": 28,
+    "action_error": 16
+  },
+  "feature_hint_cells": {
+    "datetime_arm_range_hint_cells": 22,
+    "filter_arm_traversal_cells": 12,
+    "filter_arm_traversal_cells_with_where": 7
+  },
+  "limits": [
+    "Feature hints are lexical source matches, not instrumentation of runtime dispatch.",
+    "Error categories classify returned error text; they do not establish causes of task failure."
+  ]
+}
