@@ -56,3 +56,16 @@ scanning/pushdown. The temporal experiment explicitly adopts second-precision
 local wall times in the research graph, never inferred UTC instants. Holdout
 selection must exclude screening instances, remain within train/dev and be
 frozen before outcome review.
+
+## Main refresh amendment, 2026-10-12, before resumed evaluation
+
+The owner requested merging landed SDK fixes into all PRs and candidate
+branches. The new common baseline is main `cd1a789` (PR 23 compiled/versioned
+consumer descriptions and complete canonical-ID results; PR 24 stable action
+operation identity). Every arm contains this commit. Baseline and
+snapshot-control SDK trees are identical to it. The seven hypotheses remain
+separate and distinct. PR 24 is no longer an unmerged prerequisite. No paid
+episode has run against this baseline yet. Historical attempts and earlier
+readiness hashes do not serve as current controls. Preparation must regenerate
+exact patches, builds and harness hashes before online work resumes; all
+selection, budget and promotion rules above remain unchanged.

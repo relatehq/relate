@@ -13,7 +13,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RESEARCH = HERE.parents[2]
 WORKTREES = RESEARCH.parent
-BASE = "320bbe9"
+BASE = "cd1a789e89208746d77b7ab85395af8e3bcf94e6"
 TASKS = ["afc0fce_1", "afc0fce_2", "d0b1f43_1", "afc0fce_3", "e7a10f8_3", "82e2fac_1"]
 ARMS = {
     "baseline": "explainer-sdk-experiments",
@@ -136,12 +136,18 @@ def prepare(arms):
             (local / "world").symlink_to(
                 HERE / ".local/world", target_is_directory=True
             )
+        subprocess.run(
+            ["git", "merge-base", "--is-ancestor", BASE, "HEAD"], cwd=root, check=True
+        )
         patch = subprocess.check_output(["git", "diff", BASE, "HEAD"], cwd=root)
+        if arm in {"baseline", "snapshot_ts"} and patch:
+            raise RuntimeError(f"Control SDK must exactly match the pinned main: {arm}")
         (local / "explainer-sdk.patch").write_bytes(patch)
         prepared[arm] = {
             "checkout": str(root),
             "branch": git(root, "branch", "--show-current"),
             "sdk_commit": git(root, "rev-parse", "HEAD"),
+            "base_commit": BASE,
             "sdk_patch_sha256": digest(patch),
             "build_sha256": build_digest(root),
             "support_sha256": {
@@ -163,6 +169,8 @@ def prepare(arms):
 def verify(arm, prepared):
     entry = prepared[arm]
     root = Path(entry["checkout"])
+    if entry.get("base_commit") != BASE:
+        raise RuntimeError("Baseline changed; prepare fresh arms before running")
     if git(root, "rev-parse", "HEAD") != entry["sdk_commit"] or git(
         root, "status", "--porcelain"
     ):

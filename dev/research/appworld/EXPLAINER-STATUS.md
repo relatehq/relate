@@ -10,27 +10,42 @@ promoted, pushed, or opened as an SDK PR. Any qualifying PR must target
 
 | Arm                  | Local branch                       | SDK commit | What changes                                                                                                                                                                                 |
 | -------------------- | ---------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unchanged control    | `test/explainer-sdk-experiments`   | `320bbe9`  | Common baseline: main `2cf7f92` plus PR 24 operation identity.                                                                                                                               |
-| Action outcomes      | `test/explainer-action-outcomes`   | `123ce02`  | Authorized `action.describe().result` gives receipt state/output/error paths and a consumption example.                                                                                      |
-| Request errors       | `test/explainer-error-diagnostics` | `a9e8377`  | Authorized action-input issues; accepted read operators; bounded JSON and messages without supplied values.                                                                                  |
-| Collections          | `test/explainer-collections`       | `22d1d98`  | `await query.page()` and `for await (const record of query.records())`, sharing the existing lazy loader.                                                                                    |
-| Local datetime       | `test/explainer-local-datetime`    | `ea8392c`  | Explicit second/millisecond calendar schemas, validation and range predicates with memory/Postgres parity.                                                                                   |
-| Relationships        | `test/explainer-relationships`     | `81cb7f8`  | Direction and actual direct/junction reference predicates in authorized traversal discovery.                                                                                                 |
-| Traversal filters    | `test/explainer-traversal-filters` | `298532e`  | Target predicates on to-many traversals, adapted from `e076b4c` to the shared consumer facade.                                                                                               |
-| Acquisition coverage | `test/explainer-coverage`          | `b3af57e`  | Host evidence for a named source scope, independently of graph exhaustion and field completeness. Authorization checked before and after each query page.                                    |
-| Array control        | `test/explainer-snapshot-control`  | `320bbe9`  | Same normalized records as arrays; plain TypeScript reads/joins. Shared SDK-backed action adapter remains identical. This is a read-API control, not a wholly SDK-free write implementation. |
+| Unchanged control    | `test/explainer-sdk-experiments`   | `643bf10`  | SDK tree exactly matches main `cd1a789`, including PRs 23 and 24.                                                                                                                            |
+| Action outcomes      | `test/explainer-action-outcomes`   | `a35991b`  | Authorized `action.describe().result` gives receipt state/output/error paths and a consumption example.                                                                                      |
+| Request errors       | `test/explainer-error-diagnostics` | `374a73d`  | Authorized action-input issues; accepted read operators; bounded JSON and messages without supplied values.                                                                                  |
+| Collections          | `test/explainer-collections`       | `cece92b`  | `await query.page()` and `for await (const record of query.records())`, sharing the existing lazy loader.                                                                                    |
+| Local datetime       | `test/explainer-local-datetime`    | `abc6686`  | Explicit second/millisecond calendar schemas, validation and range predicates with memory/Postgres parity.                                                                                   |
+| Relationships        | `test/explainer-relationships`     | `882a4eb`  | Direction and actual direct/junction reference predicates in authorized traversal discovery.                                                                                                 |
+| Traversal filters    | `test/explainer-traversal-filters` | `108cf9f`  | Target predicates on to-many traversals, adapted from `e076b4c` to the shared consumer facade.                                                                                               |
+| Acquisition coverage | `test/explainer-coverage`          | `9aa017c`  | Host evidence for a named source scope, independently of graph exhaustion and field completeness. Authorization checked before and after each query page.                                    |
+| Array control        | `test/explainer-snapshot-control`  | `643bf10`  | Same normalized records as arrays; plain TypeScript reads/joins. Shared SDK-backed action adapter remains identical. This is a read-API control, not a wholly SDK-free write implementation. |
 
 The primary checkout's unfinished traversal work was not copied into the filter
-arm. PR 24 remains the common prerequisite. The existing research write journal
-and its failure/restart tests are held constant; receipt discovery cannot create
-exactly-once provider effects. Declared domain errors remain application-owned;
-transport failures and uncertain effects are not converted into business
-failures.
+arm. PRs 23 and 24 are merged into main and included in every arm. The existing
+research write journal and its failure/restart tests are held constant; receipt
+discovery cannot create exactly-once provider effects. Declared domain errors
+remain application-owned; transport failures and uncertain effects are not
+converted into business failures.
 
 All authored SDK changes, tests, package/public documentation and migration
 notes are in their candidate branches. The coordinator, snapshot-control
 environment, and reproducible graph variants are research-only changes on PR
 14's branch. There are no SDK package edits on that research branch.
+
+## Main refresh (2026-10-12)
+
+Merged main `cd1a789` into PR 14 and every experiment checkout. PR 23 adds
+`compile(graph).consumer`, model revision binding, registry-key receipt lookup
+and complete object results with canonical IDs. PR 24 supplies stable
+`ActionContext.operationId` for the existing AppWorld write journal. These are
+common baseline behavior, not candidate improvements. All seven candidates
+remain distinct; none is superseded by these changes.
+
+The baseline and snapshot-control SDK trees exactly match main. Preparation
+requires this identity and main ancestry, and old prepared manifests are
+rejected after the baseline changes. The original TLS attempts and pre-refresh
+evidence remain historical; resumed runs require fresh controls and new batch
+names.
 
 ## Offline validation
 
