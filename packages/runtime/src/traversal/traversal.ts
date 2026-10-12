@@ -298,6 +298,9 @@ export function createTraversal(options: TraversalOptions) {
     let scanned = 0;
     let more = true;
 
+    // TODO(performance): Narrow reference-owner candidates without scanning every
+    // adopted owner. Any source index must account for required refresh changing
+    // membership or predicate values, and preserve canonical reference resolution.
     while (more && scanned < 100 && pending.length < limit) {
       const batch = await scanBatch(
         (input) =>

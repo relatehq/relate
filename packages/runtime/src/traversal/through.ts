@@ -201,6 +201,9 @@ export function createThroughTraversal(options: TraversalOptions) {
     let scanned = 0;
     let passing = true;
 
+    // TODO(performance): Use indexed junction lookup to avoid population scans and
+    // repeated passes across target pages. Preserve distinct target ordering,
+    // source freshness, and final authorization of both junction and destination.
     while (passing && scanned < 100) {
       const batch = await scanBatch(scanner(owner), afterLink, 100 - scanned);
 

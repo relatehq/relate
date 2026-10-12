@@ -188,6 +188,10 @@ export function createGraphQuery(options: {
     let scanned = 0;
     let more = true;
 
+    // TODO(performance): Use indexed native candidates for selective predicates;
+    // bounded scans still require traversing the population across pages.
+    // For source-backed objects, retain cached non-matches that require refresh:
+    // they may become matches. Keep authorized reads and final predicate checks.
     while (more && scanned < 100 && pending.length < limit) {
       const batch = await scanBatch(
         (scan) =>
