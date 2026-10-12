@@ -1,9 +1,25 @@
+import { Worker } from 'node:worker_threads';
+import { killExecution } from './process-lifecycle.js';
 import { createConsumer } from 'relate/consumer';
-import type { ConsumerOperations, Json } from '@relate/protocol';
+import type { ConsumerOperations } from '@relate/protocol';
 import { snapshotDiscovery } from './binding.js';
 import type { BindingSnapshot } from './binding.js';
 import { restoreError } from './wire.js';
+import type { ExecutionError } from './executor.js';
 import type { Operation, WireError } from './wire.js';
+
+process.on('disconnect', () => killExecution(process.pid));
+const watchdog = new Worker(new URL('./watchdog.js', import.meta.url), {
+  workerData: Number(process.argv[2]),
+});
+const ready = new Promise<void>((resolve, reject) => {
+  watchdog.once('message', () => resolve());
+  watchdog.once('error', reject);
+});
+
+watchdog.on('error', () => killExecution(process.pid));
+// Register the rejection handler even if the host disappears before sending code.
+void ready.catch(() => killExecution(process.pid));
 
 let sequence = 0;
 const pending = new Map<
@@ -49,6 +65,10 @@ process.on(
   },
 );
 
+function sendFailure(error: ExecutionError) {
+  process.send!({ type: 'failed', encoded: JSON.stringify(error) });
+}
+
 async function flushOutput() {
   await Promise.all(
     [process.stdout, process.stderr].map(
@@ -70,6 +90,7 @@ async function run({
   maxOutputBytes: number;
 }) {
   try {
+    await ready;
     const operations: ConsumerOperations = {
       discovery: snapshotDiscovery(snapshot),
       get: (...args) =>
@@ -98,34 +119,28 @@ async function run({
       throw new Error('Return a JSON-serializable value');
 
     if (Buffer.byteLength(encoded) > maxOutputBytes) {
-      process.send!({
-        type: 'failed',
-        error: {
-          name: 'OutputLimitError',
-          code: 'output-limit',
-          message: 'Execution output limit exceeded',
-        },
+      sendFailure({
+        name: 'OutputLimitError',
+        code: 'output-limit',
+        message: 'Execution output limit exceeded',
       });
 
       return;
     }
 
     await flushOutput();
-    process.send!({ type: 'result', value: JSON.parse(encoded) as Json });
+    process.send!({ type: 'result', encoded });
   } catch (error) {
     await flushOutput();
-    process.send!({
-      type: 'failed',
-      error: {
-        name: error instanceof Error ? error.name : 'Error',
-        message: error instanceof Error ? error.message : String(error),
-        ...(error &&
-        typeof error === 'object' &&
-        'code' in error &&
-        typeof error.code === 'string'
-          ? { code: error.code }
-          : {}),
-      },
+    sendFailure({
+      name: error instanceof Error ? error.name : 'Error',
+      message: error instanceof Error ? error.message : String(error),
+      ...(error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      typeof error.code === 'string'
+        ? { code: error.code }
+        : {}),
     });
   }
 }

@@ -227,10 +227,10 @@ it('cancels before and during execution and handles premature process exit', asy
   ).toMatchObject({ status: 'failed', error: { code: 'process' } });
 });
 
-it('rejects mismatched bindings before dispatch and never retries operations after model drift', async () => {
+it('validates the binding once and leaves per-call model pinning to ConsumerOperations without retries', async () => {
   const { binding } = await createFixture(onTestFinished);
-  const invoke = vi.fn(binding.operations.invoke);
   const describe = vi.fn(binding.operations.discovery.describe);
+  const invoke = vi.fn().mockRejectedValue(new ActionError('conflict'));
   const graph = {
     ...binding,
     operations: {
@@ -239,25 +239,27 @@ it('rejects mismatched bindings before dispatch and never retries operations aft
       discovery: { ...binding.operations.discovery, describe },
     },
   };
-  const overview = binding.operations.discovery.describe();
 
-  describe
-    .mockReturnValueOnce(overview)
-    .mockReturnValueOnce(overview)
-    .mockReturnValue({
-      ...overview,
-      definitionRevision: 'sha256:' + 'a'.repeat(64),
-    });
   expect(
     await createDevelopmentExecutor().execute({
       graph,
-      code: 'return await graph.actions.addNote({input: {text: "x"}, idempotencyKey: "x"});',
+      code: `
+    await graph.objects.Note.query();
+    await graph.objects.Note.query();
+    return await graph.actions.addNote({input: {text: 'x'}, idempotencyKey: 'x'});
+  `,
     }),
-  ).toMatchObject({ status: 'failed' });
-  expect(invoke).not.toHaveBeenCalled();
+  ).toMatchObject({ status: 'failed', error: { code: 'conflict' } });
+  expect(describe).toHaveBeenCalledTimes(1);
+  expect(invoke).toHaveBeenCalledTimes(1);
+  describe.mockReturnValue({
+    ...binding.operations.discovery.describe(),
+    definitionRevision: 'sha256:' + 'a'.repeat(64),
+  });
   expect(
     await createDevelopmentExecutor().execute({ graph, code: 'return 1;' }),
   ).toMatchObject({ status: 'failed', error: { code: 'binding' } });
+  expect(invoke).toHaveBeenCalledTimes(1);
 });
 
 it('bounds waiting on graph operations and ignores their late completion after timeout', async () => {

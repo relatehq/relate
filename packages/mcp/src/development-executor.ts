@@ -2,6 +2,7 @@ import { fork } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { childEnvironment, killExecution } from './process-lifecycle.js';
 import { StringDecoder } from 'node:string_decoder';
 import type { Json } from '@relate/protocol';
 import { snapshotBinding } from './binding.js';
@@ -35,37 +36,42 @@ export function createDevelopmentExecutor(
 
   return {
     async execute({ code, graph, signal }) {
-      const failure = (code: string, message: string): ExecutionResult => ({
+      const logs: ExecutionLog[] = [];
+      const fail = (code: string, message: string): ExecutionResult => ({
         status: 'failed',
-        logs: [],
+        logs,
         error: { name: 'ExecutionError', code, message },
       });
 
-      if (signal?.aborted) return failure('aborted', 'Execution aborted');
+      if (signal?.aborted) return fail('aborted', 'Execution aborted');
 
       let snapshot;
 
       try {
         snapshot = snapshotBinding(graph);
       } catch {
-        return failure('binding', 'Graph binding is invalid or unavailable');
+        return fail('binding', 'Graph binding is invalid or unavailable');
       }
 
       const directory = await mkdtemp(join(tmpdir(), 'relate-mcp-'));
 
       try {
-        if (signal?.aborted) return failure('aborted', 'Execution aborted');
+        if (signal?.aborted) return fail('aborted', 'Execution aborted');
 
         return await new Promise<ExecutionResult>((resolve) => {
-          const child = fork(new URL('./child.js', import.meta.url), [], {
-            cwd: directory,
-            // Do not inherit loaders, debugger flags, NODE_OPTIONS or host credentials.
-            execArgv: [],
-            env: {},
-            stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-            detached: process.platform !== 'win32',
-          });
-          const logs: ExecutionLog[] = [];
+          const child = fork(
+            new URL('./child.js', import.meta.url),
+            [String(process.pid)],
+            {
+              cwd: directory,
+              // Do not inherit loaders, debugger flags, NODE_OPTIONS or host credentials.
+              execArgv: [],
+              env: childEnvironment(directory),
+              serialization: 'advanced',
+              stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+              detached: process.platform !== 'win32',
+            },
+          );
           let bytes = 0;
           let stopping = false;
           let pending = 0;
@@ -75,20 +81,34 @@ export function createDevelopmentExecutor(
             stdout: new StringDecoder('utf8'),
             stderr: new StringDecoder('utf8'),
           };
-          const failed = (code: string, message: string): ExecutionResult => ({
-            status: 'failed',
-            logs,
-            error: { name: 'ExecutionError', code, message },
-          });
+          let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
+          let finished = false;
           const kill = () => {
-            try {
-              if (process.platform !== 'win32' && child.pid)
-                process.kill(-child.pid, 'SIGKILL');
-              else child.kill('SIGKILL');
-            } catch (error) {
-              if ((error as NodeJS.ErrnoException).code !== 'ESRCH')
-                child.kill('SIGKILL');
+            if (child.pid) killExecution(child.pid);
+          };
+          const finish = () => {
+            if (finished) return;
+
+            finished = true;
+            stopping = true;
+            clearTimeout(timer);
+            clearTimeout(cleanupTimer);
+            signal?.removeEventListener('abort', abort);
+            child.stdout!.destroy();
+            child.stderr!.destroy();
+
+            if (child.connected) child.disconnect();
+
+            for (const stream of ['stdout', 'stderr'] as const) {
+              const text = decoders[stream].end();
+
+              if (text && bytes < maxOutputBytes) logs.push({ stream, text });
             }
+
+            resolve(
+              result ??
+                fail('process', 'Execution subprocess exited without a result'),
+            );
           };
           const stop = (outcome: ExecutionResult) => {
             if (stopping) return;
@@ -98,10 +118,13 @@ export function createDevelopmentExecutor(
             clearTimeout(timer);
             signal?.removeEventListener('abort', abort);
             kill();
+            // An escaped grandchild can keep the pipes open after child exit.
+            // Drain ordinary buffered output, but never wait for EOF indefinitely.
+            cleanupTimer = setTimeout(finish, 250);
           };
-          const abort = () => stop(failed('aborted', 'Execution aborted'));
+          const abort = () => stop(fail('aborted', 'Execution aborted'));
           const timer = setTimeout(
-            () => stop(failed('timeout', `Execution exceeded ${timeoutMs}ms`)),
+            () => stop(fail('timeout', `Execution exceeded ${timeoutMs}ms`)),
             timeoutMs,
           );
           const capture = (stream: 'stdout' | 'stderr', chunk: Buffer) => {
@@ -113,7 +136,7 @@ export function createDevelopmentExecutor(
             if (text) logs.push({ stream, text });
 
             if (bytes > maxOutputBytes) {
-              const exceeded = failed(
+              const exceeded = fail(
                 'output-limit',
                 'Execution output limit exceeded',
               );
@@ -127,33 +150,19 @@ export function createDevelopmentExecutor(
           child.stdout!.on('data', (chunk: Buffer) => capture('stdout', chunk));
           child.stderr!.on('data', (chunk: Buffer) => capture('stderr', chunk));
           child.on('error', () =>
-            stop(failed('process', 'Execution subprocess failed')),
+            stop(fail('process', 'Execution subprocess failed')),
           );
-          child.on('close', () => {
-            stopping = true;
-            clearTimeout(timer);
-            signal?.removeEventListener('abort', abort);
-            // Also kill descendants if the child exited without a result.
-            kill();
-
-            for (const stream of ['stdout', 'stderr'] as const) {
-              const text = decoders[stream].end();
-
-              if (text && bytes < maxOutputBytes) logs.push({ stream, text });
-            }
-
-            resolve(
+          child.once('exit', () =>
+            stop(
               result ??
-                failed(
-                  'process',
-                  'Execution subprocess exited without a result',
-                ),
-            );
-          });
+                fail('process', 'Execution subprocess exited without a result'),
+            ),
+          );
+          child.once('close', finish);
           const send = (message: object) => {
             if (!stopping && child.connected)
               child.send(message, (error) => {
-                if (error) stop(failed('process', 'Execution IPC failed'));
+                if (error) stop(fail('process', 'Execution IPC failed'));
               });
           };
 
@@ -165,28 +174,16 @@ export function createDevelopmentExecutor(
               id: number;
               operation: Operation;
               args: unknown[];
-              value: Json;
-              error: ExecutionError;
+              encoded: string;
             };
 
             if (message.type === 'result' || message.type === 'failed') {
               if (completion) return;
 
-              const value =
-                message.type === 'result' ? message.value : message.error;
+              const encoded = message.encoded;
 
-              const encoded = JSON.stringify(value);
-
-              if (
-                encoded === undefined ||
-                (message.type === 'failed' &&
-                  (!message.error ||
-                    typeof message.error.name !== 'string' ||
-                    typeof message.error.message !== 'string' ||
-                    (message.error.code !== undefined &&
-                      typeof message.error.code !== 'string')))
-              ) {
-                stop(failed('protocol', 'Invalid execution IPC message'));
+              if (typeof encoded !== 'string') {
+                stop(fail('protocol', 'Invalid execution IPC message'));
 
                 return;
               }
@@ -194,15 +191,39 @@ export function createDevelopmentExecutor(
               bytes += Buffer.byteLength(encoded);
 
               if (bytes > maxOutputBytes) {
-                stop(failed('output-limit', 'Execution output limit exceeded'));
+                stop(fail('output-limit', 'Execution output limit exceeded'));
+
+                return;
+              }
+
+              let value: Json;
+
+              try {
+                value = JSON.parse(encoded) as Json;
+              } catch {
+                stop(fail('protocol', 'Invalid execution IPC message'));
+
+                return;
+              }
+
+              const error = value as unknown as ExecutionError;
+
+              if (
+                message.type === 'failed' &&
+                (!error ||
+                  typeof error.name !== 'string' ||
+                  typeof error.message !== 'string' ||
+                  (error.code !== undefined && typeof error.code !== 'string'))
+              ) {
+                stop(fail('protocol', 'Invalid execution IPC message'));
 
                 return;
               }
 
               completion =
                 message.type === 'result'
-                  ? { status: 'succeeded', result: message.value, logs }
-                  : { status: 'failed', error: message.error, logs };
+                  ? { status: 'succeeded', result: value, logs }
+                  : { status: 'failed', error, logs };
 
               // Account for already-dispatched calls even if JS forgot to await them.
               if (pending === 0) stop(completion);
@@ -217,17 +238,14 @@ export function createDevelopmentExecutor(
               !operationNames.includes(message.operation) ||
               !Array.isArray(message.args)
             ) {
-              stop(failed('protocol', 'Invalid execution IPC message'));
+              stop(fail('protocol', 'Invalid execution IPC message'));
 
               return;
             }
 
             if (pending >= 64) {
               stop(
-                failed(
-                  'operation-limit',
-                  'Too many concurrent graph operations',
-                ),
+                fail('operation-limit', 'Too many concurrent graph operations'),
               );
 
               return;
@@ -236,15 +254,7 @@ export function createDevelopmentExecutor(
             pending++;
             void (async () => {
               try {
-                const current = graph.operations.discovery.describe();
-
-                if (
-                  current.definitionId !== snapshot.overview.definitionId ||
-                  current.definitionRevision !==
-                    snapshot.overview.definitionRevision
-                )
-                  throw new Error('Graph model changed');
-
+                // ConsumerOperations owns per-call model pinning and authorization.
                 // Only these five actor-bound public operations can be dispatched.
                 const operation = graph.operations[message.operation] as (
                   ...args: unknown[]

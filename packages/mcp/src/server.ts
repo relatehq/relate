@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
-import { snapshotBinding } from './binding.js';
+import { describeBinding } from './binding.js';
 import type { CodeExecutor, GraphBinding } from './executor.js';
 
 export const javascriptInstructions = `Use discover first. execute runs an async JavaScript function body with an injected graph consumer. Use await and an explicit return for the result; console.log/error are captured. Each execution starts fresh: variables, timers and globals do not survive. Return JSON-serializable data.
@@ -14,6 +14,8 @@ Graph reads and actions run as the caller. A timeout or cancellation does not ro
 
 export interface McpServerOptions {
   executor: CodeExecutor;
+  /** Host transport lifetime, combined with MCP cancellation and server closure. */
+  signal?: AbortSignal;
   /** Authenticate/bind in the host. Called afresh for every tool invocation. */
   bindGraph(context: {
     signal: AbortSignal;
@@ -45,7 +47,11 @@ export function createMcpServer(options: McpServerOptions): McpServer {
 
   server.server.onclose = () => closed.abort();
   const signalFor = (signal: AbortSignal) =>
-    AbortSignal.any([signal, closed.signal]);
+    AbortSignal.any([
+      signal,
+      closed.signal,
+      ...(options.signal ? [options.signal] : []),
+    ]);
 
   server.registerTool(
     'discover',
@@ -60,10 +66,10 @@ export function createMcpServer(options: McpServerOptions): McpServer {
         const graph = await options.bindGraph({
           signal: signalFor(context.mcpReq.signal),
         });
-        const snapshot = snapshotBinding(graph);
+        const overview = describeBinding(graph);
 
         return content({
-          graph: snapshot.overview,
+          graph: overview,
           instructions: javascriptInstructions,
         });
       } catch {

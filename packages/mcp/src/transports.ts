@@ -45,6 +45,7 @@ export function createStreamableHttpHandler(
     const binding = graph;
     const server = createMcpServer({
       executor: options.executor,
+      signal: request.signal,
       bindGraph: () => binding,
     });
     const transport = new WebStandardStreamableHTTPServerTransport({

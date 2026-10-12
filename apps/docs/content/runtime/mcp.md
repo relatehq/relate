@@ -56,7 +56,11 @@ time and output limits, kills the child on completion or failure, and removes
 its temporary working directory before returning. CPU loops, errors, and
 cancellation follow the same cleanup path. On Unix it also terminates the
 child's process group; this is development cleanup, not containment of hostile
-descendants.
+descendants. After termination, pipe draining is capped at 250 ms: even an
+escaped grandchild holding stdout open cannot prevent a result and directory
+cleanup. A separate watchdog thread detects host death and kills the execution
+even when its main JavaScript thread is stuck in a CPU loop. An abrupt host
+crash can leave its temporary directory behind.
 
 ## Discovery → query → action
 
@@ -180,9 +184,10 @@ const executor: CodeExecutor = yourExecutionService;
 `GraphBinding.description` is the compiler's consumer routing metadata;
 `GraphBinding.operations` is an actor-bound `ConsumerOperations`. Operations
 remain in the host and must retain their authorization and model-compatibility
-checks when bridged to another execution service. The built-in executor checks
-binding compatibility before startup and again before dispatching each graph
-operation. It never retries an operation after a model mismatch.
+checks when bridged to another execution service. The built-in executor
+validates binding compatibility before startup. ConsumerOperations owns model
+pinning and authorization for every operation; MCP does not re-read discovery on
+each call or retry failed operations.
 
 `ExecutionResult` is either `{ status: 'succeeded', result, logs }` or
 `{ status: 'failed', error: { name, message, code? }, logs }`. The tools do not
@@ -199,19 +204,22 @@ message. Public `ReadError` and `ActionError` codes survive IPC; code catching a
 `ReadError` also receives its option issues. Unexpected parent errors are
 sanitized before reaching the child.
 
-Each call starts a fresh process with a fresh temporary directory, without
-inheriting the host's environment or Node loader flags. Globals, module caches,
-timers, and files in that directory do not survive. Files written elsewhere,
-network effects, and graph mutations are outside this reset guarantee.
+Each call starts a fresh process with a fresh temporary directory. The child
+inherits only PATH and, on Windows, SystemRoot, windir and PATHEXT; its
+TMPDIR/TMP/TEMP point at that directory. Host application secrets and Node
+loader flags are not inherited. Globals, module caches, timers, and files in
+that directory do not survive. Files written elsewhere, network effects, and
+graph mutations are outside this reset guarantee.
 
 A timeout or abort stops the JavaScript child and prevents further dispatch.
 Already-started graph operations can continue: `ConsumerOperations` has no
 cancellation parameter. Cleanup does not roll back committed actions. Await all
 graph calls and retain the original idempotency key if an outcome is uncertain;
 use [action receipts](./actions.md) to inspect completed work. HTTP is
-stateless, so cross-request cancellation notifications are not correlated; the
-executor timeout still bounds each execution. Stdio cancellation and server
-closure signal active executions.
+stateless, so cross-request MCP cancellation notifications are not correlated.
+An aborted HTTP Request signal cancels its own execution; the HTTP host must
+wire client disconnects to that signal. The executor timeout also bounds
+execution. Stdio cancellation and server closure signal active executions.
 
 ## Run the example
 
