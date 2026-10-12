@@ -625,7 +625,7 @@
                     } catch {}
                     const provider =
                       s.model.provider_response || s.model.provider_output;
-                    return `<article class="turn"><div class="turnhead"><strong>Turn ${s.turn}</strong><span>${fmt(s.model.usage.input_tokens)} input · ${fmt(s.model.usage.output_tokens)} output · ${money(s.model.estimated_usd)} · ${duration(s.model.seconds)}</span></div><div class="turnbody"><h3>Executed code</h3><pre>${esc(code || 'No executable tool call returned.')}</pre>${s.error ? `<p class="error">${esc(s.error)}</p>` : ''}<h3>Output returned to the model</h3><pre>${esc(s.visible_output || 'No printed output.')}</pre>${s.output !== s.visible_output ? block('Complete execution output (before truncation)', s.output) : ''}${block('Complete provider response', provider)}${block('Exact provider request', s.model.provider_request || 'Not retained by the historical runner')}${block('Usage and execution metadata', s)}</div></article>`;
+                    return `<article class="turn"><div class="turnhead"><strong>Turn ${s.turn}</strong><span>${fmt(s.model.usage.input_tokens)} input · ${fmt(s.model.usage.output_tokens)} output · ${money(s.model.estimated_usd)} · ${duration(s.model.seconds)}</span></div><div class="turnbody"><h3>Executed code</h3><pre>${esc(code || 'No executable tool call returned.')}</pre>${s.error ? `<p class="error">${esc(s.error)}</p>` : ''}<h3>Output returned to the model</h3><pre>${esc(s.visible_output || 'No printed output.')}</pre>${s.output !== s.visible_output ? block('Complete execution output (before truncation)', s.output) : ''}${block('Complete provider response', provider)}${block('Exact provider request', e.exact_requests?.find((r) => r.turn === s.turn)?.request || s.model.provider_request || 'Not retained by the historical runner')}${block('Usage and execution metadata', s)}</div></article>`;
                   })
                   .join('')
               : '<p>No model response was received. See request records for the retained attempt.</p>') +
@@ -655,7 +655,7 @@
                   `<a href="${path + encodeURIComponent(f.name)}" download>${esc(f.name)} (${fmt(f.bytes)} bytes)</a>`,
               )
               .join('') +
-            `<a href="${path}config.json" download>Run configuration</a></div>` +
+            `<a href="${path}config.json" download>Run configuration</a><a href="${path}request_transcript.json" download>Exact request transcript</a></div>` +
             block('Artifact SHA-256 hashes', e.files);
         $('#detail').innerHTML =
           `<div class="detailhead"><div><h2>${esc(e.task)} · ${modelName(e.model)} · ${names[e.condition]}</h2><span class="badge ${cls(e)}">${outcome(e)}</span> <span class="muted">${esc(e.result.termination || e.attempt_status)} · ${e.result.steps || 0} turns · ${money(e.usage.estimated_usd)}</span></div><a href="${path}trajectory.json" download>Download complete trajectory</a></div><p class="instruction">${esc(e.instruction || 'Task context was not reached.')}</p>${e.result.error ? `<p class="error">${esc(e.result.error)}</p>` : ''}<div class="tabs">${[

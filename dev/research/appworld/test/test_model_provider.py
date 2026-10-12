@@ -34,6 +34,15 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(model['call_id'], 'c')
         self.assertNotIn('secret', str(model))
 
+    def test_retained_request_does_not_grow_with_later_conversation(self):
+        response = Mock(status_code=200)
+        response.json.return_value = {'model': 'gpt-5.4-nano', 'output': [], 'usage': {'input_tokens': 1, 'output_tokens': 2}}
+        messages = [{'role': 'user', 'content': 'initial task'}]
+        with patch('model_provider.requests.post', return_value=response):
+            _, model = call('secret', 'gpt-5.4-nano', messages, 4096, 'low', SCHEMA)
+        messages.append({'role': 'assistant', 'content': 'later response'})
+        self.assertEqual(model['provider_request']['input'], [{'role': 'user', 'content': 'initial task'}])
+
     def test_http_failure_retains_body_and_is_never_retried(self):
         with patch('model_provider.requests.post', return_value=Mock(status_code=429, text='rate limit')) as post:
             with self.assertRaises(ProviderError) as raised:

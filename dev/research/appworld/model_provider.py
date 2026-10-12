@@ -1,5 +1,6 @@
 """Provider wire protocols and usage. No automatic request retries."""
 import json
+import copy
 import freezegun.api as clock
 import requests
 
@@ -90,7 +91,7 @@ def call(key, model, messages, max_output, reasoning, schema):
         cost = ((usage['input_tokens'] - cached) * rate_in + cached * rate_cache + usage['output_tokens'] * rate_out) / 1e6
     return action, {
         'usage': usage, 'provider_usage': raw_usage,
-        'provider_request': payload, 'provider_response': result,
+        'provider_request': copy.deepcopy(payload), 'provider_response': result,
         'provider_output': replay, 'call_id': call_id, 'estimated_usd': cost,
         'model': result.get('model', model), 'status': result.get('stop_reason', result.get('status')),
         'seconds': clock.real_perf_counter() - start,

@@ -1,5 +1,14 @@
 # AppWorld interface research
 
+## Current main on two models
+
+[TWO-MODEL.md](TWO-MODEL.md) documents the single-pass evaluation of all twelve
+implemented tasks on GPT-5.4 Nano and Claude Haiku 5.5 through raw Python, raw
+TypeScript, Relate SDK, and snapshot TypeScript. All 96 attempts retain complete
+trajectories. The local results explorer supports task, family, model,
+interface, and outcome filters, per-turn inspection, official scoring, and
+original-file downloads.
+
 ## Explainer evaluation after the main fixes
 
 [EXPLAINER-RESULTS.md](EXPLAINER-RESULTS.md) reports 336 scored episodes across
