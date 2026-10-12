@@ -18,6 +18,16 @@ import {
 } from 'relate';
 
 const targets = {
+  ContactGroup: { owner: 'Person' },
+  ContactGroupMember: { group: 'ContactGroup', person: 'Person' },
+  ContactGroupReceivedPayment: {
+    group: 'ContactGroup',
+    transaction: 'Transaction',
+  },
+  ContactGroupSentPayment: {
+    group: 'ContactGroup',
+    transaction: 'Transaction',
+  },
   MusicLibrary: { owner: 'Person' },
   SavedSong: { library: 'MusicLibrary', song: 'Song' },
   SavedAlbum: { library: 'MusicLibrary', album: 'Album' },
@@ -31,6 +41,14 @@ const targets = {
 // The agent receives the real consumer SDK; acquisition remains host-owned.
 export function model() {
   const descriptions = {
+    ContactGroup:
+      'An owner-scoped contact group, unique by owner and kind. Use paymentsReceivedFromMembers for money members paid the owner, and paymentsSentToMembers for money the owner paid members. Filter payment dates on the traversal. Different groups can contain the same person and payment; deduplicate transaction IDs when combining groups.',
+    ContactGroupMember:
+      'Derived membership from an explicit owner-assigned contact label.',
+    ContactGroupReceivedPayment:
+      'A payment whose receiver is the group owner and whose sender is a group member.',
+    ContactGroupSentPayment:
+      'A payment whose sender is the group owner and whose receiver is a group member.',
     Playlist: 'A playlist in the user’s Spotify playlist library.',
     Song: 'A song acquired from playlists, saved songs, or saved albums. Querying all songs does not select a personal library. Use MusicLibrary.savedSongs for the song library, or MusicLibrary.savedAlbums then Album.songs for the album library.',
     MusicLibrary:
@@ -55,6 +73,26 @@ export function model() {
     claims: {},
   });
   const schemas = {
+    ContactGroup: z.object({
+      sourceId: z.string(),
+      owner: z.string(),
+      kind: z.string(),
+    }),
+    ContactGroupMember: z.object({
+      sourceId: z.string(),
+      group: z.string(),
+      person: z.string(),
+    }),
+    ContactGroupReceivedPayment: z.object({
+      sourceId: z.string(),
+      group: z.string(),
+      transaction: z.string(),
+    }),
+    ContactGroupSentPayment: z.object({
+      sourceId: z.string(),
+      group: z.string(),
+      transaction: z.string(),
+    }),
     MusicLibrary: z.object({ sourceId: z.string(), owner: z.string() }),
     Album: z.object({ sourceId: z.string(), title: z.string() }),
     SavedSong: z.object({
@@ -172,6 +210,10 @@ export function model() {
     'ContactRelationship',
     'Membership',
     'Transaction',
+    'ContactGroup',
+    'ContactGroupMember',
+    'ContactGroupReceivedPayment',
+    'ContactGroupSentPayment',
   ]) {
     const properties = { id: objectId({ id: `${kind}.id` }) };
 
@@ -206,6 +248,39 @@ export function model() {
   }
 
   const relationships = {
+    ContactGroups: defineRelationship({
+      id: 'person.contact-groups',
+      forward: 'contactGroups',
+      reverse: 'owner',
+      via: objects.ContactGroup.properties.owner,
+    }),
+    GroupMembers: defineRelationship({
+      id: 'contact-group.members',
+      forward: 'members',
+      reverse: 'contactGroupsContainingPerson',
+      through: {
+        from: objects.ContactGroupMember.properties.group,
+        to: objects.ContactGroupMember.properties.person,
+      },
+    }),
+    GroupReceivedPayments: defineRelationship({
+      id: 'contact-group.received-payments',
+      forward: 'paymentsReceivedFromMembers',
+      reverse: 'recipientContactGroups',
+      through: {
+        from: objects.ContactGroupReceivedPayment.properties.group,
+        to: objects.ContactGroupReceivedPayment.properties.transaction,
+      },
+    }),
+    GroupSentPayments: defineRelationship({
+      id: 'contact-group.sent-payments',
+      forward: 'paymentsSentToMembers',
+      reverse: 'senderContactGroups',
+      through: {
+        from: objects.ContactGroupSentPayment.properties.group,
+        to: objects.ContactGroupSentPayment.properties.transaction,
+      },
+    }),
     LibraryOwner: defineRelationship({
       id: 'person.music-library',
       forward: 'musicLibraries',
@@ -493,6 +568,10 @@ export async function createSdkSnapshot(rows, writeSource, options = {}) {
       'ContactRelationship',
       'Membership',
       'Transaction',
+      'ContactGroup',
+      'ContactGroupMember',
+      'ContactGroupReceivedPayment',
+      'ContactGroupSentPayment',
     ])
       for (const row of rows[kind] ?? [])
         await runtime.host.adopt(objects[kind], row.sourceId);

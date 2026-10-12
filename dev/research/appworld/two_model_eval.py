@@ -33,18 +33,22 @@ def build_hash():
 
 
 def run(args):
+    tasks = getattr(args, 'tasks', None) or TASKS
+    conditions = getattr(args, 'conditions', None) or CONDITIONS
+    if len(set(tasks)) != len(tasks) or len(set(conditions)) != len(conditions):
+        raise ValueError('Duplicate task or condition would repeat an episode')
     root = HERE / '.local/batches' / args.batch
     root.mkdir(parents=True, exist_ok=False)
     schedule = []
-    for ti, task in enumerate(TASKS):
-        for ci in range(len(CONDITIONS)):
-            condition = CONDITIONS[(ci + ti) % len(CONDITIONS)]
+    for ti, task in enumerate(tasks):
+        for ci in range(len(conditions)):
+            condition = conditions[(ci + ti) % len(conditions)]
             for model in MODELS[ti % 2:] + MODELS[:ti % 2]:
                 short = 'nano' if 'nano' in model else 'haiku'
                 schedule.append({'task': task, 'condition': condition, 'model': model, 'run': f'{args.batch}-{short}-{task}-{condition}', 'status': 'not-started'})
     frozen = hashes()
     frozen_build = build_hash()
-    ledger = {'batch': args.batch, 'planned': len(schedule), 'repeats': 1, 'tasks': TASKS, 'models': MODELS, 'conditions': CONDITIONS, 'source_sha256': frozen, 'build_sha256': frozen_build, 'git_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=HERE, text=True).strip(), 'jobs': args.jobs, 'max_cost_usd': args.max_cost_usd, 'episodes': schedule, 'started_at': time.time()}
+    ledger = {'batch': args.batch, 'planned': len(schedule), 'repeats': 1, 'tasks': tasks, 'models': MODELS, 'conditions': conditions, 'source_sha256': frozen, 'build_sha256': frozen_build, 'git_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=HERE, text=True).strip(), 'jobs': args.jobs, 'max_cost_usd': args.max_cost_usd, 'episodes': schedule, 'started_at': time.time()}
     save(root / 'manifest.json', ledger)
     running = []
     known_cost = 0.0
@@ -92,6 +96,8 @@ def run(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch', required=True)
+    parser.add_argument('--tasks', nargs='+', choices=TASKS)
+    parser.add_argument('--conditions', nargs='+', choices=CONDITIONS)
     parser.add_argument('--credentials', type=Path, required=True)
     parser.add_argument('--jobs', type=int, default=3)
     parser.add_argument('--max-cost-usd', type=float, default=20)

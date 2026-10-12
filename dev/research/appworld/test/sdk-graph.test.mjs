@@ -412,3 +412,100 @@ test('saved libraries remain distinct from playlist songs and album association'
     await snapshot.close();
   }
 });
+
+test('contact groups traverse canonical payments with dates, pagination, and shared identity', async () => {
+  const payment = (sourceId, sender, receiver, createdAt) => ({
+    sourceId,
+    sender,
+    receiver,
+    createdAt,
+    amount: 10,
+    description: 'Payment',
+    likeCount: 0,
+    commentCount: 0,
+  });
+  const snapshot = await createSdkSnapshot({
+    Person: ['alice', 'bob', 'eve'].map((sourceId) => ({
+      sourceId,
+      email: sourceId,
+      name: sourceId,
+    })),
+    ContactGroup: [
+      { sourceId: 'friends', owner: 'alice', kind: 'friend' },
+      { sourceId: 'roommates', owner: 'alice', kind: 'roommate' },
+      { sourceId: 'others', owner: 'eve', kind: 'friend' },
+    ],
+    ContactGroupMember: [{ sourceId: 'm1', group: 'friends', person: 'bob' }],
+    Transaction: [
+      payment('old', 'bob', 'alice', '2023-01-01T00:00:00'),
+      payment('new', 'bob', 'alice', '2023-02-02T00:00:00'),
+      payment('sent', 'alice', 'bob', '2023-02-03T00:00:00'),
+    ],
+    ContactGroupReceivedPayment: [
+      { sourceId: 'r1', group: 'friends', transaction: 'old' },
+      { sourceId: 'r2', group: 'friends', transaction: 'new' },
+      { sourceId: 'r3', group: 'roommates', transaction: 'new' },
+    ],
+    ContactGroupSentPayment: [
+      { sourceId: 's1', group: 'friends', transaction: 'sent' },
+    ],
+  });
+  try {
+    const api = snapshot.consumer;
+    const alice = (
+      await api.objects.Person.query({ where: { email: 'alice' } })
+    ).data[0];
+    const groups = [];
+    for await (const g of api.objects.Person.traverse.contactGroups(alice.id, {
+      limit: 1,
+    }))
+      groups.push(g);
+    assert.equal(groups.length, 2);
+    const friends = groups.find((g) => g.data.kind === 'friend');
+    const roommates = groups.find((g) => g.data.kind === 'roommate');
+    const collect = async (query) => {
+      const result = [];
+      for await (const r of query) result.push(r);
+      return result;
+    };
+    const incoming = await collect(
+      api.objects.ContactGroup.traverse.paymentsReceivedFromMembers(
+        friends.id,
+        { limit: 1 },
+      ),
+    );
+    assert.equal(incoming.length, 2);
+    const recent = await collect(
+      api.objects.ContactGroup.traverse.paymentsReceivedFromMembers(
+        friends.id,
+        { where: { createdAt: { gte: '2023-02-01T00:00:00' } }, limit: 1 },
+      ),
+    );
+    assert.deepEqual(
+      recent.map((r) => r.data.sourceId),
+      ['new'],
+    );
+    const shared = await collect(
+      api.objects.ContactGroup.traverse.paymentsReceivedFromMembers(
+        roommates.id,
+      ),
+    );
+    assert.equal(shared[0].id, recent[0].id);
+    const outgoing = await collect(
+      api.objects.ContactGroup.traverse.paymentsSentToMembers(friends.id),
+    );
+    assert.deepEqual(
+      outgoing.map((r) => r.data.sourceId),
+      ['sent'],
+    );
+    const members = await collect(
+      api.objects.ContactGroup.traverse.members(friends.id),
+    );
+    assert.deepEqual(
+      members.map((r) => r.data.email),
+      ['bob'],
+    );
+  } finally {
+    await snapshot.close();
+  }
+});

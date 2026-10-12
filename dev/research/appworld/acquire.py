@@ -87,10 +87,28 @@ def graph_payments(apis, phone_token, venmo_token, supervisor):
             "name": f"{supervisor['first_name']} {supervisor['last_name']}",
         },
     )
+    groups, members, received, sent = {}, {}, {}, {}
+    for relationship in relationships.values():
+        kind, contact = relationship["kind"], relationship["contact"]
+        group = json.dumps([owner, kind], separators=(",", ":"))
+        groups[group] = {"sourceId": group, "owner": owner, "kind": kind}
+        member = json.dumps([group, contact], separators=(",", ":"))
+        members[member] = {"sourceId": member, "group": group, "person": contact}
+        for transaction in rows["Transaction"]:
+            identity = json.dumps([group, transaction["sourceId"]], separators=(",", ":"))
+            link = {"sourceId": identity, "group": group, "transaction": transaction["sourceId"]}
+            if transaction["receiver"] == owner and transaction["sender"] == contact:
+                received[identity] = link
+            if transaction["sender"] == owner and transaction["receiver"] == contact:
+                sent[identity] = link
     return {
         "Person": list(people.values()),
         "ContactRelationship": list(relationships.values()),
         "Transaction": rows["Transaction"],
+        "ContactGroup": list(groups.values()),
+        "ContactGroupMember": list(members.values()),
+        "ContactGroupReceivedPayment": list(received.values()),
+        "ContactGroupSentPayment": list(sent.values()),
     }
 
 

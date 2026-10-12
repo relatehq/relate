@@ -16,7 +16,7 @@ def audit(batch):
     expected = set(itertools.product(ledger['tasks'], ledger['models'], ledger['conditions']))
     attempts = ledger['episodes']
     observed = [(e['task'], e['model'], e['condition']) for e in attempts]
-    assert len(observed) == len(set(observed)) == len(expected) == 96
+    assert len(observed) == len(set(observed)) == len(expected) == ledger['planned']
     assert set(observed) == expected
     assert all(e['status'] in ('finished', 'incomplete') for e in attempts)
     rows = []

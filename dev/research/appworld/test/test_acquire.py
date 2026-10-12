@@ -38,6 +38,29 @@ class AcquireTests(unittest.TestCase):
         self.assertEqual({r['song'] for r in rows['Membership']}, {'1'})
         self.assertTrue(all(r['albumId'] is None for r in rows['Song']))
 
+    def test_group_payments_preserve_direction_owner_and_overlap(self):
+        source = {
+            "Person": [
+                {"sourceId": "bob", "name": "Bob", "relationshipsJson": '["friend","roommate","friend"]'},
+                {"sourceId": "eve", "name": "Eve", "relationshipsJson": '["coworker"]'},
+            ],
+            "Transaction": [
+                {"sourceId": "incoming", "sender": "bob", "receiver": "alice"},
+                {"sourceId": "outgoing", "sender": "alice", "receiver": "bob"},
+                {"sourceId": "unrelated", "sender": "bob", "receiver": "eve"},
+                {"sourceId": "coworker", "sender": "eve", "receiver": "alice"},
+            ],
+        }
+        with patch("acquire.payments", return_value=source):
+            rows = graph_payments(None, None, None, dict(email="alice", first_name="Alice", last_name="A"))
+        groups = {g["sourceId"]: g["kind"] for g in rows["ContactGroup"]}
+        self.assertEqual(len(rows["ContactGroupMember"]), 3)
+        self.assertEqual({(groups[r["group"]], r["transaction"]) for r in rows["ContactGroupReceivedPayment"]},
+                         {("friend", "incoming"), ("roommate", "incoming"), ("coworker", "coworker")})
+        self.assertEqual({(groups[r["group"]], r["transaction"]) for r in rows["ContactGroupSentPayment"]},
+                         {("friend", "outgoing"), ("roommate", "outgoing")})
+        self.assertEqual(len(rows["ContactGroupReceivedPayment"]), 3)
+
     def test_pages_checks_terminal_empty_page(self):
         calls = []
 

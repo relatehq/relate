@@ -177,3 +177,28 @@ acquisition. No core SDK package changes were needed.
 runner sources, provider responses, evaluator results, and world outputs. All
 219 archived files were restored and hash-verified. The separate local explorer
 is served at <http://127.0.0.1:8765/music-libraries/>.
+
+## Contact-group payment follow-up (2026-10-12)
+
+The snapshot now derives `ContactGroup { owner, kind }` and explicit member,
+received-payment, and sent-payment junctions from acquired contact labels and
+payment endpoints. `Person.contactGroups` selects the owner's groups;
+`ContactGroup.members`, `paymentsReceivedFromMembers`, and
+`paymentsSentToMembers` expose the respective populations. Incoming links
+require receiver = owner and sender = member; outgoing links reverse those
+endpoints. Labels are not inferred, overlapping groups share canonical payment
+IDs, and combined groups require transaction deduplication. These are task-local
+snapshot links, not a live incremental synchronization implementation.
+
+The follow-up runs only `d0b1f43_2`, `afc0fce_2`, and `afc0fce_3`, once each
+through the SDK on Nano and Haiku. Existing completion recovery and
+saved-library changes remain present. All original trajectories remain intact.
+Limits and provider configuration match the original batch; there are no extra
+attempts.
+
+```sh
+dev/research/appworld/.venv/bin/python dev/research/appworld/two_model_eval.py \
+  --batch contact-groups-20261012 --tasks d0b1f43_2 afc0fce_2 afc0fce_3 \
+  --conditions sdk --credentials /Users/dennis/dev/vs/relate/.env \
+  --jobs 3 --max-cost-usd 6
+```
