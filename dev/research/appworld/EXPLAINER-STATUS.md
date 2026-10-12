@@ -11,11 +11,11 @@ promoted, pushed, or opened as an SDK PR. Any qualifying PR must target
 | Arm                  | Local branch                       | SDK commit | What changes                                                                                                                                                                                 |
 | -------------------- | ---------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Unchanged control    | `test/explainer-sdk-experiments`   | `643bf10`  | SDK tree exactly matches main `cd1a789`, including PRs 23 and 24.                                                                                                                            |
-| Action outcomes      | `test/explainer-action-outcomes`   | `a35991b`  | Authorized `action.describe().result` gives receipt state/output/error paths and a consumption example.                                                                                      |
+| Action outcomes      | `test/explainer-action-outcomes`   | `c273a8c`  | Authorized `action.describe().result` gives receipt state/output/error paths and a consumption example.                                                                                      |
 | Request errors       | `test/explainer-error-diagnostics` | `374a73d`  | Authorized action-input issues; accepted read operators; bounded JSON and messages without supplied values.                                                                                  |
 | Collections          | `test/explainer-collections`       | `cece92b`  | `await query.page()` and `for await (const record of query.records())`, sharing the existing lazy loader.                                                                                    |
 | Local datetime       | `test/explainer-local-datetime`    | `abc6686`  | Explicit second/millisecond calendar schemas, validation and range predicates with memory/Postgres parity.                                                                                   |
-| Relationships        | `test/explainer-relationships`     | `882a4eb`  | Direction and actual direct/junction reference predicates in authorized traversal discovery.                                                                                                 |
+| Relationships        | `test/explainer-relationships`     | `1d0cfd6`  | Direction and actual direct/junction reference predicates in authorized traversal discovery.                                                                                                 |
 | Traversal filters    | `test/explainer-traversal-filters` | `108cf9f`  | Target predicates on to-many traversals, adapted from `e076b4c` to the shared consumer facade.                                                                                               |
 | Acquisition coverage | `test/explainer-coverage`          | `9aa017c`  | Host evidence for a named source scope, independently of graph exhaustion and field completeness. Authorization checked before and after each query page.                                    |
 | Array control        | `test/explainer-snapshot-control`  | `643bf10`  | Same normalized records as arrays; plain TypeScript reads/joins. Shared SDK-backed action adapter remains identical. This is a read-API control, not a wholly SDK-free write implementation. |
@@ -49,27 +49,31 @@ names.
 
 ## Offline validation
 
-Full `pnpm check` passed independently on all seven SDK candidates, including
+After merging main, full `pnpm check` passed independently on all seven SDK
+candidates and both controls. Each control passed 959 tests. Checks include
 formatting, lint, typechecking, boundary checks, unit/Postgres tests and
 installed package smoke checks:
 
 | Candidate            | Tests passed |
 | -------------------- | -----------: |
-| Action outcomes      |          950 |
-| Request errors       |          954 |
-| Collections          |          950 |
-| Local datetime       |          964 |
-| Relationships        |          951 |
-| Traversal filters    |          965 |
-| Acquisition coverage |          955 |
+| Action outcomes      |          960 |
+| Request errors       |          964 |
+| Collections          |          960 |
+| Local datetime       |          974 |
+| Relationships        |          961 |
+| Traversal filters    |          975 |
+| Acquisition coverage |          965 |
 
 These counts include repeated baseline tests, not distinct tests across the
 study. The ignored research harness is outside SDK lint scope during those
 checks; `explainer_experiments.py check` temporarily relocates it and restores
 it in a `finally` block. It does not rewrite frozen evidence.
 
-Research tests: **35 Python and 13 Node tests pass**. The offline preflight runs
-all **nine arms across all six screening tasks**, exercising real acquisition,
+PR 14 also passes full `pnpm check` (959 tests). PR 19 passes full `pnpm check`
+(965 tests), including its scripted discovery probe. AppWorld
+write/readback/original-key replay smoke passes against the merged SDK. Research
+tests: **35 Python and 13 Node tests pass**. The offline preflight runs all
+**nine arms across all six screening tasks**, exercising real acquisition,
 identity normalization, SDK construction and each named public capability. These
 are 54 deterministic task/arm preflights, **not 54 agent task completions**. No
 model calls or new paid evaluation were made during implementation.

@@ -1,7 +1,7 @@
 {
   "status": "ready-for-online-evaluation",
-  "prepared_research_commit": "5c45deb",
-  "sdk_baseline": "320bbe94feec36185b3d89447d113fb7b05e8f21",
+  "prepared_research_commit": "26bdb1a86b9c80f6d7db6ffe1107ac9564b96c25",
+  "sdk_baseline": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
   "offline_task_arm_preflights": 54,
   "model_calls_during_implementation": 0,
   "research_python_tests": 35,
@@ -17,16 +17,17 @@
   "arms": {
     "baseline": {
       "branch": "test/explainer-sdk-experiments",
-      "sdk_commit": "320bbe94feec36185b3d89447d113fb7b05e8f21",
+      "sdk_commit": "643bf10cda3ecb38049d7fbe54bb50dda053942a",
+      "base_commit": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
       "sdk_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "build_sha256": "4805e9cb237b02053457974672103cff08d0ae9f71863e05841c24f1b36ec5f7",
+      "build_sha256": "1194e0e0ca1c48c7804f838acfaf3f24cdeb23837d7300fcda29ec8c1e6f7532",
       "support_sha256": {
         "acquire.py": "48cb5672e7418aa46caa58332a93cc7c7ec7d92386dd07e7cdd26ffc31002ea3",
         "archive.py": "97c642dbf7e15dfae3fd23af720118af540a7aa5dffb86558ac0a7d2e7ab035c",
         "budget_compare.py": "b8a1b0226596ff05086a2bde49a16d7135d8c79d320a41b334517dfdcfe89ce5",
         "completion_compare.py": "ad6a81e03bf2a58e25ed231b118dc31cc8f7a0cd7974af68102b0aaf3f8d841d",
         "ergonomics_compare.py": "c5426a7015abaab023b9e2073aa602ec9399f1694de87c2edf458d5ff44fdb08",
-        "explainer_experiments.py": "8a5f470855e5ee80001e8ce4965ba60a071e933474bdc9ebe20857b02cf61fdb",
+        "explainer_experiments.py": "077dddc8a03ccabd9c055c2124af5b3a648e3de9e273644a7dd7c1b58325f973",
         "explainer_smoke.py": "c77ae4ebb13aba1e78e6449b2f9bb3483efb3de94df964f9a25cd3c6e7756184",
         "explainer_support.py": "8b127083be8b9629fe6386371a2ad00ac09f5886f27c41f2e3fbe4a3f6e0125b",
         "explorer.py": "ff2b034d0ba9cd42f46398dfbe95cdb51afae8f742e47fd5d9f15b11d0c81d7f",
@@ -104,20 +105,26 @@
           "model_calls": 0
         }
       ],
-      "offline_log_sha256": "1a5fc629e3eda0dbcc42d8addf9dc2c7ebd4f214a8ff0578219f267a174ee078"
+      "offline_log_sha256": "1a5fc629e3eda0dbcc42d8addf9dc2c7ebd4f214a8ff0578219f267a174ee078",
+      "pnpm_check": {
+        "exit": 0,
+        "tests_passed": 959,
+        "log_sha256": "8a2c15bff784d1ada817775c5e34b5217b2d5807a6e905198ca4837e773daa45"
+      }
     },
     "actions": {
       "branch": "test/explainer-action-outcomes",
-      "sdk_commit": "123ce02682953993ab274153bad1da971a6cd780",
-      "sdk_patch_sha256": "7d7df40fb9155058e096f48aba59b90d06f544557c78fd3bfd90db89b29b4970",
-      "build_sha256": "108d1b346754446c622932db69c9d2974e9ee51909865f8f538282ee3c7b927e",
+      "sdk_commit": "c273a8c6125bb2bf1188679dcd2e8dbe8e1e76a7",
+      "base_commit": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
+      "sdk_patch_sha256": "82fd2038c3331598ff8f7d3a334b8f44ce79875e1c794e553c0564dbe330685c",
+      "build_sha256": "160059f0b3d8645f6fd1e9062523c96326dc54c156a0e9c213c6a7ca2b59966d",
       "support_sha256": {
         "acquire.py": "48cb5672e7418aa46caa58332a93cc7c7ec7d92386dd07e7cdd26ffc31002ea3",
         "archive.py": "97c642dbf7e15dfae3fd23af720118af540a7aa5dffb86558ac0a7d2e7ab035c",
         "budget_compare.py": "b8a1b0226596ff05086a2bde49a16d7135d8c79d320a41b334517dfdcfe89ce5",
         "completion_compare.py": "ad6a81e03bf2a58e25ed231b118dc31cc8f7a0cd7974af68102b0aaf3f8d841d",
         "ergonomics_compare.py": "c5426a7015abaab023b9e2073aa602ec9399f1694de87c2edf458d5ff44fdb08",
-        "explainer_experiments.py": "8a5f470855e5ee80001e8ce4965ba60a071e933474bdc9ebe20857b02cf61fdb",
+        "explainer_experiments.py": "077dddc8a03ccabd9c055c2124af5b3a648e3de9e273644a7dd7c1b58325f973",
         "explainer_smoke.py": "c77ae4ebb13aba1e78e6449b2f9bb3483efb3de94df964f9a25cd3c6e7756184",
         "explainer_support.py": "8b127083be8b9629fe6386371a2ad00ac09f5886f27c41f2e3fbe4a3f6e0125b",
         "explorer.py": "ff2b034d0ba9cd42f46398dfbe95cdb51afae8f742e47fd5d9f15b11d0c81d7f",
@@ -198,22 +205,23 @@
       "offline_log_sha256": "d216a7bce48549ccf62a24975ffa4699e8dcf39cd95d4e86695bb797ac448835",
       "pnpm_check": {
         "exit": 0,
-        "tests_passed": 950,
-        "log_sha256": "262dce606e57fd86f5632a46276d8f0a4fcff3ef5e351232359ad2091535e416"
+        "tests_passed": 960,
+        "log_sha256": "c8483e3589be6a2ff223866183e4e966cd4cd1abaefab4babd09ec935c8f5138"
       }
     },
     "errors": {
       "branch": "test/explainer-error-diagnostics",
-      "sdk_commit": "a9e83774357594d433fc4633c0731c2bc888743e",
-      "sdk_patch_sha256": "be743c7a0a99358bb24f591280004bacf2d1fdcf9cb3dcae4d65b6ea7e31fe73",
-      "build_sha256": "f4bd6e9b49f7b54463e16e7a105754875b1dc0840653652b4351882fde47fd87",
+      "sdk_commit": "374a73da0aab0f06e3f2526f0e1724c050572a2d",
+      "base_commit": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
+      "sdk_patch_sha256": "3f70f69cf643943d1c5e6e0c352070e288a79c90590cadca399726cbc407624b",
+      "build_sha256": "049ccca1de88535d4b45f5394b275b413b633480594df533d826c5712900fb1b",
       "support_sha256": {
         "acquire.py": "48cb5672e7418aa46caa58332a93cc7c7ec7d92386dd07e7cdd26ffc31002ea3",
         "archive.py": "97c642dbf7e15dfae3fd23af720118af540a7aa5dffb86558ac0a7d2e7ab035c",
         "budget_compare.py": "b8a1b0226596ff05086a2bde49a16d7135d8c79d320a41b334517dfdcfe89ce5",
         "completion_compare.py": "ad6a81e03bf2a58e25ed231b118dc31cc8f7a0cd7974af68102b0aaf3f8d841d",
         "ergonomics_compare.py": "c5426a7015abaab023b9e2073aa602ec9399f1694de87c2edf458d5ff44fdb08",
-        "explainer_experiments.py": "8a5f470855e5ee80001e8ce4965ba60a071e933474bdc9ebe20857b02cf61fdb",
+        "explainer_experiments.py": "077dddc8a03ccabd9c055c2124af5b3a648e3de9e273644a7dd7c1b58325f973",
         "explainer_smoke.py": "c77ae4ebb13aba1e78e6449b2f9bb3483efb3de94df964f9a25cd3c6e7756184",
         "explainer_support.py": "8b127083be8b9629fe6386371a2ad00ac09f5886f27c41f2e3fbe4a3f6e0125b",
         "explorer.py": "ff2b034d0ba9cd42f46398dfbe95cdb51afae8f742e47fd5d9f15b11d0c81d7f",
@@ -294,22 +302,23 @@
       "offline_log_sha256": "6e73d1f0b6b85347c6f6af6423f5fcfbf66fc7bfd6f2636491e7829a08593fc1",
       "pnpm_check": {
         "exit": 0,
-        "tests_passed": 954,
-        "log_sha256": "14ad66b809458abdd98f029cc4d34daa028e99817d2021ae36f7902c9fc8e0fc"
+        "tests_passed": 964,
+        "log_sha256": "199314c90f8207ef6147d5da37cdf1fa05cb50853d6394818399c929c040e5f4"
       }
     },
     "collections": {
       "branch": "test/explainer-collections",
-      "sdk_commit": "22d1d983bcf1ed29f7e00c9482d524ff44cdeb2b",
-      "sdk_patch_sha256": "57b957f425355b22a22162e307a52a1472a3a0443cf3ea33dc6849ed640d3718",
-      "build_sha256": "f16c7673fd851d3b7788b2b351669088a28632efb3d6c46f7f21a46b45a3d9b3",
+      "sdk_commit": "cece92b9d42f1f0e1722eab7bf37d916c2497165",
+      "base_commit": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
+      "sdk_patch_sha256": "5a14ae3d5dd3eac7f88672350f9fcb775edef62729068f37f7e63fe7c8900854",
+      "build_sha256": "de991825234129672f85f08edc9cac80fa2a7c410946f5c0347a896ed7e42fd4",
       "support_sha256": {
         "acquire.py": "48cb5672e7418aa46caa58332a93cc7c7ec7d92386dd07e7cdd26ffc31002ea3",
         "archive.py": "97c642dbf7e15dfae3fd23af720118af540a7aa5dffb86558ac0a7d2e7ab035c",
         "budget_compare.py": "b8a1b0226596ff05086a2bde49a16d7135d8c79d320a41b334517dfdcfe89ce5",
         "completion_compare.py": "ad6a81e03bf2a58e25ed231b118dc31cc8f7a0cd7974af68102b0aaf3f8d841d",
         "ergonomics_compare.py": "c5426a7015abaab023b9e2073aa602ec9399f1694de87c2edf458d5ff44fdb08",
-        "explainer_experiments.py": "8a5f470855e5ee80001e8ce4965ba60a071e933474bdc9ebe20857b02cf61fdb",
+        "explainer_experiments.py": "077dddc8a03ccabd9c055c2124af5b3a648e3de9e273644a7dd7c1b58325f973",
         "explainer_smoke.py": "c77ae4ebb13aba1e78e6449b2f9bb3483efb3de94df964f9a25cd3c6e7756184",
         "explainer_support.py": "8b127083be8b9629fe6386371a2ad00ac09f5886f27c41f2e3fbe4a3f6e0125b",
         "explorer.py": "ff2b034d0ba9cd42f46398dfbe95cdb51afae8f742e47fd5d9f15b11d0c81d7f",
@@ -390,22 +399,23 @@
       "offline_log_sha256": "5a324c8f2dd9a84af4351d252ae18bce6da9132b8ace087d1a11469885b52618",
       "pnpm_check": {
         "exit": 0,
-        "tests_passed": 950,
-        "log_sha256": "1f4222a3b977f86264693aec4a5791d05bafda5bf20b8638ab3ee39750040866"
+        "tests_passed": 960,
+        "log_sha256": "424d8b50505748b6d0273e8c74968c75acbd7701ee76e6ccf21449643606b939"
       }
     },
     "datetime": {
       "branch": "test/explainer-local-datetime",
-      "sdk_commit": "ea8392c9c1b4cd9bf63df41eeb023105fb2c0ede",
-      "sdk_patch_sha256": "3f38ff5133300ec9fdbadd323184a7c70b3b22e775120f364ea36c7166073b8e",
-      "build_sha256": "baacbf465d4127a435d6e60ba98bb5b1d255475c6e4440429308d322ad18f09f",
+      "sdk_commit": "abc66863bbead0186e17966bfeff59bafdaa5df8",
+      "base_commit": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
+      "sdk_patch_sha256": "c6a6c5dc7971ced99e6b150fc4d0f991286b7252ad645ef4cc9b91224d9f5ee6",
+      "build_sha256": "1843241c2fac687163ec37c29827246a98cde9dbb7f645656273d48fc8647118",
       "support_sha256": {
         "acquire.py": "48cb5672e7418aa46caa58332a93cc7c7ec7d92386dd07e7cdd26ffc31002ea3",
         "archive.py": "97c642dbf7e15dfae3fd23af720118af540a7aa5dffb86558ac0a7d2e7ab035c",
         "budget_compare.py": "b8a1b0226596ff05086a2bde49a16d7135d8c79d320a41b334517dfdcfe89ce5",
         "completion_compare.py": "ad6a81e03bf2a58e25ed231b118dc31cc8f7a0cd7974af68102b0aaf3f8d841d",
         "ergonomics_compare.py": "c5426a7015abaab023b9e2073aa602ec9399f1694de87c2edf458d5ff44fdb08",
-        "explainer_experiments.py": "8a5f470855e5ee80001e8ce4965ba60a071e933474bdc9ebe20857b02cf61fdb",
+        "explainer_experiments.py": "077dddc8a03ccabd9c055c2124af5b3a648e3de9e273644a7dd7c1b58325f973",
         "explainer_smoke.py": "c77ae4ebb13aba1e78e6449b2f9bb3483efb3de94df964f9a25cd3c6e7756184",
         "explainer_support.py": "8b127083be8b9629fe6386371a2ad00ac09f5886f27c41f2e3fbe4a3f6e0125b",
         "explorer.py": "ff2b034d0ba9cd42f46398dfbe95cdb51afae8f742e47fd5d9f15b11d0c81d7f",
@@ -486,22 +496,23 @@
       "offline_log_sha256": "8d82ed5e54a9a56647774a1642fd7569aafa0293a70a44da65f986551fa168c1",
       "pnpm_check": {
         "exit": 0,
-        "tests_passed": 964,
-        "log_sha256": "527e332b528048adfbb957e6a8f174af5e1ead01da97308f8c2be24b3216ca4d"
+        "tests_passed": 974,
+        "log_sha256": "b2dd1e6442c8a0ea40b2f223d6a17ad207e5e6b256cce18cf9cc6272f6a9a174"
       }
     },
     "relationships": {
       "branch": "test/explainer-relationships",
-      "sdk_commit": "81cb7f8c42ef79add5c6d93304449ca5adae0bd0",
-      "sdk_patch_sha256": "bd862d73bacf4c42f2cf554a8d57e66e88f0dcc2d381301065b55572a0ebdd3c",
-      "build_sha256": "ffbb3a8f51d0dbfc40d389336a707013f70205da3bddc0daba093cd7e94ee4b2",
+      "sdk_commit": "1d0cfd648ec42baeb08a9343079749e71081d63c",
+      "base_commit": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
+      "sdk_patch_sha256": "635b6cd5b303302a1ef3cad4bf686e2248938686a3a49862bc362a1548686286",
+      "build_sha256": "e70081f7c1d2e3b3cbb0474417928c8415bfa14bf49725a80459f41a9bf71da2",
       "support_sha256": {
         "acquire.py": "48cb5672e7418aa46caa58332a93cc7c7ec7d92386dd07e7cdd26ffc31002ea3",
         "archive.py": "97c642dbf7e15dfae3fd23af720118af540a7aa5dffb86558ac0a7d2e7ab035c",
         "budget_compare.py": "b8a1b0226596ff05086a2bde49a16d7135d8c79d320a41b334517dfdcfe89ce5",
         "completion_compare.py": "ad6a81e03bf2a58e25ed231b118dc31cc8f7a0cd7974af68102b0aaf3f8d841d",
         "ergonomics_compare.py": "c5426a7015abaab023b9e2073aa602ec9399f1694de87c2edf458d5ff44fdb08",
-        "explainer_experiments.py": "8a5f470855e5ee80001e8ce4965ba60a071e933474bdc9ebe20857b02cf61fdb",
+        "explainer_experiments.py": "077dddc8a03ccabd9c055c2124af5b3a648e3de9e273644a7dd7c1b58325f973",
         "explainer_smoke.py": "c77ae4ebb13aba1e78e6449b2f9bb3483efb3de94df964f9a25cd3c6e7756184",
         "explainer_support.py": "8b127083be8b9629fe6386371a2ad00ac09f5886f27c41f2e3fbe4a3f6e0125b",
         "explorer.py": "ff2b034d0ba9cd42f46398dfbe95cdb51afae8f742e47fd5d9f15b11d0c81d7f",
@@ -582,22 +593,23 @@
       "offline_log_sha256": "f089b5c06376a0820ba60b775b57fd4e971d56854e1e885c5f3862a524ddbd42",
       "pnpm_check": {
         "exit": 0,
-        "tests_passed": 951,
-        "log_sha256": "434f221c9db9bb5ccf4b761a05dd598761ccc970c303cd1a8ad0539837e79e88"
+        "tests_passed": 961,
+        "log_sha256": "82984a7c12ebebbe7b31fbe1fa2dcfcfaa403bee85965642fccc5f6251849c64"
       }
     },
     "filters": {
       "branch": "test/explainer-traversal-filters",
-      "sdk_commit": "298532eec69e1e90c14b6efd427cb83be5eaf4ff",
-      "sdk_patch_sha256": "04588153db51c508e6e4c3c1f6b814bbd8c1193bbcce94654a76bfc345c82a11",
-      "build_sha256": "b324aca0147793806ab022546be3fd7075749bf953995cc7fe05d446de85dcd6",
+      "sdk_commit": "108cf9f940266ec7450a594c848b1050ea187784",
+      "base_commit": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
+      "sdk_patch_sha256": "ced013b326352a74345eb4f083a90d8257ba079ad1e938be6e87b813bda6042c",
+      "build_sha256": "2fceedc3cecd6e38d164ce31da9cc77fe5be3b93d215ab14e093aaa3be235be9",
       "support_sha256": {
         "acquire.py": "48cb5672e7418aa46caa58332a93cc7c7ec7d92386dd07e7cdd26ffc31002ea3",
         "archive.py": "97c642dbf7e15dfae3fd23af720118af540a7aa5dffb86558ac0a7d2e7ab035c",
         "budget_compare.py": "b8a1b0226596ff05086a2bde49a16d7135d8c79d320a41b334517dfdcfe89ce5",
         "completion_compare.py": "ad6a81e03bf2a58e25ed231b118dc31cc8f7a0cd7974af68102b0aaf3f8d841d",
         "ergonomics_compare.py": "c5426a7015abaab023b9e2073aa602ec9399f1694de87c2edf458d5ff44fdb08",
-        "explainer_experiments.py": "8a5f470855e5ee80001e8ce4965ba60a071e933474bdc9ebe20857b02cf61fdb",
+        "explainer_experiments.py": "077dddc8a03ccabd9c055c2124af5b3a648e3de9e273644a7dd7c1b58325f973",
         "explainer_smoke.py": "c77ae4ebb13aba1e78e6449b2f9bb3483efb3de94df964f9a25cd3c6e7756184",
         "explainer_support.py": "8b127083be8b9629fe6386371a2ad00ac09f5886f27c41f2e3fbe4a3f6e0125b",
         "explorer.py": "ff2b034d0ba9cd42f46398dfbe95cdb51afae8f742e47fd5d9f15b11d0c81d7f",
@@ -678,22 +690,23 @@
       "offline_log_sha256": "2c305b20dc5a86a45c7b82bb9948d24e915cac976ec4f470eb806f51d0ddf92f",
       "pnpm_check": {
         "exit": 0,
-        "tests_passed": 965,
-        "log_sha256": "1de457d38569809b12da70210dfd4499525dbd9009c377560f29e78f9d2c24a9"
+        "tests_passed": 975,
+        "log_sha256": "125261c7e4a0d96d873cf1a0dd42de78563259a48a6487fb40fb68d5ebd0a2b0"
       }
     },
     "coverage": {
       "branch": "test/explainer-coverage",
-      "sdk_commit": "b3af57ed07344951e9fd1183a6e8e673ec655bd5",
-      "sdk_patch_sha256": "b9ea0a3c37b806c3579670f128914291710f12bf3d785efe9fc936b498ef4f2f",
-      "build_sha256": "c9a690e8831d5a63d830b9442e639b6ec4b35305ac1ac2ed87ad392a471a8179",
+      "sdk_commit": "9aa017ca259dcb21c5eac1d528989cb0ec023ddc",
+      "base_commit": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
+      "sdk_patch_sha256": "07633e7db37049f6891c6c749bf2d2af11b5d3ac57cec8184a1fcbf516591390",
+      "build_sha256": "27fc640b37e27549626588d47ea1cba8c4729e5e0a83d6187584acc62764800f",
       "support_sha256": {
         "acquire.py": "48cb5672e7418aa46caa58332a93cc7c7ec7d92386dd07e7cdd26ffc31002ea3",
         "archive.py": "97c642dbf7e15dfae3fd23af720118af540a7aa5dffb86558ac0a7d2e7ab035c",
         "budget_compare.py": "b8a1b0226596ff05086a2bde49a16d7135d8c79d320a41b334517dfdcfe89ce5",
         "completion_compare.py": "ad6a81e03bf2a58e25ed231b118dc31cc8f7a0cd7974af68102b0aaf3f8d841d",
         "ergonomics_compare.py": "c5426a7015abaab023b9e2073aa602ec9399f1694de87c2edf458d5ff44fdb08",
-        "explainer_experiments.py": "8a5f470855e5ee80001e8ce4965ba60a071e933474bdc9ebe20857b02cf61fdb",
+        "explainer_experiments.py": "077dddc8a03ccabd9c055c2124af5b3a648e3de9e273644a7dd7c1b58325f973",
         "explainer_smoke.py": "c77ae4ebb13aba1e78e6449b2f9bb3483efb3de94df964f9a25cd3c6e7756184",
         "explainer_support.py": "8b127083be8b9629fe6386371a2ad00ac09f5886f27c41f2e3fbe4a3f6e0125b",
         "explorer.py": "ff2b034d0ba9cd42f46398dfbe95cdb51afae8f742e47fd5d9f15b11d0c81d7f",
@@ -774,22 +787,23 @@
       "offline_log_sha256": "2bdbf5fa3832f21344c2d8269ef2c9c6852580d83b161a2879da1bf60c9a3118",
       "pnpm_check": {
         "exit": 0,
-        "tests_passed": 955,
-        "log_sha256": "808b5c862d2e51fa9de5b24289c62142db512370da61c20b6c4cdb24539a4a3a"
+        "tests_passed": 965,
+        "log_sha256": "ebbacf737429d79c1e426eb02677510eaaa72633bc0333c38cdb32b5da990121"
       }
     },
     "snapshot_ts": {
       "branch": "test/explainer-snapshot-control",
-      "sdk_commit": "320bbe94feec36185b3d89447d113fb7b05e8f21",
+      "sdk_commit": "643bf10cda3ecb38049d7fbe54bb50dda053942a",
+      "base_commit": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
       "sdk_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "build_sha256": "4805e9cb237b02053457974672103cff08d0ae9f71863e05841c24f1b36ec5f7",
+      "build_sha256": "1194e0e0ca1c48c7804f838acfaf3f24cdeb23837d7300fcda29ec8c1e6f7532",
       "support_sha256": {
         "acquire.py": "48cb5672e7418aa46caa58332a93cc7c7ec7d92386dd07e7cdd26ffc31002ea3",
         "archive.py": "97c642dbf7e15dfae3fd23af720118af540a7aa5dffb86558ac0a7d2e7ab035c",
         "budget_compare.py": "b8a1b0226596ff05086a2bde49a16d7135d8c79d320a41b334517dfdcfe89ce5",
         "completion_compare.py": "ad6a81e03bf2a58e25ed231b118dc31cc8f7a0cd7974af68102b0aaf3f8d841d",
         "ergonomics_compare.py": "c5426a7015abaab023b9e2073aa602ec9399f1694de87c2edf458d5ff44fdb08",
-        "explainer_experiments.py": "8a5f470855e5ee80001e8ce4965ba60a071e933474bdc9ebe20857b02cf61fdb",
+        "explainer_experiments.py": "077dddc8a03ccabd9c055c2124af5b3a648e3de9e273644a7dd7c1b58325f973",
         "explainer_smoke.py": "c77ae4ebb13aba1e78e6449b2f9bb3483efb3de94df964f9a25cd3c6e7756184",
         "explainer_support.py": "8b127083be8b9629fe6386371a2ad00ac09f5886f27c41f2e3fbe4a3f6e0125b",
         "explorer.py": "ff2b034d0ba9cd42f46398dfbe95cdb51afae8f742e47fd5d9f15b11d0c81d7f",
@@ -867,14 +881,32 @@
           "model_calls": 0
         }
       ],
-      "offline_log_sha256": "4f3adcef080f54e7f5e7db254ebb7cbd6c24477a1a785bb371d396da5d505439"
+      "offline_log_sha256": "4f3adcef080f54e7f5e7db254ebb7cbd6c24477a1a785bb371d396da5d505439",
+      "pnpm_check": {
+        "exit": 0,
+        "tests_passed": 959,
+        "log_sha256": "f7de50bc94d1d4a98fade1acb41aee2dbc7296ebfef2d267ee6364ae0cc99d57"
+      }
     }
   },
   "promotion": null,
   "limits": [
     "No new scored model episodes or measured agent uplift.",
     "Snapshot control isolates reads; its write adapter remains shared.",
-    "SDK prerequisite PR 24 is held constant.",
+    "Merged SDK PRs 23 and 24 are held constant in every arm.",
     "Provider acquisition completeness is a trusted host claim, not source pushdown."
+  ],
+  "refreshed_at": "2026-10-12",
+  "main_prs_in_baseline": [23, 24],
+  "research_pnpm_check": {
+    "exit": 0,
+    "tests_passed": 959,
+    "log_sha256": "e388bfa3b29fd1c1b031be0bc3b7b67ea310ceb21cae3d84660fefc3ba8ebf89"
+  },
+  "local_write_smoke": "passed",
+  "model_calls_during_main_refresh": 0,
+  "merge_migrations": [
+    "Action and relationship discovery tests now pass compiled models to createDiscovery.",
+    "Main consumer result and operation identity changes are baseline behavior, not candidate effects."
   ]
 }

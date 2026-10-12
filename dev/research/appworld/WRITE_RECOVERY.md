@@ -1,9 +1,9 @@
 # Recovering external writes
 
-This integration requires the SDK's `ActionContext.operationId` addition from
-[PR #24](https://github.com/relatehq/relate/pull/24). Land that SDK PR into main
-before merging this research PR. No core SDK source changes belong on the
-research branch.
+The SDK's `ActionContext.operationId` addition from
+[PR #24](https://github.com/relatehq/relate/pull/24) has landed in main and is
+merged into this research branch at `cd1a789`. Build normally with `pnpm build`;
+no SDK artifact overlay is needed. This PR adds no core SDK changes beyond main.
 
 ## Confirmed mutation, pending refresh
 
@@ -90,9 +90,7 @@ invalid readback data, response loss after journaling, provider-response loss,
 reopening the journal, an interrupted reservation, conflicting input and account
 isolation. The smoke runs only against a local AppWorld training state.
 
-For pre-merge validation, build the SDK worktree and overlay its ignored
-`packages/{relate,runtime,node}/dist` directories into this worktree. This tests
-the integration against the dependency without importing core source commits
-into PR 14. After the SDK PR lands, update this branch from main and use the
-normal `pnpm build` workflow. Historical experiment results predate this
-protocol and have not been rerun or reinterpreted as evidence for the fix.
+Before PR 24 landed, validation used its ignored built SDK artifacts. That
+overlay is obsolete: this branch now contains main's SDK changes and uses the
+normal build. Historical experiment results predate this protocol and have not
+been rerun or reinterpreted as evidence for the fix.
