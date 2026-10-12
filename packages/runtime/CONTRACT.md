@@ -1,5 +1,15 @@
 # @relate/runtime contract
 
+Public runtime `read` and transaction-scoped action-context `read` return a
+complete protocol `ObjectResult`. Successful reads include the resolved record's
+canonical `id` even when its ID property is not selected; `not-found` remains
+unchanged. Node and transport adapters do not reconstruct identity. Internal
+resolution supplies full evidence before the existing presentation step.
+
+`createDiscovery(model, principal)` receives the compiled manifest and revision
+together. The runtime verifies the compiled revision during construction and
+passes that verified model to discovery.
+
 Detailed behavior of the current slice. For an overview of the package, see
 [README.md](./README.md).
 

@@ -6,7 +6,6 @@ import type {
   Page,
   QueryRequest,
   ReadRequest,
-  ReadResult,
   TraversalRequest,
 } from './index.js';
 import type { Discovery } from './discovery.js';
@@ -22,15 +21,20 @@ import type { Discovery } from './discovery.js';
  * traversal or a denied action look the same to the caller whatever the cause.
  * Requests arrive unvalidated; an implementation rejects a malformed request
  * with `ReadError('invalid-request')` or `ActionError('invalid')`.
+ * Async methods reject rather than throw synchronously. Remote implementations
+ * validate decoded results and pin every request to the discovery model before
+ * execution, including actions and responses with no records. Model mismatch
+ * must not replay mutations or silently rebind to a new model.
  */
 export interface ConsumerOperations {
   /** Metadata available to this actor; a snapshot a remote caller can prefetch. */
   readonly discovery: Discovery;
-  read(
+  /** The complete public result, including the canonical `id`, or `not-found`. */
+  get(
     objectDefinitionId: string,
     objectId: string,
     request?: ReadRequest,
-  ): Promise<ReadResult>;
+  ): Promise<ObjectResult>;
   query(
     objectDefinitionId: string,
     request?: QueryRequest,

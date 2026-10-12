@@ -145,7 +145,7 @@ const receipt = await actions.addAccountReview({
 });
 const recovered = await relate
   .as(ana)
-  .receipts.get(AddAccountReview, receipt.invocationId);
+  .receipts.get('addAccountReview', receipt.invocationId);
 // recovered.output contains the original result; the action is not executed again.
 ```
 

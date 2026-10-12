@@ -13,15 +13,24 @@ import {
 } from 'relate';
 import { compile } from 'relate/compiler';
 import { createDiscovery } from '@relate/runtime';
+import type { Principal } from '@relate/runtime';
+import type { GraphDefinition } from 'relate';
 import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
 import {
   ana as manager,
   graph as actionGraph,
 } from '../../../tests/support/native-action-model.js';
 
+/** Discovery over a freshly compiled model and its revision. */
+function discover(graph: GraphDefinition, principal: Principal) {
+  const model = compile(graph);
+
+  return createDiscovery(model, principal);
+}
+
 it('describes only the objects, fields, traversals, and actions available to an actor', () => {
   const { ana, finance, graph, Customer, Invoice } = createInvoiceGraph();
-  const employee = createDiscovery(compile(graph).manifest, ana);
+  const employee = discover(graph, ana);
 
   expect(employee.describe()).toMatchObject({
     definitionId: 'invoice-read',
@@ -76,9 +85,7 @@ it('describes only the objects, fields, traversals, and actions available to an 
     expect.objectContaining({ name: 'revenue' }),
   );
   expect(
-    createDiscovery(compile(graph).manifest, finance).describeObject(
-      Customer.id,
-    )?.properties,
+    discover(graph, finance).describeObject(Customer.id)?.properties,
   ).toContainEqual(
     expect.objectContaining({
       name: 'revenue',
@@ -86,7 +93,7 @@ it('describes only the objects, fields, traversals, and actions available to an 
     }),
   );
 
-  const outsider = createDiscovery(compile(graph).manifest, {
+  const outsider = discover(graph, {
     id: 'outsider',
     roles: [],
     claims: {},
@@ -97,7 +104,7 @@ it('describes only the objects, fields, traversals, and actions available to an 
   expect(outsider.describe().operations).toBe(employee.describe().operations);
   expect(outsider.describeObject(Customer.id)).toBeUndefined();
 
-  const actions = createDiscovery(compile(actionGraph).manifest, manager);
+  const actions = discover(actionGraph, manager);
 
   expect(actions.describe().actions).toEqual([
     {
@@ -127,7 +134,7 @@ it('describes only the objects, fields, traversals, and actions available to an 
     ],
   });
   expect(
-    createDiscovery(compile(actionGraph).manifest, {
+    discover(actionGraph, {
       ...manager,
       roles: ['employee'],
     }).describe().actions,
@@ -136,7 +143,7 @@ it('describes only the objects, fields, traversals, and actions available to an 
 
 it('returns frozen discovery values detached from the compiled manifest', () => {
   const { ana, graph, Customer } = createInvoiceGraph();
-  const discovery = createDiscovery(compile(graph).manifest, ana);
+  const discovery = discover(graph, ana);
   const object = discovery.describeObject(Customer.id)!;
 
   expect(Object.isFrozen(discovery.describe())).toBe(true);
@@ -222,7 +229,7 @@ function createPeopleGraph() {
 
 it('describes exactly the traversals the runtime executes', () => {
   const { graph, Person, Note } = createPeopleGraph();
-  const discovery = createDiscovery(compile(graph).manifest, {
+  const discovery = discover(graph, {
     id: 'reader',
     roles: ['reader'],
     claims: {},

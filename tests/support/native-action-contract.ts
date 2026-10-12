@@ -155,6 +155,97 @@ export function nativeActionContract(
       ).toBeUndefined();
     }
 
+    it('reuses an external operation identity after rollback and runtime reconstruction', async () => {
+      const operations: string[] = [];
+      const externalResults = new Map<string, string>();
+      let mutations = 0;
+      const handler: Handler = async (context) => {
+        operations.push(context.operationId);
+
+        if (!externalResults.has(context.operationId)) {
+          externalResults.set(context.operationId, `comment-${++mutations}`);
+          throw new Error('Readback failed after the external write');
+        }
+
+        return addAccountReview.implementation(context);
+      };
+      const first = app(handler);
+      const customer = await first.host.adopt(Customer, 'northwind');
+      const request = {
+        input: { customer, note: 'Follow up' },
+        idempotencyKey: 'external-write',
+      };
+
+      await expect(
+        first.as(ana).actions.addAccountReview(request),
+      ).rejects.toMatchObject({ code: 'internal' });
+      await absent('external-write');
+      await first.close();
+
+      const second = app(handler);
+      const receipt = await second.as(ana).actions.addAccountReview(request);
+
+      expect(receipt.state).toBe('succeeded');
+      expect(operations).toHaveLength(2);
+      expect(operations[0]).toBe(operations[1]);
+      expect(operations[0]).toMatch(/^relate-op-v1-[a-f0-9]{64}$/);
+      expect(mutations).toBe(1);
+      expect(await second.as(ana).actions.addAccountReview(request)).toEqual(
+        receipt,
+      );
+      expect(operations).toHaveLength(2);
+      await second.close();
+    });
+
+    it('scopes operation identity to graph, actor and key without incorporating changed input', async () => {
+      const operations: string[] = [];
+      const handler: Handler = async ({ operationId }) => {
+        operations.push(operationId);
+        throw new Error('No receipt');
+      };
+      const first = app(handler);
+      const customer = await first.host.adopt(Customer, 'northwind');
+      const request = {
+        input: { customer, note: 'Original' },
+        idempotencyKey: 'key',
+      };
+
+      await expect(
+        first.as(ana).actions.addAccountReview(request),
+      ).rejects.toMatchObject({ code: 'internal' });
+      await expect(
+        first.as(ana).actions.addAccountReview({
+          ...request,
+          input: { customer, note: 'Changed' },
+        }),
+      ).rejects.toMatchObject({ code: 'internal' });
+      await expect(
+        first
+          .as(ana)
+          .actions.addAccountReview({ ...request, idempotencyKey: 'other' }),
+      ).rejects.toMatchObject({ code: 'internal' });
+      await expect(
+        first
+          .as({ ...ana, id: 'another-actor' })
+          .actions.addAccountReview(request),
+      ).rejects.toMatchObject({ code: 'internal' });
+      await first.close();
+      graphId = randomUUID();
+      const second = app(handler);
+      const otherCustomer = await second.host.adopt(Customer, 'northwind');
+
+      await expect(
+        second.as(ana).actions.addAccountReview({
+          ...request,
+          input: { ...request.input, customer: otherCustomer },
+        }),
+      ).rejects.toMatchObject({ code: 'internal' });
+      expect(operations).toHaveLength(5);
+      expect(operations[0]).toBe(operations[1]);
+      expect(new Set([operations[0], ...operations.slice(2)]).size).toBe(4);
+      await second.close();
+    });
+
     it('executes the real public action and atomically records a readable review and receipt', async () => {
       const relate = app();
       const customer = await relate.host.adopt(Customer, 'northwind');
@@ -218,7 +309,7 @@ export function nativeActionContract(
       const reopened = app(undefined, reconnected ?? backing.store);
 
       await expect(
-        reopened.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+        reopened.as(ana).receipts.get('addAccountReview', receipt.invocationId),
       ).resolves.toEqual(receipt);
       await expect(
         reopened.as(ana).actions.addAccountReview({
@@ -589,7 +680,7 @@ export function nativeActionContract(
           caller.actions.addAccountReview(request),
         ).rejects.toMatchObject({ code: 'denied' });
         await expect(
-          caller.receipts.get(AddAccountReview, receipt.invocationId),
+          caller.receipts.get('addAccountReview', receipt.invocationId),
         ).rejects.toMatchObject({ code: 'denied' });
       }
 
@@ -600,15 +691,19 @@ export function nativeActionContract(
         }),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(
-        relate.as(ana).receipts.get(AddAccountReview, 'missing'),
+        relate.as(ana).receipts.get('addAccountReview', 'missing'),
       ).rejects.toMatchObject({ code: 'denied' });
+      // Receipt lookup uses the action registry name; unknown names are denied.
+      await expect(
+        relate.as(ana).receipts.get('addAccountReview', receipt.invocationId),
+      ).resolves.toEqual(receipt);
       await expect(
         relate
           .as(ana)
-          .receipts.get({ ...AddAccountReview }, receipt.invocationId),
+          .receipts.get('unregistered' as never, receipt.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(
-        relate.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+        relate.as(ana).receipts.get('addAccountReview', receipt.invocationId),
       ).resolves.toEqual(receipt);
       await expect(
         relate.as(ana).actions.addAccountReview(request),
@@ -619,7 +714,7 @@ export function nativeActionContract(
       portfolio = 'south';
       now += 30_001;
       await expect(
-        relate.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+        relate.as(ana).receipts.get('addAccountReview', receipt.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
       await expect(
         relate.as(ana).actions.addAccountReview(request),
@@ -637,13 +732,13 @@ export function nativeActionContract(
       portfolio = 'north';
       now += 30_001;
       await expect(
-        relate.as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+        relate.as(ana).receipts.get('addAccountReview', receipt.invocationId),
       ).resolves.toEqual(receipt);
       const originalGraph = graphId;
 
       graphId = randomUUID();
       await expect(
-        app().as(ana).receipts.get(AddAccountReview, receipt.invocationId),
+        app().as(ana).receipts.get('addAccountReview', receipt.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
       graphId = originalGraph;
     });
@@ -1096,7 +1191,7 @@ export function nativeActionContract(
       await expect(
         app()
           .as(ana)
-          .receipts.get(AddAccountReview, saved!.receipt.invocationId),
+          .receipts.get('addAccountReview', saved!.receipt.invocationId),
       ).resolves.toEqual(saved!.receipt);
       expect(attempted).toHaveLength(1);
     });

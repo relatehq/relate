@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import type { ConsumerDescription } from './consumer.js';
+import type { ConsumerRoutingDescription } from './consumer-description.js';
 import type { z } from 'zod';
 import type {
   GraphDefinition,
@@ -101,7 +103,12 @@ function registryKey(
   return Object.entries(objects).find(([, o]) => o === object)?.[0];
 }
 
-export function compile(graph: GraphDefinition): CompiledModel {
+/** Compile once; the consumer artifact is projected only from the validated manifest. */
+export function compile<G extends GraphDefinition>(
+  graph: G,
+): CompiledModel & {
+  readonly consumer: ConsumerDescription<G>;
+} {
   // Explicitly typed so `fail()` narrows as a `never`-returning assertion.
   const issues: Collector = new Collector();
 
@@ -895,9 +902,55 @@ export function compile(graph: GraphDefinition): CompiledModel {
     throw error;
   }
 
+  const definitionRevision = `sha256:${createHash('sha256').update(canonicalJson(manifest)).digest('hex')}`;
+  // Validation above guarantees unique names, registered endpoints and safe keys.
+  const consumerObjects = Object.fromEntries(
+    manifest.objects.map((object) => [
+      object.apiName,
+      {
+        definitionId: object.id,
+        traversals: {} as Record<
+          string,
+          { cardinality: 'one' | 'many'; target: string }
+        >,
+      },
+    ]),
+  );
+  const names = new Map(
+    manifest.objects.map((object) => [object.id, object.apiName]),
+  );
+
+  for (const relationship of manifest.relationships ?? []) {
+    const from = names.get(relationship.fromObjectDefinitionId)!;
+    const to = names.get(relationship.toObjectDefinitionId)!;
+
+    consumerObjects[from]!.traversals[relationship.forward.name] = {
+      cardinality: relationship.forward.cardinality,
+      target: to,
+    };
+    consumerObjects[to]!.traversals[relationship.reverse.name] = {
+      cardinality: relationship.reverse.cardinality,
+      target: from,
+    };
+  }
+
+  const consumer: ConsumerRoutingDescription = {
+    formatVersion: 1,
+    graphDefinitionId: manifest.graphDefinitionId,
+    definitionRevision,
+    objects: consumerObjects,
+    actions: Object.fromEntries(
+      (manifest.actions ?? []).map((action) => [
+        action.apiName,
+        { definitionId: action.id },
+      ]),
+    ),
+  };
+
   return deepFreeze({
     manifest,
-    definitionRevision: `sha256:${createHash('sha256').update(canonicalJson(manifest)).digest('hex')}`,
+    definitionRevision,
+    consumer: consumer as ConsumerDescription<G>,
   });
 }
 

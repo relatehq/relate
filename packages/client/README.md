@@ -41,8 +41,9 @@ declare function createHttpOperations(options: {
   credentials: unknown;
 }): Promise<ConsumerOperations>;
 
+// Generated ConsumerDescription JSON (compile(graph).consumer) and type declarations.
 const consumer = createConsumer(
-  graph,
+  description,
   await createHttpOperations({ baseUrl: '/api', credentials }),
 );
 const page = await consumer.objects.Customer.query({
@@ -56,7 +57,19 @@ const page = await consumer.objects.Customer.query({
   never reach the compiler.
 - `Consumer`, `QueryResult` and `createQuery` are shared with `@relate/node`
   through `relate/consumer`; the client never duplicates them or imports the
-  engine.
+  engine. The facade routes from a `ConsumerDescription`, so a client needs only
+  that description and generated types, not the authoring graph.
+- The facade compares the artifact's `graphDefinitionId` and
+  `definitionRevision` with discovery at construction. The client must keep
+  operations pinned to that model and actor, verifying compatibility before
+  execution on every request. The HTTP mechanism is not implemented yet; it must
+  cover actions, empty pages and `not-found` as well as successful reads.
+  Refreshing discovery cannot update generated types, and a model mismatch must
+  not automatically replay mutations.
+- The transport decodes and validates complete protocol results before exposing
+  `ConsumerOperations`; an `ok` object result must include its canonical `id`.
+- Receipt lookup uses `consumer.receipts.get('addAccountReview', invocationId)`;
+  it needs no runtime action definition or schema.
 - Pairs with the planned `@relate/http` adapter, which serves the same
   `ConsumerOperations` from `relate.operations(principal)`.
 - The [inspector specification](../../apps/inspector/SPEC.md) proposes this
