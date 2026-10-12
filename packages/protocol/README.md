@@ -20,8 +20,10 @@ Relate consumer surface. Private and unpublished.
 - Errors and receipts: `ReadError` and `ActionError` with sanitized codes and no
   private detail, and successful/declared-failure receipts (`SucceededReceipt`,
   `FailedReceipt`, `ActionReceipt`).
-- Discovery: `GraphDescription`, `ObjectDescription`, `ActionDescription`,
-  `OperationContracts` and the portable `ScalarSchema` they report, plus the
+- Discovery: compact `GraphDescription` with name-keyed `ObjectOverview` and
+  `ActionOverview` maps, `TraversalOverview` edges and shared `SdkDescription`;
+  option applicability (`SdkOptionDescription`, `ReadOperation`), detailed
+  `ObjectDescription`, `ActionDescription` and portable `ScalarSchema`, plus the
   actor-bound `Discovery` interface.
 - `ConsumerOperations`: the actor-bound, definition-ID-addressed operations
   every consumer surface shares (`get`, `query`, `traverse`, `invoke`,

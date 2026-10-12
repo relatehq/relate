@@ -247,7 +247,15 @@ import { z } from 'zod';
 import { defineAccess, defineSource, defineObject, objectId, source, from } from 'relate';
 import type { ReadResult } from '@relate/protocol';
 import type { ObservationStore } from '@relate/runtime/storage';
-import type { RuntimeOptions } from '@relate/runtime';
+import { operationContracts } from '@relate/runtime';
+import type { RuntimeOptions, OperationContract, OperationContracts } from '@relate/runtime';
+const contracts: OperationContracts = operationContracts;
+const getContract: OperationContract = contracts.get;
+// @ts-expect-error full read contracts belong to runtime, not discovery transport
+import type { OperationContracts as RemovedProtocolContract } from '@relate/protocol';
+// @ts-expect-error node no longer re-exports runtime tooling contracts
+import type { OperationContract as RemovedNodeContract } from '@relate/node';
+void getContract;
 const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: { portfolio: z.string() } });
 const crm = defineSource({ id: 'crm', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
 from(crm.fields.name, { id: 'customer.name', access: access.groups.ordinary });
@@ -363,7 +371,16 @@ assert.equal(setupCalls, 1);
 try {
   const customerId = await relate.host.adopt(Customer, 'crm_1');
   const invoiceId = await relate.host.adopt(Invoice, 'inv_1');
-  const objects = relate.as(ana).objects;
+  const consumer = relate.as(ana);
+  const overview = JSON.parse(JSON.stringify(consumer.describe()));
+  assert.deepEqual(Object.keys(overview.objects), ['Customer', 'Invoice']);
+  assert.equal(overview.objects.Customer.traversals.invoices.target, 'Invoice');
+  assert.equal(overview.objects.Invoice.traversals.customer.cardinality, 'one');
+  assert.equal(overview.sdk.reads.query, 'await objects.<Object>.query(options?)');
+  assert.deepEqual(overview.sdk.options.limit.operations, ['query', 'traverse-many']);
+  assert.match(overview.sdk.errors, /error\\.issues/);
+  assert.equal('operations' in overview, false);
+  const objects = consumer.objects;
   const page = await objects.Customer.traverse.invoices(customerId);
   assert.equal(page.data[0]?.id, invoiceId);
   const customer = await objects.Invoice.traverse.customer(invoiceId, { select: ['name'] });
@@ -425,6 +442,8 @@ try {
   assert.equal(typeof receipt.invocationId, 'string');
   const description = JSON.parse(JSON.stringify(compile(graph).consumer));
   const fromJson = createConsumer(description, app.operations(ana));
+  assert.deepEqual(fromJson.describe().actions.addAccountReview.creates, ['AccountReview']);
+  assert.equal(fromJson.actions.addAccountReview.describe().input[0].name, 'customer');
   assert.deepEqual(await fromJson.receipts.get('addAccountReview', receipt.invocationId), receipt);
   assert.deepEqual(await app.as(ana).actions.addAccountReview({ input: { customer, note: 'Packed native action' }, idempotencyKey: 'one' }), receipt);
   const review = await app.as(ana).objects.AccountReview.get(receipt.output.reviewId);

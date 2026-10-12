@@ -398,12 +398,14 @@ const saved = await consumer.receipts.get(
 
 After binding, the facade maps registry names to definition IDs, passes results
 through unchanged, pages queries and to-many traversals with `createPagedQuery`,
-checks traversal result cardinality, and decorates discovery with call paths. It
-does not authorize, validate requests or record payloads, cache results or
-retry. `get` and action invocation return promises even when a port throws
-synchronously. Receipt lookup uses registered action names and infers the
-receipt from the selected action; unknown names reject with
-`ActionError('denied')`.
+checks traversal result cardinality, and decorates discovery with call paths.
+Root `describe()` returns complete name-keyed object/action maps, authorized
+traversal links and compact `sdk` guidance. Object/action `.describe()` methods
+retain full metadata and schemas. The facade does not authorize, validate
+requests or record payloads, cache results or retry. `get` and action invocation
+return promises even when a port throws synchronously. Receipt lookup uses
+registered action names and infers the receipt from the selected action; unknown
+names reject with `ActionError('denied')`.
 
 Operations implementations own complete result shapes and remain bound to the
 model used at construction. A future remote implementation must check/pin the
@@ -413,8 +415,10 @@ or rebind a compatible client. No automatic mutation replay is implied.
 
 Printing an operation (`String(consumer.objects.Customer.get)` or
 `util.inspect`) shows its call signature with the option names discovery reports
-for that operation. When discovery is unavailable, for example after the host
-closed, the signature shows `{ … }` instead of failing.
+in each `sdk.options` entry's `operations` list. Option strings are computed
+lazily and cached after successful discovery, separately for all four read
+kinds. If discovery is unavailable before that cache is populated, the signature
+shows `{ … }` instead of failing; failed lookups are not cached.
 
 ## Pagination
 

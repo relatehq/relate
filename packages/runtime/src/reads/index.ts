@@ -4,6 +4,7 @@ export {
   cursorIssue,
   invalidValue,
   optionDescriptions,
+  optionSummaries,
   rejectIssues,
   requestIssues,
   schemaText,

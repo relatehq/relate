@@ -62,11 +62,16 @@ const customer = consumer.objects.Customer.describe();
 const action = consumer.actions.addAccountReview.describe();
 ```
 
-`consumer.describe()` returns graph identity and description plus summaries of
-statically readable object types and executable actions. Object detail returns
-its API identity, display metadata, authorized properties and available
-traversals. Action detail returns input, output, declared failure fields and
-readable created-object types. Every result is frozen and JSON-serializable.
+`consumer.describe()` returns graph identity and description plus complete
+`objects` and `actions` maps keyed by SDK/API name. Each object includes its
+description and a `traversals` map (target API name, cardinality, description).
+Each action includes its description and readable `creates` object names.
+Traversal targets and created types always exist in the visible objects map;
+unsupported or unauthorized edges are omitted. Unauthored descriptions are
+omitted, and empty collections remain `{}` or `[]`. Object detail returns its
+API identity, display metadata, authorized properties and available traversals.
+Action detail returns input, output, declared failure fields and readable
+created-object types. Every result is frozen and JSON-serializable.
 
 Discovery applies object read-role, field-group, relationship-reference, and
 action execute-role gates. An input reference to an object the actor cannot read
@@ -81,15 +86,18 @@ checks the referenced records, actor claims, current authorization, and
 availability. Discovery never exposes source IDs, connector fields, role names,
 claim names, or policy predicates.
 
-`consumer.describe().operations` is the runtime's SDK-owned read contract:
-signatures, accepted option names, each option's type/default/description once,
-result shapes, paging and errors. It is identical for every graph and actor.
-Object detail adds this SDK's call paths: `operations.get.call`,
-`operations.query.call` and each traversal's `call`, such as
-`objects.Customer.traverse.invoices(id, options?)`, beside the runtime's
-`returns` types and each property's `filter` text. `String(operation)` and
-`util.inspect(operation)` return the call signature for `get`, `query` and each
-traversal function, not implementation source.
+`consumer.describe().sdk` is the concise SDK guide shared by every graph and
+actor: discovery/read/action/receipt calls, read options and defaults, essential
+record/page shapes, pagination, evidence, read-error guidance and
+graph-membership semantics. Each option carries its description/default and
+accepted operation kinds; printed signatures use these lists. It omits verbose
+shape catalogues. The full `operationContracts` remains available from
+`@relate/runtime` for tooling, outside root discovery. Object detail adds this
+SDK's call paths: `operations.get.call`, `operations.query.call` and each
+traversal's `call`, such as `objects.Customer.traverse.invoices(id, options?)`,
+beside the runtime's `returns` types and each property's `filter` text.
+`String(operation)` and `util.inspect(operation)` return the call signature for
+`get`, `query` and each traversal function, not implementation source.
 
 Every object detail reports `query.collectionScope: 'graph-membership'`. Queries
 and traversal enumerate adopted source-backed records or Relate-native records;

@@ -101,10 +101,7 @@ it('exposes the engine as definition-ID operations bound to one principal', asyn
 
   const overview = operations.discovery.describe();
 
-  expect(overview.objects.map((o) => o.apiName)).toEqual([
-    'Customer',
-    'Invoice',
-  ]);
+  expect(Object.keys(overview.objects)).toEqual(['Customer', 'Invoice']);
   // The snapshot names the model it describes, as every read does.
   expect(overview.definitionRevision).toMatch(/^sha256:/);
   expect(customer.status === 'ok' && customer.meta.definitionRevision).toBe(

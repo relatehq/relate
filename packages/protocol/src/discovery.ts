@@ -26,43 +26,6 @@ export interface OptionDescription {
   readonly description: string;
 }
 
-/** How to call one read operation, independent of graph and actor. */
-export interface OperationContract {
-  readonly signature: string;
-  readonly returns: string;
-  readonly description: string;
-  /** Accepted option names; each is described once in `OperationContracts.options`. */
-  readonly options: readonly string[];
-}
-
-/**
- * The SDK-owned read contract. It is the same for every graph and actor; each
- * object's description supplies the concrete names, types and calls.
- */
-export interface OperationContracts {
-  readonly get: OperationContract;
-  readonly query: OperationContract & {
-    readonly collectionScope: 'graph-membership';
-  };
-  readonly traverse: {
-    readonly description: string;
-    readonly many: OperationContract;
-    readonly one: OperationContract;
-  };
-  /** Every read option, described once. */
-  readonly options: readonly OptionDescription[];
-  /** Result and value shapes named by `returns` and option types. */
-  readonly shapes: {
-    readonly ObjectId: string;
-    readonly ObjectResult: string;
-    readonly ObjectRecord: string;
-    readonly ReadMeta: string;
-    readonly Page: string;
-    readonly QueryResult: string;
-  };
-  readonly errors: string;
-}
-
 export interface ObjectSummary {
   readonly definitionId: string;
   readonly apiName: string;
@@ -77,6 +40,57 @@ export interface ActionSummary {
   readonly description?: string;
 }
 
+/** One authorized direction of a relationship in the compact graph overview. */
+export interface TraversalOverview {
+  /** API name of another entry in `GraphDescription.objects`. */
+  readonly target: string;
+  readonly cardinality: 'one' | 'many';
+  readonly description?: string;
+}
+
+/** Object purpose and named, executable edges; schemas remain in object detail. */
+export interface ObjectOverview {
+  readonly description?: string;
+  readonly traversals: Readonly<Record<string, TraversalOverview>>;
+}
+
+/** Action purpose and the readable object types it declares it creates. */
+export interface ActionOverview {
+  readonly description?: string;
+  readonly creates: readonly string[];
+}
+
+/** Read kinds used by option validation and discovery. */
+export type ReadOperation = 'get' | 'query' | 'traverse-many' | 'traverse-one';
+
+/** Concise option guidance and the reads that accept it. */
+export interface SdkOptionDescription {
+  readonly description: string;
+  readonly operations: readonly ReadOperation[];
+}
+
+/** Compact SDK guidance shared by every graph and actor. */
+export interface SdkDescription {
+  readonly discovery: { readonly object: string; readonly action: string };
+  readonly reads: {
+    readonly get: string;
+    readonly query: string;
+    readonly traverse: string;
+  };
+  readonly actions: { readonly invoke: string; readonly receipt: string };
+  /** Read option names and concise guidance, including defaults. */
+  readonly options: Readonly<Record<string, SdkOptionDescription>>;
+  readonly results: {
+    readonly getOrToOne: string;
+    readonly queryOrToMany: string;
+    readonly pagination: string;
+    readonly evidence: string;
+  };
+  /** ReadError codes and how to inspect an invalid request. */
+  readonly errors: string;
+  readonly semantics: readonly string[];
+}
+
 export interface GraphDescription {
   readonly definitionId: string;
   /**
@@ -87,10 +101,11 @@ export interface GraphDescription {
    */
   readonly definitionRevision: string;
   readonly description?: string;
-  readonly objects: readonly ObjectSummary[];
-  readonly actions: readonly ActionSummary[];
-  /** How to call get, query and traversals; the same for every graph. */
-  readonly operations: OperationContracts;
+  /** All visible objects, keyed by their SDK/API names. */
+  readonly objects: Readonly<Record<string, ObjectOverview>>;
+  /** All visible actions, keyed by their SDK/API names. */
+  readonly actions: Readonly<Record<string, ActionOverview>>;
+  readonly sdk: SdkDescription;
 }
 
 export interface PropertyDescription {

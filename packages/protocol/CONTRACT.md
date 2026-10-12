@@ -54,12 +54,23 @@ membership; they do not enumerate provider-wide records.
 
 ## Discovery
 
-`GraphDescription`, `ObjectDescription`, `ActionDescription` and their summaries
-are the metadata one actor may see about a graph: readable object types, their
-authorized properties and traversals, executable actions and the SDK-owned
-`OperationContracts` that say how to call each read. Every scalar is reported as
-a `ScalarSchema`; `relate/model` validates compiled manifests against that same
-shape, so discovery never invents a constraint the compiler did not record.
+`GraphDescription` is a complete compact overview: graph identity/revision,
+optional description, `objects` and `actions` maps keyed by API name, and a
+shared `SdkDescription`. `ObjectOverview` contains an optional description and
+named `TraversalOverview` entries (target API name, cardinality, optional
+description). `ActionOverview` contains an optional description and readable
+created-object API names. Both target and created names refer to entries in the
+visible objects map. No search, truncation or pagination is applied.
+
+`ObjectDescription` and `ActionDescription` retain full identity, display
+metadata, authorized properties, traversals and action schemas. SDK options
+carry `SdkOptionDescription` (`description` and accepted `ReadOperation` kinds),
+so applicability is transport data, not inferred from prose. `sdk.errors`
+explains read failures and how to inspect request issues. Full read-contract
+types (`OperationContract`, `OperationContracts`) belong to `@relate/runtime`,
+not this transport. Every scalar in detail is reported as a `ScalarSchema`;
+`relate/model` validates compiled manifests against that same shape, so
+discovery never invents a constraint the compiler did not record.
 
 `Discovery` is the actor-bound interface: `describe()`, `describeObject(id)` and
 `describeAction(id)`. It is a pure function of one actor snapshot and the

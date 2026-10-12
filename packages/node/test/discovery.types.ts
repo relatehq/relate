@@ -16,6 +16,20 @@ const customerDescription = consumer.objects.Customer.describe();
 const actionDescription = consumer.actions.addAccountReview.describe();
 
 const graphId: string = graphDescription.definitionId;
+const traversalTarget: string | undefined =
+  graphDescription.objects.Customer?.traversals.invoices?.target;
+const creates: readonly string[] | undefined =
+  graphDescription.actions.addAccountReview?.creates;
+const queryGuide: string = graphDescription.sdk.reads.query;
+
+// @ts-expect-error option applicability is readonly
+graphDescription.sdk.options.limit!.operations.push('get');
+// @ts-expect-error option descriptions are readonly
+graphDescription.sdk.options.limit!.description = 'Unlimited';
+// @ts-expect-error overview entries are readonly
+graphDescription.objects.Customer = { traversals: {} };
+// @ts-expect-error root discovery no longer carries the verbose operations block
+graphDescription.operations;
 const customerName: string | undefined = customerDescription?.apiName;
 const actionName: string | undefined = actionDescription?.apiName;
 
@@ -24,4 +38,4 @@ consumer.objects.Missing.describe();
 // @ts-expect-error discovery does not add unregistered actions
 consumer.actions.missing.describe();
 
-void [graphId, customerName, actionName];
+void [graphId, customerName, actionName, traversalTarget, creates, queryGuide];

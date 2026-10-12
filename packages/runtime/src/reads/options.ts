@@ -2,6 +2,8 @@ import { ReadError } from '@relate/protocol';
 import type {
   Json,
   OptionDescription,
+  ReadOperation,
+  SdkOptionDescription,
   RequestIssue,
   ScalarSchema,
 } from '@relate/protocol';
@@ -9,10 +11,10 @@ import { isPlainObject } from 'relate/model';
 
 export type { OptionDescription };
 
-/** The read operations a caller can invoke; options and errors are defined per kind. */
-export type ReadOperation = 'get' | 'query' | 'traverse-many' | 'traverse-one';
+export type { ReadOperation } from '@relate/protocol';
 
 interface OptionRule extends OptionDescription {
+  readonly summary: string;
   readonly operations: readonly ReadOperation[];
   valid(value: unknown): boolean;
 }
@@ -33,6 +35,8 @@ const unsafe = ['__proto__', 'constructor', 'prototype'];
 const rules: readonly OptionRule[] = [
   {
     name: 'where',
+    summary:
+      '{ property: value } or { property: { eq, in, gt, gte, lt, lte } }. Conditions combine with AND. Ranges require numbers, timestamps or declared local datetimes.',
     type: '{ [property]: scalar | { eq?, in?, gt?, gte?, lt?, lte? } } (at most 100 properties)',
     description:
       "Scalar equality or operator objects on property names of the returned object, combined with AND (a traversal also requires the relationship). eq/in work on every scalar; gt/gte/lt/lte require numbers, timestamps or declared local datetimes. Operator entries also combine with AND. in accepts at most 100 values; [] matches nothing. Range operands are not limited by a number property's value bounds. Timestamp operands accept any timezone-qualified ISO instant with at most millisecond precision (for example 2026-10-01T00:00:00Z); comparison uses the instant. Use in, not a bare array, to match several values. null matches only explicit null; absence does not match. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
@@ -41,6 +45,8 @@ const rules: readonly OptionRule[] = [
   },
   {
     name: 'select',
+    summary:
+      'Property names to return (at most 100); defaults to all readable properties.',
     type: 'string[] (at most 100)',
     description:
       'Property names to return. Defaults to every property this reader may read; [] returns no property values.',
@@ -52,6 +58,7 @@ const rules: readonly OptionRule[] = [
   },
   {
     name: 'limit',
+    summary: 'maximum records per page, integer 1–100.',
     type: 'integer 1–100',
     default: 25,
     description:
@@ -64,6 +71,8 @@ const rules: readonly OptionRule[] = [
   },
   {
     name: 'cursor',
+    summary:
+      'continue the same call and options using page.meta.continuationCursor.',
     type: 'string',
     description:
       'page.meta.continuationCursor from the previous page of the same call with the same options (evidence may change). There is no offset or page-number paging.',
@@ -72,6 +81,8 @@ const rules: readonly OptionRule[] = [
   },
   {
     name: 'evidence',
+    summary:
+      "'compact' reports exceptional fields; 'full' includes evidence for every selected field.",
     type: "'compact' | 'full'",
     default: 'compact',
     description:
@@ -81,6 +92,7 @@ const rules: readonly OptionRule[] = [
   },
   {
     name: 'stale',
+    summary: "'allow' permits stale values; 'omit' withholds them.",
     type: "'allow' | 'omit'",
     default: 'allow',
     description:
@@ -90,6 +102,8 @@ const rules: readonly OptionRule[] = [
   },
   {
     name: 'maxAgeMs',
+    summary:
+      'Acceptable observation age before attempting refresh, in milliseconds (≥ 0).',
     type: 'number ≥ 0',
     default: 60_000,
     description:
@@ -100,6 +114,7 @@ const rules: readonly OptionRule[] = [
   },
   {
     name: 'refresh',
+    summary: 'Request a refresh even within maxAgeMs.',
     type: 'boolean',
     default: false,
     description: 'true requests a refresh even within maxAgeMs.',
@@ -108,6 +123,7 @@ const rules: readonly OptionRule[] = [
   },
   {
     name: 'requireComplete',
+    summary: 'Fail if a selected field is forbidden or unavailable.',
     type: 'boolean',
     default: false,
     description:
@@ -117,6 +133,7 @@ const rules: readonly OptionRule[] = [
   },
   {
     name: 'timeoutMs',
+    summary: 'Source-operation timeout in milliseconds (> 0, maximum 10000).',
     type: 'number > 0 and ≤ 10000',
     default: 3_000,
     description: 'Source-operation timeout.',
@@ -135,9 +152,35 @@ export function optionDescriptions(
 ): OptionDescription[] {
   return rules
     .filter((rule) => !operation || rule.operations.includes(operation))
-    .map(({ operations: _operations, valid: _valid, ...description }) => ({
-      ...description,
-    }));
+    .map(
+      ({
+        operations: _operations,
+        valid: _valid,
+        summary: _summary,
+        ...description
+      }) => ({
+        ...description,
+      }),
+    );
+}
+
+/** Compact documentation uses the same option inventory and defaults as detail. */
+export function optionSummaries(): Readonly<
+  Record<string, SdkOptionDescription>
+> {
+  return Object.fromEntries(
+    rules.map((rule) => [
+      rule.name,
+      {
+        description:
+          rule.summary +
+          (rule.default === undefined
+            ? ''
+            : ` Default: ${JSON.stringify(rule.default)}.`),
+        operations: [...rule.operations],
+      },
+    ]),
+  );
 }
 
 const optionNames = (operation: ReadOperation) =>

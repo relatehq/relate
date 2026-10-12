@@ -88,42 +88,33 @@ function createGraph() {
 const graphDescription: GraphDescription = {
   definitionId: 'graph',
   definitionRevision: 'sha256:test',
-  objects: [],
-  actions: [],
-  operations: {
-    get: {
-      signature: '',
-      returns: '',
-      description: '',
-      options: ['select', 'evidence'],
-    },
-    query: {
-      signature: '',
-      returns: '',
-      description: '',
-      collectionScope: 'graph-membership',
-      options: ['where', 'select', 'limit', 'cursor'],
-    },
-    traverse: {
-      description: '',
-      many: {
-        signature: '',
-        returns: '',
+  objects: {},
+  actions: {},
+  sdk: {
+    discovery: { object: '', action: '' },
+    reads: { get: '', query: '', traverse: '' },
+    actions: { invoke: '', receipt: '' },
+    options: {
+      where: { description: '', operations: ['query', 'traverse-many'] },
+      select: {
         description: '',
-        options: ['select', 'limit', 'cursor'],
+        operations: ['get', 'query', 'traverse-many', 'traverse-one'],
       },
-      one: { signature: '', returns: '', description: '', options: ['select'] },
+      limit: { description: '', operations: ['query', 'traverse-many'] },
+      cursor: { description: '', operations: ['query', 'traverse-many'] },
+      evidence: {
+        description: '',
+        operations: ['get', 'query', 'traverse-many', 'traverse-one'],
+      },
     },
-    options: [],
-    shapes: {
-      ObjectId: '',
-      ObjectResult: '',
-      ObjectRecord: '',
-      ReadMeta: '',
-      Page: '',
-      QueryResult: '',
+    results: {
+      getOrToOne: '',
+      queryOrToMany: '',
+      pagination: '',
+      evidence: '',
     },
     errors: '',
+    semantics: [],
   },
 };
 
@@ -358,11 +349,44 @@ it('decorates discovery with this facade’s call paths and asks discovery every
     'objects.Customer.get(id: ObjectId<Customer>, options?: { select?, evidence? }): Promise<ObjectResult<Customer>>',
   );
   expect(String(consumer.objects.Customer.traverse.reviews)).toBe(
-    'objects.Customer.traverse.reviews(id: ObjectId<Customer>, options?: { select?, limit?, cursor? }): QueryResult<Review>',
+    'objects.Customer.traverse.reviews(id: ObjectId<Customer>, options?: { where?, select?, limit?, cursor?, evidence? }): QueryResult<Review>',
   );
   expect(String(consumer.objects.Review.traverse.customer)).toBe(
-    'objects.Review.traverse.customer(id: ObjectId<Review>, options?: { select? }): Promise<ObjectResult<Customer>>',
+    'objects.Review.traverse.customer(id: ObjectId<Review>, options?: { select?, evidence? }): Promise<ObjectResult<Customer>>',
   );
+});
+
+it('prints each operation’s advertised options and caches successful signatures', () => {
+  const { graph } = createGraph();
+  const operations = createOperations(graph);
+
+  operations.discovery.describe.mockReturnValue({
+    ...graphDescription,
+    definitionRevision: compile(graph).definitionRevision,
+    sdk: {
+      ...graphDescription.sdk,
+      options: {
+        order: { description: 'Query only', operations: ['query'] },
+        lookup: { description: 'Get only', operations: ['get'] },
+        link: { description: 'To-one only', operations: ['traverse-one'] },
+      },
+    },
+  });
+
+  const consumer = createConsumer(compile(graph).consumer, operations);
+
+  // Binding checks compatibility; option formatting is lazy.
+  expect(operations.discovery.describe).toHaveBeenCalledTimes(1);
+  expect(String(consumer.objects.Customer.query)).toContain('{ order? }');
+  expect(String(consumer.objects.Customer.get)).toContain('{ lookup? }');
+  expect(String(consumer.objects.Review.traverse.customer)).toContain(
+    '{ link? }',
+  );
+  expect(String(consumer.objects.Customer.traverse.reviews)).toContain(
+    'options?: {  }',
+  );
+  expect(String(consumer.objects.Customer.query)).toContain('{ order? }');
+  expect(operations.discovery.describe).toHaveBeenCalledTimes(2);
 });
 
 it('prints operations without option names when discovery is unavailable', () => {

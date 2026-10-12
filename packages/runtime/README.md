@@ -18,8 +18,11 @@ and unpublished.
 - Observation validation and the pure ordering rule (`compareObservation`).
   Storage owns atomic acceptance; the runtime owns the rule.
 - `createMemoryStore()` for volatile storage.
-- `createDiscovery(model, principal)` and `operationContracts`: the actor-bound
-  metadata that `@relate/protocol` describes.
+- `createDiscovery(model, principal)` returns a compact, complete graph overview
+  with authorized traversal links and SDK guidance, plus on-demand object/action
+  detail. The separate `operationContracts` export and its `OperationContract` /
+  `OperationContracts` types retain the full read guide. Discovery metadata is
+  actor-bound and uses `@relate/protocol` shapes.
 - `@relate/runtime/storage`: the adapter extension boundary. `ObservationStore`,
   `NativeStore`, `NativeTransaction` and their errors are the contract that
   `@relate/postgres` and custom stores implement.

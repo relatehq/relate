@@ -10,16 +10,50 @@ Start with the graph overview:
 const consumer = relate.as(principal);
 const overview = consumer.describe();
 
-for (const object of overview.objects) {
-  console.log(object.apiName, object.description);
+for (const [name, object] of Object.entries(overview.objects)) {
+  console.log(name, object.description, object.traversals);
 }
-for (const action of overview.actions) {
-  console.log(action.apiName, action.description);
+for (const [name, action] of Object.entries(overview.actions)) {
+  console.log(name, action.description, action.creates);
 }
 ```
 
-The overview stays small. Ask for detail when a particular object or action is
-relevant:
+The overview includes every visible object and action, keyed by SDK name, plus
+all available traversal directions. It does not require search or pagination to
+understand the graph. For example, an overview of a Customer/Invoice graph has
+this `objects` map:
+
+```json
+{
+  "Customer": {
+    "description": "Organizations that buy our services.",
+    "traversals": {
+      "invoices": {
+        "target": "Invoice",
+        "cardinality": "many",
+        "description": "Invoices billed to this customer."
+      }
+    }
+  },
+  "Invoice": {
+    "description": "Amounts billed to customers.",
+    "traversals": {
+      "customer": {
+        "target": "Customer",
+        "cardinality": "one",
+        "description": "Customer billed by this invoice."
+      }
+    }
+  }
+}
+```
+
+Traversal targets and action `creates` entries name objects in that same map.
+Objects with no available traversals have `traversals: {}`; actions with no
+readable created types have `creates: []`. Unauthored descriptions are omitted.
+The root omits repeated definition IDs and labels; these remain in detail.
+
+Ask for detail when a particular object or action is relevant:
 
 ```ts
 const customer = consumer.objects.Customer.describe();
@@ -27,7 +61,7 @@ const addReview = consumer.actions.addAccountReview.describe();
 ```
 
 The overview also carries `definitionRevision`, the compiled model it describes;
-every read reports the same value in `meta.definitionRevision`.
+successful records report the same value in `meta.definitionRevision`.
 
 Object detail includes its stable definition ID, API name, display labels,
 description, authorized properties, and available traversal directions. Each
@@ -38,18 +72,31 @@ create.
 
 ## Learning the operations
 
-Discovery also says how to call each read, so an agent without TypeScript types
-(a REPL, plain JavaScript, or another transport) does not have to guess. The
-overview carries one SDK-owned contract shared by every graph:
+The root's `sdk` guide explains discovery, reads, actions, receipts, options,
+record/page shapes, pagination, evidence and read errors once. It replaces the
+verbose root `operations` block and does not repeat option arrays for every
+operation:
 
 ```ts
-const { operations } = consumer.describe();
+const { sdk } = consumer.describe();
 
-operations.query.options; // ['where', 'select', 'limit', 'cursor', 'evidence', …]
-operations.traverse.description; // traverse is an object of named functions…
-operations.options; // each option once: name, type, default, description
-operations.shapes.QueryResult; // await → one Page; for await → every record
+sdk.reads.query; // 'await objects.<Object>.query(options?)'
+sdk.actions.invoke; // 'await actions.<action>({ input, idempotencyKey })'
+sdk.options.limit;
+// { description: 'maximum records per page, integer 1–100. Default: 25.',
+//   operations: ['query', 'traverse-many'] }
+sdk.errors; // ReadError codes and error.issues guidance
+sdk.results.pagination; // await → one page; for await → every record
 ```
+
+`where`, `limit` and `cursor` apply only to queries and to-many traversals. The
+other read options also apply to get and to-one traversals. The guide includes
+option defaults and machine-readable `operations` for each option, derived from
+the same rules as request validation. Printed signatures use these operation
+sets. Detailed filter edge cases remain in [Reading Data](./reading-data.md) and
+actionable request errors. The full generic read contract and its
+`OperationContract` / `OperationContracts` types are exported from
+`@relate/runtime` for tooling; it is not included in root discovery.
 
 Object detail fills in the concrete calls and types:
 
@@ -107,8 +154,12 @@ String(consumer.objects.Customer.traverse.invoices);
 // objects.Customer.traverse.invoices(id: ObjectId<Customer>, options?: { select?, limit?, cursor?, … }): QueryResult<Invoice>
 ```
 
-A wrong call fails with a `ReadError` that names each problem and the accepted
-options. See [Read responses](../reference/read-responses.md#request-errors).
+A wrong call fails with `ReadError` code `invalid-request`; inspect
+`error.issues` for individual option, filter or argument problems. `unavailable`
+means a source could not be read; `incomplete` means required evidence was
+missing (`requireComplete` or a `where` property). This guidance is included in
+`sdk.errors`. See
+[Read responses](../reference/read-responses.md#request-errors).
 
 Discovery filters objects, restricted properties, traversals, and actions using
 the principal's roles, through the same checks the runtime applies when the

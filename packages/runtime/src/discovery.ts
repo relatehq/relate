@@ -15,7 +15,7 @@ import {
 } from './authorization/index.js';
 import { actionAllowed } from './actions/index.js';
 import { availableTraversals } from './traversal/index.js';
-import { operationContracts } from './contracts.js';
+import { sdkDescription } from './contracts.js';
 import { schemaText, filterOperators } from './reads/index.js';
 
 type ManifestObject = Manifest['objects'][number];
@@ -78,6 +78,15 @@ export function createDiscovery(
     (manifest.actions ?? []).filter((action) =>
       actionAllowed(manifest, principal, action),
     );
+  const visibleCreates = (action: ManifestAction) =>
+    action.creates.flatMap((id) => {
+      const object = readable(id);
+
+      return object ? [object] : [];
+    });
+  const traversals = memoize((id: string) =>
+    availableTraversals(manifest, principal, id),
+  );
 
   const describeObject = memoize(
     (definitionId: string): ObjectDescription | undefined => {
@@ -107,21 +116,19 @@ export function createDiscovery(
           ),
         }),
       );
-      const traversals = availableTraversals(
-        manifest,
-        principal,
-        object.id,
-      ).map(({ relationship, traversal, target }) => ({
-        relationshipDefinitionId: relationship.id,
-        name: traversal.name,
-        ...described(traversal.description),
-        cardinality: traversal.cardinality,
-        target: summary(target),
-        returns:
-          traversal.cardinality === 'many'
-            ? `QueryResult<${target.apiName}>`
-            : `Promise<ObjectResult<${target.apiName}>>`,
-      }));
+      const edges = traversals(object.id).map(
+        ({ relationship, traversal, target }) => ({
+          relationshipDefinitionId: relationship.id,
+          name: traversal.name,
+          ...described(traversal.description),
+          cardinality: traversal.cardinality,
+          target: summary(target),
+          returns:
+            traversal.cardinality === 'many'
+              ? `QueryResult<${target.apiName}>`
+              : `Promise<ObjectResult<${target.apiName}>>`,
+        }),
+      );
 
       return deepFreeze({
         ...summary(object),
@@ -133,7 +140,7 @@ export function createDiscovery(
           },
         },
         properties,
-        traversals,
+        traversals: edges,
       });
     },
   );
@@ -158,11 +165,7 @@ export function createDiscovery(
             actionFields(fields),
           ]),
         ),
-        creates: action.creates.flatMap((id) => {
-          const object = readable(id);
-
-          return object ? [summary(object)] : [];
-        }),
+        creates: visibleCreates(action).map(summary),
       });
     },
   );
@@ -173,13 +176,36 @@ export function createDiscovery(
       definitionId: manifest.graphDefinitionId,
       definitionRevision,
       ...described(manifest.description),
-      objects: manifest.objects.filter((o) => readable(o.id)).map(summary),
-      actions: visibleActions().map((action) => ({
-        definitionId: action.id,
-        apiName: action.apiName,
-        ...described(action.description),
-      })),
-      operations: operationContracts,
+      objects: Object.fromEntries(
+        manifest.objects
+          .filter((o) => readable(o.id))
+          .map((object) => [
+            object.apiName,
+            {
+              ...described(object.description),
+              traversals: Object.fromEntries(
+                traversals(object.id).map(({ traversal, target }) => [
+                  traversal.name,
+                  {
+                    target: target.apiName,
+                    cardinality: traversal.cardinality,
+                    ...described(traversal.description),
+                  },
+                ]),
+              ),
+            },
+          ]),
+      ),
+      actions: Object.fromEntries(
+        visibleActions().map((action) => [
+          action.apiName,
+          {
+            ...described(action.description),
+            creates: visibleCreates(action).map((object) => object.apiName),
+          },
+        ]),
+      ),
+      sdk: sdkDescription,
     }));
 
   return Object.freeze({
