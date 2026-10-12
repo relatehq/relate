@@ -111,7 +111,7 @@ it('records calls without changing how operations print', async () => {
   ]);
 
   expect(result.steps[0]!.result.output).toMatch(
-    /^objects\.Ticket\.traverse\.agents\(id: ObjectId<Ticket>, options\?: \{ select\?, limit\?, cursor\?/,
+    /^objects\.Ticket\.traverse\.agents\(id: ObjectId<Ticket>, options\?: \{ where\?, select\?, limit\?, cursor\?/,
   );
   expect(result.steps[0]!.result.output).toContain('operations');
   expect(result.operations).toEqual(['describe']);
