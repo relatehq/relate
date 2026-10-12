@@ -21,6 +21,13 @@ const reverse = await objects.Song.traverse.playlists(song, {
 reverse.data[0]?.meta.fields.name;
 // @ts-expect-error membership properties are not destination properties
 objects.Playlist.traverse.songs(playlist, { select: ['position'] });
+objects.Playlist.traverse.songs(playlist, {
+  where: { title: { in: ['a', 'b'] }, visible: true },
+});
+// @ts-expect-error filters address destination, not membership, properties
+objects.Playlist.traverse.songs(playlist, { where: { position: 1 } });
+// @ts-expect-error reverse filters belong to playlists
+objects.Song.traverse.playlists(song, { where: { title: 'a' } });
 // @ts-expect-error reverse selections belong to playlists
 objects.Song.traverse.playlists(song, { select: ['title'] });
 // @ts-expect-error root identity belongs to the playlist

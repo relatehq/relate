@@ -23,6 +23,33 @@ objects.Invoice.traverse.customer(invoiceId, { select: ['totalMinor'] });
 objects.Invoice.traverse.invoices(invoiceId);
 // @ts-expect-error to-one traversal does not paginate
 objects.Invoice.traverse.customer(invoiceId, { limit: 1 });
+// @ts-expect-error to-one traversal does not filter
+objects.Invoice.traverse.customer(invoiceId, { where: { name: 'north' } });
+const filtered = await objects.Customer.traverse.invoices(customerId, {
+  where: {
+    status: { in: ['open', 'paid'] },
+    totalMinor: { gte: 0, lt: 10_000 },
+    customer: customerId,
+  },
+  select: ['status'],
+});
+const filteredStatus: string | undefined = filtered.data[0]?.data.status;
+
+// @ts-expect-error filter fields are not automatically selected
+filtered.data[0]?.data.totalMinor;
+// @ts-expect-error filters address the destination type
+objects.Customer.traverse.invoices(customerId, { where: { portfolio: 'x' } });
+// @ts-expect-error filter values keep the destination's scalar type
+objects.Customer.traverse.invoices(customerId, { where: { totalMinor: '1' } });
+objects.Customer.traverse.invoices(customerId, {
+  // @ts-expect-error ordinary strings have no range operators
+  where: { status: { gt: 'a' } },
+});
+objects.Customer.traverse.invoices(customerId, {
+  // @ts-expect-error references keep their target brand
+  where: { customer: invoiceId },
+});
+void filteredStatus;
 // @ts-expect-error unknown traversal
 objects.Customer.traverse.unknown(customerId);
 // @ts-expect-error unselected properties are not exposed

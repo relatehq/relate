@@ -250,7 +250,7 @@ type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
     <K extends PropertyNames<E['target']> = PropertyNames<E['target']>>(
       id: ObjectId<O['id']>,
       options: (E['traversal']['cardinality'] extends 'many'
-        ? PageOptions<K, 'full'>
+        ? QueryOptions<E['target'], K, 'full'>
         : ReadOptions<K, 'full'>) & { readonly evidence: 'full' },
     ): E['traversal']['cardinality'] extends 'many'
       ? QueryResult<ObjectRecord<E['target'], K, 'full'>>
@@ -261,7 +261,7 @@ type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
     >(
       id: ObjectId<O['id']>,
       options?: E['traversal']['cardinality'] extends 'many'
-        ? PageOptions<K, M>
+        ? QueryOptions<E['target'], K, M>
         : ReadOptions<K, M>,
     ): E['traversal']['cardinality'] extends 'many'
       ? QueryResult<ObjectRecord<E['target'], K, M | 'compact'>>

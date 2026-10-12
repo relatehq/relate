@@ -18,8 +18,10 @@ export { presenting } from './present.js';
 
 export {
   compilePredicate,
+  compileWhere,
   matchesPredicate,
+  predicateMatcher,
   filterOperators,
 } from './predicates.js';
 
-export type { Predicate } from './predicates.js';
+export type { FilterProperty, Predicate } from './predicates.js';
