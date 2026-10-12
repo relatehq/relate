@@ -197,6 +197,15 @@ The batch revealed missing personal-rating data and a Node API-quota reset bug.
 Both were fixed afterward and checked offline; neither fix was reevaluated on a
 model. Read the report's limitations before interpreting the comparison.
 
+[Failure analysis and follow-ups](EXPANDED-FAMILIES.md#failure-clusters-and-paired-comparison)
+classify all 17 SDK failures and compare their Python counterparts: nine
+pagination/recovery failures, four bulk-write/quota failures, one missing-rating
+failure, two completion failures and one shared selection mistake. The initial
+discovery output hid pagination/iterator instructions in all 69 SDK episodes.
+Both interfaces passed all 24 read-only instances; the gap was in mutation
+tasks. The [checklist](EXPANDED-FAMILIES.md#follow-up-checklist) distinguishes
+completed offline fixes from remaining work and unevaluated hypotheses.
+
 ## Current main on two models
 
 [TWO-MODEL.md](TWO-MODEL.md) documents the single-pass evaluation of the

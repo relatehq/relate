@@ -1,0 +1,329 @@
+{
+  "batch": "expanded-haiku-20261012",
+  "evaluated_commit": "8a14a4eec94d1e140926ff4e68cf50d1c4684ea1",
+  "results_sha256": "2dc0e7b626fbc686416acc6658e50dc308fe97675c210725582c24c8dcb3a089",
+  "analysis_kind": "post-run descriptive analysis; primary causes are analyst classifications, not causal estimates",
+  "new_model_attempts": 0,
+  "scores_changed": false,
+  "paired_outcomes": {
+    "both_pass": 51,
+    "python_only_pass": 14,
+    "both_fail": 3,
+    "sdk_only_pass": 1
+  },
+  "cluster_counts": {
+    "pagination_and_recovery": {
+      "sdk_failures": 9,
+      "paired_python_passes": 9
+    },
+    "bulk_write_readback_and_quota": {
+      "sdk_failures": 4,
+      "paired_python_passes": 2
+    },
+    "missing_personal_rating": {
+      "sdk_failures": 1,
+      "paired_python_passes": 1
+    },
+    "task_completion": {
+      "sdk_failures": 2,
+      "paired_python_passes": 2
+    },
+    "selection_semantics": {
+      "sdk_failures": 1,
+      "paired_python_passes": 0
+    }
+  },
+  "discovery": {
+    "episodes_checked": 69,
+    "full_initial_describe_characters": 20629,
+    "visible_output_character_budget": 14000,
+    "visible_output_characters_including_truncation_notice": 14077,
+    "episodes_initial_cursor_and_iterator_instructions_truncated": 69,
+    "episodes_submitting_for_await": 0,
+    "causality": "Presentation defect confirmed; effect on outcomes not isolated by an experiment."
+  },
+  "read_only_families": [
+    "23cf851",
+    "27e1026",
+    "287e338",
+    "4ec8de5",
+    "50e1ac9",
+    "6bdbc26",
+    "e85d92a",
+    "fac291d"
+  ],
+  "subsets": {
+    "read_only": {
+      "raw": {
+        "attempts": 24,
+        "passed": 24,
+        "mean_turns": 4.75,
+        "estimated_usd": 0.0815713
+      },
+      "sdk": {
+        "attempts": 24,
+        "passed": 24,
+        "mean_turns": 7.833333333333333,
+        "estimated_usd": 0.2056021
+      }
+    },
+    "mutation": {
+      "raw": {
+        "attempts": 45,
+        "passed": 41,
+        "mean_turns": 6.2,
+        "estimated_usd": 0.23509950000000002
+      },
+      "sdk": {
+        "attempts": 45,
+        "passed": 28,
+        "mean_turns": 12.444444444444445,
+        "estimated_usd": 0.8183671
+      }
+    },
+    "both_pass": {
+      "raw": {
+        "attempts": 51,
+        "passed": 51,
+        "mean_turns": 5.352941176470588,
+        "estimated_usd": 0.2111028
+      },
+      "sdk": {
+        "attempts": 51,
+        "passed": 51,
+        "mean_turns": 9.568627450980392,
+        "estimated_usd": 0.6034993000000001
+      }
+    }
+  },
+  "sdk_failures_with_only_answer_assertion_failed": ["3ab5b8b_1", "c901732_1"],
+  "sdk_failures": [
+    {
+      "task": "692c77d_2",
+      "primary_cluster": "pagination_and_recovery",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 11,
+      "raw_steps": 9,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-692c77d_2-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-692c77d_2-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-692c77d_2-sdk/692c77d_2__sdk__0/steps.json",
+      "sdk_steps_sha256": "45d99f7b1e362a9b5ec3cfb7b2207da922e605f86fd88bceb4b79461dda8828b"
+    },
+    {
+      "task": "692c77d_3",
+      "primary_cluster": "missing_personal_rating",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 11,
+      "raw_steps": 6,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-692c77d_3-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-692c77d_3-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-692c77d_3-sdk/692c77d_3__sdk__0/steps.json",
+      "sdk_steps_sha256": "311b5351f6c377cf26eb437a00c3bf4b4de625d8cec44118e0bc96a41650b118"
+    },
+    {
+      "task": "ce359b5_2",
+      "primary_cluster": "bulk_write_readback_and_quota",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "step-budget",
+      "sdk_steps": 28,
+      "raw_steps": 7,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-ce359b5_2-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-ce359b5_2-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-ce359b5_2-sdk/ce359b5_2__sdk__0/steps.json",
+      "sdk_steps_sha256": "54a74c3adbbc18b8b7b4b6d465fd1e870728409af0cbc544df2d1945fb45851d"
+    },
+    {
+      "task": "ce359b5_3",
+      "primary_cluster": "bulk_write_readback_and_quota",
+      "sdk_success": false,
+      "raw_success": false,
+      "sdk_termination": "step-budget",
+      "sdk_steps": 28,
+      "raw_steps": 6,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-ce359b5_3-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-ce359b5_3-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-ce359b5_3-sdk/ce359b5_3__sdk__0/steps.json",
+      "sdk_steps_sha256": "cad25ec41041aa05dbd88b813b3b3b6d093c1b3496aa1e98e935f35adc731a21"
+    },
+    {
+      "task": "229360a_1",
+      "primary_cluster": "pagination_and_recovery",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "execution-timeout",
+      "sdk_steps": 7,
+      "raw_steps": 6,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-229360a_1-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-229360a_1-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-229360a_1-sdk/229360a_1__sdk__0/steps.json",
+      "sdk_steps_sha256": "bcf3de6982123ac93a3589d5cc1e7970c25939e4ef1c9502f85c9b29d9550665"
+    },
+    {
+      "task": "e3d6c94_2",
+      "primary_cluster": "pagination_and_recovery",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 14,
+      "raw_steps": 5,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-e3d6c94_2-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-e3d6c94_2-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-e3d6c94_2-sdk/e3d6c94_2__sdk__0/steps.json",
+      "sdk_steps_sha256": "882545091f5a52829c5d7e5a5bf011b56c6973045fd7d396fea63620e2cd8b61"
+    },
+    {
+      "task": "c901732_1",
+      "primary_cluster": "task_completion",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 7,
+      "raw_steps": 7,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-c901732_1-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-c901732_1-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-c901732_1-sdk/c901732_1__sdk__0/steps.json",
+      "sdk_steps_sha256": "524a6ace9727556e31d7bde56c46ee8ad2d4b4743c0f241500a87f5d0298e85e"
+    },
+    {
+      "task": "c901732_2",
+      "primary_cluster": "task_completion",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 7,
+      "raw_steps": 6,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-c901732_2-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-c901732_2-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-c901732_2-sdk/c901732_2__sdk__0/steps.json",
+      "sdk_steps_sha256": "e992a17263d0eba71c5468890271b8e2eaeef3699a798381675f2a924a654cb9"
+    },
+    {
+      "task": "aa8502b_3",
+      "primary_cluster": "pagination_and_recovery",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 9,
+      "raw_steps": 8,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-aa8502b_3-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-aa8502b_3-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-aa8502b_3-sdk/aa8502b_3__sdk__0/steps.json",
+      "sdk_steps_sha256": "44386c708c60fccdeeacd6c09a7e5af76195f3cdfacc5d376e10e79c7d4e65a3"
+    },
+    {
+      "task": "d4e9306_2",
+      "primary_cluster": "pagination_and_recovery",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 11,
+      "raw_steps": 6,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-d4e9306_2-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-d4e9306_2-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-d4e9306_2-sdk/d4e9306_2__sdk__0/steps.json",
+      "sdk_steps_sha256": "531fcc7b62c30c55f3d63ddc74ebcf15de84f2322b240994495bd1aefa6b2eec"
+    },
+    {
+      "task": "d4e9306_3",
+      "primary_cluster": "pagination_and_recovery",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 8,
+      "raw_steps": 5,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-d4e9306_3-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-d4e9306_3-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-d4e9306_3-sdk/d4e9306_3__sdk__0/steps.json",
+      "sdk_steps_sha256": "62138fac1ee326630dd9b86b03d042cba8d3c95a41f3cbfc859071b60ea1f279"
+    },
+    {
+      "task": "3ab5b8b_1",
+      "primary_cluster": "bulk_write_readback_and_quota",
+      "sdk_success": false,
+      "raw_success": false,
+      "sdk_termination": "step-budget",
+      "sdk_steps": 28,
+      "raw_steps": 7,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-3ab5b8b_1-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-3ab5b8b_1-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-3ab5b8b_1-sdk/3ab5b8b_1__sdk__0/steps.json",
+      "sdk_steps_sha256": "c6095c9a8eba7ae97728440cbfe3b7a07ced79d0d66da2603ca84c03301e9f93"
+    },
+    {
+      "task": "3ab5b8b_3",
+      "primary_cluster": "selection_semantics",
+      "sdk_success": false,
+      "raw_success": false,
+      "sdk_termination": "completed",
+      "sdk_steps": 13,
+      "raw_steps": 5,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-3ab5b8b_3-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-3ab5b8b_3-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-3ab5b8b_3-sdk/3ab5b8b_3__sdk__0/steps.json",
+      "sdk_steps_sha256": "7fb41d6d127d90c9f864840c9b889e5602f0ad055b3e41c4e65e323ad97c3bb5"
+    },
+    {
+      "task": "57c3486_1",
+      "primary_cluster": "pagination_and_recovery",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 15,
+      "raw_steps": 7,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-57c3486_1-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-57c3486_1-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-57c3486_1-sdk/57c3486_1__sdk__0/steps.json",
+      "sdk_steps_sha256": "2779b8b59c97badd8b6f94e02f710dcf9b58b2e1edca8492e8f000d489d9dd36"
+    },
+    {
+      "task": "57c3486_2",
+      "primary_cluster": "pagination_and_recovery",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 8,
+      "raw_steps": 7,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-57c3486_2-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-57c3486_2-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-57c3486_2-sdk/57c3486_2__sdk__0/steps.json",
+      "sdk_steps_sha256": "645dd4ac2eaece41cf3f7e9390d74484e4e76a97d6820600591fbf2f848f212e"
+    },
+    {
+      "task": "57c3486_3",
+      "primary_cluster": "bulk_write_readback_and_quota",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "step-budget",
+      "sdk_steps": 28,
+      "raw_steps": 8,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-57c3486_3-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-57c3486_3-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-57c3486_3-sdk/57c3486_3__sdk__0/steps.json",
+      "sdk_steps_sha256": "11bc41cccf9074d19e400bc3d0f4cf2e977d067cb23566bfc050f5e9d71a958d"
+    },
+    {
+      "task": "6171bbc_2",
+      "primary_cluster": "pagination_and_recovery",
+      "sdk_success": false,
+      "raw_success": true,
+      "sdk_termination": "completed",
+      "sdk_steps": 14,
+      "raw_steps": 8,
+      "sdk_trajectory": "expanded-haiku-20261012-haiku-6171bbc_2-sdk",
+      "raw_trajectory": "expanded-haiku-20261012-haiku-6171bbc_2-raw",
+      "local_sdk_steps": ".local/runs/expanded-haiku-20261012-haiku-6171bbc_2-sdk/6171bbc_2__sdk__0/steps.json",
+      "sdk_steps_sha256": "857707230cca7fe2f75856427e6409dab40c573514ba01a3be2ee736675cb6a8"
+    }
+  ],
+  "raw_failures": {
+    "ce359b5_3": "Removed matching playlist songs but omitted separate song-library removals.",
+    "3ab5b8b_1": "Selected liked playlists instead of liked songs within the playlist library.",
+    "3ab5b8b_2": "Downloaded liked songs without restricting to the saved-song library; SDK passed.",
+    "3ab5b8b_3": "Selected liked albums instead of liked songs within saved albums; both failed."
+  }
+}
