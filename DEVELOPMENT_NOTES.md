@@ -328,3 +328,16 @@ operators reject before scanning. Discovery includes each readable property's
 `filterOperators`. Normalized predicates are part of cursor scope, so cursors
 issued before this change must be restarted. Traversal filters and indexes are
 not part of this change; scans, authorization and freshness behavior remain.
+
+## Local calendar datetimes
+
+Use `localDateTime({ precision: "second" })` or
+`localDateTime({ precision: "millisecond" })` from `relate`. Values are
+fixed-precision `YYYY-MM-DDTHH:mm:ss` or `YYYY-MM-DDTHH:mm:ss.SSS`, years
+0001–9999, with real Gregorian dates and no offset. Calendar tuple comparison is
+timezone-independent. The application must declare a common clock domain or
+partition by one; local values cannot resolve DST ambiguity or cross-zone
+chronology. Plain strings and existing timestamps keep their contracts. Adoption
+changes the portable schema and definition revision, invalidating old cursors;
+recompile consumers and readopt/reacquire into the new revision. No silent
+conversion of existing strings or source pushdown occurs.
