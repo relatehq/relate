@@ -256,3 +256,37 @@ dev/research/appworld/.venv/bin/python dev/research/appworld/two_model_eval.py \
   --conditions sdk --credentials /Users/dennis/dev/vs/relate/.env \
   --jobs 3 --max-cost-usd 6
 ```
+
+All **6/6 passed**, versus 5/6 in the preceding contact-group batch. Evaluated
+source: `18e0fc8`. All 72 requests have usage; estimated cost **$0.06325828**.
+Each task/model combination ran exactly once.
+
+| Task             | Nano before → after     | Haiku before → after  |
+| ---------------- | ----------------------- | --------------------- |
+| Coworker total   | Pass 7 → Pass 7 turns   | Pass 5 → Pass 7 turns |
+| Friends actions  | Fail 16 → Pass 20 turns | Pass 8 → Pass 9 turns |
+| Roommate actions | Pass 17 → Pass 23 turns | Pass 7 → Pass 6 turns |
+
+Nano now selected and changed exactly the 12 friend payments. It used the
+existing `Transaction.recipientContactGroups` traversal with `kind: friend`,
+rather than the new direct membership fields. Therefore this single attempt does
+not show that the added fields caused its improvement. Nano did directly filter
+the new `kind` field for the coworker total, but omitted owner; that works in
+this single-owner snapshot and does not establish multi-owner correctness. The
+roommate run selected the correct eight payments and eventually completed all
+writes. Both Nano write tasks still hit action-input and persistent-variable
+errors before recovering. Success improved while total turns rose from 60 to 72.
+
+Validation: 53 Python tests, 15 Node tests, targeted ESLint and diff checks
+pass. Tests cover derived field consistency, canonical owner references,
+overlapping labels, another owner's group, direction, pagination and group
+traversal compatibility. No core SDK changes; no new full-repository check was
+run.
+
+All trajectories, source snapshots, provider responses, official evaluator
+results and world outputs are preserved. All 329 archived files were restored
+and hash-verified.
+[Metrics](evidence/contact-group-fields-20261012-results.json),
+[archive verification](evidence/contact-group-fields-20261012-archive.json), and
+`evidence/contact-group-fields-20261012.bundle` accompany the follow-up. Explore
+it at <http://127.0.0.1:8765/contact-group-fields/>.
