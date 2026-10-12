@@ -5,7 +5,9 @@ three frozen selection gates.** The snapshot TypeScript read control also
 qualifies and remains research infrastructure. Traversal filters passed the
 first two rounds but lost accuracy on holdout; the other five SDK candidates did
 not qualify in screening. All implementations remain in their isolated
-experiment branches.
+experiment branches. The supported SDK change is
+[PR #26: local calendar datetime schemas](https://github.com/relatehq/relate/pull/26),
+opened into main.
 
 **336 scored episodes, 4,780 model calls, $2.97 estimated model cost.** There
 were no infrastructure failures, missing scored episodes, or requests without

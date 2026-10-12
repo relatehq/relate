@@ -11,8 +11,9 @@ Recorded model cost was $2.97, with no infrastructure failures or missing usage.
 
 [EXPLAINER-STATUS.md](EXPLAINER-STATUS.md) preserves the seven independent SDK
 branches, frozen build identities, offline validation and reproduction commands.
-The promoted datetime implementation is integrated separately onto newer main;
-the evaluation branches remain frozen.
+The promoted datetime implementation is
+[PR #26](https://github.com/relatehq/relate/pull/26), integrated separately onto
+newer main; the evaluation branches remain frozen.
 
 ## Earlier independent ergonomics experiments
 

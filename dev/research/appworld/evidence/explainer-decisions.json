@@ -78,5 +78,24 @@
         "gate": true
       }
     }
+  },
+  "promotion_prs": {
+    "datetime": "https://github.com/relatehq/relate/pull/26"
+  },
+  "promotion_commit": "f88d0cd",
+  "promotion_validation": {
+    "pnpm_check": {
+      "exit": 0,
+      "tests_passed": 992,
+      "log_sha256": "6a43528f0134046050564e23974167a8e253393b8d502bc11ecd194844f29cb9"
+    },
+    "docs_check": {
+      "exit": 0,
+      "log_sha256": "3d47add8680c6d35cfdc33edbb9ebbeb2297187d7188b1b728cbe42e96334ace"
+    },
+    "research_pnpm_check_tests": 975,
+    "research_python_tests": 40,
+    "research_node_tests": 13,
+    "probe_pnpm_check_tests": 981
   }
 }
