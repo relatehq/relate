@@ -59,10 +59,12 @@ with AppWorld(
         execute("""var created=await run('createPlaylist',{title:'Adapter smoke playlist'});
           var playlist=(await relate.objects.Playlist.query({where:{sourceId:created.output.sourceId}})).data[0];
           if(!playlist)throw new Error('Created playlist not adopted');
-          await run('addPlaylistSong',{playlist:playlist.id,song:song.id});
+          """)
+        execute("""await run('addPlaylistSong',{playlist:playlist.id,song:song.id});
           var members=[]; for await (const x of relate.objects.Playlist.traverse.songs(playlist.id)) members.push(x.id);
           if(!members.includes(song.id))throw new Error('Added membership absent');
-          await run('removePlaylistSong',{playlist:playlist.id,song:song.id});
+          """)
+        execute("""await run('removePlaylistSong',{playlist:playlist.id,song:song.id});
           for await (const x of relate.objects.Playlist.traverse.songs(playlist.id)) throw new Error('Deleted membership retained');""")
         for name, args in [
             ("removeSavedSong", "{song:saved.data.song}"),
@@ -75,6 +77,10 @@ with AppWorld(
         ]:
             print(name, flush=True)
             execute(f"await run({json.dumps(name)},{args});")
+        execute("""var personal; for await (const record of relate.objects.SongState.query({where:{sourceId:song.data.sourceId}})) personal=record;
+          if(!personal)throw new Error('Song state missing for source '+song.data.sourceId);
+          if(personal.data.song!==song.id)throw new Error('Song reference changed: '+JSON.stringify({expected:song.id,actual:personal.data.song}));
+          if(personal.data.personalRating!==4)throw new Error('Personal rating readback missing');""")
         replay = execute("""var request={input:{title:'Replay smoke'},idempotencyKey:'fixed-create'};
           var first=await relate.actions.createPlaylist(request); var again=await relate.actions.createPlaylist(request);
           if(JSON.stringify(first)!==JSON.stringify(again))throw new Error('Receipt replay mismatch');

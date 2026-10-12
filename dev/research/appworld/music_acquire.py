@@ -47,6 +47,14 @@ def music_catalog(apis, token, owner):
     )
     if not referenced <= song_ids:
         raise ValueError("Catalog acquisition omitted referenced songs")
+    personal_ratings = {}
+    for song in songs:
+        reviews = pages(
+            api.show_song_reviews, song_id=song["song_id"], user_email=owner
+        )
+        if len(reviews) > 1:
+            raise ValueError("Multiple own reviews for one song")
+        personal_ratings[song["song_id"]] = reviews[0]["rating"] if reviews else None
     rows = {
         "MusicLibrary": [{"sourceId": owner, "owner": owner}],
         "Playlist": [
@@ -84,6 +92,7 @@ def music_catalog(apis, token, owner):
                 "sourceId": str(s["song_id"]),
                 "song": str(s["song_id"]),
                 "rating": s["rating"],
+                "personalRating": personal_ratings[s["song_id"]],
                 "liked": s["song_id"] in liked_songs,
                 "downloaded": s["song_id"] in downloaded,
             }

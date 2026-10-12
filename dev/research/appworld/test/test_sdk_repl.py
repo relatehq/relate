@@ -46,6 +46,16 @@ class SdkReplTests(unittest.TestCase):
         self.addCleanup(node.close)
         return node
 
+    def test_node_resets_request_quota_per_cell_without_erasing_history(self):
+        node = self.start()
+        calls = []
+        node.world.requester.request_tracker.requests.append({"marker": "setup"})
+        node.world.requester.reset_request_count = lambda: calls.append("reset")
+        node.request({"type": "execute", "code": "console.log('one')"})
+        node.request({"type": "execute", "code": "throw new Error('cell failure')"})
+        self.assertEqual(calls, ["reset", "reset"])
+        self.assertEqual(node.world.requester.request_tracker.requests, [{"marker": "setup"}])
+
     def start_writes(self, *, lose_response=False):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)

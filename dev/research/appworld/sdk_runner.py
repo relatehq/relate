@@ -141,6 +141,13 @@ class NodeRepl:
         self.process.stdin.flush()
 
     def request(self, value):
+        if value.get("type") == "execute":
+            # AppWorld resets its request quota for each Python world.execute cell.
+            # Node cells use the same boundary; retain the complete request history.
+            requester = getattr(self.world, "requester", None)
+            reset = getattr(requester, "reset_request_count", None)
+            if callable(reset):
+                reset()
         self.send(value)
         deadline = clock.real_perf_counter() + 60
         while True:

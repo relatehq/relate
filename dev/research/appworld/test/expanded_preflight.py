@@ -67,6 +67,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--tasks", nargs="+", default=ADDITIONAL_TASKS)
     parser.add_argument("--jobs", type=int, default=3)
+    parser.add_argument(
+        "--output", type=Path, default=HERE / "evidence/expanded-preflight.json"
+    )
     args = parser.parse_args()
     with ProcessPoolExecutor(max_workers=args.jobs) as pool:
         results = []
@@ -78,6 +81,6 @@ if __name__ == "__main__":
                 ),
                 flush=True,
             )
-    (HERE / "evidence/expanded-preflight.json").write_text(
+    args.output.write_text(
         json.dumps({"agent_attempts": 0, "results": results}, indent=2) + "\n"
     )

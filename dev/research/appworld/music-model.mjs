@@ -22,7 +22,17 @@ export const musicSchemas = {
   SongState: z.object({
     sourceId: z.string(),
     song: z.string(),
-    rating: z.number(),
+    rating: z
+      .number()
+      .describe(
+        'Public average rating across reviewers; not the current account rating',
+      ),
+    personalRating: z
+      .number()
+      .nullable()
+      .describe(
+        'This account own review rating, or null when it has not reviewed the song. Use for conditions on an existing personal rating.',
+      ),
     liked: z.boolean(),
     downloaded: z.boolean(),
   }),
@@ -66,7 +76,7 @@ export const musicDescriptions = {
   Artist:
     'Public Spotify artist catalog. followerCount is public; following is whether this authenticated account follows the artist.',
   SongState:
-    'One state row per catalog song: liked/downloaded are personal booleans for this account; rating is the public average song rating, not a personal review. Join song to Song.',
+    'One state row per catalog song: liked/downloaded are personal booleans for this account; rating is the public average song rating; personalRating is this account own rating or null when unrated. Use personalRating for conditions on an existing review. Join song to Song.',
   AlbumState:
     'Whether this authenticated account personally likes an album. Album download state is derived by checking downloaded on every SongState of its songs.',
   SongArtist:
