@@ -1,39 +1,54 @@
 # @relate/mcp
 
-> Development baseline (`0.0.0-dev.0`), for discussion and contribution only.
-> Not ready for application use. APIs and behavior are incomplete and may change
-> without notice.
+> Development baseline (`0.0.0-dev.0`). APIs may change. Packages are not yet
+> published.
 
-> [!WARNING]
->
-> Scaffold only. No implementation, executable or public exports exist yet.
-> Workspace dependencies record the intended package relationships.
+Two MCP tools over actor-bound Relate operations:
 
-MCP server adapter and a separate MCP client entry point.
+- `discover({})`: visible graph overview and JavaScript usage instructions.
+- `execute({ code })`: run an async function body with `graph` injected; return
+  a JSON result, captured stdout/stderr, or an error.
 
-## Planned responsibility
+```ts
+import { compile } from 'relate/compiler';
+import {
+  createDevelopmentExecutor,
+  createStreamableHttpHandler,
+} from '@relate/mcp';
 
-Expose a composed runtime to AI agents over the Model Context Protocol. For each
-object in the graph the server offers `get`, `query` and `traverse` tools, plus
-one tool per registered action. Tool inputs and outputs use the
-`@relate/protocol` shapes, so an agent sees the same data, evidence and
-sanitized errors as any other consumer, and only what the authenticated caller
-may see.
+const handleMcp = createStreamableHttpHandler({
+  executor: createDevelopmentExecutor(),
+  async bindGraph(request) {
+    const actor = await authenticate(request); // Host-owned authentication.
+    if (!actor) return new Response('Unauthorized', { status: 401 });
+    return {
+      description: compile(graph).consumer,
+      operations: runtime.operations(actor),
+    };
+  },
+});
+// Mount handleMcp(Request): Promise<Response> at /mcp in your HTTP host.
+```
 
-Object `label`, `pluralLabel` and `description` from the compiled model are
-intended to describe tools to agents. A separate client entry point is planned
-for Relate applications that consume other MCP servers.
+`connectStdio({ executor, bindGraph })` registers the same tools for stdio.
+`CodeExecutor` is replaceable; the supplied fresh-Node-process implementation is
+**for trusted development code, not a security sandbox**. It can access Node,
+the filesystem and network with the host user's permissions. Timeout/abort does
+not roll back graph actions already dispatched.
 
-## How it will fit
+Read the [MCP guide and execution flow](../../apps/docs/content/runtime/mcp.md)
+and [package contract](./CONTRACT.md). The adapter uses MCP SDK transports with
+protocol revisions 2025-03-26, 2025-06-18 and 2025-11-25.
 
-- Depends on `@relate/runtime` (execution) and `@relate/protocol` (shapes).
-- Serves the `ConsumerOperations` contract from `@relate/protocol`, obtained
-  from `relate.operations(principal)`; its `discovery` supplies tool names and
-  descriptions. The adapter never reaches into the engine or the typed facade.
-- Reuses the embedded consumer operations and actor-bound discovery. MCP is the
-  next major interface described in the [root roadmap](../../README.md#status);
-  no HTTP-first implementation order is required by this scaffold.
+From the repository root:
 
-Tool names, schemas and the client entry point are not fixed. See
-[`@relate/node`](../node/README.md) for the embedded behavior the adapter will
-preserve.
+```sh
+pnpm build
+pnpm --filter @relate/mcp example
+pnpm --filter @relate/mcp test
+pnpm --filter @relate/mcp test:packaging
+```
+
+The example runs discovery → query → action against a real in-memory graph. Add
+`--stdio` when launching `examples/discovery-query-action.ts` with `tsx` to
+connect a local MCP client.

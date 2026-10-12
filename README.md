@@ -265,23 +265,26 @@ for a complete example.
 
 ## Status
 
-| Works today                                                            | Not yet                                           |
-| ---------------------------------------------------------------------- | ------------------------------------------------- |
-| TypeScript authoring, compiler and diagnostics                         | Direct source queries and sync from sources       |
-| Objects backed by one source; references across sources                | One object enriched from several sources          |
-| Graph queries and to-many traversals with scalar and timestamp filters | Sorting, aggregates and indexed filters           |
-| Two-way relationship traversal                                         | **MCP and HTTP interfaces** (designed, not built) |
-| Role gates, claim filters, field-level access                          | Writing back to source systems                    |
-| Per-field evidence and freshness bounds                                | Migrating between model revisions                 |
-| Relate-owned objects, idempotent actions and receipts                  | Published npm packages                            |
-| In-memory and Postgres stores                                          | Work lineage graph of agent reads and actions     |
-| SQLite, Stripe and Salesforce (read-only) connectors                   |                                                   |
-| `relate dev` model inspector                                           |                                                   |
+| Works today                                                            | Not yet                                       |
+| ---------------------------------------------------------------------- | --------------------------------------------- |
+| TypeScript authoring, compiler and diagnostics                         | Direct source queries and sync from sources   |
+| Objects backed by one source; references across sources                | One object enriched from several sources      |
+| Graph queries and to-many traversals with scalar and timestamp filters | Sorting, aggregates and indexed filters       |
+| Two-way relationship traversal                                         | Standalone HTTP consumer API                  |
+| Role gates, claim filters, field-level access                          | Writing back to source systems                |
+| Per-field evidence and freshness bounds                                | Migrating between model revisions             |
+| Relate-owned objects, idempotent actions and receipts                  | Published npm packages                        |
+| In-memory and Postgres stores                                          | Work lineage graph of agent reads and actions |
+| SQLite, Stripe and Salesforce (read-only) connectors                   |                                               |
+| MCP discovery and JS execution (stdio / Streamable HTTP)               |                                               |
+| `relate dev` model inspector                                           |                                               |
 
-Relate runs embedded in a Node application today. Agent access through MCP is
-the next major piece. The intended shape is `get`, `query` and `traverse` tools
-per object plus one tool per action, all scoped to the authenticated caller. It
-isn't built yet.
+Relate runs embedded in a Node application and exposes actor-bound graph access
+through two MCP tools: `discover` and `execute`. Both stdio and Streamable HTTP
+use the same tools. The supplied subprocess executor is for trusted development
+code, not a security sandbox. See the
+[MCP guide](apps/docs/content/runtime/mcp.md) for host setup, execution flow,
+and a runnable example.
 
 After that comes work lineage: a graph of how an agent's work unfolded, linking
 each object it read, each traversal it followed and each action it took, so you

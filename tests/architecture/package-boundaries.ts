@@ -75,7 +75,21 @@ export const packagePolicies: Record<
     imports: ['@relate/protocol', 'relate', 'relate/consumer'],
   },
   'packages/http': { imports: ['@relate/runtime', '@relate/protocol'] },
-  'packages/mcp': { imports: ['@relate/runtime', '@relate/protocol'] },
+  'packages/mcp': {
+    imports: [
+      '@relate/protocol',
+      '@relate/mcp',
+      'relate/consumer',
+      'relate',
+      'relate/compiler',
+      '@relate/node',
+      '@modelcontextprotocol/server',
+      '@modelcontextprotocol/server/stdio',
+      '@modelcontextprotocol/client',
+      'zod',
+    ],
+    builtins: true,
+  },
   'packages/cli': {
     imports: [
       'relate',
