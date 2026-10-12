@@ -16,20 +16,33 @@ separate historical evidence and are excluded from these comparisons.
 
 ## Results
 
-Every cell is **candidate successes versus its own fresh paired control**. Each
-phase has 12 episodes per side: six tasks, two repeats. Control variation is
-visible; there is no single shared control score to substitute across arms.
+**How to read the scores:** “change 7/12; baseline 10/12” means the suggested
+change completed 7 of 12 attempts successfully, while the existing SDK completed
+10 of 12 equivalent attempts. Higher is better. These are task-completion scores
+from AppWorld's evaluator, not counts of correct API calls. An attempt can make
+errors, recover, and still pass.
 
-| Candidate                     | Screening      | Confirmation  | Holdout      | Decision                |
-| ----------------------------- | -------------- | ------------- | ------------ | ----------------------- |
-| Action outcome discovery      | 8/12 vs 8/12   | Not advanced  | Not advanced | Fails screening gate    |
-| Request diagnostics           | 8/12 vs 10/12  | Not advanced  | Not advanced | Fails screening gate    |
-| Explicit page/records methods | 7/12 vs 10/12  | Not advanced  | Not advanced | Fails screening gate    |
-| Local datetime                | 8/12 vs 8/12   | 10/12 vs 7/12 | 6/12 vs 5/12 | Promote SDK             |
-| Relationship predicates       | 8/12 vs 10/12  | Not advanced  | Not advanced | Fails screening gate    |
-| Traversal filters             | 11/12 vs 10/12 | 10/12 vs 9/12 | 5/12 vs 6/12 | Fails holdout gate      |
-| Acquisition coverage          | 6/12 vs 10/12  | Not advanced  | Not advanced | Fails screening gate    |
-| Snapshot TypeScript control   | 10/12 vs 8/12  | 11/12 vs 7/12 | 5/12 vs 5/12 | Retain research control |
+Each phase runs six tasks twice with the change and twice with its baseline: 12
+attempts on each side, 24 in the comparison. The baseline uses the frozen main
+fixes without that suggestion. Each suggestion gets fresh baseline runs on the
+same tasks with the same model settings and budgets. Model behavior varies
+between runs, so baseline scores differ across rows. “Versus” means this paired
+comparison; it does not mean before and after within one attempt.
+
+Screening is the initial comparison; confirmation repeats it with fresh runs;
+holdout uses the six preselected tasks outside the screening set. “Not advanced”
+means the suggestion failed screening and was not run in later phases.
+
+| Candidate                     | Screening                            | Confirmation                        | Holdout                            | Decision                |
+| ----------------------------- | ------------------------------------ | ----------------------------------- | ---------------------------------- | ----------------------- |
+| Action outcome discovery      | Change **8/12**; baseline **8/12**   | Not advanced                        | Not advanced                       | Fails screening gate    |
+| Request diagnostics           | Change **8/12**; baseline **10/12**  | Not advanced                        | Not advanced                       | Fails screening gate    |
+| Explicit page/records methods | Change **7/12**; baseline **10/12**  | Not advanced                        | Not advanced                       | Fails screening gate    |
+| Local datetime                | Change **8/12**; baseline **8/12**   | Change **10/12**; baseline **7/12** | Change **6/12**; baseline **5/12** | Promote SDK             |
+| Relationship predicates       | Change **8/12**; baseline **10/12**  | Not advanced                        | Not advanced                       | Fails screening gate    |
+| Traversal filters             | Change **11/12**; baseline **10/12** | Change **10/12**; baseline **9/12** | Change **5/12**; baseline **6/12** | Fails holdout gate      |
+| Acquisition coverage          | Change **6/12**; baseline **10/12**  | Not advanced                        | Not advanced                       | Fails screening gate    |
+| Snapshot TypeScript control   | Change **10/12**; baseline **8/12**  | Change **11/12**; baseline **7/12** | Change **5/12**; baseline **5/12** | Retain research control |
 
 The fixed gate requires more official passes, or equal passes with at least 10%
 fewer mean turns or input tokens and no more than 10% regression in the other
@@ -92,6 +105,64 @@ readoption/reacquisition and recompilation of consumers.
   #25 landed independently during this study; these results are insufficient
   evidence of agent-performance uplift for that feature.
 
+## Did explicit collection methods stop incorrect API calls?
+
+**No. Even the targeted collection-consumption errors remained.** Reviewing the
+12 collection-candidate traces and their own 12 paired baseline traces found:
+
+| Observed error turns                                                   | Existing SDK baseline | Explicit page/records change |
+| ---------------------------------------------------------------------- | --------------------: | ---------------------------: |
+| Confusing a query handle with a page, or losing its iterable interface |                     4 |                           11 |
+| Invalid read requests (operators or limits)                            |                     6 |                            9 |
+| Invalid action requests                                                |                     6 |                            7 |
+| Uncertain action outcomes (not classified as incorrect calls)          |                     0 |                            2 |
+| REPL variable redeclarations                                           |                    27 |                           41 |
+| Undefined variables                                                    |                     3 |                            0 |
+| Iterating an ordinary Promise from an async function                   |                     1 |                            0 |
+| **All error turns**                                                    |                **47** |                       **70** |
+
+The targeted collection mistakes occurred in **4/12 baseline episodes and 7/12
+candidate episodes**. Of the candidate's 11 collection errors, eight called
+`.records()` on an already-awaited page, two tried to iterate that page
+directly, and one called `.page()` on it. This recurring pattern was visible in
+the code as well as the error messages (illustrative names below):
+
+```ts
+// Incorrect: awaiting the thenable query resolves to a page.
+const result = await relate.objects.Person.query();
+for await (const person of result.records()) console.log(person);
+// TypeError: result.records(...) is not a function or its return value
+// is not async iterable
+```
+
+The explicit methods belong to the query handle, before it has been awaited:
+
+```ts
+// Stream records across pages. Do not await query() first.
+const query = relate.objects.Person.query();
+for await (const person of query.records()) console.log(person);
+
+// Or request just the starting page and read its data array.
+const page = await relate.objects.Person.query().page();
+for (const person of page.data) console.log(person);
+```
+
+The candidate retained the existing thenable query for compatibility, so adding
+method names did not remove the ambiguous `await query()` path. The 47 cells
+containing `.page(` or `.records(` demonstrate attempted use, not 47 successful
+invocations: some cells failed before those calls ran. Other API mistakes also
+persisted, including `$eq`, unsupported date-range operators on string
+properties, and oversized page limits.
+
+The [sanitized error audit](evidence/explainer-collections-errors.json) lists
+run/task/repeat/turn classifications and source hashes. Categories are mutually
+exclusive and count observed error turns, not every incorrect call, caught
+error, or silent task-logic mistake. The two `uncertain` action outcomes are
+deliberately separate from invalid requests. These small screening samples do
+not prove the methods cause more errors, but they provide no evidence that this
+implementation stopped the intended mistakes. No confirmation or holdout was run
+for this arm.
+
 ## Snapshot TypeScript control and harness friction
 
 The read control scored **26/36 versus 20/36** across its own paired episodes,
@@ -100,12 +171,122 @@ tokens. It passed screening and confirmation on accuracy and holdout on matching
 accuracy with lower turns/input tokens. This is useful evidence that
 consumer-interface friction deserves separate attention from graph modeling.
 
-This control receives the same normalized acquired records and semantic
-information as arrays, with plain TypeScript reads/joins. It retains the same
-SDK-backed action adapter, source-write journal and recovery behavior. It is
-**not a raw-provider or wholly SDK-free comparison**. Its eager materialization
-is recorded as setup work, including setup fetches; input-token efficiency is
-not a claim that all host work is free.
+“TS snapshot control” means a comparison condition where the model writes
+TypeScript against **arrays of the same normalized records**, instead of using
+Relate's consumer query and traversal methods. It asks: with data acquisition
+and semantic modeling held constant, how much does the read interface affect the
+agent's ability to solve the task?
+
+### How the control works
+
+1. The host acquires the same fixed AppWorld scope and normalizes source IDs and
+   properties using the same graph as the baseline. This is the acquired scope,
+   not every record available anywhere in AppWorld.
+2. Both conditions build the same SDK snapshot internally. The normal condition
+   exposes its consumer as `relate` in the persistent Node REPL.
+3. The control queries every discovered object internally, follows pagination,
+   clones each `{id, data, meta}` record, and exposes arrays as
+   `snapshot.records[apiName]`. This happens before the model starts solving.
+4. The model filters, joins and aggregates those arrays with ordinary
+   TypeScript. `snapshot.describe()` lists scope, object names and actions;
+   `snapshot.describeObject(apiName)` supplies properties and relationships,
+   with consumer-operation discovery removed. The `relate` global is not
+   exposed.
+5. Writes still use the same SDK actions and durable provider journal. When an
+   action returns a receipt, the wrapper reloads the arrays from the SDK before
+   returning that receipt. If the action throws, that reload is not reached.
+
+The materialization in [sdk-repl.mjs](sdk-repl.mjs) is:
+
+```ts
+const records = {};
+const graph = snapshot.consumer.describe();
+const reload = async () => {
+  for (const { apiName } of graph.objects) {
+    records[apiName] = [];
+    for await (const record of snapshot.consumer.objects[apiName].query()) {
+      records[apiName].push(structuredClone(record));
+    }
+  }
+};
+await reload();
+```
+
+Here `snapshot` is the host's internal SDK instance. The agent sees a separate
+object containing `records`, `actions`, `describe` and `describeObject`. For
+example, these two reads select the same person's outgoing payments (`personId`
+stands for a canonical Person ID already discovered by the agent):
+
+```ts
+// SDK condition: the query handle streams matching records across pages.
+const sdkPayments = [];
+for await (const payment of relate.objects.Transaction.query({
+  where: { sender: { eq: personId } },
+})) {
+  sdkPayments.push(payment);
+}
+
+// Snapshot control: the full acquired Transaction array is already loaded.
+const arrayPayments = snapshot.records.Transaction.filter(
+  (payment) => payment.data.sender === personId,
+);
+```
+
+Joins use the same canonical IDs and graph semantics, but the model implements
+them itself instead of invoking a traversal:
+
+```ts
+const peopleById = new Map(
+  snapshot.records.Person.map((person) => [person.id, person.data]),
+);
+const outgoing = snapshot.records.Transaction.filter(
+  (payment) => payment.data.sender === personId,
+).map((payment) => ({
+  amount: payment.data.amount,
+  recipient: peopleById.get(payment.data.receiver)?.name,
+}));
+console.log(outgoing);
+```
+
+The shared write path is wrapped this way (from the same REPL implementation):
+
+```ts
+const action = snapshot.consumer.actions[apiName];
+actions[apiName] = Object.assign(
+  async (request) => {
+    const receipt = await action(request);
+    await reload();
+    return receipt;
+  },
+  { describe: () => action.describe() },
+);
+```
+
+An agent invokes it as
+`await snapshot.actions[apiName]({input: {...}, idempotencyKey: "operation-key"})`,
+using the discovered action contract. Reloading arrays does not guarantee a new
+provider read succeeded: the shared action receipt can still report
+`refreshState: "pending"`. Recovery and uncertain-write handling remain the same
+as the SDK condition. Because reload replaces the arrays, references the agent
+saved to an old array are not automatically updated.
+
+### What the result does and does not establish
+
+This is **not a raw-provider or wholly SDK-free comparison**. Acquisition,
+normalization, canonical identity, semantic descriptions, SDK-backed actions and
+provider-write recovery remain shared. Original provider APIs and credentials
+are unavailable to the control agent. The changed surface is reading and joining
+preloaded data, together with the instructions/discovery needed for that
+surface. It does not measure the value of graph modeling against unmodeled raw
+APIs.
+
+Eager materialization is recorded as setup work, including setup fetches. Arrays
+avoid model-facing query pagination and request-shape mistakes, but move that
+work to the host and require memory for the acquired scope. Lower model input
+tokens are not proof that total host work is cheaper or that this approach
+scales to large/live datasets. The result supports further read-interface
+experiments; it does not establish that replacing the SDK with arrays is a
+product improvement.
 
 Across screening, 560 of 819 error turns (68.4%) were variable redeclarations.
 The persistent REPL binding behavior was held constant in both Node interfaces.

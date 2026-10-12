@@ -1,0 +1,1062 @@
+{
+  "batch": "explainer-main-screen-20261012",
+  "scope": "Only the 12 collections episodes and their 12 matched baseline episodes. Manual code review of each non-redeclaration error; mutually exclusive categories count error turns, not all API calls. Caught errors and silent mistakes are not counted. Uncertain action outcomes are not classified as invalid API calls.",
+  "ledger_sha256": "828fd059417447bb4b34d2bef7153a2c57f6905f6b21a3714237c8952d1c2e47",
+  "summary": {
+    "baseline": {
+      "invalid_read_request": 6,
+      "collection_handle_page_confusion": 4,
+      "repl_redeclaration": 27,
+      "invalid_action_request": 6,
+      "undefined_variable": 3,
+      "ordinary_promise_iteration": 1
+    },
+    "collections": {
+      "collection_handle_page_confusion": 11,
+      "repl_redeclaration": 41,
+      "invalid_read_request": 9,
+      "invalid_action_request": 7,
+      "uncertain_action_outcome": 2
+    }
+  },
+  "collection_error_episodes": {
+    "baseline": 4,
+    "collections": 7
+  },
+  "source_hashes": [
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r0",
+      "steps_sha256": "c49532c0490b106debcfdbca6f036ca0b2cfbf90e3261082009e55ae9fada11d"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "steps_sha256": "d90c78d58d9054dcde8569b9d0c6289d954e33d6230ca1dd56610fbee9710197"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "steps_sha256": "fa28e1776f876e47438e99760c1bbb348b92687b3fe75e7b6805b2885d5904a7"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r0",
+      "steps_sha256": "4ae780253be4d5dfe0490083e8a534466cca11438fc0a0146a8a209a2f1c20b9"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-d0b1f43_1-r0",
+      "steps_sha256": "959332e8e09b3454a0e6c6ee508d61f80f77e35e7813baf2a83986abba9d9b08"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r0",
+      "steps_sha256": "76598fb312101bbf1be34dab6c3a94830e8e3ca6befc2abbb7aef73adcc9f152"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r0",
+      "steps_sha256": "9f3c92b383224bddf96583409464d1b963d348edb80d74f88b3137399c005af2"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r0",
+      "steps_sha256": "ff01ea1c8656c008048edcd3e3748eb8e164325daed4e74cbe3504dfac2cc282"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-e7a10f8_3-r0",
+      "steps_sha256": "7c8b014769bf31cd8ec11f03e11612d4170c69f5e27fb4f6421c9bc743d736a0"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-e7a10f8_3-r0",
+      "steps_sha256": "ae104b86568de087143ed4a69aa07c96be7748751e8c145f4b3083158f825305"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-82e2fac_1-r0",
+      "steps_sha256": "d18cd37dc8c75430af9b0e6d8475aeda327bbbacf6ca0abe969b5a4456f9f635"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-82e2fac_1-r0",
+      "steps_sha256": "1bf24701561a244a9c2455621d06aa0e6e07c986381a3e64adf96ce69dc439ae"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r1",
+      "steps_sha256": "dd49c23a15ff8e3acf1e7d944ea02dc6303d61f2a4af9c288b207e6d8291b5ac"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r1",
+      "steps_sha256": "0e9b96badbb8e6db0d42f19effbcba14d9be2809ae4b97df6c8029f694865677"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r1",
+      "steps_sha256": "666a802d10f8f681bda119d2aaf7f5f5facd96a6c9f41df1a30e3952fe338e97"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r1",
+      "steps_sha256": "1ef0998d6948e833ecf5c65d98b90168ffe4de6c044e095701d37f8c7e1318db"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r1",
+      "steps_sha256": "099542bf1cf9ba12f8449b4899e4ead0f8e38990c6ee05c061cd4eda5a3ad690"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-d0b1f43_1-r1",
+      "steps_sha256": "263ffe4006d873bd9a1581991a0569fe876a5f02a5e1c8089a6113c5f4db284c"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r1",
+      "steps_sha256": "039e1af978acd246ec48bfb3b1a524fcbcdfb3f418a45390040f7ab7d8a9136b"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r1",
+      "steps_sha256": "beeea692930b324ec33c09660b2e35248106372e2d2c6fac9dd3d90924195601"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-e7a10f8_3-r1",
+      "steps_sha256": "4d5ecdd4862818dd7683fd9e4384c592794e81089b83627a84f8059bd3e54587"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-e7a10f8_3-r1",
+      "steps_sha256": "66325f407239b6fef54436a431ce26876fdef2535aa076f6852b79b95c153524"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-baseline-82e2fac_1-r1",
+      "steps_sha256": "2fe3b68e94db1db17dff151a183bf6cad7bea2c41acc21943d13f4a9d4a01ee7"
+    },
+    {
+      "run": "explainer-main-screen-20261012-collections-collections-82e2fac_1-r1",
+      "steps_sha256": "e9950c592885b0b39400798e2490327156c5b7031760f146deecadbc85907d76"
+    }
+  ],
+  "error_turns": [
+    {
+      "arm": "baseline",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r0",
+      "turn": 8,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r0",
+      "turn": 9,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r0",
+      "turn": 10,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r0",
+      "turn": 11,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r0",
+      "turn": 14,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r0",
+      "turn": 16,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "turn": 6,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "turn": 7,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "turn": 8,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "turn": 9,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "turn": 10,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "turn": 11,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "turn": 12,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "turn": 14,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "turn": 15,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r0",
+      "turn": 19,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 8,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 9,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 10,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 13,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 14,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 18,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 19,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 20,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 22,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 24,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r0",
+      "turn": 25,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r0",
+      "turn": 7,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r0",
+      "turn": 9,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r0",
+      "turn": 10,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r0",
+      "turn": 11,
+      "category": "undefined_variable"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r0",
+      "turn": 12,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r0",
+      "turn": 13,
+      "category": "undefined_variable"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r0",
+      "turn": 14,
+      "category": "undefined_variable"
+    },
+    {
+      "arm": "baseline",
+      "task": "d0b1f43_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-d0b1f43_1-r0",
+      "turn": 18,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r0",
+      "turn": 8,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r0",
+      "turn": 9,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r0",
+      "turn": 10,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r0",
+      "turn": 12,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r0",
+      "turn": 13,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r0",
+      "turn": 5,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r0",
+      "turn": 6,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r0",
+      "turn": 12,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r0",
+      "turn": 13,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r0",
+      "turn": 15,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r0",
+      "turn": 16,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r0",
+      "turn": 18,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r0",
+      "turn": 19,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r0",
+      "turn": 8,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r0",
+      "turn": 9,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r0",
+      "turn": 11,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r0",
+      "turn": 13,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r0",
+      "turn": 14,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r0",
+      "turn": 15,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "82e2fac_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-82e2fac_1-r0",
+      "turn": 5,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "82e2fac_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-collections-82e2fac_1-r0",
+      "turn": 6,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "82e2fac_1",
+      "repeat": 0,
+      "run": "explainer-main-screen-20261012-collections-baseline-82e2fac_1-r0",
+      "turn": 4,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r1",
+      "turn": 7,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r1",
+      "turn": 8,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r1",
+      "turn": 9,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r1",
+      "turn": 11,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r1",
+      "turn": 16,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r1",
+      "turn": 18,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_1-r1",
+      "turn": 20,
+      "category": "uncertain_action_outcome"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r1",
+      "turn": 6,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r1",
+      "turn": 7,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r1",
+      "turn": 11,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_1-r1",
+      "turn": 14,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r1",
+      "turn": 5,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r1",
+      "turn": 6,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r1",
+      "turn": 7,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r1",
+      "turn": 9,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r1",
+      "turn": 14,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r1",
+      "turn": 15,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_2-r1",
+      "turn": 18,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r1",
+      "turn": 4,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r1",
+      "turn": 6,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r1",
+      "turn": 8,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r1",
+      "turn": 9,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r1",
+      "turn": 12,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r1",
+      "turn": 14,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r1",
+      "turn": 15,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r1",
+      "turn": 17,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_2",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_2-r1",
+      "turn": 20,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r1",
+      "turn": 16,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r1",
+      "turn": 17,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r1",
+      "turn": 18,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r1",
+      "turn": 19,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r1",
+      "turn": 20,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r1",
+      "turn": 24,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r1",
+      "turn": 25,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r1",
+      "turn": 27,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-d0b1f43_1-r1",
+      "turn": 28,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-d0b1f43_1-r1",
+      "turn": 9,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-d0b1f43_1-r1",
+      "turn": 10,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-d0b1f43_1-r1",
+      "turn": 11,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "d0b1f43_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-d0b1f43_1-r1",
+      "turn": 12,
+      "category": "ordinary_promise_iteration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r1",
+      "turn": 7,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r1",
+      "turn": 10,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r1",
+      "turn": 11,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r1",
+      "turn": 14,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r1",
+      "turn": 15,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r1",
+      "turn": 16,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r1",
+      "turn": 17,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "baseline",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-afc0fce_3-r1",
+      "turn": 18,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r1",
+      "turn": 6,
+      "category": "invalid_read_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r1",
+      "turn": 7,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r1",
+      "turn": 8,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r1",
+      "turn": 9,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r1",
+      "turn": 11,
+      "category": "invalid_action_request"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r1",
+      "turn": 13,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r1",
+      "turn": 15,
+      "category": "uncertain_action_outcome"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r1",
+      "turn": 16,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "collections",
+      "task": "afc0fce_3",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-collections-afc0fce_3-r1",
+      "turn": 17,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "82e2fac_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-82e2fac_1-r1",
+      "turn": 5,
+      "category": "collection_handle_page_confusion"
+    },
+    {
+      "arm": "baseline",
+      "task": "82e2fac_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-82e2fac_1-r1",
+      "turn": 7,
+      "category": "repl_redeclaration"
+    },
+    {
+      "arm": "baseline",
+      "task": "82e2fac_1",
+      "repeat": 1,
+      "run": "explainer-main-screen-20261012-collections-baseline-82e2fac_1-r1",
+      "turn": 8,
+      "category": "repl_redeclaration"
+    }
+  ]
+}
