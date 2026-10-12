@@ -363,3 +363,52 @@ for (const failure of ['bridge-response', 'invalid-readback']) {
     }
   });
 }
+
+test('saved libraries remain distinct from playlist songs and album association', async () => {
+  const rows = {
+    Person: [{ sourceId: 'me', email: 'me', name: 'Me' }],
+    MusicLibrary: [{ sourceId: 'me', owner: 'me' }],
+    Album: [{ sourceId: 'a', title: 'Saved album' }],
+    Playlist: [{ sourceId: 'p', title: 'Playlist' }],
+    Song: ['playlist-only', 'saved-song', 'album-song'].map((id, i) => ({
+      sourceId: id,
+      title: id,
+      albumId: i === 1 ? null : 'a',
+      duration: 60,
+      genre: 'test',
+      releaseDate: '2023-01-01',
+      likeCount: 0,
+      playCount: i,
+      artistsJson: '[]',
+    })),
+    Membership: [{ sourceId: 'p:1', playlist: 'p', song: 'playlist-only' }],
+    SavedSong: [{ sourceId: 's', library: 'me', song: 'saved-song' }],
+    SavedAlbum: [{ sourceId: 'a', library: 'me', album: 'a' }],
+    AlbumMembership: [{ sourceId: 'a:s', album: 'a', song: 'album-song' }],
+  };
+  const snapshot = await createSdkSnapshot(rows);
+  try {
+    const api = snapshot.consumer;
+    const library = (await api.objects.MusicLibrary.query()).data[0];
+    const songs = [];
+    for await (const song of api.objects.MusicLibrary.traverse.savedSongs(
+      library.id,
+    ))
+      songs.push(song.data);
+    assert.deepEqual(
+      songs.map((s) => s.title),
+      ['saved-song'],
+    );
+    assert.equal(songs[0].albumId, null);
+    const albumSongs = [];
+    for await (const album of api.objects.MusicLibrary.traverse.savedAlbums(
+      library.id,
+    )) {
+      for await (const song of api.objects.Album.traverse.songs(album.id))
+        albumSongs.push(song.data.title);
+    }
+    assert.deepEqual(albumSongs, ['album-song']);
+  } finally {
+    await snapshot.close();
+  }
+});

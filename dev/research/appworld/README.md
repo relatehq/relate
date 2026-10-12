@@ -336,3 +336,15 @@ Run the synthetic accounting regressions without paid model calls:
 ```sh
 dev/research/appworld/.venv/bin/python -m unittest discover -s dev/research/appworld/test -p 'test_accounting.py' -v
 ```
+
+### Explicit Spotify library membership
+
+SDK and snapshot acquisition now exhaust the playlist, saved-song, and
+saved-album library APIs, and fetch every distinct song in those collections.
+`MusicLibrary.savedSongs` selects the saved song library;
+`MusicLibrary.savedAlbums` followed by `Album.songs` selects songs in saved
+albums (deduplicate song IDs when combining albums). `Playlist.songs` retains
+its separate membership. `Song.query()` is the union, not a personal library.
+`Song.albumId` is nullable and denotes an original album association only.
+Library ownership references the supervisor's canonical `Person`. Historical
+runs and the legacy Python acquisition path are unchanged.

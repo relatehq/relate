@@ -94,7 +94,7 @@ def graph_payments(apis, phone_token, venmo_token, supervisor):
     }
 
 
-def music(apis, token):
+def music(apis, token, owner=None):
     playlists = []
     for page in range(100):
         rows = apis.spotify.show_playlist_library(
@@ -108,6 +108,10 @@ def music(apis, token):
     else:
         raise ValueError("Collection acquisition cap reached; no complete snapshot")
     song_ids = sorted({sid for p in playlists for sid in p["song_ids"]})
+    saved_songs = pages(apis.spotify.show_song_library, access_token=token) if owner else []
+    saved_albums = pages(apis.spotify.show_album_library, access_token=token) if owner else []
+    song_ids = sorted(set(song_ids) | {s["song_id"] for s in saved_songs}
+                      | {sid for a in saved_albums for sid in a["song_ids"]})
     songs = [apis.spotify.show_song(song_id=sid) for sid in song_ids]
     loaded_rows = {
         "Playlist": [
@@ -117,7 +121,7 @@ def music(apis, token):
             {
                 "sourceId": str(s["song_id"]),
                 "title": s["title"],
-                "albumId": str(s["album_id"]),
+                "albumId": str(s["album_id"]) if s["album_id"] is not None or owner is None else None,
                 "duration": s["duration"],
                 "genre": s["genre"],
                 "releaseDate": s["release_date"],
@@ -137,4 +141,12 @@ def music(apis, token):
             for sid in p["song_ids"]
         ],
     }
+    if owner:
+        loaded_rows.update({
+            "MusicLibrary": [{"sourceId": owner, "owner": owner}],
+            "Album": [{"sourceId": str(a["album_id"]), "title": a["title"]} for a in saved_albums],
+            "SavedSong": [{"sourceId": f"{owner}:{s['song_id']}", "library": owner, "song": str(s["song_id"])} for s in saved_songs],
+            "SavedAlbum": [{"sourceId": f"{owner}:{a['album_id']}", "library": owner, "album": str(a["album_id"])} for a in saved_albums],
+            "AlbumMembership": [{"sourceId": f"{a['album_id']}:{sid}", "album": str(a["album_id"]), "song": str(sid)} for a in saved_albums for sid in a["song_ids"]],
+        })
     return loaded_rows

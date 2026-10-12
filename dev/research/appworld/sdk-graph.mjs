@@ -18,6 +18,10 @@ import {
 } from 'relate';
 
 const targets = {
+  MusicLibrary: { owner: 'Person' },
+  SavedSong: { library: 'MusicLibrary', song: 'Song' },
+  SavedAlbum: { library: 'MusicLibrary', album: 'Album' },
+  AlbumMembership: { album: 'Album', song: 'Song' },
   Membership: { playlist: 'Playlist', song: 'Song' },
   Transaction: { sender: 'Person', receiver: 'Person' },
   ContactRelationship: { owner: 'Person', contact: 'Person' },
@@ -28,7 +32,14 @@ const targets = {
 export function model() {
   const descriptions = {
     Playlist: 'A playlist in the user’s Spotify playlist library.',
-    Song: 'A song occurring in that playlist library.',
+    Song: 'A song acquired from playlists, saved songs, or saved albums. Querying all songs does not select a personal library. Use MusicLibrary.savedSongs for the song library, or MusicLibrary.savedAlbums then Album.songs for the album library.',
+    MusicLibrary:
+      'The authenticated user’s Spotify library. savedSongs and savedAlbums are distinct, fully acquired personal collections. Record completeness describes fields, not library membership.',
+    Album:
+      'An album in the user’s saved album library; songs contains every song in that album.',
+    SavedSong: 'Explicit membership in the user’s saved song library.',
+    SavedAlbum: 'Explicit membership in the user’s saved album library.',
+    AlbumMembership: 'A song belonging to an acquired album.',
     Membership:
       'A playlist-to-song association. sourceId joins the original playlist and song IDs with a colon.',
     Person:
@@ -44,11 +55,28 @@ export function model() {
     claims: {},
   });
   const schemas = {
+    MusicLibrary: z.object({ sourceId: z.string(), owner: z.string() }),
+    Album: z.object({ sourceId: z.string(), title: z.string() }),
+    SavedSong: z.object({
+      sourceId: z.string(),
+      library: z.string(),
+      song: z.string(),
+    }),
+    SavedAlbum: z.object({
+      sourceId: z.string(),
+      library: z.string(),
+      album: z.string(),
+    }),
+    AlbumMembership: z.object({
+      sourceId: z.string(),
+      album: z.string(),
+      song: z.string(),
+    }),
     Playlist: z.object({ sourceId: z.string(), title: z.string() }),
     Song: z.object({
       sourceId: z.string(),
       title: z.string(),
-      albumId: z.string(),
+      albumId: z.string().nullable(),
       duration: z.number(),
       genre: z.string(),
       releaseDate: z.string(),
@@ -86,6 +114,8 @@ export function model() {
   };
   const propertyDescriptions = {
     Song: {
+      albumId:
+        'Original album ID, or null for no album. An album association does not establish saved-library membership.',
       duration: 'Duration of the song in seconds.',
       releaseDate:
         'Release date of the song, preserved as the source datetime string. AppWorld datetimes are deliberately timezone-free and do not identify UTC instants.',
@@ -134,6 +164,11 @@ export function model() {
     'Playlist',
     'Song',
     'Person',
+    'MusicLibrary',
+    'Album',
+    'SavedSong',
+    'SavedAlbum',
+    'AlbumMembership',
     'ContactRelationship',
     'Membership',
     'Transaction',
@@ -171,6 +206,39 @@ export function model() {
   }
 
   const relationships = {
+    LibraryOwner: defineRelationship({
+      id: 'person.music-library',
+      forward: 'musicLibraries',
+      reverse: 'owner',
+      via: objects.MusicLibrary.properties.owner,
+    }),
+    SavedSongs: defineRelationship({
+      id: 'library.saved-songs',
+      forward: 'savedSongs',
+      reverse: 'savedInLibraries',
+      through: {
+        from: objects.SavedSong.properties.library,
+        to: objects.SavedSong.properties.song,
+      },
+    }),
+    SavedAlbums: defineRelationship({
+      id: 'library.saved-albums',
+      forward: 'savedAlbums',
+      reverse: 'savedInLibraries',
+      through: {
+        from: objects.SavedAlbum.properties.library,
+        to: objects.SavedAlbum.properties.album,
+      },
+    }),
+    AlbumSongs: defineRelationship({
+      id: 'album.songs',
+      forward: 'songs',
+      reverse: 'albums',
+      through: {
+        from: objects.AlbumMembership.properties.album,
+        to: objects.AlbumMembership.properties.song,
+      },
+    }),
     OwnedContactRelationships: defineRelationship({
       id: 'person.contact-relationships',
       forward: 'contactRelationships',
@@ -266,7 +334,7 @@ export function model() {
   const graph = defineGraph({
     id: 'appworld-sdk-snapshot',
     description:
-      'Snapshot of all playlist-library pages and their member songs, phone contacts with email and explicit owner-scoped contact labels, the supplied supervisor identity, and own Venmo transactions. Excludes other music libraries, personal liked/downloaded state, social feed and payment requests. Source IDs are for original APIs; graph references are canonical IDs.',
+      'Snapshot of all playlist, saved-song and saved-album library pages, explicit library memberships and every song in those playlists and albums, phone contacts with email and explicit owner-scoped contact labels, the supplied supervisor identity, and own Venmo transactions. Excludes personal liked/downloaded state, social feed and payment requests. Source IDs are for original APIs; graph references are canonical IDs.',
     objects,
     actions,
     relationships,
@@ -414,6 +482,11 @@ export async function createSdkSnapshot(rows, writeSource, options = {}) {
 
   try {
     for (const kind of [
+      'MusicLibrary',
+      'Album',
+      'SavedSong',
+      'SavedAlbum',
+      'AlbumMembership',
       'Playlist',
       'Song',
       'Person',

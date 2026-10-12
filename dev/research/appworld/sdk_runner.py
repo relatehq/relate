@@ -278,7 +278,7 @@ def run(args, key, task_id, condition, repeat, spent):
             if condition in {"sdk", "snapshot_ts"}:
                 acquire_start = clock.real_perf_counter()
                 # Same fixed coverage for every task; no task-id/answer-based routing.
-                rows = music(world.apis, tokens["spotify"]) | graph_payments(
+                rows = music(world.apis, tokens["spotify"], world.task.supervisor.email) | graph_payments(
                     world.apis,
                     tokens["phone"],
                     tokens["venmo"],

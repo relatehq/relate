@@ -5,10 +5,39 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from acquire import graph_payments, pages, payments
+from acquire import graph_payments, pages, payments, music
 
 
 class AcquireTests(unittest.TestCase):
+    def test_music_acquires_all_libraries_without_conflating_memberships(self):
+        calls = {}
+        def paginated(name, rows):
+            def api(**kwargs):
+                index = kwargs['page_index']
+                calls.setdefault(name, []).append(index)
+                return rows[index:index + 1]
+            return api
+        fetched = []
+        def song(song_id):
+            fetched.append(song_id)
+            return dict(song_id=song_id, title=str(song_id), album_id=None,
+                        duration=60, genre='test', release_date='2023-01-01',
+                        like_count=0, play_count=1, artists=[])
+        api = SimpleNamespace(spotify=SimpleNamespace(
+            show_playlist_library=paginated('playlists', [dict(playlist_id=1, title='P', song_ids=[1])]),
+            show_song_library=paginated('songs', [dict(song_id=2), dict(song_id=3)]),
+            show_album_library=paginated('albums', [dict(album_id=1, title='A', song_ids=[3,4])]),
+            show_song=song,
+        ))
+        rows = music(api, 'token', 'owner')
+        self.assertEqual(fetched, [1,2,3,4])
+        self.assertEqual(calls['songs'], [0,1,2])
+        self.assertEqual(calls['albums'], [0,1])
+        self.assertEqual({r['song'] for r in rows['SavedSong']}, {'2','3'})
+        self.assertEqual({r['song'] for r in rows['AlbumMembership']}, {'3','4'})
+        self.assertEqual({r['song'] for r in rows['Membership']}, {'1'})
+        self.assertTrue(all(r['albumId'] is None for r in rows['Song']))
+
     def test_pages_checks_terminal_empty_page(self):
         calls = []
 
