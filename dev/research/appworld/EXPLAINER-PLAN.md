@@ -69,3 +69,20 @@ episode has run against this baseline yet. Historical attempts and earlier
 readiness hashes do not serve as current controls. Preparation must regenerate
 exact patches, builds and harness hashes before online work resumes; all
 selection, budget and promotion rules above remain unchanged.
+
+## Online execution freeze, 2026-10-12
+
+The owner has authorized running all model evaluations now that connectivity has
+recovered. Screening uses all seven SDK candidates and the snapshot read
+control, each paired with fresh main-baseline episodes: 192 episodes, two
+repeats of the original six screening tasks, nano low and the unchanged budgets.
+Every batch retains the $5 estimated-cost ceiling. Confirmation uses two fresh
+repeats of the screening tasks for qualifying candidates only.
+
+Before observing any new outcomes, freeze the holdout IDs to `82e2fac_2`,
+`82e2fac_3`, `d0b1f43_2`, `d0b1f43_3`, `e7a10f8_1`, `e7a10f8_2`: the six
+remaining train/dev sibling IDs outside screening in these task families. Use
+two repeats and matched fresh controls. These are held out from this study's
+screening and selection, not a claim that no historical study ever used them. No
+prompt, graph, candidate or budget tuning based on the resulting episodes. An
+infrastructure failure stops its batch and is reported with attempted usage.
