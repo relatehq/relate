@@ -60,6 +60,11 @@ class AcquireTests(unittest.TestCase):
         self.assertEqual({(groups[r["group"]], r["transaction"]) for r in rows["ContactGroupSentPayment"]},
                          {("friend", "outgoing"), ("roommate", "outgoing")})
         self.assertEqual(len(rows["ContactGroupReceivedPayment"]), 3)
+        for name in ["ContactGroupReceivedPayment", "ContactGroupSentPayment"]:
+            for link in rows[name]:
+                self.assertEqual(link["owner"], "alice")
+                self.assertEqual(link["kind"], groups[link["group"]])
+
 
     def test_pages_checks_terminal_empty_page(self):
         calls = []

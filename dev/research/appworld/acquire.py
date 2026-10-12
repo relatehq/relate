@@ -96,7 +96,7 @@ def graph_payments(apis, phone_token, venmo_token, supervisor):
         members[member] = {"sourceId": member, "group": group, "person": contact}
         for transaction in rows["Transaction"]:
             identity = json.dumps([group, transaction["sourceId"]], separators=(",", ":"))
-            link = {"sourceId": identity, "group": group, "transaction": transaction["sourceId"]}
+            link = {"sourceId": identity, "group": group, "owner": groups[group]["owner"], "kind": groups[group]["kind"], "transaction": transaction["sourceId"]}
             if transaction["receiver"] == owner and transaction["sender"] == contact:
                 received[identity] = link
             if transaction["sender"] == owner and transaction["receiver"] == contact:

@@ -21,10 +21,12 @@ const targets = {
   ContactGroup: { owner: 'Person' },
   ContactGroupMember: { group: 'ContactGroup', person: 'Person' },
   ContactGroupReceivedPayment: {
+    owner: 'Person',
     group: 'ContactGroup',
     transaction: 'Transaction',
   },
   ContactGroupSentPayment: {
+    owner: 'Person',
     group: 'ContactGroup',
     transaction: 'Transaction',
   },
@@ -46,9 +48,9 @@ export function model() {
     ContactGroupMember:
       'Derived membership from an explicit owner-assigned contact label.',
     ContactGroupReceivedPayment:
-      'A payment whose receiver is the group owner and whose sender is a group member.',
+      'One link between a contact group and a payment received by its owner from a member. This collection includes every contact-group kind. Filter owner and kind to select friends, coworkers, or roommates. The same transaction can appear under multiple groups; deduplicate transaction references.',
     ContactGroupSentPayment:
-      'A payment whose sender is the group owner and whose receiver is a group member.',
+      'One link between a contact group and a payment sent by its owner to a member. This collection includes every contact-group kind. Filter owner and kind to select friends, coworkers, or roommates. The same transaction can appear under multiple groups; deduplicate transaction references.',
     Playlist: 'A playlist in the user’s Spotify playlist library.',
     Song: 'A song acquired from playlists, saved songs, or saved albums. Querying all songs does not select a personal library. Use MusicLibrary.savedSongs for the song library, or MusicLibrary.savedAlbums then Album.songs for the album library.',
     MusicLibrary:
@@ -85,11 +87,15 @@ export function model() {
     }),
     ContactGroupReceivedPayment: z.object({
       sourceId: z.string(),
+      owner: z.string(),
+      kind: z.string(),
       group: z.string(),
       transaction: z.string(),
     }),
     ContactGroupSentPayment: z.object({
       sourceId: z.string(),
+      owner: z.string(),
+      kind: z.string(),
       group: z.string(),
       transaction: z.string(),
     }),
@@ -151,6 +157,16 @@ export function model() {
     }),
   };
   const propertyDescriptions = {
+    ContactGroupReceivedPayment: {
+      owner:
+        'Group owner who received this payment. Derived from group.owner; filter together with kind.',
+      kind: 'Exact owner-assigned contact label, derived from group.kind. Use friend for friends, coworker for coworkers, or roommate for roommates.',
+    },
+    ContactGroupSentPayment: {
+      owner:
+        'Group owner who sent this payment. Derived from group.owner; filter together with kind.',
+      kind: 'Exact owner-assigned contact label, derived from group.kind. Use friend for friends, coworker for coworkers, or roommate for roommates.',
+    },
     Song: {
       albumId:
         'Original album ID, or null for no album. An album association does not establish saved-library membership.',

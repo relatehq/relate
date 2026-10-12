@@ -445,14 +445,46 @@ test('contact groups traverse canonical payments with dates, pagination, and sha
       payment('old', 'bob', 'alice', '2023-01-01T00:00:00'),
       payment('new', 'bob', 'alice', '2023-02-02T00:00:00'),
       payment('sent', 'alice', 'bob', '2023-02-03T00:00:00'),
+      payment('other', 'bob', 'eve', '2023-02-03T00:00:00'),
     ],
     ContactGroupReceivedPayment: [
-      { sourceId: 'r1', group: 'friends', transaction: 'old' },
-      { sourceId: 'r2', group: 'friends', transaction: 'new' },
-      { sourceId: 'r3', group: 'roommates', transaction: 'new' },
+      {
+        sourceId: 'r4',
+        group: 'others',
+        owner: 'eve',
+        kind: 'friend',
+        transaction: 'other',
+      },
+      {
+        sourceId: 'r1',
+        group: 'friends',
+        owner: 'alice',
+        kind: 'friend',
+        transaction: 'old',
+      },
+      {
+        sourceId: 'r2',
+        group: 'friends',
+        owner: 'alice',
+        kind: 'friend',
+        transaction: 'new',
+      },
+      {
+        sourceId: 'r3',
+        group: 'roommates',
+        owner: 'alice',
+        kind: 'roommate',
+        transaction: 'new',
+      },
     ],
     ContactGroupSentPayment: [
-      { sourceId: 's1', group: 'friends', transaction: 'sent' },
+      {
+        sourceId: 's1',
+        group: 'friends',
+        owner: 'alice',
+        kind: 'friend',
+        transaction: 'sent',
+      },
     ],
   });
 
@@ -504,6 +536,36 @@ test('contact groups traverse canonical payments with dates, pagination, and sha
     );
 
     assert.equal(shared[0].id, recent[0].id);
+    const direct = await collect(
+      api.objects.ContactGroupReceivedPayment.query({
+        where: { owner: alice.id, kind: 'friend' },
+        select: ['transaction', 'owner', 'kind'],
+        limit: 1,
+      }),
+    );
+
+    assert.deepEqual(
+      direct.map((r) => r.data.transaction).sort(),
+      incoming.map((r) => r.id).sort(),
+    );
+    assert.ok(
+      direct.every(
+        (r) => r.data.owner === alice.id && r.data.kind === 'friend',
+      ),
+    );
+    const sentLinks = await collect(
+      api.objects.ContactGroupSentPayment.query({
+        where: { owner: alice.id, kind: 'friend' },
+      }),
+    );
+
+    assert.equal(sentLinks.length, 1);
+    assert.equal(
+      (await api.objects.Transaction.get(sentLinks[0].data.transaction)).data
+        .sourceId,
+      'sent',
+    );
+
     const outgoing = await collect(
       api.objects.ContactGroup.traverse.paymentsSentToMembers(friends.id),
     );

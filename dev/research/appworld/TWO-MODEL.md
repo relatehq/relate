@@ -237,3 +237,22 @@ verified archive.
 [archive verification](evidence/contact-groups-20261012-archive.json), and
 `evidence/contact-groups-20261012.bundle` accompany the results. Explore all six
 at <http://127.0.0.1:8765/contact-groups/>.
+
+## Payment-membership owner/kind follow-up (2026-10-12)
+
+Both `ContactGroupReceivedPayment` and `ContactGroupSentPayment` now expose
+`owner: Person` and `kind: string`, derived from the referenced group during
+acquisition. Their descriptions identify them as membership links across all
+contact groups and instruct callers to filter owner and kind and deduplicate
+transaction references. Named group traversals remain available.
+
+This isolates the next graph revision against the preceding contact-group batch:
+the same three SDK tasks, both models, one attempt per combination, unchanged
+prompts, provider settings and budgets. No additional retries or holdouts.
+
+```sh
+dev/research/appworld/.venv/bin/python dev/research/appworld/two_model_eval.py \
+  --batch contact-group-fields-20261012 --tasks d0b1f43_2 afc0fce_2 afc0fce_3 \
+  --conditions sdk --credentials /Users/dennis/dev/vs/relate/.env \
+  --jobs 3 --max-cost-usd 6
+```
