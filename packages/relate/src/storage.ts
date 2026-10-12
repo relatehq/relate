@@ -100,6 +100,9 @@ export interface NativeReceiptRead {
 }
 
 /** Strictly ascending object-ID scan, scoped to one native object type. */
+// TODO(performance): Add indexed native candidate selection backed by author-declared
+// indexes, with memory/Postgres parity and transactional read-your-writes/rollback.
+// Preserve scoped cursor ordering; candidate selection must not grant authorization.
 export interface NativeScanOptions {
   readonly after?: string;
   readonly limit: number;

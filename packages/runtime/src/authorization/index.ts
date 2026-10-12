@@ -6,6 +6,7 @@ export {
 } from './policy.js';
 
 export {
+  filterableProperties,
   operationName,
   readableObject,
   readableProperties,

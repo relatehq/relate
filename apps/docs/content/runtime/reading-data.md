@@ -213,9 +213,10 @@ and 100 values per `in` are supported. Equivalent equality shorthand, timestamp
 offsets, and reordered/deduplicated sets can continue the same cursor.
 
 Filters still use bounded scans and authorized reads. They reduce handwritten
-filtering but do not add indexes or provider-wide queries. Traversal filters,
-nested predicates, sorting, aggregates, and a separate `list` method are not
-supported.
+filtering but do not add indexes or provider-wide queries. Nested predicates,
+sorting, aggregates, and a separate `list` method are not supported. To-many
+traversals accept the same filters; see
+[Filtering traversals](#filtering-traversals).
 
 Queries enumerate existing graph membership: adopted source records and native
 records created by actions. An empty query does not establish that the provider
@@ -282,6 +283,33 @@ const owner = await objects.Invoice.traverse.customer(invoiceId, {
 });
 ```
 
+### Filtering traversals
+
+To-many traversals accept the same `where` as `query`. Filters address the
+returned object's properties and apply in addition to the relationship, so only
+related records that match every filter are returned:
+
+```ts
+const received = objects.Person.traverse.receivedTransactions(meId, {
+  where: {
+    sender: { in: coworkerIds },
+    createdAt: {
+      gte: '2026-10-01T00:00:00.000Z',
+      lt: '2026-11-01T00:00:00.000Z',
+    },
+  },
+  select: ['sender', 'amount', 'createdAt'],
+});
+```
+
+This returns the same records as
+`objects.Transaction.query({ where: { receiver: meId, ... } })`, scoped by the
+relationship rather than by a reference filter. Operators, validation, the
+`incomplete` rule for unavailable filter evidence, and cursor normalization are
+the same as for queries. Properties of a `through` relationship's junction
+object are not filterable from the traversal; filter the destination, or query
+the junction object. A to-one traversal returns one record and rejects `where`.
+
 Source-backed traversals include only adopted records. For each one, Relate:
 
 1. Checks the caller's read access to the starting record.
@@ -312,7 +340,9 @@ Both calls return the same lazy page/async-iteration interface as other to-many
 traversals. Selections and compact/full evidence describe the destination
 object. Duplicate memberships yield one destination, including across pages.
 Results use destination object-ID order; playlist position and repeated entries
-remain available through the junction object.
+remain available through the junction object. With `where`, each pass also reads
+the destinations that could still enter the page and keeps only matching ones,
+so filtering does not spend page slots on non-matches.
 
 Relate checks access to the starting object, the junction record, both reference
 fields, and the destination. A hidden junction or restricted reference cannot be
@@ -334,9 +364,9 @@ implementation, not an indexed database join.
 Cursors preserve the junction scan position and pending destinations without
 revealing hidden IDs. They expire after 15 minutes and are scoped to the graph
 revision, source bindings, caller, starting object, relationship direction,
-selection, read options, and page size. Switching between compact and full
-evidence is allowed. Pagination is not a snapshot: concurrent membership changes
-can affect later pages.
+filters, selection, read options, and page size. Switching between compact and
+full evidence is allowed. Pagination is not a snapshot: concurrent membership
+changes can affect later pages.
 
 ---
 
