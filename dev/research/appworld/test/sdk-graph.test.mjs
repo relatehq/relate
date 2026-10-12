@@ -387,26 +387,31 @@ test('saved libraries remain distinct from playlist songs and album association'
     AlbumMembership: [{ sourceId: 'a:s', album: 'a', song: 'album-song' }],
   };
   const snapshot = await createSdkSnapshot(rows);
+
   try {
     const api = snapshot.consumer;
     const library = (await api.objects.MusicLibrary.query()).data[0];
     const songs = [];
+
     for await (const song of api.objects.MusicLibrary.traverse.savedSongs(
       library.id,
     ))
       songs.push(song.data);
+
     assert.deepEqual(
       songs.map((s) => s.title),
       ['saved-song'],
     );
     assert.equal(songs[0].albumId, null);
     const albumSongs = [];
+
     for await (const album of api.objects.MusicLibrary.traverse.savedAlbums(
       library.id,
     )) {
       for await (const song of api.objects.Album.traverse.songs(album.id))
         albumSongs.push(song.data.title);
     }
+
     assert.deepEqual(albumSongs, ['album-song']);
   } finally {
     await snapshot.close();
@@ -450,22 +455,27 @@ test('contact groups traverse canonical payments with dates, pagination, and sha
       { sourceId: 's1', group: 'friends', transaction: 'sent' },
     ],
   });
+
   try {
     const api = snapshot.consumer;
     const alice = (
       await api.objects.Person.query({ where: { email: 'alice' } })
     ).data[0];
     const groups = [];
+
     for await (const g of api.objects.Person.traverse.contactGroups(alice.id, {
       limit: 1,
     }))
       groups.push(g);
+
     assert.equal(groups.length, 2);
     const friends = groups.find((g) => g.data.kind === 'friend');
     const roommates = groups.find((g) => g.data.kind === 'roommate');
     const collect = async (query) => {
       const result = [];
+
       for await (const r of query) result.push(r);
+
       return result;
     };
     const incoming = await collect(
@@ -474,6 +484,7 @@ test('contact groups traverse canonical payments with dates, pagination, and sha
         { limit: 1 },
       ),
     );
+
     assert.equal(incoming.length, 2);
     const recent = await collect(
       api.objects.ContactGroup.traverse.paymentsReceivedFromMembers(
@@ -481,6 +492,7 @@ test('contact groups traverse canonical payments with dates, pagination, and sha
         { where: { createdAt: { gte: '2023-02-01T00:00:00' } }, limit: 1 },
       ),
     );
+
     assert.deepEqual(
       recent.map((r) => r.data.sourceId),
       ['new'],
@@ -490,10 +502,12 @@ test('contact groups traverse canonical payments with dates, pagination, and sha
         roommates.id,
       ),
     );
+
     assert.equal(shared[0].id, recent[0].id);
     const outgoing = await collect(
       api.objects.ContactGroup.traverse.paymentsSentToMembers(friends.id),
     );
+
     assert.deepEqual(
       outgoing.map((r) => r.data.sourceId),
       ['sent'],
@@ -501,6 +515,7 @@ test('contact groups traverse canonical payments with dates, pagination, and sha
     const members = await collect(
       api.objects.ContactGroup.traverse.members(friends.id),
     );
+
     assert.deepEqual(
       members.map((r) => r.data.email),
       ['bob'],
