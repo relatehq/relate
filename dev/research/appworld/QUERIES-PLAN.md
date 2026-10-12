@@ -1,5 +1,10 @@
 # Main query update and expanded subset: frozen plan
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 Run `sdk-nano-queries-v1` follows `sdk-nano-contact-graph-v1`. Main `2cf7f92`
 was merged as `fea6069`, including scalar predicates/timestamps (`#21`,
 `406f388`) and the shared typed consumer (`#22`). The existing graph

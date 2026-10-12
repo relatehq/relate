@@ -1,5 +1,10 @@
 # AppWorld: first write-action pilot
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 This increment asks whether the agent can use the real Relate SDK to change
 application state, rather than only retrieve answers. All four conditions
 remain: raw Python, static-notes Python, raw TypeScript, and Relate TypeScript.
@@ -7,7 +12,7 @@ The intended primary comparison is still raw TS versus Relate.
 
 **Run:** `sdk-nano-writes-v1`. **Implementation:** `278ea26`, including main's
 `5a0af21` cross-realm fix. **Model:** GPT-5.4 nano, low reasoning.
-[Local trajectory explorer](http://127.0.0.1:55251/index.html#traces).
+[Local trajectory explorer](guides/DEVELOPMENT.md#inspect-and-retain-a-batch).
 
 All **24/24 episodes scored without infrastructure errors**. This is a small
 development pilot, not a leaderboard result.

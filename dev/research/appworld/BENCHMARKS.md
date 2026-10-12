@@ -1,5 +1,10 @@
 # Benchmark choice
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 Reviewed 2026-10-08. These are fit assessments for Relate, not claims that the
 unmodified benchmarks evaluate graphs or that all were run here.
 

@@ -1,5 +1,10 @@
 # Write-action pilot: frozen protocol
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 Scope: retain raw Python, static-notes Python, raw TypeScript and Relate
 TypeScript. Add two research-authored actions, `likeTransaction` and
 `commentOnTransaction`, using the existing public `defineAction`,

@@ -1,5 +1,10 @@
 # AppWorld write tasks: 14 versus 28 turns
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 This experiment changes the agent's maximum turn count from 14 to 28. The tasks,
 four methods, GPT-5.4 nano model, low reasoning setting, system prompts,
 execution code and other limits are unchanged. It follows the
@@ -10,7 +15,7 @@ tasks.
 **Baseline:** `sdk-nano-writes-v1` (14 turns). **New run:**
 `sdk-nano-writes-28-v1` (28 turns). **Frozen plan:**
 [WRITE-BUDGET-PLAN.md](WRITE-BUDGET-PLAN.md), commit `161200e`.
-[Interactive comparison and trajectories](http://127.0.0.1:55251/index.html#traces).
+[Interactive comparison and trajectories](guides/DEVELOPMENT.md#inspect-and-retain-a-batch).
 
 All **24/24 new episodes scored without infrastructure errors**. Overall
 official success was **2/24 at 14 turns → 6/24 at 28 turns**. Of the new

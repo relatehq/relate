@@ -1,7 +1,7 @@
-# Current main: Haiku 5.5 and GPT-5.4 Nano
+# Two-model evaluation: SDK revision 4e002ab
 
-This evaluation runs the twelve implemented train/dev instances once through
-each of four interfaces on two models: **96 episodes**, with no repeats,
+This evaluation runs the original twelve selected train/dev instances once
+through each of four interfaces on two models: **96 episodes**, with no repeats,
 holdout, confirmation, candidate SDK branches, or automatic request/episode
 retries.
 
@@ -11,7 +11,7 @@ retries.
   (`snapshot_ts`).
 - Tasks: instances 1, 2, and 3 of `e7a10f8`, `82e2fac`, `d0b1f43`, and
   `afc0fce`.
-- SDK: current main `4e002ab`, including PR 26. The graph now adopts
+- SDK: frozen main revision `4e002ab`, including PR 26. The graph now adopts
   `localDateTime({ precision: 'second' })` for transaction creation dates.
 - Limits: 28 turns, 4,096 output tokens/request, 14,000 generated
   tokens/episode, 14,000 visible output characters, world seed 100, 60-second
@@ -59,7 +59,7 @@ From the repository root, after building and offline checks:
 ```sh
 dev/research/appworld/.venv/bin/python dev/research/appworld/two_model_eval.py \
   --batch main-two-model-20261012 \
-  --credentials /Users/dennis/dev/vs/relate/.env --jobs 3 --max-cost-usd 20
+  --credentials /path/to/local/.env --jobs 3 --max-cost-usd 20
 ```
 
 The batch directory must not already exist. This command cannot silently resume
@@ -72,9 +72,9 @@ Build the local-only viewer, then serve its output directory:
 ```sh
 dev/research/appworld/.venv/bin/python dev/research/appworld/results_explorer.py \
   --batch main-two-model-20261012 \
-  --output /Users/dennis/dev/vs/relate-results/main-two-model-20261012
+  --output /tmp/appworld-main-two-model-20261012
 python3 -m http.server 8765 --bind 127.0.0.1 \
-  --directory /Users/dennis/dev/vs/relate-results/main-two-model-20261012
+  --directory /tmp/appworld-main-two-model-20261012
 ```
 
 Open `http://127.0.0.1:8765`. Filters update the matrix, totals, and run table.
@@ -88,8 +88,8 @@ request. Initial/final messages and all provider responses were retained intact.
 The viewer and archive contain a separate `request_transcript.json` that
 restores each exact dispatch-time history prefix and verifies its response
 positions against the final conversation. Original trace files are unchanged.
-The logger is fixed for future batches after this batch finishes; no episode is
-rerun.
+The logger was subsequently fixed to copy the request at dispatch; no episode in
+this batch was rerun.
 
 To audit scoring and usage, then create and byte-verify the separate encrypted
 archive (each command is offline):
@@ -175,8 +175,9 @@ acquisition. No core SDK package changes were needed.
 [verified archive manifest](evidence/music-libraries-20261012-archive.json), and
 `evidence/music-libraries-20261012.bundle` retain all four trajectories, frozen
 runner sources, provider responses, evaluator results, and world outputs. All
-219 archived files were restored and hash-verified. The separate local explorer
-is served at <http://127.0.0.1:8765/music-libraries/>.
+219 archived files were restored and hash-verified. Rebuild the local explorer
+with
+`results_explorer.py --batch music-libraries-20261012 --output /tmp/appworld-music-libraries`.
 
 ## Contact-group payment follow-up (2026-10-12)
 
@@ -199,7 +200,7 @@ attempts.
 ```sh
 dev/research/appworld/.venv/bin/python dev/research/appworld/two_model_eval.py \
   --batch contact-groups-20261012 --tasks d0b1f43_2 afc0fce_2 afc0fce_3 \
-  --conditions sdk --credentials /Users/dennis/dev/vs/relate/.env \
+  --conditions sdk --credentials /path/to/local/.env \
   --jobs 3 --max-cost-usd 6
 ```
 
@@ -235,8 +236,9 @@ verified archive.
 
 [Audited metrics](evidence/contact-groups-20261012-results.json),
 [archive verification](evidence/contact-groups-20261012-archive.json), and
-`evidence/contact-groups-20261012.bundle` accompany the results. Explore all six
-at <http://127.0.0.1:8765/contact-groups/>.
+`evidence/contact-groups-20261012.bundle` accompany the results. Rebuild the
+local explorer with
+`results_explorer.py --batch contact-groups-20261012 --output /tmp/appworld-contact-groups`.
 
 ## Payment-membership owner/kind follow-up (2026-10-12)
 
@@ -253,7 +255,7 @@ prompts, provider settings and budgets. No additional retries or holdouts.
 ```sh
 dev/research/appworld/.venv/bin/python dev/research/appworld/two_model_eval.py \
   --batch contact-group-fields-20261012 --tasks d0b1f43_2 afc0fce_2 afc0fce_3 \
-  --conditions sdk --credentials /Users/dennis/dev/vs/relate/.env \
+  --conditions sdk --credentials /path/to/local/.env \
   --jobs 3 --max-cost-usd 6
 ```
 
@@ -288,5 +290,6 @@ results and world outputs are preserved. All 329 archived files were restored
 and hash-verified.
 [Metrics](evidence/contact-group-fields-20261012-results.json),
 [archive verification](evidence/contact-group-fields-20261012-archive.json), and
-`evidence/contact-group-fields-20261012.bundle` accompany the follow-up. Explore
-it at <http://127.0.0.1:8765/contact-group-fields/>.
+`evidence/contact-group-fields-20261012.bundle` accompany the follow-up. Rebuild
+the local explorer with
+`results_explorer.py --batch contact-group-fields-20261012 --output /tmp/appworld-contact-group-fields`.

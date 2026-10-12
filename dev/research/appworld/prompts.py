@@ -3,7 +3,7 @@
 See PROMPT-PROVENANCE.md for the pinned source and deliberate deviations.
 """
 
-from runner import SEMANTICS
+from harness_protocol import SEMANTICS
 
 COMMON = """You are an AI assistant completing your supervisor's day-to-day task autonomously in simulated applications.
 Work through a multi-step conversation: execute code, inspect its output, and continue until the task is complete. Submit one code cell per step using execute_code. Variables persist between cells.

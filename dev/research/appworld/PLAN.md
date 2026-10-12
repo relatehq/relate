@@ -1,5 +1,10 @@
 # AppWorld graph-interface research
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 Status: primary ten-episode matrix completed; see [FINDINGS.md](FINDINGS.md). A
 separate two-episode prompt-only follow-up also completed, investigating errors
 observed in that matrix. No general performance or leaderboard claim is made.

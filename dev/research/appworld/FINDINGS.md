@@ -1,5 +1,10 @@
 # What to develop next from the AppWorld experiment
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 > These are the original Ollama/wrapper findings. The subsequent direct-SDK
 > TypeScript experiment is reported separately in [SDK-STUDY.md](SDK-STUDY.md).
 
@@ -263,11 +268,12 @@ contract sketches and names the adapter-owned behavior.
 
 ## Reproducibility and next experiment
 
-See [README.md](README.md) for commands, [PLAN.md](PLAN.md) for hypotheses and
-[BENCHMARKS.md](BENCHMARKS.md) for alternatives. Public evidence contains
-metrics, configuration and trace hashes, not task text, answers or individual
-records. Protected traces and frozen source snapshots are distributed in
-AppWorld's bundle format; unpack locally for inspection.
+See the [Ollama reproduction guide](guides/OLLAMA.md) for commands,
+[PLAN.md](PLAN.md) for hypotheses and [BENCHMARKS.md](BENCHMARKS.md) for
+alternatives. Public evidence contains metrics, configuration and trace hashes,
+not task text, answers or individual records. Protected traces and frozen source
+snapshots are distributed in AppWorld's bundle format; unpack locally for
+inspection.
 
 Before making an uplift claim, freeze the interface and select a broader sample
 by declared source scope, including tasks where bulk loading is wasteful. Run

@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from model_provider import call, ProviderError, anthropic_messages, protocol_feedback
-from runner import SCHEMA
+from harness_protocol import SCHEMA
 
 
 class ProviderTests(unittest.TestCase):

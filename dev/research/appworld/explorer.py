@@ -173,26 +173,11 @@ def build(destination, findings):
         )
     (destination / "data.json").write_text(json.dumps(data))
     shutil.copyfile(HERE / "explorer.html", destination / "index.html")
-    for filename in [
-        "ERGONOMICS.md",
-        "ERGONOMICS-PLAN.md",
-        "QUERIES.md",
-        "QUERIES-PLAN.md",
-        "GRAPH-SHAPE.md",
-        "GRAPH-SHAPE-PLAN.md",
-        "COMPLETION.md",
-        "COMPLETION-PLAN.md",
-        "WRITE-BUDGET.md",
-        "WRITE-BUDGET-PLAN.md",
-        "WRITE-PILOT.md",
-        "WRITE-PILOT-PLAN.md",
-        "TS-COMPARISON.md",
-        "PROMPT-PROVENANCE.md",
-        "SDK-NANO-RERUN.md",
-        "SDK-STUDY.md",
-    ]:
-        if (HERE / filename).exists():
-            shutil.copyfile(HERE / filename, destination / filename)
+    # Export the documentation tree alongside the historical reports so their
+    # current-guide links work without relying on an old checkout layout.
+    for document in HERE.glob("*.md"):
+        shutil.copyfile(document, destination / document.name)
+    shutil.copytree(HERE / "guides", destination / "guides", dirs_exist_ok=True)
     (destination / "evidence").mkdir(exist_ok=True)
     for evidence in (HERE / "evidence").glob("*.json"):
         shutil.copyfile(evidence, destination / "evidence" / evidence.name)

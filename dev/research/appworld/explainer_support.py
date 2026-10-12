@@ -1,4 +1,8 @@
-"""Task-independent host evidence after all fixed acquisition calls succeeded."""
+"""Task-independent host evidence for the retained coverage experiment.
+
+The current graph accepts this metadata but does not publish collectionCoverage;
+only the isolated coverage treatment consumes it. It is not runtime authorization.
+"""
 
 import freezegun.api as clock
 

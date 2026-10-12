@@ -14,6 +14,7 @@ class ProviderError(RuntimeError):
 
 
 def rates(model, input_tokens=0):
+    # Frozen research estimates, also used to audit retained usage; not live pricing.
     if model == 'claude-haiku-5-5':
         return (0.10, 0.01, 0.50) if input_tokens <= 100000 else (0.50, 0.05, 2.50)
     return (0.20, 0.02, 1.25) if 'nano' in model else (0.75, 0.075, 4.5)

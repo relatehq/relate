@@ -1,5 +1,10 @@
 # Main queries and expanded AppWorld subset
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 **No accuracy improvement on the original subset:** SDK success falls from 4/6
 to 2/6, while mean turns rise from 15.7 to 18.2 and mean input tokens rise from
 113,736 to 126,119. The expanded six-task run ties raw TS at 6/12; both score

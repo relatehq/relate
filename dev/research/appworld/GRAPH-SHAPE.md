@@ -1,5 +1,10 @@
 # Explicit contact graph experiment
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 This experiment changes only the research-authored graph and the mapping of
 already acquired data into that graph. It tests whether explicit contact
 relationships help agents select the right transactions. System prompts, SDK

@@ -1,7 +1,7 @@
 """AppWorld Python baselines versus a persistent TS REPL using the public SDK.
 
 Run artifacts contain protected benchmark data and remain under .local/.
-The OpenAI credential is read by the host and never passed into the REPL.
+Provider credentials are read by the host and never passed into the REPL.
 """
 
 import argparse
@@ -25,12 +25,14 @@ from dotenv import dotenv_values
 from explainer_support import acquisition_coverage
 from model_provider import MODELS, call, reservation_rates, protocol_feedback
 from prompts import prompt
-from runner import SCHEMA
+from harness_protocol import SCHEMA
 from source_writes import SourceWrites
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 SDK_PROMPT = prompt("sdk")
+# Retain the complete execution inputs, including shared prompt constants.
+# runner.py stays in the archive for compatibility with historical tooling.
 SOURCES = [
     "sdk_runner.py",
     "model_provider.py",
@@ -44,6 +46,7 @@ SOURCES = [
     "music-model.mjs",
     "task_catalog.py",
     "runner.py",
+    "harness_protocol.py",
     "prompts.py",
 ]
 
@@ -57,6 +60,12 @@ class ToolProtocolError(ValueError):
 
 
 class NodeRepl:
+    """Host boundary for a permission-constrained Node worker.
+
+    Only raw_ts can dispatch arbitrary public API events. SDK and snapshot_ts
+    share allowlisted writers; completion is a separate environment capability.
+    """
+
     def __init__(
         self,
         world,

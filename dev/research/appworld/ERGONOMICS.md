@@ -1,5 +1,10 @@
 # Independent SDK and graph ergonomics experiments
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 **Retained: contact-group descriptions in the research graph. No new SDK PR.**
 Only the contact-description arm met the frozen confirmation rule: 18/24
 successes versus 16/24 for the unchanged controls, with essentially unchanged

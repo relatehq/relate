@@ -1,5 +1,10 @@
 # Direct SDK study
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 This follow-up replaces the experimental `research()` agent interface with the
 current public Relate SDK. The raw and static-note agents retain AppWorld's
 persistent Python interpreter. The Relate agent uses a persistent TypeScript

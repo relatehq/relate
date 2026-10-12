@@ -1,5 +1,10 @@
 # Interface observations
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 These are integration observations and proposed design directions. They are not
 claims of measured agent uplift. The research adapter does not implement public
 package features.

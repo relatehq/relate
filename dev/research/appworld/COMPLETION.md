@@ -1,5 +1,10 @@
 # Explicit no-answer completion experiment
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 This run adds one completion example to the system prompt in each environment.
 Static notes are retired: the current comparison is raw Python, raw TypeScript
 and the real Relate SDK. Historical results remain separate.

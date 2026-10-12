@@ -1,5 +1,10 @@
 # Write-task turn-budget comparison: frozen plan
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 Approved continuation of the first write pilot. Run `sdk-nano-writes-28-v1`
 changes only the turn limit from 14 to 28 relative to `sdk-nano-writes-v1`.
 

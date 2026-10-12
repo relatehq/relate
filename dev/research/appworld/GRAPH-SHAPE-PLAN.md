@@ -1,5 +1,10 @@
 # Explicit contact graph: frozen experiment plan
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 Run `sdk-nano-contact-graph-v1` compares the new local graph with
 `sdk-nano-no-answer-v1`. Only the research graph and its acquisition-to-graph
 mapping change. No package, system prompt, completion, REPL, action or evaluator

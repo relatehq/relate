@@ -1,5 +1,10 @@
 # Uniform prompts and an original-API TypeScript control
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 The new run compares original AppWorld APIs in Python and TypeScript with the
 actual Relate SDK in TypeScript, plus the existing Python static-notes ablation.
 All **72 planned episodes** are retained: six training instances, four
@@ -268,12 +273,13 @@ music-and-payments union; there is no task-ID routing or answer-aware selection.
 
 ## Reading the trajectories
 
-Use the local explorer at **http://127.0.0.1:55251/index.html#traces** while its
-local server is running. Select **Nano · uniform prompts · raw TS comparison**,
-then filter condition, task and pass/fail. Search accepts the full trajectory
-ID. Each turn shows code, the exact visible observation, errors, model/execution
-time, input/output/cached tokens and estimated cost. The source tab loads the
-files frozen for the selected experiment, not the current working checkout.
+Build and serve the
+[historical explorer](guides/DEVELOPMENT.md#inspect-and-retain-a-batch). Select
+**Nano · uniform prompts · raw TS comparison**, then filter condition, task and
+pass/fail. Search accepts the full trajectory ID. Each turn shows code, the
+exact visible observation, errors, model/execution time, input/output/cached
+tokens and estimated cost. The source tab loads the files frozen for the
+selected experiment, not the current working checkout.
 
 The examples below identify real observed trajectories but omit protected task
 records and literal answers. Code in the report is explanatory; the local viewer

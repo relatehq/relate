@@ -1,5 +1,10 @@
 # Nano rerun after operation discovery
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 Frozen before model execution on 2026-10-09.
 
 - SDK base: main `60f0ff2`, including operation contracts and named request

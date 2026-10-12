@@ -1,5 +1,10 @@
 # SDK explainer evaluation after the main fixes
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 Completed 2026-10-12. **Local datetime is the only SDK candidate that passes all
 three frozen selection gates.** The snapshot TypeScript read control also
 qualifies and remains research infrastructure. Traversal filters passed the

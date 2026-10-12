@@ -1,3 +1,4 @@
+// Historical Ollama research() adapter. The current SDK graph is sdk-graph.mjs.
 import { createInterface } from 'node:readline';
 import { pathToFileURL } from 'node:url';
 import { z } from 'zod';

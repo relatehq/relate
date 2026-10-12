@@ -1,5 +1,50 @@
 # Evidence index
 
+These are retained outputs, not generated fixtures to refresh during cleanup.
+Study protocols and interpretation live in the
+[study index](../guides/STUDIES.md). The
+[development guide](../guides/DEVELOPMENT.md) explains archive restoration.
+
+## Study ownership
+
+| Evidence files                                                                                                                             | Owning study                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `summary.json`, environment/model/power observations, probes/scaling, `validation.json`, `archive-verification.json`, `followup-plan.json` | [Original Ollama study](../FINDINGS.md)                                                      |
+| `sdk-summary.json`, `sdk-diagnostics.json`, `sdk-trace-audit.json`, `sdk-validation.json`                                                  | [Direct SDK study](../SDK-STUDY.md)                                                          |
+| `sdk-nano-*`                                                                                                                               | [Nano rerun](../SDK-NANO-RERUN.md)                                                           |
+| `ts-comparison*`                                                                                                                           | [Four-interface read comparison](../TS-COMPARISON.md)                                        |
+| `write-pilot*`, `write-budget*`                                                                                                            | [Write pilot](../WRITE-PILOT.md), [turn budget](../WRITE-BUDGET.md)                          |
+| `completion*`, `graph-shape*`, `queries*`                                                                                                  | [Completion](../COMPLETION.md), [contact graph](../GRAPH-SHAPE.md), [queries](../QUERIES.md) |
+| `ergonomics.json`, `graph-contact-description.patch`, `graph-date-description.patch`                                                       | [Ergonomics treatments](../ERGONOMICS.md)                                                    |
+| `explainer-*`                                                                                                                              | [Explainer results](../EXPLAINER-RESULTS.md) and [frozen branches](../EXPLAINER-STATUS.md)   |
+| `main-two-model-20261012-*`                                                                                                                | [Two-model evaluation](../TWO-MODEL.md)                                                      |
+| `music-libraries-20261012-*`, `contact-groups-20261012-*`, `contact-group-fields-20261012-*`                                               | Separate follow-ups in [TWO-MODEL.md](../TWO-MODEL.md)                                       |
+| `expanded-haiku-20261012-*`                                                                                                                | [Expanded-family evaluation and failure analysis](../EXPANDED-FAMILIES.md)                   |
+| `task-family-inventory.json`, `expanded-preflight.json`, `expanded-final-preflight.json`, `expanded-validation.json`                       | [Coverage](../guides/COVERAGE.md) and recorded offline adapter validation                    |
+
+`*-results.json` records audited batch attempts; `*-archive.json` records the
+matching bundle hash and every restored file hash. `*-failures.json` is derived
+analysis, not a replacement score. Validation/preflight reports are offline
+checks, not agent results. Source hashes describe the frozen execution, not the
+current working tree.
+
+## Protected archives
+
+- `trajectories.bundle`: historical multi-study runs and source snapshots.
+  Restore with `archive.py unpack` into `.local/restored/runs`.
+- `main-two-model-20261012.bundle`: original 96-attempt batch.
+- `music-libraries-20261012.bundle`: saved-library follow-up.
+- `contact-groups-20261012.bundle`: contact-group traversal follow-up.
+- `contact-group-fields-20261012.bundle`: payment-membership fields follow-up.
+- `expanded-haiku-20261012.bundle`: additional 138-attempt batch.
+
+The named batch bundles contain `batch/`, `runs/`, and `world-outputs/` and use
+`archive_batch.py` retention. They have a different layout from the historical
+archive; do not combine restored directories blindly. Original attempts,
+including failures and incomplete episodes, must remain intact.
+
+## Original study evidence and metric definitions
+
 - `followup-plan.json`: post-hoc prompt intervention and its limits.
 - `summary.json`: episode metrics, original run configurations, trace hashes and
   explicit completion coverage. Interrupted matrices remain incomplete.

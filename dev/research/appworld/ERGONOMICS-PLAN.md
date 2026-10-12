@@ -1,5 +1,10 @@
 # Independent ergonomics spikes: frozen screening protocol
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 Start from SDK main `2cf7f92` and research graph/harness `51c5484`. No SDK
 implementation is added to the research branch. SDK spikes execute in an
 isolated main-based worktree, with independent commits/branches. The same

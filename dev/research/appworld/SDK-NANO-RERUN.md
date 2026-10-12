@@ -1,5 +1,10 @@
 # Nano rerun: current SDK discovery and a one-time completion instruction
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 > Historical protocol: these recorded SDK episodes included original application
 > API access. The current runner now exposes only `relate` and the environment's
 > `completeTask` function. A later SDK-only rerun with uniform prompts and a raw

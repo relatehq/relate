@@ -1,5 +1,10 @@
 # Explainer follow-up: frozen branches and reproduction
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 The model evaluation is complete: see
 [EXPLAINER-RESULTS.md](EXPLAINER-RESULTS.md) for all 336 episodes and promotion
 decisions. Local datetime passed every phase gate and is promoted in

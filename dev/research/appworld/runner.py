@@ -11,14 +11,9 @@ import requests
 from appworld import AppWorld, load_task_ids
 from appworld.common.path_store import path_store
 from acquire import payments
+from harness_protocol import SCHEMA, SEMANTICS
 
 HERE = Path(__file__).resolve().parent
-SCHEMA = {
-    "type": "object",
-    "properties": {"code": {"type": "string"}},
-    "required": ["code"],
-    "additionalProperties": False,
-}
 BASE = """You are an agent operating simulated apps to complete a user's task.
 Return JSON with exactly one key, code, containing executable Python. No markdown.
 Your Python runs in a persistent interpreter with `apis` available. Use print to inspect results.
@@ -29,11 +24,6 @@ Always paginate collections until empty. Do not assume the first page is complet
 Use Python loops/comprehensions for bulk work. Only printed output is visible to you.
 Complete via apis.supervisor.complete_task(answer=...) for a question; omit answer for an action task.
 Do not access databases, files on the real machine, task solutions, or evaluation internals.
-"""
-SEMANTICS = """Relationship notes: a playlist contains many songs; a song can occur in multiple playlists.
-Playlist membership is distinct from the user's song library. Song public popularity is not the user's personal liking.
-Use source song IDs for original app action APIs. Deduplicate songs when combining playlists.
-Phone contacts and Venmo transaction participants can be joined by exact email in this simulator.\nTransactions have distinct sender and receiver; filter direction and date before summing.\nDuration fields are in seconds. A collection page is not the complete collection.
 """
 RESEARCH = """An experimental function research(op, **kwargs) is available in Python.
 research('load', access_token=spotify_token) loads a snapshot of ALL playlist-library pages and their song details.
@@ -463,7 +453,12 @@ def main():
     config = vars(args) | {
         "source_sha256": {
             p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in [Path(__file__), HERE / "graph.mjs", HERE / "acquire.py"]
+            for p in [
+                Path(__file__),
+                HERE / "graph.mjs",
+                HERE / "acquire.py",
+                HERE / "harness_protocol.py",
+            ]
         },
         "ollama": requests.get("http://localhost:11434/api/version", timeout=10).json(),
     }
@@ -471,7 +466,12 @@ def main():
         parser.error("Run name already exists; use a new immutable run name")
     (root / "config.json").write_text(dumps(config))
     (root / "source").mkdir()
-    for source_path in [Path(__file__), HERE / "graph.mjs", HERE / "acquire.py"]:
+    for source_path in [
+        Path(__file__),
+        HERE / "graph.mjs",
+        HERE / "acquire.py",
+        HERE / "harness_protocol.py",
+    ]:
         (root / "source" / source_path.name).write_bytes(source_path.read_bytes())
     for task_id in args.tasks:
         for seed in args.seeds:

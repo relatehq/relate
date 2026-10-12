@@ -1,5 +1,10 @@
 # Explainer proposals: independent follow-up experiments
 
+> Historical study material. Claims about "current" behavior and proposed next
+> steps refer to this study's frozen revision. See the
+> [study index](guides/STUDIES.md) for its place in the sequence and
+> [current coverage](guides/COVERAGE.md) for today's adapter.
+
 Frozen before the first new model episode, 2026-10-11.
 
 Base: main 2cf7f92 plus PR 24 operation identity 06f6032, held constant.
