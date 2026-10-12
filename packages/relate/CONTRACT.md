@@ -301,7 +301,8 @@ const CustomerInvoices = defineRelationship({
 `via` determines both endpoints: its target is `Customer` (`from`), and its
 owner is `Invoice` (`to`). The reference also determines traversal cardinality:
 
-- `Customer.traverse.invoices` returns many invoices, with pagination.
+- `Customer.traverse.invoices` returns many invoices, with pagination and
+  `where` filters on invoice properties.
 - `Invoice.traverse.customer` returns at most one customer, without pagination.
 
 Authors provide only the relationship ID, bound reference and traversal names.

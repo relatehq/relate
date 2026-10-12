@@ -131,6 +131,7 @@ traversal and action calls:
 const { objects, actions } = relate.as(ana);
 
 const page = await objects.Customer.traverse.invoices(customerId, {
+  where: { status: { in: ['open', 'overdue'] } },
   select: ['status'],
   limit: 25,
 });

@@ -5,10 +5,21 @@ import {
   isPlainObject,
 } from 'relate/model';
 import type { ScalarSchema } from 'relate/model';
-import type { FilterScalar, RequestIssue } from '@relate/protocol';
+import { ReadError } from '@relate/protocol';
+import type {
+  FieldEvidence,
+  FilterScalar,
+  FullReadResult,
+  ReadRequest,
+  RequestIssue,
+} from '@relate/protocol';
 import { invalidValue, schemaText } from './options.js';
+import { project } from './project.js';
 
-interface FilterProperty {
+type Available = Extract<FullReadResult, { status: 'ok' }>;
+
+/** A property this reader may filter on; filterable means discoverable. */
+export interface FilterProperty {
   readonly id: string;
   readonly name: string;
   readonly schema: ScalarSchema;
@@ -197,4 +208,109 @@ export function matchesPredicate(
         return typeof actual === 'number' && actual <= condition.value;
     }
   });
+}
+
+/**
+ * Compile a where object against the reader's filterable properties. Names
+ * outside that set share one answer, so an error never confirms that a hidden
+ * field exists. Predicates are ordered by property ID for cursor binding.
+ */
+export function compileWhere(
+  objectName: string,
+  properties: () => readonly FilterProperty[],
+  where: unknown,
+  issues: RequestIssue[],
+): Predicate[] {
+  const predicates: Predicate[] = [];
+
+  // Option validation reports a malformed or oversized where object.
+  if (!isPlainObject(where) || Object.keys(where).length > 100)
+    return predicates;
+
+  const entries = Object.entries(where);
+  const filterable = entries.length ? properties() : [];
+
+  for (const [name, value] of entries) {
+    const property = filterable.find((p) => p.name === name);
+
+    if (!property)
+      issues.push({
+        path: ['where', name],
+        problem: 'unknown-property',
+        message: `not a filterable property of ${objectName} for this reader.`,
+        accepted: filterable.map((p) => p.name),
+      });
+    else predicates.push(compilePredicate(property, value, issues));
+  }
+
+  return predicates.sort((a, b) =>
+    a.propertyId < b.propertyId ? -1 : a.propertyId > b.propertyId ? 1 : 0,
+  );
+}
+
+/**
+ * Evaluate predicates against one read result under the caller's freshness
+ * rules. Filter evidence must be available or known absent; `matches` throws
+ * `incomplete` otherwise, so a missing value never counts as a non-match.
+ */
+export function predicateMatcher(
+  predicates: readonly Predicate[],
+  request: ReadRequest,
+  clock: () => number,
+) {
+  const names = predicates.map((predicate) => predicate.name);
+  const evidence = (id: string, result: Available, at: number) =>
+    project(id, result, names, { ...request, requireComplete: false }, at);
+  const usable = (record: {
+    meta: { fields: Record<string, FieldEvidence> };
+  }) =>
+    Object.values(record.meta.fields).every(
+      ({ status }) => status === 'available' || status === 'absent',
+    );
+  const matches = (id: string, result: Available, at: number): boolean => {
+    const record = evidence(id, result, at);
+
+    if (!usable(record)) throw new ReadError('incomplete');
+
+    return predicates.every(
+      (predicate) =>
+        Object.hasOwn(record.data, predicate.name) &&
+        matchesPredicate(
+          predicate,
+          record.data[predicate.name] as FilterScalar,
+        ),
+    );
+  };
+
+  return {
+    /** Property names the filter reads; callers add them to private selections. */
+    names,
+    matches,
+    /**
+     * Time may advance between matching and emitting. Re-evaluate under the
+     * caller's freshness rules; evidence that expired after matching is
+     * refreshed for this member only. `reread` returns undefined when the
+     * member is no longer readable. Returns the emission time, or undefined to
+     * withhold the member.
+     */
+    async confirm(
+      item: { readonly id: string; result: Available; readonly at: number },
+      reread: () => Promise<Available | undefined>,
+    ): Promise<number | undefined> {
+      let at = clock();
+
+      if (at === item.at) return at;
+
+      if (!usable(evidence(item.id, item.result, at))) {
+        const result = await reread();
+
+        if (!result) return undefined;
+
+        item.result = result;
+        at = clock();
+      }
+
+      return matches(item.id, item.result, at) ? at : undefined;
+    },
+  };
 }
