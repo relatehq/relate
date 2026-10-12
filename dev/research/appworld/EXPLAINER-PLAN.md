@@ -96,3 +96,12 @@ child's cost allowance before dispatch so concurrent children share the same $5
 batch ceiling. Episode prompts, token/turn budgets, seeds, SDK builds and runner
 sources remain frozen. This changes wall-clock scheduling only; report any cost
 or infrastructure termination as incomplete rather than dropping it.
+
+Decision implementation, fixed before examining the completed screening table:
+apply the stated more-passes-or-equal-passes-with-efficiency rule separately to
+screening, fresh confirmation and holdout. Promotion requires a qualifying
+complete comparison in all three phases; do not relax the gate after seeing an
+outcome. A snapshot-control result informs research only, not an SDK feature PR.
+The six selected holdout IDs cover the remaining read-task siblings; the write
+family has no sibling left outside the three screening instances. Consequently
+this holdout cannot establish generalization to unseen write-task instances.
