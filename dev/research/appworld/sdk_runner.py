@@ -21,6 +21,7 @@ from appworld import AppWorld, load_task_ids
 from appworld.common.path_store import path_store
 from dotenv import dotenv_values
 from explainer_support import acquisition_coverage
+from model_provider import MODELS, call, reservation_rates
 from prompts import prompt
 from runner import SCHEMA
 from source_writes import SourceWrites
@@ -30,6 +31,7 @@ ROOT = HERE.parents[2]
 SDK_PROMPT = prompt("sdk")
 SOURCES = [
     "sdk_runner.py",
+    "model_provider.py",
     "sdk-repl.mjs",
     "sdk-graph.mjs",
     "source_writes.py",
@@ -228,53 +230,7 @@ def code_action(result):
 
 
 def model_call(key, model, messages, max_output, reasoning):
-    start = clock.real_perf_counter()
-    response = requests.post(
-        "https://api.openai.com/v1/responses",
-        headers={"Authorization": f"Bearer {key}"},
-        json={
-            "model": model,
-            "store": False,
-            "input": messages,
-            "reasoning": {"effort": reasoning},
-            "max_output_tokens": max_output,
-            "include": ["reasoning.encrypted_content"],
-            "tools": [
-                {
-                    "type": "function",
-                    "name": "execute_code",
-                    "description": "Execute the next code cell in the persistent interpreter and return its printed output. Inspect the result before choosing the next cell.",
-                    "strict": True,
-                    "parameters": SCHEMA,
-                }
-            ],
-            "tool_choice": {"type": "function", "name": "execute_code"},
-            "parallel_tool_calls": False,
-        },
-        timeout=180,
-    )
-    if response.status_code != 200:
-        # Do not persist request headers or a requests exception object.
-        raise RuntimeError(f"OpenAI HTTP {response.status_code}: {response.text[:600]}")
-    result = response.json()
-    content, call_id = code_action(result)
-    usage = result["usage"]
-    cached = usage.get("input_tokens_details", {}).get("cached_tokens", 0)
-    rates = (0.20, 0.02, 1.25) if "nano" in model else (0.75, 0.075, 4.5)
-    cost = (
-        (usage["input_tokens"] - cached) * rates[0]
-        + cached * rates[1]
-        + usage["output_tokens"] * rates[2]
-    ) / 1_000_000
-    return content, {
-        "usage": usage,
-        "provider_output": result.get("output", []),
-        "call_id": call_id,
-        "estimated_usd": cost,
-        "model": result["model"],
-        "status": result["status"],
-        "seconds": clock.real_perf_counter() - start,
-    }
+    return call(key, model, messages, max_output, reasoning, SCHEMA)
 
 
 def run(args, key, task_id, condition, repeat, spent):
@@ -362,9 +318,7 @@ def run(args, key, task_id, condition, repeat, spent):
                 max_output = min(args.max_output_tokens, remaining)
                 # Conservative reservation excludes cache discounts and uses a
                 # byte upper bound for input tokens, leaving no overshoot per call.
-                rate_in, rate_out = (
-                    (0.20, 1.25) if "nano" in args.model else (0.75, 4.5)
-                )
+                rate_in, rate_out = reservation_rates(args.model)
                 reserve = (
                     len(dump(messages).encode()) * rate_in + max_output * rate_out
                 ) / 1_000_000
@@ -378,8 +332,11 @@ def run(args, key, task_id, condition, repeat, spent):
                     content, model = model_call(
                         key, args.model, messages, max_output, args.reasoning
                     )
-                except Exception:
+                except Exception as exc:
                     request["status"] = "failed"
+                    request["error"] = str(exc)
+                    if hasattr(exc, "details"):
+                        request["details"] = exc.details
                     (out / "requests.json").write_text(dump(requests_log))
                     raise
                 step = {
@@ -510,6 +467,7 @@ def run(args, key, task_id, condition, repeat, spent):
                 node.close()
         records = world.requester.request_tracker.requests[:]
         (out / "api_calls.json").write_text(dump(records))
+        (out / "final_messages.json").write_text(dump(messages))
         # Direct host API calls update the in-memory world. AppWorld's evaluator
         # reads the normal output DBs; save_state() alone writes a checkpoint.
         # A no-op public execution flushes the current state to evaluator input.
@@ -570,13 +528,13 @@ def main():
     )
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument(
-        "--model", choices=["gpt-5.4-nano", "gpt-5.4-mini"], default="gpt-5.4-nano"
+        "--model", choices=MODELS, default="gpt-5.4-nano"
     )
     parser.add_argument(
         "--credentials",
         type=Path,
         required=True,
-        help="Host-only dotenv file; only OPENAI_API_KEY is read",
+        help="Host-only dotenv file; reads the selected provider key",
     )
     parser.add_argument("--reasoning", choices=["none", "low", "medium"], default="low")
     parser.add_argument(
@@ -594,9 +552,10 @@ def main():
     allowed = set(load_task_ids("train") + load_task_ids("dev"))
     if not set(args.tasks) <= allowed:
         parser.error("Only train/dev tasks permitted")
-    key = dotenv_values(args.credentials).get("OPENAI_API_KEY")
+    key_name = "ANTHROPIC_API_KEY" if args.model.startswith("claude-") else "OPENAI_API_KEY"
+    key = dotenv_values(args.credentials).get(key_name)
     if not key or key.startswith("encrypted:"):
-        parser.error("No usable OPENAI_API_KEY in credentials file")
+        parser.error(f"No usable {key_name} in credentials file")
     root = HERE / ".local/runs" / args.run
     root.mkdir(parents=True, exist_ok=False)
     config = {k: v for k, v in vars(args).items() if k != "credentials"}
@@ -611,7 +570,7 @@ def main():
             },
             "reasoning": args.reasoning,
             "provider_seed": None,
-            "action_protocol": "single execute_code function call; stateless encrypted reasoning replay",
+            "action_protocol": "single execute_code tool; provider-native reasoning replay; Anthropic auto tool choice, OpenAI forced tool choice",
             "world_seed": 100,
             "prompts": {condition: prompt(condition) for condition in args.conditions},
             "prompt_protocol": "uniform-zero-shot-appworld-react-v1",
@@ -622,6 +581,8 @@ def main():
             "pricing_per_million": {
                 "nano": [0.20, 0.02, 1.25],
                 "mini": [0.75, 0.075, 4.5],
+                "haiku_up_to_100k": [0.10, 0.01, 0.50],
+                "haiku_over_100k": [0.50, 0.05, 2.50],
             },
         }
     )

@@ -29,7 +29,7 @@ class ExplainerTests(unittest.TestCase):
         coverage = variant(source, "coverage")
         self.assertIn("collectionCoverage:", coverage)
         self.assertIn("acquisitionAuthorized = false", coverage)
-        self.assertNotIn("localDateTime(", coverage)
+        self.assertIn("localDateTime(", coverage)
         with self.assertRaises(AssertionError):
             variant("unrecognized graph", "datetime")
 

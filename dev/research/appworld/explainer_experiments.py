@@ -50,6 +50,8 @@ def build_digest(root):
 
 
 def variant(source, arm):
+    if arm == "datetime" and "createdAt: localDateTime({ precision: 'second' })" in source:
+        return source  # PR 26 is now adopted by the main research graph.
     if arm == "datetime":
         assert source.count("createdAt: z.string(),") == 1, (
             "Temporal adoption patch drifted"

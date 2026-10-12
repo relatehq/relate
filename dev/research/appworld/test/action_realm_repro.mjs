@@ -10,7 +10,7 @@ const transaction = {
   receiver: 'me@test',
   amount: 10,
   description: 'Test',
-  createdAt: '2023-01-01',
+  createdAt: '2023-01-01T00:00:00',
   likeCount: 0,
   commentCount: 0,
 };

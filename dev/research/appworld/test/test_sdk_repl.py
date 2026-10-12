@@ -66,7 +66,7 @@ class SdkReplTests(unittest.TestCase):
                 "receiver": {"email": "me@test"},
                 "amount": 10,
                 "description": "Test",
-                "created_at": "2023-01-01",
+                "created_at": "2023-01-01T00:00:00",
                 "like_count": 0,
                 "comment_count": state["writes"],
             }
@@ -89,7 +89,7 @@ class SdkReplTests(unittest.TestCase):
                     "receiver": "me@test",
                     "amount": 10,
                     "description": "Test",
-                    "createdAt": "2023-01-01",
+                    "createdAt": "2023-01-01T00:00:00",
                     "likeCount": 0,
                     "commentCount": 0,
                 }

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ActionError, createRuntime } from '@relate/node';
 import {
   connect,
+  localDateTime,
   implementAction,
   defineAccess,
   defineAction,
@@ -72,7 +73,7 @@ export function model() {
       receiver: z.string(),
       amount: z.number(),
       description: z.string(),
-      createdAt: z.string(),
+      createdAt: localDateTime({ precision: 'second' }),
       likeCount: z.number(),
       commentCount: z.number(),
       syncState: z.string().describe('current or pending'),
