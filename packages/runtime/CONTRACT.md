@@ -281,12 +281,14 @@ on memory and Postgres.
   just like detailed discovery. Action `creates` lists only readable API names.
   Metadata discovery never reads records or source systems. All maps and nested
   values are frozen; empty maps and unauthored descriptions remain compact.
-- Root `sdk` guidance summarizes the SDK once. Its option inventory and defaults
-  come from `reads/options.ts`. The exported `operationContracts` remains the
-  full frozen read contract for tooling, outside the root response. Object
-  detail adds per-object `returns`, per-traversal `returns` and per-property
-  `filter` text. Call paths belong to the consumer surface (`@relate/node` adds
-  `call`), not to the runtime.
+- Root `sdk` guidance summarizes the SDK once. Its option inventory, defaults
+  and accepted operation kinds come from `reads/options.ts`; `sdk.errors` shares
+  read-error guidance with the full contract. The exported `operationContracts`
+  and its `OperationContract` / `OperationContracts` types belong to this
+  package and remain the full frozen read contract for tooling, outside the root
+  response. Object detail adds per-object `returns`, per-traversal `returns` and
+  per-property `filter` text. Call paths belong to the consumer surface
+  (`@relate/node` adds `call`), not to the runtime.
 
 ## Native actions
 

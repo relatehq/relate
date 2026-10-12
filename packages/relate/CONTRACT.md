@@ -415,9 +415,10 @@ or rebind a compatible client. No automatic mutation replay is implied.
 
 Printing an operation (`String(consumer.objects.Customer.get)` or
 `util.inspect`) shows its call signature with the option names discovery reports
-in `sdk.options`, excluding `where`, `limit` and `cursor` for single-record
-reads. When discovery is unavailable, for example after the host closed, the
-signature shows `{ … }` instead of failing.
+in each `sdk.options` entry's `operations` list. Option strings are computed
+lazily and cached after successful discovery, separately for all four read
+kinds. If discovery is unavailable before that cache is populated, the signature
+shows `{ … }` instead of failing; failed lookups are not cached.
 
 ## Pagination
 

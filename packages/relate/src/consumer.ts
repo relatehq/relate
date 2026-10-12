@@ -12,6 +12,7 @@ import type {
   QueryRequest,
   QueryResult,
   RequestIssue,
+  ReadOperation,
   TraversalDescription as ProtocolTraversalDescription,
   TraversalRequest,
 } from '@relate/protocol';
@@ -485,18 +486,27 @@ export function createConsumer<G extends ConsumerGraph>(
   const { discovery } = operations;
   // Option names come from the actor's discovery snapshot; printing an operation
   // must not fail when that snapshot is unavailable (for example after close).
-  const optionText = (paged: boolean) => {
+  let optionTexts: Map<ReadOperation, string> | undefined;
+  const optionText = (operation: ReadOperation) => {
     try {
-      const options = Object.keys(discovery.describe().sdk.options);
+      if (!optionTexts) {
+        const options = Object.entries(discovery.describe().sdk.options);
+        const names = new Map<ReadOperation, string[]>();
 
-      // Only collection reads accept filters and pagination.
-      return optionNames(
-        paged
-          ? options
-          : options.filter(
-              (name) => !['where', 'limit', 'cursor'].includes(name),
-            ),
-      );
+        for (const [name, option] of options)
+          for (const kind of option.operations) {
+            const accepted = names.get(kind) ?? [];
+
+            accepted.push(name);
+            names.set(kind, accepted);
+          }
+
+        optionTexts = new Map(
+          [...names].map(([kind, accepted]) => [kind, optionNames(accepted)]),
+        );
+      }
+
+      return optionTexts.get(operation) ?? optionNames([]);
     } catch {
       return '{ … }';
     }
@@ -529,8 +539,8 @@ export function createConsumer<G extends ConsumerGraph>(
                 const operation = `${name}.traverse.${traversal}`;
                 const signature = () =>
                   edge.cardinality === 'one'
-                    ? `${path}.traverse.${traversal}(id: ObjectId<${name}>, options?: ${optionText(false)}): Promise<ObjectResult<${edge.target}>>`
-                    : `${path}.traverse.${traversal}(id: ObjectId<${name}>, options?: ${optionText(true)}): QueryResult<${edge.target}>`;
+                    ? `${path}.traverse.${traversal}(id: ObjectId<${name}>, options?: ${optionText('traverse-one')}): Promise<ObjectResult<${edge.target}>>`
+                    : `${path}.traverse.${traversal}(id: ObjectId<${name}>, options?: ${optionText('traverse-many')}): QueryResult<${edge.target}>`;
 
                 return [
                   traversal,
@@ -578,13 +588,13 @@ export function createConsumer<G extends ConsumerGraph>(
                 operations.query(definitionId, page),
               ),
             () =>
-              `${path}.query(options?: ${optionText(true)}): QueryResult<${name}>`,
+              `${path}.query(options?: ${optionText('query')}): QueryResult<${name}>`,
           ),
           get: documented(
             async (id: string, request = {}) =>
               operations.get(definitionId, id, request),
             () =>
-              `${path}.get(id: ObjectId<${name}>, options?: ${optionText(false)}): Promise<ObjectResult<${name}>>`,
+              `${path}.get(id: ObjectId<${name}>, options?: ${optionText('get')}): Promise<ObjectResult<${name}>>`,
           ),
         }),
       ];

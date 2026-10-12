@@ -26,9 +26,9 @@ export type {
   ObjectSummary,
   ObjectOverview,
   SdkDescription,
+  SdkOptionDescription,
+  ReadOperation,
   TraversalOverview,
-  OperationContract,
-  OperationContracts,
   OptionDescription,
   PropertyDescription,
 } from '@relate/protocol';

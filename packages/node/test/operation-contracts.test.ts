@@ -80,7 +80,7 @@ it('discovers the generic read contract and each object’s concrete calls', asy
     expect(sdk.options[option.name]).toBeTruthy();
 
     if (option.default !== undefined)
-      expect(sdk.options[option.name]).toContain(
+      expect(sdk.options[option.name]?.description).toContain(
         `Default: ${JSON.stringify(option.default)}.`,
       );
   }
@@ -89,7 +89,29 @@ it('discovers the generic read contract and each object’s concrete calls', asy
   expect(sdk.actions.invoke).toBe(
     'await actions.<action>({ input, idempotencyKey })',
   );
-  expect(sdk.options.where).toContain('Queries and to-many traversals only');
+
+  for (const [kind, contract] of [
+    ['get', operationContracts.get],
+    ['query', operationContracts.query],
+    ['traverse-one', operationContracts.traverse.one],
+    ['traverse-many', operationContracts.traverse.many],
+  ] as const)
+    expect(
+      Object.entries(sdk.options)
+        .filter(([, option]) => option.operations.includes(kind))
+        .map(([name]) => name),
+    ).toEqual(contract.options);
+
+  expect(sdk.errors).toBe(operationContracts.errors);
+
+  for (const guidance of [
+    'ReadError',
+    'invalid-request',
+    'error.issues',
+    'unavailable',
+    'incomplete',
+  ])
+    expect(sdk.errors).toContain(guidance);
 
   expect(consumer.objects.Customer.describe()).toMatchObject({
     operations: {

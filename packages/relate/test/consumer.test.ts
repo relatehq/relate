@@ -94,13 +94,26 @@ const graphDescription: GraphDescription = {
     discovery: { object: '', action: '' },
     reads: { get: '', query: '', traverse: '' },
     actions: { invoke: '', receipt: '' },
-    options: { where: '', select: '', limit: '', cursor: '', evidence: '' },
+    options: {
+      where: { description: '', operations: ['query', 'traverse-many'] },
+      select: {
+        description: '',
+        operations: ['get', 'query', 'traverse-many', 'traverse-one'],
+      },
+      limit: { description: '', operations: ['query', 'traverse-many'] },
+      cursor: { description: '', operations: ['query', 'traverse-many'] },
+      evidence: {
+        description: '',
+        operations: ['get', 'query', 'traverse-many', 'traverse-one'],
+      },
+    },
     results: {
       getOrToOne: '',
       queryOrToMany: '',
       pagination: '',
       evidence: '',
     },
+    errors: '',
     semantics: [],
   },
 };
@@ -341,6 +354,39 @@ it('decorates discovery with this facade’s call paths and asks discovery every
   expect(String(consumer.objects.Review.traverse.customer)).toBe(
     'objects.Review.traverse.customer(id: ObjectId<Review>, options?: { select?, evidence? }): Promise<ObjectResult<Customer>>',
   );
+});
+
+it('prints each operation’s advertised options and caches successful signatures', () => {
+  const { graph } = createGraph();
+  const operations = createOperations(graph);
+
+  operations.discovery.describe.mockReturnValue({
+    ...graphDescription,
+    definitionRevision: compile(graph).definitionRevision,
+    sdk: {
+      ...graphDescription.sdk,
+      options: {
+        order: { description: 'Query only', operations: ['query'] },
+        lookup: { description: 'Get only', operations: ['get'] },
+        link: { description: 'To-one only', operations: ['traverse-one'] },
+      },
+    },
+  });
+
+  const consumer = createConsumer(compile(graph).consumer, operations);
+
+  // Binding checks compatibility; option formatting is lazy.
+  expect(operations.discovery.describe).toHaveBeenCalledTimes(1);
+  expect(String(consumer.objects.Customer.query)).toContain('{ order? }');
+  expect(String(consumer.objects.Customer.get)).toContain('{ lookup? }');
+  expect(String(consumer.objects.Review.traverse.customer)).toContain(
+    '{ link? }',
+  );
+  expect(String(consumer.objects.Customer.traverse.reviews)).toContain(
+    'options?: {  }',
+  );
+  expect(String(consumer.objects.Customer.query)).toContain('{ order? }');
+  expect(operations.discovery.describe).toHaveBeenCalledTimes(2);
 });
 
 it('prints operations without option names when discovery is unavailable', () => {

@@ -26,43 +26,6 @@ export interface OptionDescription {
   readonly description: string;
 }
 
-/** How to call one read operation, independent of graph and actor. */
-export interface OperationContract {
-  readonly signature: string;
-  readonly returns: string;
-  readonly description: string;
-  /** Accepted option names; each is described once in `OperationContracts.options`. */
-  readonly options: readonly string[];
-}
-
-/**
- * The SDK-owned read contract. It is the same for every graph and actor; each
- * object's description supplies the concrete names, types and calls.
- */
-export interface OperationContracts {
-  readonly get: OperationContract;
-  readonly query: OperationContract & {
-    readonly collectionScope: 'graph-membership';
-  };
-  readonly traverse: {
-    readonly description: string;
-    readonly many: OperationContract;
-    readonly one: OperationContract;
-  };
-  /** Every read option, described once. */
-  readonly options: readonly OptionDescription[];
-  /** Result and value shapes named by `returns` and option types. */
-  readonly shapes: {
-    readonly ObjectId: string;
-    readonly ObjectResult: string;
-    readonly ObjectRecord: string;
-    readonly ReadMeta: string;
-    readonly Page: string;
-    readonly QueryResult: string;
-  };
-  readonly errors: string;
-}
-
 export interface ObjectSummary {
   readonly definitionId: string;
   readonly apiName: string;
@@ -97,6 +60,15 @@ export interface ActionOverview {
   readonly creates: readonly string[];
 }
 
+/** Read kinds used by option validation and discovery. */
+export type ReadOperation = 'get' | 'query' | 'traverse-many' | 'traverse-one';
+
+/** Concise option guidance and the reads that accept it. */
+export interface SdkOptionDescription {
+  readonly description: string;
+  readonly operations: readonly ReadOperation[];
+}
+
 /** Compact SDK guidance shared by every graph and actor. */
 export interface SdkDescription {
   readonly discovery: { readonly object: string; readonly action: string };
@@ -107,13 +79,15 @@ export interface SdkDescription {
   };
   readonly actions: { readonly invoke: string; readonly receipt: string };
   /** Read option names and concise guidance, including defaults. */
-  readonly options: Readonly<Record<string, string>>;
+  readonly options: Readonly<Record<string, SdkOptionDescription>>;
   readonly results: {
     readonly getOrToOne: string;
     readonly queryOrToMany: string;
     readonly pagination: string;
     readonly evidence: string;
   };
+  /** ReadError codes and how to inspect an invalid request. */
+  readonly errors: string;
   readonly semantics: readonly string[];
 }
 

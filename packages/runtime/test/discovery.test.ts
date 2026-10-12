@@ -330,7 +330,8 @@ it('omits hidden created types and actions with unreadable input references', ()
     },
   });
 
-  const overview = discover(hiddenReview, manager).describe();
+  const discovery = discover(hiddenReview, manager);
+  const overview = discovery.describe();
   const denied = discover(hiddenCustomer, manager).describe();
 
   expect(overview.objects).not.toHaveProperty('AccountReview');
@@ -338,6 +339,9 @@ it('omits hidden created types and actions with unreadable input references', ()
     description: 'Record a new assessment of a customer account.',
     creates: [],
   });
+  expect(
+    discovery.describeAction('business.add-account-review')?.creates,
+  ).toEqual([]);
   expect(denied.actions).toEqual({});
 });
 
@@ -360,7 +364,7 @@ it('serializes a complete compact overview without schemas or verbose contracts'
   expect(json).not.toContain('crm.customers');
   expect(json).not.toContain('portfolio');
   expect(json).not.toContain('revenue');
-  expect(overview.sdk).not.toHaveProperty('errors');
+  expect(overview.sdk.errors).toContain('error.issues');
   // A small graph used to spend over 5 KB on shared documentation alone.
   expect(Buffer.byteLength(json)).toBeLessThan(4_000);
   expect(overview.sdk.reads.query).toBe(

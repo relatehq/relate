@@ -78,6 +78,12 @@ export function createDiscovery(
     (manifest.actions ?? []).filter((action) =>
       actionAllowed(manifest, principal, action),
     );
+  const visibleCreates = (action: ManifestAction) =>
+    action.creates.flatMap((id) => {
+      const object = readable(id);
+
+      return object ? [object] : [];
+    });
   const traversals = memoize((id: string) =>
     availableTraversals(manifest, principal, id),
   );
@@ -159,11 +165,7 @@ export function createDiscovery(
             actionFields(fields),
           ]),
         ),
-        creates: action.creates.flatMap((id) => {
-          const object = readable(id);
-
-          return object ? [summary(object)] : [];
-        }),
+        creates: visibleCreates(action).map(summary),
       });
     },
   );
@@ -199,11 +201,7 @@ export function createDiscovery(
           action.apiName,
           {
             ...described(action.description),
-            creates: action.creates.flatMap((id) => {
-              const object = readable(id);
-
-              return object ? [object.apiName] : [];
-            }),
+            creates: visibleCreates(action).map((object) => object.apiName),
           },
         ]),
       ),

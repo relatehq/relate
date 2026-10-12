@@ -165,8 +165,8 @@ const addReview = consumer.actions.addAccountReview.describe();
 The overview contains all readable object types and executable actions in
 name-keyed `objects` and `actions` maps. Objects include named traversal targets
 and cardinalities; actions include readable created-object names. The shared
-`sdk` guide covers calls, read options/defaults, record/page results and
-pagination without loading property schemas or detailed error documentation.
+`sdk` guide covers calls, read options/defaults and applicability, record/page
+results, pagination and read-error guidance without loading property schemas.
 Object detail contains authorized properties, traversals, scalar constraints,
 and their descriptions. Action detail contains its described input, output,
 failures, and readable created-object types. Unauthorized definitions and

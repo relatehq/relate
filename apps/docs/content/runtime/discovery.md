@@ -73,23 +73,29 @@ create.
 ## Learning the operations
 
 The root's `sdk` guide explains discovery, reads, actions, receipts, options,
-record/page shapes, pagination and evidence once. It replaces the verbose root
-`operations` block and does not repeat option arrays for every operation:
+record/page shapes, pagination, evidence and read errors once. It replaces the
+verbose root `operations` block and does not repeat option arrays for every
+operation:
 
 ```ts
 const { sdk } = consumer.describe();
 
 sdk.reads.query; // 'await objects.<Object>.query(options?)'
 sdk.actions.invoke; // 'await actions.<action>({ input, idempotencyKey })'
-sdk.options.limit; // per-page range and default
+sdk.options.limit;
+// { description: 'maximum records per page, integer 1–100. Default: 25.',
+//   operations: ['query', 'traverse-many'] }
+sdk.errors; // ReadError codes and error.issues guidance
 sdk.results.pagination; // await → one page; for await → every record
 ```
 
 `where`, `limit` and `cursor` apply only to queries and to-many traversals. The
 other read options also apply to get and to-one traversals. The guide includes
-option defaults but leaves detailed filter edge cases to
-[Reading Data](./reading-data.md) and actionable request errors. The full
-generic read contract remains exported as `operationContracts` from
+option defaults and machine-readable `operations` for each option, derived from
+the same rules as request validation. Printed signatures use these operation
+sets. Detailed filter edge cases remain in [Reading Data](./reading-data.md) and
+actionable request errors. The full generic read contract and its
+`OperationContract` / `OperationContracts` types are exported from
 `@relate/runtime` for tooling; it is not included in root discovery.
 
 Object detail fills in the concrete calls and types:
@@ -148,8 +154,12 @@ String(consumer.objects.Customer.traverse.invoices);
 // objects.Customer.traverse.invoices(id: ObjectId<Customer>, options?: { select?, limit?, cursor?, … }): QueryResult<Invoice>
 ```
 
-A wrong call fails with a `ReadError` that names each problem and the accepted
-options. See [Read responses](../reference/read-responses.md#request-errors).
+A wrong call fails with `ReadError` code `invalid-request`; inspect
+`error.issues` for individual option, filter or argument problems. `unavailable`
+means a source could not be read; `incomplete` means required evidence was
+missing (`requireComplete` or a `where` property). This guidance is included in
+`sdk.errors`. See
+[Read responses](../reference/read-responses.md#request-errors).
 
 Discovery filters objects, restricted properties, traversals, and actions using
 the principal's roles, through the same checks the runtime applies when the

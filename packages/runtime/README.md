@@ -20,8 +20,9 @@ and unpublished.
 - `createMemoryStore()` for volatile storage.
 - `createDiscovery(model, principal)` returns a compact, complete graph overview
   with authorized traversal links and SDK guidance, plus on-demand object/action
-  detail. The separate `operationContracts` export retains the full read guide.
-  Discovery metadata is actor-bound and uses `@relate/protocol` shapes.
+  detail. The separate `operationContracts` export and its `OperationContract` /
+  `OperationContracts` types retain the full read guide. Discovery metadata is
+  actor-bound and uses `@relate/protocol` shapes.
 - `@relate/runtime/storage`: the adapter extension boundary. `ObservationStore`,
   `NativeStore`, `NativeTransaction` and their errors are the contract that
   `@relate/postgres` and custom stores implement.

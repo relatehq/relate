@@ -88,15 +88,16 @@ claim names, or policy predicates.
 
 `consumer.describe().sdk` is the concise SDK guide shared by every graph and
 actor: discovery/read/action/receipt calls, read options and defaults, essential
-record/page shapes, pagination, evidence and graph-membership semantics. It
-omits verbose error and shape catalogues. The full `operationContracts` remains
-available from `@relate/runtime` for tooling, outside root discovery. Object
-detail adds this SDK's call paths: `operations.get.call`,
-`operations.query.call` and each traversal's `call`, such as
-`objects.Customer.traverse.invoices(id, options?)`, beside the runtime's
-`returns` types and each property's `filter` text. `String(operation)` and
-`util.inspect(operation)` return the call signature for `get`, `query` and each
-traversal function, not implementation source.
+record/page shapes, pagination, evidence, read-error guidance and
+graph-membership semantics. Each option carries its description/default and
+accepted operation kinds; printed signatures use these lists. It omits verbose
+shape catalogues. The full `operationContracts` remains available from
+`@relate/runtime` for tooling, outside root discovery. Object detail adds this
+SDK's call paths: `operations.get.call`, `operations.query.call` and each
+traversal's `call`, such as `objects.Customer.traverse.invoices(id, options?)`,
+beside the runtime's `returns` types and each property's `filter` text.
+`String(operation)` and `util.inspect(operation)` return the call signature for
+`get`, `query` and each traversal function, not implementation source.
 
 Every object detail reports `query.collectionScope: 'graph-membership'`. Queries
 and traversal enumerate adopted source-backed records or Relate-native records;

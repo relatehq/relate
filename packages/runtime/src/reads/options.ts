@@ -2,6 +2,8 @@ import { ReadError } from '@relate/protocol';
 import type {
   Json,
   OptionDescription,
+  ReadOperation,
+  SdkOptionDescription,
   RequestIssue,
   ScalarSchema,
 } from '@relate/protocol';
@@ -9,8 +11,7 @@ import { isPlainObject } from 'relate/model';
 
 export type { OptionDescription };
 
-/** The read operations a caller can invoke; options and errors are defined per kind. */
-export type ReadOperation = 'get' | 'query' | 'traverse-many' | 'traverse-one';
+export type { ReadOperation } from '@relate/protocol';
 
 interface OptionRule extends OptionDescription {
   readonly summary: string;
@@ -35,7 +36,7 @@ const rules: readonly OptionRule[] = [
   {
     name: 'where',
     summary:
-      'Queries and to-many traversals only: { property: value } or { property: { eq, in, gt, gte, lt, lte } }. Conditions combine with AND. Ranges require numbers, timestamps or declared local datetimes.',
+      '{ property: value } or { property: { eq, in, gt, gte, lt, lte } }. Conditions combine with AND. Ranges require numbers, timestamps or declared local datetimes.',
     type: '{ [property]: scalar | { eq?, in?, gt?, gte?, lt?, lte? } } (at most 100 properties)',
     description:
       "Scalar equality or operator objects on property names of the returned object, combined with AND (a traversal also requires the relationship). eq/in work on every scalar; gt/gte/lt/lte require numbers, timestamps or declared local datetimes. Operator entries also combine with AND. in accepts at most 100 values; [] matches nothing. Range operands are not limited by a number property's value bounds. Timestamp operands accept any timezone-qualified ISO instant with at most millisecond precision (for example 2026-10-01T00:00:00Z); comparison uses the instant. Use in, not a bare array, to match several values. null matches only explicit null; absence does not match. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
@@ -57,8 +58,7 @@ const rules: readonly OptionRule[] = [
   },
   {
     name: 'limit',
-    summary:
-      'Queries and to-many traversals only: maximum records per page, integer 1–100.',
+    summary: 'maximum records per page, integer 1–100.',
     type: 'integer 1–100',
     default: 25,
     description:
@@ -72,7 +72,7 @@ const rules: readonly OptionRule[] = [
   {
     name: 'cursor',
     summary:
-      'Queries and to-many traversals only: continue the same call and options using page.meta.continuationCursor.',
+      'continue the same call and options using page.meta.continuationCursor.',
     type: 'string',
     description:
       'page.meta.continuationCursor from the previous page of the same call with the same options (evidence may change). There is no offset or page-number paging.',
@@ -165,14 +165,20 @@ export function optionDescriptions(
 }
 
 /** Compact documentation uses the same option inventory and defaults as detail. */
-export function optionSummaries(): Readonly<Record<string, string>> {
+export function optionSummaries(): Readonly<
+  Record<string, SdkOptionDescription>
+> {
   return Object.fromEntries(
     rules.map((rule) => [
       rule.name,
-      rule.summary +
-        (rule.default === undefined
-          ? ''
-          : ` Default: ${JSON.stringify(rule.default)}.`),
+      {
+        description:
+          rule.summary +
+          (rule.default === undefined
+            ? ''
+            : ` Default: ${JSON.stringify(rule.default)}.`),
+        operations: [...rule.operations],
+      },
     ]),
   );
 }

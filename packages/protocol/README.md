@@ -22,8 +22,9 @@ Relate consumer surface. Private and unpublished.
   `FailedReceipt`, `ActionReceipt`).
 - Discovery: compact `GraphDescription` with name-keyed `ObjectOverview` and
   `ActionOverview` maps, `TraversalOverview` edges and shared `SdkDescription`;
-  detailed `ObjectDescription`, `ActionDescription`, `OperationContracts` and
-  portable `ScalarSchema`, plus the actor-bound `Discovery` interface.
+  option applicability (`SdkOptionDescription`, `ReadOperation`), detailed
+  `ObjectDescription`, `ActionDescription` and portable `ScalarSchema`, plus the
+  actor-bound `Discovery` interface.
 - `ConsumerOperations`: the actor-bound, definition-ID-addressed operations
   every consumer surface shares (`get`, `query`, `traverse`, `invoke`,
   `getReceipt`, `discovery`), each returning the complete public result. The

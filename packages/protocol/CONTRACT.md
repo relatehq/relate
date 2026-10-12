@@ -63,9 +63,12 @@ created-object API names. Both target and created names refer to entries in the
 visible objects map. No search, truncation or pagination is applied.
 
 `ObjectDescription` and `ActionDescription` retain full identity, display
-metadata, authorized properties, traversals and action schemas. The separate
-`OperationContracts` type describes the full generic read contract; it is not
-part of root discovery. Every scalar in detail is reported as a `ScalarSchema`;
+metadata, authorized properties, traversals and action schemas. SDK options
+carry `SdkOptionDescription` (`description` and accepted `ReadOperation` kinds),
+so applicability is transport data, not inferred from prose. `sdk.errors`
+explains read failures and how to inspect request issues. Full read-contract
+types (`OperationContract`, `OperationContracts`) belong to `@relate/runtime`,
+not this transport. Every scalar in detail is reported as a `ScalarSchema`;
 `relate/model` validates compiled manifests against that same shape, so
 discovery never invents a constraint the compiler did not record.
 

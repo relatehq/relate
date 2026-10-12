@@ -1,10 +1,47 @@
-import type { OperationContracts, SdkDescription } from '@relate/protocol';
+import type { OptionDescription, SdkDescription } from '@relate/protocol';
 import { deepFreeze } from 'relate/model';
 import {
   optionDescriptions,
   optionSummaries,
   type ReadOperation,
 } from './reads/index.js';
+
+/** How to call one read operation, independent of graph and actor. */
+export interface OperationContract {
+  readonly signature: string;
+  readonly returns: string;
+  readonly description: string;
+  /** Accepted option names; each is described once in `OperationContracts.options`. */
+  readonly options: readonly string[];
+}
+
+/**
+ * The SDK-owned read contract. It is the same for every graph and actor; each
+ * object's description supplies the concrete names, types and calls.
+ */
+export interface OperationContracts {
+  readonly get: OperationContract;
+  readonly query: OperationContract & {
+    readonly collectionScope: 'graph-membership';
+  };
+  readonly traverse: {
+    readonly description: string;
+    readonly many: OperationContract;
+    readonly one: OperationContract;
+  };
+  /** Every read option, described once. */
+  readonly options: readonly OptionDescription[];
+  /** Result and value shapes named by `returns` and option types. */
+  readonly shapes: {
+    readonly ObjectId: string;
+    readonly ObjectResult: string;
+    readonly ObjectRecord: string;
+    readonly ReadMeta: string;
+    readonly Page: string;
+    readonly QueryResult: string;
+  };
+  readonly errors: string;
+}
 
 const names = (operation: ReadOperation) =>
   optionDescriptions(operation).map((option) => option.name);
@@ -87,6 +124,7 @@ export const sdkDescription: SdkDescription = deepFreeze({
     evidence:
       'Record meta reports completeness and degradation. Missing selected values are explained in meta.fields.',
   },
+  errors: operationContracts.errors,
   semantics: [
     'Use Relate record IDs, not source-system IDs.',
     'Queries enumerate records already in this graph.',

@@ -14,8 +14,8 @@ SDK/API name instead of summary arrays. All visible definitions remain present.
 Object entries carry `description?` and named `traversals` with target API name,
 cardinality and `description?`. Action entries carry `description?` and readable
 `creates` API names. The root `operations` block is replaced by a compact `sdk`
-guide for discovery, reads, actions, receipts, options/defaults, results and
-semantics. No search or code-execution API is introduced.
+guide for discovery, reads, actions, receipts, options/defaults, results, read
+errors and semantics. No search or code-execution API is introduced.
 
 Migrate `overview.objects.map(...)` to `Object.entries(overview.objects)` and
 use the key as the API name; do the same for actions. Fetch definition IDs,
@@ -23,7 +23,15 @@ labels, properties and action schemas from the existing individual `.describe()`
 methods. Replace root `operations` documentation consumers with `sdk`; tooling
 needing the full generic read contract can still import `operationContracts`
 from `@relate/runtime`. Object detail's `operations` is unchanged. Update
-serialized discovery snapshots and protocol test doubles.
+serialized discovery snapshots and protocol test doubles. Each `sdk.options`
+entry is `{ description, operations }`, where `operations` lists the read kinds
+that accept it (`get`, `query`, `traverse-one`, `traverse-many`). Printed
+signatures use those lists; option descriptions include defaults. `sdk.errors`
+retains guidance for `ReadError` codes and `error.issues`.
+
+Move `OperationContract` and `OperationContracts` type imports from
+`@relate/protocol` or `@relate/node` to `@relate/runtime`; they describe the
+runtime tooling export, not the discovery transport.
 
 The methods remain synchronous and actor-bound. The model revision and routing
 artifact are unchanged by this presentation change; no manifest migration is

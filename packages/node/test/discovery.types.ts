@@ -22,6 +22,10 @@ const creates: readonly string[] | undefined =
   graphDescription.actions.addAccountReview?.creates;
 const queryGuide: string = graphDescription.sdk.reads.query;
 
+// @ts-expect-error option applicability is readonly
+graphDescription.sdk.options.limit!.operations.push('get');
+// @ts-expect-error option descriptions are readonly
+graphDescription.sdk.options.limit!.description = 'Unlimited';
 // @ts-expect-error overview entries are readonly
 graphDescription.objects.Customer = { traversals: {} };
 // @ts-expect-error root discovery no longer carries the verbose operations block
