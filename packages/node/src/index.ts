@@ -1,7 +1,5 @@
 export { ActionError } from '@relate/protocol';
 
-export type { QueryResult } from '@relate/runtime';
-
 export type {
   Consumer,
   ActionOperations,
@@ -10,6 +8,7 @@ export type {
   Page,
   PageOptions,
   QueryOptions,
+  QueryResult,
   ObjectOperations,
   ObjectDescription,
   ReadOptions,
@@ -21,13 +20,14 @@ export type {
   ActionDescription,
   ActionFieldDescription,
   ActionSummary,
+  ConsumerOperations,
   GraphDescription,
   ObjectSummary,
   OperationContract,
   OperationContracts,
   OptionDescription,
   PropertyDescription,
-} from '@relate/runtime';
+} from '@relate/protocol';
 
 export { createRuntime } from './runtime.js';
 

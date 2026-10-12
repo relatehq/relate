@@ -16,6 +16,15 @@ Private and unpublished while implementation is in progress.
   `objectId`, `from`, `native` and `reference`; `source` and `nativeMembership`;
   `implementAction`; and the boundary helpers `referenceInput` and
   `assertFields`; `connect`, `defineApp`, and `isAppDefinition`.
+- `relate/consumer`: the typed consumer facade shared by every surface:
+  `createConsumer(description, operations)` builds `objects.Customer.get`,
+  `objects.Customer.query`, `objects.Customer.traverse.invoices`,
+  `actions.addAccountReview`, `describe()` and `receipts.get` over the
+  `ConsumerOperations` contract from `@relate/protocol`; the compiler supplies
+  the versioned `ConsumerDescription` the facade needs; `createQuery` and
+  `createPagedQuery` page lazily; the `Consumer`, `ObjectOperations`,
+  `QueryOptions`, `ObjectResult` and `QueryResult` types. Browser safe: no
+  compiler, engine or Node import.
 - `relate/connectors`: resource adapter contracts (`SourceConnector`,
   `SourceRecord`, `SourceVersion`, `SourceBinding`) and `SourceAccessDenied`.
 - `relate/storage`: type-only storage adapter contracts used by application
@@ -23,7 +32,9 @@ Private and unpublished while implementation is in progress.
   runtime/storage packages.
 - `relate/compiler`: `compile(graph)` validates a definition and returns an
   immutable, serializable `CompiledModel` with a deterministic `sha256:`
-  definition revision.
+  definition revision and a typed `consumer` routing artifact. The facade
+  accepts `createConsumer(model.consumer, operations)` and checks model
+  compatibility.
 - `relate/model`: the manifest schema, `validateManifest`, and the types that
   runtime integrations consume.
 - `relate/diagnostics`: platform-neutral issue types (`ModelIssue`, `IssuePath`,
@@ -37,8 +48,9 @@ imports stay free of compiler and Node dependencies.
 ## How it fits
 
 - Depends on `zod` and `@relate/protocol` (result and evidence types).
-- `@relate/node` compiles an authored graph and infers the typed consumer API
-  from its object registry.
+- `@relate/node` compiles an authored graph, binds the engine to
+  `ConsumerOperations` per principal and returns `createConsumer` over it. The
+  planned `@relate/client` returns the same facade over HTTP.
 - `@relate/runtime` uses `relate/model`, `relate/connectors`, and
   `relate/storage`; it executes compiled manifests without importing graph
   authoring.
@@ -99,8 +111,10 @@ evidence. The app author does not call the adapter directly for consumer reads.
 
 See the runnable
 [hello-world example](../../examples/01-hello-world/src/index.ts) for the
-complete chain with an in-memory provider. SQLite and Stripe packages are
-planned in [connectors/TODO.md](../../connectors/TODO.md).
+complete chain with an in-memory provider. See
+[Connecting Sources](../../apps/docs/content/authoring/connections.md) for the
+available SQLite, Stripe, and Salesforce connectors and the custom connector
+contract.
 
 ### Graph authoring
 
@@ -273,3 +287,36 @@ remains accessible separately. See the
 [modeling guide](../../apps/docs/content/authoring/graph.md#many-to-many-relationships)
 and
 [traversal guide](../../apps/docs/content/runtime/reading-data.md#many-to-many-traversal).
+
+## Timestamp properties and query predicates
+
+Declare timestamps with `z.iso.datetime({ offset: true, precision: 3 })` in a
+source schema or a `native(...)` property. Optional and nullable wrappers are
+supported. These are ISO strings with a timezone (`Z` or an explicit offset) and
+exactly three fractional-second digits. Date-only values, local times, other
+precisions, and `z.string().datetime()` are not supported timestamp schemas.
+Normalize provider timestamps before supplying records to Relate. Query operands
+are more lenient: any timezone-qualified ISO instant with at most millisecond
+precision, such as `2026-10-01T00:00:00Z`, is accepted.
+
+```ts
+const events = defineSource({
+  id: 'events',
+  idField: 'id',
+  schema: z.object({
+    id: z.string(),
+    occurredAt: z.iso.datetime({ offset: true, precision: 3 }),
+  }),
+});
+```
+
+Map `events.fields.occurredAt` using `from(...)` as usual. `QueryOptions` infers
+scalar equality and `eq`/`in` for every property, plus `gt`/`gte`/`lt`/`lte` for
+numbers and timestamps. References retain their object-ID brand inside `in`.
+Timestamp equality and ranges compare instants, so different offsets can match;
+returned property values preserve the supplied string. Ordinary strings have no
+range operators. See
+[reading data](../../apps/docs/content/runtime/reading-data.md#querying-objects-query)
+for consumer examples and
+[the runtime contract](../runtime/CONTRACT.md#graph-queries) for validation,
+evidence and pagination rules.

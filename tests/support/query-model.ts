@@ -31,7 +31,7 @@ export function createQueryModel() {
       id: z.string(),
       customer: z.string(),
       status: z.string().optional(),
-      total: z.number().nullable(),
+      total: z.number().min(0).max(100).nullable(),
       paid: z.boolean(),
     }),
   });

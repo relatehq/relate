@@ -1,3 +1,5 @@
+import generatedReference from './generated-reference.json';
+
 export interface DocPage {
   /** Route segments; empty for the home page. */
   readonly slug: readonly string[];
@@ -54,12 +56,27 @@ export const pages: readonly DocPage[] = [
     section: 'Authoring',
   },
   {
+    slug: ['authoring', 'connections'],
+    name: 'Connecting Sources',
+    title: 'Connecting Sources',
+    description:
+      'Choose connectors, bind resources, and implement provider access.',
+    section: 'Authoring',
+  },
+  {
     slug: ['authoring', 'inspector'],
     name: 'Inspector',
     title: 'Running the Inspector',
     description:
       'Open a live model graph and inspect different Relate projects.',
     section: 'Authoring',
+  },
+  {
+    slug: ['runtime', 'application'],
+    name: 'Application Setup',
+    title: 'Application Setup & Lifecycle',
+    description: 'Start an app, register resources, and shut down cleanly.',
+    section: 'Runtime',
   },
   {
     slug: ['runtime', 'reading-data'],
@@ -76,6 +93,14 @@ export const pages: readonly DocPage[] = [
     section: 'Runtime',
   },
   {
+    slug: ['runtime', 'discovery'],
+    name: 'Discovery',
+    title: 'Discovering the Graph',
+    description:
+      'Inspect the objects, actions, and operations available to a caller.',
+    section: 'Runtime',
+  },
+  {
     slug: ['reference', 'read-responses'],
     name: 'Read Responses',
     title: 'Read Responses & Evidence',
@@ -83,6 +108,15 @@ export const pages: readonly DocPage[] = [
       'Compact and full evidence, response fields, pagination, and read options.',
     section: 'Reference',
   },
+  {
+    slug: ['reference', 'troubleshooting'],
+    name: 'Troubleshooting',
+    title: 'Troubleshooting',
+    description:
+      'Diagnose model errors, missing records, unavailable fields, and revision conflicts.',
+    section: 'Reference',
+  },
+  ...generatedReference,
   {
     slug: ['deployment', 'postgres'],
     name: 'Persistence',

@@ -20,13 +20,13 @@ pnpm build
 Then open the customer and invoice example:
 
 ```sh
-pnpm relate dev --config dev/fixtures/customer-graph/invoice-read/model.ts --open
+pnpm relate dev --config examples/03-customer-workspace/relate.config.ts --open
 ```
 
-You should see **Customer** and **Invoice**, connected by the
-**CustomerInvoices** relationship. The terminal reports a ready model with 2
-objects, 2 sources, and 1 relationship. No database or credentials are needed
-for this example.
+You should see **Customer**, **Invoice**, and **Account review**, connected by
+the **CustomerInvoices** and **CustomerReviews** relationships. The model has 3
+objects, 2 sources, and 2 relationships. No database or credentials are needed
+to inspect these definitions.
 
 `--open` opens the browser. You can also open the complete Inspector URL printed
 in the terminal, including its `#token=…` fragment. That link establishes the

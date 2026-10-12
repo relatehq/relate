@@ -13,9 +13,9 @@ Direct HTTP API over narrow runtime consumer capabilities.
 
 ## Planned responsibility
 
-Expose the consumer operations of a composed runtime over HTTP: `get`,
-`traverse`, actions and, once implemented, queries. Requests and responses use
-the `@relate/protocol` shapes unchanged, so a remote caller receives the same
+Expose the consumer operations of a composed runtime over HTTP: `get`, `query`,
+`traverse`, actions, receipts and discovery. Requests and responses use the
+`@relate/protocol` shapes unchanged, so a remote caller receives the same
 results, evidence and sanitized errors as an embedded `@relate/node` consumer.
 
 The surface stays narrow by design:
@@ -28,12 +28,33 @@ The surface stays narrow by design:
 
 ## How it will fit
 
-- Depends on `@relate/runtime` (execution) and `@relate/protocol` (wire shapes).
-- Paired with `@relate/client`, the typed caller for browsers and servers.
-- Third step in the implementation sequence, after the embedded read and native
-  write path in `@relate/runtime` and `@relate/postgres` is complete. The
-  [inspector specification](../../apps/inspector/SPEC.md) expects a development
-  worker to serve this package behind a supervisor proxy at `/api`.
+The adapter serves the `ConsumerOperations` contract from `@relate/protocol`. It
+never reaches into the engine or the typed facade: a host hands it the
+operations bound to each request's principal.
+
+```ts
+import { createRuntime } from '@relate/node';
+
+const relate = createRuntime({ graph, connections });
+
+// Planned: one adapter per runtime; the host resolves the principal per request.
+app.route(
+  '/api',
+  createHttpAdapter({
+    operations: (principal) => relate.operations(principal),
+  }),
+);
+```
+
+- Depends on `@relate/runtime` (the `Principal` type and engine semantics) and
+  `@relate/protocol` (wire shapes and the operations contract). It works for
+  apps composed with `@relate/node` through `relate.operations(principal)` and
+  for a bare `@relate/runtime` engine through the same contract.
+- Paired with `@relate/client`, which implements `ConsumerOperations` over HTTP
+  and reuses the `relate/consumer` facade.
+- The [inspector specification](../../apps/inspector/SPEC.md) describes a future
+  development worker serving this package behind a supervisor proxy at `/api`.
+  Today's Inspector compiles definitions only and does not serve consumer reads.
 
 No request or route shape is fixed yet. The behavior to preserve is defined by
 the embedded path; see [`@relate/node`](../node/README.md).

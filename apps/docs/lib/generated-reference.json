@@ -1,0 +1,61 @@
+[
+  {
+    "slug": [
+      "reference",
+      "api",
+      "index"
+    ],
+    "name": "API Reference",
+    "title": "API Reference",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "functions",
+      "defineSource"
+    ],
+    "name": "defineSource",
+    "title": "Function: defineSource()",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "type-aliases",
+      "ObjectId"
+    ],
+    "name": "ObjectId",
+    "title": "Type Alias: ObjectId<DefinitionId>",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "type-aliases",
+      "QueryOptions"
+    ],
+    "name": "QueryOptions",
+    "title": "Type Alias: QueryOptions<O, K, E>",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "type-aliases",
+      "ReadOptions"
+    ],
+    "name": "ReadOptions",
+    "title": "Type Alias: ReadOptions<K, E>",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  }
+]

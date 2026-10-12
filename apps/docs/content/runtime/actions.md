@@ -34,6 +34,10 @@ Relate actions address this:
 Define the contract with `defineAction`. It holds no handler code, so it can be
 shared with clients:
 
+First define the
+[native AccountReview object](../authoring/graph.md#native-objects) and its
+[create policy](../authoring/access-control.md#5-create-rules-create).
+
 ```ts
 // actions/add-account-review.ts
 import { z } from 'zod';
@@ -133,15 +137,21 @@ export const addAccountReview = implementAction(
 
 The handler receives:
 
+- `operationId`: a stable identity for this graph instance, actor, action and
+  idempotency key, including retries after a thrown error.
 - `actor`: the calling principal.
 - `input`: the parsed input.
 - `objects.<Name>.get(id, options)`: reads as the caller, with the same result
   shape as [`get`](./reading-data.md#4-reading-an-object-by-id-get).
+- `objects.<Name>.query(options)`: enumerates or filters graph members with the
+  same [query API](./reading-data.md#querying-objects-query) as consumers.
+  Native queries see records created earlier in this invocation. A failed page
+  rolls back native writes even if the handler catches the error.
 - `objects.<Name>.create(values)`: for objects in `creates`. Returns `{ id }`.
 - `fail(code, details)`: ends the invocation with a declared failure. It rolls
   back even if the handler catches it.
 
-Any other thrown error rolls back the writes and rejects the call with
+Any other thrown error rolls back native writes and rejects the call with
 `ActionError('internal')`. No receipt is recorded.
 
 Pass the implementation to the runtime. `createRuntime` throws if any registered
@@ -205,7 +215,10 @@ ends in one of two ways:
 A receipt can be fetched again later by the same principal:
 
 ```ts
-const again = await caller.receipts.get(AddAccountReview, receipt.invocationId);
+const again = await caller.receipts.get(
+  'addAccountReview',
+  receipt.invocationId,
+);
 ```
 
 ### Idempotency and Replay
@@ -219,5 +232,60 @@ When a call reuses an idempotency key for the same action:
 Before returning a recorded receipt, Relate checks the caller's current access
 again, so a principal who has since lost access cannot read it.
 
-A complete working version of this action is in
-[`dev/fixtures/customer-graph`](../../../../dev/fixtures/customer-graph/source/actions/add-account-review.server.ts).
+The [customer workspace](../../../../examples/03-customer-workspace/README.md)
+is a runnable review-creation example with receipt replay. Its
+[handler](../../../../examples/03-customer-workspace/src/app.ts) demonstrates
+successful creation; the declared `customerInactive` failure above extends that
+example to show an additional business outcome.
+
+If the first response is lost, retry with the original input and idempotency key
+to recover the receipt even without its invocation ID. A new business attempt
+needs a new key. Receipt recovery also checks access to the original handler's
+read dependencies; losing access to a field used to produce the result can deny
+recovery. Use a newly authenticated caller handle after roles or claims change.
+
+See the [native action contract](../../../../packages/node/NATIVE_ACTIONS.md)
+for transaction boundaries, concurrent retries, dependency checks, and recovery
+limits. The native transaction does not cover external side effects; see
+[External writes and operation identity](#external-writes-and-operation-identity).
+Background execution is not supported.
+
+### External writes and operation identity
+
+A handler can forward `operationId` to a provider's idempotency API or an
+integration-owned operation journal:
+
+```ts
+// Inside an implementAction handler. provider is your integration's API client.
+async ({ operationId, input }) => {
+  const result = await provider.createComment({
+    transactionId: input.transactionId,
+    comment: input.comment,
+    idempotencyKey: operationId,
+  });
+  return { commentId: result.id };
+};
+```
+
+`operationId` is an opaque, deterministic identifier scoped to the runtime's
+`graphId`, actor ID, action definition ID and caller idempotency key. It
+survives handler rollback and runtime restart when those values stay the same.
+Input and definition revision are deliberately excluded: an external journal
+must reject changed input under the same identity, including after deployment.
+Separate installations sharing a provider account must use distinct stable
+`graphId`s. It is not the receipt's `invocationId`, a secret, or an
+authorization credential.
+
+Relate's transaction covers native writes and receipts. It cannot roll back an
+external API call. Passing `operationId` only helps if the provider or
+integration actually enforces deduplication. Scope journal entries to the
+provider account, reserve before dispatch, and retain confirmed results
+independently of the native transaction. Track graph refresh separately so a
+failed readback does not discard a confirmed mutation. Receipt replay skips the
+handler, so pending refreshes need a separate recovery path.
+
+If a provider response is lost, use provider idempotency or operation lookup to
+reconcile it. Without either capability, keep the outcome uncertain and block
+blind retries. A local journal cannot close the crash window between provider
+commit and recording its response. The SDK does not provide that journal or an
+external-write transaction coordinator.

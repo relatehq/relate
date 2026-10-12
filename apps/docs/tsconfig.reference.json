@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@relate/protocol": ["../../packages/protocol/src/index.ts"]
+    }
+  },
+  "include": [
+    "../../packages/relate/src/**/*.ts",
+    "../../packages/protocol/src/**/*.ts"
+  ]
+}

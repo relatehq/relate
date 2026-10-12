@@ -22,8 +22,9 @@ and prompts, not behavior.
 
 - No workspace dependencies: it writes files that depend on the published
   packages rather than importing them.
-- Sixth and last step in the implementation sequence, together with
-  `@relate/cli`, once the APIs it would generate code for are stable.
+- Requires stable authoring and setup APIs before templates are fixed. The
+  existing `@relate/cli` already provides model inspection; project generation
+  is a separate planned capability.
 
 Templates and prompts are not designed yet. The
 [hello world example](../../examples/01-hello-world/README.md) is the current

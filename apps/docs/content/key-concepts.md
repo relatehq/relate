@@ -42,8 +42,8 @@ retained identities. Each connector package documents its own options.
 
 The source describes what a record looks like; the connection determines how to
 read it in a particular environment. See [Graph Modeling](./authoring/graph.md)
-for source definitions and [Getting Started](./getting-started.md) for a working
-connector.
+for source definitions and [Connecting Sources](./authoring/connections.md) for
+available connectors and their identity and failure contracts.
 
 ## Objects, Membership, and Properties
 
@@ -231,6 +231,10 @@ which executes reads, traversal, and actions. You can also call `createRuntime`
 directly with the graph and its bindings. The runtime `graphId` identifies an
 installation of the graph; the graph definition's `id` identifies the model.
 Close the running instance with `await relate.close()` when finished.
+
+See [Application Setup](./runtime/application.md) for resource cleanup and
+[Discovery](./runtime/discovery.md) for inspecting the capabilities available to
+a caller before reading data or invoking an action.
 
 The [Inspector](../../../packages/cli/README.md) can load the graph or app to
 display the model without calling app setup.

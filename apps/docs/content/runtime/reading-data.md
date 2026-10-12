@@ -146,6 +146,92 @@ Read options also include `evidence`, `maxAgeMs`, `refresh`, `stale`,
 
 ---
 
+## Querying Objects (`.query`)
+
+Use `query()` without filters to enumerate records the caller can read, or add
+scalar filters using public property names:
+
+```ts
+const invoices = await objects.Invoice.query({
+  where: { customer: customerId, status: 'Overdue' },
+  select: ['status', 'totalMinor'],
+  limit: 25,
+});
+
+if (!invoices.meta.exhausted) {
+  const next = await objects.Invoice.query({
+    where: { customer: customerId, status: 'Overdue' },
+    select: ['status', 'totalMinor'],
+    limit: 25,
+    cursor: invoices.meta.continuationCursor,
+  });
+}
+
+for await (const customer of objects.Customer.query({ select: ['name'] })) {
+  console.log(customer.id, customer.data.name);
+}
+```
+
+Filters combine with AND. Reference filters use Relate object IDs, not provider
+keys. Filter fields must be readable even when omitted from `select`; filters on
+restricted or unknown properties reject as `invalid-request`. Unavailable filter
+evidence fails the query instead of silently excluding a possible match. Numbers
+and timestamp properties support `gt`, `gte`, `lt`, and `lte`; all properties
+support equality shorthand, `eq`, and `in`:
+
+```ts
+const incoming = objects.Transaction.query({
+  where: {
+    receiver: meId,
+    sender: { in: coworkerIds },
+    createdAt: {
+      gte: '2026-10-01T00:00:00.000Z',
+      lt: '2026-11-01T00:00:00.000Z',
+    },
+  },
+  select: ['sender', 'amount', 'createdAt'],
+});
+```
+
+This example assumes `sender` and `receiver` are Person references and
+`createdAt` maps a source field declared with
+`z.iso.datetime({ offset: true, precision: 3 })`. Stored timestamp strings must
+include a timezone and exactly three fractional digits. Filter operands accept
+any timezone-qualified ISO instant with at most millisecond precision, such as
+`2026-10-01T00:00:00Z`. Comparisons use instants:
+`2026-10-01T01:00:00.000+01:00` equals `2026-10-01T00:00:00.000Z`. Returned
+strings retain their original representation. Ordinary `z.string()` properties
+do not support range operators.
+
+Operators on the same property also combine with AND. `in: []` matches nothing;
+`eq: null` matches explicit null, not absence. Range operands cannot be null,
+and a number property's declared bounds do not limit them: `{ gt: 0 }` is valid
+on `z.number().positive()`. Pass several values with `in`; a bare array is
+rejected. Empty operator objects, undefined operands, invalid timestamps, and
+unsupported operators reject as `invalid-request`. At most 100 filter properties
+and 100 values per `in` are supported. Equivalent equality shorthand, timestamp
+offsets, and reordered/deduplicated sets can continue the same cursor.
+
+Filters still use bounded scans and authorized reads. They reduce handwritten
+filtering but do not add indexes or provider-wide queries. Traversal filters,
+nested predicates, sorting, aggregates, and a separate `list` method are not
+supported.
+
+Queries enumerate existing graph membership: adopted source records and native
+records created by actions. An empty query does not establish that the provider
+has no records. Your host must discover and adopt source IDs first; direct
+provider queries and automatic synchronization are not implemented.
+
+`await` returns one page; `for await` follows all pages. `limit` is the page
+size, not a total-result cap. Empty pages can have a continuation, so follow
+`meta.exhausted` rather than record count. Pagination is not a snapshot and
+concurrent changes can affect later pages. See
+[collection responses](../reference/read-responses.md#collection-responses) for
+cursor and evidence details.
+
+Use [discovery](./discovery.md) to inspect readable properties and available
+operations before constructing a request.
+
 ## 5. Traversing Relationships (`.traverse`)
 
 Relationships registered in `defineGraph({ relationships })` appear under
@@ -280,9 +366,11 @@ Freshness is controlled by read options, not by the policy:
 - `maxAgeMs` (default `60_000`): stored observations older than this are fetched
   from the source again.
 - `refresh: true`: always fetch from the source.
-- If a fetch fails, the last stored value is returned with `freshness: 'stale'`
-  and the read is marked `degraded`. Pass `stale: 'omit'` to report stale fields
-  as `unavailable` instead.
+- If a fetch is temporarily unavailable, a retained value may be returned with
+  `freshness: 'stale'` and the read marked `degraded`, provided current access
+  can still be established. Pass `stale: 'omit'` to withhold stale fields.
+  Explicit provider denial never authorizes fallback to retained data. See
+  [connector outcomes](../authoring/connections.md#provider-outcomes).
 - `requireComplete: true` throws `ReadError('incomplete')` instead of returning
   a partial result, including when a selected field is forbidden.
 

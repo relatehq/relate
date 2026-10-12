@@ -15,3 +15,11 @@ export { summarize, supplied } from './evidence.js';
 export { project } from './project.js';
 export { cursorCodec } from './cursors.js';
 export { presenting } from './present.js';
+
+export {
+  compilePredicate,
+  matchesPredicate,
+  filterOperators,
+} from './predicates.js';
+
+export type { Predicate } from './predicates.js';

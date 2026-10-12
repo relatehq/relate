@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { createQuery } from '@relate/runtime';
+import { createQuery } from 'relate/consumer';
 import { ReadError } from '@relate/protocol';
 import type { Page } from '@relate/protocol';
 

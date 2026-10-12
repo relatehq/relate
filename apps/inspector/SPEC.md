@@ -1,15 +1,19 @@
-# Inspector foundation and live model graph
+# Inspector architecture and design record
 
 **Status:** architecture and one-screen scope agreed on 2026-10-07; first
-implementation landed the same day across `relate/diagnostics`, `@relate/node`
-(`defineApp`, `startApp`), `@relate/cli` (`relate dev`) and `@relate/inspector`.
-Source-location capture uses optional declaration provenance
-(`new Error().stack`, resolved through source maps in the CLI child) and reports
-`declaration` precision only. Type diagnostics remain a non-blocking follow-up:
-the protocol carries their shape and the inspector renders them, but no checker
-emits them yet. Telemetry, forwarded-origin verification against real proxies
-and the benchmark fixtures are not implemented. Where the sections below say
-"proposed", the implementation in the packages is the current source of truth.
+implementation landed the same day across `relate/diagnostics`, `relate`
+(`defineApp`, `connect`), `@relate/node` (`startApp`), `@relate/cli`
+(`relate dev`) and `@relate/inspector`. Source-location capture uses optional
+declaration provenance (`new Error().stack`, resolved through source maps in the
+CLI child) and reports `declaration` precision only. Type diagnostics remain a
+non-blocking follow-up: the protocol carries their shape and the inspector
+renders them, but no checker emits them yet. Telemetry, forwarded-origin
+verification against real proxies and the benchmark fixtures are not
+implemented. Where the sections below say "proposed", they preserve design
+sketches, not additional public API promises. The
+[Inspector README](./README.md), [CLI reference](../../packages/cli/README.md),
+[diagnostic types](../../packages/relate/src/diagnostics.ts), and
+[inspection protocol](./src/protocol.ts) describe the current implementation.
 
 ## Outcome and scope
 
@@ -39,8 +43,8 @@ Agreed foundation:
   `@relate/node`.
 - Browser code never imports the runtime, compiler, connectors or user modules.
 
-**Proposed scope decision:** the first graph-only worker compiles definitions
-without starting a live runtime. Relate itself needs no database, credentials or
+**Implemented scope:** the graph-only worker compiles definitions without
+starting a live runtime. Relate itself needs no database, credentials or
 provider requests for inspection; user imports may still require environment
 variables or perform side effects (see the environment contract below). Live
 runtime hosting remains the agreed extension of this process layout, with
@@ -50,12 +54,12 @@ activation and storage questions explicitly open below.
 
 There are four different things:
 
-| Thing                                     | What it contains                                                          | What it does not do                                            |
-| ----------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `GraphDefinition` from `defineGraph`      | Sources, object definitions, relationships, action contracts and policies | Open connections or serve requests                             |
-| Proposed `AppDefinition` from `defineApp` | The graph plus a deferred recipe for runtime bindings                     | Start the application when imported                            |
-| `CompiledModel` from `compile(graph)`     | A JSON Manifest and deterministic `definitionRevision`                    | Contain connector functions, secrets or action implementations |
-| Live runtime from `createRuntime`         | Compiled model, executable bindings, storage and authorized operations    | Start the surrounding application's web server                 |
+| Thing                                 | What it contains                                                          | What it does not do                                            |
+| ------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `GraphDefinition` from `defineGraph`  | Sources, object definitions, relationships, action contracts and policies | Open connections or serve requests                             |
+| `AppDefinition` from `defineApp`      | The graph plus a deferred recipe for runtime bindings                     | Start the application when imported                            |
+| `CompiledModel` from `compile(graph)` | A JSON Manifest and deterministic `definitionRevision`                    | Contain connector functions, secrets or action implementations |
+| Live runtime from `createRuntime`     | Compiled model, executable bindings, storage and authorized operations    | Start the surrounding application's web server                 |
 
 `defineApp` wraps a graph; it does not replace `defineGraph`. Both the inspector
 and the live runtime use the same authored graph.
@@ -65,8 +69,8 @@ and the live runtime use the same authored graph.
 Existing authoring API, abbreviated to show composition. The imported object
 definitions belong to the user's project; Customer is API-owned, Invoice is
 Postgres-owned and AccountReview is Relate-owned. See the existing
-[customer-graph model](../../dev/fixtures/customer-graph/source/model.ts) for
-the full object/property declarations.
+[customer workspace model](../../examples/03-customer-workspace/src/graph.ts)
+for the full object/property declarations.
 
 ```ts
 // src/relate/graph.ts
@@ -123,8 +127,9 @@ maps objects to React Flow nodes, and maps relationships to edges.
 
 ### 3. Describe how the same graph becomes a live application
 
-**Proposed API:** deferred `setup` keeps graph inspection independent of runtime
-resources. The lifecycle names are a proposal, not existing exports.
+Deferred `setup` keeps graph inspection independent of runtime resources.
+`defineApp` and `startApp` are implemented; the public
+[application guide](../docs/content/runtime/application.md) owns their usage.
 
 ```ts
 // src/relate/app.ts
@@ -185,7 +190,7 @@ await relate.close();
 The caller owns an injected store and connector cleanup. `close()` drains the
 runtime's accepted operations; it does not close borrowed resources.
 
-**Proposed lifecycle convenience** for the descriptor above:
+Start the descriptor above with the implemented lifecycle helper:
 
 ```ts
 // src/server.ts — the developer's existing application entry point
@@ -200,14 +205,13 @@ const relate = await startApp(appDefinition);
 await relate.close(); // drain operations, then run registered setup cleanup
 ```
 
-`startApp` would run setup once, compose the existing runtime and own the
-cleanup registered for that start. Setup failure must release resources already
-registered; `openBindings` must clean up its own partially opened resources if
-it fails before returning. This convenience does not change the existing
-borrowed-store contract of direct `createRuntime` calls.
+`startApp` runs setup once, composes the runtime and owns the cleanup registered
+for that start. Setup failure releases resources already registered;
+`openBindings` must clean up its own partially opened resources if it fails
+before returning. This convenience does not change the existing borrowed-store
+contract of direct `createRuntime` calls.
 
-The graph-only inspector needs only `defineApp` and its `graph`; implementing
-`startApp` is not a prerequisite for drawing the model.
+The graph-only inspector reads the app's `graph` without calling `startApp`.
 
 ## Relate inside a bigger application
 
@@ -231,12 +235,12 @@ my-product/
 ```
 
 ```ts
-// relate.config.ts — proposed CLI convention
+// relate.config.ts
 export { default } from './src/relate/app.js';
 ```
 
 ```sh
-# Proposed commands; the CLI is currently a scaffold.
+# Implemented commands; see the CLI reference for all flags.
 pnpm relate dev
 pnpm relate dev --config ./packages/business/relate.config.ts
 ```
@@ -290,7 +294,7 @@ consumers, schedulers or provider effects.
 | `packages/cli`                      | Command parsing, Hono supervisor, watching/building, child lifecycle            | Local processes and filesystem work are CLI responsibilities            |
 | `apps/inspector`                    | SPA, graph mapping/layout, browser-safe inspection DTOs and asset-serving entry | Owns this developer tool without making the runtime depend on it        |
 
-Proposed inspector layout, to create as implementation lands:
+Inspector layout (see the package README for the full current tree):
 
 ```text
 apps/inspector/
@@ -307,10 +311,9 @@ apps/inspector/
 ```
 
 The package exposes separate browser-safe `@relate/inspector/protocol` and
-server-only `@relate/inspector/server` entry points. Their exact export names
-are proposed. DTOs may depend on `relate/model`, which contains portable
-validation, and the proposed platform-neutral `relate/diagnostics` contract, but
-never on `relate/compiler` or `@relate/node`.
+server-only `@relate/inspector/server` entry points. DTOs may depend on
+`relate/model`, which contains portable validation, and the platform-neutral
+`relate/diagnostics` contract, but never on `relate/compiler` or `@relate/node`.
 
 Do not put an inspector DTO importing `Manifest` into `@relate/protocol` without
 revisiting the dependency graph: `relate` already depends on that package. Keep
@@ -332,25 +335,25 @@ uses the dev channel as a shortcut around consumer authorization. Server-side
 inspection adapters can accept narrow host capabilities; the prohibition on
 runtime imports applies to browser code.
 
-## Structured diagnostics: required compiler work
+## Structured diagnostics
 
-The current compiler and Manifest validator throw plain errors such as
-`Unknown policy role` and `Invalid native reference`. Their stacks identify
-Relate's validation code, not the authored definition that failed. Source maps
-cannot reconstruct that missing association. Syntax/import errors and semantic
-model errors therefore require different diagnostic paths.
+The compiler and Manifest validator now emit structured issues through
+`CompileError` and `ManifestValidationError`. The CLI captures declaration
+provenance and resolves source sites; the Inspector displays these issues
+without parsing error messages. Syntax/import errors and semantic model errors
+have different diagnostic paths.
 
-The inspector must not ship the semantic-error experience by parsing those
-messages or displaying `relate/dist/compiler.js` as the user's error location.
-Structured issues are work owned by `packages/relate`, required alongside the
-inspector's error rendering. The following contracts are proposed and not
-implemented exports.
+The sections below retain the original contract sketches and rationale. Exact
+exported types and codes live in
+[`relate/diagnostics`](../../packages/relate/src/diagnostics.ts); usage is
+covered by the
+[diagnostics reference](../../packages/relate/README.md#diagnostics).
 
 ### Portable issue and exception contract
 
-Introduce a platform-neutral `relate/diagnostics` subpath in the existing
-`relate` package. It owns issue types and validation error classes. It imports
-no compiler, Node APIs, filesystem helpers or inspector code. This lets both
+The platform-neutral `relate/diagnostics` subpath is implemented in the `relate`
+package. It owns issue types and validation error classes. It imports no
+compiler, Node APIs, filesystem helpers or inspector code. This lets both
 authoring helpers and the browser share the contract without importing the
 Node-dependent compiler.
 
@@ -494,19 +497,20 @@ capture metadata must stay outside the Manifest and its hash. Moving a file,
 enabling capture or changing source maps must not change `definitionRevision`
 for an otherwise identical model.
 
-**Open mechanism:** development-only capture of declaration stacks, explicit
-source metadata or build-time instrumentation. A stack captured with
-`new Error().stack` is a candidate, not an agreed guarantee of exact locations.
-Validate wrappers, shared definition factories, generated definitions and linked
-packages before selecting it. Do not add unconditional stack-capture cost or
-Node imports to the ordinary portable authoring path.
+Development-only declaration-stack capture is implemented through
+`enableDefinitionProvenance()` and `definitionProvenance()`. It is off by
+default and does not guarantee an exact expression location: sites have
+declaration precision. Wrappers and generated definitions may limit the
+available site. Capture adds no unconditional stack cost or Node imports to
+ordinary authoring.
 
 The host must enable any capture before evaluating the user's modules. Raw
 capture metadata stays in the child; the Node tooling resolves usable sites
 through source maps there. The compiler associates issues with their authored
 definitions and may attach a resolved site through a host-provided resolver. The
-exact resolver/capture API remains proposed; the compiler must also work without
-it.
+compiler also works without capture. See the
+[provenance implementation](../../packages/relate/src/provenance.ts) and
+[CLI worker](../../packages/cli/src/dev/worker.ts) for the current APIs.
 
 The CLI diagnostic adapter reads bounded excerpts from the corresponding build
 attempt's source content, normalizes project-relative paths and produces `frame`

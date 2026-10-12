@@ -14,7 +14,12 @@ for its vocabulary, see [Key Concepts](./key-concepts.md).
 Relate is not yet published for application use. Run it from a checkout of the
 [repository](https://github.com/relatehq/relate):
 
+Use Node 22 (22.16+), 24, or 26 and pnpm 12.9.1.
+
 ```sh
+npm install --global pnpm@12.9.1
+git clone https://github.com/relatehq/relate
+cd relate
 pnpm install
 pnpm example:customer-workspace
 ```
@@ -35,12 +40,22 @@ interactive workspace to persistent Postgres storage.
 This walkthrough models a customer directory, applies region-based access
 control, starts an in-memory runtime, and performs an authorized read.
 
+From your checkout, build the packages and create a folder for the four files
+below. Keeping the tutorial here lets it use the workspace's unpublished
+packages.
+
+```sh
+pnpm build
+mkdir tutorial
+```
+
 ### 1. Define the Source
 
 Sources describe existing systems of record. Each system keeps ownership of its
 records.
 
 ```ts
+// tutorial/source.ts
 import { z } from 'zod';
 import { defineSource } from 'relate';
 
@@ -67,7 +82,9 @@ Objects expose typed entities to applications. Each object has an object ID,
 presentation labels, a membership source, and mapped properties.
 
 ```ts
+// tutorial/customer.ts
 import { defineObject, from, objectId, source } from 'relate';
+import { customerSource } from './source.js';
 
 export const Customer = defineObject({
   id: 'customer',
@@ -95,6 +112,7 @@ Access is declarative. You declare roles, field groups, and principal claims,
 then give every object a read policy.
 
 ```ts
+// tutorial/graph.ts
 import { z } from 'zod';
 import { defineAccess, defineGraph } from 'relate';
 import { Customer } from './customer.js';
@@ -135,6 +153,7 @@ Use `@relate/node` to create a runtime, adopt a source record, and read it as a
 caller:
 
 ```ts
+// tutorial/index.ts
 import { z } from 'zod';
 import { createRuntime } from '@relate/node';
 import { connect } from 'relate';
@@ -216,6 +235,17 @@ requires a field.
 If Ana reads the adopted `cust_102` customer in `'apac'`, the result is
 `{ status: 'not-found' }`. A record the caller may not read looks the same as
 one that does not exist.
+
+Run the tutorial from the repository root:
+
+```sh
+pnpm exec tsx tutorial/index.ts
+```
+
+It prints Acme's name and status, followed by `undefined` for routine compact
+field evidence. No credentials or database server are required. The numbered
+[hello-world example](../../../examples/01-hello-world/README.md) is a
+maintained alternative if you prefer to start from existing files.
 
 ---
 

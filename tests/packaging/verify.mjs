@@ -103,6 +103,9 @@ import { app } from './built/app.types.js';
 assert.ok(isAppDefinition(app));
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
 assert.deepEqual(Object.keys(await import('relate/storage')), []);
+const consumer = await import('relate/consumer');
+assert.equal(typeof consumer.createConsumer, 'function');
+assert.equal(typeof consumer.createQuery, 'function');
 await assert.rejects(import('@relate/node'), { code: 'ERR_MODULE_NOT_FOUND' });
 await assert.rejects(import('@relate/runtime'), { code: 'ERR_MODULE_NOT_FOUND' });
 console.log('Portable app and connector contracts work without Node host or runtime packages.');
@@ -181,7 +184,7 @@ import { SourceAccessDenied } from 'relate/connectors';
 import { createPostgresStore } from '@relate/postgres';
 import { assertFields } from 'relate';
 import { ReadError } from '@relate/protocol';
-import { createQuery } from '@relate/runtime';
+import { createQuery } from 'relate/consumer';
 assert.equal('assertFields' in (await import('@relate/protocol')), false);
 const pageRequests = [];
 const query = createQuery(async (cursor) => {
@@ -288,7 +291,7 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
   await writeFile(
     join(consumer, 'pagination.types.ts'),
     await readFile(
-      resolve(root, 'packages/runtime/test/pagination.types.ts'),
+      resolve(root, 'packages/relate/test/pagination.types.ts'),
       'utf8',
     ),
   );
@@ -385,16 +388,20 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
 
   for (const [owner, name] of [
     ['relate', 'actions.types.ts'],
+    ['relate', 'consumer.types.ts'],
     ['node', 'native-action.types.ts'],
   ]) {
     await writeFile(
       join(consumer, name),
-      (
-        await readFile(resolve(root, 'packages', owner, 'test', name), 'utf8')
-      ).replaceAll(
-        '../../../tests/support/native-action-model.js',
-        './native-action-model.js',
-      ),
+      (await readFile(resolve(root, 'packages', owner, 'test', name), 'utf8'))
+        .replaceAll(
+          '../../../tests/support/native-action-model.js',
+          './native-action-model.js',
+        )
+        .replaceAll(
+          '../../../tests/support/invoice-graph.js',
+          './invoice-graph.js',
+        ),
     );
   }
 
@@ -404,6 +411,8 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
 import assert from 'node:assert/strict';
 import { createRuntime } from '@relate/node';
 import { connect } from 'relate';
+import { createConsumer } from 'relate/consumer';
+import { compile } from 'relate/compiler';
 import { graph, AddAccountReview, addAccountReview, ana, Customer, customers, invoices } from './built/native-action-model.js';
 const app = createRuntime({ graph, actionImplementations: [addAccountReview], connections: [
   connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Northwind', portfolio: 'north' } }) } }),
@@ -414,7 +423,9 @@ try {
   const receipt = await app.as(ana).actions.addAccountReview({ input: { customer, note: 'Packed native action' }, idempotencyKey: 'one' });
   assert.equal(receipt.state, 'succeeded');
   assert.equal(typeof receipt.invocationId, 'string');
-  assert.deepEqual(await app.as(ana).receipts.get(AddAccountReview, receipt.invocationId), receipt);
+  const description = JSON.parse(JSON.stringify(compile(graph).consumer));
+  const fromJson = createConsumer(description, app.operations(ana));
+  assert.deepEqual(await fromJson.receipts.get('addAccountReview', receipt.invocationId), receipt);
   assert.deepEqual(await app.as(ana).actions.addAccountReview({ input: { customer, note: 'Packed native action' }, idempotencyKey: 'one' }), receipt);
   const review = await app.as(ana).objects.AccountReview.get(receipt.output.reviewId);
   assert.equal(review.status, 'ok');
@@ -446,7 +457,7 @@ const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], clai
 const people = defineSource({
   id: 'smoke.people',
   idField: 'id',
-  schema: z.object({ id: z.string(), name: z.string() }),
+  schema: z.object({ id: z.string(), name: z.string(), at: z.iso.datetime({ offset: true, precision: 3 }) }),
 });
 const Person = defineObject({
   id: 'smoke.person',
@@ -455,6 +466,7 @@ const Person = defineObject({
   properties: {
     id: objectId({ id: 'smoke.person.id' }),
     name: from(people.fields.name, { id: 'smoke.person.name' }),
+    at: from(people.fields.at, { id: 'smoke.person.at' }),
   },
 });
 const graph = defineGraph({
@@ -476,7 +488,7 @@ const relate = await startApp(
             identify: async () => 'smoke-account',
             fetch: async (id: string) =>
               id === '1'
-                ? { providerAccountId: 'smoke-account', state: 'present' as const, record: { id: '1', name: 'Ada' } }
+                ? { providerAccountId: 'smoke-account', state: 'present' as const, record: { id: '1', name: 'Ada', at: '2026-10-01T01:00:00.000+01:00' } }
                 : { providerAccountId: 'smoke-account', state: 'deleted' as const },
           },
         }),
@@ -491,6 +503,11 @@ try {
     .objects.Person.get(id, { select: ['name'] });
   assertFields(result, ['name']);
   const name: string = result.data.name;
+  const page = await relate.as({ id: 'reader', roles: ['reader'], claims: {} }).objects.Person.query({
+    where: { name: { in: ['Ada'] }, at: { gte: '2026-10-01T00:00:00.000Z', lt: '2026-10-02T00:00:00.000Z' } },
+    select: ['name'],
+  });
+  if (page.data.length !== 1 || page.data[0]!.id !== id) throw new Error('Packed timestamp query did not match');
   console.log(JSON.stringify({ ...result, typedName: name }));
 } finally {
   await relate.close();

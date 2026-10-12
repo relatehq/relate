@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ScalarSchema } from '@relate/protocol';
 import { ManifestValidationError } from './diagnostics.js';
 import type { ModelIssue, ModelIssueCode } from './diagnostics.js';
 
@@ -11,19 +12,21 @@ const text = z.string().min(1);
 /** Explanatory text must say something; blank descriptions are authoring mistakes. */
 const prose = z.string().regex(/\S/, 'Description must not be blank');
 
+/** The portable shape is declared in `@relate/protocol`; this validator must produce it. */
 export const scalarSchema = z.strictObject({
   type: z.enum(['string', 'number', 'boolean']),
   optional: z.boolean(),
   nullable: z.boolean(),
+  format: z.literal('timestamp').optional(),
   minLength: z.number().int().nonnegative().optional(),
   maxLength: z.number().int().nonnegative().optional(),
   minimum: z.number().finite().optional(),
   maximum: z.number().finite().optional(),
   exclusiveMinimum: z.number().finite().optional(),
   exclusiveMaximum: z.number().finite().optional(),
-});
+}) satisfies z.ZodType<ScalarSchema>;
 
-export type ScalarSchema = z.infer<typeof scalarSchema>;
+export type { ScalarSchema } from '@relate/protocol';
 
 export const actionFieldSchema = scalarSchema.extend({
   description: prose.optional(),
@@ -84,7 +87,7 @@ const propertySchema = z.strictObject({
 });
 
 export const manifestSchema = z.strictObject({
-  formatVersion: z.literal(5),
+  formatVersion: z.literal(6),
   graphDefinitionId: text,
   description: prose.optional(),
   fieldGroups: z.array(text),
@@ -175,6 +178,31 @@ export interface CompiledModel {
   readonly definitionRevision: string;
 }
 
+/**
+ * True for a plain data object (`{...}` or `Object.create(null)`) and false for
+ * arrays, class instances, Map, Date and other built-ins.
+ *
+ * Why not `Object.getPrototypeOf(value) === Object.prototype`: every JavaScript
+ * realm (a `node:vm` context, an iframe, jsdom, an agent REPL sandbox) has its
+ * own `Object.prototype`. An object literal written in another realm is just as
+ * plain, but the identity check rejects it, so callers running in a sandbox saw
+ * valid action inputs and query filters fail as invalid. Instead we check the
+ * shape of the chain: only a realm's `Object.prototype` has a null prototype,
+ * while a class instance's prototype (`Foo.prototype`) inherits from it.
+ */
+export function isPlainObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) return false;
+
+  // Rejects arrays and built-ins (Map, Date, RegExp, ...) from any realm.
+  if (Object.prototype.toString.call(value) !== '[object Object]') return false;
+
+  const prototype: unknown = Object.getPrototypeOf(value);
+
+  return prototype === null || Object.getPrototypeOf(prototype) === null;
+}
+
 export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
 
@@ -202,6 +230,21 @@ export function deepFreeze<T>(value: T): T {
   return value;
 }
 
+const timestamp = z.iso.datetime({ offset: true, precision: 3 });
+const instant = z.iso.datetime({ offset: true });
+
+/**
+ * Query operands for timestamp properties: any timezone-qualified ISO instant
+ * with at most millisecond precision, so normalization to milliseconds is exact.
+ */
+export function acceptsInstant(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    !/\.\d{4}/.test(value) &&
+    instant.safeParse(value).success
+  );
+}
+
 export function accepts(schema: ScalarSchema, value: unknown): boolean {
   if (value === undefined) return schema.optional;
 
@@ -210,6 +253,9 @@ export function accepts(schema: ScalarSchema, value: unknown): boolean {
   if (typeof value !== schema.type) return false;
 
   if (typeof value === 'string') {
+    if (schema.format === 'timestamp' && !timestamp.safeParse(value).success)
+      return false;
+
     if (schema.minLength === undefined && schema.maxLength === undefined)
       return true;
 
@@ -337,7 +383,9 @@ export function validateManifest(input: unknown): Manifest {
   for (const { schema, path, definitionId } of scalars) {
     if (
       (schema.type !== 'string' &&
-        (schema.minLength !== undefined || schema.maxLength !== undefined)) ||
+        (schema.minLength !== undefined ||
+          schema.maxLength !== undefined ||
+          schema.format !== undefined)) ||
       (schema.type !== 'number' &&
         [
           schema.minimum,

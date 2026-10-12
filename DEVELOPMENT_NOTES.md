@@ -6,6 +6,89 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Stable action operation identity
+
+`ActionContext` and the runtime's `ActionExecutionContext` now include readonly
+`operationId`. Custom adapters or test doubles constructing these contexts must
+supply the field. Existing action callers and handler registrations are
+unchanged.
+
+The identity is scoped to graph instance, actor, action and idempotency key and
+survives rollback and restart. Integrations can forward it to their provider or
+operation journal. This does not extend native transaction guarantees to
+external writes; see the public Actions guide for recovery requirements.
+
+## Consumer description and complete port results
+
+`compile(graph)` now returns `{ manifest, definitionRevision, consumer }`. The
+additional `consumer` artifact is a frozen `ConsumerDescription<typeof graph>`
+projected from the validated manifest. It contains `formatVersion: 1`,
+`graphDefinitionId`, `definitionRevision`, object/action registry names and IDs,
+and traversal shapes. Its maps are checked against the graph type.
+
+Breaking: construct the facade with
+`createConsumer(compile(graph).consumer, operations)` instead of passing a
+graph. `describeConsumer` is removed; there is one compiler/export path and no
+graph versus description duck typing. Browser clients ship the artifact
+alongside generated declarations without importing the compiler or authored
+definitions. Construction validates and captures the description and rejects a
+graph/revision mismatch with the operations' discovery snapshot before
+dispatching any calls.
+
+Breaking: receipt lookup uses the action registry key:
+`consumer.receipts.get('addAccountReview', invocationId)`, replacing
+`consumer.receipts.get(AddAccountReview, invocationId)`. Output and domain-error
+types still come from that registered action. Unknown names are denied.
+
+Breaking: `ConsumerOperations.read` is renamed to `get` and returns a complete
+`ObjectResult`. Runtime `read` and action-context `read` now also return
+complete object results, taking the canonical ID from the resolved record. Node
+and the facade pass these through. `get` and action invocation always return
+promises, even when an operations implementation throws synchronously.
+
+`GraphDescription` gains `definitionRevision`. The exported discovery helper is
+now `createDiscovery(model, principal)`, accepting manifest and revision
+together. A remote implementation must bind discovery and operations to one
+actor/model and reject model changes before execution, including empty/not-found
+reads and actions. Binding checks do not implement that future HTTP protocol:
+refreshing discovery alone cannot repair generated types, and mutations must not
+be replayed automatically. Transport response decoding remains the client's
+responsibility.
+
+## Shared consumer facade and operations contract
+
+The typed consumer API that `relate.as(principal)` returns is now built by
+`createConsumer(description, operations)` in the browser-safe `relate/consumer`
+entry point, over the `ConsumerOperations` contract in `@relate/protocol`. The
+planned `@relate/http` serves that contract and `@relate/client` implements it,
+so a remote consumer gets the same `Consumer<G>` as an embedded one without
+duplicating the facade or importing the engine.
+
+`@relate/node` gains `relate.operations(principal)`: the engine bound to one
+principal, addressed by definition IDs, for transport adapters. `as(principal)`
+is unchanged for callers.
+
+Moved, with the same behavior:
+
+- `createQuery` and the `QueryResult` re-export: from `@relate/runtime` to
+  `relate/consumer`. `@relate/runtime` no longer exports either; import
+  `createQuery` from `relate/consumer` and `QueryResult` from `relate`,
+  `relate/consumer`, `@relate/node` or `@relate/protocol`.
+- `Consumer`, `ObjectOperations`, `ActionOperations`, `ObjectDescription`,
+  `TraversalDescription` and `Page`: from `@relate/node` to `relate/consumer`.
+  `@relate/node` still re-exports them.
+- Discovery shapes (`GraphDescription`, `ObjectDescription`,
+  `ActionDescription`, `OperationContract(s)`, `OptionDescription`, summaries
+  and field descriptions): from `@relate/runtime` to `@relate/protocol`.
+  `@relate/runtime` no longer exports them; `@relate/node` re-exports them from
+  the protocol.
+- `ScalarSchema`: declared in `@relate/protocol`; `relate/model` re-exports it
+  and its `scalarSchema` validator must produce that shape. The type is now
+  read-only.
+
+New: `createPagedQuery(operation, request, readPage)` in `relate/consumer`, the
+request-binding wrapper the facade and native action contexts page with.
+
 ## Discoverable operation contracts and request errors
 
 `relate.as(principal).describe()` now includes `operations`: how to call get,
@@ -188,3 +271,28 @@ No stored data migration is needed. Reissue collection queries after upgrading:
 continuation tokens are not an upgrade compatibility contract. Exceptional field
 evidence and nonempty warnings remain available in compact mode. Data,
 authorization and action receipt dependency tracking are unchanged.
+
+## Scalar query predicates and timestamps
+
+`query({ where })` now accepts `eq` and `in` on scalar properties, and
+`gt`/`gte`/`lt`/`lte` on numbers and timestamps. Existing scalar equality syntax
+is preserved. Filters and operators combine with AND. Timestamp schemas use
+`z.iso.datetime({ offset: true, precision: 3 })`, with optional/nullable
+wrappers; comparison uses instants while returned strings retain their supplied
+offset. Date-only/local timestamps and other precisions must be normalized by
+the application before ingestion. Query operands accept any timezone-qualified
+ISO instant with at most millisecond precision. Range operands on numbers are
+not limited by the property's declared bounds. Ordinary strings retain exact
+text equality.
+
+The portable manifest format advances from 5 to 6. Recompile older models;
+installed graphs remain revision-pinned and require explicit revision/data
+migration before activation. Relate does not automatically reinterpret stored
+plain strings as timestamps. Package versions remain `0.0.0-dev.0`.
+
+Queries now reject more than 100 filter properties or 100 operands in one `in`.
+Empty operator objects, undefined operands, invalid formats and unsupported
+operators reject before scanning. Discovery includes each readable property's
+`filterOperators`. Normalized predicates are part of cursor scope, so cursors
+issued before this change must be restarted. Traversal filters and indexes are
+not part of this change; scans, authorization and freshness behavior remain.

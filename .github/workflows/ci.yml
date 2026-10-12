@@ -53,6 +53,7 @@ jobs:
           pnpm lint
           pnpm test:release
           pnpm check:boundaries
+          pnpm docs:check
       - run: |
           pnpm typecheck
           pnpm exec vitest run

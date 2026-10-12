@@ -1,64 +1,13 @@
-# Native account reviews
+# Native action execution contract
 
-The first native action is executable through real packages. The
-[application model and implementation](../../tests/support/native-action-model.ts)
-use an API-owned Customer and a Relate-owned AccountReview. The
-[shared acceptance suite](../../tests/support/native-action-contract.ts) runs
-against memory and Postgres.
+For the authoring and caller walkthrough, see the public
+[Actions guide](../../apps/docs/content/runtime/actions.md). This document owns
+the detailed transaction, authorization, validation, and recovery guarantees.
 
-```ts
-import { z } from 'zod';
-import { defineAction, implementAction, referenceInput } from 'relate';
-import { createRuntime } from '@relate/node';
-
-// Customer, AccountReview and access come from the application's model.
-const AddAccountReview = defineAction({
-  id: 'business.add-account-review',
-  input: z.object({ customer: referenceInput(Customer), note: z.string() }),
-  output: z.object({ reviewId: referenceInput(AccountReview) }),
-  creates: [AccountReview],
-  policy: { execute: access.role('account-manager') },
-});
-
-// Register actions: { addAccountReview: AddAccountReview } in graph.
-const addAccountReview = implementAction(
-  graph,
-  AddAccountReview,
-  async ({ actor, input, objects }) => {
-    const customer = await objects.Customer.get(input.customer, {
-      select: ['id'],
-    });
-    if (customer.status !== 'ok') throw new Error('Customer unavailable');
-    const review = await objects.AccountReview.create({
-      customer: customer.id,
-      author: actor.id,
-      note: input.note,
-    });
-    return { reviewId: review.id };
-  },
-);
-
-const relate = createRuntime({
-  graph,
-  connections,
-  actionImplementations: [addAccountReview],
-  // Supply store: createPostgresStore(...) after migrating it for durability.
-});
-const receipt = await relate.as(ana).actions.addAccountReview({
-  input: { customer: northwind, note: 'Follow up' },
-  idempotencyKey: 'review-2026-10',
-});
-// { invocationId, state: 'succeeded', output: { reviewId } }
-const review = await relate
-  .as(ana)
-  .objects.AccountReview.get(receipt.output.reviewId);
-```
-
-Native objects use `membership: nativeMembership()`, scalar `native(...)`
-properties, `objectId(...)`, and native references such as
-`customer: reference(Customer, { id: 'review.customer' })`. Native membership
-cannot be established through `host.adopt`. Creation is available only inside an
-action whose `creates` includes that registered native object.
+The test-owned [application model](../../tests/support/native-action-model.ts)
+and [acceptance suite](../../tests/support/native-action-contract.ts) exercise
+the contract on memory and Postgres. For a runnable learning application, use
+the [customer workspace](../../examples/03-customer-workspace/README.md).
 
 ## Authorization and transaction contract
 
@@ -314,7 +263,10 @@ const receipt = await caller.actions.addAccountReview(request);
 console.log(receipt.output.reviewId);
 
 // Read the saved outcome without executing the implementation.
-const saved = await caller.receipts.get(AddAccountReview, receipt.invocationId);
+const saved = await caller.receipts.get(
+  'addAccountReview',
+  receipt.invocationId,
+);
 
 // Also works when the first response, including invocationId, was lost.
 const recovered = await caller.actions.addAccountReview(request);
@@ -368,10 +320,9 @@ await the same action and return its completed output in one tool response.
   portable. Arbitrary refinements, transforms, defaults and nested schemas
   reject at compilation or definition time rather than silently losing their
   behavior.
-- Action object operations currently expose `get` and permitted native `create`.
-  Queries, native-reference traversal, update/delete and Task integrity rules
-  remain outside this slice. The full customer-graph fixture still sketches
-  them.
+- Action object operations expose `get`, `query`, and permitted native `create`.
+  Action-handler traversal, native update/delete, and Task integrity rules
+  remain outside the implemented surface.
 
 ## Verification
 
@@ -396,3 +347,21 @@ cannot start new requests after the invocation ends, and cursors are scoped to
 their original transaction. Source queries still cover adopted graph members
 only and do not imply a source snapshot. See the
 [graph query contract](../runtime/CONTRACT.md#graph-queries).
+
+## External operation identity
+
+Handlers receive `operationId`, an opaque deterministic string scoped to
+`graphId`, actor ID, action definition ID and caller idempotency key. It stays
+stable after rollback, runtime restart and definition revision changes. Input is
+excluded so an integration can detect conflicting retries in its journal. Use
+distinct stable graph IDs for independent deployments sharing a provider. The
+operation ID is neither the successful receipt's `invocationId` nor an access
+token; it grants no authorization.
+
+Forward it to an integration-owned journal or provider idempotency API. External
+mutations are outside the native transaction: the adapter must reserve and
+compare input under a provider-account-scoped identity, retain confirmed
+outcomes independently of rollback, separate refresh from mutation, and
+reconcile ambiguous responses before another write. Stable identity alone
+provides no external deduplication or exactly-once guarantee. Native receipt
+replay still skips the handler, so pending refresh needs its own recovery path.
