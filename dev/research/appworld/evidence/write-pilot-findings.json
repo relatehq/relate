@@ -1,0 +1,30 @@
+[
+  {
+    "title": "Working source actions do not yet mean reliable write-task completion",
+    "text": "All four methods scored 0/4 on the new write variants. The SDK passed its two read-control episodes. This is a 24-episode training pilot, not evidence about all AppWorld tasks."
+  },
+  {
+    "title": "One SDK failure made exactly the requested changes",
+    "text": "afc0fce_1__sdk__0 passed all eight world-state checks but submitted an unnecessary count. The shared prompt already told every method to omit an answer when none is required. Use the \u201cCorrect writes, failed answer\u201d filter; the official score remains a failure."
+  },
+  {
+    "title": "Another SDK episode mutated the wrong contact group",
+    "text": "afc0fce_2__sdk__0 correctly traversed incoming transactions and called the actions, but omitted the sender-group constraint. Its raw TS counterpart also omitted that filter and initially acted on only one API page. More capable execution can still produce incorrect changes."
+  },
+  {
+    "title": "REPL recovery still consumes the small turn budget",
+    "text": "Both second-repeat SDK write episodes exhausted 14 turns without a mutation. Repeated top-level declarations and confusion between an awaited query page and an iterable query handle consumed turns. Do not attribute these failures to the source-write bridge."
+  },
+  {
+    "title": "Main realm fix verified without a wrapper",
+    "text": "Main 5a0af21 is merged and rebuilt. The real consumer accepts REPL-created action inputs; no input-cloning adapter was added. Real AppWorld smoke tests verify read-after-write and successful same-key replay without duplicate comments."
+  },
+  {
+    "title": "Keep the next experiment narrow",
+    "text": "Keep all four methods and this task subset. Test budget sensitivity separately from a clearer write-only completion example. Then examine selection-before-mutation guidance and source-error handling before adding another domain. No flat-array condition is required."
+  },
+  {
+    "title": "Cost and timing are recorded, including failures",
+    "text": "The 24 episodes total 8.7 minutes of recorded episode time and $0.1574 estimated model cost. Per-turn input/output tokens, model time, execution time, errors, API requests and evaluator results are available in the explorer."
+  }
+]

@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Relate · Evaluation results</title>
+    <style>
+      :root {
+        font-family:
+          Avenir Next,
+          Avenir,
+          Segoe UI,
+          sans-serif;
+        color: #23354d;
+        background: #f7f9fc;
+        font-size: 14px;
+        --line: #d9e1eb;
+        --blue: #235ad1;
+        --green: #087b6d;
+        --red: #b53c48;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      header {
+        padding: 24px 32px;
+        background: #23354d;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      header h1 {
+        font-size: 23px;
+        letter-spacing: -0.5px;
+        margin: 0;
+      }
+      header p {
+        margin: 6px 0 0;
+        color: #b8c9e0;
+      }
+      .brand {
+        font-size: 15px;
+        border: 1px solid #6d84a0;
+        padding: 8px 12px;
+        border-radius: 8px;
+      }
+      main {
+        max-width: 1560px;
+        margin: auto;
+        padding: 26px 32px;
+      }
+      h2 {
+        font-size: 19px;
+        margin: 0 0 12px;
+      }
+      p {
+        line-height: 1.55;
+      }
+      .muted {
+        color: #64748b;
+      }
+      .summary {
+        display: flex;
+        gap: 25px;
+        flex-wrap: wrap;
+        margin-bottom: 22px;
+      }
+      .summary strong {
+        font-size: 23px;
+        display: block;
+      }
+      .summary span {
+        color: #64748b;
+      }
+      .filters {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: end;
+        padding: 18px 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        margin-bottom: 24px;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-weight: 500;
+      }
+      select,
+      input,
+      button {
+        font: inherit;
+      }
+      select,
+      input {
+        border: 1px solid #b8c7d9;
+        border-radius: 6px;
+        padding: 9px;
+        background: white;
+        color: inherit;
+        min-width: 135px;
+      }
+      input {
+        min-width: 210px;
+      }
+      button,
+      a {
+        touch-action: manipulation;
+      }
+      button {
+        cursor: pointer;
+        border: 1px solid #b8c7d9;
+        border-radius: 6px;
+        background: white;
+        padding: 8px 12px;
+        color: inherit;
+      }
+      button:hover {
+        border-color: var(--blue);
+        background: #edf3ff;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      select:focus-visible,
+      input:focus-visible {
+        outline: 3px solid #93b4ff;
+        outline-offset: 2px;
+      }
+      button.active {
+        background: var(--blue);
+        color: white;
+        border-color: var(--blue);
+      }
+      a {
+        color: var(--blue);
+      }
+      .scroll {
+        overflow: auto;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        background: white;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 11px 13px;
+        border-bottom: 1px solid #e5ebf2;
+        white-space: nowrap;
+      }
+      th {
+        font-weight: 600;
+        color: #516680;
+        background: #f0f4f9;
+        font-size: 12px;
+      }
+      td:first-child {
+        font-weight: 500;
+      }
+      .matrix {
+        margin-bottom: 27px;
+      }
+      .matrix th:not(:first-child),
+      .matrix td:not(:first-child) {
+        text-align: center;
+      }
+      .matrix button {
+        min-width: 64px;
+        border: 0;
+        padding: 7px;
+      }
+      .pass {
+        background: #e0f3ed !important;
+        color: #08705e;
+      }
+      .fail {
+        background: #fde9ea !important;
+        color: #a82c3e;
+      }
+      .incomplete {
+        background: #fff0d2 !important;
+        color: #805818;
+      }
+      .badge {
+        border-radius: 4px;
+        padding: 4px 7px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .tabletop {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      .tabletop h2 {
+        margin: 0;
+      }
+      #runs tbody tr {
+        cursor: pointer;
+      }
+      #runs tbody tr:hover {
+        background: #f0f5ff;
+      }
+      .selected {
+        background: #e9f0ff !important;
+      }
+      #detail {
+        margin-top: 28px;
+        border-top: 3px solid var(--blue);
+        padding-top: 24px;
+        scroll-margin-top: 20px;
+      }
+      .detailhead {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+      }
+      .instruction {
+        font-size: 19px;
+        max-width: 940px;
+        line-height: 1.5;
+      }
+      .tabs {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin: 22px 0;
+      }
+      .turn {
+        margin: 14px 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        overflow: hidden;
+      }
+      .turnhead {
+        padding: 12px 16px;
+        background: #edf2f8;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .turnbody {
+        padding: 16px;
+      }
+      .turnbody h3 {
+        font-size: 13px;
+        margin: 0 0 8px;
+      }
+      .turnbody h3:not(:first-child) {
+        margin-top: 20px;
+      }
+      pre {
+        font:
+          12px/1.6 Menlo,
+          Consolas,
+          monospace;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #f4f6fa;
+        border-radius: 5px;
+        padding: 14px;
+        max-height: 540px;
+        overflow: auto;
+        margin: 8px 0 12px;
+      }
+      details {
+        margin-top: 12px;
+      }
+      summary {
+        cursor: pointer;
+        color: #345c99;
+        padding: 6px 0;
+      }
+      .empty {
+        padding: 30px;
+        text-align: center;
+      }
+      .note {
+        padding: 12px 16px;
+        border-left: 3px solid #7a99c4;
+        background: #edf2f8;
+        font-size: 13px;
+        margin: 18px 0;
+      }
+      .error {
+        color: var(--red);
+      }
+      .filelist {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .filelist a {
+        padding: 10px;
+        border: 1px solid var(--line);
+        background: white;
+        border-radius: 5px;
+      }
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      footer {
+        font-size: 12px;
+        color: #64748b;
+        padding: 30px 0;
+      }
+      .hide {
+        display: none !important;
+      }
+      @media (max-width: 750px) {
+        header {
+          padding: 20px;
+        }
+        .brand {
+          display: none;
+        }
+        main {
+          padding: 20px 14px;
+        }
+        .summary {
+          gap: 18px;
+        }
+        .filters > * {
+          flex: 1;
+        }
+        select,
+        input {
+          min-width: 0;
+          width: 100%;
+        }
+        .two {
+          grid-template-columns: 1fr;
+        }
+        .detailhead {
+          display: block;
+        }
+        th,
+        td {
+          padding: 9px;
+        }
+        .instruction {
+          font-size: 17px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Evaluation results</h1>
+        <p id="subtitle">Loading retained trajectories…</p>
+      </div>
+      <div class="brand">relate / AppWorld</div>
+    </header>
+    <main>
+      <div class="summary" id="summary"></div>
+      <div class="filters">
+        <label
+          >Task<select id="task">
+            <option value="">All tasks</option>
+          </select></label
+        >
+        <label
+          >Family<select id="family">
+            <option value="">All families</option>
+          </select></label
+        >
+        <label
+          >Model<select id="model">
+            <option value="">Both models</option>
+          </select></label
+        >
+        <label
+          >Interface<select id="condition">
+            <option value="">All interfaces</option>
+          </select></label
+        >
+        <label
+          >Outcome<select id="outcome">
+            <option value="">All outcomes</option>
+            <option>Passed</option>
+            <option>Failed</option>
+            <option>Incomplete</option>
+          </select></label
+        >
+        <label
+          >Search<input id="search" placeholder="Task or instruction"
+        /></label>
+        <button id="reset">Reset</button>
+      </div>
+      <section class="matrix">
+        <h2>Task comparison</h2>
+        <p class="muted">
+          Each cell is one attempt. Select a result to read its trajectory.
+        </p>
+        <div class="scroll" id="matrix"></div>
+      </section>
+      <section>
+        <div class="tabletop">
+          <h2 id="runheading">Runs</h2>
+          <div>
+            <button id="csv">Export filtered CSV</button>
+            <label style="display: inline"
+              >Sort
+              <select id="sort">
+                <option value="task">Task</option>
+                <option value="cost">Cost, highest first</option>
+                <option value="turns">Turns, highest first</option>
+                <option value="time">Duration, longest first</option>
+                <option value="tokens">Output tokens, highest first</option>
+              </select></label
+            >
+          </div>
+        </div>
+        <div class="scroll">
+          <table id="runs">
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Model</th>
+                <th>Interface</th>
+                <th>Outcome</th>
+                <th>Turns</th>
+                <th>Input tokens</th>
+                <th>Output tokens</th>
+                <th>Cost</th>
+                <th>Duration</th>
+                <th>Termination</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+      <section id="detail" class="hide"></section>
+      <div class="note">
+        SDK and snapshot reads share a host-acquired dataset. Snapshot writes
+        use the SDK action adapter. The song/album-library tasks exceed the
+        playlist-only acquisition scope. Infrastructure failures remain visible
+        as incomplete. Model-visible output can be truncated; full output is
+        retained separately.
+      </div>
+      <footer id="provenance"></footer>
+    </main>
+    <script>
+      const $ = (s) => document.querySelector(s),
+        esc = (s) =>
+          String(s ?? '').replace(
+            /[&<>"']/g,
+            (c) =>
+              ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+              })[c],
+          );
+      const pretty = (o) => esc(JSON.stringify(o, null, 2)),
+        fmt = (n) => Number(n || 0).toLocaleString(),
+        money = (n) => '$' + Number(n || 0).toFixed(4),
+        duration = (n) =>
+          n >= 60
+            ? Math.floor(n / 60) + 'm ' + Math.round(n % 60) + 's'
+            : Math.round(n || 0) + 's';
+      const names = {
+          raw: 'Raw Python',
+          raw_ts: 'Raw TypeScript',
+          sdk: 'Relate SDK',
+          snapshot_ts: 'Snapshot TypeScript',
+        },
+        modelName = (m) => (m.includes('nano') ? 'GPT-5.4 Nano' : 'Haiku 5.5');
+      const outcome = (e) =>
+          e.result.success === true
+            ? 'Passed'
+            : e.result.success === false
+              ? 'Failed'
+              : 'Incomplete',
+        cls = (e) =>
+          ({ Passed: 'pass', Failed: 'fail', Incomplete: 'incomplete' })[
+            outcome(e)
+          ];
+      let data,
+        filtered = [],
+        selected,
+        trace,
+        tab = 'trajectory';
+      function sum(es, f) {
+        return es.reduce((a, e) => a + Number(f(e) || 0), 0);
+      }
+      function download(name, text, type) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([text], { type }));
+        a.download = name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      }
+      function render() {
+        filtered = data.episodes.filter(
+          (e) =>
+            ['task', 'family', 'model', 'condition'].every(
+              (k) => !$('#' + k).value || e[k] === $('#' + k).value,
+            ) &&
+            (!$('#outcome').value || outcome(e) === $('#outcome').value) &&
+            (!$('#search').value ||
+              (e.task + ' ' + e.instruction)
+                .toLowerCase()
+                .includes($('#search').value.toLowerCase())),
+        );
+        const sort = $('#sort').value;
+        filtered.sort((a, b) =>
+          sort === 'task'
+            ? (a.task + a.model + a.condition).localeCompare(
+                b.task + b.model + b.condition,
+              )
+            : sort === 'cost'
+              ? b.usage.estimated_usd - a.usage.estimated_usd
+              : sort === 'turns'
+                ? (b.result.steps || 0) - (a.result.steps || 0)
+                : sort === 'time'
+                  ? (b.result.seconds || 0) - (a.result.seconds || 0)
+                  : b.usage.generated_tokens - a.usage.generated_tokens,
+        );
+        const passed = filtered.filter((e) => outcome(e) === 'Passed').length,
+          scored = filtered.filter(
+            (e) => e.result.success !== null && e.result.success !== undefined,
+          ).length;
+        $('#summary').innerHTML = [
+          ['Runs', filtered.length],
+          ['Official passes', `${passed} / ${scored}`],
+          [
+            'Success rate',
+            scored ? ((100 * passed) / scored).toFixed(1) + '%' : '—',
+          ],
+          ['Incomplete', filtered.length - scored],
+          ['Recorded cost', money(sum(filtered, (e) => e.usage.estimated_usd))],
+          [
+            'Model calls',
+            fmt(sum(filtered, (e) => e.usage.attempted_requests)),
+          ],
+        ]
+          .map(
+            ([label, value]) =>
+              `<div><strong>${value}</strong><span>${label}</span></div>`,
+          )
+          .join('');
+        $('#runheading').textContent = `Runs (${filtered.length})`;
+        $('#runs tbody').innerHTML =
+          filtered
+            .map(
+              (e) =>
+                `<tr data-run="${esc(e.id)}" class="${e.id === selected ? 'selected' : ''}" tabindex="0"><td>${e.task}</td><td>${modelName(e.model)}</td><td>${names[e.condition]}</td><td><span class="badge ${cls(e)}">${outcome(e)}</span></td><td>${e.result.steps ?? '—'}</td><td>${fmt(e.usage.prompt_tokens)}</td><td>${fmt(e.usage.generated_tokens)}</td><td>${money(e.usage.estimated_usd)}</td><td>${duration(e.result.seconds)}</td><td>${esc(e.result.termination || e.attempt_status)}</td></tr>`,
+            )
+            .join('') ||
+          '<tr><td colspan="10" class="empty">No runs match these filters. Reset filters to see all runs.</td></tr>';
+        const columns = data.manifest.models
+          .flatMap((m) => data.manifest.conditions.map((c) => [m, c]))
+          .filter(
+            ([m, c]) =>
+              (!$('#model').value || $('#model').value === m) &&
+              (!$('#condition').value || $('#condition').value === c),
+          );
+        const tasks = [...new Set(filtered.map((e) => e.task))].sort();
+        $('#matrix').innerHTML =
+          `<table><thead><tr><th>Task</th>${columns.map(([m, c]) => `<th>${modelName(m)}<br>${names[c]}</th>`).join('')}</tr></thead><tbody>${tasks
+            .map(
+              (t) =>
+                `<tr><td>${t}</td>${columns
+                  .map(([m, c]) => {
+                    const e = filtered.find(
+                      (e) => e.task === t && e.model === m && e.condition === c,
+                    );
+                    return `<td>${e ? `<button class="${cls(e)}" data-run="${esc(e.id)}" aria-label="${esc(t + ' ' + modelName(m) + ' ' + names[c] + ' ' + outcome(e))}">${outcome(e)}</button>` : '—'}</td>`;
+                  })
+                  .join('')}</tr>`,
+            )
+            .join('')}</tbody></table>`;
+      }
+      async function openRun(id) {
+        selected = id;
+        render();
+        $('#detail').classList.remove('hide');
+        $('#detail').innerHTML = '<p>Loading full trajectory…</p>';
+        const r = await fetch(
+          `trajectories/${encodeURIComponent(id)}/trajectory.json`,
+        );
+        if (!r.ok) throw Error('Could not load trajectory');
+        const loaded = await r.json();
+        if (selected !== id) return;
+        trace = loaded;
+        tab = 'trajectory';
+        renderTrace();
+        $('#detail').scrollIntoView({ behavior: 'instant', block: 'start' });
+        history.replaceState(null, '', '#' + encodeURIComponent(id));
+      }
+      function block(label, content) {
+        return `<details><summary>${esc(label)}</summary><pre>${pretty(content)}</pre></details>`;
+      }
+      function renderTrace() {
+        const e = trace,
+          path = `trajectories/${encodeURIComponent(e.id)}/`;
+        let body = '';
+        if (tab === 'trajectory')
+          body =
+            block('Initial prompt and task context', e.messages) +
+            (e.steps.length
+              ? e.steps
+                  .map((s) => {
+                    let code = s.content;
+                    try {
+                      code = JSON.parse(code).code;
+                    } catch {}
+                    const provider =
+                      s.model.provider_response || s.model.provider_output;
+                    return `<article class="turn"><div class="turnhead"><strong>Turn ${s.turn}</strong><span>${fmt(s.model.usage.input_tokens)} input · ${fmt(s.model.usage.output_tokens)} output · ${money(s.model.estimated_usd)} · ${duration(s.model.seconds)}</span></div><div class="turnbody"><h3>Executed code</h3><pre>${esc(code || 'No executable tool call returned.')}</pre>${s.error ? `<p class="error">${esc(s.error)}</p>` : ''}<h3>Output returned to the model</h3><pre>${esc(s.visible_output || 'No printed output.')}</pre>${s.output !== s.visible_output ? block('Complete execution output (before truncation)', s.output) : ''}${block('Complete provider response', provider)}${block('Exact provider request', e.exact_requests?.find((r) => r.turn === s.turn)?.request || s.model.provider_request || 'Not retained by the historical runner')}${block('Usage and execution metadata', s)}</div></article>`;
+                  })
+                  .join('')
+              : '<p>No model response was received. See request records for the retained attempt.</p>') +
+            block('Final conversation', e.final_messages);
+        if (tab === 'evaluation')
+          body =
+            '<h3>Official AppWorld evaluation</h3><pre>' +
+            pretty(e.evaluation) +
+            '</pre>' +
+            block('Episode result', e.result);
+        if (tab === 'requests')
+          body =
+            '<h3>Every provider attempt</h3><pre>' +
+            pretty(e.requests) +
+            '</pre>';
+        if (tab === 'apis')
+          body =
+            '<h3>Application API calls</h3><pre>' +
+            pretty(e.api_calls) +
+            '</pre>';
+        if (tab === 'files')
+          body =
+            '<p>Original files, copied byte-for-byte from the retained run. The write journal is a SQLite database.</p><div class="filelist">' +
+            e.files
+              .map(
+                (f) =>
+                  `<a href="${path + encodeURIComponent(f.name)}" download>${esc(f.name)} (${fmt(f.bytes)} bytes)</a>`,
+              )
+              .join('') +
+            `<a href="${path}config.json" download>Run configuration</a><a href="${path}request_transcript.json" download>Exact request transcript</a></div>` +
+            block('Artifact SHA-256 hashes', e.files);
+        $('#detail').innerHTML =
+          `<div class="detailhead"><div><h2>${esc(e.task)} · ${modelName(e.model)} · ${names[e.condition]}</h2><span class="badge ${cls(e)}">${outcome(e)}</span> <span class="muted">${esc(e.result.termination || e.attempt_status)} · ${e.result.steps || 0} turns · ${money(e.usage.estimated_usd)}</span></div><a href="${path}trajectory.json" download>Download complete trajectory</a></div><p class="instruction">${esc(e.instruction || 'Task context was not reached.')}</p>${e.result.error ? `<p class="error">${esc(e.result.error)}</p>` : ''}<div class="tabs">${[
+            ['trajectory', 'Trajectory'],
+            ['evaluation', 'Evaluation'],
+            ['requests', 'Provider attempts'],
+            ['apis', 'Application calls'],
+            ['files', 'Original files'],
+          ]
+            .map(
+              ([id, label]) =>
+                `<button data-tab="${id}" class="${tab === id ? 'active' : ''}">${label}</button>`,
+            )
+            .join('')}</div>${body}`;
+      }
+      document.addEventListener('click', (e) => {
+        const run = e.target.closest('[data-run]');
+        if (run) openRun(run.dataset.run).catch(showError);
+        const t = e.target.closest('[data-tab]');
+        if (t) {
+          tab = t.dataset.tab;
+          renderTrace();
+        }
+      });
+      document.addEventListener('keydown', (e) => {
+        if (
+          (e.key === 'Enter' || e.key === ' ') &&
+          e.target.matches('tr[data-run]')
+        ) {
+          e.preventDefault();
+          openRun(e.target.dataset.run).catch(showError);
+        }
+      });
+      ['task', 'family', 'model', 'condition', 'outcome', 'sort'].forEach(
+        (id) => $('#' + id).addEventListener('change', render),
+      );
+      $('#search').addEventListener('input', render);
+      $('#reset').onclick = () => {
+        ['task', 'family', 'model', 'condition', 'outcome', 'search'].forEach(
+          (k) => ($('#' + k).value = ''),
+        );
+        render();
+      };
+      $('#csv').onclick = () => {
+        const rows = [
+          [
+            'task',
+            'family',
+            'model',
+            'interface',
+            'outcome',
+            'turns',
+            'input_tokens',
+            'output_tokens',
+            'estimated_usd',
+            'seconds',
+            'termination',
+          ],
+          ...filtered.map((e) => [
+            e.task,
+            e.family,
+            e.model,
+            e.condition,
+            outcome(e),
+            e.result.steps,
+            e.usage.prompt_tokens,
+            e.usage.generated_tokens,
+            e.usage.estimated_usd,
+            e.result.seconds,
+            e.result.termination,
+          ]),
+        ];
+        download(
+          'relate-eval-filtered.csv',
+          rows
+            .map((r) =>
+              r
+                .map((v) => '"' + String(v ?? '').replaceAll('"', '""') + '"')
+                .join(','),
+            )
+            .join('\n'),
+          'text/csv',
+        );
+      };
+      function showError(e) {
+        $('#detail').classList.remove('hide');
+        $('#detail').innerHTML = '<p class="error">' + esc(e.message) + '</p>';
+      }
+      fetch('data.json')
+        .then((r) => {
+          if (!r.ok) throw Error('Result data is unavailable');
+          return r.json();
+        })
+        .then((d) => {
+          data = d;
+          $('#subtitle').textContent =
+            `${d.manifest.planned} episodes · 12 tasks · two models · one attempt per combination`;
+          for (const k of ['task', 'family', 'model', 'condition'])
+            for (const value of [
+              ...new Set(d.episodes.map((e) => e[k])),
+            ].sort())
+              $('#' + k).insertAdjacentHTML(
+                'beforeend',
+                `<option value="${esc(value)}">${esc(k === 'model' ? modelName(value) : k === 'condition' ? names[value] : value)}</option>`,
+              );
+          $('#provenance').textContent =
+            `Batch ${d.manifest.batch} · SDK source ${d.manifest.git_head.slice(0, 12)} · Full trajectories retained locally. Counts above follow the active filters.`;
+          render();
+          if (location.hash)
+            openRun(decodeURIComponent(location.hash.slice(1))).catch(
+              showError,
+            );
+        })
+        .catch(showError);
+    </script>
+  </body>
+</html>

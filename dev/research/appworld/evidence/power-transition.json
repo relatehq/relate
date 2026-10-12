@@ -1,0 +1,6 @@
+{
+  "observed_at": "2026-10-08T15:29:47.149557+00:00",
+  "stage": "covered-v1 music static condition; raw condition completed on battery",
+  "power": "Now drawing from 'AC Power'\n -InternalBattery-0 (id=35192931)\t58%; charging; 1:26 remaining present: true\n",
+  "interpretation": "Wall-clock times are diagnostic only; power changed during study."
+}

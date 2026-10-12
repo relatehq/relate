@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Nano can complete a narrow SDK query task",
+    "text": "The current run scored raw 0/12, static notes 0/12 and SDK-condition 4/12. All three repeats of playlist-song popularity passed by discovering and querying Song. This demonstrates a working nano path, not broad task reliability or a causal graph advantage."
+  },
+  {
+    "title": "One of the four SDK-condition passes bypassed Relate",
+    "text": "The playlist-duration pass used original Spotify APIs from TypeScript and never called relate. Three of twelve SDK episodes had no relate. code reference at all. Separate available tools from actual use when interpreting the condition score."
+  },
+  {
+    "title": "One-time completion instructions are useful, but insufficient",
+    "text": "Six SDK episodes marked the task complete: four passed and two submitted incorrect numeric answers. Six SDK episodes and all 24 Python controls never completed. One outgoing-payment episode traversed and printed a subtotal on turn 13, then merely printed \u201csubmit\u201d on turn 14. Completion remains an environment instruction, not an SDK feature."
+  },
+  {
+    "title": "Turn allocation and interpreter use dominate many failures",
+    "text": "A strict syntactic count found 144 of 480 cells containing only a literal status print. SDK cells had 21 redeclaration errors; Python cells had 40 disallowed-import errors. These diagnostics identify observable waste, not a causal explanation for every failure. No environment behavior was changed after seeing them."
+  },
+  {
+    "title": "Traversal syntax worked in two episodes; direction still mattered",
+    "text": "Two payment episodes executed named traversals successfully. One never submitted its result; the other traversed transactions received by coworkers instead of money received by the user, and failed. No successful playlist-through traversal was observed. No named SDK request error was recorded, so this run does not measure recovery from the new error hints."
+  },
+  {
+    "title": "Successful access is not automatically cheaper overall",
+    "text": "SDK episodes averaged 20.4 seconds and 41,246 input tokens, versus 19.5 seconds and 26,630 input tokens for raw API episodes. SDK setup acquired 57.5 source calls per episode on average. Many baseline episodes stopped before useful computation, making efficiency-per-success and causal speed claims inappropriate."
+  }
+]

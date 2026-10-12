@@ -1,0 +1,11 @@
+--- a/dev/research/appworld/sdk-graph.mjs
++++ b/dev/research/appworld/sdk-graph.mjs
+@@ -111,7 +111,7 @@
+       receiver: 'Person who received this payment.',
+       amount: 'Amount of the transaction in dollars, in major currency units.',
+       createdAt:
+-        'Date and time when the transaction occurred in AppWorld, preserved without conversion. Uses AppWorld’s simulated, deliberately timezone-free clock, shared with the task date. The value has no UTC offset and does not identify a UTC instant.',
++        'Transaction time in the same timezone-free local clock as the task date, preserved as a string. This property supports eq/in filters, not range operators. For ranges, compare same-format local datetime bounds client-side. Do not append a UTC offset or convert time zones.',
+       likeCount:
+         'Total likes on the transaction; not whether the current user liked it.',
+       commentCount: 'Total comments on the transaction, not comment contents.',

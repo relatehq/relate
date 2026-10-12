@@ -1,0 +1,67 @@
+{
+  "status": "blocked-by-provider-TLS",
+  "attempts": [
+    {
+      "run": "explainer-baseline-screen-20261011",
+      "checkout": "explainer-sdk-experiments",
+      "task_id": "afc0fce_1",
+      "condition": "sdk",
+      "repeat": 0,
+      "success": null,
+      "termination": "infrastructure-error",
+      "steps": 1,
+      "estimated_usd": 0.000192,
+      "error": "SSLError: HTTPSConnectionPool(host='api.openai.com', port=443): Max retries exceeded with url: /v1/responses (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1006)')))"
+    },
+    {
+      "run": "explainer-baseline-screen-20261011-replacement1",
+      "checkout": "explainer-sdk-experiments",
+      "task_id": "afc0fce_1",
+      "condition": "sdk",
+      "repeat": 0,
+      "success": null,
+      "termination": "infrastructure-error",
+      "steps": 0,
+      "estimated_usd": 0,
+      "error": "SSLError: HTTPSConnectionPool(host='api.openai.com', port=443): Max retries exceeded with url: /v1/responses (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1006)')))"
+    },
+    {
+      "run": "explainer-baseline-screen-20261011-replacement2",
+      "checkout": "explainer-sdk-experiments",
+      "task_id": "afc0fce_1",
+      "condition": "sdk",
+      "repeat": 0,
+      "success": null,
+      "termination": "infrastructure-error",
+      "steps": 0,
+      "estimated_usd": 0,
+      "error": "SSLError: HTTPSConnectionPool(host='api.openai.com', port=443): Max retries exceeded with url: /v1/responses (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1006)')))"
+    },
+    {
+      "run": "explainer-collections-screen-20261011",
+      "checkout": "explainer-collections",
+      "task_id": "afc0fce_1",
+      "condition": "sdk",
+      "repeat": 0,
+      "success": null,
+      "termination": "infrastructure-error",
+      "steps": 0,
+      "estimated_usd": 0,
+      "error": "SSLError: HTTPSConnectionPool(host='api.openai.com', port=443): Max retries exceeded with url: /v1/responses (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1006)')))"
+    },
+    {
+      "run": "explainer-errors-screen-20261011",
+      "checkout": "explainer-error-diagnostics",
+      "task_id": "afc0fce_1",
+      "condition": "sdk",
+      "repeat": 0,
+      "success": null,
+      "termination": "infrastructure-error",
+      "steps": 0,
+      "estimated_usd": 0,
+      "error": "SSLError: HTTPSConnectionPool(host='api.openai.com', port=443): Max retries exceeded with url: /v1/responses (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1006)')))"
+    }
+  ],
+  "known_estimated_usd": 0.000192,
+  "promotion": false
+}
