@@ -179,6 +179,7 @@ def build(destination, findings):
         shutil.copyfile(document, destination / document.name)
     shutil.copytree(HERE / "guides", destination / "guides", dirs_exist_ok=True)
     (destination / "evidence").mkdir(exist_ok=True)
+    shutil.copyfile(HERE / "evidence/README.md", destination / "evidence/README.md")
     for evidence in (HERE / "evidence").glob("*.json"):
         shutil.copyfile(evidence, destination / "evidence" / evidence.name)
     print(destination)
