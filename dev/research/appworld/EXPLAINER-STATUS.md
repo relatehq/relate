@@ -1,10 +1,16 @@
-# Explainer follow-up: implemented and ready for online evaluation
+# Explainer follow-up: frozen branches and reproduction
 
-All six proposal areas are implemented as isolated local experiments.
-Relationship discovery and traversal filtering are separate arms, giving seven
-SDK candidates. Each has its own branch and checkout. No candidate has been
-promoted, pushed, or opened as an SDK PR. Any qualifying PR must target
-**main**.
+The model evaluation is complete: see
+[EXPLAINER-RESULTS.md](EXPLAINER-RESULTS.md) for all 336 episodes and promotion
+decisions. Local datetime passed every phase gate and is being promoted
+separately onto current main. The snapshot control remains research
+infrastructure; no other candidate met all gates.
+
+All six proposal areas were implemented as isolated experiments. Relationship
+discovery and traversal filtering have separate branches, giving seven SDK
+candidates. The branch/build identities below remain frozen at the versions that
+were evaluated. The promotion branch is `feat/local-datetime`, based on newer
+main `084e6b9`; its integration checks are separate from these model scores.
 
 ## Branches and contracts
 
@@ -82,7 +88,7 @@ model calls or new paid evaluation were made during implementation.
 commits, build/source hashes, full-check counts and offline preflight results.
 Complete check logs and prepared patches stay under `.local/`.
 
-## Run when connectivity is stable
+## Reproduce the prepared experiments
 
 From this research checkout, refresh and verify the prepared arms without any
 model calls:
@@ -148,8 +154,10 @@ host work, and it must not be presented as a raw-API comparison.
 
 The [frozen plan](EXPLAINER-PLAN.md) still governs promotion: end-to-end task
 results, fresh confirmation controls and holdout evidence, not just fewer error
-messages or passing unit tests. No improvement in agent performance is claimed.
-The seven SDK implementations are independent hypotheses, not a combined patch.
+messages or passing unit tests. The completed report applies those gates to each
+independent candidate; it does not combine candidate changes. The offline
+readiness evidence below predates model evaluation and is retained as
+provenance.
 
 The five earlier TLS-blocked attempts are preserved in
 [evidence/explainer-attempts.json](evidence/explainer-attempts.json). Only the

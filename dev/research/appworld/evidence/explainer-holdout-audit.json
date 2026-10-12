@@ -1,0 +1,28 @@
+{
+  "batch": "explainer-main-holdout-20261012",
+  "episodes": 72,
+  "configuration_and_frozen_runner_sources": "verified",
+  "official_evaluator_results_match": 72,
+  "ledger_sha256": "47cb862ee39c134f91e1f9e8182d892f7df0410df918ece1629eaeedc53ef164",
+  "usage": {
+    "estimated_usd": 0.39729353000000006,
+    "attempted_requests": 743,
+    "requests_without_usage": 0
+  },
+  "provider_model_calls": {
+    "gpt-5.4-nano-2026-03-17": 743
+  },
+  "error_turns": {
+    "redeclaration": 90,
+    "other_error": 24,
+    "read_error": 18
+  },
+  "feature_hint_cells": {
+    "datetime_arm_range_hint_cells": 13,
+    "filter_arm_traversal_cells": 5
+  },
+  "limits": [
+    "Feature hints are lexical source matches, not instrumentation of runtime dispatch.",
+    "Error categories classify returned error text; they do not establish causes of task failure."
+  ]
+}

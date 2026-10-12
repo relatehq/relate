@@ -2,6 +2,7 @@
   "batch": "explainer-main-screen-20261012",
   "episodes": 192,
   "configuration_and_frozen_runner_sources": "verified",
+  "official_evaluator_results_match": 192,
   "ledger_sha256": "828fd059417447bb4b34d2bef7153a2c57f6905f6b21a3714237c8952d1c2e47",
   "usage": {
     "estimated_usd": 1.9111499699999999,

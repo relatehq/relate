@@ -1,13 +1,20 @@
 # AppWorld interface research
 
-## Prepared explainer experiments
+## Explainer evaluation after the main fixes
 
-[EXPLAINER-STATUS.md](EXPLAINER-STATUS.md) lists seven independent SDK branches,
-full local validation, a plain-array read control and commands for offline
-preflight and later online evaluation. All suggestions are implemented locally;
-none has a new measured task-performance result or a promotion decision yet.
+[EXPLAINER-RESULTS.md](EXPLAINER-RESULTS.md) reports 336 scored episodes across
+screening, fresh confirmation and preselected holdout. Local datetime is the
+only SDK candidate that passed every phase gate (24/36 versus 20/36 paired
+controls). The snapshot TypeScript control also qualifies as research evidence;
+traversal filters failed holdout and the other candidates failed screening.
+Recorded model cost was $2.97, with no infrastructure failures or missing usage.
 
-## Latest independent ergonomics experiments
+[EXPLAINER-STATUS.md](EXPLAINER-STATUS.md) preserves the seven independent SDK
+branches, frozen build identities, offline validation and reproduction commands.
+The promoted datetime implementation is integrated separately onto newer main;
+the evaluation branches remain frozen.
+
+## Earlier independent ergonomics experiments
 
 [ERGONOMICS.md](ERGONOMICS.md) compares SDK receipt discovery, request error
 messages, query-consumption examples and two graph-description changes, one at a

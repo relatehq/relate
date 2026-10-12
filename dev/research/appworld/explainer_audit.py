@@ -49,6 +49,10 @@ def audit(batch):
                     hashlib.sha256(source.read_bytes()).hexdigest()
                     == ledger["prepared"][arm]["support_sha256"][source.name]
                 )
+        evaluations = list(run.glob("*__*__*/evaluation.json"))
+        assert len(evaluations) == len(attempt["results"]) == 1
+        official = json.loads(evaluations[0].read_text())
+        assert official["success"] is attempt["results"][0]["success"]
         for path in run.glob("*__*__*/steps.json"):
             for step in json.loads(path.read_text()):
                 providers[step["model"]["model"]] += 1
@@ -69,6 +73,7 @@ def audit(batch):
         "batch": batch,
         "episodes": report["finished"],
         "configuration_and_frozen_runner_sources": "verified",
+        "official_evaluator_results_match": report["finished"],
         "ledger_sha256": hashlib.sha256(ledger_path.read_bytes()).hexdigest(),
         "usage": report["usage"],
         "provider_model_calls": dict(providers),
