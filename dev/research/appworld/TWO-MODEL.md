@@ -143,3 +143,37 @@ packaging); 47 Python research tests and 13 Node research tests pass. All 24
 offline SDK/snapshot task preflights pass. The browser checks cover task,
 family, model, interface and outcome filters, full trajectories, evaluator
 views, original files, and the incomplete-run view.
+
+## Saved-library follow-up (2026-10-12)
+
+After adding explicit saved-song and saved-album acquisition and membership,
+reran only `82e2fac_2` and `82e2fac_3` through the SDK on the same two models:
+**four attempts, one per task/model, all passed**. Source commit: `f05ac84`. The
+earlier submission-recovery change is also present. Original batch results
+remain unchanged; this is a targeted follow-up, not a replacement benchmark.
+
+| Task                                           | Nano           | Haiku         | Correct answer              |
+| ---------------------------------------------- | -------------- | ------------- | --------------------------- |
+| Least-played saved song (`82e2fac_2`)          | Pass, 7 turns  | Pass, 5 turns | Distant Love                |
+| Most-played song in saved albums (`82e2fac_3`) | Pass, 14 turns | Pass, 4 turns | Wandering the Streets Alone |
+
+Both selected the actual saved-library populations. Nano traversed saved songs;
+Haiku queried explicit saved-song membership and fetched its referenced songs.
+For albums, both ultimately traversed saved albums and their songs. Nano first
+used the reverse traversal with a library ID and repeatedly redeclared existing
+variables, then recovered. The follow-up does not establish that those remaining
+execution mistakes are fixed.
+
+The limits remained 28 turns, 4,096 output tokens per request, 14,000 generated
+tokens per episode, low reasoning, 14,000 visible output characters, and world
+seed 100. No extra attempts or holdouts ran. All 30 requests retained usage;
+total estimated cost was **$0.01771943**. Validation: 52 Python research tests
+and 14 Node research tests passed, including membership separation and paginated
+acquisition. No core SDK package changes were needed.
+
+[Follow-up metrics](evidence/music-libraries-20261012-results.json),
+[verified archive manifest](evidence/music-libraries-20261012-archive.json), and
+`evidence/music-libraries-20261012.bundle` retain all four trajectories, frozen
+runner sources, provider responses, evaluator results, and world outputs. All
+219 archived files were restored and hash-verified. The separate local explorer
+is served at <http://127.0.0.1:8765/music-libraries/>.
