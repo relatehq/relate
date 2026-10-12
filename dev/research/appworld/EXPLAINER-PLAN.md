@@ -86,3 +86,13 @@ two repeats and matched fresh controls. These are held out from this study's
 screening and selection, not a claim that no historical study ever used them. No
 prompt, graph, candidate or budget tuning based on the resulting episodes. An
 infrastructure failure stops its batch and is reported with attempted usage.
+
+Execution-only scheduling amendment: after five completed episodes, retain those
+episodes and run the remaining frozen schedule with at most three concurrent
+matched pairs. The active episode finished normally before replacing the
+sequential coordinator. Nothing is retried or excluded. Each pair keeps its
+original order; separate pairs may overlap. A single coordinator reserves each
+child's cost allowance before dispatch so concurrent children share the same $5
+batch ceiling. Episode prompts, token/turn budgets, seeds, SDK builds and runner
+sources remain frozen. This changes wall-clock scheduling only; report any cost
+or infrastructure termination as incomplete rather than dropping it.
