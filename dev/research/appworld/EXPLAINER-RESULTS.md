@@ -173,5 +173,8 @@ cover missing/incomplete pairs, accuracy regression and the efficiency boundary.
 The bounded coordinator tests verify resume without replay, pair ordering and
 budget reservations. The research Python suite passes 40 tests. The seven frozen
 SDK candidates passed full `pnpm check` before evaluation, and all 54 offline
-task/arm preflights passed. See the promotion PR for checks on the newer main
-integration.
+task/arm preflights passed. The promotion build passes full `pnpm check` (992
+tests) and `pnpm docs:check`. PR 14 on refreshed main passes full `pnpm check`
+(975 tests), all 40 Python research tests and 13 Node tests. PR 19 on refreshed
+main passes full `pnpm check` (981 tests), including the scripted discovery
+probe.

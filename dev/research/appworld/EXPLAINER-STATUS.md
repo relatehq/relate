@@ -2,9 +2,10 @@
 
 The model evaluation is complete: see
 [EXPLAINER-RESULTS.md](EXPLAINER-RESULTS.md) for all 336 episodes and promotion
-decisions. Local datetime passed every phase gate and is being promoted
-separately onto current main. The snapshot control remains research
-infrastructure; no other candidate met all gates.
+decisions. Local datetime passed every phase gate and is promoted in
+[PR #26](https://github.com/relatehq/relate/pull/26), based on current main. The
+snapshot control remains research infrastructure; no other candidate met all
+gates.
 
 All six proposal areas were implemented as isolated experiments. Relationship
 discovery and traversal filtering have separate branches, giving seven SDK
