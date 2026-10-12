@@ -108,7 +108,7 @@ class RunnerTests(unittest.TestCase):
             patch.object(sdk_runner, "HERE", here),
             patch.object(sdk_runner, "AppWorld", return_value=world),
             patch.object(sdk_runner, "NodeRepl", return_value=worker),
-            patch.object(sdk_runner, "music", return_value={}),
+            patch.object(sdk_runner, "music_catalog", return_value={}),
             patch.object(sdk_runner, "graph_payments", return_value={}),
             patch.object(sdk_runner, "acquisition_coverage", return_value={}),
             patch.object(sdk_runner, "model_call", side_effect=response),

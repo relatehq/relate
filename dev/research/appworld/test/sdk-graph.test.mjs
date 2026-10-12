@@ -128,7 +128,8 @@ test('source actions refresh observations and replay receipts without duplicate 
     assert.deepEqual(
       api
         .describe()
-        .actions.map((a) => a.apiName)
+        .actions.filter((a) => a.apiName.endsWith('Transaction'))
+        .map((a) => a.apiName)
         .sort(),
       ['commentOnTransaction', 'likeTransaction', 'refreshTransaction'],
     );

@@ -1,0 +1,383 @@
+{
+  "data_version": "0.1.0",
+  "splits": ["train", "dev"],
+  "domains": {
+    "amazon": "Shopping",
+    "spotify": "Music",
+    "venmo": "Payments",
+    "gmail": "Email",
+    "splitwise": "Shared expenses",
+    "phone": "Phone and contacts",
+    "file_system": "Files",
+    "simple_note": "Notes",
+    "todoist": "Task management"
+  },
+  "families": [
+    {
+      "family": "0d8a4ee",
+      "split": "dev",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["0d8a4ee_1", "0d8a4ee_2", "0d8a4ee_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "23cf851",
+      "split": "dev",
+      "required_apps": ["venmo"],
+      "instances": ["23cf851_1", "23cf851_2", "23cf851_3"],
+      "coverage": "expanded",
+      "capability": "Aggregate transaction likes by direction and date"
+    },
+    {
+      "family": "37a8675",
+      "split": "dev",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["37a8675_1", "37a8675_2", "37a8675_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "383cbac",
+      "split": "dev",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["383cbac_1", "383cbac_2", "383cbac_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "396c5a2",
+      "split": "dev",
+      "required_apps": ["spotify"],
+      "instances": ["396c5a2_1", "396c5a2_2", "396c5a2_3"],
+      "coverage": "expanded",
+      "capability": "Queue artist songs selected by public play count"
+    },
+    {
+      "family": "3ab5b8b",
+      "split": "dev",
+      "required_apps": ["spotify"],
+      "instances": ["3ab5b8b_1", "3ab5b8b_2", "3ab5b8b_3"],
+      "coverage": "expanded",
+      "capability": "Download liked songs from a selected collection"
+    },
+    {
+      "family": "4ec8de5",
+      "split": "dev",
+      "required_apps": ["spotify"],
+      "instances": ["4ec8de5_1", "4ec8de5_2", "4ec8de5_3"],
+      "coverage": "expanded",
+      "capability": "Count saved songs and album songs by release period"
+    },
+    {
+      "family": "4fab96f",
+      "split": "dev",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["4fab96f_1", "4fab96f_2", "4fab96f_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "50e1ac9",
+      "split": "dev",
+      "required_apps": ["spotify"],
+      "instances": ["50e1ac9_1", "50e1ac9_2", "50e1ac9_3"],
+      "coverage": "expanded",
+      "capability": "Rank personal-library songs by genre and play count"
+    },
+    {
+      "family": "530b157",
+      "split": "dev",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["530b157_1", "530b157_2", "530b157_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "57c3486",
+      "split": "dev",
+      "required_apps": ["spotify"],
+      "instances": ["57c3486_1", "57c3486_2", "57c3486_3"],
+      "coverage": "expanded",
+      "capability": "Like catalog songs by followed artists"
+    },
+    {
+      "family": "6171bbc",
+      "split": "dev",
+      "required_apps": ["spotify"],
+      "instances": ["6171bbc_1", "6171bbc_2", "6171bbc_3"],
+      "coverage": "expanded",
+      "capability": "Build playlists from per-collection song rankings"
+    },
+    {
+      "family": "68ee2c9",
+      "split": "dev",
+      "required_apps": ["file_system"],
+      "instances": ["68ee2c9_1", "68ee2c9_2", "68ee2c9_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "6bdbc26",
+      "split": "dev",
+      "required_apps": ["spotify"],
+      "instances": ["6bdbc26_1", "6bdbc26_2", "6bdbc26_3"],
+      "coverage": "expanded",
+      "capability": "Inspect followers of the current song artist"
+    },
+    {
+      "family": "6c2c621",
+      "split": "dev",
+      "required_apps": ["file_system", "simple_note"],
+      "instances": ["6c2c621_1", "6c2c621_2", "6c2c621_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "b119b1f",
+      "split": "dev",
+      "required_apps": ["spotify"],
+      "instances": ["b119b1f_1", "b119b1f_2", "b119b1f_3"],
+      "coverage": "expanded",
+      "capability": "Navigate the player queue to an artist"
+    },
+    {
+      "family": "d4e9306",
+      "split": "dev",
+      "required_apps": ["spotify"],
+      "instances": ["d4e9306_1", "d4e9306_2", "d4e9306_3"],
+      "coverage": "expanded",
+      "capability": "Follow artists associated with liked songs and albums"
+    },
+    {
+      "family": "df61dc5",
+      "split": "dev",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["df61dc5_1", "df61dc5_2", "df61dc5_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "fac291d",
+      "split": "dev",
+      "required_apps": ["spotify"],
+      "instances": ["fac291d_1", "fac291d_2", "fac291d_3"],
+      "coverage": "expanded",
+      "capability": "Count distinct songs across personal music collections"
+    },
+    {
+      "family": "07b42fd",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["07b42fd_1", "07b42fd_2", "07b42fd_3"],
+      "coverage": "expanded",
+      "capability": "Follow catalog artists by genre and follower count"
+    },
+    {
+      "family": "229360a",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["229360a_1", "229360a_2", "229360a_3"],
+      "coverage": "expanded",
+      "capability": "Clean saved collections using likes and download state"
+    },
+    {
+      "family": "22cc237",
+      "split": "train",
+      "required_apps": ["phone", "simple_note", "venmo"],
+      "instances": ["22cc237_1", "22cc237_2", "22cc237_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "27e1026",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["27e1026_1", "27e1026_2", "27e1026_3"],
+      "coverage": "expanded",
+      "capability": "Compare release dates across personal music collections"
+    },
+    {
+      "family": "287e338",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["287e338_1", "287e338_2", "287e338_3"],
+      "coverage": "expanded",
+      "capability": "Aggregate recommended songs by artist"
+    },
+    {
+      "family": "29caf6f",
+      "split": "train",
+      "required_apps": ["phone", "simple_note"],
+      "instances": ["29caf6f_1", "29caf6f_2", "29caf6f_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "2a163ab",
+      "split": "train",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["2a163ab_1", "2a163ab_2", "2a163ab_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "302c169",
+      "split": "train",
+      "required_apps": ["phone"],
+      "instances": ["302c169_1", "302c169_2", "302c169_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "34d9492",
+      "split": "train",
+      "required_apps": ["file_system"],
+      "instances": ["34d9492_1", "34d9492_2", "34d9492_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "3c13f5a",
+      "split": "train",
+      "required_apps": ["file_system", "phone", "venmo"],
+      "instances": ["3c13f5a_1", "3c13f5a_2", "3c13f5a_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "60d0b5b",
+      "split": "train",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["60d0b5b_1", "60d0b5b_2", "60d0b5b_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "6104387",
+      "split": "train",
+      "required_apps": ["file_system", "spotify"],
+      "instances": ["6104387_1", "6104387_2", "6104387_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "692c77d",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["692c77d_1", "692c77d_2", "692c77d_3"],
+      "coverage": "expanded",
+      "capability": "Rate songs using personal likes and library membership"
+    },
+    {
+      "family": "6ea6792",
+      "split": "train",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["6ea6792_1", "6ea6792_2", "6ea6792_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "76f2c72",
+      "split": "train",
+      "required_apps": ["file_system"],
+      "instances": ["76f2c72_1", "76f2c72_2", "76f2c72_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "771d8fc",
+      "split": "train",
+      "required_apps": ["phone"],
+      "instances": ["771d8fc_1", "771d8fc_2", "771d8fc_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "7d7fbf6",
+      "split": "train",
+      "required_apps": ["file_system"],
+      "instances": ["7d7fbf6_1", "7d7fbf6_2", "7d7fbf6_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "82e2fac",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["82e2fac_1", "82e2fac_2", "82e2fac_3"],
+      "coverage": "baseline"
+    },
+    {
+      "family": "aa8502b",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["aa8502b_1", "aa8502b_2", "aa8502b_3"],
+      "coverage": "expanded",
+      "capability": "Follow or unfollow artists using personally liked songs"
+    },
+    {
+      "family": "afc0fce",
+      "split": "train",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["afc0fce_1", "afc0fce_2", "afc0fce_3"],
+      "coverage": "baseline"
+    },
+    {
+      "family": "b0a8eae",
+      "split": "train",
+      "required_apps": ["simple_note", "spotify"],
+      "instances": ["b0a8eae_1", "b0a8eae_2", "b0a8eae_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "b7a9ee9",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["b7a9ee9_1", "b7a9ee9_2", "b7a9ee9_3"],
+      "coverage": "expanded",
+      "capability": "Follow artists selected by playlist song genre"
+    },
+    {
+      "family": "c901732",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["c901732_1", "c901732_2", "c901732_3"],
+      "coverage": "expanded",
+      "capability": "Play songs selected from album or playlist statistics"
+    },
+    {
+      "family": "ccb4494",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["ccb4494_1", "ccb4494_2", "ccb4494_3"],
+      "coverage": "expanded",
+      "capability": "Like songs through the current queue position"
+    },
+    {
+      "family": "ce359b5",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["ce359b5_1", "ce359b5_2", "ce359b5_3"],
+      "coverage": "expanded",
+      "capability": "Remove songs from libraries and playlists by release date"
+    },
+    {
+      "family": "cf6abd2",
+      "split": "train",
+      "required_apps": ["simple_note"],
+      "instances": ["cf6abd2_1", "cf6abd2_2", "cf6abd2_3"],
+      "coverage": "outside-current-scope"
+    },
+    {
+      "family": "d0b1f43",
+      "split": "train",
+      "required_apps": ["phone", "venmo"],
+      "instances": ["d0b1f43_1", "d0b1f43_2", "d0b1f43_3"],
+      "coverage": "baseline"
+    },
+    {
+      "family": "e3d6c94",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["e3d6c94_1", "e3d6c94_2", "e3d6c94_3"],
+      "coverage": "expanded",
+      "capability": "Create playlists from filtered recommendations"
+    },
+    {
+      "family": "e7a10f8",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["e7a10f8_1", "e7a10f8_2", "e7a10f8_3"],
+      "coverage": "baseline"
+    },
+    {
+      "family": "e85d92a",
+      "split": "train",
+      "required_apps": ["spotify"],
+      "instances": ["e85d92a_1", "e85d92a_2", "e85d92a_3"],
+      "coverage": "expanded",
+      "capability": "Compare public song popularity for an artist"
+    }
+  ]
+}

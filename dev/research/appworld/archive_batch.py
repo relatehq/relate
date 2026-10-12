@@ -47,7 +47,7 @@ def archive(batch):
                     shutil.copytree(output, staging / 'world-outputs' / experiment)
         reporting = staging / 'batch/reporting-source'
         reporting.mkdir()
-        for name in ['results_explorer.py', 'results_explorer.html', 'archive_batch.py', 'audit_two_model.py']:
+        for name in ['results_explorer.py', 'results_explorer.html', 'archive_batch.py', 'audit_two_model.py', 'task_catalog.py']:
             shutil.copy2(HERE / name, reporting / name)
         pack_bundle(bundle_file_path=str(destination), base_directory=str(staging), include_directories=['batch', 'runs', 'world-outputs'], password=PASSWORD, salt=SALT)
         expected = {str(p.relative_to(staging)): digest(p) for p in staging.rglob('*') if p.is_file()}

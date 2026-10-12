@@ -18,6 +18,14 @@ def acquisition_coverage(rows):
         "ContactRelationship": "email-contact-labels-owned-by-supervisor",
         "Transaction": "own-payment-transactions",
     }
+    if "Artist" in rows:
+        scopes.update({
+            "Song": "public-song-catalog", "Album": "public-album-catalog", "Artist": "public-artist-catalog",
+            "AlbumMembership": "all-songs-in-catalog-albums", "SongState": "catalog-song-personal-state-and-public-rating",
+            "AlbumState": "catalog-album-personal-likes", "SongArtist": "catalog-song-artists", "AlbumArtist": "catalog-album-artists",
+            "LibrarySong": "deduplicated-personal-library-union", "Recommendation": "own-recommendation-occurrences",
+            "QueueEntry": "own-player-queue",
+        })
     return {
         kind: {
             "scopeId": f"snapshot.{kind}",

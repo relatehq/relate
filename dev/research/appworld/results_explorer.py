@@ -6,10 +6,12 @@ import json
 import shutil
 from pathlib import Path
 from retained_usage import read_json, episode_usage
+from task_catalog import ADDITIONAL_FAMILIES
 
 HERE = Path(__file__).resolve().parent
 FAMILIES = {'e7a10f8': 'Playlist duration', '82e2fac': 'Song selection', 'd0b1f43': 'Payment totals', 'afc0fce': 'Comments and likes'}
 
+FAMILIES.update(ADDITIONAL_FAMILIES)
 
 def request_transcript(case, steps):
     """Recover each exact OpenAI input prefix from the retained full conversation.

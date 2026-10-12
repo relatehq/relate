@@ -16,7 +16,9 @@ from pathlib import Path
 
 import freezegun.api as clock
 import requests
-from acquire import graph_payments, music
+from acquire import graph_payments
+from music_acquire import music_catalog
+from music_writes import MusicWrites
 from appworld import AppWorld, load_task_ids
 from appworld.common.path_store import path_store
 from dotenv import dotenv_values
@@ -37,6 +39,10 @@ SOURCES = [
     "source_writes.py",
     "explainer_support.py",
     "acquire.py",
+    "music_acquire.py",
+    "music_writes.py",
+    "music-model.mjs",
+    "task_catalog.py",
     "runner.py",
     "prompts.py",
 ]
@@ -81,11 +87,16 @@ class NodeRepl:
                 self.writable_ids,
                 world.task.supervisor.email,
             )
+        self.music_writes = None
+        if mode in {"sdk", "snapshot_ts"} and "Artist" in (rows or {}) and "spotify" in self.tokens:
+            music_journal = Path(journal_path).with_name("music-writes.sqlite3") if journal_path else HERE / ".local/write-journals" / f"music-{uuid.uuid4().hex}.sqlite3"
+            self.music_writes = MusicWrites(music_journal, world.apis, self.tokens["spotify"], rows, world.task.supervisor.email)
         # Permission checks also constrain escaped JS contexts: no arbitrary host
         # files, subprocesses, workers or network. Only code/dependencies readable.
         readable = [
             HERE / "sdk-repl.mjs",
             HERE / "sdk-graph.mjs",
+            HERE / "music-model.mjs",
             ROOT / "node_modules",
             ROOT / "package.json",
         ]
@@ -176,9 +187,10 @@ class NodeRepl:
             }:
                 response = {"type": "source-write-result", "id": event["id"]}
                 try:
-                    if self.writes is None:
-                        raise ValueError("No writable transactions were acquired")
-                    response["result"] = self.writes.execute(event)
+                    writer = self.writes if event["operation"] in {"likeTransaction", "commentOnTransaction", "refreshTransaction"} else self.music_writes
+                    if writer is None:
+                        raise ValueError("No source writer available for this operation")
+                    response["result"] = writer.execute(event)
                 except Exception as error:
                     response["error"] = f"{type(error).__name__}: {error}"
                 self.send(response)
@@ -219,6 +231,8 @@ class NodeRepl:
                 self.process.wait(timeout=5)
         if self.writes is not None:
             self.writes.close()
+        if self.music_writes is not None:
+            self.music_writes.close()
         self.selector.close()
         for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
             stream.close()
@@ -278,7 +292,7 @@ def run(args, key, task_id, condition, repeat, spent):
             if condition in {"sdk", "snapshot_ts"}:
                 acquire_start = clock.real_perf_counter()
                 # Same fixed coverage for every task; no task-id/answer-based routing.
-                rows = music(world.apis, tokens["spotify"], world.task.supervisor.email) | graph_payments(
+                rows = music_catalog(world.apis, tokens["spotify"], world.task.supervisor.email) | graph_payments(
                     world.apis,
                     tokens["phone"],
                     tokens["venmo"],
@@ -606,7 +620,7 @@ def main():
             "world_seed": 100,
             "prompts": {condition: prompt(condition) for condition in args.conditions},
             "prompt_protocol": "uniform-zero-shot-appworld-react-v1",
-            "sdk_capabilities": "relate SDK reads, likeTransaction, commentOnTransaction and completeTask; no original API proxy or credentials",
+            "sdk_capabilities": "relate SDK catalog/library/player/payment reads; allowlisted Spotify actions, Venmo likes/comments and completeTask; no original API proxy or credentials",
             "raw_ts_capabilities": "original app APIs and completeTask; no SDK or acquired snapshot",
             "snapshot_ts_capabilities": "same acquired normalized records as arrays, shared SDK-backed action adapters, no consumer query/traversal methods",
             "source_acquisition": "fixed music+payments union for every SDK episode",

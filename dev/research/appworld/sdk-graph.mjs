@@ -1,3 +1,11 @@
+import {
+  musicTargets,
+  musicSchemas,
+  musicDescriptions,
+  musicActions,
+  musicActionTargets,
+  musicRelationships,
+} from './music-model.mjs';
 import { z } from 'zod';
 import { ActionError, createRuntime } from '@relate/node';
 import {
@@ -18,6 +26,7 @@ import {
 } from 'relate';
 
 const targets = {
+  ...musicTargets,
   ContactGroup: { owner: 'Person' },
   ContactGroupMember: { group: 'ContactGroup', person: 'Person' },
   ContactGroupReceivedPayment: {
@@ -43,6 +52,7 @@ const targets = {
 // The agent receives the real consumer SDK; acquisition remains host-owned.
 export function model() {
   const descriptions = {
+    ...musicDescriptions,
     ContactGroup:
       'An owner-scoped contact group, unique by owner and kind. Use paymentsReceivedFromMembers for money members paid the owner, and paymentsSentToMembers for money the owner paid members. Filter payment dates on the traversal. Different groups can contain the same person and payment; deduplicate transaction IDs when combining groups.',
     ContactGroupMember:
@@ -52,11 +62,11 @@ export function model() {
     ContactGroupSentPayment:
       'One link between a contact group and a payment sent by its owner to a member. This collection includes every contact-group kind. Filter owner and kind to select friends, coworkers, or roommates. The same transaction can appear under multiple groups; deduplicate transaction references.',
     Playlist: 'A playlist in the user’s Spotify playlist library.',
-    Song: 'A song acquired from playlists, saved songs, or saved albums. Querying all songs does not select a personal library. Use MusicLibrary.savedSongs for the song library, or MusicLibrary.savedAlbums then Album.songs for the album library.',
+    Song: 'A song in the acquired public catalog. Querying all songs does not select a personal library. MusicLibrary.allSongs selects the union of personal song, album and playlist libraries. Use MusicLibrary.savedSongs for the song library, or MusicLibrary.savedAlbums then Album.songs for the album library.',
     MusicLibrary:
       'The authenticated user’s Spotify library. savedSongs and savedAlbums are distinct, fully acquired personal collections. Record completeness describes fields, not library membership.',
     Album:
-      'An album in the user’s saved album library; songs contains every song in that album.',
+      'An acquired catalog album; songs contains every song in that album. Use MusicLibrary.savedAlbums to select saved albums.',
     SavedSong: 'Explicit membership in the user’s saved song library.',
     SavedAlbum: 'Explicit membership in the user’s saved album library.',
     AlbumMembership: 'A song belonging to an acquired album.',
@@ -75,6 +85,7 @@ export function model() {
     claims: {},
   });
   const schemas = {
+    ...musicSchemas,
     ContactGroup: z.object({
       sourceId: z.string(),
       owner: z.string(),
@@ -156,6 +167,27 @@ export function model() {
       song: z.string(),
     }),
   };
+  const musicKinds = new Set([
+    'MusicLibrary',
+    'Album',
+    'Song',
+    'Playlist',
+    'SavedSong',
+    'SavedAlbum',
+    'AlbumMembership',
+    'Membership',
+    ...Object.keys(musicSchemas),
+  ]);
+
+  for (const kind of musicKinds)
+    schemas[kind] = schemas[kind].extend({
+      syncState: z
+        .string()
+        .describe(
+          'current or pending; pending means music snapshot may be stale, call refreshMusic with a fresh key',
+        ),
+    });
+
   const propertyDescriptions = {
     ContactGroupReceivedPayment: {
       owner:
@@ -230,6 +262,7 @@ export function model() {
     'ContactGroupMember',
     'ContactGroupReceivedPayment',
     'ContactGroupSentPayment',
+    ...Object.keys(musicSchemas),
   ]) {
     const properties = { id: objectId({ id: `${kind}.id` }) };
 
@@ -264,6 +297,7 @@ export function model() {
   }
 
   const relationships = {
+    ...musicRelationships(objects),
     ContactGroups: defineRelationship({
       id: 'person.contact-groups',
       forward: 'contactGroups',
@@ -377,6 +411,7 @@ export function model() {
     }),
   };
   const actions = {
+    ...musicActions(objects, access),
     likeTransaction: defineAction({
       id: 'venmo.like-transaction',
       description:
@@ -425,7 +460,7 @@ export function model() {
   const graph = defineGraph({
     id: 'appworld-sdk-snapshot',
     description:
-      'Snapshot of all playlist, saved-song and saved-album library pages, explicit library memberships and every song in those playlists and albums, phone contacts with email and explicit owner-scoped contact labels, the supplied supervisor identity, and own Venmo transactions. Excludes personal liked/downloaded state, social feed and payment requests. Source IDs are for original APIs; graph references are canonical IDs.',
+      'Snapshot of all playlist, saved-song and saved-album library pages, explicit library memberships and every song in those playlists and albums, phone contacts with email and explicit owner-scoped contact labels, the supplied supervisor identity, and own Venmo transactions. Expanded snapshots also include the public song/album/artist catalog, personal likes/downloads/follows, recommendations and player queue. Social feed and payment requests remain excluded. Music syncState pending means values may be stale; call refreshMusic with a fresh key. Source IDs are for original APIs; graph references are canonical IDs.',
     objects,
     actions,
     relationships,
@@ -438,22 +473,27 @@ export function model() {
     ),
   });
 
-  return { graph, sources, objects, actions, schemas };
+  return { graph, sources, objects, actions, schemas, musicKinds };
 }
 
 export async function createSdkSnapshot(rows, writeSource, options = {}) {
   void options; // Reserved for host acquisition evidence in the coverage experiment.
-  const { graph, sources, objects, actions, schemas } = model();
+  const { graph, sources, objects, actions, schemas, musicKinds } = model();
   const maps = Object.fromEntries(
     Object.keys(objects).map((kind) => [
       kind,
       new Map(
         (rows[kind] ?? []).map((row) => [
           row.sourceId,
-          kind === 'Transaction' ? { syncState: 'current', ...row } : row,
+          kind === 'Transaction' || musicKinds.has(kind)
+            ? { syncState: 'current', ...row }
+            : row,
         ]),
       ),
     ]),
+  );
+  const adopted = Object.fromEntries(
+    Object.keys(objects).map((kind) => [kind, new Map()]),
   );
   let fetches = 0;
   const runtime = createRuntime({
@@ -463,6 +503,112 @@ export async function createSdkSnapshot(rows, writeSource, options = {}) {
         graph,
         action,
         async ({ input, operationId, objects: contextObjects }) => {
+          if (Object.hasOwn(musicActionTargets, operation)) {
+            if (!writeSource) throw new Error('Source writes unavailable');
+
+            const sourceInput = { ...input };
+
+            for (const [field, kind] of Object.entries(
+              musicActionTargets[operation],
+            )) {
+              const record = await contextObjects[kind].get(input[field]);
+
+              if (record.status !== 'ok')
+                throw new Error(`${kind} unavailable`);
+
+              sourceInput[field] = record.data.sourceId;
+            }
+
+            const result = await writeSource({
+              operation,
+              operationId,
+              input: sourceInput,
+            });
+
+            if (result.mutationState === 'conflict')
+              throw new ActionError('conflict');
+
+            const markPending = async () => {
+              for (const kind of musicKinds)
+                for (const [id, record] of maps[kind]) {
+                  maps[kind].set(id, { ...record, syncState: 'pending' });
+                  const canonical = adopted[kind].get(id);
+
+                  if (canonical)
+                    await contextObjects[kind].get(canonical, {
+                      refresh: true,
+                    });
+                }
+            };
+
+            if (result.mutationState === 'uncertain') {
+              await markPending();
+              throw new ActionError('uncertain');
+            }
+
+            if (
+              result.mutationState !==
+              (operation === 'refreshMusic' ? 'none' : 'confirmed')
+            )
+              throw new Error('Invalid music mutation outcome');
+
+            let refreshState = 'pending';
+
+            if (result.refreshState === 'current') {
+              try {
+                // Validate the entire replacement before discarding any old rows.
+                const replacements = Object.fromEntries(
+                  [...musicKinds].map((kind) => {
+                    if (!Array.isArray(result.rows?.[kind]))
+                      throw new Error('Incomplete music readback');
+
+                    return [
+                      kind,
+                      new Map(
+                        result.rows[kind].map((row) => [
+                          row.sourceId,
+                          schemas[kind].parse({ ...row, syncState: 'current' }),
+                        ]),
+                      ),
+                    ];
+                  }),
+                );
+
+                for (const kind of musicKinds) {
+                  const previous = maps[kind];
+
+                  maps[kind] = replacements[kind];
+
+                  for (const [id, row] of maps[kind]) {
+                    if (
+                      !Object.keys(row).every(
+                        (field) => previous.get(id)?.[field] === row[field],
+                      )
+                    )
+                      adopted[kind].set(
+                        id,
+                        await runtime.host.adopt(objects[kind], id),
+                      );
+                  }
+
+                  for (const id of previous.keys())
+                    if (!maps[kind].has(id)) {
+                      await contextObjects[kind].get(adopted[kind].get(id), {
+                        refresh: true,
+                      });
+                      adopted[kind].delete(id);
+                    }
+                }
+
+                refreshState = 'current';
+              } catch {
+                await markPending();
+              }
+            } else await markPending();
+
+            return { ...result.output, operationId, refreshState };
+          }
+
           const transaction = await contextObjects.Transaction.get(
             input.transaction,
           );
@@ -572,25 +718,12 @@ export async function createSdkSnapshot(rows, writeSource, options = {}) {
   });
 
   try {
-    for (const kind of [
-      'MusicLibrary',
-      'Album',
-      'SavedSong',
-      'SavedAlbum',
-      'AlbumMembership',
-      'Playlist',
-      'Song',
-      'Person',
-      'ContactRelationship',
-      'Membership',
-      'Transaction',
-      'ContactGroup',
-      'ContactGroupMember',
-      'ContactGroupReceivedPayment',
-      'ContactGroupSentPayment',
-    ])
+    for (const kind of Object.keys(objects))
       for (const row of rows[kind] ?? [])
-        await runtime.host.adopt(objects[kind], row.sourceId);
+        adopted[kind].set(
+          row.sourceId,
+          await runtime.host.adopt(objects[kind], row.sourceId),
+        );
 
     return {
       consumer: runtime.as({

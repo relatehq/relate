@@ -6,12 +6,14 @@ import subprocess
 import time
 from pathlib import Path
 from retained_usage import episode_usage
+from sdk_runner import SOURCES as RUNNER_SOURCES
+from task_catalog import BASELINE_TASKS, ADDITIONAL_TASKS
 
 HERE = Path(__file__).resolve().parent
-TASKS = [f'{family}_{i}' for family in ('e7a10f8', '82e2fac', 'd0b1f43', 'afc0fce') for i in (1, 2, 3)]
+TASKS = BASELINE_TASKS
 MODELS = ['gpt-5.4-nano', 'claude-haiku-5-5']
 CONDITIONS = ['raw', 'raw_ts', 'sdk', 'snapshot_ts']
-SOURCES = ['sdk_runner.py', 'model_provider.py', 'sdk-repl.mjs', 'sdk-graph.mjs', 'acquire.py', 'source_writes.py', 'explainer_support.py', 'runner.py', 'prompts.py', 'two_model_eval.py']
+SOURCES = RUNNER_SOURCES + ['two_model_eval.py']
 
 
 def save(path, value):
@@ -33,22 +35,23 @@ def build_hash():
 
 
 def run(args):
-    tasks = getattr(args, 'tasks', None) or TASKS
+    tasks = getattr(args, 'tasks', None) or (ADDITIONAL_TASKS if getattr(args, 'task_set', 'baseline') == 'expanded' else TASKS)
+    models = getattr(args, 'models', None) or MODELS
     conditions = getattr(args, 'conditions', None) or CONDITIONS
-    if len(set(tasks)) != len(tasks) or len(set(conditions)) != len(conditions):
-        raise ValueError('Duplicate task or condition would repeat an episode')
+    if any(len(values) != len(set(values)) for values in (tasks, models, conditions)):
+        raise ValueError('Duplicate task, model or condition would repeat an episode')
     root = HERE / '.local/batches' / args.batch
     root.mkdir(parents=True, exist_ok=False)
     schedule = []
     for ti, task in enumerate(tasks):
         for ci in range(len(conditions)):
             condition = conditions[(ci + ti) % len(conditions)]
-            for model in MODELS[ti % 2:] + MODELS[:ti % 2]:
+            for model in models[ti % len(models):] + models[:ti % len(models)]:
                 short = 'nano' if 'nano' in model else 'haiku'
                 schedule.append({'task': task, 'condition': condition, 'model': model, 'run': f'{args.batch}-{short}-{task}-{condition}', 'status': 'not-started'})
     frozen = hashes()
     frozen_build = build_hash()
-    ledger = {'batch': args.batch, 'planned': len(schedule), 'repeats': 1, 'tasks': tasks, 'models': MODELS, 'conditions': conditions, 'source_sha256': frozen, 'build_sha256': frozen_build, 'git_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=HERE, text=True).strip(), 'jobs': args.jobs, 'max_cost_usd': args.max_cost_usd, 'episodes': schedule, 'started_at': time.time()}
+    ledger = {'batch': args.batch, 'planned': len(schedule), 'repeats': 1, 'tasks': tasks, 'models': models, 'conditions': conditions, 'source_sha256': frozen, 'build_sha256': frozen_build, 'git_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=HERE, text=True).strip(), 'jobs': args.jobs, 'max_cost_usd': args.max_cost_usd, 'episodes': schedule, 'started_at': time.time()}
     save(root / 'manifest.json', ledger)
     running = []
     known_cost = 0.0
@@ -96,7 +99,9 @@ def run(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch', required=True)
-    parser.add_argument('--tasks', nargs='+', choices=TASKS)
+    parser.add_argument('--tasks', nargs='+', choices=TASKS + ADDITIONAL_TASKS)
+    parser.add_argument('--task-set', choices=['baseline', 'expanded'], default='baseline')
+    parser.add_argument('--models', nargs='+', choices=MODELS)
     parser.add_argument('--conditions', nargs='+', choices=CONDITIONS)
     parser.add_argument('--credentials', type=Path, required=True)
     parser.add_argument('--jobs', type=int, default=3)
