@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { localDateTimeValue } from './model/local-datetime.js';
+import {
+  localDateTimeValue,
+  localDateTimePrecisions,
+} from './model/local-datetime.js';
 
 export { localDateTimeValue } from './model/local-datetime.js';
 
@@ -22,7 +25,7 @@ export const scalarSchema = z.strictObject({
   optional: z.boolean(),
   nullable: z.boolean(),
   format: z.enum(['timestamp', 'local-datetime']).optional(),
-  precision: z.enum(['second', 'millisecond']).optional(),
+  precision: z.enum(localDateTimePrecisions).optional(),
   minLength: z.number().int().nonnegative().optional(),
   maxLength: z.number().int().nonnegative().optional(),
   minimum: z.number().finite().optional(),
@@ -395,7 +398,18 @@ export function validateManifest(input: unknown): Manifest {
   for (const { schema, path, definitionId } of scalars) {
     if (
       (schema.format === 'local-datetime') !==
-        (schema.precision !== undefined) ||
+      (schema.precision !== undefined)
+    )
+      issues.report(
+        'schema.unsupported',
+        schema.format === 'local-datetime'
+          ? 'local-datetime requires precision'
+          : 'precision requires local-datetime format',
+        [...path, schema.format === 'local-datetime' ? 'precision' : 'format'],
+        definitionId,
+      );
+
+    if (
       (schema.type !== 'string' &&
         (schema.minLength !== undefined ||
           schema.maxLength !== undefined ||

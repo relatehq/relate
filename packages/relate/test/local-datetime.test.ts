@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
-import { localDateTime } from 'relate';
-import { localDateTimeValue } from 'relate/model';
+import { localDateTime, defineAccess, defineGraph } from 'relate';
+import { compile } from 'relate/compiler';
+import { localDateTimeValue, validateManifest } from 'relate/model';
 
 it('validates precision, leap years, offsets and calendar components without Date parsing', () => {
   const seconds = localDateTime({ precision: 'second' });
@@ -31,3 +32,50 @@ it('validates precision, leap years, offsets and calendar components without Dat
     localDateTimeValue('2027-01-01T00:00:00', 'second')!,
   );
 });
+
+it.each([
+  [
+    { format: 'local-datetime' },
+    'precision',
+    'local-datetime requires precision',
+  ],
+  [
+    { precision: 'second' },
+    'format',
+    'precision requires local-datetime format',
+  ],
+] as const)(
+  'reports the missing local datetime constraint for %j',
+  (constraints, field, message) => {
+    const graph = defineGraph({
+      id: 'diagnostics',
+      access: defineAccess({
+        roles: ['reader'],
+        fieldGroups: ['ordinary'],
+        claims: { clock: localDateTime({ precision: 'second' }) },
+      }),
+      objects: {},
+      policies: {},
+    });
+    const manifest = structuredClone(compile(graph).manifest);
+
+    manifest.claims.clock = {
+      type: 'string',
+      optional: false,
+      nullable: false,
+      ...constraints,
+    };
+
+    expect(() => validateManifest(manifest)).toThrowError(
+      expect.objectContaining({
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            code: 'schema.unsupported',
+            message,
+            path: { root: 'manifest', segments: ['claims', 'clock', field] },
+          }),
+        ]),
+      }),
+    );
+  },
+);

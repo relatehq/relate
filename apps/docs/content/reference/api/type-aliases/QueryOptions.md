@@ -6,7 +6,7 @@ type QueryOptions<O, K, E> = PageOptions<K, E> & {
 };
 ```
 
-Defined in: packages/relate/src/operations.ts:119
+Defined in: [packages/relate/src/operations.ts:119](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L119)
 
 Filter and page through objects already adopted into the graph, or through
 the records a to-many traversal reaches.

@@ -36,9 +36,30 @@ type Condition =
 export interface Predicate {
   readonly propertyId: string;
   readonly name: string;
-  readonly timestamp: boolean;
-  readonly localPrecision?: 'second' | 'millisecond' | undefined;
+  readonly scalar: Pick<ScalarSchema, 'format' | 'precision'>;
   readonly conditions: readonly Condition[];
+}
+
+/** Invalid stored calendar values must fail the read rather than omit a row. */
+function normalizeScalar(
+  scalar: Predicate['scalar'],
+  value: FilterScalar,
+): FilterScalar {
+  if (value === null) return value;
+
+  if (scalar.format === 'local-datetime') {
+    const normalized = scalar.precision
+      ? localDateTimeValue(value, scalar.precision)
+      : undefined;
+
+    if (normalized === undefined) throw new ReadError('incomplete');
+
+    return normalized;
+  }
+
+  return scalar.format === 'timestamp' && typeof value === 'string'
+    ? Date.parse(value)
+    : value;
 }
 
 /** Discovery and validation use the same operator vocabulary. */
@@ -62,14 +83,12 @@ export function compilePredicate(
     property.schema.format === 'local-datetime'
       ? property.schema.precision
       : undefined;
-  const normalize = (value: FilterScalar): FilterScalar =>
-    typeof value === 'string'
-      ? localPrecision
-        ? localDateTimeValue(value, localPrecision)!
-        : timestamp
-          ? Date.parse(value)
-          : value
-      : value;
+  const scalar: Predicate['scalar'] = {
+    ...(property.schema.format ? { format: property.schema.format } : {}),
+    ...(localPrecision ? { precision: localPrecision } : {}),
+  };
+  const base = { propertyId: property.id, name: property.name, scalar };
+  const normalize = (value: FilterScalar) => normalizeScalar(scalar, value);
   const operatorObject = isPlainObject(input);
   const entries: [string, unknown][] = operatorObject
     ? Object.entries(input)
@@ -85,25 +104,13 @@ export function compilePredicate(
         'an array is not a filter value; use { in: [...] } to match any of several values.',
     });
 
-    return {
-      propertyId: property.id,
-      name: property.name,
-      timestamp,
-      ...(localPrecision ? { localPrecision } : {}),
-      conditions,
-    };
+    return { ...base, conditions };
   }
 
   if (entries.length > 6) {
     issues.push(invalidValue(path, 'at most six scalar operators', input));
 
-    return {
-      propertyId: property.id,
-      name: property.name,
-      timestamp,
-      ...(localPrecision ? { localPrecision } : {}),
-      conditions,
-    };
+    return { ...base, conditions };
   }
 
   if (!entries.length)
@@ -193,13 +200,7 @@ export function compilePredicate(
     a.operator < b.operator ? -1 : a.operator > b.operator ? 1 : 0,
   );
 
-  return {
-    propertyId: property.id,
-    name: property.name,
-    timestamp,
-    ...(localPrecision ? { localPrecision } : {}),
-    conditions,
-  };
+  return { ...base, conditions };
 }
 
 /** Evidence usability is checked by the caller before evaluating any predicate. */
@@ -207,14 +208,7 @@ export function matchesPredicate(
   predicate: Predicate,
   value: FilterScalar,
 ): boolean {
-  const actual =
-    typeof value === 'string'
-      ? predicate.localPrecision
-        ? localDateTimeValue(value, predicate.localPrecision)!
-        : predicate.timestamp
-          ? Date.parse(value)
-          : value
-      : value;
+  const actual = normalizeScalar(predicate.scalar, value);
 
   return predicate.conditions.every((condition) => {
     switch (condition.operator) {
