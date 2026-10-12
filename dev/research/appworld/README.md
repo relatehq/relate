@@ -129,9 +129,11 @@ and normalization differences; it does not isolate SDK syntax alone.
   membership is explicit: `MusicLibrary.savedSongs`, `.savedAlbums`, and
   `.allSongs` (the deduplicated union of song/album/playlist libraries).
 - `SongState` separates personal `liked`/`downloaded` from public average
-  `rating`; `Song.likeCount` and `playCount` are public totals. Artists have
-  public follower counts and a personal `following` flag. `Song.artists` and
-  `Album.artists` expose canonical artist references.
+  `rating`. `personalRating` is the account’s own review rating, or null when
+  unrated (added after the frozen Haiku batch); `Song.likeCount` and `playCount`
+  are public totals. Artists have public follower counts and a personal
+  `following` flag. `Song.artists` and `Album.artists` expose canonical artist
+  references.
 - `Recommendation` preserves recommendation occurrences. `QueueEntry` preserves
   provider positions and current/playing flags. `Album.songs` and
   `Playlist.songs` retain separate memberships. A downloaded album means every
@@ -183,6 +185,17 @@ against a local installation with:
 dev/research/appworld/.venv/bin/python dev/research/appworld/task_catalog.py
 dev/research/appworld/.venv/bin/python dev/research/appworld/test/expanded_preflight.py
 ```
+
+## Expanded Haiku evaluation
+
+[EXPANDED-FAMILIES.md](EXPANDED-FAMILIES.md) retains the one-pass evaluation of
+all 69 additional instances: **Raw Python 65/69; Relate SDK 52/69**. All 138
+attempts are retained, with no reruns or incomplete attempts. Estimated model
+cost: **$1.34**. Scores belong to frozen commit `8a14a4e`.
+
+The batch revealed missing personal-rating data and a Node API-quota reset bug.
+Both were fixed afterward and checked offline; neither fix was reevaluated on a
+model. Read the report's limitations before interpreting the comparison.
 
 ## Current main on two models
 
