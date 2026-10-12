@@ -98,5 +98,11 @@ def prompt(condition):
         + environment
         + COMPLETION
         + complete
+        + (SDK_SUBMISSION if condition == "sdk" else "")
         + ("\nRelationship notes:\n" + SEMANTICS if condition == "static" else "")
     )
+
+
+SDK_SUBMISSION = """
+Submission protocol: execute_code is the only tool. completeTask is an existing JavaScript function in the interpreter, never a tool name. To submit, call execute_code with {"code": "await completeTask({answer: value});"}, replacing value with the requested answer. For tasks without an answer, use {"code": "await completeTask();"}. To report failure, use {"code": "await completeTask({status: 'fail'});"}. Do not submit answers as text or as direct completeTask tool calls. If the harness returns ToolProtocolError, correct the tool call on the next turn; the rejected call executed nothing.
+"""

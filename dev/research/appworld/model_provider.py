@@ -32,7 +32,13 @@ def anthropic_messages(messages):
         if m.get('role') == 'system':
             continue
         if m.get('type') == 'function_call_output':
-            turns.append({'role': 'user', 'content': [{'type': 'tool_result', 'tool_use_id': m['call_id'], 'content': m['output']}]})
+            block = {'type': 'tool_result', 'tool_use_id': m['call_id'], 'content': m['output']}
+            if m.get('is_error'):
+                block['is_error'] = True
+            if turns and turns[-1]['role'] == 'user' and isinstance(turns[-1]['content'], list) and all(b.get('type') == 'tool_result' for b in turns[-1]['content']):
+                turns[-1]['content'].append(block)
+            else:
+                turns.append({'role': 'user', 'content': [block]})
         else:
             turns.append(m)
     return system, turns
@@ -96,3 +102,21 @@ def call(key, model, messages, max_output, reasoning, schema):
         'model': result.get('model', model), 'status': result.get('stop_reason', result.get('status')),
         'seconds': clock.real_perf_counter() - start,
     }
+
+
+def protocol_feedback(model, output):
+    """Close every rejected tool call without executing any of them."""
+    replies = []
+    for item in model['provider_output']:
+        blocks = item.get('content', []) if item.get('role') == 'assistant' else [item]
+        if not isinstance(blocks, list):
+            continue
+        for block in blocks:
+            if block.get('type') in {'tool_use', 'function_call'}:
+                call_id = block.get('call_id', block.get('id'))
+                if call_id:
+                    reply = {'type': 'function_call_output', 'call_id': call_id, 'output': output}
+                    if block['type'] == 'tool_use':
+                        reply['is_error'] = True
+                    replies.append(reply)
+    return replies or [{'role': 'user', 'content': output}]

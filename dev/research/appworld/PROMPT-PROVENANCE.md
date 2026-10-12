@@ -61,3 +61,16 @@ system prompt for all three retained methods: `apis.supervisor.complete_task()`
 in Python and `await completeTask()` in both Node environments. Static notes are
 retired from future comparisons; their implementation is retained solely for
 historical reproducibility. The prompt contains no new solving strategy.
+
+## SDK submission recovery
+
+Following the `main-two-model-20261012` batch, the SDK prompt explicitly
+separates the native `execute_code` tool from the interpreter's `completeTask`
+function and shows answer, no-answer, and failure submission envelopes. The SDK
+harness returns a recoverable `ToolProtocolError` for unsupported or ambiguous
+tool calls, missing calls, and malformed code arguments. Rejected calls execute
+nothing; every supplied tool-call ID receives an error result. The next model
+turn can correct the call within the existing turn, token, and cost budgets.
+Provider responses, errors, and usage remain in the trajectory. Other conditions
+retain their existing submission behavior. The completed batch and its archived
+trajectories have not been rerun or rewritten.

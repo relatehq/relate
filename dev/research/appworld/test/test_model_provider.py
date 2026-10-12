@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from model_provider import call, ProviderError, anthropic_messages
+from model_provider import call, ProviderError, anthropic_messages, protocol_feedback
 from runner import SCHEMA
 
 
@@ -58,3 +58,20 @@ class ProviderTests(unittest.TestCase):
             _, model = call('secret', 'claude-haiku-5-5', [], 4096, 'low', SCHEMA)
         self.assertIsNone(model['call_id'])
         self.assertEqual(model['provider_response']['content'], blocks)
+
+
+class RecoveryTranscriptTests(unittest.TestCase):
+    def test_all_anthropic_calls_get_errors_in_one_user_message(self):
+        blocks = [{'type': 'tool_use', 'id': str(i), 'name': 'completeTask', 'input': {}} for i in range(2)]
+        replay = [{'role': 'assistant', 'content': blocks}]
+        replies = protocol_feedback({'provider_output': replay}, 'typed error')
+        _, turns = anthropic_messages(replay + replies)
+        self.assertEqual(len(turns), 2)
+        self.assertEqual([b['tool_use_id'] for b in turns[-1]['content']], ['0', '1'])
+        self.assertTrue(all(b['is_error'] for b in turns[-1]['content']))
+
+    def test_openai_results_have_no_anthropic_only_fields(self):
+        replay = [{'type': 'function_call', 'call_id': str(i), 'name': 'completeTask'} for i in range(2)]
+        replies = protocol_feedback({'provider_output': replay}, 'typed error')
+        self.assertEqual([r['call_id'] for r in replies], ['0', '1'])
+        self.assertTrue(all(set(r) == {'type', 'call_id', 'output'} for r in replies))

@@ -24,12 +24,13 @@ def save(path, value):
 
 
 class RunnerTests(unittest.TestCase):
-    def exercise(self, budget, crash=False, model_error=False):
+    def exercise(self, budget, crash=False, model_error=False, rejected=None, invalid_content=None):
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         here = Path(temp.name)
         (here / ".local/runs/test").mkdir(parents=True)
-        case = here / ".local/runs/test/task__raw_ts__0"
+        condition = "sdk" if rejected is not None else "raw_ts"
+        case = here / f".local/runs/test/task__{condition}__0"
         world = MagicMock()
         world.__enter__.return_value = world
         world.task.supervisor = SimpleNamespace(email="test", phone_number="test")
@@ -64,9 +65,23 @@ class RunnerTests(unittest.TestCase):
 
         def response(key, model, messages, limit, reasoning):
             limits.append(limit)
+            if rejected is not None:
+                if len(limits) == 1:
+                    return invalid_content or "", {
+                        "estimated_usd": 0.1, "usage": {"input_tokens": 10, "output_tokens": 10},
+                        "provider_output": rejected, "call_id": "bad" if invalid_content else None, "seconds": 0.01,
+                        "model": model, "status": "tool_use",
+                    }
+                feedback = messages[-1]
+                diagnostic = json.loads(feedback.get("output", feedback.get("content")))
+                self.assertEqual(diagnostic["error"]["type"], "ToolProtocolError")
+                self.assertIn("await completeTask", diagnostic["error"]["guidance"])
+                self.assertEqual(worker.request.call_count, 0)
+                world.task_completed.return_value = True
             if model_error:
                 raise RuntimeError("provider connection failed")
-            return '{"code":"console.log(1)"}', {
+            code = "await completeTask({answer: '34'});" if rejected is not None else "console.log(1)"
+            return json.dumps({"code": code}), {
                 "estimated_usd": 0.1,
                 "usage": {"input_tokens": 10, "output_tokens": limit},
                 "provider_output": [],
@@ -93,12 +108,38 @@ class RunnerTests(unittest.TestCase):
             patch.object(sdk_runner, "HERE", here),
             patch.object(sdk_runner, "AppWorld", return_value=world),
             patch.object(sdk_runner, "NodeRepl", return_value=worker),
+            patch.object(sdk_runner, "music", return_value={}),
+            patch.object(sdk_runner, "graph_payments", return_value={}),
+            patch.object(sdk_runner, "acquisition_coverage", return_value={}),
             patch.object(sdk_runner, "model_call", side_effect=response),
             patch("appworld.evaluator.evaluate_task", return_value=evaluation),
             contextlib.redirect_stdout(io.StringIO()),
         ):
-            result = sdk_runner.run(args, "unused", "task", "raw_ts", 0, [0])
+            result = sdk_runner.run(args, "unused", "task", condition, 0, [0])
         return result, limits, case
+
+    def test_sdk_rejects_native_completion_then_recovers(self):
+        for rejected in [
+            [{"role": "assistant", "content": [{"type": "tool_use", "id": "bad", "name": "completeTask", "input": {"answer": "34"}}]}],
+            [{"type": "function_call", "call_id": "bad", "name": "completeTask", "arguments": '{"answer":"34"}'}],
+            [{"role": "assistant", "content": "34"}],
+        ]:
+            with self.subTest(rejected=rejected):
+                result, _, case = self.exercise(5000, rejected=rejected)
+                self.assertEqual(result["termination"], "completed")
+                self.assertEqual(result["steps"], 2)
+                self.assertEqual(result["estimated_usd"], 0.2)
+                steps = json.loads((case / "steps.json").read_text())
+                self.assertEqual(steps[0]["execution_status"], "failed")
+                self.assertEqual(steps[0]["api_calls"], 0)
+                self.assertEqual(steps[0]["model"]["provider_output"], rejected)
+
+    def test_sdk_malformed_arguments_recover_without_execution(self):
+        for content in ['not json', '[]', '{"code": 34}', '{"answer": "34"}']:
+            with self.subTest(content=content):
+                rejected = [{"type": "function_call", "call_id": "bad", "name": "execute_code", "arguments": content}]
+                result, _, _ = self.exercise(5000, rejected=rejected, invalid_content=content)
+                self.assertEqual(result["termination"], "completed")
 
     def test_worker_crash_retains_billed_response(self):
         result, limits, case = self.exercise(5000, crash=True)

@@ -21,7 +21,7 @@ from appworld import AppWorld, load_task_ids
 from appworld.common.path_store import path_store
 from dotenv import dotenv_values
 from explainer_support import acquisition_coverage
-from model_provider import MODELS, call, reservation_rates
+from model_provider import MODELS, call, reservation_rates, protocol_feedback
 from prompts import prompt
 from runner import SCHEMA
 from source_writes import SourceWrites
@@ -44,6 +44,10 @@ SOURCES = [
 
 def dump(value):
     return json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":"))
+
+
+class ToolProtocolError(ValueError):
+    """A rejected SDK model response; no interpreter code was dispatched."""
 
 
 class NodeRepl:
@@ -364,10 +368,24 @@ def run(args, key, task_id, condition, repeat, spent):
                 event = {}
                 try:
                     if model["call_id"] is None:
+                        if condition == "sdk":
+                            raise ToolProtocolError("Expected exactly one execute_code tool call")
                         output = "Model returned no unambiguous execute_code action."
                         termination = "model-no-action"
                     else:
-                        code = json.loads(content)["code"]
+                        try:
+                            payload = json.loads(content)
+                        except (ValueError, TypeError) as exc:
+                            if condition == "sdk":
+                                raise ToolProtocolError("execute_code arguments must be valid JSON") from exc
+                            raise
+                        if condition == "sdk" and (
+                            not isinstance(payload, dict)
+                            or set(payload) != {"code"}
+                            or not isinstance(payload["code"], str)
+                        ):
+                            raise ToolProtocolError("execute_code requires exactly one string field: code")
+                        code = payload["code"]
                         if node:
                             event = node.request({"type": "execute", "code": code})
                             output = event["output"]
@@ -380,10 +398,23 @@ def run(args, key, task_id, condition, repeat, spent):
                 except (ValueError, KeyError, TypeError) as exc:
                     event = {"error": str(exc)}
                     output = f"Invalid response: {exc}"
+                    if isinstance(exc, ToolProtocolError):
+                        event = {"error": {
+                            "type": "ToolProtocolError",
+                            "code": "invalid-tool-call",
+                            "recoverable": True,
+                            "message": str(exc),
+                            "guidance": "Call only execute_code with {\"code\": \"JavaScript code\"}. completeTask is a function inside the interpreter, not a tool. Submit an answer by executing await completeTask({answer: value}); use await completeTask(); for tasks without an answer, or await completeTask({status: 'fail'}); if unable to complete. No code was executed for this rejected call; correct it on your next turn.",
+                        }}
+                        output = dump(event)
                 visible = output[: args.output_chars]
                 if len(output) > args.output_chars:
                     visible += "\n[OUTPUT TRUNCATED: select fewer fields/records or compute a summary in code]"
-                if model["call_id"] is not None:
+                if condition == "sdk" and isinstance(event.get("error"), dict):
+                    # Keep the typed diagnostic intact even with a small output cap.
+                    visible = output
+                    messages.extend(protocol_feedback(model, visible))
+                elif model["call_id"] is not None:
                     messages.append(
                         {
                             "type": "function_call_output",
@@ -427,6 +458,7 @@ def run(args, key, task_id, condition, repeat, spent):
                     args.completion_feedback
                     and not completed
                     and model["call_id"] is not None
+                    and not isinstance(event.get("error"), dict)
                 ):
                     reminder = (
                         "await completeTask({answer: value})"
