@@ -202,3 +202,38 @@ dev/research/appworld/.venv/bin/python dev/research/appworld/two_model_eval.py \
   --conditions sdk --credentials /Users/dennis/dev/vs/relate/.env \
   --jobs 3 --max-cost-usd 6
 ```
+
+Results: **5/6 passed**, with all six attempts completed exactly once. Evaluated
+source: `bdfc2a0`. All 60 provider requests have usage; estimated cost:
+**$0.05760293**.
+
+| Task                                   | Nano           | Haiku         |
+| -------------------------------------- | -------------- | ------------- |
+| Coworker received total (`d0b1f43_2`)  | Pass, 7 turns  | Pass, 5 turns |
+| Thank and like friends (`afc0fce_2`)   | Fail, 16 turns | Pass, 8 turns |
+| Thank and like roommates (`afc0fce_3`) | Pass, 17 turns | Pass, 7 turns |
+
+Nano used group-specific received-payment junctions to compute the correct $786
+coworker total. For roommates, it used the reverse `recipientContactGroups`
+traversal to select eight payments, then successfully wrote to all eight. It
+still used an imprecise rolling date boundary and encountered REPL errors; the
+pass does not establish those issues are fixed. For friends, it queried
+`ContactGroupReceivedPayment` without restricting `group` to the friend group,
+then liked and commented on all 34 incoming payments rather than the
+required 12. Adding the path did not force it to preserve the group constraint.
+
+Haiku used the incoming group traversal for coworkers and roommates. It used
+contact labels and direct transaction filtering for friends. These single
+attempts are descriptive follow-up evidence, not a causal improvement estimate.
+Original six corresponding attempts had three passes, all on Haiku.
+
+Validation: 53 Python research tests, 15 Node research tests, and targeted
+ESLint passed. No core SDK packages changed. The original full-repository check
+was not rerun for this research-only change. Every source snapshot, trajectory,
+provider response, evaluator output, and world output is retained in the
+verified archive.
+
+[Audited metrics](evidence/contact-groups-20261012-results.json),
+[archive verification](evidence/contact-groups-20261012-archive.json), and
+`evidence/contact-groups-20261012.bundle` accompany the results. Explore all six
+at <http://127.0.0.1:8765/contact-groups/>.
