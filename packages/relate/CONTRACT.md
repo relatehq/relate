@@ -323,6 +323,149 @@ Migration: remove authored `from` and `to`, and replace each
 relationship ID and `via`. The compiled manifest format and runtime traversal
 behavior are unchanged.
 
+## Consumer facade
+
+`createConsumer(description, operations)` from `relate/consumer` builds the
+typed consumer API of a graph over the `ConsumerOperations` contract from
+`@relate/protocol`. Every call is carried out by `operations`, which is already
+bound to one actor. `@relate/node` passes the engine bound to a principal; the
+planned `@relate/client` passes an HTTP implementation. Both produce the same
+`Consumer<G>`.
+
+The compiler exports the facade's runtime routing data as
+`compile(graph).consumer`. It projects the validated manifest, so endpoint,
+duplicate-name and unsafe-key checks have one owner. The artifact is deeply
+frozen and JSON-safe:
+
+```ts
+// Shape example; ConsumerDescription<G> maps names, IDs, targets and cardinalities to G.
+{
+  formatVersion: 1,
+  graphDefinitionId: 'business',
+  definitionRevision: 'sha256:…',
+  objects: {
+    Customer: {
+      definitionId: 'business.customer',
+      traversals: { invoices: { cardinality: 'many', target: 'Invoice' } },
+    },
+    Invoice: {
+      definitionId: 'business.invoice',
+      traversals: { customer: { cardinality: 'one', target: 'Customer' } },
+    },
+  },
+  actions: { addAccountReview: { definitionId: 'business.add-account-review' } },
+}
+```
+
+Empty `actions` and `traversals` maps are required and exported explicitly.
+Construction validates the artifact's format, identifiers, maps, cardinalities
+and target references, then captures private frozen routing values. It does not
+retain or freeze caller-owned JSON. `ConsumerDescription<G>` also checks object
+and action keys, definition IDs and traversal shapes against the graph type.
+
+`createConsumer` accepts only a description. It checks graph identity and exact
+model revision against `operations.discovery.describe()` at construction and
+throws on mismatch before any operation is dispatched. This requires discovery
+to be available at binding. A later discovery failure does not prevent printing
+a method's signature. Runtime validation of the artifact cannot validate erased
+TypeScript declarations: generated types and JSON must be built together.
+
+The description is actor independent; it describes a static SDK surface, not
+permission. Discovery still filters metadata for the authenticated actor and the
+runtime authorizes every operation. Generated clients ship the description and
+type declarations, without importing the authoring graph or compiler at runtime.
+
+```ts
+// Build/host side:
+import { compile } from 'relate/compiler';
+import { createConsumer } from 'relate/consumer';
+
+const model = compile(graph);
+const consumer = createConsumer(model.consumer, operations);
+const customer = await consumer.objects.Customer.get(id, { select: ['name'] });
+for await (const invoice of consumer.objects.Customer.traverse.invoices(id)) {
+  invoice.id;
+}
+const receipt = await consumer.actions.addAccountReview({
+  input: { customer: id, note: 'Follow up' },
+  idempotencyKey: 'review-1',
+});
+const saved = await consumer.receipts.get(
+  'addAccountReview',
+  receipt.invocationId,
+);
+```
+
+After binding, the facade maps registry names to definition IDs, passes results
+through unchanged, pages queries and to-many traversals with `createPagedQuery`,
+checks traversal result cardinality, and decorates discovery with call paths. It
+does not authorize, validate requests or record payloads, cache results or
+retry. `get` and action invocation return promises even when a port throws
+synchronously. Receipt lookup uses registered action names and infers the
+receipt from the selected action; unknown names reject with
+`ActionError('denied')`.
+
+Operations implementations own complete result shapes and remain bound to the
+model used at construction. A future remote implementation must check/pin the
+model on every request, including actions and responses without records. A newer
+discovery snapshot cannot update compiled types or the captured facade; rebuild
+or rebind a compatible client. No automatic mutation replay is implied.
+
+Printing an operation (`String(consumer.objects.Customer.get)` or
+`util.inspect`) shows its call signature with the option names discovery reports
+for that operation. When discovery is unavailable, for example after the host
+closed, the signature shows `{ … }` instead of failing.
+
+## Pagination
+
+`createQuery(readPage, { cursor? })` wraps an authorized page reader in a
+`QueryResult<T>`. Await the handle to obtain one `Page<T>`; use `for await` to
+iterate records across pages. The graph query engine supplies authorized pages;
+the helper itself does not implement filtering or action transactions.
+
+```ts
+import { createQuery } from 'relate/consumer';
+import type { Page } from '@relate/protocol';
+
+// An operation supplies its authorized reader, bound to query options/context.
+declare const readPage: (cursor: string | undefined) => Promise<Page<Invoice>>;
+const query = createQuery(readPage);
+const page = await query; // One page; page.data remains available.
+
+for await (const invoice of query) {
+  // Each record, including its evidence, passes through unchanged.
+}
+```
+
+Execution is lazy. The first page request and any failure are shared across
+awaits and iterators on the same handle. Each iterator has independent
+continuation state; later pages are fetched on demand and may be fetched again
+on reiteration. There is no prefetch: `break` or a thrown business error stops
+further page requests. The handle supports `await`/`then` and async iteration,
+not the full `Promise` API.
+
+The helper validates each page before exposing its records. Missing, empty,
+contradictory or unchanged continuations throw `ReadError('incomplete')`, as do
+cursor cycles within an iterator. Empty non-final pages are followed. Reader
+failures propagate unchanged; the reader must already sanitize errors and
+validate/authorize records. No operation is retried or committed by this helper.
+Separate explicit-page handles only know their own request cursor, not the
+history of earlier independent requests.
+
+The page reader owns stable query/context binding, real scan progress, cursor
+scope, ordering, resource budgets and cancellation of its I/O. Different opaque
+tokens cannot prove progress or snapshot consistency. This helper introduces no
+cross-source snapshot or automatic native rollback; those belong to the query
+engine and action transaction owner. Page size and an application's total work
+bound remain separate.
+
+`createPagedQuery(operation, request, readPage)` binds a caller's paged request
+once (a `structuredClone` snapshot, so later mutation cannot change which pages
+are read), resumes from `request.cursor` when present, and names `operation` in
+request errors. Options that are not plain data reject the handle with
+`ReadError('invalid-request')` instead of throwing synchronously. The facade and
+native action contexts page with it.
+
 ## Require values after a read
 
 `assertFields(result, fields)` is an optional presence check on a result you

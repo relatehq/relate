@@ -22,10 +22,10 @@ import type {
 import type {
   FieldEvidence,
   Page as ResultPage,
+  QueryResult,
   ReadRequest,
   ReadResult,
 } from '@relate/protocol';
-import type { QueryResult } from '@relate/runtime';
 import type { ObservationStore } from '@relate/runtime/storage';
 
 export {

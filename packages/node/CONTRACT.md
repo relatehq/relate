@@ -45,6 +45,12 @@ Registry keys name the consumer API; stable definition IDs identify persisted
 objects. Adoption accepts the registered object definition, not another object
 that happens to have the same ID.
 
+Runtime creation snapshots the graph's object, relationship, and action
+registries. Later changes to the caller's registries or options do not change
+the methods exposed by `as`; those methods stay aligned with the compiled model
+and its discovery. Registered definition identities are preserved for adoption
+and receipt lookup.
+
 ## Actor-bound discovery
 
 The consumer API exposes progressive, synchronous discovery:

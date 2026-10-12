@@ -1,5 +1,15 @@
 # @relate/runtime contract
 
+Public runtime `read` and transaction-scoped action-context `read` return a
+complete protocol `ObjectResult`. Successful reads include the resolved record's
+canonical `id` even when its ID property is not selected; `not-found` remains
+unchanged. Node and transport adapters do not reconstruct identity. Internal
+resolution supplies full evidence before the existing presentation step.
+
+`createDiscovery(model, principal)` receives the compiled manifest and revision
+together. The runtime verifies the compiled revision during construction and
+passes that verified model to discovery.
+
 Detailed behavior of the current slice. For an overview of the package, see
 [README.md](./README.md).
 
@@ -126,52 +136,18 @@ contract, errors, lifecycle and adapter verification requirements.
 
 ## Pagination
 
-`createQuery(readPage, { cursor? })` wraps an authorized page reader in a
-`QueryResult<T>`. Await the handle to obtain one `Page<T>`; use `for await` to
-iterate records across pages. This is implemented infrastructure for queries and
-to-many traversals. The graph query engine below supplies authorized pages; the
-helper itself does not implement filtering or action transactions.
-
-```ts
-import { createQuery } from '@relate/runtime';
-import type { Page } from '@relate/protocol';
-
-// An operation supplies its authorized reader, bound to query options/context.
-declare const readPage: (cursor: string | undefined) => Promise<Page<Invoice>>;
-const query = createQuery(readPage);
-const page = await query; // One page; page.data remains available.
-
-for await (const invoice of query) {
-  // Each record, including its evidence, passes through unchanged.
-}
-```
-
-Execution is lazy. The first page request and any failure are shared across
-awaits and iterators on the same handle. Each iterator has independent
-continuation state; later pages are fetched on demand and may be fetched again
-on reiteration. There is no prefetch: `break` or a thrown business error stops
-further page requests. The handle supports `await`/`then` and async iteration,
-not the full `Promise` API.
-
-The helper validates each page before exposing its records. Missing, empty,
-contradictory or unchanged continuations throw `ReadError('incomplete')`, as do
-cursor cycles within an iterator. Empty non-final pages are followed. Reader
-failures propagate unchanged; the reader must already sanitize errors and
-validate/authorize records. No operation is retried or committed by this helper.
-Separate explicit-page handles only know their own request cursor, not the
-history of earlier independent requests.
-
-The page reader owns stable query/context binding, real scan progress, cursor
-scope, ordering, resource budgets and cancellation of its I/O. Different opaque
-tokens cannot prove progress or snapshot consistency. This helper introduces no
-cross-source snapshot or automatic native rollback; those belong to the query
-engine and action transaction owner. Page size and an application's total work
-bound remain separate.
+The engine returns one authorized `Page` per `query` or to-many `traverse` call.
+Lazy, awaitable `QueryResult` handles are built by `createQuery` and
+`createPagedQuery` in [`relate/consumer`](../relate/CONTRACT.md#pagination); the
+facade and native action contexts use them over the engine's pages. The engine
+owns stable query binding, real scan progress, cursor scope, ordering and
+resource budgets; the helper only validates page envelopes and follows
+continuations.
 
 ## Graph queries
 
 `runtime.query(principal, objectDefinitionId, request?)` returns one
-`PageResult`. The Node consumer and action APIs expose
+`PageResult`. The `relate/consumer` facade and action APIs expose
 `objects.Invoice.query(options?)` as an awaitable, async-iterable `QueryResult`.
 Portable request/result types live in `@relate/protocol`; typed `QueryOptions`
 and object records live in `relate`.

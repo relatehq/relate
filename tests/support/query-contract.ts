@@ -232,7 +232,7 @@ export function queryContract(
         output: { count: 2 },
       });
       await expect(
-        app.as(actor).receipts.get(model.Run, receipt.invocationId),
+        app.as(actor).receipts.get('run', receipt.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
     });
 
@@ -826,7 +826,7 @@ export function queryContract(
 
       expect(receipt.output.count).toBe(1);
       await expect(
-        app.as(actor).receipts.get(model.Run, receipt.invocationId),
+        app.as(actor).receipts.get('run', receipt.invocationId),
       ).rejects.toMatchObject({ code: 'denied' });
     });
 

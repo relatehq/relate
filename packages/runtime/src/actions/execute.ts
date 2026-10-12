@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { accepts, canonicalJson, isPlainObject } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
@@ -9,7 +9,8 @@ import type {
   QueryRequest,
   PageResult,
   ReadRequest,
-  ReadResult,
+  ObjectResult,
+  FullObjectResult,
   ActionReceipt,
   FailedReceipt,
 } from '@relate/protocol';
@@ -36,9 +37,10 @@ type Action = NonNullable<Manifest['actions']>[number];
 type ObjectType = Manifest['objects'][number];
 
 export interface ActionExecutionContext {
+  readonly operationId: string;
   readonly actor: Principal;
   readonly input: Record<string, Json>;
-  read(type: string, id: string, request?: ReadRequest): Promise<ReadResult>;
+  read(type: string, id: string, request?: ReadRequest): Promise<ObjectResult>;
   query(type: string, request?: QueryRequest): Promise<PageResult>;
   fail(code: string, details: unknown): never;
   create(type: string, values: unknown): Promise<{ id: string }>;
@@ -86,7 +88,7 @@ export function createActionExecutor(options: {
     request: ReadRequest,
     transaction: NativeTransaction,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
-  ): Promise<FullReadResult>;
+  ): Promise<FullObjectResult>;
   query(
     principal: Principal,
     type: string,
@@ -364,6 +366,20 @@ export function createActionExecutor(options: {
             const executeHandler = async () => {
               try {
                 const result = await handler({
+                  // Exclude input and definition revision: a retry must reach the
+                  // same external journal entry even after rollback or deployment.
+                  // Integrations must compare inputs and scope provider accounts.
+                  operationId: `relate-op-v1-${createHash('sha256')
+                    .update(
+                      JSON.stringify([
+                        'relate.operation.v1',
+                        options.scope.graphId,
+                        action.id,
+                        actor.id,
+                        key,
+                      ]),
+                    )
+                    .digest('hex')}`,
                   actor: structuredClone(actor),
                   input: structuredClone(input),
                   fail: (code, details): never => {

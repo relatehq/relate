@@ -1,18 +1,16 @@
 import { ReadError } from '@relate/protocol';
-import type { Json, RequestIssue } from '@relate/protocol';
+import type {
+  Json,
+  OptionDescription,
+  RequestIssue,
+  ScalarSchema,
+} from '@relate/protocol';
 import { isPlainObject } from 'relate/model';
-import type { ScalarSchema } from 'relate/model';
+
+export type { OptionDescription };
 
 /** The read operations a caller can invoke; options and errors are defined per kind. */
 export type ReadOperation = 'get' | 'query' | 'traverse-many' | 'traverse-one';
-
-/** A caller option as discovery presents it. */
-export interface OptionDescription {
-  readonly name: string;
-  readonly type: string;
-  readonly default?: Json;
-  readonly description: string;
-}
 
 interface OptionRule extends OptionDescription {
   readonly operations: readonly ReadOperation[];

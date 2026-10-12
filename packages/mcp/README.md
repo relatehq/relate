@@ -27,6 +27,9 @@ for Relate applications that consume other MCP servers.
 ## How it will fit
 
 - Depends on `@relate/runtime` (execution) and `@relate/protocol` (shapes).
+- Serves the `ConsumerOperations` contract from `@relate/protocol`, obtained
+  from `relate.operations(principal)`; its `discovery` supplies tool names and
+  descriptions. The adapter never reaches into the engine or the typed facade.
 - Reuses the embedded consumer operations and actor-bound discovery. MCP is the
   next major interface described in the [root roadmap](../../README.md#status);
   no HTTP-first implementation order is required by this scaffold.
