@@ -109,3 +109,11 @@ already be authorized, resolved `FullReadResult`, `FullObjectResult`, or
 Compact responses preserve nonempty warnings and all exceptional field evidence.
 See the
 [response reference](../../apps/docs/content/reference/read-responses.md).
+
+## Local calendar datetimes
+
+Discovery describes local calendar fields as `format: 'local-datetime'` with
+`precision: 'second' | 'millisecond'` in `ScalarSchema`. Values remain strings
+on the wire. See the
+[owning scalar contract](../relate/CONTRACT.md#local-calendar-datetimes) for
+validation, clock-domain semantics and migration requirements.

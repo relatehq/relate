@@ -305,3 +305,12 @@ recover success under originating-actor and current-access checks, including the
 handler's saved object/field read dependencies. They do not invoke the handler.
 Durable pending execution and failed receipts remain subsequent slices. See
 [receipt recovery](../node/NATIVE_ACTIONS.md#wait-for-completion-lookup-and-recovery).
+
+## Local calendar datetimes
+
+Declared local calendar fields support `eq`, `in`, `gt`, `gte`, `lt` and `lte`
+in queries and to-many traversal filters. Comparisons use calendar tuples at the
+declared precision; invalid stored calendar values fail filtering with
+`incomplete` rather than silently excluding a row. No source pushdown occurs.
+See the [owning scalar contract](../relate/CONTRACT.md#local-calendar-datetimes)
+for validation, clock-domain semantics and migration requirements.

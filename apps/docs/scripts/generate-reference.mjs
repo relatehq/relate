@@ -25,6 +25,9 @@ const app = await Application.bootstrapWithPlugins({
   propertiesFormat: 'table',
   entryFileName: 'index',
   gitRevision: 'main',
+  disableGit: true,
+  basePath: repository,
+  displayBasePath: repository,
 });
 
 // Filter before TypeDoc builds groups and navigation, not just output files.

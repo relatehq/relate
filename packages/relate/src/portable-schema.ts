@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { localDateTimeCheckPrecision } from './local-datetime.js';
 import type { ScalarSchema } from './model.js';
 
 // Zod installs this shared type guard on ordinary length checks. Custom predicates
@@ -43,6 +44,15 @@ export function portable(schema: z.ZodType): ScalarSchema {
   for (const check of ('checks' in current.def ? current.def.checks : []) ??
     []) {
     const def = check._zod.def;
+    const precision = localDateTimeCheckPrecision(check);
+
+    if (precision) {
+      if (result.format) throw new Error('Conflicting local datetime checks');
+
+      result.format = 'local-datetime';
+      result.precision = precision;
+      continue;
+    }
 
     if (
       def.when !== undefined &&
