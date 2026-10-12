@@ -363,7 +363,14 @@ assert.equal(setupCalls, 1);
 try {
   const customerId = await relate.host.adopt(Customer, 'crm_1');
   const invoiceId = await relate.host.adopt(Invoice, 'inv_1');
-  const objects = relate.as(ana).objects;
+  const consumer = relate.as(ana);
+  const overview = JSON.parse(JSON.stringify(consumer.describe()));
+  assert.deepEqual(Object.keys(overview.objects), ['Customer', 'Invoice']);
+  assert.equal(overview.objects.Customer.traversals.invoices.target, 'Invoice');
+  assert.equal(overview.objects.Invoice.traversals.customer.cardinality, 'one');
+  assert.equal(overview.sdk.reads.query, 'await objects.<Object>.query(options?)');
+  assert.equal('operations' in overview, false);
+  const objects = consumer.objects;
   const page = await objects.Customer.traverse.invoices(customerId);
   assert.equal(page.data[0]?.id, invoiceId);
   const customer = await objects.Invoice.traverse.customer(invoiceId, { select: ['name'] });
@@ -425,6 +432,8 @@ try {
   assert.equal(typeof receipt.invocationId, 'string');
   const description = JSON.parse(JSON.stringify(compile(graph).consumer));
   const fromJson = createConsumer(description, app.operations(ana));
+  assert.deepEqual(fromJson.describe().actions.addAccountReview.creates, ['AccountReview']);
+  assert.equal(fromJson.actions.addAccountReview.describe().input[0].name, 'customer');
   assert.deepEqual(await fromJson.receipts.get('addAccountReview', receipt.invocationId), receipt);
   assert.deepEqual(await app.as(ana).actions.addAccountReview({ input: { customer, note: 'Packed native action' }, idempotencyKey: 'one' }), receipt);
   const review = await app.as(ana).objects.AccountReview.get(receipt.output.reviewId);

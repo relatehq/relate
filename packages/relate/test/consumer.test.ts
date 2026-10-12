@@ -88,42 +88,20 @@ function createGraph() {
 const graphDescription: GraphDescription = {
   definitionId: 'graph',
   definitionRevision: 'sha256:test',
-  objects: [],
-  actions: [],
-  operations: {
-    get: {
-      signature: '',
-      returns: '',
-      description: '',
-      options: ['select', 'evidence'],
+  objects: {},
+  actions: {},
+  sdk: {
+    discovery: { object: '', action: '' },
+    reads: { get: '', query: '', traverse: '' },
+    actions: { invoke: '', receipt: '' },
+    options: { where: '', select: '', limit: '', cursor: '', evidence: '' },
+    results: {
+      getOrToOne: '',
+      queryOrToMany: '',
+      pagination: '',
+      evidence: '',
     },
-    query: {
-      signature: '',
-      returns: '',
-      description: '',
-      collectionScope: 'graph-membership',
-      options: ['where', 'select', 'limit', 'cursor'],
-    },
-    traverse: {
-      description: '',
-      many: {
-        signature: '',
-        returns: '',
-        description: '',
-        options: ['select', 'limit', 'cursor'],
-      },
-      one: { signature: '', returns: '', description: '', options: ['select'] },
-    },
-    options: [],
-    shapes: {
-      ObjectId: '',
-      ObjectResult: '',
-      ObjectRecord: '',
-      ReadMeta: '',
-      Page: '',
-      QueryResult: '',
-    },
-    errors: '',
+    semantics: [],
   },
 };
 
@@ -358,10 +336,10 @@ it('decorates discovery with this facade’s call paths and asks discovery every
     'objects.Customer.get(id: ObjectId<Customer>, options?: { select?, evidence? }): Promise<ObjectResult<Customer>>',
   );
   expect(String(consumer.objects.Customer.traverse.reviews)).toBe(
-    'objects.Customer.traverse.reviews(id: ObjectId<Customer>, options?: { select?, limit?, cursor? }): QueryResult<Review>',
+    'objects.Customer.traverse.reviews(id: ObjectId<Customer>, options?: { where?, select?, limit?, cursor?, evidence? }): QueryResult<Review>',
   );
   expect(String(consumer.objects.Review.traverse.customer)).toBe(
-    'objects.Review.traverse.customer(id: ObjectId<Review>, options?: { select? }): Promise<ObjectResult<Customer>>',
+    'objects.Review.traverse.customer(id: ObjectId<Review>, options?: { select?, evidence? }): Promise<ObjectResult<Customer>>',
   );
 });
 

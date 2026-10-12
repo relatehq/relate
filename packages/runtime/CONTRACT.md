@@ -256,7 +256,7 @@ on memory and Postgres.
 ## Request errors and operation contracts
 
 - `reads/options.ts` owns the read option table. Request validation, discovery
-  (`describe().operations`) and error messages all read it, so a described
+  (`describe().sdk.options`) and error messages all read it, so a described
   option is exactly an accepted option for get, query, to-many and to-one
   traversal. Unknown options are rejected for every operation, including get.
 - `ReadError('invalid-request', { operation, issues, acceptedOptions? })`
@@ -276,10 +276,17 @@ on memory and Postgres.
   (`business.customer.query`).
 - Alias hints (`pageSize` → `limit`, `offset` → cursor paging) are generic SDK
   vocabulary, never graph- or task-specific.
-- `operationContracts` is one frozen value shared by every graph and actor.
-  Object detail adds per-object `returns`, per-traversal `returns` and
-  per-property `filter` text. Call paths belong to the consumer surface
-  (`@relate/node` adds `call`), not to the runtime.
+- Root discovery returns complete name-keyed object and action maps. Object
+  entries contain authorized traversal directions, using `availableTraversals`
+  just like detailed discovery. Action `creates` lists only readable API names.
+  Metadata discovery never reads records or source systems. All maps and nested
+  values are frozen; empty maps and unauthored descriptions remain compact.
+- Root `sdk` guidance summarizes the SDK once. Its option inventory and defaults
+  come from `reads/options.ts`. The exported `operationContracts` remains the
+  full frozen read contract for tooling, outside the root response. Object
+  detail adds per-object `returns`, per-traversal `returns` and per-property
+  `filter` text. Call paths belong to the consumer surface (`@relate/node` adds
+  `call`), not to the runtime.
 
 ## Native actions
 

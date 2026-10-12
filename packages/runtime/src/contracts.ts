@@ -1,6 +1,10 @@
-import type { OperationContracts } from '@relate/protocol';
+import type { OperationContracts, SdkDescription } from '@relate/protocol';
 import { deepFreeze } from 'relate/model';
-import { optionDescriptions, type ReadOperation } from './reads/index.js';
+import {
+  optionDescriptions,
+  optionSummaries,
+  type ReadOperation,
+} from './reads/index.js';
 
 const names = (operation: ReadOperation) =>
   optionDescriptions(operation).map((option) => option.name);
@@ -55,4 +59,38 @@ export const operationContracts: OperationContracts = deepFreeze({
   },
   errors:
     "Invalid calls throw ReadError with code 'invalid-request'; error.issues names each invalid option, filter or argument, and the message lists the accepted options. 'unavailable' means a source could not be read; 'incomplete' means required evidence (requireComplete, or a where property) was missing.",
+});
+
+/** The root overview carries this concise guide, not the full read contracts. */
+export const sdkDescription: SdkDescription = deepFreeze({
+  discovery: {
+    object:
+      'objects.<Object>.describe() — properties, types, filter operators, and traversal details.',
+    action: 'actions.<action>.describe() — input, output, and declared errors.',
+  },
+  reads: {
+    get: 'await objects.<Object>.get(id, options?)',
+    query: 'await objects.<Object>.query(options?)',
+    traverse: 'await objects.<Object>.traverse.<name>(id, options?)',
+  },
+  actions: {
+    invoke: 'await actions.<action>({ input, idempotencyKey })',
+    receipt: 'await receipts.get(actionName, invocationId)',
+  },
+  options: optionSummaries(),
+  results: {
+    getOrToOne: "{ status: 'ok', id, data, meta } or { status: 'not-found' }",
+    queryOrToMany:
+      '{ data: [{ id, data, meta }], meta: { exhausted, continuationCursor? } }',
+    pagination:
+      'await returns one page. for await yields records across pages. Continue until exhausted, even if a page is empty. There is no caller-defined order.',
+    evidence:
+      'Record meta reports completeness and degradation. Missing selected values are explained in meta.fields.',
+  },
+  semantics: [
+    'Use Relate record IDs, not source-system IDs.',
+    'Queries enumerate records already in this graph.',
+    'Traversal filters apply to destination records.',
+    'This overview reflects your access; individual records remain subject to authorization.',
+  ],
 });

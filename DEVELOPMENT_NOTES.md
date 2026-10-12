@@ -6,6 +6,31 @@ here while release tooling is disabled. When releases are explicitly activated,
 review these entries and incorporate them into the first release notes and
 migration guide.
 
+## Compact graph overview
+
+Breaking discovery response change: `consumer.describe()` (and protocol
+`Discovery.describe()`) now returns `objects` and `actions` as maps keyed by
+SDK/API name instead of summary arrays. All visible definitions remain present.
+Object entries carry `description?` and named `traversals` with target API name,
+cardinality and `description?`. Action entries carry `description?` and readable
+`creates` API names. The root `operations` block is replaced by a compact `sdk`
+guide for discovery, reads, actions, receipts, options/defaults, results and
+semantics. No search or code-execution API is introduced.
+
+Migrate `overview.objects.map(...)` to `Object.entries(overview.objects)` and
+use the key as the API name; do the same for actions. Fetch definition IDs,
+labels, properties and action schemas from the existing individual `.describe()`
+methods. Replace root `operations` documentation consumers with `sdk`; tooling
+needing the full generic read contract can still import `operationContracts`
+from `@relate/runtime`. Object detail's `operations` is unchanged. Update
+serialized discovery snapshots and protocol test doubles.
+
+The methods remain synchronous and actor-bound. The model revision and routing
+artifact are unchanged by this presentation change; no manifest migration is
+needed. Root links use the same authorization and execution-support checks as
+detailed traversal discovery. Read execution, validation, errors and detailed
+object/action descriptions retain their existing contracts.
+
 ## Collection traversal filters
 
 To-many traversals accept `where` with the same operators, validation and

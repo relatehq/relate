@@ -66,34 +66,30 @@ it('discovers the generic read contract and each object’s concrete calls', asy
   const { relate, ana } = createInvoiceApp();
   const consumer = relate.as(ana);
 
-  expect(consumer.describe().operations).toBe(operationContracts);
-  expect(consumer.describe().operations.query.options).toEqual([
-    'where',
-    'select',
-    'limit',
-    'cursor',
-    'evidence',
-    'stale',
-    'maxAgeMs',
-    'refresh',
-    'requireComplete',
-    'timeoutMs',
-  ]);
-  expect(consumer.describe().operations.traverse.many.options).toEqual(
-    consumer.describe().operations.query.options,
+  const { sdk } = consumer.describe();
+
+  expect(Object.keys(sdk.options)).toEqual(operationContracts.query.options);
+  expect(operationContracts.traverse.many.options).toEqual(
+    operationContracts.query.options,
   );
-  expect(consumer.describe().operations.traverse.one.options).toEqual([
-    'select',
-    'evidence',
-    'stale',
-    'maxAgeMs',
-    'refresh',
-    'requireComplete',
-    'timeoutMs',
-  ]);
-  expect(
-    consumer.describe().operations.options.map((option) => option.name),
-  ).toEqual(consumer.describe().operations.query.options);
+  expect(operationContracts.traverse.one.options).toEqual(
+    operationContracts.get.options,
+  );
+
+  for (const option of operationContracts.options) {
+    expect(sdk.options[option.name]).toBeTruthy();
+
+    if (option.default !== undefined)
+      expect(sdk.options[option.name]).toContain(
+        `Default: ${JSON.stringify(option.default)}.`,
+      );
+  }
+
+  expect(sdk.discovery.object).toContain('objects.<Object>.describe()');
+  expect(sdk.actions.invoke).toBe(
+    'await actions.<action>({ input, idempotencyKey })',
+  );
+  expect(sdk.options.where).toContain('Queries and to-many traversals only');
 
   expect(consumer.objects.Customer.describe()).toMatchObject({
     operations: {

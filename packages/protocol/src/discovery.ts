@@ -77,6 +77,46 @@ export interface ActionSummary {
   readonly description?: string;
 }
 
+/** One authorized direction of a relationship in the compact graph overview. */
+export interface TraversalOverview {
+  /** API name of another entry in `GraphDescription.objects`. */
+  readonly target: string;
+  readonly cardinality: 'one' | 'many';
+  readonly description?: string;
+}
+
+/** Object purpose and named, executable edges; schemas remain in object detail. */
+export interface ObjectOverview {
+  readonly description?: string;
+  readonly traversals: Readonly<Record<string, TraversalOverview>>;
+}
+
+/** Action purpose and the readable object types it declares it creates. */
+export interface ActionOverview {
+  readonly description?: string;
+  readonly creates: readonly string[];
+}
+
+/** Compact SDK guidance shared by every graph and actor. */
+export interface SdkDescription {
+  readonly discovery: { readonly object: string; readonly action: string };
+  readonly reads: {
+    readonly get: string;
+    readonly query: string;
+    readonly traverse: string;
+  };
+  readonly actions: { readonly invoke: string; readonly receipt: string };
+  /** Read option names and concise guidance, including defaults. */
+  readonly options: Readonly<Record<string, string>>;
+  readonly results: {
+    readonly getOrToOne: string;
+    readonly queryOrToMany: string;
+    readonly pagination: string;
+    readonly evidence: string;
+  };
+  readonly semantics: readonly string[];
+}
+
 export interface GraphDescription {
   readonly definitionId: string;
   /**
@@ -87,10 +127,11 @@ export interface GraphDescription {
    */
   readonly definitionRevision: string;
   readonly description?: string;
-  readonly objects: readonly ObjectSummary[];
-  readonly actions: readonly ActionSummary[];
-  /** How to call get, query and traversals; the same for every graph. */
-  readonly operations: OperationContracts;
+  /** All visible objects, keyed by their SDK/API names. */
+  readonly objects: Readonly<Record<string, ObjectOverview>>;
+  /** All visible actions, keyed by their SDK/API names. */
+  readonly actions: Readonly<Record<string, ActionOverview>>;
+  readonly sdk: SdkDescription;
 }
 
 export interface PropertyDescription {
