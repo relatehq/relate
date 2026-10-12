@@ -593,3 +593,10 @@ export type {
   AppDefinition,
   AppSetupContext,
 } from './app.js';
+
+export { localDateTime } from './local-datetime.js';
+
+export type {
+  LocalDateTimeSchema,
+  LocalDateTimePrecision,
+} from './local-datetime.js';

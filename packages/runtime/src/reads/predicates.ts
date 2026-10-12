@@ -1,6 +1,7 @@
 import {
   accepts,
   acceptsInstant,
+  localDateTimeValue,
   canonicalJson,
   isPlainObject,
 } from 'relate/model';
@@ -36,12 +37,15 @@ export interface Predicate {
   readonly propertyId: string;
   readonly name: string;
   readonly timestamp: boolean;
+  readonly localPrecision?: 'second' | 'millisecond' | undefined;
   readonly conditions: readonly Condition[];
 }
 
 /** Discovery and validation use the same operator vocabulary. */
 export function filterOperators(schema: ScalarSchema): readonly string[] {
-  return schema.type === 'number' || schema.format === 'timestamp'
+  return schema.type === 'number' ||
+    schema.format === 'timestamp' ||
+    schema.format === 'local-datetime'
     ? ['eq', 'in', 'gt', 'gte', 'lt', 'lte']
     : ['eq', 'in'];
 }
@@ -54,8 +58,18 @@ export function compilePredicate(
   const path = ['where', property.name];
   const operators = filterOperators(property.schema);
   const timestamp = property.schema.format === 'timestamp';
+  const localPrecision =
+    property.schema.format === 'local-datetime'
+      ? property.schema.precision
+      : undefined;
   const normalize = (value: FilterScalar): FilterScalar =>
-    timestamp && typeof value === 'string' ? Date.parse(value) : value;
+    typeof value === 'string'
+      ? localPrecision
+        ? localDateTimeValue(value, localPrecision)!
+        : timestamp
+          ? Date.parse(value)
+          : value
+      : value;
   const operatorObject = isPlainObject(input);
   const entries: [string, unknown][] = operatorObject
     ? Object.entries(input)
@@ -75,6 +89,7 @@ export function compilePredicate(
       propertyId: property.id,
       name: property.name,
       timestamp,
+      ...(localPrecision ? { localPrecision } : {}),
       conditions,
     };
   }
@@ -86,6 +101,7 @@ export function compilePredicate(
       propertyId: property.id,
       name: property.name,
       timestamp,
+      ...(localPrecision ? { localPrecision } : {}),
       conditions,
     };
   }
@@ -126,6 +142,9 @@ export function compilePredicate(
           optional: false,
           nullable: false,
           ...(timestamp ? { format: 'timestamp' as const } : {}),
+          ...(localPrecision
+            ? { format: 'local-datetime' as const, precision: localPrecision }
+            : {}),
         }
       : property.schema;
 
@@ -178,6 +197,7 @@ export function compilePredicate(
     propertyId: property.id,
     name: property.name,
     timestamp,
+    ...(localPrecision ? { localPrecision } : {}),
     conditions,
   };
 }
@@ -188,8 +208,12 @@ export function matchesPredicate(
   value: FilterScalar,
 ): boolean {
   const actual =
-    predicate.timestamp && typeof value === 'string'
-      ? Date.parse(value)
+    typeof value === 'string'
+      ? predicate.localPrecision
+        ? localDateTimeValue(value, predicate.localPrecision)!
+        : predicate.timestamp
+          ? Date.parse(value)
+          : value
       : value;
 
   return predicate.conditions.every((condition) => {

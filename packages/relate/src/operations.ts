@@ -1,3 +1,4 @@
+import type { LocalDateTimeSchema } from './local-datetime.js';
 import type { z } from 'zod';
 import type {
   EvidenceMode,
@@ -88,7 +89,8 @@ type RangeOperators<V> = {
 type PropertyFilter<P extends Property, V> =
   | V
   | (EqualityOperators<V> &
-      (UnwrapSchema<P['schema']> extends z.ZodNumber | z.iso.ZodISODateTime
+      (UnwrapSchema<P['schema']> extends
+        z.ZodNumber | z.iso.ZodISODateTime | LocalDateTimeSchema
         ? RangeOperators<V>
         : unknown));
 
@@ -97,7 +99,7 @@ type PropertyFilter<P extends Property, V> =
  * the records a to-many traversal reaches.
  *
  * Properties and operators combine with AND. Use scalar equality, eq/in, or
- * gt/gte/lt/lte on numbers and timestamps. Reference properties take
+ * gt/gte/lt/lte on numbers, timestamps and declared local datetimes. Reference properties take
  * Relate object IDs. Queries do not discover provider-wide records. A
  * traversal's filters address the related object's properties and apply in
  * addition to the relationship.

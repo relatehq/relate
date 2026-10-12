@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { localDateTimeValue } from './model/local-datetime.js';
+
+export { localDateTimeValue } from './model/local-datetime.js';
+
 import type { ScalarSchema } from '@relate/protocol';
 import { ManifestValidationError } from './diagnostics.js';
 import type { ModelIssue, ModelIssueCode } from './diagnostics.js';
@@ -17,7 +21,8 @@ export const scalarSchema = z.strictObject({
   type: z.enum(['string', 'number', 'boolean']),
   optional: z.boolean(),
   nullable: z.boolean(),
-  format: z.literal('timestamp').optional(),
+  format: z.enum(['timestamp', 'local-datetime']).optional(),
+  precision: z.enum(['second', 'millisecond']).optional(),
   minLength: z.number().int().nonnegative().optional(),
   maxLength: z.number().int().nonnegative().optional(),
   minimum: z.number().finite().optional(),
@@ -253,6 +258,13 @@ export function accepts(schema: ScalarSchema, value: unknown): boolean {
   if (typeof value !== schema.type) return false;
 
   if (typeof value === 'string') {
+    if (
+      schema.format === 'local-datetime' &&
+      (!schema.precision ||
+        localDateTimeValue(value, schema.precision) === undefined)
+    )
+      return false;
+
     if (schema.format === 'timestamp' && !timestamp.safeParse(value).success)
       return false;
 
@@ -382,6 +394,8 @@ export function validateManifest(input: unknown): Manifest {
 
   for (const { schema, path, definitionId } of scalars) {
     if (
+      (schema.format === 'local-datetime') !==
+        (schema.precision !== undefined) ||
       (schema.type !== 'string' &&
         (schema.minLength !== undefined ||
           schema.maxLength !== undefined ||

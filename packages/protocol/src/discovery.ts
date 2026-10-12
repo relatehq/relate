@@ -8,7 +8,8 @@ export interface ScalarSchema {
   readonly type: 'string' | 'number' | 'boolean';
   readonly optional: boolean;
   readonly nullable: boolean;
-  readonly format?: 'timestamp' | undefined;
+  readonly format?: 'timestamp' | 'local-datetime' | undefined;
+  readonly precision?: 'second' | 'millisecond' | undefined;
   readonly minLength?: number | undefined;
   readonly maxLength?: number | undefined;
   readonly minimum?: number | undefined;

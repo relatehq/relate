@@ -35,7 +35,7 @@ const rules: readonly OptionRule[] = [
     name: 'where',
     type: '{ [property]: scalar | { eq?, in?, gt?, gte?, lt?, lte? } } (at most 100 properties)',
     description:
-      "Scalar equality or operator objects on property names of the returned object, combined with AND (a traversal also requires the relationship). eq/in work on every scalar; gt/gte/lt/lte require numbers or timestamps. Operator entries also combine with AND. in accepts at most 100 values; [] matches nothing. Range operands are not limited by a number property's value bounds. Timestamp operands accept any timezone-qualified ISO instant with at most millisecond precision (for example 2026-10-01T00:00:00Z); comparison uses the instant. Use in, not a bare array, to match several values. null matches only explicit null; absence does not match. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
+      "Scalar equality or operator objects on property names of the returned object, combined with AND (a traversal also requires the relationship). eq/in work on every scalar; gt/gte/lt/lte require numbers, timestamps or declared local datetimes. Operator entries also combine with AND. in accepts at most 100 values; [] matches nothing. Range operands are not limited by a number property's value bounds. Timestamp operands accept any timezone-qualified ISO instant with at most millisecond precision (for example 2026-10-01T00:00:00Z); comparison uses the instant. Use in, not a bare array, to match several values. null matches only explicit null; absence does not match. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
     operations: paged,
     valid: (value) => isPlainObject(value) && Object.keys(value).length <= 100,
   },
@@ -203,7 +203,7 @@ const aliases: readonly {
   {
     names: ['filter', 'filters', 'query', 'conditions', 'criteria', 'match'],
     option: 'where',
-    hint: 'use "where" with { property: value } or { property: { eq, in, gt, gte, lt, lte } }; ranges require numbers or timestamps',
+    hint: 'use "where" with { property: value } or { property: { eq, in, gt, gte, lt, lte } }; ranges require numbers, timestamps or declared local datetimes',
   },
   {
     names: [
@@ -267,6 +267,9 @@ const describeValue = (value: unknown) =>
 export function schemaText(schema: ScalarSchema, references?: string): string {
   if (references !== undefined)
     return `${references} object ID${schema.nullable ? ' or null' : ''}`;
+
+  if (schema.format === 'local-datetime')
+    return `local datetime without offset at ${schema.precision} precision${schema.nullable ? ' or null' : ''}`;
 
   if (schema.format === 'timestamp')
     return `ISO timestamp with timezone, at most millisecond precision${schema.nullable ? ' or null' : ''}`;
