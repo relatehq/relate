@@ -140,6 +140,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
     projectRoot: project.root,
     configPath: project.configPath,
     instanceId,
+    seed: args.seed,
     verifyOwner,
   });
 
@@ -158,6 +159,11 @@ export async function runDev(options: RunDevOptions): Promise<number> {
     )
       return fail(
         `Relate dev is already running for ${project.root} on ${metadata.url} (PID ${metadata.pid}); it cannot be moved to port ${args.port}. Stop it first.`,
+      );
+
+    if (args.seed !== (metadata.seed ?? false))
+      return fail(
+        `Relate dev is already running for ${project.root} (PID ${metadata.pid}) with ${metadata.seed === undefined ? 'an unknown --seed setting' : metadata.seed ? '--seed enabled' : '--seed disabled'}. This invocation requests --seed ${args.seed ? 'enabled' : 'disabled'}. Stop the existing server first and restart with the requested flags.`,
       );
 
     // Reuse the complete bootstrap link, just as the initial banner does.
@@ -247,6 +253,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
     // `--no-runtime`: inspect the model only; accepted bundles are released.
     const runtime = args.runtime
       ? createRuntimeController({
+          seed: args.seed,
           projectRoot: project.root,
           configPath: project.configPath,
           env: options.env,

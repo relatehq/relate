@@ -13,6 +13,7 @@ it('parses defaults, explicit flags and inline values', () => {
     open: false,
     quiet: false,
     runtime: true,
+    seed: false,
     rotateMcpToken: false,
     evalTimeoutMs: DEFAULT_EVAL_TIMEOUT_MS,
     allowedOrigins: [],
@@ -39,12 +40,17 @@ it('parses defaults, explicit flags and inline values', () => {
     open: true,
     quiet: true,
     runtime: false,
+    seed: false,
     rotateMcpToken: true,
     evalTimeoutMs: 60_000,
     allowedOrigins: ['https://my-private-forward.example'],
   });
   expect(parseDevArguments(['--help'])).toBe('help');
   expect(parseDevArguments(['-h'])).toBe('help');
+  expect(parseDevArguments(['--seed'])).toMatchObject({
+    runtime: true,
+    seed: true,
+  });
 });
 
 it.each([
@@ -57,6 +63,9 @@ it.each([
   [['--quiet=yes'], /takes no value/],
   [['--open=yes'], /takes no value/],
   [['--no-runtime=yes'], /takes no value/],
+  [['--seed=yes'], /takes no value/],
+  [['--seed', '--no-runtime'], /cannot be combined/],
+  [['--no-runtime', '--seed'], /cannot be combined/],
   [['--rotate-mcp-token=yes'], /takes no value/],
   [['--bogus'], /Unknown option/],
   [['--allowed-origin', 'not a url'], /absolute origin/],

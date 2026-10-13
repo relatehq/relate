@@ -23,16 +23,16 @@ pnpm build
 Then open the customer and invoice example:
 
 ```sh
-pnpm relate dev --config examples/02-customer-workspace/relate.config.ts --open
+pnpm relate dev --config examples/02-customer-workspace/relate.config.ts --seed --open
 ```
 
 You should see **Customer**, **Invoice**, and **Account review**, connected by
 the **CustomerInvoices** and **CustomerReviews** relationships. The model has 3
-objects, 2 sources, and 2 relationships. No database or credentials are needed
-to inspect these definitions. This config exports the graph without an app, so
-there is no `setup` to supply connections for its sources; the status bar shows
-a neutral **No runtime** and the graph itself is unaffected. Pass `--no-runtime`
-to inspect the model without starting the application at all.
+objects, 2 sources, and 2 relationships. The app starts a CRM simulator and a
+temporary SQLite billing database; no credentials or database server are needed.
+`--seed` adopts Northwind and its two invoices into the runtime for the agent
+and MCP clients to query. Omit `--seed` and pass `--no-runtime` to inspect only
+the model without starting the application.
 
 `--open` opens the browser. You can also open the complete Inspector URL printed
 in the terminal, including its `#token=…` fragment. That link establishes the
@@ -74,6 +74,49 @@ connector initialization and credential-dependent work inside your app's
 process does. Do not point the inspector at an application entry that starts
 servers or runs queries at the top level.
 
+## Seed the Runtime
+
+Add a named `seed` export to your config:
+
+```ts
+import type { Relate } from '@relate/node';
+import { app } from './src/app.js';
+import { Customer, Invoice } from './src/graph.js';
+
+export default app;
+
+export async function seed(relate: Relate<typeof app.graph>) {
+  await relate.host.adopt(Customer, 'crm_456');
+  await relate.host.adopt(Invoice, 'INV-1042');
+}
+```
+
+Run `pnpm relate dev --seed`. The function runs inside the same runtime used by
+the inspector's agent and MCP, after setup and the store check, before requests
+are served. You can also re-export it from a separate file. It runs again after
+every accepted code change, repopulating the default in-memory store.
+
+`adopt` adds existing source records to graph membership; it does not create
+provider data. Create provider fixtures during setup if needed. Native records
+are created through your declared actions with `relate.as(principal).actions`.
+
+Without `--seed`, this export is ignored. Normal `startApp(app)` and model
+compilation do not call it. `--seed` cannot be combined with `--no-runtime`. If
+a dev server is already running with a different seed setting, the command fails
+with instructions to stop and restart it. Matching invocations reuse the server
+without running another seed. Older servers that cannot report their seed
+setting must be restarted before using `--seed`.
+
+Keep seeds repeatable, especially with persistent storage. Repeated adoption
+reuses a source record's identity within the same scope, but other writes need
+their own duplicate handling. The whole script is not a transaction, and a
+failure does not undo earlier writes. Setup, the store check and seeding share a
+30-second deadline. Missing seed exports and seed failures appear in runtime
+diagnostics; the model stays visible and a later accepted edit retries startup.
+A bare graph missing source bindings reports that the requested seed could not
+run. Unhandled errors attempt cleanup before reporting failure, bounded by the
+five-second shutdown deadline. Seed `console` output appears in the terminal.
+
 ## Development Principals and the Runtime
 
 For every successfully compiled change, `relate dev` starts a fresh runtime
@@ -87,10 +130,10 @@ that is not connected cannot know the runtime's current state.
 | Pill                             | Meaning                                                                                                                                                                               |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Live**                         | Connected, and the runtime is running the displayed model.                                                                                                                            |
-| **Starting**                     | The first runtime is running `setup`.                                                                                                                                                 |
+| **Starting**                     | The first runtime is running setup, the store check, or the optional seed.                                                                                                            |
 | **Restarting**                   | A newer change was accepted; the previous runtime is draining and a new one is starting.                                                                                              |
 | **Updating**                     | The running runtime serves a different revision from the displayed model, for example while a restart is in progress or after the new runtime failed.                                 |
-| **Runtime failed**               | `setup` threw, timed out, or the store rejected the model. Hover for the diagnostic; the terminal prints it too. The next accepted change retries.                                    |
+| **Runtime failed**               | `setup` or the seed failed, startup timed out, or the store rejected the model. Hover for the diagnostic; the terminal prints it too. The next accepted change retries.               |
 | **No runtime**                   | The config exports a bare graph whose sources need connections that only `defineApp` `setup` can supply. Not an error, but the agent and MCP need a runtime; export an app to run it. |
 | **Connecting**, **Reconnecting** | The page is opening, or recovering, its stream from `relate dev`.                                                                                                                     |
 | **Paused**                       | The page stopped following `relate dev`.                                                                                                                                              |

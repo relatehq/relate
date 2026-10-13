@@ -82,6 +82,7 @@ export function startInspector(): Inspector {
         new URL('../../../packages/cli/bin/relate.js', import.meta.url),
       ),
       'dev',
+      '--seed',
       ...(quiet ? ['--quiet'] : []),
       '--config',
       fileURLToPath(new URL('../relate.config.ts', import.meta.url)),

@@ -1,7 +1,8 @@
 /**
  * Runtime host child: one per accepted build. Imports the accepted bundle,
  * calls `startApp(app)` unchanged (so `setup`, connectors and the application's
- * chosen store run exactly as in production) and answers graph operations and
+ * chosen store run exactly as in production), optionally runs the config's
+ * seed export against that runtime, and answers graph operations and
  * discovery over IPC for one `runtimeId`. It has no HTTP listener and knows
  * nothing about MCP or HTTP; the dev server owns every transport.
  *
@@ -82,8 +83,13 @@ const answering = new Set<Promise<void>>();
  * the process exits.
  */
 async function closeAndExit(): Promise<never> {
+  if (failure) return failure;
+
   await relate?.close().catch(() => {});
   await Promise.allSettled(answering);
+
+  if (failure) return failure;
+
   process.exit(0);
 }
 
@@ -101,15 +107,30 @@ function shutdown(): void {
   if (started) void closeAndExit();
 }
 
-let failedReported = false;
+let failure: Promise<never> | undefined;
 
-async function fail(diagnostics: Diagnostic[]): Promise<never> {
-  if (!failedReported) {
-    failedReported = true;
-    await send({ type: 'failed', runtimeId: args.runtimeId, diagnostics });
-  }
+function fail(diagnostics: Diagnostic[]): Promise<never> {
+  if (failure) return failure;
 
-  process.exit(1);
+  shuttingDown = true;
+  failure = (async () => {
+    let reported: Promise<never> | undefined;
+    const report = () =>
+      (reported ??= (async () => {
+        await send({ type: 'failed', runtimeId: args.runtimeId, diagnostics });
+        process.exit(1);
+      })());
+    // The parent kills failed hosts immediately. Dispose first, but retain a
+    // deadline for stuck operations or disposers, including after startup.
+    const deadline = setTimeout(() => void report(), args.drainTimeoutMs);
+
+    await relate?.close().catch(() => {});
+    clearTimeout(deadline);
+
+    return report();
+  })();
+
+  return failure;
 }
 
 function runtimeDiagnostic(
@@ -218,6 +239,14 @@ if (!selected)
     ),
   ]);
 
+if (args.seed && typeof module!.seed !== 'function')
+  await fail([
+    runtimeDiagnostic(
+      'runtime.seed-missing',
+      `--seed requires ${support.projectRelative(args.configPath)} to export a function named seed: export async function seed(relate) { ... }`,
+    ),
+  ]);
+
 const app = (
   selected!.kind === 'app'
     ? selected!.app
@@ -263,7 +292,7 @@ try {
   relate = await node.startApp(observed);
 } catch (error) {
   // A bare graph has no setup; when it needs bindings, there is nothing to run.
-  if (selected!.kind === 'graph') {
+  if (selected!.kind === 'graph' && !args.seed) {
     await send({
       type: 'not-configured',
       runtimeId: args.runtimeId,
@@ -282,7 +311,7 @@ try {
   await fail([
     runtimeDiagnostic(
       'runtime.setup-failed',
-      `Starting the application failed: ${sanitizeMessage(error)}`,
+      `Starting the application failed${args.seed ? '; the requested seed could not run' : ''}: ${sanitizeMessage(error)}${selected!.kind === 'graph' ? '. Export defineApp({ graph, setup }) to supply connections before seeding.' : ''}`,
       error,
     ),
   ]);
@@ -297,7 +326,6 @@ if (store) {
   try {
     await store.install(graphId, model!.definitionRevision);
   } catch (error) {
-    await relate!.close().catch(() => {});
     await fail([
       error instanceof Error && error.name === 'StorageUnavailable'
         ? runtimeDiagnostic(
@@ -308,6 +336,23 @@ if (store) {
             'runtime.store-revision-mismatch',
             `The application's persistent store holds a different model revision than ${model!.definitionRevision}. The runtime stays stopped and the store is left untouched; migrate or point setup at a fresh store. (${sanitizeMessage(error)})`,
           ),
+    ]);
+  }
+}
+
+if (shuttingDown) await closeAndExit();
+
+if (args.seed) {
+  try {
+    await (module!.seed as (runtime: Relate) => unknown)(relate!);
+  } catch (error) {
+    // Successful writes already made by the seed are not rolled back.
+    await fail([
+      runtimeDiagnostic(
+        'runtime.seed-failed',
+        `Seeding the application failed: ${sanitizeMessage(error)}`,
+        error,
+      ),
     ]);
   }
 }

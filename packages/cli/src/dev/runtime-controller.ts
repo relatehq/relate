@@ -44,7 +44,9 @@ export interface RuntimeControllerOptions {
   readonly isStdoutSaturated?: () => boolean;
   readonly isStderrSaturated?: () => boolean;
   readonly hostPath?: string;
-  /** Deadline for `setup` and the store check. */
+  /** Run the config's named seed export before serving operations. */
+  readonly seed?: boolean;
+  /** Deadline for `setup`, the store check and the optional seed. */
   readonly startTimeoutMs?: number;
   /** How long a retired runtime may drain before it is killed. */
   readonly drainTimeoutMs?: number;
@@ -260,6 +262,7 @@ export function createRuntimeController(
         configPath: options.configPath,
         runtimeId,
         drainTimeoutMs,
+        seed: options.seed ?? false,
       }),
       cwd: options.projectRoot,
       env: userCodeEnvironment(options.env),
@@ -315,7 +318,7 @@ export function createRuntimeController(
           kind: 'runtime',
           code: 'runtime.timeout',
           severity: 'error',
-          message: `Starting the runtime exceeded ${startTimeoutMs} ms; the runtime host was terminated. A setup function that never settles can cause this.`,
+          message: `Starting the runtime exceeded ${startTimeoutMs} ms; the runtime host was terminated. A setup or seed function that never settles can cause this.`,
         },
       ]);
     }, startTimeoutMs);

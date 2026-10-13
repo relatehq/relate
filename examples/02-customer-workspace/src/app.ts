@@ -7,11 +7,10 @@ import { startApp } from '@relate/node';
 import { sqlite } from '@relate/connector-sqlite';
 import { startCrmSimulator } from '@relate/dev-crm-simulator';
 import { crmConnector } from './crm-connector.js';
+import { seed } from './seed.js';
 import {
   graph,
   AddAccountReview,
-  Customer,
-  Invoice,
   AccountReview,
   crmCustomers,
   billingInvoices,
@@ -118,12 +117,7 @@ export async function startWorkspace() {
   const reviewIds = new Set<ObjectId<typeof AccountReview.id>>();
 
   try {
-    // Adoption is a host operation. This seed is not a general source enumeration API.
-    // TODO(source sync): adopt invoices from a SQLite scan instead of fixed IDs.
-    const customerId = await relate.host.adopt(Customer, 'crm_456');
-
-    await relate.host.adopt(Invoice, 'INV-1042');
-    await relate.host.adopt(Invoice, 'INV-1043');
+    const { customerId } = await seed(relate);
 
     return {
       relate,

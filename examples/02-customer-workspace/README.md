@@ -12,10 +12,10 @@ pnpm example:customer-workspace
 ```
 
 This builds the packages, starts the CRM simulator, seeds a temporary SQLite
-billing database, starts the application and model inspector, and opens your
-browser. No credentials or database server are required. Both listeners choose
-available loopback ports. Use `pnpm example:customer-workspace --no-open` to
-print the links without opening a browser. Ctrl+C closes the application,
+billing database, starts the application and a seeded model inspector, and opens
+your browser. No credentials or database server are required. Both listeners
+choose available loopback ports. Use `pnpm example:customer-workspace --no-open`
+to print the links without opening a browser. Ctrl+C closes the application,
 connectors, simulator and owned inspector process, then removes the temporary
 database. State resets on each launch. A second launch starts its own
 application and reuses the existing model inspector; stopping that second launch
@@ -47,7 +47,9 @@ by Relate; the browser never reads the CRM or SQLite directly.
 - [src/graph.ts](src/graph.ts): sources, objects, references, relationships,
   field policies and the `addAccountReview` action definition.
 - [src/app.ts](src/app.ts): deferred setup with `defineApp`, SQLite seeding,
-  connector bindings, native action implementation, host adoption and SDK calls.
+  connector bindings, native action implementation and SDK calls.
+- [src/seed.ts](src/seed.ts): shared adoption of the demo customer and two
+  invoices into the supplied runtime.
 - [src/crm-connector.ts](src/crm-connector.ts): HTTP source adapter. The shared
   repository CRM simulator supplies deterministic provider responses. The
   adapter intentionally remains local (as in example 03), so the provider
@@ -60,8 +62,8 @@ by Relate; the browser never reads the CRM or SQLite directly.
 - [src/launcher.ts](src/launcher.ts): cancellation and bounded shutdown.
 - [src/inspector.ts](src/inspector.ts): CLI child ownership and complete-line
   bootstrap URL parsing.
-- [relate.config.ts](relate.config.ts): side-effect-free `defineApp` export for
-  the CLI.
+- [relate.config.ts](relate.config.ts): `defineApp` and `seed` exports for
+  `relate dev --seed`; importing the config starts nothing.
 
 The SQLite connection uses `@relate/connector-sqlite`, with a stable application
 connection ID and explicit selected columns. SQLite owns invoices; Relate's
@@ -86,8 +88,23 @@ The model inspector runs the same `defineApp` as a second runtime, with its own
 CRM simulator, billing database and memory store. Its `/mcp` endpoint serves
 `?as=ana` or `?as=fin`; `relate dev` prints the `claude mcp add` command. That
 runtime is separate from the browser application: reviews added in one do not
-appear in the other. It also adopts nothing yet, because `relate dev` has no
-adoption hook, so reads find no records until one exists.
+appear in the other. The launcher passes `--seed`, so both runtimes start with
+Northwind (`crm_456`) and invoices `INV-1042` (overdue, GBP 4,800) and
+`INV-1043` (paid, GBP 1,250). The inspector reruns the seed after each accepted
+code change. Repeated seeding reuses those records' graph identities within the
+same runtime; it does not add duplicate customers or invoices. Reviews start
+empty and can be created through `addAccountReview` as Ana.
+
+To run only the seeded inspector from the repository root:
+
+```sh
+pnpm relate dev --config examples/02-customer-workspace/relate.config.ts --seed --open
+```
+
+In its Agent page, ask to list customers and their invoices, or use the printed
+MCP command. Ana can see invoice statuses; Fin can also see amounts. Omitting
+`--seed` starts the providers but leaves graph membership empty. If an inspector
+is already running without seeding, stop it before launching with `--seed`.
 
 For durable Relate state, continue to
 [03 · Postgres persistence](../03-postgres-persistence). Return to the

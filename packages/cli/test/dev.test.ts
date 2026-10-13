@@ -512,6 +512,80 @@ it('times out a child that never settles, reports one worker diagnostic and reco
   await stream.return(undefined);
 }, 60_000);
 
+it.each([false, true])(
+  'rejects incompatible seed flags when reusing a server started with seed=%s',
+  async (seed) => {
+    const project = await createProject();
+
+    projects.push(project.root);
+    await project.write(
+      'src/relate/app.ts',
+      `
+import { defineApp, defineGraph, defineAccess, defineObject, nativeMembership, objectId } from 'relate';
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
+const Note = defineObject({ id: 'note', membership: nativeMembership(), properties: { id: objectId({ id: 'note.id' }) } });
+export default defineApp({ graph: defineGraph({ id: 'notes', objects: { Note }, access, policies: { Note: { read: { gate: access.role('reader') } } } }) });
+export function seed() { console.log('seed called'); }
+`,
+    );
+    await project.write(
+      'relate.config.ts',
+      "export { default, seed } from './src/relate/app.js';\n",
+    );
+    const dev = await startDev(project, seed ? ['--seed'] : []);
+
+    await dev.waitForStdout(/^\s+runtime gen 1\s+running/);
+    const duplicate = async (flags: string[]) => {
+      const child = spawn(process.execPath, [binary, 'dev', ...flags], {
+        cwd: project.root,
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+      let stdout = '',
+        stderr = '';
+
+      child.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString();
+      });
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      const code = await new Promise<number | null>((resolve) =>
+        child.once('close', resolve),
+      );
+
+      return { code, stdout, stderr };
+    };
+    const matching = await duplicate(seed ? ['--seed'] : []);
+    const incompatible = await duplicate(seed ? [] : ['--seed']);
+
+    expect(matching.code).toBe(0);
+    expect(matching.stdout).toContain('already running');
+    expect(incompatible.code).toBe(1);
+    expect(incompatible.stderr).toContain(
+      `--seed ${seed ? 'enabled' : 'disabled'}`,
+    );
+    expect(incompatible.stderr).toContain('Stop the existing server first');
+    expect(incompatible.stdout).not.toContain('Inspector');
+    expect(
+      dev.stdout.filter((line) => line.includes('seed called')),
+    ).toHaveLength(seed ? 1 : 0);
+
+    if (!seed) {
+      // Legacy owners cannot confirm seeding; do not silently reuse one for --seed.
+      const path = join(project.root, '.relate/dev/lock.json');
+      const metadata = JSON.parse(await readFile(path, 'utf8'));
+
+      delete metadata.seed;
+      await writeFile(path, JSON.stringify(metadata));
+      const legacy = await duplicate(['--seed']);
+
+      expect(legacy.code).toBe(1);
+      expect(legacy.stderr).toContain('unknown --seed setting');
+    }
+  },
+  60_000,
+);
+
 it('starts a runtime host per accepted build and publishes principals and runtime status', async () => {
   const project = await createProject();
 
@@ -625,6 +699,97 @@ export const graph = defineGraph({
   expect(discovery.structuredContent).toMatchObject({
     graph: { objects: { Note: {} } },
   });
+}, 60_000);
+
+it('adopts seed records into the served runtime and reseeds after editing an imported seed module', async () => {
+  const project = await createProject();
+
+  projects.push(project.root);
+  await project.write(
+    'src/relate/graph.ts',
+    graphSource('reader').replace(
+      "id: 'business',",
+      "id: 'business', principals: { alice: { roles: ['reader'] } },",
+    ),
+  );
+  await project.write(
+    'src/relate/app.ts',
+    `import { connect, defineApp } from 'relate';
+import { graph, Customer } from './graph.js';
+export default defineApp({
+  graph,
+  setup() {
+    return {
+      connections: [connect(Customer.membership.resource, {
+        connectionId: 'crm', providerAccountId: 'test-account',
+        connector: {
+          identify: async () => 'test-account',
+          fetch: async (id) => ({
+            providerAccountId: 'test-account', state: 'present',
+            record: { id, name: id === 'customer-1' ? 'Northwind' : 'Contoso' },
+          }),
+        },
+      })],
+    };
+  },
+});
+`,
+  );
+  const seedSource = (id: string) => `import { Customer } from './graph.js';
+import type { Relate } from '@relate/node';
+import app from './app.js';
+export async function seed(relate: Relate<typeof app.graph>) {
+  await relate.host.adopt(Customer, '${id}');
+  console.log('seed complete: ${id}');
+}
+`;
+
+  await project.write('src/relate/seed.ts', seedSource('customer-1'));
+  await project.write(
+    'relate.config.ts',
+    "export { default } from './src/relate/app.js';\nexport { seed } from './src/relate/seed.js';\n",
+  );
+  const dev = await startDev(project, ['--seed']);
+
+  await dev.waitForStdout(/^\s+runtime gen 1\s+running/);
+  const line = await dev.waitForStdout(/claude mcp add --transport http/);
+  const token = /Authorization: Bearer ([A-Za-z0-9_-]+)/.exec(line)![1];
+  const client = new Client({ name: 'seed-test', version: '1' });
+
+  try {
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(`${dev.url}/mcp?as=alice`), {
+        requestInit: { headers: { authorization: `Bearer ${token}` } },
+      }),
+    );
+    const read = () =>
+      client.callTool({
+        name: 'execute',
+        arguments: {
+          code: 'return (await graph.objects.Customer.query()).data.map((row) => row.data.name);',
+        },
+      });
+
+    expect((await read()).structuredContent).toMatchObject({
+      status: 'succeeded',
+      result: ['Northwind'],
+    });
+    await project.write('src/relate/seed.ts', seedSource('customer-2'));
+    await dev.waitForStdout(/^\s+runtime gen 2\s+running/);
+    expect((await read()).structuredContent).toMatchObject({
+      status: 'succeeded',
+      result: ['Contoso'],
+    });
+    // The compile worker also imports the config but must never run the seed.
+    expect(
+      dev.stdout.filter((line) => line.includes('seed complete:')),
+    ).toEqual([
+      '[runtime gen 1 stdout] seed complete: customer-1',
+      '[runtime gen 2 stdout] seed complete: customer-2',
+    ]);
+  } finally {
+    await client.close();
+  }
 }, 60_000);
 
 it('withholds ANTHROPIC_API_KEY from the compile worker and starts no runtime with --no-runtime', async () => {

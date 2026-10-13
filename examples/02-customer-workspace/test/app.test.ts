@@ -1,10 +1,48 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Server } from 'node:http';
 import { ActionError } from '@relate/protocol';
-import { startWorkspace } from '../src/app.js';
+import { startApp } from '@relate/node';
+import workspaceApp, { seed } from '../relate.config.js';
+import { actors, startWorkspace } from '../src/app.js';
 import { startServer } from '../src/server.js';
 
 describe('interactive customer workspace', () => {
+  it('seeds the config runtime with repeatable customer and invoice membership', async () => {
+    const relate = await startApp(workspaceApp);
+
+    try {
+      const { objects } = relate.as(actors.fin);
+
+      expect((await objects.Customer.query()).data).toEqual([]);
+      const first = await seed(relate);
+      const second = await seed(relate);
+
+      expect(second.customerId).toBe(first.customerId);
+      expect((await objects.Customer.query()).data).toMatchObject([
+        { id: first.customerId, data: { name: 'Northwind' } },
+      ]);
+      const invoices = await objects.Customer.traverse.invoices(
+        first.customerId,
+      );
+
+      expect(invoices.data).toHaveLength(2);
+      expect(
+        invoices.data
+          .map((invoice) => invoice.data.totalMinor)
+          .sort((a, b) => a! - b!),
+      ).toEqual([125000, 480000]);
+      expect((await objects.Invoice.query()).data).toHaveLength(2);
+      const anaInvoices = await relate.as(actors.ana).objects.Invoice.query();
+
+      expect(
+        anaInvoices.data.every(
+          (invoice) => invoice.data.totalMinor === undefined,
+        ),
+      ).toBe(true);
+    } finally {
+      await relate.close();
+    }
+  });
   it('reads SQLite invoices, enforces roles, replays reviews and refreshes the HTTP source', async () => {
     const app = await startWorkspace();
 
@@ -26,7 +64,9 @@ describe('interactive customer workspace', () => {
         ),
       ).toBe(true);
       expect(
-        fin.invoices.data.map((invoice) => invoice.data.totalMinor).sort(),
+        fin.invoices.data
+          .map((invoice) => invoice.data.totalMinor)
+          .sort((a, b) => a! - b!),
       ).toEqual([125000, 480000]);
       await expect(
         app.review('fin', 'Not permitted', 'denied'),

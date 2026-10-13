@@ -620,11 +620,35 @@ console.log('Installed inspector protocol and packaged assets load.');
 
   process.stdout.write(inspector.stdout);
 
-  // One command serves the graph from the installed CLI: no frontend build,
-  // database, credentials or provider calls.
+  // The installed CLI seeds its own runtime using package-owned fixture data.
   await writeFile(
     join(consumer, 'relate.config.ts'),
-    "import { defineApp } from 'relate';\nimport { createInvoiceGraph } from './invoice-graph.js';\nconst { graph } = createInvoiceGraph();\nexport default defineApp({ graph, setup() { throw new Error('Inspector must not execute setup'); } });\n",
+    `import assert from 'node:assert/strict';
+import { connect, defineApp } from 'relate';
+import type { Relate } from '@relate/node';
+import { createInvoiceGraph } from './invoice-graph.js';
+const { graph, customers, invoices, Customer, ana } = createInvoiceGraph();
+const connector = {
+  identify: async () => 'packed-account',
+  fetch: async (id: string) => ({
+    providerAccountId: 'packed-account', state: 'present' as const,
+    record: { id, name: 'Northwind', portfolio: 'north', revenue: 1 },
+  }),
+};
+export default defineApp({ graph, setup() {
+  return { connections: [customers, invoices].map((resource) => connect(resource, {
+    connectionId: resource.id, providerAccountId: 'packed-account', connector,
+  })) };
+} });
+export async function seed(relate: Relate<typeof graph>) {
+  const id = await relate.host.adopt(Customer, 'packed-customer');
+  const page = await relate.as(ana).objects.Customer.query({ select: ['name'] });
+  assert.equal(page.data.length, 1);
+  assert.equal(page.data[0]?.id, id);
+  assert.equal(page.data[0]?.data.name, 'Northwind');
+  console.log('packed seed verified');
+}
+`,
   );
   const port = await new Promise((resolvePort, reject) => {
     const probe = createServer();
@@ -638,7 +662,13 @@ console.log('Installed inspector protocol and packaged assets load.');
   });
   const dev = spawn(
     process.execPath,
-    ['node_modules/@relate/cli/bin/relate.js', 'dev', '--port', String(port)],
+    [
+      'node_modules/@relate/cli/bin/relate.js',
+      'dev',
+      '--seed',
+      '--port',
+      String(port),
+    ],
     { cwd: consumer, env: { ...process.env, NO_COLOR: '1' } },
   );
   const devOutput = [];
@@ -650,15 +680,17 @@ console.log('Installed inspector protocol and packaged assets load.');
     const deadline = Date.now() + 30_000;
 
     while (
-      !/ready\s+gen 1\s+invoice-read/.test(Buffer.concat(devOutput).toString())
+      !/runtime gen 1\s+running/.test(Buffer.concat(devOutput).toString())
     ) {
       if (dev.exitCode !== null || Date.now() > deadline)
         throw new Error(
-          `relate dev did not publish a model:\n${Buffer.concat(devOutput)}`,
+          `relate dev did not start its seeded runtime:\n${Buffer.concat(devOutput)}`,
         );
 
       await new Promise((tick) => setTimeout(tick, 100));
     }
+
+    assert.match(Buffer.concat(devOutput).toString(), /packed seed verified/);
 
     const identity = await fetch(`http://127.0.0.1:${port}/dev/instance`);
 
@@ -677,7 +709,7 @@ console.log('Installed inspector protocol and packaged assets load.');
       401,
     );
     console.log(
-      'Installed relate dev serves the inspector and compiles the graph.',
+      'Installed relate dev serves the inspector and seeds its live runtime.',
     );
   } finally {
     const exited = new Promise((resolveExit) => dev.once('exit', resolveExit));
