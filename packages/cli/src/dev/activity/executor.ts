@@ -42,7 +42,10 @@ function boundedLogs(result: ExecutionResult): {
 export function observeExecutor(
   inner: CodeExecutor,
   log: ActivityLog,
-  request: Omit<OperationContext, 'executionId'>,
+  // Agent executions only run on a dev runtime host, so a runtime is required.
+  request: Omit<OperationContext, 'executionId' | 'runtimeId'> & {
+    readonly runtimeId: string;
+  },
 ): CodeExecutor {
   return {
     async execute({ code, graph, signal }) {

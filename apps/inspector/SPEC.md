@@ -1541,13 +1541,37 @@ inventing an execution:
 ```ts
 type OperationContext = {
   requestId: string;
-  runtimeId: string;
+  runtimeId?: string; // a relate dev runtime host; other hosts have none
   definitionRevision: string;
   principal: string;
-  transport: 'mcp' | 'http';
-  executionId?: string;
+  transport: 'embedded' | 'http' | 'mcp';
+  executionId?: string; // only when agent JavaScript made the call
 };
 ```
+
+**L3 is interim.** A runtime activity stream is planned: an `ActivityStore`
+storage capability next to `NativeStore`, written by the runtime engine, with
+`OperationContext` and the entry shape moved to `@relate/protocol` and served to
+HTTP, admin SDK and inspector alike. Only the engine knows which objects and
+fields a read returned or withheld, which objects an action created, and the
+transaction they belong to; a dev-server decorator sees only call arguments and
+counts. When that stream lands, it replaces L3 here, and the inspector shows its
+entries in place of L3's. L1 (MCP call) and L2 (agent code) remain in the dev
+server: they describe transport and agent behavior, not graph access, and join
+runtime entries by `requestId` and `executionId`. Until then L3 stays small, in
+memory and development-only, and `OperationContext` already uses the planned
+protocol shape so the move is a rename. The stream's own design (store contract,
+read durability, read detail, who may read activity, relation to `value_changes`
+and `native_invocations`, retention and erasure) belongs in the runtime
+documentation, not this SPEC; it is undecided.
+
+**Dev history must survive runtime restarts.** In `relate dev` the runtime
+engine lives in the runtime host, which restarts on every accepted build, and
+the default in-memory `ActivityStore` would be lost with it. The runtime host
+will therefore forward its activity entries to the dev server over IPC (an
+additional `RuntimeMessage`), and the dev server keeps the bounded history
+across restarts, as the L3 log does today. A persistent application store does
+not need this, but development defaults to memory.
 
 ```ts
 // apps/inspector/src/protocol.ts (proposed)
@@ -1619,7 +1643,9 @@ executor a per-execution wrapped binding:
 function observeExecutor(
   inner: CodeExecutor,
   log: ActivityLog,
-  request: Omit<OperationContext, 'executionId'>,
+  request: Omit<OperationContext, 'executionId' | 'runtimeId'> & {
+    readonly runtimeId: string; // agent executions always run on a dev runtime host
+  },
 ): CodeExecutor {
   return {
     async execute({ code, graph, signal }) {
@@ -1664,7 +1690,7 @@ therefore which data, connectors and action code) each call ran against.
 | `packages/protocol`                                           | `runtime-retired` read and action error code (public, so clients can tell it from a denial)                    |
 | `packages/cli/src/dev/runtime-binding.ts`                     | `RuntimeBinding`: discovery snapshot + pinned IPC operations, shared by `/mcp` and future `/api`               |
 | `packages/cli/src/dev/mcp.ts`                                 | `/mcp`, bearer token, `?as=` (implemented)                                                                     |
-| `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity` (implemented)                                                   |
+| `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity` (implemented; L3 interim until the runtime activity stream)     |
 | `packages/cli/src/dev/agent.ts`                               | Agent loop, `/dev/agent/*`                                                                                     |
 | `apps/inspector`                                              | Principal selector, agent panel, activity timeline, graph highlights, protocol types                           |
 | `tests/architecture/package-boundaries.ts`                    | `packages/cli` may import `@relate/mcp`, `@modelcontextprotocol/client` (step 2), `@anthropic-ai/sdk` (step 3) |

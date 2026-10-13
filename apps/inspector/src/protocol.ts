@@ -202,13 +202,18 @@ export const activityOperationSchema = z.enum([
 /**
  * Who made a graph operation. `executionId` is present only when agent
  * JavaScript made the call; a transport request (a future `/api`) has none.
+ * `runtimeId` names a `relate dev` runtime host; other hosts have none.
+ *
+ * Shaped like the planned runtime activity stream's `OperationContext` in
+ * `@relate/protocol` (see SPEC "Activity observation"), so moving there is a
+ * rename rather than a migration.
  */
 export const operationContextSchema = z.strictObject({
   requestId: text,
-  runtimeId: text,
+  runtimeId: text.optional(),
   definitionRevision: text,
   principal: text,
-  transport: z.enum(['mcp', 'http']),
+  transport: z.enum(['embedded', 'http', 'mcp']),
   executionId: text.optional(),
 });
 
