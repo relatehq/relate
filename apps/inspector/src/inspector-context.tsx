@@ -13,24 +13,51 @@ import {
   touchedDefinitions,
 } from './connection/activity.js';
 import type { ActivityClient, ActivityState } from './connection/activity.js';
+import { initialAgent } from './connection/agent.js';
+import type { AgentClient, AgentState } from './connection/agent.js';
 import type { DevClient } from './connection/client.js';
 import type { InspectorState } from './connection/store.js';
 
 const DevClientContext = createContext<DevClient | null>(null);
 const ActivityClientContext = createContext<ActivityClient | null>(null);
+const AgentClientContext = createContext<AgentClient | null>(null);
 
 export function DevClientProvider(props: {
   readonly client: DevClient;
   /** Optional so screens render without the activity stream (tests, older servers). */
   readonly activity?: ActivityClient;
+  /** Optional for the same reason; the agent panel then shows nothing to talk to. */
+  readonly agent?: AgentClient;
   readonly children: ReactNode;
 }) {
   return (
     <DevClientContext.Provider value={props.client}>
       <ActivityClientContext.Provider value={props.activity ?? null}>
-        {props.children}
+        <AgentClientContext.Provider value={props.agent ?? null}>
+          {props.children}
+        </AgentClientContext.Provider>
       </ActivityClientContext.Provider>
     </DevClientContext.Provider>
+  );
+}
+
+const noAgent = {
+  getState: () => initialAgent,
+  subscribe: () => () => {},
+};
+
+/** The agent client, or null when the inspector runs without one. */
+export function useAgentClient(): AgentClient | null {
+  return useContext(AgentClientContext);
+}
+
+export function useAgent(): AgentState {
+  const client = useContext(AgentClientContext) ?? noAgent;
+
+  return useSyncExternalStore(
+    client.subscribe,
+    client.getState,
+    client.getState,
   );
 }
 

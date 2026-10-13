@@ -27,6 +27,9 @@ const graphRoute = createRoute({
 const activityRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/activity',
+  // `?request=<requestId>` opens one call, as linked from the agent panel.
+  validateSearch: (search: Record<string, unknown>): { request?: string } =>
+    typeof search.request === 'string' ? { request: search.request } : {},
   component: ActivityScreen,
 });
 

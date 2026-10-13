@@ -2,7 +2,8 @@ import { effectivePrincipal, failureOrigin } from './connection/store.js';
 import type { ModelSnapshot, RuntimeStatus } from './protocol.js';
 import { choosePrincipal, useChosenPrincipal } from './principal.js';
 import { Icon } from './icons.js';
-import { useInspectorState } from './inspector-context.js';
+import { useAgent, useInspectorState } from './inspector-context.js';
+import { setAgentPanelOpen, useAgentPanelOpen } from './panel/AgentPanel.js';
 import { useActivePage } from './NavRail.js';
 import { useTheme } from './theme/theme.js';
 import { IconButton, Status, Tag } from './ui.js';
@@ -110,6 +111,32 @@ function RuntimeIndicator(props: {
   );
 }
 
+/** Opens the agent panel; marks a running turn so it is visible with the panel closed. */
+function AgentToggle() {
+  const open = useAgentPanelOpen();
+  const agent = useAgent();
+  const running = [...agent.conversations.values()].some(
+    (conversation) => conversation.turn !== null,
+  );
+  const label = open ? 'Close the agent' : 'Open the agent';
+
+  return (
+    <button
+      type="button"
+      className={`icon-button icon-button-sm agent-toggle${open ? ' active' : ''}${
+        running ? ' running' : ''
+      }`}
+      aria-label={label}
+      aria-pressed={open}
+      data-tooltip={running ? `${label} (working)` : label}
+      data-tooltip-place="bottom"
+      onClick={() => setAgentPanelOpen(!open)}
+    >
+      <Icon name="message" />
+    </button>
+  );
+}
+
 /** The 44px header: brand, graph, page, generation, problems, runtime, principal, connection and theme. */
 export function StatusBar() {
   const state = useInspectorState();
@@ -186,6 +213,7 @@ export function StatusBar() {
       {state.model && <PrincipalSelector model={state.model} />}
       <Status color={status[0]}>{status[1]}</Status>
       <span className="header-separator" aria-hidden="true" />
+      <AgentToggle />
       <IconButton label={themeLabel} onClick={toggle}>
         <Icon name={theme === 'dark' ? 'moon' : 'sun'} />
       </IconButton>

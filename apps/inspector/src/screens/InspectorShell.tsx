@@ -2,12 +2,14 @@ import type { ReactNode } from 'react';
 import { NavRail } from '../NavRail.js';
 import { StatusBar } from '../StatusBar.js';
 import { useInspectorState } from '../inspector-context.js';
+import { AgentPanel, useAgentPanelOpen } from '../panel/AgentPanel.js';
 import { ThemeContext, useThemeState } from '../theme/theme.js';
 
 /** Frame around every screen: rail and header, or the no-session card in their place. */
 export function InspectorShell(props: { readonly children: ReactNode }) {
   const state = useInspectorState();
   const theme = useThemeState();
+  const agentOpen = useAgentPanelOpen();
 
   return (
     <ThemeContext.Provider value={theme}>
@@ -43,6 +45,7 @@ export function InspectorShell(props: { readonly children: ReactNode }) {
               <StatusBar />
               {props.children}
             </div>
+            {agentOpen && <AgentPanel />}
           </>
         )}
       </div>

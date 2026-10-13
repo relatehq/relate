@@ -16,6 +16,7 @@ import type { InspectorApp } from '@relate/inspector/server';
 import { UsageError, devUsage, parseDevArguments } from './arguments.js';
 import type { DevArguments } from './arguments.js';
 import { createActivityLog } from './activity/index.js';
+import { agentSetup, connectLoopbackMcp, createAgent } from './agent.js';
 import { createAttemptRunner } from './attempts.js';
 import type { AttemptOutcome } from './attempts.js';
 import { createBuilder } from './build.js';
@@ -283,12 +284,27 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       },
       activity,
     });
+    // The agent reads ANTHROPIC_API_KEY here, in the dev server, and reaches
+    // the graph through its own /mcp with the in-process agent token.
+    const agent = createAgent({
+      env: options.env,
+      principals: () => {
+        const model = supervisor.state.model;
+
+        return model ? { names: model.principals } : null;
+      },
+      connect: connectLoopbackMcp({
+        url: `${bound.url}/mcp`,
+        token: mcp.agentToken,
+      }),
+    });
     const server = createDevServer({
       supervisor,
       sessions,
       ownerId: lock.metadata.ownerId,
       inspector,
       activity,
+      agent,
       mcp: mcp.handle,
     });
 
@@ -312,6 +328,9 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       terminal.notice(
         'Runtime    off (--no-runtime); the application is not started',
       );
+
+    if (!agent.availability.available)
+      terminal.notice(`Agent      off: no ANTHROPIC_API_KEY. ${agentSetup}`);
 
     if (args.open)
       try {
@@ -432,6 +451,8 @@ export async function runDev(options: RunDevOptions): Promise<number> {
 
         stopping = true;
         watcher.close();
+        // Turns call /mcp, so they end before the listener closes.
+        await agent.stop();
         server.closeStreams();
         sessions.clear();
         await runner.stop();

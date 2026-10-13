@@ -4,6 +4,10 @@
  * authentication, so an unauthenticated body is never buffered or parsed. The
  * handler decides which runtime serves the caller, then begins the call; the
  * observer finishes it from the response.
+ *
+ * A trusted caller (the inspector's own agent) may name the request ID in the
+ * call's `_meta` (`requestIdMeta`), so it can link its `tool_use` to the
+ * activity entry before the call returns. Anyone else gets a fresh ID.
  */
 import { randomUUID } from 'node:crypto';
 import type { CallEvent } from '@relate/inspector/protocol';
@@ -30,21 +34,39 @@ export interface CallObservation {
 
 const tools: readonly string[] = ['discover', 'execute'];
 
+/** The `_meta` key under which a trusted caller names its request ID. */
+export const requestIdMeta = 'dev.relate/requestId';
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /** The tool named by a single JSON-RPC `tools/call`; never consumes the original body. */
-async function toolOf(request: Request): Promise<CallTool | null> {
+async function toolOf(
+  request: Request,
+): Promise<{ readonly tool: CallTool; readonly requestId?: string } | null> {
   if (request.method !== 'POST') return null;
 
   try {
     const message = (await request.clone().json()) as {
       method?: unknown;
-      params?: { name?: unknown };
+      params?: { name?: unknown; _meta?: Record<string, unknown> };
     };
 
-    return message.method === 'tools/call' &&
-      typeof message.params?.name === 'string' &&
-      tools.includes(message.params.name)
-      ? (message.params.name as CallTool)
-      : null;
+    if (
+      message.method !== 'tools/call' ||
+      typeof message.params?.name !== 'string' ||
+      !tools.includes(message.params.name)
+    )
+      return null;
+
+    const requestId = message.params._meta?.[requestIdMeta];
+
+    return {
+      tool: message.params.name as CallTool,
+      ...(typeof requestId === 'string' && uuidPattern.test(requestId)
+        ? { requestId }
+        : {}),
+    };
   } catch {
     return null;
   }
@@ -84,13 +106,19 @@ export async function observeRequest(
   log: ActivityLog,
   request: Request,
   handle: (call: CallObservation) => Promise<Response>,
+  options: {
+    /** Honor a request ID named in `_meta`; only for the inspector's own agent. */
+    readonly trustRequestId?: boolean;
+  } = {},
 ): Promise<Response> {
-  const tool = await toolOf(request);
+  const named = await toolOf(request);
+  const tool = named?.tool ?? null;
   const started = performance.now();
   let begun: Omit<CallEvent, 'status' | 'ms' | 'error'> | null = null;
   let unavailable: string | undefined;
   const call: CallObservation = {
-    requestId: randomUUID(),
+    requestId:
+      (options.trustRequestId ? named?.requestId : undefined) ?? randomUUID(),
     tool,
     begin(details) {
       if (!tool || begun) return;

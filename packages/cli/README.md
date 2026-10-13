@@ -82,6 +82,9 @@ shown as **No runtime**) instead of failing on every save.
   open the terminal link instead.
 - The `MCP` lines carry the project's bearer token for `/mcp` (see [MCP](#mcp)).
   `--quiet` prints only the `Inspector` line and the `claude mcp add` line.
+- Without `ANTHROPIC_API_KEY`, an `Agent      off: no ANTHROPIC_API_KEY` line
+  gives the setup for the [built-in agent](#built-in-agent); nothing else
+  changes.
 - Successful loads advance the generation; failed attempts keep the last good
   model on screen and print structured diagnostics with `path:line:column`
   tokens relative to the invoking directory.
@@ -134,7 +137,9 @@ shown as **No runtime**) instead of failing on every save.
 - Environment variables are inherited from the invoking shell, except that the
   compile worker and the runtime host, which both import your modules, never
   receive `ANTHROPIC_API_KEY`; the command loads no `.env` files. Use the
-  project's own loader: `pnpm exec dotenvx run -f .env -- pnpm relate dev`.
+  project's own loader: `pnpm exec dotenvx run -f .env -- pnpm relate dev`. The
+  key is read only by the dev server's built-in agent; `execute` children
+  inherit only `PATH`, and no browser payload carries it.
 - Ctrl+C stops the watcher, terminates owned children (five seconds of grace, or
   immediately on a second Ctrl+C), closes the listener and releases the lock.
   Exit codes: 0 normal, 1 fatal startup or supervisor failure, 2 invalid
@@ -154,6 +159,7 @@ any `--allowed-origin`, and cross-site fetches are rejected.
 | `GET /dev/snapshot` | yes     | Current model, failure, runtime status and sequence          |
 | `GET /dev/events`   | yes     | SSE: snapshot, then `model` / `diagnostics` / `runtime`      |
 | `GET /dev/activity` | yes     | Activity snapshot (JSON), or SSE with `text/event-stream`    |
+| `/dev/agent/*`      | yes     | The built-in agent; see [Built-in agent](#built-in-agent)    |
 | `POST /mcp`         | bearer  | `@relate/mcp` `discover` / `execute`; see [MCP](#mcp)        |
 
 The wire shapes are validated with `@relate/inspector/protocol`.
@@ -234,6 +240,53 @@ identifiers, keys and cursors to 256 characters, previews to 1 KiB, code and
 logs to 16 KiB each, with a 64 KiB per-event backstop. Record values are never
 kept, only IDs and counts.
 
+### Built-in agent
+
+`src/dev/agent.ts` runs the inspector's agent loop in the dev server with
+`@anthropic-ai/sdk`: model `claude-opus-5-5`, streamed, adaptive thinking with
+effort `high` set explicitly, `max_tokens` 64,000, and server-side refusal
+fallbacks (`fallbacks: 'default'`). The key comes from `ANTHROPIC_API_KEY` in
+the dev server's environment only; without it the agent reports `missing-key`
+and `POST /dev/agent/turns` answers `503` with the setup line.
+
+The model reaches the graph exactly as an external client does: an
+`@modelcontextprotocol/client` connects over loopback to this server's own
+`/mcp?as=<principal>` with `McpEndpoint.agentToken`, a second bearer token that
+exists only in memory (never printed or written). Calls with it are recorded as
+`source: 'inspector-agent'`, and each names its activity request ID in
+`params._meta['dev.relate/requestId']`, so a chat tool call links to its
+activity entry while it runs. Any other caller's `_meta` ID is ignored.
+
+```text
+browser ─POST /dev/agent/turns─▶ agent loop ─messages.stream─▶ Anthropic API
+                                     │ tool_use toolu_1
+                                     └─tools/call _meta{requestId}─▶ /mcp?as=alice ─▶ runtime host
+```
+
+Per turn: MCP tools map field by field to Anthropic tools (`inputSchema` →
+`input_schema`); `stop_reason` is checked before any tool runs (`refusal`,
+`max_tokens` and `model_context_window_exceeded` leave tool calls unrun and
+answered as such); every `tool_use` of a response runs and all `tool_result`s
+return in one user message; history is append-only. A turn stops after 40 model
+responses.
+
+| Route                                  | Body / reply                                                     |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `GET /dev/agent/conversations`         | `AgentSnapshot`: availability and one conversation per principal |
+| `GET /dev/agent/events`                | SSE: `AgentSnapshot`, then `turn` / `message` / `text` events    |
+| `POST /dev/agent/turns`                | `{ principal, text }` → `202 { turnId, principal }`              |
+| `POST /dev/agent/turns/:turnId/cancel` | `202 { turnId, principal }`, or `404` when not running           |
+
+Turn requests need the session cookie, the page's own `Origin` and a JSON body.
+`400` for an empty or oversized message, `404` for an undeclared principal,
+`409` while that principal already has a running turn or before the first model,
+`503` without a key. Conversations are in memory, one per principal; a turn is
+pinned to the principal it started with. Cancelling aborts the model stream and
+any in-flight `tools/call`; a cancelled call is answered to the model as
+cancelled with an unknown outcome and never retried. A retryable
+`binding-unavailable` result reaches the model unchanged. Shapes are in
+`@relate/inspector/protocol` (`agentEventSchema` and friends).
+
 ## Programmatic API
 
 `@relate/cli` exports the pieces `relate dev` is built from for tests and
@@ -242,7 +295,23 @@ embedding: `runDev`, `parseDevArguments`, `resolveProject`, `acquireLock`,
 `createBuilder`, `createWatcher`, `createAttemptRunner`, `createTerminal`,
 `createRuntimeController`, `createRuntimeBinding`, `createMcpEndpoint`,
 `readMcpToken`, `createActivityLog`, `observeRequest`, `observeExecutor`,
-`observeOperations`, `diffManifests` and `summarizeDiff`.
+`observeOperations`, `createAgent`, `connectLoopbackMcp`, `mountAgentRoutes`,
+`diffManifests` and `summarizeDiff`.
+
+`createAgent` takes its model client and tool connection as parameters, so a
+test can drive it without the network:
+
+```ts
+const agent = createAgent({
+  env: process.env, // reads ANTHROPIC_API_KEY only
+  principals: () => ({ names: ['alice', 'bob'] }),
+  connect: connectLoopbackMcp({ url: `${origin}/mcp`, token: mcp.agentToken }),
+  createClient: (apiKey) => fakeAnthropic, // default: new Anthropic({ apiKey })
+});
+
+const { turnId } = agent.send('alice', 'How many notes can I see?');
+agent.cancel(turnId);
+```
 
 A `RuntimeBinding` is one `(runtimeId, principal)` view of the runtime host:
 
@@ -265,7 +334,8 @@ await alice.operations.query('business.customer'); // IPC, pinned to alice.runti
 
 ## Not yet implemented
 
-- The built-in agent panel (`/dev/agent/*`).
+- Direct tool calls from the inspector without the model (a playground).
+- Persisting agent conversations across `relate dev` restarts.
 - A consumer HTTP API at `/api` (reserved).
 - Remote MCP clients (such as ChatGPT) through a public tunnel; `/mcp` is
   loopback-only and `--allowed-origin` covers browser origins, not tunnels.

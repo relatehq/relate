@@ -340,6 +340,123 @@ export function activityRequestId(event: ActivityEvent): string {
   return event.kind === 'operation' ? event.context.requestId : event.requestId;
 }
 
+/**
+ * The built-in agent, served under `/dev/agent/*`. The loop runs in the dev
+ * server (the API key never reaches the browser) and keeps one conversation
+ * per development principal. These are display shapes: the model's own
+ * history, thinking included, stays in the dev server.
+ *
+ *   GET  /dev/agent/conversations            → AgentSnapshot
+ *   GET  /dev/agent/events (SSE)             → AgentSnapshot, then AgentEvent…
+ *   POST /dev/agent/turns  AgentTurnRequest  → 202 AgentTurnAccepted
+ *   POST /dev/agent/turns/:turnId/cancel     → 202 AgentTurnAccepted
+ */
+export const AGENT_TEXT_LIMIT = 32 * 1024;
+
+export const agentAvailabilitySchema = z.discriminatedUnion('available', [
+  z.strictObject({ available: z.literal(true), model: text }),
+  z.strictObject({
+    available: z.literal(false),
+    /** `missing-key`: `ANTHROPIC_API_KEY` is not in the dev server's environment. */
+    reason: z.enum(['missing-key']),
+  }),
+]);
+
+export const agentMessageSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('user'),
+    id: text,
+    at: text,
+    text: z.string(),
+  }),
+  /** One text block of a model response; grows by `text` events while streaming. */
+  z.strictObject({ kind: z.literal('assistant'), id: text, text: z.string() }),
+  z.strictObject({
+    kind: z.literal('tool'),
+    /** The model's `tool_use` ID. */
+    id: text,
+    name: z.string(),
+    /** `execute`: the code; otherwise the input as bounded JSON. */
+    input: z.string(),
+    /** The activity request this call is recorded under (`CallEvent.requestId`). */
+    requestId: text,
+    status: z.enum(['running', 'succeeded', 'failed', 'cancelled']),
+    /** Bounded preview of what the tool returned to the model. */
+    result: z.string().optional(),
+  }),
+  /** Refusals, truncation, cancellation and API errors, said plainly. */
+  z.strictObject({
+    kind: z.literal('notice'),
+    id: text,
+    level: z.enum(['info', 'warning', 'error']),
+    text: z.string(),
+  }),
+]);
+
+export const agentTurnSchema = z.strictObject({
+  turnId: text,
+  /** The principal the turn started with; a selector change never alters it. */
+  principal: text,
+  status: z.enum(['running', 'cancelling']),
+});
+
+export const agentConversationSchema = z.strictObject({
+  principal: text,
+  turn: agentTurnSchema.nullable(),
+  messages: z.array(agentMessageSchema).readonly(),
+});
+
+export const agentSnapshotSchema = z.strictObject({
+  type: z.literal('snapshot'),
+  availability: agentAvailabilitySchema,
+  conversations: z.array(agentConversationSchema).readonly(),
+});
+
+export const agentEventSchema = z.discriminatedUnion('type', [
+  agentSnapshotSchema,
+  /** A turn started, is cancelling, or ended (`turn: null`). */
+  z.strictObject({
+    type: z.literal('turn'),
+    principal: text,
+    turn: agentTurnSchema.nullable(),
+  }),
+  /** Insert or replace a message by ID. */
+  z.strictObject({
+    type: z.literal('message'),
+    principal: text,
+    message: agentMessageSchema,
+  }),
+  /** Append streamed text to an assistant message. */
+  z.strictObject({
+    type: z.literal('text'),
+    principal: text,
+    messageId: text,
+    delta: z.string(),
+  }),
+]);
+
+export const agentTurnRequestSchema = z.strictObject({
+  principal: text,
+  text: z.string().trim().min(1).max(AGENT_TEXT_LIMIT),
+});
+
+export const agentTurnAcceptedSchema = z.strictObject({
+  turnId: text,
+  principal: text,
+});
+
+export const agentErrorSchema = z.strictObject({ error: z.string() });
+
+export type AgentAvailability = z.infer<typeof agentAvailabilitySchema>;
+export type AgentMessage = z.infer<typeof agentMessageSchema>;
+export type AgentToolMessage = Extract<AgentMessage, { kind: 'tool' }>;
+export type AgentTurn = z.infer<typeof agentTurnSchema>;
+export type AgentConversation = z.infer<typeof agentConversationSchema>;
+export type AgentSnapshot = z.infer<typeof agentSnapshotSchema>;
+export type AgentEvent = z.infer<typeof agentEventSchema>;
+export type AgentTurnRequest = z.infer<typeof agentTurnRequestSchema>;
+export type AgentTurnAccepted = z.infer<typeof agentTurnAcceptedSchema>;
+
 /** Bootstrap exchange: the terminal token becomes an opaque session cookie. */
 export const sessionRequestSchema = z.strictObject({ token: text });
 

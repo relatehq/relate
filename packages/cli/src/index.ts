@@ -79,6 +79,7 @@ export {
   observeExecutor,
   observeOperations,
   observeRequest,
+  requestIdMeta,
 } from './dev/activity/index.js';
 
 export type {
@@ -95,3 +96,28 @@ export {
 } from './dev/mcp.js';
 
 export type { McpEndpoint, McpEndpointOptions } from './dev/mcp.js';
+
+export {
+  AgentRequestError,
+  agentEffort,
+  agentMaxModelCalls,
+  agentMaxTokens,
+  agentModel,
+  agentSetup,
+  connectLoopbackMcp,
+  createAgent,
+  mountAgentRoutes,
+  systemPrompt,
+  toAnthropicTools,
+  toToolResult,
+} from './dev/agent.js';
+
+export type {
+  Agent,
+  AgentModelClient,
+  AgentModelStream,
+  AgentOptions,
+  AgentStreamParams,
+  AgentToolSession,
+  ConnectAgentTools,
+} from './dev/agent.js';

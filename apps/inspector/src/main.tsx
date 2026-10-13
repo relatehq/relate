@@ -12,6 +12,7 @@ import './theme/theme-light.css';
 import './theme/theme-dark.css';
 import './styles.css';
 import { createActivityClient, followSession } from './connection/activity.js';
+import { createAgentClient } from './connection/agent.js';
 import {
   createDevClient,
   inspectorBaseUrl,
@@ -25,17 +26,19 @@ const token = takeFragmentToken(window.location, window.history);
 const baseUrl = inspectorBaseUrl(window.location);
 const client = createDevClient({ baseUrl, token });
 const activity = createActivityClient({ baseUrl });
+const agent = createAgentClient({ baseUrl });
 const queryClient = new QueryClient();
 const router = createInspectorRouter();
 
-// The activity stream needs the dev client's session; it follows its lifetime.
+// The activity and agent streams need the dev client's session; they follow its lifetime.
 followSession(client, activity);
+followSession(client, agent);
 void client.start();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <DevClientProvider client={client} activity={activity}>
+      <DevClientProvider client={client} activity={activity} agent={agent}>
         <RouterProvider router={router} />
       </DevClientProvider>
     </QueryClientProvider>

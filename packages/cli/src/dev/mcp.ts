@@ -12,6 +12,11 @@
  * Only then is the request observed as activity. When the runtime cannot
  * serve the principal, tool calls fail at once with the reason, as a
  * `BindingUnavailableError` the caller sees.
+ *
+ * The inspector's built-in agent uses the same endpoint over loopback with a
+ * second token, `agentToken`, which exists only in this process: it is never
+ * printed or written. Its calls are recorded as `source: 'inspector-agent'`,
+ * and it may name each call's activity request ID (see `requestIdMeta`).
  */
 import { randomBytes } from 'node:crypto';
 import { chmod, readFile, writeFile } from 'node:fs/promises';
@@ -27,6 +32,7 @@ import {
   observeExecutor,
   observeRequest,
   type ActivityLog,
+  type CallSource,
 } from './activity/index.js';
 import type { RuntimeBinding } from './runtime-binding.js';
 import { RuntimeUnavailableError } from './runtime-controller.js';
@@ -51,6 +57,8 @@ export interface McpEndpointOptions {
 
 export interface McpEndpoint {
   readonly token: string;
+  /** The built-in agent's in-process credential; never printed or stored. */
+  readonly agentToken: string;
   handle(request: Request): Promise<Response>;
 }
 
@@ -125,6 +133,7 @@ function unavailable(error: unknown): BindingUnavailableError {
 export function createMcpEndpoint(options: McpEndpointOptions): McpEndpoint {
   const { token } = options;
   const executor = options.executor ?? createDevelopmentExecutor();
+  const agentToken = createMcpToken();
   const json = (status: number, error: string, headers = {}) =>
     Response.json({ error }, { status, headers: { ...noStore, ...headers } });
 
@@ -133,6 +142,7 @@ export function createMcpEndpoint(options: McpEndpointOptions): McpEndpoint {
 
   return {
     token,
+    agentToken,
     async handle(request) {
       if (request.headers.has('origin'))
         return json(403, 'MCP does not accept browser requests');
@@ -141,7 +151,15 @@ export function createMcpEndpoint(options: McpEndpointOptions): McpEndpoint {
         request.headers.get('authorization') ?? '',
       )?.[1];
 
-      if (!supplied || !constantTimeEqual(supplied, token))
+      const source: CallSource | null = !supplied
+        ? null
+        : constantTimeEqual(supplied, token)
+          ? 'external'
+          : constantTimeEqual(supplied, agentToken)
+            ? 'inspector-agent'
+            : null;
+
+      if (source === null)
         return json(
           401,
           'Use the bearer token printed by relate dev: Authorization: Bearer <token>',
@@ -167,56 +185,61 @@ export function createMcpEndpoint(options: McpEndpointOptions): McpEndpoint {
 
       const principal = requested ?? declared?.defaultPrincipal ?? null;
 
-      return observeRequest(options.activity, request, async (call) => {
-        let binding: RuntimeBinding | null = null;
-        let failure: BindingUnavailableError | null = null;
+      return observeRequest(
+        options.activity,
+        request,
+        async (call) => {
+          let binding: RuntimeBinding | null = null;
+          let failure: BindingUnavailableError | null = null;
 
-        if (!options.runtime)
-          failure = new BindingUnavailableError(
-            'The runtime is off (relate dev --no-runtime)',
-            { retryable: false },
-          );
-        else if (principal === null)
-          failure = new BindingUnavailableError(
-            'No model has compiled yet; fix the errors shown by relate dev',
-            { retryable: true },
-          );
-        else
-          try {
-            binding = await options.runtime.binding(principal);
-          } catch (error) {
-            failure = unavailable(error);
-          }
+          if (!options.runtime)
+            failure = new BindingUnavailableError(
+              'The runtime is off (relate dev --no-runtime)',
+              { retryable: false },
+            );
+          else if (principal === null)
+            failure = new BindingUnavailableError(
+              'No model has compiled yet; fix the errors shown by relate dev',
+              { retryable: true },
+            );
+          else
+            try {
+              binding = await options.runtime.binding(principal);
+            } catch (error) {
+              failure = unavailable(error);
+            }
 
-        call.begin({
-          runtimeId: binding?.runtimeId ?? null,
-          principal,
-          source: 'external',
-          ...(failure ? { unavailable: failure.message } : {}),
-        });
+          call.begin({
+            runtimeId: binding?.runtimeId ?? null,
+            principal,
+            source,
+            ...(failure ? { unavailable: failure.message } : {}),
+          });
 
-        const graph: GraphBinding | null = binding && {
-          description: binding.description,
-          operations: binding.operations,
-        };
+          const graph: GraphBinding | null = binding && {
+            description: binding.description,
+            operations: binding.operations,
+          };
 
-        return createStreamableHttpHandler({
-          executor: binding
-            ? observeExecutor(executor, options.activity, {
-                requestId: call.requestId,
-                runtimeId: binding.runtimeId,
-                definitionRevision: binding.definitionRevision,
-                principal: binding.principal,
-                transport: 'mcp',
-              })
-            : executor,
-          bindGraph: () => {
-            if (!graph) throw failure!;
+          return createStreamableHttpHandler({
+            executor: binding
+              ? observeExecutor(executor, options.activity, {
+                  requestId: call.requestId,
+                  runtimeId: binding.runtimeId,
+                  definitionRevision: binding.definitionRevision,
+                  principal: binding.principal,
+                  transport: 'mcp',
+                })
+              : executor,
+            bindGraph: () => {
+              if (!graph) throw failure!;
 
-            return graph;
-          },
-        })(request);
-      });
+              return graph;
+            },
+          })(request);
+        },
+        { trustRequestId: source === 'inspector-agent' },
+      );
     },
   };
 }
