@@ -60,8 +60,8 @@ by Relate; the browser never reads the CRM or SQLite directly.
 - [src/launcher.ts](src/launcher.ts): cancellation and bounded shutdown.
 - [src/inspector.ts](src/inspector.ts): CLI child ownership and complete-line
   bootstrap URL parsing.
-- [relate.config.ts](relate.config.ts): side-effect-free graph export for the
-  CLI.
+- [relate.config.ts](relate.config.ts): side-effect-free `defineApp` export for
+  the CLI.
 
 The SQLite connection uses `@relate/connector-sqlite`, with a stable application
 connection ID and explicit selected columns. SQLite owns invoices; Relate's
@@ -78,9 +78,16 @@ The UI and call panel label this limitation explicitly.
 
 The host adopts the known seed records explicitly. This is not a source scan or
 a general customer query API. The role selector chooses from two server-owned
-demo principals; it is not production authentication. The HTTP routes are local
-to this example, not a public Relate transport. The model inspector compiles
-these same definitions without attaching to the example's runtime.
+demo principals (the graph's development `principals`); it is not production
+authentication. The HTTP routes are local to this example, not a public Relate
+transport.
+
+The model inspector runs the same `defineApp` as a second runtime, with its own
+CRM simulator, billing database and memory store. Its `/mcp` endpoint serves
+`?as=ana` or `?as=fin`; `relate dev` prints the `claude mcp add` command. That
+runtime is separate from the browser application: reviews added in one do not
+appear in the other. It also adopts nothing yet, because `relate dev` has no
+adoption hook, so reads find no records until one exists.
 
 For durable Relate state, continue to
 [03 · Postgres persistence](../03-postgres-persistence). Return to the

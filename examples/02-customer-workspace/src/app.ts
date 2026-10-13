@@ -17,17 +17,10 @@ import {
   billingInvoices,
 } from './graph.js';
 
+/** Server-owned demo actors: the graph's development principals with their IDs. */
 export const actors = {
-  ana: {
-    id: 'ana',
-    roles: ['employee', 'account-manager'],
-    claims: { portfolio: 'portfolio_north' },
-  },
-  fin: {
-    id: 'fin',
-    roles: ['employee', 'finance'],
-    claims: { portfolio: 'portfolio_north' },
-  },
+  ana: { id: 'ana', ...graph.principals.ana },
+  fin: { id: 'fin', ...graph.principals.fin },
 };
 
 const addAccountReview = implementAction(
@@ -50,10 +43,17 @@ const addAccountReview = implementAction(
   },
 );
 
-/** Each launch owns a temporary billing database and an isolated Relate memory store. */
-export async function startWorkspace() {
-  let crm!: Awaited<ReturnType<typeof startCrmSimulator>>;
-  const app = defineApp({
+type CrmSimulator = Awaited<ReturnType<typeof startCrmSimulator>>;
+
+/**
+ * The workspace application. Each start owns a temporary billing database, a
+ * CRM simulator and an isolated Relate memory store. `onCrm` hands the running
+ * simulator to a host that edits CRM records, as the browser demo does.
+ */
+export function createWorkspaceApp(
+  options: { readonly onCrm?: (crm: CrmSimulator) => void } = {},
+) {
+  return defineApp({
     graph,
     async setup({ onDispose }) {
       const directory = await mkdtemp(join(tmpdir(), 'relate-workspace-'));
@@ -69,9 +69,11 @@ export async function startWorkspace() {
         seed.close();
       }
 
-      crm = await startCrmSimulator();
+      const crm = await startCrmSimulator();
+
       onDispose(() => crm.stop());
       await crm.update({ status: 'active' });
+      options.onCrm?.(crm);
       const billing = sqlite({ path });
 
       onDispose(() => billing.close());
@@ -96,7 +98,17 @@ export async function startWorkspace() {
       };
     },
   });
-  const relate = await startApp(app);
+}
+
+/** The default export of `relate.config.ts`: `relate dev` runs it as its runtime. */
+export const app = createWorkspaceApp();
+
+/** The browser demo's own runtime, with seed records adopted. */
+export async function startWorkspace() {
+  let crm!: CrmSimulator;
+  const relate = await startApp(
+    createWorkspaceApp({ onCrm: (started) => (crm = started) }),
+  );
 
   // Temporary demo index, not the contents of CustomerReviews: reviews created
   // outside this wrapper are not enumerated. Values are still read through Relate.

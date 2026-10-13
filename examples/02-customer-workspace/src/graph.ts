@@ -156,6 +156,18 @@ export const graph = defineGraph({
   relationships: { CustomerInvoices, CustomerReviews },
   actions: { addAccountReview: AddAccountReview },
   access,
+  // Development principals for `relate dev`: the inspector and `/mcp?as=ana`.
+  // A production host supplies authenticated principals instead.
+  principals: {
+    ana: {
+      roles: ['employee', 'account-manager'],
+      claims: { portfolio: 'portfolio_north' },
+    },
+    fin: {
+      roles: ['employee', 'finance'],
+      claims: { portfolio: 'portfolio_north' },
+    },
+  },
   policies: {
     Customer: {
       read: {

@@ -1,1 +1,1 @@
-export { graph as default } from './src/graph.js';
+export { app as default } from './src/app.js';
