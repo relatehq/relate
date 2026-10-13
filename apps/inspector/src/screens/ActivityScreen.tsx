@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { useSearch } from '@tanstack/react-router';
 import { groupActivity } from '../connection/activity.js';
 import type { RequestActivity } from '../connection/activity.js';
 import { useActivity, useInspectorState } from '../inspector-context.js';
@@ -177,8 +178,15 @@ function Request(props: {
   readonly activeRuntime: string | null;
   readonly labels: ReadonlyMap<string, string>;
   readonly open: boolean;
+  /** Linked from the agent panel: opened, scrolled to and marked. */
+  readonly focused: boolean;
 }) {
   const { call, execution, operations } = props.request;
+  const card = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (props.focused) card.current?.scrollIntoView({ block: 'nearest' });
+  }, [props.focused]);
   const status =
     call?.status ?? execution?.status ?? operations.at(-1)?.status ?? 'running';
   const at = call?.at ?? execution?.at ?? operations[0]?.at;
@@ -189,7 +197,11 @@ function Request(props: {
     null;
 
   return (
-    <details className="activity-request-card" open={props.open}>
+    <details
+      ref={card}
+      className={`activity-request-card${props.focused ? ' focused' : ''}`}
+      open={props.open || props.focused}
+    >
       <summary>
         <Tag color={statusColor[status]} weight="medium">
           {call?.tool ?? operations[0]?.context.transport ?? 'request'}
@@ -227,6 +239,10 @@ function Request(props: {
 export function ActivityScreen() {
   const activity = useActivity();
   const state = useInspectorState();
+  const linked = useSearch({
+    from: '/activity',
+    select: (search) => ('request' in search ? search.request : undefined),
+  });
   const requests = useMemo(
     () => groupActivity(activity.events),
     [activity.events],
@@ -263,9 +279,10 @@ export function ActivityScreen() {
         <div className="placeholder-screen">
           <div className="title">No activity yet</div>
           <div className="hint">
-            Connect an MCP client with the <code>claude mcp add</code> line
-            printed by relate dev. Its calls, the code it runs and every graph
-            read and action appear here.
+            Ask the agent (the chat button in the header), or connect an MCP
+            client with the <code>claude mcp add</code> line printed by relate
+            dev. Its calls, the code it runs and every graph read and action
+            appear here.
           </div>
         </div>
       ) : (
@@ -276,7 +293,8 @@ export function ActivityScreen() {
               request={request}
               activeRuntime={activeRuntime}
               labels={labels}
-              open={index === 0}
+              open={index === 0 && linked === undefined}
+              focused={request.requestId === linked}
             />
           ))}
         </div>

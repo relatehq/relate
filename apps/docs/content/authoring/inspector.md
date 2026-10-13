@@ -111,8 +111,9 @@ Resetting the in-memory store does not undo anything a connector or action
 already did in an external system. Receipts are lost with it, so reusing an
 idempotency key after a restart may perform an action again.
 
-The runtime process does not receive `ANTHROPIC_API_KEY` from your environment;
-every other variable is inherited.
+The runtime process does not receive `ANTHROPIC_API_KEY` (the
+[built-in agent](#ask-the-built-in-agent)'s key) from your environment; every
+other variable is inherited.
 
 **Principal selector.** When the graph declares
 [development principals](./access-control.md#development-principals), the status
@@ -172,10 +173,79 @@ without the `reader` role sees no customers at all.
 It is a development tool, not a sandbox: connect only agents you trust with your
 development data.
 
+## Ask the Built-in Agent
+
+The chat button at the right of the status bar opens the **Agent** panel. Ask a
+question about your graph, or ask it to do something, and the agent answers as
+the principal selected in the **as** selector, through the same `/mcp` endpoint
+and policies an external client uses:
+
+```text
+Add a note saying "Call the customer", then tell me how many notes exist.
+
+  discover  succeeded                                            Activity →
+  execute   succeeded                                            Activity →
+    return await graph.actions.addNote({ input: { body: 'Call the customer' }, idempotencyKey: 'alice-note-1' });
+    [addNote]
+  execute   succeeded                                            Activity →
+    const page = await graph.objects.Note.query({ limit: 100 }); …
+    [Note]
+
+I added the note. Alice can see 1 note; the count only covers notes alice may read.
+```
+
+Each tool call shows the code it ran and the objects it touched. **Activity →**
+opens that call in the activity log, and hovering a call highlights its objects
+on the graph.
+
+**Setup.** The agent runs inside `relate dev`, never in the browser, and uses
+the `claude-opus-5-5` model with your own Anthropic API key. Put the key in the
+project's `.env` and start `relate dev` with the project's loader, because
+`relate dev` loads no `.env` file itself:
+
+```sh
+# .env
+ANTHROPIC_API_KEY=sk-ant-...
+
+pnpm exec dotenvx run -f .env -- pnpm relate dev
+```
+
+Without a key the panel explains this setup, the terminal prints
+`Agent      off: no ANTHROPIC_API_KEY`, and everything else in the inspector
+works as before. The key is read only by the `relate dev` process: your
+application code (the compile and runtime processes), the code the agent runs in
+`execute`, and the browser never receive it.
+
+**One conversation per principal.** Switching the **as** selector shows that
+principal's own conversation; the model never sees records it read as someone
+else. A question that is still running keeps the principal it started with, even
+if you switch while it works. Conversations are kept in memory and are cleared
+when `relate dev` stops. **New conversation** clears the selected principal's
+conversation so the agent starts afresh, for example once a long conversation no
+longer fits the model's context window; cancel a running question first.
+
+**Thinking.** While the agent works, a collapsed **Thinking** entry shows a
+summary of its reasoning, so a long pause has visible progress.
+
+**Cancel.** While the agent works, **Cancel** stops connection setup, the
+response and any tool call still running. The conversation records the
+cancellation so the agent knows not to resume that request unless you ask it to.
+A cancelled call is reported to the agent as cancelled with an unknown outcome
+and is never retried: an action may or may not have run, so check the data
+before asking again.
+
+**Restarts.** If you save a change while the agent works, its next tool call can
+return `binding-unavailable` with `retryable: true`. The agent sees that result
+and decides what to do; `relate dev` never repeats a call for it. When the
+runtime restarted between two of your messages, the next message tells the agent
+that in-memory data was reset and earlier reads may be stale, and the panel
+shows a note saying so.
+
 ## The Activity Log
 
 The **Activity** page (the clock icon in the left rail) shows every `discover`
-and `execute` call as it happens: who called, as which principal, the code an
+and `execute` call as it happens: who called (**inspector agent** for the
+built-in agent, **external client** otherwise), as which principal, the code an
 agent ran, its console output and result, and each graph read and action that
 code made, with filters, record counts, receipt states and errors. While an
 operation runs, the objects it touches are highlighted on the graph.

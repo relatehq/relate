@@ -11,9 +11,10 @@ renders them, but no checker emits them yet. Telemetry, forwarded-origin
 verification against real proxies and the benchmark fixtures are not
 implemented. Development principals and the runtime host (step 1 of
 [Live runtime, MCP and the built-in agent](#live-runtime-mcp-and-the-built-in-agent))
-landed on 2026-10-13; `/mcp`, the activity log and the built-in agent are
-designed but not implemented. Where the sections below say "proposed", they
-preserve design sketches, not additional public API promises. The
+landed on 2026-10-13, followed by step 2 (`/mcp`, the activity log, timeline and
+graph highlights) and step 3 (the built-in agent and its panel); all three steps
+are implemented. Where the sections below say "proposed", they preserve design
+sketches, not additional public API promises. The
 [Inspector README](./README.md), [CLI reference](../../packages/cli/README.md),
 [diagnostic types](../../packages/relate/src/diagnostics.ts), and
 [inspection protocol](./src/protocol.ts) describe the current implementation.
@@ -1247,11 +1248,12 @@ Next cannot implement this product.
 
 **Status:** design agreed 2026-10-13 and revised the same day after review
 (runtime pinning, discovery snapshots, storage, per-principal conversations,
-reserved `/api`). Step 1 (development principals, the runtime host and
-`RuntimeBinding`) and step 2 (`/mcp` with activity observation, the activity
-timeline and graph highlights) are implemented; the agent is not. The IPC reply
-carries errors as `{ type: 'error', id, error }` rather than a `reply` with an
-`error` field, and the parent-side lifecycle lives in
+reserved `/api`). All three steps are implemented: step 1 (development
+principals, the runtime host and `RuntimeBinding`), step 2 (`/mcp` with activity
+observation, the activity timeline and graph highlights) and step 3 (the
+built-in agent, `/dev/agent/*` and the agent panel). The IPC reply carries
+errors as `{ type: 'error', id, error }` rather than a `reply` with an `error`
+field, and the parent-side lifecycle lives in
 `packages/cli/src/dev/runtime-controller.ts`. This replaces the earlier "live
 runtime extension" sketch, which planned attachment to production hosts.
 
@@ -1475,7 +1477,7 @@ claude mcp add --transport http relate "http://127.0.0.1:4318/mcp?as=alice" \
 
 The agent loop runs in the dev server, never the browser, because the API key
 must stay server-side. It reads `ANTHROPIC_API_KEY` from the dev server's
-environment (or an `ant auth login` profile). The CLI still loads no `.env`
+environment only (no other credential source). The CLI still loads no `.env`
 itself (see
 [Environment inherited by the child](#environment-inherited-by-the-child)); keep
 the key in the project `.env` and start with the project's loader:
@@ -1495,8 +1497,16 @@ the dev server's own `/mcp`, lists its tools, exposes them as Anthropic tools
 and forwards each call. Going through `/mcp` keeps the agent on exactly the path
 external clients use.
 
+As implemented, the agent authenticates to `/mcp` with a second bearer token,
+`McpEndpoint.agentToken`, generated in memory by the dev server and never
+printed or written; it is what makes a call `source: 'inspector-agent'`, so an
+external client cannot claim that source. Each `tools/call` names its activity
+request ID in `params._meta['dev.relate/requestId']`, honored only with the
+agent token, so the agent knows the `tool_use` → `requestId` mapping before the
+call returns. A fresh MCP client connects for each turn.
+
 ```ts
-// packages/cli/src/dev/agent.ts (proposed sketch)
+// packages/cli/src/dev/agent.ts (the original sketch; see the file for the loop)
 const mcp = new Client({ name: 'relate-inspector', version });
 await mcp.connect(
   new StreamableHTTPClientTransport(new URL(`${origin}/mcp?as=${principal}`), {
@@ -1521,6 +1531,26 @@ testing. The dev server keeps a separate history per principal. Each turn is
 pinned to the principal it started with; switching in the UI selects another
 conversation and does not affect a turn already running. Direct tool calls from
 the UI (a playground without the model) are later work.
+
+As implemented: `claude-opus-5-5`, streamed, adaptive thinking (summarized, and
+shown in the panel as collapsed progress) with effort `high`, `max_tokens`
+64,000, without automatic refusal fallbacks. `stop_reason` is checked before
+tools run; every `tool_use` of a response runs and all results return in one
+user message; history is append-only, so thinking blocks stay valid. Cancelling
+a turn aborts MCP setup, the stream and any in-flight `tools/call`. History
+records the cancellation so a later message does not resume the cancelled
+request without the developer explicitly asking. A cancelled call is answered to
+the model as cancelled with an unknown outcome and never retried, and a
+retryable `binding-unavailable` result reaches the model unchanged.
+Conversations are in memory and lost when `relate dev` stops; the model's
+history is never trimmed, so **New conversation** resets a principal's
+conversation (refused while a turn runs), for example after the context window
+is exceeded. A runtime restart between turns is not a conversation boundary: the
+next user message starts with a note that in-memory data was reset and earlier
+reads may be stale. The browser talks to the loop through `/dev/agent/*`
+(`GET conversations`, `GET events` (SSE), `POST turns`,
+`POST turns/:turnId/cancel`, `POST conversations/:principal/reset`), whose
+shapes are in [`protocol.ts`](./src/protocol.ts) and validated by the browser.
 
 ### Activity observation
 
@@ -1691,8 +1721,8 @@ therefore which data, connectors and action code) each call ran against.
 | `packages/cli/src/dev/runtime-binding.ts`                     | `RuntimeBinding`: discovery snapshot + pinned IPC operations, shared by `/mcp` and future `/api`               |
 | `packages/cli/src/dev/mcp.ts`                                 | `/mcp`, bearer token, `?as=` (implemented)                                                                     |
 | `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity` (implemented; L3 interim until the runtime activity stream)     |
-| `packages/cli/src/dev/agent.ts`                               | Agent loop, `/dev/agent/*`                                                                                     |
-| `apps/inspector`                                              | Principal selector, agent panel, activity timeline, graph highlights, protocol types                           |
+| `packages/cli/src/dev/agent.ts`                               | Agent loop, `/dev/agent/*` (implemented)                                                                       |
+| `apps/inspector`                                              | Principal selector, agent panel, activity timeline, graph highlights, protocol types (implemented)             |
 | `tests/architecture/package-boundaries.ts`                    | `packages/cli` may import `@relate/mcp`, `@modelcontextprotocol/client` (step 2), `@anthropic-ai/sdk` (step 3) |
 
 Delivery order: (1) principals, the runtime host and `RuntimeBinding`; (2)

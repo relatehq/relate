@@ -3,10 +3,12 @@ import { ModelGraph } from '../graph/ModelGraph.js';
 import { highlightable, mapManifest } from '../graph/map.js';
 import { SidePanel, panelNeeded } from '../panel/SidePanel.js';
 import {
+  useActivity,
   useDevClient,
   useInspectorState,
   useTouchedDefinitions,
 } from '../inspector-context.js';
+import { useFocusedRequest } from '../connection/focus.js';
 import { Callout } from '../ui.js';
 
 export function GraphScreen() {
@@ -35,7 +37,25 @@ export function GraphScreen() {
       edges: present.edges,
     };
   }, [model, state.failure]);
-  const touchedIds = useTouchedDefinitions();
+  const recent = useTouchedDefinitions();
+  const activity = useActivity();
+  const focusedRequest = useFocusedRequest();
+  // Live operations glow briefly; a hovered agent tool call keeps its own
+  // operations' objects lit while it stays hovered.
+  const touchedIds = useMemo(() => {
+    if (focusedRequest === null) return recent;
+
+    const ids = new Set(recent);
+
+    for (const event of activity.events)
+      if (
+        event.kind === 'operation' &&
+        event.context.requestId === focusedRequest
+      )
+        ids.add(event.definitionId);
+
+    return ids;
+  }, [recent, activity.events, focusedRequest]);
   // An action glows through the objects it creates; the graph has no action nodes.
   const touched = useMemo(() => {
     const objects = new Set(touchedIds);

@@ -1,7 +1,7 @@
 /**
  * The stable HTTP surface of `relate dev`: the inspector shell and assets plus
  * `/dev/session`, `/dev/snapshot`, `/dev/events`, `/dev/activity`,
- * `/dev/instance` and `/mcp`. Every response here is `no-store`; the inspector
+ * `/dev/agent/*`, `/dev/instance` and `/mcp`. Every response here is `no-store`; the inspector
  * package owns asset caching.
  */
 import { Hono } from 'hono';
@@ -10,6 +10,8 @@ import type { DevEvent } from '@relate/inspector/protocol';
 import type { InspectorApp } from '@relate/inspector/server';
 import { activityRoute, createActivityLog } from './activity/index.js';
 import type { ActivityLog } from './activity/index.js';
+import { mountAgentRoutes } from './agent.js';
+import type { Agent } from './agent.js';
 import type { Sessions } from './session.js';
 import { createSseStreams, streamJson } from './sse.js';
 import type { Supervisor } from './supervisor.js';
@@ -21,6 +23,8 @@ export interface DevServerOptions {
   readonly inspector?: InspectorApp;
   /** What MCP clients did; an empty log when omitted. */
   readonly activity?: ActivityLog;
+  /** The built-in agent behind `/dev/agent/*`; those routes are 404 without it. */
+  readonly agent?: Agent;
   /** The `/mcp` handler; it does its own bearer authentication. */
   readonly mcp?: (request: Request) => Promise<Response>;
   /** Keep-alive comment interval for SSE connections. */
@@ -90,6 +94,14 @@ export function createDevServer(options: DevServerOptions): DevServer {
       heartbeatMs,
     }),
   );
+
+  if (options.agent)
+    mountAgentRoutes(app, {
+      agent: options.agent,
+      sessions: options.sessions,
+      streams,
+      heartbeatMs,
+    });
 
   // Bearer-authenticated by the handler; the session cookie does not apply.
   if (options.mcp) {
