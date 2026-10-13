@@ -4,12 +4,36 @@
   "license": "Apache-2.0",
   "private": false,
   "type": "module",
-  "description": "MCP server adapter and a separate MCP client entry point.",
+  "description": "Two MCP tools for graph discovery and replaceable JavaScript execution.",
   "dependencies": {
-    "@relate/runtime": "workspace:*",
-    "@relate/protocol": "workspace:*"
+    "@modelcontextprotocol/server": "2.3.1",
+    "@relate/protocol": "workspace:*",
+    "relate": "workspace:*",
+    "zod": "4.6.5"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
+    "@relate/node": "workspace:*"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CONTRACT.md"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "pnpm build && vitest run --root ../.. --project unit packages/mcp/test",
+    "example": "pnpm build && tsx examples/discovery-query-action.ts",
+    "test:packaging": "node test/packaging.mjs"
   }
 }

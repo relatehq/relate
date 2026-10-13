@@ -10,6 +10,7 @@
     "examples/*/src/**/*.ts",
     "examples/*/test/**/*.ts",
     "packages/*/test/**/*.ts",
+    "packages/mcp/examples/**/*.ts",
     "apps/*/test/**/*.ts",
     "vitest.config.ts",
     "connectors/*/test/**/*.ts"

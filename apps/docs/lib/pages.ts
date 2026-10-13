@@ -101,6 +101,14 @@ export const pages: readonly DocPage[] = [
     section: 'Runtime',
   },
   {
+    slug: ['runtime', 'mcp'],
+    name: 'MCP',
+    title: 'MCP: Discover and Execute',
+    description:
+      'Expose actor-bound graph discovery and JavaScript execution over MCP.',
+    section: 'Runtime',
+  },
+  {
     slug: ['reference', 'read-responses'],
     name: 'Read Responses',
     title: 'Read Responses & Evidence',

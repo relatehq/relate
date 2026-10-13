@@ -3,6 +3,8 @@ export const packagePolicies: Record<
   string,
   {
     imports: readonly string[];
+    /** Additional imports only for package-local examples, never library source. */
+    exampleImports?: readonly string[];
     builtins?: true | readonly string[];
     /** Non-code local imports, such as an app stylesheet. */
     assets?: readonly string[];
@@ -75,7 +77,23 @@ export const packagePolicies: Record<
     imports: ['@relate/protocol', 'relate', 'relate/consumer'],
   },
   'packages/http': { imports: ['@relate/runtime', '@relate/protocol'] },
-  'packages/mcp': { imports: ['@relate/runtime', '@relate/protocol'] },
+  'packages/mcp': {
+    imports: [
+      '@relate/protocol',
+      'relate/consumer',
+      '@modelcontextprotocol/server',
+      '@modelcontextprotocol/server/stdio',
+      'zod',
+    ],
+    exampleImports: [
+      '@relate/mcp',
+      'relate',
+      'relate/compiler',
+      '@relate/node',
+      '@modelcontextprotocol/client',
+    ],
+    builtins: true,
+  },
   'packages/cli': {
     imports: [
       'relate',
@@ -199,4 +217,19 @@ export function assertRelateEntryPoints(
 
     if (graph.has(entry)) visit(entry, []);
   }
+}
+
+/** file is a normalized path relative to its owning package. */
+export function assertPackageImport(
+  owner: string,
+  file: string,
+  name: string,
+): void {
+  const policy = packagePolicies[owner];
+
+  if (
+    !policy?.imports.includes(name) &&
+    !(file.startsWith('examples/') && policy?.exampleImports?.includes(name))
+  )
+    throw new Error(`Forbidden dependency: ${owner}/${file}: ${name}`);
 }

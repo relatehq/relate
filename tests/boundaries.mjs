@@ -10,6 +10,7 @@ import {
 } from './architecture/runtime-boundaries.ts';
 import {
   assertRelateEntryPoints,
+  assertPackageImport,
   packagePolicies,
 } from './architecture/package-boundaries.ts';
 
@@ -228,8 +229,12 @@ for (const workspace of workspaces) {
             policy.builtins?.includes(builtin)
           ))
             throw new Error(`Platform dependency: ${file}: ${name}`);
-        } else if (!policy.imports.includes(name))
-          throw new Error(`Forbidden dependency: ${file}: ${name}`);
+        } else
+          assertPackageImport(
+            owner,
+            relative(directory, file).replaceAll(sep, '/'),
+            name,
+          );
       }
 
       ts.forEachChild(node, visit);
