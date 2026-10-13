@@ -5,7 +5,7 @@
  * timeline without inventing an execution.
  *
  * Interim: a runtime activity stream written by the engine is planned to
- * replace this layer (apps/inspector/SPEC.md, "Activity observation"); L1 and
+ * replace this layer (specs/2026-10-13-activity.md); L1 and
  * L2 stay in the dev server.
  *
  * Arguments arrive unvalidated (agent code can pass anything), so every

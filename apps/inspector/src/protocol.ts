@@ -205,7 +205,7 @@ export const activityOperationSchema = z.enum([
  * `runtimeId` names a `relate dev` runtime host; other hosts have none.
  *
  * Shaped like the planned runtime activity stream's `OperationContext` in
- * `@relate/protocol` (see SPEC "Activity observation"), so moving there is a
+ * `@relate/protocol` (see specs/2026-10-13-activity.md), so moving there is a
  * rename rather than a migration.
  */
 export const operationContextSchema = z.strictObject({

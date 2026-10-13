@@ -1,4 +1,4 @@
-# Inspector architecture and design record
+# 2026-10-07: Inspector architecture and design record
 
 **Status:** architecture and one-screen scope agreed on 2026-10-07; first
 implementation landed the same day across `relate/diagnostics`, `relate`
@@ -15,9 +15,11 @@ landed on 2026-10-13, followed by step 2 (`/mcp`, the activity log, timeline and
 graph highlights) and step 3 (the built-in agent and its Agent page); all three
 steps are implemented. Where the sections below say "proposed", they preserve
 design sketches, not additional public API promises. The
-[Inspector README](./README.md), [CLI reference](../../packages/cli/README.md),
-[diagnostic types](../../packages/relate/src/diagnostics.ts), and
-[inspection protocol](./src/protocol.ts) describe the current implementation.
+[Inspector README](../apps/inspector/README.md),
+[CLI reference](../packages/cli/README.md),
+[diagnostic types](../packages/relate/src/diagnostics.ts), and
+[inspection protocol](../apps/inspector/src/protocol.ts) describe the current
+implementation.
 
 ## Outcome and scope
 
@@ -78,8 +80,8 @@ and the live runtime use the same authored graph.
 Existing authoring API, abbreviated to show composition. The imported object
 definitions belong to the user's project; Customer is API-owned, Invoice is
 Postgres-owned and AccountReview is Relate-owned. See the existing
-[customer workspace model](../../examples/02-customer-workspace/src/graph.ts)
-for the full object/property declarations.
+[customer workspace model](../examples/02-customer-workspace/src/graph.ts) for
+the full object/property declarations.
 
 ```ts
 // src/relate/graph.ts
@@ -138,7 +140,8 @@ maps objects to React Flow nodes, and maps relationships to edges.
 
 Deferred `setup` keeps graph inspection independent of runtime resources.
 `defineApp` and `startApp` are implemented; the public
-[application guide](../docs/content/runtime/application.md) owns their usage.
+[application guide](../apps/docs/content/runtime/application.md) owns their
+usage.
 
 ```ts
 // src/relate/app.ts
@@ -310,7 +313,6 @@ Inspector layout (see the package README for the full current tree):
 ```text
 apps/inspector/
   README.md
-  SPEC.md
   vite.config.ts
   src/
     main.tsx
@@ -356,9 +358,8 @@ have different diagnostic paths.
 
 The sections below retain the original contract sketches and rationale. Exact
 exported types and codes live in
-[`relate/diagnostics`](../../packages/relate/src/diagnostics.ts); usage is
-covered by the
-[diagnostics reference](../../packages/relate/README.md#diagnostics).
+[`relate/diagnostics`](../packages/relate/src/diagnostics.ts); usage is covered
+by the [diagnostics reference](../packages/relate/README.md#diagnostics).
 
 ### Portable issue and exception contract
 
@@ -520,8 +521,8 @@ capture metadata stays in the child; the Node tooling resolves usable sites
 through source maps there. The compiler associates issues with their authored
 definitions and may attach a resolved site through a host-provided resolver. The
 compiler also works without capture. See the
-[provenance implementation](../../packages/relate/src/provenance.ts) and
-[CLI worker](../../packages/cli/src/dev/worker.ts) for the current APIs.
+[provenance implementation](../packages/relate/src/provenance.ts) and
+[CLI worker](../packages/cli/src/dev/worker.ts) for the current APIs.
 
 The CLI diagnostic adapter reads bounded excerpts from the corresponding build
 attempt's source content, normalizes project-relative paths and produces `frame`
@@ -1197,10 +1198,10 @@ packages must not acquire telemetry side effects merely by being imported.
   every successful build.
 
 Arc's current reference is
-[`ontology-elk-layout.ts`](../../../arc/apps/web/src/features/ontology/ontology-elk-layout.ts).
+[`ontology-elk-layout.ts`](../arc/apps/web/src/features/ontology/ontology-elk-layout.ts).
 It imports `elkjs/lib/elk.bundled.js` and uses the `layered` algorithm, with
 direction, edge routing, spacing and a fixed random seed. Its dependencies are
-recorded in [Arc's web package](../../../arc/apps/web/package.json). This is a
+recorded in [Arc's web package](../arc/apps/web/package.json). This is a
 library/algorithm reference, not a dependency on Arc source code.
 
 Use ELK layered layout, initially left-to-right, in a browser Web Worker. Worker
@@ -1289,7 +1290,7 @@ model.principals; // { alice: { roles, claims }, ... }, not hashed, not stored
 - Unknown roles and claim values that fail the `defineAccess` schemas are
   compile diagnostics.
 - The runtime principal is `{ id: key, roles, claims }`
-  ([`Principal`](../../packages/runtime/src/authorization/policy.ts)).
+  ([`Principal`](../packages/runtime/src/authorization/policy.ts)).
 - `definitionRevision` answers whether a store is compatible with a model.
   Development identities do not change stored data, so adding one must not
   produce a new revision; that would force a migration or activation step on
@@ -1358,22 +1359,22 @@ type RuntimeEvent =
 ```
 
 This is the pattern `@relate/mcp` already uses between its execution child and
-host ([`child.ts`](../../packages/mcp/src/child.ts),
-[`wire.ts`](../../packages/mcp/src/wire.ts)). An `execute` call's graph
-operations therefore cross two IPC hops: execute child → dev server → runtime
-host. That is acceptable for development.
+host ([`child.ts`](../packages/mcp/src/child.ts),
+[`wire.ts`](../packages/mcp/src/wire.ts)). An `execute` call's graph operations
+therefore cross two IPC hops: execute child → dev server → runtime host. That is
+acceptable for development.
 
 **Runtime identity.** Each runtime host gets a fresh `runtimeId`, even when a
 restart keeps the same `definitionRevision` (connector or action code may have
 changed). A request whose `runtimeId` is not the active runtime is rejected with
 a public `runtime-retired` error. It is never redirected to the new runtime or
 replayed, as the consumer contract requires
-([`consumer.ts`](../../packages/protocol/src/consumer.ts): "Model mismatch must
-not replay mutations or silently rebind to a new model"). An agent that reads
-from runtime A cannot then act on runtime B within the same execution.
+([`consumer.ts`](../packages/protocol/src/consumer.ts): "Model mismatch must not
+replay mutations or silently rebind to a new model"). An agent that reads from
+runtime A cannot then act on runtime B within the same execution.
 
 **Runtime binding.** `@relate/mcp` reads discovery synchronously
-([`binding.ts`](../../packages/mcp/src/binding.ts)), so IPC-backed operations
+([`binding.ts`](../packages/mcp/src/binding.ts)), so IPC-backed operations
 cannot answer it lazily. The dev server builds one binding per
 `(runtimeId, principal)`: it fetches the complete discovery snapshot over IPC,
 then serves synchronous discovery from it alongside pinned IPC operations. The
@@ -1401,8 +1402,8 @@ its lifecycle explicit so it can grow, but do not build for it now.
 The five questions the earlier sketch left open, answered for development only:
 
 1. **Storage:** the runtime host calls `startApp(app)` unchanged, so it uses
-   whatever store `setup` returns ([`app.ts`](../../packages/node/src/app.ts)).
-   The dev server never replaces or resets an application's chosen store.
+   whatever store `setup` returns ([`app.ts`](../packages/node/src/app.ts)). The
+   dev server never replaces or resets an application's chosen store.
    - No store from `setup` (or no `setup`): the runtime's default in-memory
      store. This is the expected development case. Data is lost on every
      restart, and the inspector and terminal say so.
@@ -1451,10 +1452,10 @@ continuity across restarts cannot be assumed: reusing an idempotency key after a
 restart may perform the action again.
 
 The inspector shows the runtime as `RuntimeStatus` (inspector protocol version
-2, [`protocol.ts`](./src/protocol.ts)): `starting`, `restarting`, `running`,
-`not-configured` or `failed`, with its `runtimeId`, model generation, active
-revision, store kind (`memory` or `application`), whether the restart reset
-in-memory data, and any `runtime.*` diagnostics.
+2, [`protocol.ts`](../apps/inspector/src/protocol.ts)): `starting`,
+`restarting`, `running`, `not-configured` or `failed`, with its `runtimeId`,
+model generation, active revision, store kind (`memory` or `application`),
+whether the restart reset in-memory data, and any `runtime.*` diagnostics.
 
 ### Routes
 
@@ -1566,7 +1567,8 @@ next user message starts with a note that in-memory data was reset and earlier
 reads may be stale. The browser talks to the loop through `/dev/agent/*`
 (`GET conversations`, `GET events` (SSE), `POST turns`,
 `POST turns/:turnId/cancel`, `POST conversations/:principal/reset`), whose
-shapes are in [`protocol.ts`](./src/protocol.ts) and validated by the browser.
+shapes are in [`protocol.ts`](../apps/inspector/src/protocol.ts) and validated
+by the browser.
 
 ### Activity observation
 
@@ -1595,21 +1597,18 @@ type OperationContext = {
 };
 ```
 
-**L3 is interim.** A runtime activity stream is planned: an `ActivityStore`
-storage capability next to `NativeStore`, written by the runtime engine, with
-`OperationContext` and the entry shape moved to `@relate/protocol` and served to
-HTTP, admin SDK and inspector alike. Only the engine knows which objects and
-fields a read returned or withheld, which objects an action created, and the
-transaction they belong to; a dev-server decorator sees only call arguments and
-counts. When that stream lands, it replaces L3 here, and the inspector shows its
+**L3 is interim.** The runtime activity log specified in
+[2026-10-13: Runtime activity log](./2026-10-13-activity.md) replaces it: the
+runtime engine records `read`, `invoke` and `create` entries in an
+`ActivityStore`, with `OperationContext` and the entry shape moved to
+`@relate/protocol`. Only the engine knows which objects and fields a read
+returned or withheld and which objects an action created; a dev-server decorator
+sees only call arguments and counts. When the log lands, the inspector shows its
 entries in place of L3's. L1 (MCP call) and L2 (agent code) remain in the dev
 server: they describe transport and agent behavior, not graph access, and join
 runtime entries by `requestId` and `executionId`. Until then L3 stays small, in
 memory and development-only, and `OperationContext` already uses the planned
-protocol shape so the move is a rename. The stream's own design (store contract,
-read durability, read detail, who may read activity, relation to `value_changes`
-and `native_invocations`, retention and erasure) belongs in the runtime
-documentation, not this SPEC; it is undecided.
+protocol shape so the move is a rename.
 
 **Dev history must survive runtime restarts.** In `relate dev` the runtime
 engine lives in the runtime host, which restarts on every accepted build, and
@@ -1673,14 +1672,14 @@ type ActivityEvent =
     };
 ```
 
-As implemented ([`protocol.ts`](./src/protocol.ts)), every event also carries
-`status: 'running' | 'succeeded' | 'failed'` and is an upsert keyed by its ID,
-so a running call, execution or operation is visible and later replaced by its
-final version. `ms` and `outcome` are present once it finishes. A call's
-`runtimeId` and `principal` are null when no runtime or model could serve it
-(the call then fails with the reason in `error`). Filters, action inputs and
-issues are bounded JSON preview strings rather than `Json`, and an operation
-records `invocationId` for receipts.
+As implemented ([`protocol.ts`](../apps/inspector/src/protocol.ts)), every event
+also carries `status: 'running' | 'succeeded' | 'failed'` and is an upsert keyed
+by its ID, so a running call, execution or operation is visible and later
+replaced by its final version. `ms` and `outcome` are present once it finishes.
+A call's `runtimeId` and `principal` are null when no runtime or model could
+serve it (the call then fails with the reason in `error`). Filters, action
+inputs and issues are bounded JSON preview strings rather than `Json`, and an
+operation records `invocationId` for receipts.
 
 The executor decorator links operations to their execution by handing the inner
 executor a per-execution wrapped binding:
@@ -1847,13 +1846,13 @@ implementation, since they describe shipped behavior.
 
 ## Source and implementation pointers
 
-- Existing [compiler](../../packages/relate/src/compiler.ts) and
-  [Manifest contract](../../packages/relate/src/model.ts).
-- Existing [Node composition](../../packages/node/src/index.ts) and
-  [storage contract](../../packages/runtime/src/storage.ts).
-- Scaffold [CLI](../../packages/cli/README.md),
-  [HTTP transport](../../packages/http/README.md) and
-  [client](../../packages/client/README.md).
+- Existing [compiler](../packages/relate/src/compiler.ts) and
+  [Manifest contract](../packages/relate/src/model.ts).
+- Existing [Node composition](../packages/node/src/index.ts) and
+  [storage contract](../packages/runtime/src/storage.ts).
+- Scaffold [CLI](../packages/cli/README.md),
+  [HTTP transport](../packages/http/README.md) and
+  [client](../packages/client/README.md).
 - [Mastra development lifecycle](https://github.com/mastra-ai/mastra/blob/main/packages/cli/src/commands/dev/dev.ts):
   build/watch and child replacement are useful precedents, not a guarantee that
   our UI must refresh its page.

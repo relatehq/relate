@@ -145,6 +145,7 @@ does not grant permission to import it.
 | `tests/support`                                    | Shared test-owned models and acceptance-contract factories for package and persistence implementations.                                                                                                                                                            |
 | `dev/simulators`, `dev/salesforce`                 | Independent provider-development tooling. Keep application models and public behavior out of these tools.                                                                                                                                                          |
 | `dev/fixtures`                                     | Exploratory design evidence only; never a public API or library-test dependency.                                                                                                                                                                                   |
+| `specs`                                            | Cross-package design records named `YYYY-MM-DD-<topic>.md`; agreed designs and their status, not product docs or proof of implemented behavior.                                                                                                                    |
 
 Prefer completing behavior through a real public application path over widening
 declaration-only surfaces. Keep portable graph/app authoring separate from Node
