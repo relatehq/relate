@@ -378,7 +378,7 @@ importers:
         specifier: 4.13.13
         version: 4.13.13
 
-  examples/01-hello-world:
+  examples/01-todo-notes:
     dependencies:
       '@relate/node':
         specifier: workspace:*
@@ -390,22 +390,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
 
-  examples/02-customer-accounts:
-    dependencies:
-      '@relate/connector-sqlite':
-        specifier: workspace:*
-        version: link:../../connectors/sqlite
-      '@relate/node':
-        specifier: workspace:*
-        version: link:../../packages/node
-      relate:
-        specifier: workspace:*
-        version: link:../../packages/relate
-      zod:
-        specifier: 4.6.5
-        version: 4.6.5
-
-  examples/03-customer-workspace:
+  examples/02-customer-workspace:
     dependencies:
       '@relate/connector-sqlite':
         specifier: workspace:*
@@ -426,7 +411,7 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
 
-  examples/04-postgres-persistence:
+  examples/03-postgres-persistence:
     dependencies:
       '@relate/dev-crm-simulator':
         specifier: workspace:*
@@ -437,24 +422,6 @@ importers:
       '@relate/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
-      relate:
-        specifier: workspace:*
-        version: link:../../packages/relate
-      zod:
-        specifier: 4.6.5
-        version: 4.6.5
-
-  examples/05-salesforce:
-    dependencies:
-      '@relate/connector-salesforce':
-        specifier: workspace:*
-        version: link:../../connectors/salesforce
-      '@relate/dev-salesforce':
-        specifier: workspace:*
-        version: link:../../dev/salesforce
-      '@relate/node':
-        specifier: workspace:*
-        version: link:../../packages/node
       relate:
         specifier: workspace:*
         version: link:../../packages/relate

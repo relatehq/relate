@@ -21,17 +21,23 @@ npm install --global pnpm@12.9.1
 git clone https://github.com/relatehq/relate
 cd relate
 pnpm install
-pnpm example:customer-workspace
+pnpm example:todo-notes
 ```
 
-The [interactive customer workspace](../../../examples/03-customer-workspace)
-opens in your browser. Explore a CRM customer and SQLite invoices, switch roles,
-add a review and inspect the model. No database server or credentials are
-needed.
+The [todo/notes app](../../../examples/01-todo-notes) creates a todo, reads it,
+and lists the current user's notes in the terminal. It introduces native
+objects, actions, owner-only policies, and typed queries without external
+services.
 
-The [numbered examples](../../../examples/README.md) progress from a minimal
-terminal read (`pnpm example:hello-world`) through SQLite connections and the
-interactive workspace to persistent Postgres storage.
+Then run `pnpm example:customer-workspace` for the
+[business example](../../../examples/02-customer-workspace): explore a CRM
+customer and SQLite invoices in the browser, switch roles, add a review, and
+inspect the model. Neither app requires credentials or a database server.
+
+The third example, `pnpm example:postgres`, demonstrates persistent storage and
+restart recovery with a configured Postgres database. See the
+[three examples](../../../examples/README.md) for setup and their distinct
+concepts.
 
 ---
 
@@ -243,9 +249,9 @@ pnpm exec tsx tutorial/index.ts
 ```
 
 It prints Acme's name and status, followed by `undefined` for routine compact
-field evidence. No credentials or database server are required. The numbered
-[hello-world example](../../../examples/01-hello-world/README.md) is a
-maintained alternative if you prefer to start from existing files.
+field evidence. No credentials or database server are required. The
+[customer workspace](../../../examples/02-customer-workspace/README.md) is a
+maintained source-backed application if you prefer to start from existing files.
 
 ---
 

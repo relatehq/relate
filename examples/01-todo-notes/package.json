@@ -1,5 +1,5 @@
 {
-  "name": "@relate/example-hello-world",
+  "name": "@relate/example-todo-notes",
   "version": "0.0.0-dev.0",
   "private": true,
   "type": "module",

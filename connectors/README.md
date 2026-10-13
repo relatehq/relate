@@ -5,11 +5,11 @@ implement resource adapter contracts from `relate/connectors`, separately from
 Relate storage adapters such as `@relate/postgres`.
 
 - [SQLite](sqlite): read records from an existing SQLite database. See the
-  [customer accounts example](../examples/02-customer-accounts).
+  [customer workspace example](../examples/02-customer-workspace).
 - [Stripe](stripe): read selected billing resources with verified account and
   test/live identity. The README includes a complete binding example.
-- [Salesforce](salesforce): read Accounts with verified org identity. See the
-  [Salesforce example](../examples/05-salesforce).
+- [Salesforce](salesforce): read Accounts with verified org identity. See its
+  [connection and model guide](salesforce/README.md#connect).
 
 All connectors currently read known IDs; enumeration, sync, webhooks, and
 provider writes are not implemented. See the public

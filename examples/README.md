@@ -1,43 +1,42 @@
 # Learn Relate by running it
 
-These examples run from a repository checkout. Install dependencies with
-`pnpm install` at the repository root; each command below builds the packages
-before starting. Supported Node versions are 22 (22.16+), 24 and 26; install
-pnpm with `npm install --global pnpm@12.9.1`. No published Relate packages are
-required.
+These three examples have distinct jobs: the smallest application, a fuller
+business application, and a specific deployment setup. Future examples should
+teach a new concept or deployment method rather than repeat these applications.
 
-Preparation shows a short status line, followed by the result or browser URL.
-Build failures and runtime errors remain visible. Add `--verbose` to any example
-command for full build logs, or `--no-open` to prevent opening a browser. Press
-Ctrl+C to stop the browser demo and its owned processes.
+Run from a repository checkout with Node 22 (22.16+), 24, or 26 and pnpm 12.9.1
+(`npm install --global pnpm@12.9.1`). Run `pnpm install` at the repository root;
+each command below builds its dependencies before starting. No published Relate
+packages are required.
 
-The folders are numbered in learning order. If you want to see Relate in an
-application first, jump to **03** and return to the smaller examples afterward.
+| Order | Example                                         | Key concepts                                                                                                                                                          | Run from the repository root      |
+| ----- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| 01    | [Todo notes](01-todo-notes)                     | One native object, an action, owner-only access, typed reads and queries. Small terminal app with no services.                                                        | `pnpm example:todo-notes`         |
+| 02    | [Customer workspace](02-customer-workspace)     | A business graph across an HTTP CRM, SQLite invoices and native reviews; relationships, role and field policies, receipts, refresh and model inspection in a browser. | `pnpm example:customer-workspace` |
+| 03    | [Postgres persistence](03-postgres-persistence) | Persistent storage, explicit migrations, restart recovery, freshness, stale fallback and provider denial. Requires Postgres.                                          | `pnpm example:postgres`           |
 
-| Order | Example                                                 | What you learn                                                                                                                                                                        | Run from the repository root      |
-| ----- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| 01    | [Hello world](01-hello-world)                           | Define a source and object, adopt a record, and perform a typed, authorized read. Prints the result and evidence. No services required.                                               | `pnpm example:hello-world`        |
-| 02    | [SQLite customer accounts](02-customer-accounts)        | Connect an actual SQLite table, map source fields, and read records using the embedded SDK. Creates and removes its own temporary database.                                           | `pnpm example:customer-accounts`  |
-| 03    | [Interactive customer workspace](03-customer-workspace) | Explore an HTTP CRM customer, SQLite invoices and Relate-owned reviews in a browser. Switch roles, perform an action, replay its receipt, refresh source data, and inspect the model. | `pnpm example:customer-workspace` |
-| 04    | [Postgres persistence](04-postgres-persistence)         | Persist observations across runtime restarts and examine freshness, fallback and provider denial. Requires a configured Postgres database.                                            | `pnpm example:postgres`           |
-| 05    | [Salesforce customers](05-salesforce)                   | Provision a disposable Salesforce org, read Accounts as Customers, and refresh upstream changes. Requires an authenticated Dev Hub.                                                   | `pnpm example:salesforce`         |
+Start with 01 to read the smallest app, or 02 to explore a complete business
+scenario in the browser. Examples 01 and 02 use isolated **in-memory Relate
+stores**. SQLite in 02 is a **source system**, not Relate's persistence layer.
+Example 03 persists Relate state in Postgres.
 
-Examples 01–03 and 05 use an isolated **in-memory Relate store**. SQLite in 02
-and 03 is a **source system**, not Relate's persistence layer. Reviews and
-observations in 03 disappear on restart. Example 04 introduces a persistent
-Relate store.
+Preparation prints a short status line, followed by results or browser URLs.
+Build failures and runtime errors remain visible. Add `--verbose` for full build
+logs, or `--no-open` to keep the business example from opening a browser. Press
+Ctrl+C to stop that app and its owned processes.
 
-## Examples are for learning, not for tests
+Provider-specific setup belongs in the
+[connector guides](../connectors/README.md): SQLite is demonstrated in 02;
+Stripe and Salesforce have binding guidance in their connector READMEs.
+Salesforce scratch-org tooling and opt-in live checks remain under
+[dev/salesforce](../dev/salesforce/README.md).
 
-These examples exist so you can see how Relate fits together, run it, and change
-it to try ideas. Edit them freely: rename objects, change records, add sources.
-Nothing in the package, connector or repository test suites depends on their
-code or data, so experimenting here cannot break the library's tests.
-`pnpm check:boundaries` enforces that separation.
+## Examples are for learning, not library fixtures
 
-Tests that check an example's own behavior live in that example's `test/` folder
-(for example, [03](03-customer-workspace/test)).
+Edit these applications freely to try ideas. Package and connector tests use
+their own definitions and data; `pnpm check:boundaries` enforces that
+separation. Tests of each example itself live in its own `test/` folder.
 
 The exploratory application under `dev/fixtures/customer-graph` includes
-proposed APIs as well as implemented behavior. It is not another getting-started
-step; use the numbered examples for runnable public APIs.
+proposed APIs as well as implemented behavior. Use these three examples for
+runnable public APIs.

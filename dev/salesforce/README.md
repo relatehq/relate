@@ -1,11 +1,11 @@
 # Salesforce development tooling
 
 This private package manages disposable Salesforce scratch orgs: creation, seed
-Accounts, CLI credentials, reset, ownership checks, and cleanup. It is shared by
-the example launcher and the opt-in live integration suite.
+Accounts, CLI credentials, reset, ownership checks, and cleanup. It supports
+local provider development and the opt-in live integration suite.
 
-- The user-facing application and model live in
-  [`examples/05-salesforce`](../../examples/05-salesforce/README.md).
+- Application binding and model guidance live in the
+  [Salesforce connector README](../../connectors/salesforce/README.md).
 - Simulated connector/runtime checks live in
   [`tests/unit/salesforce.test.ts`](../../tests/unit/salesforce.test.ts).
 - Live checks live in
@@ -38,15 +38,8 @@ orgs; it never uses the Dev Hub as the connector's data source.
 From the repository root:
 
 ```sh
-# Create, seed, explore interactively, and delete on normal exit or Ctrl-C.
-pnpm example:salesforce
-
-# Same lifecycle, print seeded customers once and exit.
-pnpm example:salesforce --once
-
 # Explicitly retain one org across development commands.
 pnpm salesforce:dev create
-pnpm example:salesforce --existing
 pnpm salesforce:dev reset
 pnpm salesforce:dev delete
 
@@ -57,9 +50,9 @@ pnpm test:salesforce:live
 pnpm test:unit -- connectors/salesforce/test
 ```
 
-The retained example does not own the org lifecycle; use `salesforce:dev delete`
-when finished. Reset deletes only recorded fixture Account IDs and seeds
-Northwind/Contoso automatically. Do not run reset/delete while an example or
+An explicitly created org remains available; use `salesforce:dev delete` when
+finished. Reset deletes only recorded fixture Account IDs and seeds
+Northwind/Contoso automatically. Do not run reset/delete while an application or
 live suite is using the org. A second create refuses to overwrite existing
 state. All commands use the worktree-local `.relate/salesforce.json` ownership
 record. It contains the Dev Hub identity, unique scratch username, creation job

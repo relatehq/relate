@@ -71,7 +71,7 @@ and the live runtime use the same authored graph.
 Existing authoring API, abbreviated to show composition. The imported object
 definitions belong to the user's project; Customer is API-owned, Invoice is
 Postgres-owned and AccountReview is Relate-owned. See the existing
-[customer workspace model](../../examples/03-customer-workspace/src/graph.ts)
+[customer workspace model](../../examples/02-customer-workspace/src/graph.ts)
 for the full object/property declarations.
 
 ```ts

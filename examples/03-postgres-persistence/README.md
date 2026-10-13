@@ -1,8 +1,8 @@
-# 04 · Postgres persistence
+# 03 · Postgres persistence
 
 Shows how to supply a persistent store, refresh source data and recover retained
 values after recreating the runtime and database connection. Start with
-[Hello world](../01-hello-world/README.md) for the minimal in-memory example.
+[Todo notes](../01-todo-notes/README.md) for the minimal in-memory example.
 
 Run from the repository root:
 
@@ -12,11 +12,11 @@ pnpm install
 pnpm example:postgres
 ```
 
-The command loads the repository's `.env` with dotenvx. Supply an existing
-Postgres database using `DATABASE_URL`; the URL includes the database name. The
-connection role needs permission to create the `relate` schema and its tables.
-Relate explicitly applies its migrations with `store.migrate()`. It does not
-provision databases or manage the server.
+The command loads the repository's `.env` using Node's optional env-file
+support. Supply an existing Postgres database using `DATABASE_URL`; the URL
+includes the database name. The connection role needs permission to create the
+`relate` schema and its tables. Relate explicitly applies its migrations with
+`store.migrate()`. It does not provision databases or manage the server.
 
 The example starts an in-process Hono CRM simulator with a real HTTP listener,
 provided by the private workspace package

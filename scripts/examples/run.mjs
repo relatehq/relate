@@ -5,18 +5,14 @@ import { runCommand } from './process.mjs';
 const require = createRequire(import.meta.url);
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const examples = {
-  'hello-world': { directory: '01-hello-world', projects: ['packages/node'] },
-  'customer-accounts': {
-    directory: '02-customer-accounts',
-    projects: ['packages/node', 'connectors/sqlite'],
-  },
+  'todo-notes': { directory: '01-todo-notes', projects: ['packages/node'] },
   'customer-workspace': {
-    directory: '03-customer-workspace',
+    directory: '02-customer-workspace',
     projects: ['packages/cli', 'connectors/sqlite'],
     client: true,
   },
   postgres: {
-    directory: '04-postgres-persistence',
+    directory: '03-postgres-persistence',
     projects: ['packages/postgres'],
   },
 };
@@ -27,7 +23,7 @@ const forwarded = args.filter((arg) => arg !== '--verbose' && arg !== '--');
 
 if (!example || forwarded.some((arg) => arg !== '--no-open')) {
   console.error(
-    'Usage: node scripts/examples/run.mjs <hello-world|customer-accounts|customer-workspace|postgres> [--verbose] [--no-open]',
+    'Usage: node scripts/examples/run.mjs <todo-notes|customer-workspace|postgres> [--verbose] [--no-open]',
   );
   process.exitCode = 1;
 } else {

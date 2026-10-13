@@ -204,10 +204,10 @@ it('does not let production imports escape through excluded test files', async (
 it('allows the Postgres example to import the simulator package', async () => {
   await expect(
     check({
-      'examples/04-postgres-persistence/package.json': JSON.stringify({
+      'examples/03-postgres-persistence/package.json': JSON.stringify({
         name: '@relate/example-postgres-persistence',
       }),
-      'examples/04-postgres-persistence/src/index.ts':
+      'examples/03-postgres-persistence/src/index.ts':
         "import '@relate/dev-crm-simulator';",
       'dev/simulators/crm/package.json': JSON.stringify({
         name: '@relate/dev-crm-simulator',
@@ -221,10 +221,10 @@ it('allows the Postgres example to import the simulator package', async () => {
 it('does not allow the example to import package internals', async () => {
   await expect(
     check({
-      'examples/04-postgres-persistence/package.json': JSON.stringify({
+      'examples/03-postgres-persistence/package.json': JSON.stringify({
         name: '@relate/example-postgres-persistence',
       }),
-      'examples/04-postgres-persistence/src/index.ts':
+      'examples/03-postgres-persistence/src/index.ts':
         "import '../../../packages/runtime/src/runtime.js';",
       'packages/runtime/src/runtime.ts': 'export {};',
     }),

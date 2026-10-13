@@ -16,22 +16,11 @@ export const packagePolicies: Record<
     imports: ['@relate/connector-salesforce', 'zod'],
     builtins: true,
   },
-  'examples/05-salesforce': {
-    imports: [
-      '@relate/node',
-      '@relate/connector-salesforce',
-      '@relate/dev-salesforce/harness',
-      'relate',
-      'relate/connectors',
-      'zod',
-    ],
-    builtins: ['node:readline/promises', 'node:process'],
-  },
   'connectors/sqlite': {
     imports: ['relate/connectors'],
     builtins: ['node:sqlite', 'node:worker_threads', 'node:path'],
   },
-  'examples/03-customer-workspace': {
+  'examples/02-customer-workspace': {
     imports: [
       'relate',
       'relate/connectors',
@@ -41,10 +30,6 @@ export const packagePolicies: Record<
       '@relate/dev-crm-simulator',
       'zod',
     ],
-    builtins: true,
-  },
-  'examples/02-customer-accounts': {
-    imports: ['relate', '@relate/node', '@relate/connector-sqlite', 'zod'],
     builtins: true,
   },
   'packages/relate': { imports: ['zod', '@relate/protocol'] },
@@ -159,7 +144,7 @@ export const packagePolicies: Record<
       '@fontsource/dm-mono/500.css',
     ],
   },
-  'examples/01-hello-world': {
+  'examples/01-todo-notes': {
     imports: ['relate', '@relate/node', 'zod'],
     builtins: true,
   },
@@ -167,7 +152,7 @@ export const packagePolicies: Record<
     imports: ['hono', '@hono/node-server'],
     builtins: ['node:events', 'node:http'],
   },
-  'examples/04-postgres-persistence': {
+  'examples/03-postgres-persistence': {
     imports: [
       'relate',
       'relate/compiler',

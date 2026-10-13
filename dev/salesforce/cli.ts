@@ -8,7 +8,7 @@ try {
       case 'create':
         await org.create(signal);
         console.log(
-          'Scratch org seeded. Reuse with example:salesforce --existing; delete with salesforce:dev delete.',
+          'Scratch org seeded. Reset with salesforce:dev reset; delete with salesforce:dev delete.',
         );
         break;
       case 'reset':

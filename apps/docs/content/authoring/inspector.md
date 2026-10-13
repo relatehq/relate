@@ -20,7 +20,7 @@ pnpm build
 Then open the customer and invoice example:
 
 ```sh
-pnpm relate dev --config examples/03-customer-workspace/relate.config.ts --open
+pnpm relate dev --config examples/02-customer-workspace/relate.config.ts --open
 ```
 
 You should see **Customer**, **Invoice**, and **Account review**, connected by

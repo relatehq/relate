@@ -76,7 +76,7 @@ schema evolution, external actions and additional source bindings remain future
 implementation work. The installed graph is pinned to one definition revision;
 incompatible activation requires an explicit migration.
 
-See [the runnable example](../../examples/01-hello-world/README.md).
+See [the runnable example](../../examples/01-todo-notes/README.md).
 
 Named object registries (`objects: { Customer }`) preserve consumer API names
 and property inference through `@relate/node`. Objects and policies use matching

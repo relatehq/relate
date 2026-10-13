@@ -14,7 +14,7 @@
     "docs:dev": "pnpm --filter @relate/docs dev",
     "docs:build": "pnpm --filter @relate/docs build",
     "docs:check": "pnpm exec vitest run --project unit apps/docs/test/validation.test.ts && pnpm docs:build && node --import tsx apps/docs/scripts/check.ts",
-    "example:hello-world": "node scripts/examples/run.mjs hello-world",
+    "example:todo-notes": "node scripts/examples/run.mjs todo-notes",
     "example:postgres": "node scripts/examples/run.mjs postgres",
     "check": "pnpm check:development && pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && pnpm test:packaging",
     "typecheck": "pnpm build && tsc --noEmit -p tsconfig.tests.json",
@@ -34,13 +34,11 @@
     "worktree:create": "tsx scripts/worktrees/create.ts",
     "worktree:list": "tsx scripts/worktrees/list.ts",
     "worktree:delete": "tsx scripts/worktrees/delete.ts",
-    "example:customer-accounts": "node scripts/examples/run.mjs customer-accounts",
     "check:development": "node scripts/releases/check-development.mjs",
     "example:customer-workspace": "node scripts/examples/run.mjs customer-workspace",
     "test:onboarding": "node --test scripts/examples/process.test.mjs tests/onboarding/smoke.test.mjs",
     "salesforce:dev": "tsx dev/salesforce/cli.ts",
-    "test:salesforce:live": "pnpm build && tsx tests/integration/salesforce.live.ts",
-    "example:salesforce": "pnpm build && tsx examples/05-salesforce/src/index.ts"
+    "test:salesforce:live": "pnpm build && tsx tests/integration/salesforce.live.ts"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

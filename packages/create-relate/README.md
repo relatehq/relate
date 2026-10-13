@@ -27,5 +27,5 @@ and prompts, not behavior.
   is a separate planned capability.
 
 Templates and prompts are not designed yet. The
-[hello world example](../../examples/01-hello-world/README.md) is the current
+[todo/notes example](../../examples/01-todo-notes/README.md) is the current
 smallest working project and the likely starting shape.

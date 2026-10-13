@@ -34,6 +34,10 @@ pnpm install
 pnpm example:customer-workspace
 ```
 
+For the smallest terminal app, run `pnpm example:todo-notes` to create and list
+owner-only todos with notes. The [three examples](examples/README.md) explain
+what each application teaches.
+
 Preparation runs quietly; add `--verbose` to see build logs. Build failures and
 runtime errors are always shown.
 
@@ -320,8 +324,8 @@ issue.
 - [Docs](https://docs.relatehq.dev): [Why Relate](https://docs.relatehq.dev/),
   [Getting started](https://docs.relatehq.dev/getting-started),
   [Key concepts](https://docs.relatehq.dev/key-concepts)
-- [Examples](examples/README.md), in learning order, from the smallest terminal
-  hello world to persistent Postgres storage
+- [Examples](examples/README.md): a simple todo/notes app, the business customer
+  workspace, and Postgres persistence
 - [Inspector](packages/cli/README.md): `pnpm relate dev`
 - [Contributing](CONTRIBUTING.md) · [Releasing](RELEASING.md)
 

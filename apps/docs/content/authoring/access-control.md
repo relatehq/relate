@@ -152,7 +152,7 @@ export const graph = defineGraph({
 
 For object and relationship declarations, see [Graph Modeling](./graph.md). The
 complete portfolio-based model used here is in the runnable
-[customer workspace](../../../../examples/03-customer-workspace/src/graph.ts),
+[customer workspace](../../../../examples/02-customer-workspace/src/graph.ts),
 including native reviews, actions, and policies.
 
 ---

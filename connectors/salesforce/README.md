@@ -64,9 +64,70 @@ const accountSource = defineSource({
 // name: from(accountSource.fields.Name, { id: 'customer.name' })
 ```
 
-See the [runnable example](../../examples/05-salesforce/README.md) and its
-[application model](../../examples/05-salesforce/src/model.ts) for complete
-composition.
+For an application-owned Customer model, map the selected source fields and
+supply an employee read policy:
+
+```ts
+import { z } from 'zod';
+import {
+  defineAccess,
+  defineApp,
+  defineGraph,
+  defineObject,
+  defineSource,
+  from,
+  objectId,
+  source,
+} from 'relate';
+import { startApp } from '@relate/node';
+
+// accountSource and connection are defined above.
+const access = defineAccess({
+  roles: ['employee'],
+  fieldGroups: ['ordinary'],
+  claims: {},
+});
+const Customer = defineObject({
+  id: 'salesforce.customer',
+  label: 'Customer',
+  membership: source(accountSource),
+  properties: {
+    id: objectId({ id: 'salesforce.customer.id' }),
+    name: from(accountSource.fields.Name, { id: 'salesforce.customer.name' }),
+    website: from(accountSource.fields.Website, {
+      id: 'salesforce.customer.website',
+    }),
+  },
+});
+const graph = defineGraph({
+  id: 'salesforce-customers',
+  objects: { Customer },
+  access,
+  policies: { Customer: { read: { gate: access.role('employee') } } },
+});
+const relate = await startApp(
+  defineApp({
+    graph,
+    setup: () => ({ connections: [connection] }),
+  }),
+);
+try {
+  const id = await relate.host.adopt(Customer, knownAccountId);
+  const result = await relate.as(employee).objects.Customer.get(id, {
+    select: ['name', 'website'],
+    refresh: true,
+  });
+  console.log(result);
+} finally {
+  await relate.close();
+}
+```
+
+`knownAccountId` is an existing Salesforce Account ID; `employee` is a
+host-authenticated principal with the `employee` role. The mapping is
+application code, not a model supplied by the connector. See the
+[customer workspace](../../examples/02-customer-workspace/README.md) for a full
+business application using the same composition concepts with HTTP and SQLite.
 
 ## Failure and access contract
 
@@ -100,12 +161,9 @@ composition.
 
 ## Development and Validation
 
-Salesforce CLI is not required by connector consumers. To run the example or
-contribute live tests, see
-[Salesforce development tooling](../../dev/salesforce/README.md) for Dev Hub
-prerequisites, scratch-org ownership, cleanup, and recovery. The
-[learning example](../../examples/05-salesforce/README.md) owns the application
-model and interactive reads.
+Salesforce CLI is not required by connector consumers. To contribute live tests,
+see [Salesforce development tooling](../../dev/salesforce/README.md) for Dev Hub
+prerequisites, scratch-org ownership, cleanup, and recovery.
 
 Live tests cover verified identity, seeded reads through Relate, upstream
 updates, invalid-session denial, and soft deletion. Local tests cover

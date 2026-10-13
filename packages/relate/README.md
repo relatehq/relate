@@ -110,8 +110,8 @@ runtime validates and retains observations and returns authorized fields with
 evidence. The app author does not call the adapter directly for consumer reads.
 
 See the runnable
-[hello-world example](../../examples/01-hello-world/src/index.ts) for the
-complete chain with an in-memory provider. See
+[customer workspace](../../examples/02-customer-workspace/src/app.ts) for the
+complete chain with HTTP and SQLite sources. See
 [Connecting Sources](../../apps/docs/content/authoring/connections.md) for the
 available SQLite, Stripe, and Salesforce connectors and the custom connector
 contract.
@@ -258,7 +258,7 @@ model migrations, external actions.
 
 - [CONTRACT.md](./CONTRACT.md): detailed authoring, policy, reference,
   relationship and `assertFields` behavior, including migration notes.
-- [Hello world](../../examples/01-hello-world/README.md): the smallest runnable
+- [Todo notes](../../examples/01-todo-notes/README.md): the smallest runnable
   graph.
 - [Native actions](../node/NATIVE_ACTIONS.md): `defineAction` and
   `implementAction` end to end.

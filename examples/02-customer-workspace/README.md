@@ -1,4 +1,4 @@
-# 03 · Interactive customer workspace
+# 02 · Customer workspace
 
 Explore one account across an HTTP CRM, a SQLite billing database, and
 Relate-owned account reviews. The browser shows actual SDK results and lets you
@@ -50,7 +50,7 @@ by Relate; the browser never reads the CRM or SQLite directly.
   connector bindings, native action implementation, host adoption and SDK calls.
 - [src/crm-connector.ts](src/crm-connector.ts): HTTP source adapter. The shared
   repository CRM simulator supplies deterministic provider responses. The
-  adapter intentionally remains local (as in example 04), so the provider
+  adapter intentionally remains local (as in example 03), so the provider
   simulator stays independent of Relate and each example includes its own
   connector code.
 - [src/server.ts](src/server.ts): a small example-specific HTTP surface, input
@@ -83,5 +83,5 @@ to this example, not a public Relate transport. The model inspector compiles
 these same definitions without attaching to the example's runtime.
 
 For durable Relate state, continue to
-[04 · Postgres persistence](../04-postgres-persistence). Return to the
+[03 · Postgres persistence](../03-postgres-persistence). Return to the
 [ordered examples](../README.md).

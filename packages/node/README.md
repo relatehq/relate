@@ -203,8 +203,8 @@ provider-wide queries, automatic synchronization, servers and workers.
   semantics in detail.
 - [NATIVE_ACTIONS.md](./NATIVE_ACTIONS.md): the account-review action path end
   to end.
-- [Hello world](../../examples/01-hello-world/README.md) and
-  [Postgres persistence](../../examples/04-postgres-persistence/README.md).
+- [Todo notes](../../examples/01-todo-notes/README.md) and
+  [Postgres persistence](../../examples/03-postgres-persistence/README.md).
 
 ## Graph queries
 

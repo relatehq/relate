@@ -10,33 +10,20 @@ const execute = promisify(execFile);
 const launcher = 'scripts/examples/run.mjs';
 
 test(
-  'hello world builds its dependencies and prints the authorized result',
+  'todo notes builds its dependencies and lists the created todo',
   { timeout: 120000 },
   async () => {
     const { stdout, stderr } = await execute(process.execPath, [
       launcher,
-      'hello-world',
+      'todo-notes',
     ]);
 
-    assert.equal(JSON.parse(stdout).data.name, 'Ada');
-    assert.match(stderr, /Preparing hello world/);
-    assert.doesNotMatch(stderr, /vite|transforming|built in/);
-  },
-);
-
-test(
-  'SQLite example runs on the selected Node version',
-  { timeout: 120000 },
-  async () => {
-    const { stdout } = await execute(process.execPath, [
-      launcher,
-      'customer-accounts',
-    ]);
-
-    assert.match(
-      stdout,
-      /The employee can read Northwind; the other portfolio is hidden/,
+    assert.deepEqual(
+      JSON.parse(stdout).map((todo) => todo.title),
+      ['Try Relate'],
     );
+    assert.match(stderr, /Preparing todo notes/);
+    assert.doesNotMatch(stderr, /vite|transforming|built in/);
   },
 );
 
