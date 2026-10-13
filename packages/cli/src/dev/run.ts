@@ -15,12 +15,14 @@ import { createInspectorApp } from '@relate/inspector/server';
 import type { InspectorApp } from '@relate/inspector/server';
 import { UsageError, devUsage, parseDevArguments } from './arguments.js';
 import type { DevArguments } from './arguments.js';
+import { createActivityLog } from './activity/index.js';
 import { createAttemptRunner } from './attempts.js';
 import type { AttemptOutcome } from './attempts.js';
 import { createBuilder } from './build.js';
 import { createRuntimeController } from './runtime-controller.js';
 import { summarizeDiff } from './diff.js';
 import { bindLoopback, ListenError } from './listener.js';
+import { createMcpEndpoint, mcpAddCommand, readMcpToken } from './mcp.js';
 import { acquireLock, devDirectory } from './lock.js';
 import type { Lock, LockMetadata } from './lock.js';
 import { openBrowser } from './open.js';
@@ -48,6 +50,16 @@ export const exitCodes = Object.freeze({ ok: 0, fatal: 1, usage: 2 });
 
 const tokenFile = (projectRoot: string) =>
   join(devDirectory(projectRoot), 'token');
+const mcpTokenFile = (projectRoot: string) =>
+  join(devDirectory(projectRoot), 'mcp-token');
+
+async function readSecret(path: string): Promise<string | null> {
+  try {
+    return (await readFile(path, 'utf8')).trim() || null;
+  } catch {
+    return null;
+  }
+}
 
 async function verifyOwner(metadata: LockMetadata): Promise<boolean> {
   if (!metadata.url) return false;
@@ -149,14 +161,8 @@ export async function runDev(options: RunDevOptions): Promise<number> {
 
     // Reuse the complete bootstrap link, just as the initial banner does.
     // Read owner-only token material only after verifying the running owner.
-    let token: string | null = null;
-
-    try {
-      token = (await readFile(tokenFile(project.root), 'utf8')).trim() || null;
-    } catch {
-      token = null;
-    }
-
+    const token = await readSecret(tokenFile(project.root));
+    const mcpToken = await readSecret(mcpTokenFile(project.root));
     const inspectorUrl = token
       ? `${metadata.url}/#token=${token}`
       : `${metadata.url}/`;
@@ -166,6 +172,9 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       [
         `Relate dev is already running for ${project.root}`,
         `Inspector  ${inspectorUrl}`,
+        ...(mcpToken && metadata.url
+          ? [`MCP        ${mcpAddCommand(`${metadata.url}/mcp`, mcpToken)}`]
+          : []),
         ...(args.quiet
           ? []
           : [
@@ -227,59 +236,13 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       return fail((error as Error).message);
     }
 
-    const server = createDevServer({
-      supervisor,
-      sessions,
-      ownerId: lock.metadata.ownerId,
-      inspector,
-    });
-
-    app = server.app;
-    await writeFile(tokenFile(project.root), sessions.token, { mode: 0o600 });
-    await lock.update({ state: 'listening', url: bound.url });
-    const inspectorUrl = `${bound.url}/#token=${sessions.token}`;
-
-    // The URL is usable before any definition loads, so a first failure still has an inspector.
-    terminal.banner({
-      project: project.root,
-      config: project.configPath,
-      inspectorUrl,
-    });
-
-    if (bound.notice) terminal.notice(bound.notice);
-
-    if (!args.runtime)
-      terminal.notice(
-        'Runtime    off (--no-runtime); the application is not started',
-      );
-
-    if (args.open)
-      try {
-        await openBrowser(inspectorUrl);
-      } catch (error) {
-        terminal.warn(`Could not open a browser: ${(error as Error).message}`);
-      }
-
-    const builder = await createBuilder({
-      projectRoot: project.root,
-      configPath: project.configPath,
-    });
+    let stopping = false;
     const isStdoutSaturated = () =>
       (options.stdout.writableLength ?? 0) > 1_000_000;
     const isStderrSaturated = () =>
       (options.stderr.writableLength ?? 0) > 1_000_000;
-    const runner = createAttemptRunner({
-      builder,
-      projectRoot: project.root,
-      configPath: project.configPath,
-      evalTimeoutMs: args.evalTimeoutMs,
-      env: options.env,
-      writeStdout: (line) => terminal.childStdout(line),
-      writeStderr: (line) => terminal.childStderr(line),
-      isStdoutSaturated,
-      isStderrSaturated,
-      ...(options.workerPath ? { workerPath: options.workerPath } : {}),
-    });
+    // Created before `/mcp` can answer, so a request during startup sees the
+    // runtime starting rather than a runtime that is off.
     // `--no-runtime`: inspect the model only; accepted bundles are released.
     const runtime = args.runtime
       ? createRuntimeController({
@@ -301,8 +264,80 @@ export async function runDev(options: RunDevOptions): Promise<number> {
             : {}),
         })
       : null;
+    const activity = createActivityLog();
+    const { token: mcpToken } = await readMcpToken(devDirectory(project.root), {
+      rotate: args.rotateMcpToken,
+    });
+    const mcp = createMcpEndpoint({
+      token: mcpToken,
+      runtime,
+      principals: () => {
+        const model = supervisor.state.model;
+
+        return model
+          ? {
+              names: model.principals,
+              defaultPrincipal: model.defaultPrincipal,
+            }
+          : null;
+      },
+      activity,
+    });
+    const server = createDevServer({
+      supervisor,
+      sessions,
+      ownerId: lock.metadata.ownerId,
+      inspector,
+      activity,
+      mcp: mcp.handle,
+    });
+
+    app = server.app;
+    await writeFile(tokenFile(project.root), sessions.token, { mode: 0o600 });
+    await lock.update({ state: 'listening', url: bound.url });
+    const inspectorUrl = `${bound.url}/#token=${sessions.token}`;
+
+    // The URL is usable before any definition loads, so a first failure still has an inspector.
+    terminal.banner({
+      project: project.root,
+      config: project.configPath,
+      inspectorUrl,
+      mcpUrl: `${bound.url}/mcp`,
+      mcpCommand: mcpAddCommand(`${bound.url}/mcp`, mcp.token),
+    });
+
+    if (bound.notice) terminal.notice(bound.notice);
+
+    if (!args.runtime)
+      terminal.notice(
+        'Runtime    off (--no-runtime); the application is not started',
+      );
+
+    if (args.open)
+      try {
+        await openBrowser(inspectorUrl);
+      } catch (error) {
+        terminal.warn(`Could not open a browser: ${(error as Error).message}`);
+      }
+
+    const builder = await createBuilder({
+      projectRoot: project.root,
+      configPath: project.configPath,
+    });
+    const runner = createAttemptRunner({
+      builder,
+      projectRoot: project.root,
+      configPath: project.configPath,
+      evalTimeoutMs: args.evalTimeoutMs,
+      env: options.env,
+      writeStdout: (line) => terminal.childStdout(line),
+      writeStderr: (line) => terminal.childStderr(line),
+      isStdoutSaturated,
+      isStderrSaturated,
+      ...(options.workerPath ? { workerPath: options.workerPath } : {}),
+    });
+
     let lastGoodInputs: readonly string[] = [project.configPath];
-    let stopping = false;
     const watcher = createWatcher({
       projectRoot: project.root,
       onChange: (files) => {

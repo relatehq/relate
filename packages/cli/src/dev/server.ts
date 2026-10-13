@@ -1,13 +1,17 @@
 /**
  * The stable HTTP surface of `relate dev`: the inspector shell and assets plus
- * `/dev/session`, `/dev/snapshot`, `/dev/events` and `/dev/instance`. Every
- * response here is `no-store`; the inspector package owns asset caching.
+ * `/dev/session`, `/dev/snapshot`, `/dev/events`, `/dev/activity`,
+ * `/dev/instance` and `/mcp`. Every response here is `no-store`; the inspector
+ * package owns asset caching.
  */
 import { Hono } from 'hono';
-import { streamSSE } from 'hono/streaming';
 import { PROTOCOL_VERSION, createInspectorApp } from '@relate/inspector/server';
+import type { DevEvent } from '@relate/inspector/protocol';
 import type { InspectorApp } from '@relate/inspector/server';
+import { activityRoute, createActivityLog } from './activity/index.js';
+import type { ActivityLog } from './activity/index.js';
 import type { Sessions } from './session.js';
+import { createSseStreams, streamJson } from './sse.js';
 import type { Supervisor } from './supervisor.js';
 
 export interface DevServerOptions {
@@ -15,6 +19,10 @@ export interface DevServerOptions {
   readonly sessions: Sessions;
   readonly ownerId: string;
   readonly inspector?: InspectorApp;
+  /** What MCP clients did; an empty log when omitted. */
+  readonly activity?: ActivityLog;
+  /** The `/mcp` handler; it does its own bearer authentication. */
+  readonly mcp?: (request: Request) => Promise<Response>;
   /** Keep-alive comment interval for SSE connections. */
   readonly heartbeatMs?: number;
 }
@@ -31,7 +39,8 @@ const noStore = { 'Cache-Control': 'no-store' };
 export function createDevServer(options: DevServerOptions): DevServer {
   const inspector = options.inspector ?? createInspectorApp();
   const app = new Hono();
-  const streams = new Set<() => void>();
+  const streams = createSseStreams();
+  const heartbeatMs = options.heartbeatMs ?? 15_000;
 
   app.use('*', options.sessions.guard);
 
@@ -52,47 +61,42 @@ export function createDevServer(options: DevServerOptions): DevServer {
 
   app.use('/dev/snapshot', options.sessions.requireSession);
   app.use('/dev/events', options.sessions.requireSession);
+  app.use('/dev/activity', options.sessions.requireSession);
 
   app.get('/dev/snapshot', (c) =>
     c.json(options.supervisor.snapshot(), 200, noStore),
   );
 
-  app.get('/dev/events', (c) => {
-    c.header('Cache-Control', 'no-store');
-    c.header('X-Accel-Buffering', 'no');
+  app.get('/dev/events', (c) =>
+    streamJson<DevEvent>(c, {
+      streams,
+      heartbeatMs,
+      subscribe(send) {
+        const subscription = options.supervisor.subscribe(send);
 
-    return streamSSE(c, async (stream) => {
-      let closed = false;
-      let resolveClosed!: () => void;
-      const untilClosed = new Promise<void>((resolve) => {
-        resolveClosed = resolve;
-      });
-      const close = () => {
-        if (closed) return;
+        return {
+          initial: subscription.snapshot,
+          unsubscribe: subscription.unsubscribe,
+        };
+      },
+    }),
+  );
 
-        closed = true;
-        subscription.unsubscribe();
-        clearInterval(heartbeat);
-        streams.delete(close);
-        void stream.close();
-        resolveClosed();
-      };
-      // Snapshot and registration happen synchronously: no update is lost between them.
-      // Unnamed events reach EventSource.onmessage; heartbeats are named and ignored.
-      const subscription = options.supervisor.subscribe((event) => {
-        void stream.writeSSE({ data: JSON.stringify(event) }).catch(close);
-      });
-      const heartbeat = setInterval(() => {
-        void stream.writeSSE({ data: '', event: 'heartbeat' }).catch(close);
-      }, options.heartbeatMs ?? 15_000);
+  app.get(
+    '/dev/activity',
+    activityRoute({
+      log: options.activity ?? createActivityLog(),
+      streams,
+      heartbeatMs,
+    }),
+  );
 
-      streams.add(close);
-      stream.onAbort(close);
-      await stream.writeSSE({ data: JSON.stringify(subscription.snapshot) });
+  // Bearer-authenticated by the handler; the session cookie does not apply.
+  if (options.mcp) {
+    const mcp = options.mcp;
 
-      await untilClosed;
-    });
-  });
+    app.all('/mcp', (c) => mcp(c.req.raw));
+  }
 
   app.all('/dev/*', (c) => c.json({ error: 'Not found' }, 404, noStore));
   app.route('/', inspector.app);
@@ -101,7 +105,7 @@ export function createDevServer(options: DevServerOptions): DevServer {
     app,
     inspector,
     closeStreams() {
-      for (const close of [...streams]) close();
+      streams.closeAll();
     },
   };
 }

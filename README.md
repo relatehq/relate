@@ -279,9 +279,9 @@ for a complete example.
 | Per-field evidence and freshness bounds                                | Migrating between model revisions             |
 | Relate-owned objects, idempotent actions and receipts                  | Published npm packages                        |
 | In-memory and Postgres stores                                          | Work lineage graph of agent reads and actions |
-| SQLite, Stripe and Salesforce (read-only) connectors                   |                                               |
+| SQLite, Stripe and Salesforce (read-only) connectors                   | Cloud MCP clients (ChatGPT) for `relate dev`  |
 | MCP discovery and JS execution (stdio / Streamable HTTP)               |                                               |
-| `relate dev` model inspector                                           |                                               |
+| `relate dev` model inspector, `/mcp` and activity log                  |                                               |
 
 Relate runs embedded in a Node application and exposes actor-bound graph access
 through two MCP tools: `discover` and `execute`. Both stdio and Streamable HTTP

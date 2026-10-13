@@ -99,6 +99,8 @@ export const packagePolicies: Record<
       '@hono/node-server',
       'esbuild',
       'zod',
+      '@relate/mcp',
+      '@modelcontextprotocol/client',
     ],
     builtins: true,
   },

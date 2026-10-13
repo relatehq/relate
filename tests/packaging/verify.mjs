@@ -19,6 +19,7 @@ const packages = [
   'connectors/stripe',
   'connectors/salesforce',
   'apps/inspector',
+  'packages/mcp',
   'packages/cli',
 ];
 
@@ -668,6 +669,11 @@ console.log('Installed inspector protocol and packaged assets load.');
     assert.match(await shell.text(), /<div id="root">/);
     assert.equal(
       (await fetch(`http://127.0.0.1:${port}/dev/snapshot`)).status,
+      401,
+    );
+    // /mcp ships with the installed CLI and requires its bearer token.
+    assert.equal(
+      (await fetch(`http://127.0.0.1:${port}/mcp`, { method: 'POST' })).status,
       401,
     );
     console.log(

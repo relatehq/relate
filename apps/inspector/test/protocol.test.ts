@@ -5,6 +5,7 @@ import {
   ProtocolError,
   assertFailureSeverity,
   diagnosticOrigin,
+  operationContextSchema,
   parseDevEvent,
   readProtocolVersion,
 } from '../src/protocol.js';
@@ -266,4 +267,29 @@ it('requires error severity for failure diagnostics and classifies loader failur
 
   for (const kind of ['compile', 'syntax', 'import', 'type'] as const)
     expect(diagnosticOrigin({ kind })).toBe('code');
+});
+
+it('accepts operation contexts from any transport, with or without a dev runtime', () => {
+  const base = {
+    requestId: 'request-1',
+    definitionRevision: 'rev',
+    principal: 'alice',
+  };
+
+  expect(
+    operationContextSchema.safeParse({ ...base, transport: 'embedded' })
+      .success,
+  ).toBe(true);
+  expect(
+    operationContextSchema.safeParse({
+      ...base,
+      transport: 'mcp',
+      runtimeId: 'runtime-1',
+      executionId: 'execution-1',
+    }).success,
+  ).toBe(true);
+  expect(
+    operationContextSchema.safeParse({ ...base, transport: 'websocket' })
+      .success,
+  ).toBe(false);
 });

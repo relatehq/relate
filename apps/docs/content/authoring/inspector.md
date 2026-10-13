@@ -120,6 +120,80 @@ bar shows an **as** selector listing them; the first declared one is the
 default. The choice belongs to your browser tab and is remembered per graph.
 Without declared principals the status bar shows **no principals**.
 
+## Connect Claude or Another MCP Client
+
+`relate dev` serves your running graph to AI agents over
+[MCP](https://modelcontextprotocol.io) at `/mcp`, with two tools: `discover`
+(what this principal can see) and `execute` (run JavaScript against the graph).
+The terminal prints the endpoint and a ready-to-paste command:
+
+```text
+  MCP        http://127.0.0.1:4318/mcp
+             claude mcp add --transport http relate "http://127.0.0.1:4318/mcp" --header "Authorization: Bearer <token>"
+             Append ?as=<principal> to act as another development principal
+```
+
+Paste that line to add the graph to Claude Code. The agent then acts as the
+default development principal (the first one declared). To test what another
+principal can see and do, add `?as=<name>` to the URL, for example
+`http://127.0.0.1:4318/mcp?as=auditor`, as a second server entry. The agent
+reads and acts through the same policies as any other caller, so a principal
+without the `reader` role sees no customers at all.
+
+- **Token:** created the first time `relate dev` runs in a project and kept in
+  `.relate/dev/mcp-token`, readable only by you, so a saved client entry keeps
+  working when you restart `relate dev`. That directory gets its own
+  `.gitignore`, so the token is never committed. Run
+  `relate dev --rotate-mcp-token` to replace it, for example after sharing a
+  terminal recording; saved entries then need the new line. A second
+  `relate dev` invocation for the same project prints the line again. The
+  inspector's browser session does not grant MCP access.
+- **Local clients only:** the endpoint listens on `127.0.0.1` and refuses
+  requests sent from a web page. Any local client that supports Streamable HTTP
+  and a custom `Authorization` header can connect the same way. Clients that run
+  in the cloud, such as ChatGPT, cannot reach it: they need a public tunnel,
+  which `--allowed-origin` does not cover today. Tunnel support is planned.
+- **Unknown principals:** `?as=` with a name the graph does not declare is
+  rejected with the declared names. A graph without declared principals cannot
+  be served over MCP.
+- **No runtime:** when the runtime cannot serve the call, each tool call returns
+  a `binding-unavailable` error at once with the reason and whether a retry can
+  help, instead of waiting. For example, while it restarts:
+  `{ "code": "binding-unavailable", "message": "The runtime is restarting; retry shortly", "retryable": true }`.
+  A failed runtime, `--no-runtime`, or a principal you just added that the
+  running runtime predates each say so.
+- **Restarts:** each call runs against the runtime that was active when it
+  arrived. If you save a change while an `execute` call is still running, its
+  later graph reads and actions fail with `runtime-retired`; they are never
+  silently sent to the new runtime. An action cut off mid-flight reports
+  `uncertain`, because whether it completed is unknown.
+
+`execute` runs the agent's JavaScript in a fresh Node process on your machine.
+It is a development tool, not a sandbox: connect only agents you trust with your
+development data.
+
+## The Activity Log
+
+The **Activity** page (the clock icon in the left rail) shows every `discover`
+and `execute` call as it happens: who called, as which principal, the code an
+agent ran, its console output and result, and each graph read and action that
+code made, with filters, record counts, receipt states and errors. While an
+operation runs, the objects it touches are highlighted on the graph.
+
+```text
+execute  as alice  external client  3 operations           runtime a5fb52bc  51 ms
+  await graph.actions.addCustomer({ input: { name: 'Acme' }, idempotencyKey: 'acme-1' });
+  const page = await graph.objects.Customer.query({ limit: 5, where: { name: 'Acme' } });
+  invoke  addCustomer  input {"name":"Acme"} · key acme-1    receipt succeeded
+  query   Customer     where {"name":"Acme"} · limit 5        1 record
+```
+
+The log keeps the most recent 200 calls in the `relate dev` process and is
+cleared when it stops. It survives runtime restarts; calls made against an
+earlier runtime are marked **retired**, because that runtime's data and code may
+differ from the current one. Record values are never stored: the log keeps
+record IDs, counts and short previews of filters, action inputs and results.
+
 ## Switch Between Graphs
 
 Stop the command with **Ctrl+C**, then run it again with the other graph's
@@ -159,6 +233,9 @@ Without `--port`, the command picks the first free port from **4318–4327** on
   The repository root does not ship a default config.
 - **Missing inspector assets:** run `pnpm build` from the repository root.
   `relate dev` serves the prebuilt inspector client.
+- **MCP client gets 401:** the project's token was rotated with
+  `--rotate-mcp-token`, or `.relate/dev/mcp-token` was deleted; copy the new
+  `claude mcp add` line from the terminal.
 - **Environment variables:** the command inherits your shell's environment and
   does not load `.env` files. If your definitions need them, use your project's
   environment loader. In this checkout, for example:

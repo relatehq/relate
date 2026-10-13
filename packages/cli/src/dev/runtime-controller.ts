@@ -63,6 +63,52 @@ export interface RuntimeController {
   stop(): Promise<void>;
 }
 
+/**
+ * Why `binding()` cannot serve a principal right now. Transport-independent;
+ * `/mcp` forwards the message to the caller.
+ */
+export class RuntimeUnavailableError extends Error {
+  constructor(
+    message: string,
+    readonly reason: 'not-running' | 'unknown-principal',
+    /** True when a later runtime (the next restart) can serve the request. */
+    readonly retryable: boolean,
+  ) {
+    super(message);
+    this.name = 'RuntimeUnavailableError';
+  }
+}
+
+function notRunning(status: RuntimeStatus | null): RuntimeUnavailableError {
+  switch (status?.state) {
+    case 'starting':
+    case 'restarting':
+      return new RuntimeUnavailableError(
+        'The runtime is restarting; retry shortly',
+        'not-running',
+        true,
+      );
+    case 'failed':
+      return new RuntimeUnavailableError(
+        'The runtime failed to start; fix the runtime diagnostics shown by relate dev, then save',
+        'not-running',
+        false,
+      );
+    case 'not-configured':
+      return new RuntimeUnavailableError(
+        'The runtime is not configured; export defineApp({ graph, setup }) to run it',
+        'not-running',
+        false,
+      );
+    default:
+      return new RuntimeUnavailableError(
+        'The runtime has not started yet; retry shortly',
+        'not-running',
+        true,
+      );
+  }
+}
+
 export const DEFAULT_RUNTIME_START_TIMEOUT_MS = 30_000;
 export const DEFAULT_RUNTIME_DRAIN_TIMEOUT_MS = 5_000;
 
@@ -483,13 +529,18 @@ export function createRuntimeController(
       const host = active;
 
       if (!host || host.state !== 'running' || !host.ready)
-        return Promise.reject(
-          new Error('The runtime is not running; check the runtime status'),
-        );
+        return Promise.reject(notRunning(status));
 
+      // The model may already declare it; this runtime predates that build.
       if (!host.ready.principals.includes(principal))
         return Promise.reject(
-          new Error(`Unknown development principal '${principal}'`),
+          new RuntimeUnavailableError(
+            `The running runtime (gen ${host.generation}) does not declare principal '${principal}'; it serves ${
+              host.ready.principals.join(', ') || 'no principals'
+            }. It restarts with the next accepted build.`,
+            'unknown-principal',
+            true,
+          ),
         );
 
       let binding = host.bindings.get(principal);

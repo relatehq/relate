@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/server';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { describeBinding } from './binding.js';
+import { isBindingUnavailable } from './errors.js';
 import type { CodeExecutor, GraphBinding } from './executor.js';
 
 export const javascriptInstructions = `Use discover first. execute runs an async JavaScript function body with an injected graph consumer. Use await and an explicit return for the result; console.log/error are captured. Each execution starts fresh: variables, timers and globals do not survive. Return JSON-serializable data.
@@ -30,6 +31,18 @@ function content(
     content: [{ type: 'text', text: JSON.stringify(value) }],
     structuredContent: value,
     ...(isError ? { isError: true } : {}),
+  };
+}
+
+/** The public shape of a `BindingUnavailableError`; nothing else is forwarded. */
+function unavailable(error: {
+  readonly message: string;
+  readonly retryable: boolean;
+}) {
+  return {
+    code: 'binding-unavailable',
+    message: error.message,
+    retryable: error.retryable,
   };
 }
 
@@ -72,10 +85,12 @@ export function createMcpServer(options: McpServerOptions): McpServer {
           graph: overview,
           instructions: javascriptInstructions,
         });
-      } catch {
+      } catch (error) {
         return content(
           {
-            error: { code: 'binding', message: 'Graph binding is unavailable' },
+            error: isBindingUnavailable(error)
+              ? unavailable(error)
+              : { code: 'binding', message: 'Graph binding is unavailable' },
           },
           true,
         );
@@ -105,8 +120,32 @@ export function createMcpServer(options: McpServerOptions): McpServer {
     async ({ code }, context) => {
       const signal = signalFor(context.mcpReq.signal);
 
+      let graph: GraphBinding;
+
       try {
-        const graph = await options.bindGraph({ signal });
+        graph = await options.bindGraph({ signal });
+      } catch (error) {
+        if (isBindingUnavailable(error))
+          return content(
+            {
+              status: 'failed',
+              logs: [],
+              error: { name: 'BindingUnavailableError', ...unavailable(error) },
+            },
+            true,
+          );
+
+        return content(
+          {
+            status: 'failed',
+            logs: [],
+            error: { code: 'internal', message: 'Execution unavailable' },
+          },
+          true,
+        );
+      }
+
+      try {
         const result = await options.executor.execute({ code, graph, signal });
 
         return content({ ...result }, result.status === 'failed');

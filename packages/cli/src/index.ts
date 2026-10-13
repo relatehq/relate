@@ -37,6 +37,7 @@ export type { RunDevOptions } from './dev/run.js';
 export {
   DEFAULT_RUNTIME_DRAIN_TIMEOUT_MS,
   DEFAULT_RUNTIME_START_TIMEOUT_MS,
+  RuntimeUnavailableError,
   createRuntimeController,
   defaultRuntimeHostPath,
 } from './dev/runtime-controller.js';
@@ -71,3 +72,26 @@ export type {
   RuntimeRequest,
   WireError,
 } from './dev/runtime-protocol.js';
+
+export {
+  activityLimits,
+  createActivityLog,
+  observeExecutor,
+  observeOperations,
+  observeRequest,
+} from './dev/activity/index.js';
+
+export type {
+  ActivityLog,
+  CallObservation,
+  CallSource,
+} from './dev/activity/index.js';
+
+export {
+  createMcpEndpoint,
+  createMcpToken,
+  mcpAddCommand,
+  readMcpToken,
+} from './dev/mcp.js';
+
+export type { McpEndpoint, McpEndpointOptions } from './dev/mcp.js';

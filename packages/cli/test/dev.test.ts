@@ -16,6 +16,10 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  Client,
+  StreamableHTTPClientTransport,
+} from '@modelcontextprotocol/client';
 import { afterEach, expect, it } from 'vitest';
 import { parseDevEvent } from '@relate/inspector/protocol';
 import type { DevEvent } from '@relate/inspector/protocol';
@@ -448,7 +452,7 @@ it('prints the URL before the first model, then publishes models and failures ov
     `#token=${dev.token}\n`,
   );
   expect(Buffer.concat(duplicateOutput).toString('utf8')).toMatch(
-    /Relate dev is already running for .*\nInspector\s+http:\/\/127\.0\.0\.1:\d+\/#token=[A-Za-z0-9_-]+\nConfig\s+.*relate\.config\.ts\nPID\s+\d+/,
+    /Relate dev is already running for .*\nInspector\s+http:\/\/127\.0\.0\.1:\d+\/#token=[A-Za-z0-9_-]+\nMCP\s+claude mcp add --transport http relate "http:\/\/127\.0\.0\.1:\d+\/mcp" --header "Authorization: Bearer [A-Za-z0-9_-]+"\nConfig\s+.*relate\.config\.ts\nPID\s+\d+/,
   );
 
   await stream.return(undefined);
@@ -572,6 +576,55 @@ export const graph = defineGraph({
     /^\s+runtime gen 2\s+running\s+in-memory store, previous data reset/,
   );
   await stream.return(undefined);
+}, 60_000);
+
+it('prints a ready-to-paste claude mcp add line whose token reaches the runtime over /mcp', async () => {
+  const project = await createProject();
+
+  projects.push(project.root);
+  await project.write(
+    'src/relate/graph.ts',
+    `import { defineAccess, defineGraph, defineObject, nativeMembership, objectId } from 'relate';
+
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
+const Note = defineObject({
+  id: 'notes.note',
+  membership: nativeMembership(),
+  properties: { id: objectId({ id: 'note.id' }) },
+});
+export const graph = defineGraph({
+  id: 'notes',
+  objects: { Note },
+  access,
+  policies: { Note: { read: { gate: access.role('reader') } } },
+  principals: { alice: { roles: ['reader'] }, bob: { roles: [] } },
+});
+`,
+  );
+  const dev = await startDev(project);
+  const line = await dev.waitForStdout(/claude mcp add --transport http/);
+
+  await dev.waitForStdout(/^\s+runtime gen 1\s+running/);
+  const [, url, token] =
+    /"(http:\/\/127\.0\.0\.1:\d+\/mcp)" --header "Authorization: Bearer ([A-Za-z0-9_-]+)"/.exec(
+      line,
+    )!;
+
+  expect(url).toBe(`${dev.url}/mcp`);
+  expect(token).not.toBe(dev.token);
+  const client = new Client({ name: 'dev-test', version: '1' });
+
+  await client.connect(
+    new StreamableHTTPClientTransport(new URL(`${url}?as=alice`), {
+      requestInit: { headers: { authorization: `Bearer ${token}` } },
+    }),
+  );
+  const discovery = await client.callTool({ name: 'discover', arguments: {} });
+
+  await client.close();
+  expect(discovery.structuredContent).toMatchObject({
+    graph: { objects: { Note: {} } },
+  });
 }, 60_000);
 
 it('withholds ANTHROPIC_API_KEY from the compile worker and starts no runtime with --no-runtime', async () => {

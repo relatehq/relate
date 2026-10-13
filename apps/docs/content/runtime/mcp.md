@@ -165,6 +165,42 @@ const server = await connectStdio({
 The stdio server reserves stdout for MCP messages. Execution logs are returned
 inside the tool result. Keep host logging on stderr.
 
+### Report why a caller cannot be served
+
+Other exceptions from `bindGraph` become sanitized failures (HTTP 500, or a
+generic `binding` tool error), so host details never leak. When an authenticated
+caller cannot be served for a reason they may see, throw
+`BindingUnavailableError` instead. Over HTTP the MCP handshake still succeeds,
+and both tools return the message and whether retrying can help:
+
+```ts
+import { BindingUnavailableError } from '@relate/mcp';
+
+async bindGraph(request) {
+  const actor = await authenticate(request);
+  if (!actor) return new Response('Unauthorized', { status: 401 });
+  if (maintenance)
+    throw new BindingUnavailableError('The graph is being upgraded; retry in a minute', {
+      retryable: true,
+    });
+  return { description, operations: runtime.operations(actor) };
+}
+```
+
+```json
+{
+  "error": {
+    "code": "binding-unavailable",
+    "message": "The graph is being upgraded; retry in a minute",
+    "retryable": true
+  }
+}
+```
+
+`execute` returns the same fields as a failed result, with
+`error.name: 'BindingUnavailableError'` and empty `logs`. Put nothing in the
+message you would not show the caller.
+
 ## Replace execution without changing the tools
 
 ```ts

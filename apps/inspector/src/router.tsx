@@ -6,6 +6,7 @@ import {
   Outlet,
 } from '@tanstack/react-router';
 import { PlaceholderScreen, inspectorPages } from './NavRail.js';
+import { ActivityScreen } from './screens/ActivityScreen.js';
 import { GraphScreen } from './screens/GraphScreen.js';
 import { InspectorShell } from './screens/InspectorShell.js';
 
@@ -23,9 +24,15 @@ const graphRoute = createRoute({
   component: GraphScreen,
 });
 
+const activityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/activity',
+  component: ActivityScreen,
+});
+
 // Rail pages without a screen yet render a placeholder so navigation is complete.
 const placeholderRoutes = inspectorPages
-  .filter((page) => page.path !== '/')
+  .filter((page) => page.path !== '/' && page.path !== '/activity')
   .map((page) =>
     createRoute({
       getParentRoute: () => rootRoute,
@@ -34,7 +41,11 @@ const placeholderRoutes = inspectorPages
     }),
   );
 
-const routeTree = rootRoute.addChildren([graphRoute, ...placeholderRoutes]);
+const routeTree = rootRoute.addChildren([
+  graphRoute,
+  activityRoute,
+  ...placeholderRoutes,
+]);
 
 /**
  * Pages live in the hash (`#/objects`): the server serves the shell only at the

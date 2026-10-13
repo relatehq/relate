@@ -8,7 +8,7 @@ export type InspectorPage = {
   readonly icon: IconName;
 };
 
-/** Every inspector screen, in rail order. Only the graph is built so far. */
+/** Every inspector screen, in rail order. The graph and activity are built so far. */
 export const inspectorPages: readonly InspectorPage[] = [
   { path: '/', label: 'Graph', icon: 'sitemap' },
   { path: '/objects', label: 'Objects', icon: 'cube' },

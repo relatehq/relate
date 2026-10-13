@@ -31,10 +31,13 @@ const handleMcp = createStreamableHttpHandler({
 ```
 
 `connectStdio({ executor, bindGraph })` registers the same tools for stdio.
-`CodeExecutor` is replaceable; the supplied fresh-Node-process implementation is
-**for trusted development code, not a security sandbox**. It can access Node,
-the filesystem and network with the host user's permissions. Timeout/abort does
-not roll back graph actions already dispatched.
+Throw `BindingUnavailableError(message, { retryable })` from `bindGraph` to tell
+an authenticated caller why it cannot be served right now; both tools forward
+that message as a `binding-unavailable` error, while other exceptions stay
+sanitized. `CodeExecutor` is replaceable; the supplied fresh-Node-process
+implementation is **for trusted development code, not a security sandbox**. It
+can access Node, the filesystem and network with the host user's permissions.
+Timeout/abort does not roll back graph actions already dispatched.
 
 Read the [MCP guide and execution flow](../../apps/docs/content/runtime/mcp.md)
 and [package contract](./CONTRACT.md). The adapter uses MCP SDK transports with

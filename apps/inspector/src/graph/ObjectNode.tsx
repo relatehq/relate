@@ -25,7 +25,7 @@ export const ObjectNode = memo(function ObjectNode(
     <div
       className={`object-node${selected ? ' selected' : ''}${
         data.issues > 0 ? ' highlighted' : ''
-      }`}
+      }${data.touched ? ' touched' : ''}`}
       data-definition-id={data.id}
       title={data.description ?? data.id}
     >

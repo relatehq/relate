@@ -13,6 +13,7 @@ it('parses defaults, explicit flags and inline values', () => {
     open: false,
     quiet: false,
     runtime: true,
+    rotateMcpToken: false,
     evalTimeoutMs: DEFAULT_EVAL_TIMEOUT_MS,
     allowedOrigins: [],
   });
@@ -24,6 +25,7 @@ it('parses defaults, explicit flags and inline values', () => {
       '--open',
       '--quiet',
       '--no-runtime',
+      '--rotate-mcp-token',
       '--eval-timeout',
       '60000',
       '--allowed-origin',
@@ -37,6 +39,7 @@ it('parses defaults, explicit flags and inline values', () => {
     open: true,
     quiet: true,
     runtime: false,
+    rotateMcpToken: true,
     evalTimeoutMs: 60_000,
     allowedOrigins: ['https://my-private-forward.example'],
   });
@@ -54,6 +57,7 @@ it.each([
   [['--quiet=yes'], /takes no value/],
   [['--open=yes'], /takes no value/],
   [['--no-runtime=yes'], /takes no value/],
+  [['--rotate-mcp-token=yes'], /takes no value/],
   [['--bogus'], /Unknown option/],
   [['--allowed-origin', 'not a url'], /absolute origin/],
   [['--allowed-origin', 'http://remote.example'], /HTTPS/],
