@@ -27,9 +27,11 @@ The only screen in this scope is a **model graph**, built with React Flow
 are object-type nodes such as Customer, Invoice and AccountReview, not
 individual customer records or a live picture of provider data.
 
-Record browsing, action forms, activity screens, identity switching, operational
-controls and MCP tools are outside this implementation scope. The architecture
-must accommodate those capabilities without implementing them now.
+Record browsing, action forms, operational controls and direct tool calls are
+outside this implementation scope. Development principals, a live runtime, the
+`/mcp` endpoint, the built-in agent and the activity log are designed in
+[Live runtime, MCP and the built-in agent](#live-runtime-mcp-and-the-built-in-agent)
+(agreed 2026-10-13, not yet implemented).
 
 Agreed foundation:
 
@@ -273,13 +275,13 @@ export default defineApp({ graph });
 An actual live start still requires all connections and capabilities required by
 that model. A missing binding must fail startup, not quietly supply a fake.
 
-**Future attachment mode:** inspecting the actual runtime of a larger app needs
-that app to expose an authenticated inspection endpoint. The inspector then
-attaches over HTTP; it cannot infer private in-memory state from a filename. The
-same SPA can be mounted in a Hono host, using narrow server capabilities.
-Attachment, production authentication and live operations are not part of this
-graph-only scope. This distinction prevents accidentally starting two sets of
-consumers, schedulers or provider effects.
+**No attachment mode:** the inspector does not attach to a developer's own
+application that embeds Relate with `startApp`. The inspector is Relate's
+control plane and development tool: it shows runtimes that Relate itself hosts.
+In `relate dev` that is the local runtime host described in
+[Live runtime, MCP and the built-in agent](#live-runtime-mcp-and-the-built-in-agent).
+A later hosted deployment (a graph deployed to Relate's cloud, with this
+inspector as its UI) is possible but not planned in detail.
 
 ## Package ownership and dependencies
 
@@ -1226,28 +1228,399 @@ an SPA build wrapper. Vite makes this packaging boundary direct. See
 Historical prototype bundling problems are supporting context, not evidence that
 Next cannot implement this product.
 
-## Live runtime extension and open decisions
+## Live runtime, MCP and the built-in agent
 
-The process layout later permits the worker to start the runtime and serve
-`@relate/http`, with the supervisor proxying `/api`. Business reads/actions use
-the public client; host commands use separate named capabilities. The same SPA
-can attach to a production host without exposing development routes.
+**Status:** design agreed 2026-10-13 and revised the same day after review
+(runtime pinning, discovery snapshots, storage, per-principal conversations,
+reserved `/api`); not implemented. This replaces the earlier "live runtime
+extension" sketch, which planned attachment to production hosts.
 
-Before enabling live execution during reload, specify:
+Outcome: in `relate dev`, choose a development principal in the inspector, ask
+the built-in agent a question about the graph, and watch the code it runs and
+every graph read and action that code makes. Claude, ChatGPT or any other MCP
+client can connect to the same `/mcp` endpoint, and its activity appears in the
+same log.
 
-1. Persistent local storage and resource ownership across child replacement.
-2. Model compatibility and migration/activation. Current stores reject an
-   installed graph with a different definition revision, including in memory.
-3. Draining accepted operations, action generation preconditions and cleanup.
-4. Separate compiled-model and active-runtime revisions. A model displayed in
-   the inspector is not proof of successful runtime activation.
-5. Principal-scoped data invalidation. An unchanged Manifest does not mean
-   connector or action behavior is unchanged.
+### Development principals
 
-These decisions do not block a compile-only model view and must not be silently
-resolved through data resets. In-process Vite module re-evaluation remains a
-possible optimization inside the worker; it is not required for the foundation.
-No reload latency or implementation-duration estimate is yet benchmarked.
+Principals are declared in the graph, checked against its access declaration,
+and returned by the compiler **outside** the Manifest:
+
+```ts
+export const graph = defineGraph({
+  id: 'business',
+  objects,
+  relationships,
+  access,
+  policies,
+  principals: {
+    alice: { roles: ['reader'], claims: { region: 'eu' } },
+    auditor: { roles: ['reader', 'finance'], claims: { region: null } },
+  },
+});
+
+const model = compile(graph);
+model.manifest; // hashed into definitionRevision, unchanged rules
+model.principals; // { alice: { roles, claims }, ... }, not hashed, not stored
+```
+
+- Unknown roles and claim values that fail the `defineAccess` schemas are
+  compile diagnostics.
+- The runtime principal is `{ id: key, roles, claims }`
+  ([`Principal`](../../packages/runtime/src/authorization/policy.ts)).
+- `definitionRevision` answers whether a store is compatible with a model.
+  Development identities do not change stored data, so adding one must not
+  produce a new revision; that would force a migration or activation step on
+  persistent stores for no data change. Keeping them out of the Manifest also
+  keeps them out of what a store records.
+- Outside `relate dev` nothing reads `principals`; they are inert fixtures.
+
+The snapshot carries the principal names and a default (the first declared). The
+inspector shows a principal selector; the choice belongs to the browser and
+selects which agent conversation is shown (see
+[Built-in agent](#built-in-agent)). External MCP clients choose with
+`?as=<name>`.
+
+### Processes
+
+One command and one port. The runtime host is the only new process.
+
+```text
+pnpm relate dev  →  http://127.0.0.1:4318
+
+dev server (supervisor), one per session
+  Hono: SPA at /, /dev/*, /mcp, /dev/agent/*, /dev/activity
+  agent loop: code in this process, calls the Anthropic API and its own /mcp
+  activity observer: decorators and a bounded log
+  ├─ compile worker   one per edit attempt     compile(graph) → Manifest     (exists)
+  ├─ runtime host     one per accepted build   startApp(app) → operations    (new)
+  └─ execute child    one per `execute` call   runs agent JavaScript         (exists, @relate/mcp)
+```
+
+| Process        | Count        | Lifetime           | Owns                                         |
+| -------------- | ------------ | ------------------ | -------------------------------------------- |
+| Dev server     | 1            | Session            | HTTP, sessions, MCP, agent, activity log     |
+| Compile worker | 0–1          | One edit attempt   | Import config, compile, report               |
+| Runtime host   | 0–1          | One accepted build | `setup`, connectors, store, `operations(p)`  |
+| Execute child  | one per call | One `execute` call | Agent JavaScript; development, not a sandbox |
+
+The dev server never imports user code, so a broken edit or a crashing connector
+cannot take down the inspector. The compile worker still never calls `setup`.
+The runtime host has no HTTP listener and no MCP; it answers operation requests
+over IPC:
+
+```ts
+// packages/cli/src/dev/runtime-protocol.ts (proposed)
+type RuntimeRequest =
+  | {
+      type: 'op';
+      id: number;
+      runtimeId: string; // the runtime this binding was created against
+      principal: string;
+      operation: 'get' | 'query' | 'traverse' | 'invoke' | 'getReceipt';
+      args: Json[];
+    }
+  | { type: 'discovery'; id: number; runtimeId: string; principal: string };
+type RuntimeReply =
+  | { type: 'reply'; id: number; value: Json }
+  | { type: 'reply'; id: number; error: WireError }; // public read/action errors only
+// discovery reply value: the principal's complete snapshot, read once
+type DiscoverySnapshot = {
+  overview: GraphDescription;
+  objects: Record<string, ObjectDescription>; // by definition ID
+  actions: Record<string, ActionDescription>; // by definition ID
+};
+type RuntimeEvent =
+  | { type: 'ready'; runtimeId: string; definitionRevision: string }
+  | { type: 'failed'; runtimeId: string; diagnostics: Diagnostic[] };
+```
+
+This is the pattern `@relate/mcp` already uses between its execution child and
+host ([`child.ts`](../../packages/mcp/src/child.ts),
+[`wire.ts`](../../packages/mcp/src/wire.ts)). An `execute` call's graph
+operations therefore cross two IPC hops: execute child → dev server → runtime
+host. That is acceptable for development.
+
+**Runtime identity.** Each runtime host gets a fresh `runtimeId`, even when a
+restart keeps the same `definitionRevision` (connector or action code may have
+changed). A request whose `runtimeId` is not the active runtime is rejected with
+a public `runtime-retired` error. It is never redirected to the new runtime or
+replayed, as the consumer contract requires
+([`consumer.ts`](../../packages/protocol/src/consumer.ts): "Model mismatch must
+not replay mutations or silently rebind to a new model"). An agent that reads
+from runtime A cannot then act on runtime B within the same execution.
+
+**Runtime binding.** `@relate/mcp` reads discovery synchronously
+([`binding.ts`](../../packages/mcp/src/binding.ts)), so IPC-backed operations
+cannot answer it lazily. The dev server builds one binding per
+`(runtimeId, principal)`: it fetches the complete discovery snapshot over IPC,
+then serves synchronous discovery from it alongside pinned IPC operations. The
+binding is cached until its runtime retires. It is transport-independent: MCP
+uses it now, and a future `/api` uses the same one.
+
+```ts
+// packages/cli/src/dev/runtime-binding.ts (proposed)
+interface RuntimeBinding {
+  readonly runtimeId: string;
+  readonly definitionRevision: string;
+  readonly principal: string;
+  readonly description: ConsumerDescription; // from the accepted compile
+  readonly operations: ConsumerOperations; // prefetched discovery + IPC calls pinned to runtimeId
+}
+```
+
+**Possible later direction (not planned):** if graphs are deployed to a
+Relate-hosted cloud with this inspector as their UI, the runtime host is the
+seed of that hosted runtime. Keep its IPC contract in public protocol shapes and
+its lifecycle explicit so it can grow, but do not build for it now.
+
+### Runtime host lifecycle (simple version)
+
+The five questions the earlier sketch left open, answered for development only:
+
+1. **Storage:** the runtime host calls `startApp(app)` unchanged, so it uses
+   whatever store `setup` returns ([`app.ts`](../../packages/node/src/app.ts)).
+   The dev server never replaces or resets an application's chosen store.
+   - No store from `setup` (or no `setup`): the runtime's default in-memory
+     store. This is the expected development case. Data is lost on every
+     restart, and the inspector and terminal say so.
+   - A persistent store (for example Postgres): used as-is. Its existing
+     revision check applies, so after a model change the runtime host reports a
+     diagnostic and stays down; it never resets data to recover. Postgres
+     continuity across model changes is later work.
+2. **Compatibility:** in-memory stores start fresh per runtime host, so no
+   revision migration arises. Persistent stores follow item 1.
+3. **Draining:** on a new accepted build, retire the current `runtimeId` (new
+   requests for it fail with `runtime-retired`), call `close()` with a deadline,
+   then kill. An action in flight at the deadline may be cut off; its outcome is
+   unknown, as with any timeout.
+
+Resetting a local store does not reset provider data or undo external actions
+already performed. Receipts are lost with an in-memory store, so idempotency
+continuity across restarts cannot be assumed: reusing an idempotency key after a
+restart may perform the action again. 4. **Revisions:** the inspector shows the
+compiled `definitionRevision` and the runtime host's active revision separately;
+a displayed model is not proof the runtime started. `setup` failures are
+diagnostics, not crashes. 5. **Invalidation:** restart on every accepted build,
+even when the Manifest is unchanged, because connector and action code may have
+changed.
+
+### Routes
+
+| Prefix   | Audience                        | Contract                                      |
+| -------- | ------------------------------- | --------------------------------------------- |
+| `/`      | Browser                         | Inspector SPA                                 |
+| `/dev/*` | Inspector only                  | Private `@relate/inspector/protocol`          |
+| `/mcp`   | Built-in agent, external agents | MCP (`discover`, `execute`) via `@relate/mcp` |
+| `/api`   | Reserved                        | Future `@relate/http` consumer API            |
+
+`/mcp` requires a bearer token printed in the terminal; the inspector session
+cookie does not apply because MCP clients are not browsers. Host validation
+still applies; requests carrying a browser `Origin` are refused.
+
+`/api` is reserved as a sibling of `/mcp`, not built now. When added, it mounts
+`@relate/http` in the dev server over the same `RuntimeBinding`; the runtime
+host needs neither an HTTP listener nor knowledge of MCP or HTTP. Removing
+attachment mode does not affect this: attaching to someone else's application
+and exposing an HTTP API from Relate's own runtime host are separate choices.
+
+```sh
+claude mcp add --transport http relate "http://127.0.0.1:4318/mcp?as=alice" \
+  --header "Authorization: Bearer <token from terminal>"
+```
+
+### Built-in agent
+
+The agent loop runs in the dev server, never the browser, because the API key
+must stay server-side. It reads `ANTHROPIC_API_KEY` from the dev server's
+environment (or an `ant auth login` profile). The CLI still loads no `.env`
+itself (see
+[Environment inherited by the child](#environment-inherited-by-the-child)); keep
+the key in the project `.env` and start with the project's loader:
+
+```sh
+pnpm exec dotenvx run -f .env -- pnpm relate dev
+```
+
+`ANTHROPIC_API_KEY` is removed from the runtime host's environment so
+application code cannot read it; execute children already inherit only `PATH`.
+Without credentials the agent panel explains the setup and the rest of the
+inspector is unaffected.
+
+The Anthropic API's own MCP connector needs a URL Anthropic can reach, which a
+loopback address is not, so the loop is client-side: an MCP client connects to
+the dev server's own `/mcp`, lists its tools, exposes them as Anthropic tools
+and forwards each call. Going through `/mcp` keeps the agent on exactly the path
+external clients use.
+
+```ts
+// packages/cli/src/dev/agent.ts (proposed sketch)
+const mcp = new Client({ name: 'relate-inspector', version });
+await mcp.connect(
+  new StreamableHTTPClientTransport(new URL(`${origin}/mcp?as=${principal}`), {
+    requestInit: { headers: { authorization: `Bearer ${agentToken}` } },
+  }),
+);
+const { tools } = await mcp.listTools();
+// MCP and Anthropic tool shapes differ; map explicitly.
+const anthropicTools = tools.map((tool) => ({
+  name: tool.name,
+  description: tool.description ?? '',
+  input_schema: tool.inputSchema,
+}));
+// messages.stream({ model: 'claude-opus-5-5', tools: anthropicTools, messages }) →
+// tool_use → mcp.callTool({ name, arguments: input }) → tool_result → stream to the browser
+```
+
+**One conversation per principal.** Switching principal is a conversation
+boundary, not a mid-conversation change: otherwise the model would keep records
+and tool results read as the previous principal, which defeats access-control
+testing. The dev server keeps a separate history per principal. Each turn is
+pinned to the principal it started with; switching in the UI selects another
+conversation and does not affect a turn already running. Direct tool calls from
+the UI (a playground without the model) are later work.
+
+### Activity observation
+
+Three decorators in the dev server wrap the `RuntimeBinding` given to
+`createStreamableHttpHandler`. `@relate/mcp` needs no change: it already takes a
+replaceable `CodeExecutor` and `GraphBinding`.
+
+```text
+/mcp request ─ L1 ─▶ execute tool ─ L2 executor ─▶ graph.objects.X.query() ─ L3 operations ─▶ runtime host
+requestId            executionId                      opId
+```
+
+Operation observation (L3) is shared by every transport, not tied to MCP. Each
+operation carries a context; `executionId` is present only when agent JavaScript
+made the call, so a future `/api` request appears in the same timeline without
+inventing an execution:
+
+```ts
+type OperationContext = {
+  requestId: string;
+  runtimeId: string;
+  definitionRevision: string;
+  principal: string;
+  transport: 'mcp' | 'http';
+  executionId?: string;
+};
+```
+
+```ts
+// apps/inspector/src/protocol.ts (proposed)
+type ActivityEvent =
+  | {
+      kind: 'call';
+      requestId: string;
+      runtimeId: string;
+      source: 'inspector-agent' | 'external';
+      principal: string;
+      tool: 'discover' | 'execute';
+      at: string;
+      ms: number;
+      isError: boolean;
+    }
+  | {
+      kind: 'execution';
+      executionId: string;
+      requestId: string;
+      runtimeId: string;
+      code: string;
+      status: 'running' | 'succeeded' | 'failed';
+      logs: ExecutionLog[];
+      error?: ExecutionError;
+      resultPreview?: string;
+      ms?: number;
+    }
+  | {
+      kind: 'operation';
+      opId: string;
+      context: OperationContext;
+      op: 'get' | 'query' | 'traverse' | 'invoke' | 'getReceipt';
+      definitionId: string;
+      request: {
+        objectId?: string;
+        traversal?: string;
+        select?: string[];
+        where?: Json;
+        limit?: number;
+        cursor?: string;
+        idempotencyKey?: string;
+      };
+      outcome: {
+        found?: boolean;
+        records?: number;
+        hasMore?: boolean;
+        receiptState?: string;
+        error?: { code: string; issues?: Json };
+        evidenceWarnings?: number;
+      };
+      recordIds: string[];
+      ms: number;
+    };
+```
+
+The executor decorator links operations to their execution by handing the inner
+executor a per-execution wrapped binding:
+
+```ts
+function observeExecutor(
+  inner: CodeExecutor,
+  log: ActivityLog,
+  request: Omit<OperationContext, 'executionId'>,
+): CodeExecutor {
+  return {
+    async execute({ code, graph, signal }) {
+      const executionId = randomUUID();
+      const observed = {
+        ...graph,
+        operations: observeOperations(graph.operations, log, {
+          ...request,
+          executionId,
+        }),
+      };
+      log.start({ executionId, code });
+      const result = await inner.execute({ code, graph: observed, signal });
+      log.finish(executionId, result);
+      return result;
+    },
+  };
+}
+```
+
+The agent loop records its own turns and maps each `tool_use` id to its
+`requestId`, so the UI can show a chat message, the code it ran and every graph
+operation behind it. `definitionId` on each operation lets the graph screen
+highlight objects as they are touched.
+
+The log is a bounded ring buffer (for example the last 200 executions) with a
+per-event size cap; record values appear only as previews. It is served by
+`GET /dev/activity` (snapshot plus SSE, session-guarded), separate from
+`/dev/events` so model generations and sequences keep their current meaning.
+Activity survives runtime host restarts because it lives in the dev server;
+every event carries its `runtimeId`, so the timeline shows which runtime (and
+therefore which data, connectors and action code) each call ran against.
+
+### Ownership
+
+| Location                                                      | Adds                                                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `packages/relate`                                             | `defineGraph({ principals })`, validation, `compile().principals`                                |
+| `packages/cli/src/dev/runtime-host.ts`, `runtime-protocol.ts` | Runtime host child and its IPC contract                                                          |
+| `packages/protocol`                                           | `runtime-retired` read and action error code (public, so clients can tell it from a denial)      |
+| `packages/cli/src/dev/runtime-binding.ts`                     | `RuntimeBinding`: discovery snapshot + pinned IPC operations, shared by `/mcp` and future `/api` |
+| `packages/cli/src/dev/mcp.ts`                                 | `/mcp`, bearer token, `?as=`                                                                     |
+| `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity`                                                   |
+| `packages/cli/src/dev/agent.ts`                               | Agent loop, `/dev/agent/*`                                                                       |
+| `apps/inspector`                                              | Principal selector, agent panel, activity timeline, graph highlights, protocol types             |
+| `tests/architecture/package-boundaries.ts`                    | `packages/cli` may import `@relate/mcp`, `@modelcontextprotocol/client`, `@anthropic-ai/sdk`     |
+
+Delivery order: (1) principals, the runtime host and `RuntimeBinding`; (2)
+`/mcp` with observation; (3) the agent and activity UI. Public docs
+(`apps/docs/content/authoring/access-control.md`,
+`apps/docs/content/authoring/inspector.md`) change with each step's
+implementation, since they describe shipped behavior.
 
 ## Acceptance evidence for implementation
 
