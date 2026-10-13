@@ -13,10 +13,13 @@ Development and operational commands using programmatic APIs.
 ## `relate dev`
 
 Serve the [inspector](../../apps/inspector/README.md) for the project's Relate
-definitions and reload it on save. The command never starts the application's
-own server, runtime, database or connectors: a replaceable child process imports
-the selected config, compiles `app.graph` with `relate/compiler` and reports a
-Manifest or structured diagnostics over IPC.
+definitions and reload it on save. A replaceable compile child imports the
+selected config, compiles `app.graph` with `relate/compiler` and reports a
+Manifest or structured diagnostics over IPC; it never calls `setup`. For every
+accepted build a separate **runtime host** child calls `startApp(app)` unchanged
+(so `setup`, connectors and the app's chosen store run as in production) and
+answers graph operations over IPC. The command never starts the application's
+own HTTP server.
 
 ```sh
 pnpm relate dev
@@ -35,7 +38,7 @@ export { default } from './src/relate/app.js';
 ```
 
 Top-level imports of that module must be safe to evaluate; put connector and
-credential work in `setup`, which the inspector never calls.
+credential work in `setup`, which only the runtime host calls.
 
 Use `--quiet` to hide routine status lines while keeping the inspector URL,
 application output, warnings and errors visible.
@@ -51,7 +54,9 @@ application output, warnings and errors visible.
   Loading    attempt 1
 
   ready  gen 1  business  3 objects · 2 sources · 2 relationships  142ms
+  runtime gen 1  running  in-memory store, data is lost on restart
   update src/relate/objects.ts          gen 2  +AccountReview.score  61ms
+  runtime gen 2  running  in-memory store, previous data reset
   error  src/relate/graph.ts            attempt 3  1 issue; keeping gen 2
     policy.unknown-role: Unknown policy role 'finanse' in policy Invoice.read
     src/relate/graph.ts:24:22 (graph declaration)
@@ -69,6 +74,11 @@ application output, warnings and errors visible.
 - Child `console.log`/`console.error` output is forwarded line by line as
   `[app attempt N stdout]` / `[app attempt N stderr]`; it never becomes a
   protocol message.
+- Runtime host output is forwarded as `[runtime gen N stdout]` /
+  `[runtime gen N stderr]`. A runtime failure (`runtime.setup-failed`,
+  `runtime.store-revision-mismatch`, `runtime.timeout`, `runtime.exited`, …)
+  prints `error  runtime gen N failed` with its diagnostics; the model stays
+  published.
 - Output is append-only and plain text when redirected or `NO_COLOR` is set.
   Standard output carries the banner, lifecycle lines and child stdout; standard
   error carries diagnostics, warnings and child stderr.
@@ -90,8 +100,20 @@ application output, warnings and errors visible.
   and runs it in a fresh Node child with source maps enabled. Loading and
   compiling must finish within `--eval-timeout` milliseconds (default 30000) or
   the attempt fails with `worker.timeout` and the child is terminated.
-- Environment variables are inherited from the invoking shell; the command loads
-  no `.env` files. Use the project's own loader:
+- Runtime host lifecycle: every accepted build (even with an unchanged Manifest)
+  retires the current runtime, asks it to drain and close within five seconds,
+  kills it if it does not, and then starts a new one with a fresh `runtimeId`.
+  Requests addressed to a retired `runtimeId` fail with
+  `ReadError('runtime-retired')` / `ActionError('runtime-retired')` and are
+  never replayed on the new runtime; an action cut off by the kill rejects with
+  `ActionError('uncertain')`. `setup` and the store check must finish within 30
+  seconds. With no store from `setup`, data lives in memory and is lost on every
+  restart. A persistent store keeps its revision check: after a model change the
+  runtime reports `runtime.store-revision-mismatch` and stays down, never
+  resetting data. The runtime host has no HTTP listener.
+- Environment variables are inherited from the invoking shell, except that the
+  runtime host never receives `ANTHROPIC_API_KEY`; the command loads no `.env`
+  files. Use the project's own loader:
   `pnpm exec dotenvx run -f .env -- pnpm relate dev`.
 - Ctrl+C stops the watcher, terminates owned children (five seconds of grace, or
   immediately on a second Ctrl+C), closes the listener and releases the lock.
@@ -109,8 +131,8 @@ any `--allowed-origin`, and cross-site fetches are rejected.
 | `GET /assets/*`     | no      | Content-hashed assets (`immutable`)                          |
 | `GET /dev/instance` | no      | `{ instanceId, protocolVersion, ownerId }` for lock checks   |
 | `POST /dev/session` | no      | Exchange `{ token }` for the session cookie; Origin required |
-| `GET /dev/snapshot` | yes     | Current model, failure and sequence                          |
-| `GET /dev/events`   | yes     | SSE: snapshot first, then `model` / `diagnostics` events     |
+| `GET /dev/snapshot` | yes     | Current model, failure, runtime status and sequence          |
+| `GET /dev/events`   | yes     | SSE: snapshot, then `model` / `diagnostics` / `runtime`      |
 
 The wire shapes are validated with `@relate/inspector/protocol`.
 
@@ -120,7 +142,27 @@ The wire shapes are validated with `@relate/inspector/protocol`.
 embedding: `runDev`, `parseDevArguments`, `resolveProject`, `acquireLock`,
 `bindLoopback`, `createSessions`, `createDevServer`, `Supervisor`,
 `createBuilder`, `createWatcher`, `createAttemptRunner`, `createTerminal`,
-`diffManifests` and `summarizeDiff`.
+`createRuntimeController`, `createRuntimeBinding`, `diffManifests` and
+`summarizeDiff`.
+
+A `RuntimeBinding` is one `(runtimeId, principal)` view of the runtime host:
+
+```ts
+const runtime = createRuntimeController({
+  projectRoot,
+  configPath,
+  env,
+  onStatus,
+  writeStdout,
+  writeStderr,
+});
+
+await runtime.restart({ generation: 1, bundle });
+const alice = await runtime.binding('alice'); // a principal from defineGraph({ principals })
+
+alice.operations.discovery.describe(); // prefetched snapshot, synchronous
+await alice.operations.query('business.customer'); // IPC, pinned to alice.runtimeId
+```
 
 ## Not yet implemented
 

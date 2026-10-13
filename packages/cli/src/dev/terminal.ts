@@ -7,7 +7,7 @@ import { isAbsolute, relative, resolve } from 'node:path';
 import type { Writable } from 'node:stream';
 import type { Manifest } from 'relate/model';
 import { formatIssuePath } from 'relate/diagnostics';
-import type { Diagnostic } from '@relate/inspector/protocol';
+import type { Diagnostic, RuntimeStatus } from '@relate/inspector/protocol';
 import { describeManifest } from './diff.js';
 
 export interface TerminalOptions {
@@ -44,6 +44,8 @@ export interface Terminal {
     keptGeneration: number | null,
   ): void;
   startupError(message: string): void;
+  /** Runtime host transitions: running, failed and restarts. */
+  runtime(status: RuntimeStatus): void;
   childStdout(line: string): void;
   childStderr(line: string): void;
 }
@@ -126,6 +128,37 @@ export function createTerminal(options: TerminalOptions): Terminal {
 
       out(
         `  ${paint('green', 'update')} ${pad(fileList(files), 28)} gen ${generation}  ${summary}  ${paint('dim', `${durationMs}ms`)}`,
+      );
+    },
+    runtime(status) {
+      if (status.state === 'failed') {
+        err(
+          `  ${paint('red', 'error')}  runtime gen ${status.generation} failed; graph operations are unavailable until the next accepted build`,
+        );
+
+        for (const diagnostic of status.diagnostics) {
+          err(`    ${paint('bold', diagnostic.code)}: ${diagnostic.message}`);
+
+          if (diagnostic.site)
+            err(
+              `    ${displayPath(diagnostic.site.file)}:${diagnostic.site.line}:${diagnostic.site.column}`,
+            );
+        }
+
+        return;
+      }
+
+      if (options.quiet || status.state !== 'running') return;
+
+      const store =
+        status.store === 'memory'
+          ? status.dataReset
+            ? 'in-memory store, previous data reset'
+            : 'in-memory store, data is lost on restart'
+          : "application's store";
+
+      out(
+        `  ${paint('green', 'runtime')} gen ${status.generation}  running  ${store}`,
       );
     },
     error(files, attempt, diagnostics, keptGeneration) {

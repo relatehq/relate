@@ -185,13 +185,19 @@ function readErrorMessage(code: string, details?: ReadErrorDetails) {
   ].join('\n');
 }
 
+/**
+ * `runtime-retired`: the request was addressed to a runtime that has since been
+ * replaced (for example after a development reload). It was not executed and is
+ * never replayed against the replacement; rebind and decide whether to retry.
+ */
 export class ReadError extends Error {
   readonly operation?: string;
   readonly issues: readonly RequestIssue[];
   readonly acceptedOptions?: readonly string[];
 
   constructor(
-    readonly code: 'incomplete' | 'invalid-request' | 'unavailable',
+    readonly code:
+      'incomplete' | 'invalid-request' | 'unavailable' | 'runtime-retired',
     details?: ReadErrorDetails,
   ) {
     super(readErrorMessage(code, details));
@@ -233,7 +239,11 @@ export interface FailedReceipt<Code extends string = string, Details = Json> {
 
 export type ActionReceipt = SucceededReceipt | FailedReceipt;
 
-/** Request/execution rejection, not a persisted failed receipt. No private details. */
+/**
+ * Request/execution rejection, not a persisted failed receipt. No private details.
+ * `runtime-retired` means the action was not started because its runtime was
+ * replaced; it is never replayed against the replacement.
+ */
 export class ActionError extends Error {
   constructor(
     readonly code:
@@ -244,7 +254,8 @@ export class ActionError extends Error {
       | 'unsupported'
       | 'unavailable'
       | 'internal'
-      | 'uncertain',
+      | 'uncertain'
+      | 'runtime-retired',
   ) {
     super(code);
     this.name = 'ActionError';

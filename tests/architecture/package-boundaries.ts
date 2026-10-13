@@ -83,7 +83,10 @@ export const packagePolicies: Record<
     imports: [
       'relate',
       'relate/compiler',
+      'relate/consumer',
+      'relate/storage',
       '@relate/node',
+      '@relate/protocol',
       '@relate/runtime',
       '@relate/postgres',
       'relate/diagnostics',

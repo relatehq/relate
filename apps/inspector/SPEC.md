@@ -1232,8 +1232,12 @@ Next cannot implement this product.
 
 **Status:** design agreed 2026-10-13 and revised the same day after review
 (runtime pinning, discovery snapshots, storage, per-principal conversations,
-reserved `/api`); not implemented. This replaces the earlier "live runtime
-extension" sketch, which planned attachment to production hosts.
+reserved `/api`). Step 1 (development principals, the runtime host and
+`RuntimeBinding`) is implemented; `/mcp`, activity and the agent are not. The
+IPC reply carries errors as `{ type: 'error', id, error }` rather than a `reply`
+with an `error` field, and the parent-side lifecycle lives in
+`packages/cli/src/dev/runtime-controller.ts`. This replaces the earlier "live
+runtime extension" sketch, which planned attachment to production hosts.
 
 Outcome: in `relate dev`, choose a development principal in the inspector, ask
 the built-in agent a question about the graph, and watch the code it runs and

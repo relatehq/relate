@@ -48,7 +48,12 @@ export type ModelIssueCode =
   | 'action.invalid-api-name'
   | 'action.invalid-field'
   | 'action.invalid-reference'
-  | 'action.invalid-capability';
+  | 'action.invalid-capability'
+  | 'principal.invalid-shape'
+  | 'principal.invalid-name'
+  | 'principal.unknown-role'
+  | 'principal.unknown-claim'
+  | 'principal.invalid-claim';
 
 /**
  * Where an issue lives. Authored graphs, single definitions and serialized

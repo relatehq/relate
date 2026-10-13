@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { compile } from 'relate/compiler';
 import {
   applyEvent,
+  effectivePrincipal,
   failureDefinitionIds,
   failureOrigin,
   initialState,
@@ -19,6 +20,8 @@ const snapshotModel = (generation: number): ModelSnapshot => ({
   generation,
   definitionRevision: compiled.definitionRevision,
   manifest: compiled.manifest,
+  principals: [],
+  defaultPrincipal: null,
 });
 const envelope = (sequence: number, instanceId = 'i1') => ({
   protocolVersion: PROTOCOL_VERSION,
@@ -50,6 +53,7 @@ function live(): InspectorState {
     type: 'snapshot',
     model: snapshotModel(3),
     failure: null,
+    runtime: null,
   }).state;
 }
 
@@ -213,6 +217,7 @@ it('rejects warnings inside failures and resets on a new instance snapshot', () 
     type: 'snapshot',
     model: null,
     failure: { attempt: 1, diagnostics: [compileIssue] },
+    runtime: null,
   }).state;
 
   expect(restarted).toMatchObject({
@@ -224,4 +229,65 @@ it('rejects warnings inside failures and resets on a new instance snapshot', () 
     failure: { attempt: 1 },
     lastUpdate: null,
   });
+});
+
+it('replaces the runtime status in sequence without touching the model or failure', () => {
+  const state = live();
+  const running = {
+    state: 'running' as const,
+    runtimeId: 'r1',
+    generation: 3,
+    definitionRevision: compiled.definitionRevision,
+    store: 'memory' as const,
+    dataReset: false,
+    diagnostics: [],
+  };
+
+  const started = applyEvent(state, {
+    ...envelope(6),
+    type: 'runtime',
+    runtime: running,
+  });
+  const failed = applyEvent(started.state, {
+    ...envelope(7),
+    type: 'runtime',
+    runtime: {
+      ...running,
+      state: 'failed',
+      runtimeId: 'r2',
+      definitionRevision: null,
+      diagnostics: [
+        {
+          kind: 'runtime',
+          severity: 'error',
+          code: 'runtime.setup-failed',
+          message: 'Missing CRM_TOKEN',
+        },
+      ],
+    },
+  });
+
+  expect(started.state.runtime).toEqual(running);
+  expect(failed.state.runtime).toMatchObject({
+    state: 'failed',
+    runtimeId: 'r2',
+  });
+  expect(failed.state.model).toBe(state.model);
+  expect(failed.state.failure).toBeNull();
+});
+
+it('acts as the chosen principal only while the model still declares it', () => {
+  const model: ModelSnapshot = {
+    ...snapshotModel(1),
+    principals: ['alice', 'auditor'],
+    defaultPrincipal: 'alice',
+  };
+
+  const chosen = effectivePrincipal(model, 'auditor');
+  const removed = effectivePrincipal(model, 'mallory');
+  const none = effectivePrincipal(snapshotModel(1), 'alice');
+
+  expect(chosen).toBe('auditor');
+  expect(removed).toBe('alice');
+  expect(none).toBeNull();
 });

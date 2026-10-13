@@ -111,6 +111,34 @@ export type Policies<
   };
 };
 
+/** A claim value as the runtime receives it from an authenticated host. */
+export type ClaimValue = string | number | boolean | null;
+
+/**
+ * A named development identity: inert outside `relate dev`, never part of the
+ * Manifest or `definitionRevision`. Roles and claims use the access vocabulary.
+ */
+export interface PrincipalDefinition<
+  Access extends AccessDefinition = AccessDefinition,
+> {
+  readonly roles: readonly Access['roles'][number][];
+  readonly claims?: {
+    readonly [K in keyof Access['claims']]?: z.input<
+      Access['claims'][K]['schema']
+    > &
+      ClaimValue;
+  };
+}
+
+export type Principals<Access extends AccessDefinition = AccessDefinition> =
+  Readonly<Record<string, PrincipalDefinition<Access>>>;
+
+/** A validated development principal; the runtime principal is `{ id: name, ...this }`. */
+export interface DevelopmentPrincipal {
+  readonly roles: readonly string[];
+  readonly claims: Readonly<Record<string, ClaimValue>>;
+}
+
 /** Declare the vocabulary once; hosts still supply authenticated principals. */
 export function defineAccess<
   const R extends readonly string[],

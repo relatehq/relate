@@ -11,6 +11,8 @@ export const workerMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('model'),
     manifest: manifestSchema,
     definitionRevision: z.string().min(1),
+    /** Development principal names in declaration order; not in the Manifest. */
+    principals: z.array(z.string().min(1)),
     /** Resolved declaration sites by definition ID, when provenance resolved. */
     sites: z.record(z.string(), sourceSiteSchema),
   }),

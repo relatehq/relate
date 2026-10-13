@@ -10,7 +10,8 @@ import { manifestSchema } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import type { ModelIssue, SourceSite } from 'relate/diagnostics';
 
-export const PROTOCOL_VERSION = 1 as const;
+/** 2: model principals and the runtime host status. */
+export const PROTOCOL_VERSION = 2 as const;
 
 const text = z.string().min(1);
 const identifierList = z.array(text).readonly();
@@ -46,7 +47,7 @@ export const compileDiagnosticSchema = z.strictObject({
 });
 
 export const toolDiagnosticSchema = z.strictObject({
-  kind: z.enum(['syntax', 'import', 'worker', 'layout', 'type']),
+  kind: z.enum(['syntax', 'import', 'worker', 'layout', 'type', 'runtime']),
   code: text,
   message: z.string(),
   site: sourceSiteSchema.optional(),
@@ -62,6 +63,29 @@ export const modelSnapshotSchema = z.strictObject({
   generation: z.number().int().positive(),
   definitionRevision: text,
   manifest: manifestSchema,
+  /** Development principal names in declaration order; never in the Manifest. */
+  principals: identifierList,
+  /** The first declared principal, or null when the graph declares none. */
+  defaultPrincipal: text.nullable(),
+});
+
+/**
+ * The runtime host started for an accepted model. `definitionRevision` is the
+ * revision the running runtime serves, which can differ from the displayed
+ * model's while a restart is in progress or after the runtime failed.
+ */
+export const runtimeStatusSchema = z.strictObject({
+  state: z.enum(['starting', 'restarting', 'running', 'failed']),
+  runtimeId: text,
+  /** The accepted model generation this runtime was started for. */
+  generation: z.number().int().positive(),
+  /** Active revision; null until the runtime reports ready. */
+  definitionRevision: text.nullable(),
+  /** `memory`: the runtime's own store, lost on every restart. */
+  store: z.enum(['memory', 'application']).nullable(),
+  /** The previous runtime's in-memory data was discarded by this restart. */
+  dataReset: z.boolean(),
+  diagnostics: z.array(diagnosticSchema).readonly(),
 });
 
 export const manifestDiffSchema = z.strictObject({
@@ -101,6 +125,7 @@ export const devEventSchema = z.discriminatedUnion('type', [
     model: modelSnapshotSchema.nullable(),
     failure: failureSchema.nullable(),
     typecheck: typecheckSchema.optional(),
+    runtime: runtimeStatusSchema.nullable(),
   }),
   z.strictObject({
     ...envelope,
@@ -118,6 +143,11 @@ export const devEventSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({
     ...envelope,
+    type: z.literal('runtime'),
+    runtime: runtimeStatusSchema,
+  }),
+  z.strictObject({
+    ...envelope,
     type: z.literal('typecheck'),
     revision: z.number().int().nonnegative(),
     diagnostics: z.array(diagnosticSchema).readonly(),
@@ -128,12 +158,14 @@ export type Diagnostic = z.infer<typeof diagnosticSchema>;
 export type CompileDiagnostic = z.infer<typeof compileDiagnosticSchema>;
 export type ToolDiagnostic = z.infer<typeof toolDiagnosticSchema>;
 export type ModelSnapshot = z.infer<typeof modelSnapshotSchema>;
+export type RuntimeStatus = z.infer<typeof runtimeStatusSchema>;
 export type ManifestDiff = z.infer<typeof manifestDiffSchema>;
 export type DevEvent = z.infer<typeof devEventSchema>;
 export type SnapshotEvent = Extract<DevEvent, { type: 'snapshot' }>;
 export type ModelEvent = Extract<DevEvent, { type: 'model' }>;
 export type DiagnosticsEvent = Extract<DevEvent, { type: 'diagnostics' }>;
 export type TypecheckEvent = Extract<DevEvent, { type: 'typecheck' }>;
+export type RuntimeEvent = Extract<DevEvent, { type: 'runtime' }>;
 export type DiagnosticFrame = z.infer<typeof frameSchema>;
 
 /** The compile diagnostic carries a complete `ModelIssue`. */
@@ -217,13 +249,15 @@ export function assertFailureSeverity(
     );
 }
 
-/** Loader and layout failures are not mistakes in the authored code. */
+/** Loader, layout and runtime failures are not mistakes in the authored definitions. */
 export function diagnosticOrigin(
   diagnostic: Pick<Diagnostic, 'kind'>,
-): 'code' | 'loader' | 'layout' {
+): 'code' | 'loader' | 'layout' | 'runtime' {
   switch (diagnostic.kind) {
     case 'worker':
       return 'loader';
+    case 'runtime':
+      return 'runtime';
     case 'layout':
       return 'layout';
     default:

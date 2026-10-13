@@ -23,9 +23,18 @@ export type AttemptOutcome =
       readonly attempt: number;
       readonly manifest: Manifest;
       readonly definitionRevision: string;
+      readonly principals: readonly string[];
       readonly sites: Readonly<Record<string, SourceSite>>;
       readonly inputs: readonly string[];
       readonly durationMs: number;
+      /**
+       * The accepted bundle, kept for the runtime host. The caller owns it and
+       * must call `release()` once nothing imports it any more.
+       */
+      readonly bundle: {
+        readonly path: string;
+        release(): Promise<void>;
+      };
     }
   | {
       readonly kind: 'failure';
@@ -118,6 +127,7 @@ export function createAttemptRunner(
 
     return new Promise<AttemptOutcome>((resolve) => {
       let settled = false;
+      let accepted = false;
       let timedOut = false;
       let sawOom = false;
       const child = fork(
@@ -214,17 +224,26 @@ export function createAttemptRunner(
 
         const message = parsed.data;
 
-        if (message.type === 'model')
+        if (message.type === 'model') {
+          if (settled) return;
+
+          // An accepted bundle outlives this child: the runtime host loads it.
+          accepted = !cancelled();
           finish({
             kind: 'model',
             attempt,
             manifest: message.manifest,
             definitionRevision: message.definitionRevision,
+            principals: message.principals,
             sites: message.sites,
             inputs: build.inputs,
             durationMs: elapsed(),
+            bundle: {
+              path: build.bundlePath,
+              release: () => options.builder.discard(attempt),
+            },
           });
-        else failure([...message.diagnostics]);
+        } else failure([...message.diagnostics]);
       });
       child.on('error', (error) => {
         failure([
@@ -238,7 +257,8 @@ export function createAttemptRunner(
       });
       child.on('exit', (code, signal) => {
         children.delete(child);
-        void options.builder.discard(attempt);
+
+        if (!accepted || cancelled()) void options.builder.discard(attempt);
 
         // A termination we caused (timeout or cancellation) is not a second failure.
         if (settled || timedOut || cancelled()) {
@@ -292,6 +312,9 @@ export function createAttemptRunner(
 
       return run(handle).then((outcome) => {
         if (active === handle) active = null;
+
+        if (handle.cancelled && outcome.kind === 'model')
+          void outcome.bundle.release();
 
         return handle.cancelled
           ? { kind: 'cancelled', attempt: handle.attempt }

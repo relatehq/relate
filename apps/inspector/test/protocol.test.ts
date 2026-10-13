@@ -41,8 +41,11 @@ it('validates snapshot, model, diagnostics and typecheck events round-tripped th
         generation: 1,
         definitionRevision: model.definitionRevision,
         manifest: model.manifest,
+        principals: [],
+        defaultPrincipal: null,
       },
       failure: null,
+      runtime: null,
     },
     {
       ...envelope,
@@ -52,6 +55,8 @@ it('validates snapshot, model, diagnostics and typecheck events round-tripped th
         generation: 2,
         definitionRevision: model.definitionRevision,
         manifest: model.manifest,
+        principals: [],
+        defaultPrincipal: null,
       },
       fromGeneration: 1,
       diff: {
@@ -109,6 +114,7 @@ it('validates snapshot, model, diagnostics and typecheck events round-tripped th
       type: 'snapshot',
       model: null,
       failure: { attempt: 1, diagnostics: [compileDiagnostic] },
+      runtime: null,
       typecheck: { revision: 0, diagnostics: [] },
     },
   ];
@@ -117,12 +123,62 @@ it('validates snapshot, model, diagnostics and typecheck events round-tripped th
     expect(parseDevEvent(JSON.parse(JSON.stringify(event)))).toEqual(event);
 });
 
+it('validates principals on the model and runtime status events', () => {
+  const runtime: DevEvent = {
+    ...envelope,
+    sequence: 1,
+    type: 'runtime',
+    runtime: {
+      state: 'failed',
+      runtimeId: 'r1',
+      generation: 1,
+      definitionRevision: null,
+      store: 'application',
+      dataReset: false,
+      diagnostics: [
+        {
+          kind: 'runtime',
+          severity: 'error',
+          code: 'runtime.store-revision-mismatch',
+          message: 'The persistent store holds another revision',
+        },
+      ],
+    },
+  };
+  const snapshot = {
+    ...envelope,
+    sequence: 0,
+    type: 'snapshot',
+    model: {
+      generation: 1,
+      definitionRevision: model.definitionRevision,
+      manifest: model.manifest,
+      principals: ['alice'],
+      defaultPrincipal: 'alice',
+    },
+    failure: null,
+    runtime: null,
+  };
+
+  const parsed = parseDevEvent(JSON.parse(JSON.stringify(runtime)));
+
+  expect(parsed).toEqual(runtime);
+  expect(parseDevEvent(snapshot)).toEqual(snapshot);
+  expect(diagnosticOrigin({ kind: 'runtime' })).toBe('runtime');
+  expect(() =>
+    parseDevEvent({
+      ...snapshot,
+      model: { ...snapshot.model, principals: undefined },
+    }),
+  ).toThrow(ProtocolError);
+});
+
 it('rejects unsupported protocol versions before decoding the payload', () => {
-  expect(readProtocolVersion({ protocolVersion: 2 })).toBe(2);
+  expect(readProtocolVersion({ protocolVersion: 3 })).toBe(3);
   expect(readProtocolVersion(null)).toBeUndefined();
 
   for (const input of [
-    { protocolVersion: 2, type: 'snapshot' },
+    { protocolVersion: PROTOCOL_VERSION + 1, type: 'snapshot' },
     { type: 'snapshot' },
     'text',
   ]) {
@@ -181,6 +237,7 @@ it('rejects malformed events from a compatible supervisor as invalid, not as upg
       type: 'snapshot',
       model: null,
       failure: null,
+      runtime: null,
       extra: true,
     },
   ];

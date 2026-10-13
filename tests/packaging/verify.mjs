@@ -608,7 +608,7 @@ try { validateManifest({ formatVersion: 2 }); assert.fail('expected failure'); }
 catch (error) { assert.ok(error instanceof ManifestValidationError); assert.equal(error.issues[0].code, 'manifest.invalid-shape'); }
 assert.equal(new CompileError([{ code: 'policy.missing', message: 'x' }]).name, 'CompileError');
 assert.ok(isAppDefinition(defineApp({ graph })));
-assert.equal(parseDevEvent({ protocolVersion: PROTOCOL_VERSION, instanceId: 'i', sequence: 0, type: 'snapshot', model: null, failure: null }).type, 'snapshot');
+assert.equal(parseDevEvent({ protocolVersion: PROTOCOL_VERSION, instanceId: 'i', sequence: 0, type: 'snapshot', model: null, failure: null, runtime: null }).type, 'snapshot');
 await createInspectorApp().verify();
 console.log('Installed inspector protocol and packaged assets load.');
 `,

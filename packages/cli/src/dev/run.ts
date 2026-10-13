@@ -18,6 +18,7 @@ import type { DevArguments } from './arguments.js';
 import { createAttemptRunner } from './attempts.js';
 import type { AttemptOutcome } from './attempts.js';
 import { createBuilder } from './build.js';
+import { createRuntimeController } from './runtime-controller.js';
 import { summarizeDiff } from './diff.js';
 import { bindLoopback, ListenError } from './listener.js';
 import { acquireLock, devDirectory } from './lock.js';
@@ -40,6 +41,7 @@ export interface RunDevOptions {
   readonly signals?: AsyncIterable<string> | undefined;
   readonly inspector?: InspectorApp;
   readonly workerPath?: string;
+  readonly runtimeHostPath?: string;
 }
 
 export const exitCodes = Object.freeze({ ok: 0, fatal: 1, usage: 2 });
@@ -269,6 +271,20 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       isStderrSaturated: () => (options.stderr.writableLength ?? 0) > 1_000_000,
       ...(options.workerPath ? { workerPath: options.workerPath } : {}),
     });
+    const runtime = createRuntimeController({
+      projectRoot: project.root,
+      configPath: project.configPath,
+      env: options.env,
+      onStatus: (status) => {
+        if (stopping) return;
+
+        supervisor.acceptRuntime(status);
+        terminal.runtime(status);
+      },
+      writeStdout: (line) => terminal.childStdout(line),
+      writeStderr: (line) => terminal.childStderr(line),
+      ...(options.runtimeHostPath ? { hostPath: options.runtimeHostPath } : {}),
+    });
     let lastGoodInputs: readonly string[] = [project.configPath];
     let stopping = false;
     const watcher = createWatcher({
@@ -279,7 +295,13 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       onError: (error) => terminal.warn(`Watcher error: ${error.message}`),
     });
     const handle = (changed: readonly string[], outcome: AttemptOutcome) => {
-      if (stopping || outcome.kind === 'cancelled') return;
+      if (outcome.kind === 'cancelled') return;
+
+      if (stopping) {
+        if (outcome.kind === 'model') void outcome.bundle.release();
+
+        return;
+      }
 
       // Prefer known modules over editor temporaries that landed in the same directory.
       const known = changed.filter((file) => lastGoodInputs.includes(file));
@@ -292,6 +314,13 @@ export async function runDev(options: RunDevOptions): Promise<number> {
           outcome,
           outcome.durationMs,
         );
+
+        // Every accepted build restarts the runtime: connector and action
+        // code may have changed even when the Manifest did not.
+        void runtime.restart({
+          generation: event.model.generation,
+          bundle: outcome.bundle,
+        });
 
         if (event.fromGeneration === null)
           terminal.ready(
@@ -352,6 +381,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
         server.closeStreams();
         sessions.clear();
         await runner.stop();
+        await runtime.stop();
         await builder.dispose();
         await new Promise<void>((done) => bound.server.close(() => done()));
         await release();

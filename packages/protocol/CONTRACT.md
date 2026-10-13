@@ -125,6 +125,12 @@ every implementation keeps:
   stale snapshot alone cannot enforce this. HTTP pinning is not implemented.
   Refreshing discovery cannot repair generated types. Rebind a compatible
   client; do not automatically replay mutations after a model mismatch.
+- A binding pinned to a runtime that has been replaced rejects with
+  `ReadError('runtime-retired')` or `ActionError('runtime-retired')`. The
+  request did not execute and is never redirected to, or replayed on, the
+  replacement runtime. This is distinct from a denial (`not-found`, `denied`)
+  and from temporary unavailability (`unavailable`): retrying the same binding
+  cannot succeed, so the caller rebinds first.
 - Async methods reject their promises on failure, including validation and
   lifecycle failures. Transport implementations decode and validate results at
   their response boundary before exposing this interface; TypeScript types do

@@ -9,6 +9,7 @@ import type {
   FieldGroup,
   Policies,
   Policy,
+  Principals,
 } from './authorization.js';
 
 declare const objectIdBrand: unique symbol;
@@ -523,6 +524,12 @@ export interface GraphDefinition {
   readonly actions?: Readonly<Record<string, ActionDefinition>>;
   readonly access: AccessDefinition;
   readonly policies: Readonly<Record<string, Policy>>;
+  /**
+   * Named development identities for `relate dev`. Validated against `access`
+   * at compile time, returned outside the Manifest and never hashed into
+   * `definitionRevision`. Outside development nothing reads them.
+   */
+  readonly principals?: Principals;
 }
 
 export function defineGraph<const G extends GraphDefinition>(
@@ -532,6 +539,7 @@ export function defineGraph<const G extends GraphDefinition>(
         G['policies'],
         Policies<NoInfer<G['objects']>, NoInfer<G['access']>>
       >;
+    readonly principals?: Principals<NoInfer<G['access']>>;
   },
 ): G {
   return recordProvenance(graph);
@@ -543,10 +551,14 @@ export { assertFields } from './results.js';
 export type {
   AccessDefinition,
   Claim,
+  ClaimValue,
+  DevelopmentPrincipal,
   FieldGroup,
   Policy,
   Policies,
   PolicyWhere,
+  PrincipalDefinition,
+  Principals,
   RoleGate,
 } from './authorization.js';
 

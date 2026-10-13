@@ -1,0 +1,471 @@
+/**
+ * Parent side of the runtime host: one host per accepted build. Every
+ * accepted build restarts it, even when the Manifest is unchanged, because
+ * connector and action code may have changed. A restart retires the current
+ * `runtimeId` (new requests fail with `runtime-retired`), asks the host to
+ * drain and close within a deadline, kills it if it does not, then starts the
+ * replacement with a fresh `runtimeId`.
+ */
+import { fork } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { ConsumerDescription } from 'relate/consumer';
+import { ActionError, ReadError } from '@relate/protocol';
+import type { Diagnostic, RuntimeStatus } from '@relate/inspector/protocol';
+import { LinePrefixer } from './streams.js';
+import {
+  createRuntimeBinding,
+  type RuntimeBinding,
+  type RuntimeConnection,
+} from './runtime-binding.js';
+import {
+  encodeRuntimeHostArguments,
+  restoreError,
+  retiredError,
+  runtimeHostEnvironment,
+  runtimeMessageSchema,
+  type RuntimeOperation,
+  type RuntimeRequest,
+} from './runtime-protocol.js';
+
+export interface AcceptedBuild {
+  /** The accepted model generation this runtime serves. */
+  readonly generation: number;
+  readonly bundle: { readonly path: string; release(): Promise<void> };
+}
+
+export interface RuntimeControllerOptions {
+  readonly projectRoot: string;
+  readonly configPath: string;
+  readonly env: NodeJS.ProcessEnv;
+  readonly onStatus: (status: RuntimeStatus) => void;
+  readonly writeStdout: (line: string) => void;
+  readonly writeStderr: (line: string) => void;
+  readonly hostPath?: string;
+  /** Deadline for `setup` and the store check. */
+  readonly startTimeoutMs?: number;
+  /** How long a retired runtime may drain before it is killed. */
+  readonly drainTimeoutMs?: number;
+}
+
+export interface RuntimeController {
+  /** Retire the current runtime and start one for this build. */
+  restart(build: AcceptedBuild): Promise<void>;
+  /** The active runtime's binding for a declared principal; cached until it retires. */
+  binding(principal: string): Promise<RuntimeBinding>;
+  readonly status: RuntimeStatus | null;
+  /** Retire the active runtime and wait for every host to exit. */
+  stop(): Promise<void>;
+}
+
+export const DEFAULT_RUNTIME_START_TIMEOUT_MS = 30_000;
+export const DEFAULT_RUNTIME_DRAIN_TIMEOUT_MS = 5_000;
+
+export function defaultRuntimeHostPath(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), 'runtime-host.js');
+}
+
+interface Pending {
+  readonly operation: RuntimeOperation | 'discovery';
+  resolve(value: unknown): void;
+  reject(error: unknown): void;
+}
+
+interface Host {
+  readonly runtimeId: string;
+  readonly generation: number;
+  readonly child: ChildProcess;
+  readonly exited: Promise<void>;
+  readonly pending: Map<number, Pending>;
+  readonly bindings: Map<string, Promise<RuntimeBinding>>;
+  state: 'starting' | 'running' | 'failed' | 'retired';
+  ready?: {
+    readonly definitionRevision: string;
+    readonly store: 'memory' | 'application';
+    readonly principals: readonly string[];
+    readonly consumer: ConsumerDescription;
+  };
+}
+
+/** A request cut off by the host's exit: an action's outcome is unknown. */
+function lostError(operation: RuntimeOperation | 'discovery'): Error {
+  if (operation === 'invoke') return new ActionError('uncertain');
+
+  if (operation === 'getReceipt') return new ActionError('unavailable');
+
+  return new ReadError('unavailable');
+}
+
+export function createRuntimeController(
+  options: RuntimeControllerOptions,
+): RuntimeController {
+  const hostPath = options.hostPath ?? defaultRuntimeHostPath();
+  const startTimeoutMs =
+    options.startTimeoutMs ?? DEFAULT_RUNTIME_START_TIMEOUT_MS;
+  const drainTimeoutMs =
+    options.drainTimeoutMs ?? DEFAULT_RUNTIME_DRAIN_TIMEOUT_MS;
+  const hosts = new Set<Host>();
+  let active: Host | null = null;
+  let status: RuntimeStatus | null = null;
+  let requestId = 0;
+  let latest = 0;
+  let queue: Promise<void> = Promise.resolve();
+  let stopped = false;
+  const publish = (next: RuntimeStatus) => {
+    status = next;
+    options.onStatus(next);
+  };
+  const connection = (host: Host): RuntimeConnection => ({
+    runtimeId: host.runtimeId,
+    request(request) {
+      const operation = request.type === 'op' ? request.operation : 'discovery';
+
+      // Pinned: a retired runtime never answers, and nothing is redirected.
+      if (host.state === 'retired' || host !== active)
+        return Promise.reject(retiredError(operation));
+
+      if (host.state !== 'running' || !host.child.connected)
+        return Promise.reject(lostError(operation));
+
+      const id = ++requestId;
+      const message: RuntimeRequest =
+        request.type === 'op'
+          ? {
+              type: 'op',
+              id,
+              runtimeId: host.runtimeId,
+              principal: request.principal,
+              operation: request.operation,
+              args: [...request.args],
+            }
+          : {
+              type: 'discovery',
+              id,
+              runtimeId: host.runtimeId,
+              principal: request.principal,
+            };
+
+      return new Promise((resolve, reject) => {
+        host.pending.set(id, { operation, resolve, reject });
+        host.child.send(message, (error) => {
+          if (!error) return;
+
+          host.pending.delete(id);
+          reject(lostError(operation));
+        });
+      });
+    },
+  });
+  const retire = async (host: Host) => {
+    if (host.state === 'retired') return host.exited;
+
+    host.state = 'retired';
+    host.bindings.clear();
+
+    if (host.child.exitCode !== null || host.child.signalCode !== null)
+      return host.exited;
+
+    const deadline = setTimeout(
+      () => host.child.kill('SIGKILL'),
+      drainTimeoutMs,
+    );
+
+    if (host.child.connected)
+      host.child.send({ type: 'close' } satisfies RuntimeRequest, () => {});
+    else host.child.kill('SIGTERM');
+
+    await host.exited;
+    clearTimeout(deadline);
+  };
+  const start = (
+    build: AcceptedBuild,
+    previous: Host | null,
+    runtimeId: string,
+  ) => {
+    const previousStore =
+      previous?.state === 'retired' && previous.ready
+        ? previous.ready.store
+        : null;
+    const child = fork(
+      hostPath,
+      [
+        encodeRuntimeHostArguments({
+          bundlePath: build.bundle.path,
+          projectRoot: options.projectRoot,
+          configPath: options.configPath,
+          runtimeId,
+        }),
+      ],
+      {
+        cwd: options.projectRoot,
+        env: runtimeHostEnvironment(options.env),
+        execArgv: ['--enable-source-maps'],
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+        serialization: 'json',
+      },
+    );
+    const prefix = (stream: 'stdout' | 'stderr') =>
+      `[runtime gen ${build.generation} ${stream}]`;
+    const stdout = new LinePrefixer({
+      prefix: prefix('stdout'),
+      write: options.writeStdout,
+    });
+    const stderr = new LinePrefixer({
+      prefix: prefix('stderr'),
+      write: options.writeStderr,
+    });
+    const host: Host = {
+      runtimeId,
+      generation: build.generation,
+      child,
+      pending: new Map(),
+      bindings: new Map(),
+      state: 'starting',
+      exited: new Promise<void>((resolve) => {
+        child.once('exit', () => resolve());
+      }),
+    };
+    const base = {
+      runtimeId,
+      generation: build.generation,
+      dataReset: false,
+      diagnostics: [] as Diagnostic[],
+    };
+    const failed = (diagnostics: Diagnostic[]) => {
+      if (host.state === 'failed' || host.state === 'retired') return;
+
+      host.state = 'failed';
+
+      if (active === host)
+        publish({
+          ...base,
+          state: 'failed',
+          definitionRevision: null,
+          store: host.ready?.store ?? null,
+          diagnostics,
+        });
+
+      if (child.exitCode === null && child.signalCode === null)
+        child.kill('SIGKILL');
+    };
+    const startup = setTimeout(() => {
+      failed([
+        {
+          kind: 'runtime',
+          code: 'runtime.timeout',
+          severity: 'error',
+          message: `Starting the runtime exceeded ${startTimeoutMs} ms; the runtime host was terminated. A setup function that never settles can cause this.`,
+        },
+      ]);
+    }, startTimeoutMs);
+
+    hosts.add(host);
+    child.stdout?.on('data', (chunk: Buffer) => stdout.push(chunk));
+    child.stderr?.on('data', (chunk: Buffer) => stderr.push(chunk));
+    child.stdout?.on('end', () => stdout.end());
+    child.stderr?.on('end', () => stderr.end());
+    child.on('message', (raw) => {
+      const parsed = runtimeMessageSchema.safeParse(raw);
+
+      if (!parsed.success) {
+        failed([
+          {
+            kind: 'runtime',
+            code: 'runtime.invalid-message',
+            severity: 'error',
+            message:
+              'The runtime host sent a message the dev server could not validate',
+          },
+        ]);
+
+        return;
+      }
+
+      const message = parsed.data;
+
+      switch (message.type) {
+        case 'reply':
+        case 'error': {
+          const pending = host.pending.get(message.id);
+
+          if (!pending) return;
+
+          host.pending.delete(message.id);
+
+          if (message.type === 'reply') pending.resolve(message.value);
+          else pending.reject(restoreError(message.error));
+
+          return;
+        }
+        case 'ready': {
+          clearTimeout(startup);
+
+          if (message.runtimeId !== runtimeId || host.state !== 'starting')
+            return;
+
+          host.state = 'running';
+          host.ready = {
+            definitionRevision: message.definitionRevision,
+            store: message.store,
+            principals: message.principals,
+            consumer: message.consumer as unknown as ConsumerDescription,
+          };
+
+          if (active === host)
+            publish({
+              ...base,
+              state: 'running',
+              definitionRevision: message.definitionRevision,
+              store: message.store,
+              dataReset: previousStore === 'memory',
+            });
+
+          return;
+        }
+        case 'failed':
+          clearTimeout(startup);
+
+          if (message.runtimeId === runtimeId) failed([...message.diagnostics]);
+
+          return;
+      }
+    });
+    child.on('error', (error) => {
+      clearTimeout(startup);
+      failed([
+        {
+          kind: 'runtime',
+          code: 'runtime.spawn-failed',
+          severity: 'error',
+          message: `Could not start the runtime host: ${error.message}`,
+        },
+      ]);
+    });
+    child.on('exit', (code, signal) => {
+      clearTimeout(startup);
+      hosts.delete(host);
+      void build.bundle.release();
+
+      for (const [id, pending] of host.pending) {
+        host.pending.delete(id);
+        pending.reject(
+          host.state === 'retired' && pending.operation !== 'invoke'
+            ? retiredError(pending.operation)
+            : lostError(pending.operation),
+        );
+      }
+
+      if (host.state === 'retired') return;
+
+      failed([
+        {
+          kind: 'runtime',
+          code: host.state === 'running' ? 'runtime.exited' : 'runtime.crash',
+          severity: 'error',
+          message: `The runtime host exited ${
+            host.state === 'running' ? 'while running' : 'before it was ready'
+          } (${signal ? `signal ${signal}` : `code ${code}`})`,
+        },
+      ]);
+    });
+
+    active = host;
+
+    if (!previous)
+      publish({
+        ...base,
+        state: 'starting',
+        definitionRevision: null,
+        store: null,
+      });
+  };
+
+  return {
+    get status() {
+      return status;
+    },
+    restart(build) {
+      const ticket = ++latest;
+
+      // Restarts are serialized; a superseded build never starts.
+      queue = queue
+        .catch(() => {})
+        .then(async () => {
+          // A newer build is queued; it retires the current runtime itself.
+          if (stopped || ticket !== latest) {
+            await build.bundle.release();
+
+            return;
+          }
+
+          const previous = active;
+          const runtimeId = randomUUID();
+
+          // Say so before draining: the retired runtime no longer answers.
+          if (previous) {
+            publish({
+              state: 'restarting',
+              runtimeId,
+              generation: build.generation,
+              definitionRevision: null,
+              store: null,
+              dataReset: false,
+              diagnostics: [],
+            });
+            await retire(previous);
+          }
+
+          if (stopped || ticket !== latest) {
+            await build.bundle.release();
+
+            return;
+          }
+
+          start(build, previous, runtimeId);
+        });
+
+      return queue;
+    },
+    binding(principal) {
+      const host = active;
+
+      if (!host || host.state !== 'running' || !host.ready)
+        return Promise.reject(
+          new Error('The runtime is not running; check the runtime status'),
+        );
+
+      if (!host.ready.principals.includes(principal))
+        return Promise.reject(
+          new Error(`Unknown development principal '${principal}'`),
+        );
+
+      let binding = host.bindings.get(principal);
+
+      if (!binding) {
+        binding = createRuntimeBinding({
+          connection: connection(host),
+          definitionRevision: host.ready.definitionRevision,
+          principal,
+          description: host.ready.consumer,
+        });
+        // A failed snapshot is not cached; the next call retries.
+        binding.catch(() => host.bindings.delete(principal));
+        host.bindings.set(principal, binding);
+      }
+
+      return binding;
+    },
+    async stop() {
+      stopped = true;
+      latest += 1;
+      await queue.catch(() => {});
+
+      if (active) await retire(active);
+
+      active = null;
+      await Promise.all([...hosts].map((host) => retire(host)));
+    },
+  };
+}
