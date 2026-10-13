@@ -20,10 +20,11 @@ pnpm install
 pnpm build
 ```
 
-Then open the customer and invoice example:
+Then open the customer and invoice example, loading the repository's `.env` so
+its `ANTHROPIC_API_KEY` reaches the built-in agent:
 
 ```sh
-pnpm relate dev --config examples/02-customer-workspace/relate.config.ts --seed --open
+pnpm exec dotenvx run -f .env -- pnpm relate dev --config examples/02-customer-workspace/relate.config.ts --seed --open
 ```
 
 You should see **Customer**, **Invoice**, and **Account review**, connected by
@@ -33,6 +34,13 @@ temporary SQLite billing database; no credentials or database server are needed.
 `--seed` adopts Northwind and its two invoices into the runtime for the agent
 and MCP clients to query. Omit `--seed` and pass `--no-runtime` to inspect only
 the model without starting the application.
+
+The CLI itself does not load `.env`; use the loader above when your key lives in
+that file. For the full browser example, `pnpm example:customer-workspace`
+builds the packages and loads the root `.env` automatically if it exists. The
+key is optional for viewing the graph and querying seeded data through MCP.
+After changing `.env`, stop and restart the inspector: a second invocation
+reuses the existing process with its original environment.
 
 `--open` opens the browser. You can also open the complete Inspector URL printed
 in the terminal, including its `#token=…` fragment. That link establishes the

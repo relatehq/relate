@@ -41,6 +41,10 @@ what each application teaches.
 Preparation runs quietly; add `--verbose` to see build logs. Build failures and
 runtime errors are always shown.
 
+The customer-workspace launcher loads the root `.env` if present. Add
+`ANTHROPIC_API_KEY` there to enable the inspector's built-in agent, then restart
+the example. The browser demo and seeded graph also work without a key.
+
 A small app opens in your browser. Its customer comes from an HTTP CRM, its
 invoices from a SQLite database and its account reviews from Relate itself.
 
