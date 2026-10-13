@@ -94,13 +94,19 @@ modules.
   `runtime.seed-failed`; the graph remains visible, but that runtime serves no
   operations. Seed errors appear in the terminal and inspector runtime
   diagnostics; `console` output goes to the terminal with the runtime prefix.
-  Fixing the code and saving retries.
+  Fixing the code and saving retries. A bare graph missing source bindings is
+  also a startup error with `--seed`, explicitly reporting that the seed could
+  not run. Fatal unhandled errors attempt cleanup before reporting failure,
+  bounded by the five-second shutdown deadline; already completed writes are not
+  undone.
 - Setup, the store check and seeding share the 30-second runtime startup
   deadline. A stuck seed is terminated with `runtime.timeout`. `--eval-timeout`
   only changes the separate definition-loading deadline.
 - `--seed` and `--no-runtime` cannot be combined. If a dev server already owns
-  the project, another invocation reuses it without changing its flags; stop it
-  and restart with `--seed` to enable seeding.
+  the project, a second invocation with a different `--seed` setting fails with
+  instructions to stop and restart it. An older server that does not report its
+  seed setting cannot be reused by a command requesting `--seed`. Matching
+  invocations reuse the server without running another seed.
 
 ### What it prints
 

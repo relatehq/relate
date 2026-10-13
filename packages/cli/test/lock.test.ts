@@ -39,6 +39,7 @@ it('acquires exclusively, records owner metadata and releases only its own lock'
     pid: process.pid,
     instanceId: 'instance',
     state: 'starting',
+    seed: false,
     url: null,
   });
   expect(stored.ownerId.length).toBeGreaterThanOrEqual(16);
@@ -66,6 +67,26 @@ it('acquires exclusively, records owner metadata and releases only its own lock'
   expect(JSON.parse(await readFile(lockPath(root), 'utf8')).ownerId).toBe(
     'someone-else-entirely-0000',
   );
+});
+
+it('records seeding and reads legacy locks without assuming they enabled it', async () => {
+  const first = await acquire({ seed: true });
+  const lock = (first as { lock: Lock }).lock;
+
+  await lock.update({ state: 'listening', url: 'http://127.0.0.1:4318' });
+  const held = await acquire();
+
+  expect(held).toMatchObject({ kind: 'held', metadata: { seed: true } });
+  const { seed: _seed, ...legacy } = lock.metadata;
+
+  await writeFile(lockPath(root), JSON.stringify(legacy));
+  const older = await acquire();
+
+  expect(older.kind).toBe('held');
+
+  if (older.kind === 'held') expect(older.metadata.seed).toBeUndefined();
+
+  await lock.release();
 });
 
 it('waits for a starting owner and reports it when no URL appears', async () => {

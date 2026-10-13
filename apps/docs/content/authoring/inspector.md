@@ -102,8 +102,10 @@ are created through your declared actions with `relate.as(principal).actions`.
 
 Without `--seed`, this export is ignored. Normal `startApp(app)` and model
 compilation do not call it. `--seed` cannot be combined with `--no-runtime`. If
-a dev server is already running, stop it before restarting with `--seed`; a
-second invocation reuses the existing server without changing its flags.
+a dev server is already running with a different seed setting, the command fails
+with instructions to stop and restart it. Matching invocations reuse the server
+without running another seed. Older servers that cannot report their seed
+setting must be restarted before using `--seed`.
 
 Keep seeds repeatable, especially with persistent storage. Repeated adoption
 reuses a source record's identity within the same scope, but other writes need
@@ -111,7 +113,9 @@ their own duplicate handling. The whole script is not a transaction, and a
 failure does not undo earlier writes. Setup, the store check and seeding share a
 30-second deadline. Missing seed exports and seed failures appear in runtime
 diagnostics; the model stays visible and a later accepted edit retries startup.
-Seed `console` output appears in the terminal.
+A bare graph missing source bindings reports that the requested seed could not
+run. Unhandled errors attempt cleanup before reporting failure, bounded by the
+five-second shutdown deadline. Seed `console` output appears in the terminal.
 
 ## Development Principals and the Runtime
 

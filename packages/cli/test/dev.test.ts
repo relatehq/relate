@@ -512,6 +512,80 @@ it('times out a child that never settles, reports one worker diagnostic and reco
   await stream.return(undefined);
 }, 60_000);
 
+it.each([false, true])(
+  'rejects incompatible seed flags when reusing a server started with seed=%s',
+  async (seed) => {
+    const project = await createProject();
+
+    projects.push(project.root);
+    await project.write(
+      'src/relate/app.ts',
+      `
+import { defineApp, defineGraph, defineAccess, defineObject, nativeMembership, objectId } from 'relate';
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
+const Note = defineObject({ id: 'note', membership: nativeMembership(), properties: { id: objectId({ id: 'note.id' }) } });
+export default defineApp({ graph: defineGraph({ id: 'notes', objects: { Note }, access, policies: { Note: { read: { gate: access.role('reader') } } } }) });
+export function seed() { console.log('seed called'); }
+`,
+    );
+    await project.write(
+      'relate.config.ts',
+      "export { default, seed } from './src/relate/app.js';\n",
+    );
+    const dev = await startDev(project, seed ? ['--seed'] : []);
+
+    await dev.waitForStdout(/^\s+runtime gen 1\s+running/);
+    const duplicate = async (flags: string[]) => {
+      const child = spawn(process.execPath, [binary, 'dev', ...flags], {
+        cwd: project.root,
+        env: { ...process.env, NO_COLOR: '1' },
+      });
+      let stdout = '',
+        stderr = '';
+
+      child.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString();
+      });
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      const code = await new Promise<number | null>((resolve) =>
+        child.once('close', resolve),
+      );
+
+      return { code, stdout, stderr };
+    };
+    const matching = await duplicate(seed ? ['--seed'] : []);
+    const incompatible = await duplicate(seed ? [] : ['--seed']);
+
+    expect(matching.code).toBe(0);
+    expect(matching.stdout).toContain('already running');
+    expect(incompatible.code).toBe(1);
+    expect(incompatible.stderr).toContain(
+      `--seed ${seed ? 'enabled' : 'disabled'}`,
+    );
+    expect(incompatible.stderr).toContain('Stop the existing server first');
+    expect(incompatible.stdout).not.toContain('Inspector');
+    expect(
+      dev.stdout.filter((line) => line.includes('seed called')),
+    ).toHaveLength(seed ? 1 : 0);
+
+    if (!seed) {
+      // Legacy owners cannot confirm seeding; do not silently reuse one for --seed.
+      const path = join(project.root, '.relate/dev/lock.json');
+      const metadata = JSON.parse(await readFile(path, 'utf8'));
+
+      delete metadata.seed;
+      await writeFile(path, JSON.stringify(metadata));
+      const legacy = await duplicate(['--seed']);
+
+      expect(legacy.code).toBe(1);
+      expect(legacy.stderr).toContain('unknown --seed setting');
+    }
+  },
+  60_000,
+);
+
 it('starts a runtime host per accepted build and publishes principals and runtime status', async () => {
   const project = await createProject();
 

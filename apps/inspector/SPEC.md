@@ -1407,8 +1407,10 @@ The five questions the earlier sketch left open, answered for development only:
      store. This is the expected development case. Data is lost on every
      restart, and the inspector and terminal say so.
    - A bare graph (no `defineApp`) whose sources need connections cannot start
-     without `setup`; the runtime reports a neutral `not-configured` state, not
-     a failure. `relate dev --no-runtime` starts no runtime host.
+     without `setup`; the runtime reports a neutral `not-configured` state. With
+     `--seed`, this is instead a startup failure explicitly reporting that the
+     requested seed could not run. `relate dev --no-runtime` starts no runtime
+     host.
    - A persistent store (for example Postgres): used as-is. Its existing
      revision check applies eagerly at startup (an empty store records the
      current revision then), so after a model change the runtime host reports a
@@ -1438,7 +1440,10 @@ exports report `runtime.seed-missing` before setup; throws or rejections close
 the runtime and report `runtime.seed-failed`. Seed output uses the existing
 runtime terminal prefix, and failures use the existing runtime diagnostics UI.
 Seeds are not a transaction and must handle repeated execution with persistent
-stores. `--seed --no-runtime` is a usage error.
+stores. `--seed --no-runtime` is a usage error. Reusing a dev server with a
+different seed setting fails with restart instructions; older owners without
+seed metadata cannot be reused for `--seed`. Fatal host errors attempt resource
+cleanup before reporting failure, bounded by the five-second shutdown deadline.
 
 Resetting a local store does not reset provider data or undo external actions
 already performed. Receipts are lost with an in-memory store, so idempotency

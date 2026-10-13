@@ -31,6 +31,8 @@ export const lockMetadataSchema = z.strictObject({
   processStartedAt: z.string().nullable(),
   startedAt: z.string(),
   configPath: z.string(),
+  /** Absent in locks written by older dev servers. */
+  seed: z.boolean().optional(),
   state: z.enum(['starting', 'listening']),
   url: z.string().nullable(),
 });
@@ -106,6 +108,7 @@ export interface AcquireOptions {
   readonly projectRoot: string;
   readonly configPath: string;
   readonly instanceId: string;
+  readonly seed?: boolean;
   /** Verify a live-looking owner through its identity endpoint. */
   readonly verifyOwner: (metadata: LockMetadata) => Promise<boolean>;
   readonly waitForUrlMs?: number;
@@ -240,6 +243,7 @@ export async function acquireLock(
     processStartedAt: await processStartTime(process.pid),
     startedAt: now().toISOString(),
     configPath: options.configPath,
+    seed: options.seed ?? false,
     state: 'starting',
     url: null,
   };

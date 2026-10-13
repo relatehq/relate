@@ -83,8 +83,13 @@ const answering = new Set<Promise<void>>();
  * the process exits.
  */
 async function closeAndExit(): Promise<never> {
+  if (failure) return failure;
+
   await relate?.close().catch(() => {});
   await Promise.allSettled(answering);
+
+  if (failure) return failure;
+
   process.exit(0);
 }
 
@@ -102,15 +107,30 @@ function shutdown(): void {
   if (started) void closeAndExit();
 }
 
-let failedReported = false;
+let failure: Promise<never> | undefined;
 
-async function fail(diagnostics: Diagnostic[]): Promise<never> {
-  if (!failedReported) {
-    failedReported = true;
-    await send({ type: 'failed', runtimeId: args.runtimeId, diagnostics });
-  }
+function fail(diagnostics: Diagnostic[]): Promise<never> {
+  if (failure) return failure;
 
-  process.exit(1);
+  shuttingDown = true;
+  failure = (async () => {
+    let reported: Promise<never> | undefined;
+    const report = () =>
+      (reported ??= (async () => {
+        await send({ type: 'failed', runtimeId: args.runtimeId, diagnostics });
+        process.exit(1);
+      })());
+    // The parent kills failed hosts immediately. Dispose first, but retain a
+    // deadline for stuck operations or disposers, including after startup.
+    const deadline = setTimeout(() => void report(), args.drainTimeoutMs);
+
+    await relate?.close().catch(() => {});
+    clearTimeout(deadline);
+
+    return report();
+  })();
+
+  return failure;
 }
 
 function runtimeDiagnostic(
@@ -211,19 +231,19 @@ try {
 
 const selected = selectExport(module!);
 
-if (args.seed && typeof module!.seed !== 'function')
-  await fail([
-    runtimeDiagnostic(
-      'runtime.seed-missing',
-      `--seed requires ${support.projectRelative(args.configPath)} to export a function named seed: export async function seed(relate) { ... }`,
-    ),
-  ]);
-
 if (!selected)
   await fail([
     runtimeDiagnostic(
       'runtime.no-definition',
       `${support.projectRelative(args.configPath)} no longer exports an application`,
+    ),
+  ]);
+
+if (args.seed && typeof module!.seed !== 'function')
+  await fail([
+    runtimeDiagnostic(
+      'runtime.seed-missing',
+      `--seed requires ${support.projectRelative(args.configPath)} to export a function named seed: export async function seed(relate) { ... }`,
     ),
   ]);
 
@@ -272,7 +292,7 @@ try {
   relate = await node.startApp(observed);
 } catch (error) {
   // A bare graph has no setup; when it needs bindings, there is nothing to run.
-  if (selected!.kind === 'graph') {
+  if (selected!.kind === 'graph' && !args.seed) {
     await send({
       type: 'not-configured',
       runtimeId: args.runtimeId,
@@ -291,7 +311,7 @@ try {
   await fail([
     runtimeDiagnostic(
       'runtime.setup-failed',
-      `Starting the application failed: ${sanitizeMessage(error)}`,
+      `Starting the application failed${args.seed ? '; the requested seed could not run' : ''}: ${sanitizeMessage(error)}${selected!.kind === 'graph' ? '. Export defineApp({ graph, setup }) to supply connections before seeding.' : ''}`,
       error,
     ),
   ]);
@@ -306,7 +326,6 @@ if (store) {
   try {
     await store.install(graphId, model!.definitionRevision);
   } catch (error) {
-    await relate!.close().catch(() => {});
     await fail([
       error instanceof Error && error.name === 'StorageUnavailable'
         ? runtimeDiagnostic(
@@ -327,9 +346,7 @@ if (args.seed) {
   try {
     await (module!.seed as (runtime: Relate) => unknown)(relate!);
   } catch (error) {
-    // Finish owned cleanup before reporting failure: the parent terminates a
-    // failed host. Successful writes already made by the seed are not rolled back.
-    await relate!.close().catch(() => {});
+    // Successful writes already made by the seed are not rolled back.
     await fail([
       runtimeDiagnostic(
         'runtime.seed-failed',

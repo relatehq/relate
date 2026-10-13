@@ -285,6 +285,89 @@ export function seed() { throw new Error('Seed must not run'); }
   expect((await binding.operations.query('notes.note')).data).toEqual([]);
 });
 
+it('reports a missing application before a missing seed in the runtime host', async () => {
+  const project = await createProject();
+  // Defensive host check; an ordinary invalid edit is rejected by the compile worker.
+  const build = await project.build('export const unrelated = true;');
+  const { controller, waitFor } = createController(project, { seed: true });
+
+  await controller.restart({ generation: 1, bundle: build.bundle });
+  const failed = await waitFor((s) => s.state === 'failed');
+
+  expect(failed.diagnostics).toEqual([
+    expect.objectContaining({ code: 'runtime.no-definition' }),
+  ]);
+});
+
+it.each([
+  [
+    'unhandled-rejection',
+    "relate.host.adopt({}, 'missing'); await new Promise((done) => setTimeout(done, 100));",
+  ],
+  ['uncaught', "setTimeout(() => { throw new Error('Timer failed'); }, 20);"],
+])(
+  'cleans up before reporting an escaped seed error: %s',
+  async (code, seedBody) => {
+    const project = await createProject();
+    const marker = join(project.root, 'fatal-disposed');
+    const build = await project.build(`import { writeFileSync } from 'node:fs';
+${noteApp({
+  setup: `({ onDispose }) => {
+      onDispose(async () => {
+        await new Promise((done) => setTimeout(done, 150));
+        writeFileSync(${JSON.stringify(marker)}, 'disposed');
+      });
+      return { connections: [], actionImplementations: [addNote] };
+    }`,
+})}
+export async function seed(relate) { ${seedBody} }
+`);
+    const { controller, waitFor } = createController(project, { seed: true });
+
+    await controller.restart({ generation: 1, bundle: build.bundle });
+    const failed = await waitFor((s) => s.state === 'failed');
+
+    expect(failed.diagnostics).toEqual([
+      expect.objectContaining({ code: 'runtime.' + code }),
+    ]);
+    expect(existsSync(marker)).toBe(true);
+    await expect(controller.binding('alice')).rejects.toMatchObject({
+      reason: 'not-running',
+    });
+    await expect.poll(() => build.released()).toBe(true);
+  },
+);
+
+it('bounds cleanup after an escaped seed error and preserves its diagnostic', async () => {
+  const project = await createProject();
+  const build = await project.build(`${noteApp({
+    setup: `({ onDispose }) => {
+      onDispose(() => new Promise(() => {}));
+      return { connections: [], actionImplementations: [addNote] };
+    }`,
+  })}
+export function seed() {
+  setTimeout(() => { throw new Error('Timer failed'); }, 20);
+}
+`);
+  const { controller, waitFor } = createController(project, {
+    seed: true,
+    drainTimeoutMs: 200,
+  });
+
+  await controller.restart({ generation: 1, bundle: build.bundle });
+  await waitFor((s) => s.state === 'running');
+  const failed = await waitFor((s) => s.state === 'failed');
+
+  expect(failed.diagnostics).toEqual([
+    expect.objectContaining({
+      code: 'runtime.uncaught',
+      message: expect.stringContaining('Timer failed'),
+    }),
+  ]);
+  await expect.poll(() => build.released()).toBe(true);
+});
+
 it.each(['', 'export const seed = 42;'])(
   'requires a seed function before opening application resources: %s',
   async (seed) => {
@@ -765,9 +848,11 @@ it('reports a host that cannot be spawned, releases its bundle and still stops',
   expect(build.released()).toBe(true);
 });
 
-it('reports a bare graph that needs connections as not configured, not failed', async () => {
-  const project = await createProject();
-  const build = await project.build(`import { z } from 'zod';
+it.each([false, true])(
+  'reports a bare graph missing connections with seed=%s',
+  async (seed) => {
+    const project = await createProject();
+    const build = await project.build(`import { z } from 'zod';
 import {
   defineAccess, defineGraph, defineObject, defineSource, from, objectId, source,
 } from 'relate';
@@ -793,18 +878,30 @@ export default defineGraph({
   access,
   policies: { Customer: { read: { gate: access.role('reader') } } },
 });
+export function seed() { throw new Error('Seed must not run without bindings'); }
 `);
-  const { controller, statuses, waitFor } = createController(project);
+    const { controller, statuses, waitFor } = createController(project, {
+      seed,
+    });
 
-  await controller.restart({ generation: 1, bundle: build.bundle });
-  const status = await waitFor((s) => s.state === 'not-configured');
+    await controller.restart({ generation: 1, bundle: build.bundle });
+    const status = await waitFor(
+      (s) => s.state === (seed ? 'failed' : 'not-configured'),
+    );
 
-  expect(status.diagnostics).toEqual([
-    expect.objectContaining({
-      code: 'runtime.not-configured',
-      severity: 'warning',
-    }),
-  ]);
-  expect(statuses.some((s) => s.state === 'failed')).toBe(false);
-  await expect.poll(() => build.released()).toBe(true);
-});
+    expect(status.diagnostics).toEqual([
+      expect.objectContaining({
+        code: seed ? 'runtime.setup-failed' : 'runtime.not-configured',
+        severity: seed ? 'error' : 'warning',
+      }),
+    ]);
+
+    if (seed)
+      expect(status.diagnostics[0]?.message).toContain(
+        'the requested seed could not run',
+      );
+
+    expect(statuses.some((s) => s.state === 'failed')).toBe(seed);
+    await expect.poll(() => build.released()).toBe(true);
+  },
+);

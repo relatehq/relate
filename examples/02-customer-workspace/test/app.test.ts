@@ -2,13 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { Server } from 'node:http';
 import { ActionError } from '@relate/protocol';
 import { startApp } from '@relate/node';
-import app, { seed } from '../relate.config.js';
+import workspaceApp, { seed } from '../relate.config.js';
 import { actors, startWorkspace } from '../src/app.js';
 import { startServer } from '../src/server.js';
 
 describe('interactive customer workspace', () => {
   it('seeds the config runtime with repeatable customer and invoice membership', async () => {
-    const relate = await startApp(app);
+    const relate = await startApp(workspaceApp);
 
     try {
       const { objects } = relate.as(actors.fin);
@@ -27,7 +27,9 @@ describe('interactive customer workspace', () => {
 
       expect(invoices.data).toHaveLength(2);
       expect(
-        invoices.data.map((invoice) => invoice.data.totalMinor).sort(),
+        invoices.data
+          .map((invoice) => invoice.data.totalMinor)
+          .sort((a, b) => a! - b!),
       ).toEqual([125000, 480000]);
       expect((await objects.Invoice.query()).data).toHaveLength(2);
       const anaInvoices = await relate.as(actors.ana).objects.Invoice.query();
@@ -62,7 +64,9 @@ describe('interactive customer workspace', () => {
         ),
       ).toBe(true);
       expect(
-        fin.invoices.data.map((invoice) => invoice.data.totalMinor).sort(),
+        fin.invoices.data
+          .map((invoice) => invoice.data.totalMinor)
+          .sort((a, b) => a! - b!),
       ).toEqual([125000, 480000]);
       await expect(
         app.review('fin', 'Not permitted', 'denied'),
