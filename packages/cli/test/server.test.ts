@@ -91,7 +91,7 @@ it('requires a session for metadata, exchanges the token for an HttpOnly cookie 
 
   expect(identity).toEqual({
     instanceId: 'instance-1',
-    protocolVersion: 1,
+    protocolVersion: 2,
     ownerId: 'owner-1',
   });
   expect(JSON.stringify(identity)).not.toContain(sessions.token);
@@ -181,7 +181,14 @@ it('streams a snapshot first, then events in order, and resynchronizes from /dev
     sequence: 1,
     attempt: 1,
   });
-  supervisor.acceptModel(model, 42);
+  supervisor.acceptModel(
+    {
+      manifest: model.manifest,
+      definitionRevision: model.definitionRevision,
+      principals: [],
+    },
+    42,
+  );
   expect(await next()).toMatchObject({
     type: 'model',
     sequence: 2,

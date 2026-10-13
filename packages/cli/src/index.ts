@@ -33,3 +33,41 @@ export type { AttemptOutcome } from './dev/attempts.js';
 export { createTerminal } from './dev/terminal.js';
 export { runDev, exitCodes } from './dev/run.js';
 export type { RunDevOptions } from './dev/run.js';
+
+export {
+  DEFAULT_RUNTIME_DRAIN_TIMEOUT_MS,
+  DEFAULT_RUNTIME_START_TIMEOUT_MS,
+  createRuntimeController,
+  defaultRuntimeHostPath,
+} from './dev/runtime-controller.js';
+
+export type {
+  AcceptedBuild,
+  RuntimeController,
+  RuntimeControllerOptions,
+} from './dev/runtime-controller.js';
+
+export {
+  createRuntimeBinding,
+  snapshotDiscovery,
+} from './dev/runtime-binding.js';
+
+export type {
+  RuntimeBinding,
+  RuntimeConnection,
+} from './dev/runtime-binding.js';
+
+export {
+  encodeError,
+  encodeRuntimeHostArguments,
+  restoreError,
+  userCodeEnvironment,
+  withheldVariables,
+} from './dev/runtime-protocol.js';
+
+export type {
+  DiscoverySnapshot,
+  RuntimeMessage,
+  RuntimeRequest,
+  WireError,
+} from './dev/runtime-protocol.js';

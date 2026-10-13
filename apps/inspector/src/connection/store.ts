@@ -12,6 +12,7 @@ import type {
   Diagnostic,
   ManifestDiff,
   ModelSnapshot,
+  RuntimeStatus,
 } from '../protocol.js';
 
 export type ConnectionState =
@@ -46,6 +47,8 @@ export interface InspectorState {
   readonly model: ModelSnapshot | null;
   readonly failure: Failure | null;
   readonly typecheck: Typecheck | null;
+  /** The runtime host; independent of whether the displayed model compiled. */
+  readonly runtime: RuntimeStatus | null;
   readonly lastUpdate: LastUpdate | null;
   /** Layout problems are local presentation diagnostics, never compiler failures. */
   readonly layout: Diagnostic | null;
@@ -60,6 +63,7 @@ export const initialState: InspectorState = Object.freeze({
   model: null,
   failure: null,
   typecheck: null,
+  runtime: null,
   lastUpdate: null,
   layout: null,
 });
@@ -91,6 +95,7 @@ export function applyEvent(
         model: event.model,
         failure: event.failure,
         typecheck: event.typecheck ?? null,
+        runtime: event.runtime,
         // A new instance has no update history; a resync of the same one keeps it.
         lastUpdate:
           state.instanceId === event.instanceId &&
@@ -150,6 +155,12 @@ export function applyEvent(
         },
       };
     }
+    case 'runtime':
+      // Sequence order is authoritative: the newest status replaces the last.
+      return {
+        outcome: 'applied',
+        state: { ...advanced, runtime: event.runtime },
+      };
     case 'typecheck': {
       // Complete replacement per revision, independent of attempts and generations.
       if (state.typecheck && event.revision < state.typecheck.revision)
@@ -213,6 +224,21 @@ export function failureDefinitionIds(
       ),
     ),
   ];
+}
+
+/**
+ * The principal the inspector acts as: the browser's choice while the model
+ * still declares it, otherwise the model's default.
+ */
+export function effectivePrincipal(
+  model: ModelSnapshot | null,
+  chosen: string | null,
+): string | null {
+  if (!model) return null;
+
+  return chosen !== null && model.principals.includes(chosen)
+    ? chosen
+    : model.defaultPrincipal;
 }
 
 /** What the failure means for the person reading it. */

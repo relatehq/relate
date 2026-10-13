@@ -133,14 +133,18 @@ function lines(buffer: { text: string }, chunk: Buffer, into: string[]) {
   into.push(...parts);
 }
 
-async function startDev(project: Project, args: string[] = []): Promise<Dev> {
+async function startDev(
+  project: Project,
+  args: string[] = [],
+  env: NodeJS.ProcessEnv = {},
+): Promise<Dev> {
   const port = await freePort();
   const child = spawn(
     process.execPath,
     [binary, 'dev', '--port', String(port), ...args],
     {
       cwd: project.root,
-      env: { ...process.env, NO_COLOR: '1' },
+      env: { ...process.env, NO_COLOR: '1', ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
   );
@@ -267,9 +271,16 @@ async function* events(dev: Dev, cookie: string): AsyncGenerator<DevEvent> {
   }
 }
 
+/** The next event of the given types; runtime host status events are skipped by default. */
 async function take(
   stream: AsyncGenerator<DevEvent>,
   timeoutMs = 15_000,
+  types: readonly DevEvent['type'][] = [
+    'snapshot',
+    'model',
+    'diagnostics',
+    'typecheck',
+  ],
 ): Promise<DevEvent> {
   const timer = new Promise<never>((_, reject) =>
     setTimeout(
@@ -277,11 +288,14 @@ async function take(
       timeoutMs,
     ),
   );
-  const next = await Promise.race([stream.next(), timer]);
 
-  if (next.done) throw new Error('Event stream ended');
+  for (;;) {
+    const next = await Promise.race([stream.next(), timer]);
 
-  return next.value;
+    if (next.done) throw new Error('Event stream ended');
+
+    if (types.includes(next.value.type)) return next.value;
+  }
 }
 
 it('prints the URL before the first model, then publishes models and failures over SSE as files change', async () => {
@@ -491,6 +505,100 @@ it('times out a child that never settles, reports one worker diagnostic and reco
     model: { generation: 1 },
     fromGeneration: null,
   });
+  await stream.return(undefined);
+}, 60_000);
+
+it('starts a runtime host per accepted build and publishes principals and runtime status', async () => {
+  const project = await createProject();
+
+  projects.push(project.root);
+  await project.write(
+    'src/relate/graph.ts',
+    `import { z } from 'zod';
+import { defineAccess, defineGraph, defineObject, native, nativeMembership, objectId } from 'relate';
+
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
+const Note = defineObject({
+  id: 'notes.note',
+  membership: nativeMembership(),
+  properties: {
+    id: objectId({ id: 'note.id' }),
+    body: native(z.string(), { id: 'note.body' }),
+  },
+});
+export const graph = defineGraph({
+  id: 'notes',
+  objects: { Note },
+  access,
+  policies: { Note: { read: { gate: access.role('reader') } } },
+  principals: { alice: { roles: ['reader'] }, bob: { roles: [] } },
+});
+`,
+  );
+  const dev = await startDev(project);
+
+  await dev.waitForStdout(/^\s+runtime gen 1\s+running\s+in-memory store/);
+  const cookie = await openSession(dev);
+  const stream = events(dev, cookie);
+  const snapshot = await take(stream);
+
+  expect(snapshot).toMatchObject({
+    type: 'snapshot',
+    model: {
+      generation: 1,
+      principals: ['alice', 'bob'],
+      defaultPrincipal: 'alice',
+    },
+    runtime: { state: 'running', generation: 1, store: 'memory' },
+  });
+
+  // Touching the graph without changing it still restarts the runtime.
+  await project.write(
+    'src/relate/app.ts',
+    "import { defineApp } from 'relate';\nimport { graph } from './graph.js';\n\nexport default defineApp({ graph });\n// touched\n",
+  );
+  const restarting = await take(stream, 15_000, ['runtime']);
+  const running = await take(stream, 15_000, ['runtime']);
+
+  expect(restarting).toMatchObject({
+    type: 'runtime',
+    runtime: { state: 'restarting', generation: 2 },
+  });
+  expect(running).toMatchObject({
+    type: 'runtime',
+    runtime: { state: 'running', generation: 2, dataReset: true },
+  });
+  await dev.waitForStdout(
+    /^\s+runtime gen 2\s+running\s+in-memory store, previous data reset/,
+  );
+  await stream.return(undefined);
+}, 60_000);
+
+it('withholds ANTHROPIC_API_KEY from the compile worker and starts no runtime with --no-runtime', async () => {
+  const project = await createProject();
+
+  projects.push(project.root);
+  await project.write(
+    'src/relate/app.ts',
+    "import { defineApp } from 'relate';\nimport { graph } from './graph.js';\n\nconsole.log('worker-key:' + (process.env.ANTHROPIC_API_KEY ?? 'absent'));\nexport default defineApp({ graph });\n",
+  );
+  const dev = await startDev(project, ['--no-runtime'], {
+    ANTHROPIC_API_KEY: 'sk-ant-secret',
+  });
+
+  await dev.waitForStdout(/Runtime\s+off \(--no-runtime\)/);
+  await dev.waitForStdout(/\[app attempt 1 stdout\] worker-key:absent/);
+  await dev.waitForStdout(/ready\s+gen 1/);
+  const cookie = await openSession(dev);
+  const stream = events(dev, cookie);
+
+  expect(await take(stream)).toMatchObject({
+    type: 'snapshot',
+    model: { generation: 1 },
+    runtime: null,
+  });
+  expect(dev.stdout.join('\n')).not.toContain('sk-ant-secret');
+  expect(dev.stdout.join('\n')).not.toMatch(/runtime gen/);
   await stream.return(undefined);
 }, 60_000);
 

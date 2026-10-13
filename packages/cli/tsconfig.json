@@ -10,6 +10,7 @@
   "references": [
     { "path": "../relate" },
     { "path": "../node" },
+    { "path": "../protocol" },
     { "path": "../../apps/inspector/tsconfig.server.json" }
   ]
 }

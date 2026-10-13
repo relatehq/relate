@@ -233,3 +233,48 @@ so the `AccountReview` rule above only accepts reviews for customers in the
 caller's portfolio, authored by the caller. Source-backed objects such as
 `Customer` cannot have a `create` rule. See
 [Actions, Mutations & Receipts](../runtime/actions.md).
+
+---
+
+## Development Principals
+
+In production your host authenticates each caller and supplies their roles and
+claims. During development you can declare a few named identities in the graph
+so `relate dev` can run the graph as them:
+
+```ts
+export const graph = defineGraph({
+  id: 'business',
+  objects,
+  relationships,
+  access,
+  policies,
+  principals: {
+    alice: { roles: ['employee'], claims: { portfolio: 'north' } },
+    auditor: { roles: ['employee', 'finance'], claims: { portfolio: 'south' } },
+  },
+});
+```
+
+- Roles must come from `access.roles` and each claim value must pass its
+  `defineAccess` schema. An unknown role (`principal.unknown-role`), an unknown
+  claim (`principal.unknown-claim`) or a value the schema rejects
+  (`principal.invalid-claim`) is a compile error, reported like any other model
+  issue. Names may use letters, digits, `.`, `_` and `-`.
+- `compile(graph)` returns them as `model.principals`, outside the Manifest:
+
+  ```ts
+  const model = compile(graph);
+
+  model.principals.alice; // { roles: ['employee'], claims: { portfolio: 'north' } }
+  ```
+
+- They are not part of `definitionRevision`. Adding, removing or editing a
+  development principal never changes the revision, so it never requires a
+  migration of a persistent store.
+- At run time a principal is `{ id: <name>, roles, claims }`. Outside
+  `relate dev` nothing reads `principals`; your host still authenticates real
+  callers. Do not treat these entries as accounts or credentials.
+
+The [Inspector](./inspector.md#development-principals-and-the-runtime) lets you
+choose which principal to act as; the first declared one is the default.

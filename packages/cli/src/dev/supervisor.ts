@@ -11,6 +11,8 @@ import {
   type DiagnosticsEvent,
   type ModelEvent,
   type ModelSnapshot,
+  type RuntimeEvent,
+  type RuntimeStatus,
   type SnapshotEvent,
 } from '@relate/inspector/protocol';
 import { diffManifests } from './diff.js';
@@ -26,6 +28,7 @@ export interface SupervisorState {
   readonly generation: number;
   readonly model: ModelSnapshot | null;
   readonly failure: Failure | null;
+  readonly runtime: RuntimeStatus | null;
 }
 
 export type Listener = (event: DevEvent) => void;
@@ -47,6 +50,7 @@ export class Supervisor {
       generation: 0,
       model: null,
       failure: null,
+      runtime: null,
     };
   }
 
@@ -62,6 +66,7 @@ export class Supervisor {
       type: 'snapshot',
       model: this.current.model,
       failure: this.current.failure,
+      runtime: this.current.runtime,
     };
   }
 
@@ -78,14 +83,22 @@ export class Supervisor {
 
   /** Publish a newer accepted model. Returns the event and the manifest it replaced. */
   acceptModel(
-    model: { readonly manifest: Manifest; readonly definitionRevision: string },
+    model: {
+      readonly manifest: Manifest;
+      readonly definitionRevision: string;
+      /** Development principal names in declaration order. */
+      readonly principals: readonly string[];
+    },
     durationMs: number,
   ): { readonly event: ModelEvent; readonly previous: Manifest | null } {
     const previous = this.current.model;
+    const principals = [...model.principals];
     const snapshot: ModelSnapshot = {
       generation: this.current.generation + 1,
       definitionRevision: model.definitionRevision,
       manifest: model.manifest,
+      principals,
+      defaultPrincipal: principals[0] ?? null,
     };
     const event: ModelEvent = {
       protocolVersion: PROTOCOL_VERSION,
@@ -129,6 +142,22 @@ export class Supervisor {
       sequence: event.sequence,
       failure: { attempt, diagnostics },
     };
+    this.emit(event);
+
+    return event;
+  }
+
+  /** The runtime host's status replaces the previous one; models are unaffected. */
+  acceptRuntime(runtime: RuntimeStatus): RuntimeEvent {
+    const event: RuntimeEvent = {
+      protocolVersion: PROTOCOL_VERSION,
+      instanceId: this.current.instanceId,
+      sequence: this.current.sequence + 1,
+      type: 'runtime',
+      runtime,
+    };
+
+    this.current = { ...this.current, sequence: event.sequence, runtime };
     this.emit(event);
 
     return event;

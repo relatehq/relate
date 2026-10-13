@@ -11,7 +11,13 @@ import type {
 import { referenceSchemas } from './schema.js';
 import { actionKeys } from './actions.js';
 import { portable } from './portable-schema.js';
-import type { Claim, ActorField, ObjectRule } from './authorization.js';
+import type {
+  Claim,
+  ActorField,
+  ClaimValue,
+  DevelopmentPrincipal,
+  ObjectRule,
+} from './authorization.js';
 import { canonicalJson, deepFreeze, validateManifest } from './model.js';
 import type { CompiledModel, ScalarSchema } from './model.js';
 import { CompileError, ManifestValidationError } from './diagnostics.js';
@@ -103,11 +109,128 @@ function registryKey(
   return Object.entries(objects).find(([, o]) => o === object)?.[0];
 }
 
+// Principal names are addressed in URLs (`?as=alice`), so they stay unescaped.
+const principalName = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
+
+function isClaimValue(value: unknown): value is ClaimValue {
+  return (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean' ||
+    (typeof value === 'number' && Number.isFinite(value))
+  );
+}
+
+/**
+ * Development principals are checked against the access vocabulary but never
+ * enter the Manifest: adding an identity must not change `definitionRevision`.
+ */
+function compilePrincipals(
+  graph: GraphDefinition,
+  issues: Collector,
+): Record<string, DevelopmentPrincipal> {
+  const compiled: Record<string, DevelopmentPrincipal> = {};
+
+  if (graph.principals === undefined) return compiled;
+
+  if (
+    !graph.principals ||
+    typeof graph.principals !== 'object' ||
+    Array.isArray(graph.principals)
+  ) {
+    issues.report(
+      'principal.invalid-shape',
+      'Graph principals must be a keyed registry of { roles, claims }',
+      ['principals'],
+    );
+
+    return compiled;
+  }
+
+  const roles = new Set(graph.access.roles);
+
+  for (const [name, principal] of Object.entries(graph.principals)) {
+    issues.unit(() => {
+      const at = (...rest: Segment[]) => ['principals', name, ...rest];
+
+      if (!principalName.test(name))
+        issues.report(
+          'principal.invalid-name',
+          `Principal name '${name}' must start with a letter or digit and use only letters, digits, '.', '_' or '-'`,
+          at(),
+        );
+
+      if (
+        !principal ||
+        typeof principal !== 'object' ||
+        !Array.isArray(principal.roles) ||
+        (principal.claims !== undefined &&
+          (!principal.claims ||
+            typeof principal.claims !== 'object' ||
+            Array.isArray(principal.claims)))
+      )
+        issues.fail(
+          'principal.invalid-shape',
+          `Principal ${name} must declare roles as an array and claims as an object`,
+          at(),
+        );
+
+      principal.roles.forEach((role, index) => {
+        if (typeof role !== 'string' || !roles.has(role))
+          issues.report(
+            'principal.unknown-role',
+            `Principal ${name} has role '${String(role)}', which the access declaration does not define`,
+            at('roles', index),
+          );
+      });
+
+      const claims: Record<string, ClaimValue> = {};
+
+      for (const [claim, value] of Object.entries(principal.claims ?? {})) {
+        if (!Object.hasOwn(graph.access.claims, claim)) {
+          issues.report(
+            'principal.unknown-claim',
+            `Principal ${name} sets claim '${claim}', which the access declaration does not define`,
+            at('claims', claim),
+          );
+          continue;
+        }
+
+        const parsed = graph.access.claims[claim]!.schema.safeParse(value);
+
+        if (!parsed.success || !isClaimValue(parsed.data)) {
+          issues.report(
+            'principal.invalid-claim',
+            `Principal ${name} claim '${claim}' does not match its access schema${
+              parsed.success
+                ? ''
+                : `: ${parsed.error.issues.map((issue) => issue.message).join('; ')}`
+            }`,
+            at('claims', claim),
+          );
+          continue;
+        }
+
+        claims[claim] = parsed.data;
+      }
+
+      compiled[name] = {
+        roles: [...new Set(principal.roles)],
+        claims,
+      };
+    });
+  }
+
+  return compiled;
+}
+
 /** Compile once; the consumer artifact is projected only from the validated manifest. */
 export function compile<G extends GraphDefinition>(
   graph: G,
 ): CompiledModel & {
   readonly consumer: ConsumerDescription<G>;
+  /** Development principals by name, in declaration order. Not part of the Manifest. */
+  readonly principals: Readonly<Record<string, DevelopmentPrincipal>>;
 } {
   // Explicitly typed so `fail()` narrows as a `never`-returning assertion.
   const issues: Collector = new Collector();
@@ -189,6 +312,7 @@ export function compile<G extends GraphDefinition>(
     else claims[name] = portable(claim.schema);
   }
 
+  const principals = compilePrincipals(graph, issues);
   const roles = new Set(graph.access.roles);
   const policyPath = (name: string, ...rest: Segment[]) => [
     'policies',
@@ -951,6 +1075,7 @@ export function compile<G extends GraphDefinition>(
     manifest,
     definitionRevision,
     consumer: consumer as ConsumerDescription<G>,
+    principals,
   });
 }
 

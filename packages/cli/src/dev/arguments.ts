@@ -8,6 +8,8 @@ export interface DevArguments {
   readonly port: number | undefined;
   readonly open: boolean;
   readonly quiet: boolean;
+  /** Inspect the model only: start no runtime host. */
+  readonly runtime: boolean;
   readonly evalTimeoutMs: number;
   readonly allowedOrigins: readonly string[];
 }
@@ -37,6 +39,8 @@ Options:
                             first free)
   --quiet                   Hide status chatter; keep the URL and diagnostics
   --open                    Open the inspector URL once it is ready
+  --no-runtime              Inspect the model only; do not start the
+                            application or run its setup
   --eval-timeout <ms>       Deadline for loading and compiling definitions
                             (default: ${DEFAULT_EVAL_TIMEOUT_MS})
   --allowed-origin <origin> Additionally accept this exact browser origin
@@ -114,6 +118,7 @@ export function parseDevArguments(
   let port: number | undefined;
   let open = false;
   let quiet = false;
+  let runtime = true;
   let evalTimeoutMs = DEFAULT_EVAL_TIMEOUT_MS;
   const allowedOrigins: string[] = [];
   const take = (index: number, flag: string): string => {
@@ -162,6 +167,12 @@ export function parseDevArguments(
 
         open = true;
         break;
+      case '--no-runtime':
+        if (inline !== undefined)
+          throw new UsageError('--no-runtime takes no value');
+
+        runtime = false;
+        break;
       case '--eval-timeout':
         evalTimeoutMs = integer(value(), '--eval-timeout', 1, MAX_TIMER_MS);
         break;
@@ -178,6 +189,7 @@ export function parseDevArguments(
     port,
     open,
     quiet,
+    runtime,
     evalTimeoutMs,
     allowedOrigins: Object.freeze([...new Set(allowedOrigins)]),
   });

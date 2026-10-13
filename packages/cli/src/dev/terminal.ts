@@ -7,7 +7,7 @@ import { isAbsolute, relative, resolve } from 'node:path';
 import type { Writable } from 'node:stream';
 import type { Manifest } from 'relate/model';
 import { formatIssuePath } from 'relate/diagnostics';
-import type { Diagnostic } from '@relate/inspector/protocol';
+import type { Diagnostic, RuntimeStatus } from '@relate/inspector/protocol';
 import { describeManifest } from './diff.js';
 
 export interface TerminalOptions {
@@ -44,6 +44,8 @@ export interface Terminal {
     keptGeneration: number | null,
   ): void;
   startupError(message: string): void;
+  /** Runtime host transitions: running, failed, not configured and restarts. */
+  runtime(status: RuntimeStatus): void;
   childStdout(line: string): void;
   childStderr(line: string): void;
 }
@@ -85,6 +87,8 @@ export function createTerminal(options: TerminalOptions): Terminal {
     return files.length > 1 ? `${first} (+${files.length - 1} files)` : first;
   };
   const pad = (text: string, width: number) => text.padEnd(width);
+  // A bare graph stays unconfigured across saves; say so once.
+  let notConfiguredShown = false;
 
   return {
     banner({ project, config, inspectorUrl }) {
@@ -126,6 +130,50 @@ export function createTerminal(options: TerminalOptions): Terminal {
 
       out(
         `  ${paint('green', 'update')} ${pad(fileList(files), 28)} gen ${generation}  ${summary}  ${paint('dim', `${durationMs}ms`)}`,
+      );
+    },
+    runtime(status) {
+      if (status.state === 'failed') {
+        err(
+          `  ${paint('red', 'error')}  runtime gen ${status.generation} failed; graph operations are unavailable until the next accepted build`,
+        );
+
+        for (const diagnostic of status.diagnostics) {
+          err(`    ${paint('bold', diagnostic.code)}: ${diagnostic.message}`);
+
+          if (diagnostic.site)
+            err(
+              `    ${displayPath(diagnostic.site.file)}:${diagnostic.site.line}:${diagnostic.site.column}`,
+            );
+        }
+
+        return;
+      }
+
+      if (status.state === 'not-configured') {
+        if (options.quiet || notConfiguredShown) return;
+
+        notConfiguredShown = true;
+        out(
+          `  ${paint('dim', 'runtime')} not configured: the config exports a graph without defineApp setup; graph operations are unavailable`,
+        );
+
+        return;
+      }
+
+      if (status.state === 'running') notConfiguredShown = false;
+
+      if (options.quiet || status.state !== 'running') return;
+
+      const store =
+        status.store === 'memory'
+          ? status.dataReset
+            ? 'in-memory store, previous data reset'
+            : 'in-memory store, data is lost on restart'
+          : "application's store";
+
+      out(
+        `  ${paint('green', 'runtime')} gen ${status.generation}  running  ${store}`,
       );
     },
     error(files, attempt, diagnostics, keptGeneration) {

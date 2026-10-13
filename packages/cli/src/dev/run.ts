@@ -18,6 +18,7 @@ import type { DevArguments } from './arguments.js';
 import { createAttemptRunner } from './attempts.js';
 import type { AttemptOutcome } from './attempts.js';
 import { createBuilder } from './build.js';
+import { createRuntimeController } from './runtime-controller.js';
 import { summarizeDiff } from './diff.js';
 import { bindLoopback, ListenError } from './listener.js';
 import { acquireLock, devDirectory } from './lock.js';
@@ -40,6 +41,7 @@ export interface RunDevOptions {
   readonly signals?: AsyncIterable<string> | undefined;
   readonly inspector?: InspectorApp;
   readonly workerPath?: string;
+  readonly runtimeHostPath?: string;
 }
 
 export const exitCodes = Object.freeze({ ok: 0, fatal: 1, usage: 2 });
@@ -246,6 +248,11 @@ export async function runDev(options: RunDevOptions): Promise<number> {
 
     if (bound.notice) terminal.notice(bound.notice);
 
+    if (!args.runtime)
+      terminal.notice(
+        'Runtime    off (--no-runtime); the application is not started',
+      );
+
     if (args.open)
       try {
         await openBrowser(inspectorUrl);
@@ -257,6 +264,10 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       projectRoot: project.root,
       configPath: project.configPath,
     });
+    const isStdoutSaturated = () =>
+      (options.stdout.writableLength ?? 0) > 1_000_000;
+    const isStderrSaturated = () =>
+      (options.stderr.writableLength ?? 0) > 1_000_000;
     const runner = createAttemptRunner({
       builder,
       projectRoot: project.root,
@@ -265,10 +276,31 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       env: options.env,
       writeStdout: (line) => terminal.childStdout(line),
       writeStderr: (line) => terminal.childStderr(line),
-      isStdoutSaturated: () => (options.stdout.writableLength ?? 0) > 1_000_000,
-      isStderrSaturated: () => (options.stderr.writableLength ?? 0) > 1_000_000,
+      isStdoutSaturated,
+      isStderrSaturated,
       ...(options.workerPath ? { workerPath: options.workerPath } : {}),
     });
+    // `--no-runtime`: inspect the model only; accepted bundles are released.
+    const runtime = args.runtime
+      ? createRuntimeController({
+          projectRoot: project.root,
+          configPath: project.configPath,
+          env: options.env,
+          onStatus: (status) => {
+            if (stopping) return;
+
+            supervisor.acceptRuntime(status);
+            terminal.runtime(status);
+          },
+          writeStdout: (line) => terminal.childStdout(line),
+          writeStderr: (line) => terminal.childStderr(line),
+          isStdoutSaturated,
+          isStderrSaturated,
+          ...(options.runtimeHostPath
+            ? { hostPath: options.runtimeHostPath }
+            : {}),
+        })
+      : null;
     let lastGoodInputs: readonly string[] = [project.configPath];
     let stopping = false;
     const watcher = createWatcher({
@@ -279,7 +311,13 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       onError: (error) => terminal.warn(`Watcher error: ${error.message}`),
     });
     const handle = (changed: readonly string[], outcome: AttemptOutcome) => {
-      if (stopping || outcome.kind === 'cancelled') return;
+      if (outcome.kind === 'cancelled') return;
+
+      if (stopping) {
+        if (outcome.kind === 'model') void outcome.bundle.release();
+
+        return;
+      }
 
       // Prefer known modules over editor temporaries that landed in the same directory.
       const known = changed.filter((file) => lastGoodInputs.includes(file));
@@ -292,6 +330,16 @@ export async function runDev(options: RunDevOptions): Promise<number> {
           outcome,
           outcome.durationMs,
         );
+
+        // Every accepted build restarts the runtime: connector and action
+        // code may have changed even when the Manifest did not. `restart`
+        // reports its own failures as runtime status and never rejects.
+        if (runtime)
+          void runtime.restart({
+            generation: event.model.generation,
+            bundle: outcome.bundle,
+          });
+        else void outcome.bundle.release();
 
         if (event.fromGeneration === null)
           terminal.ready(
@@ -352,6 +400,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
         server.closeStreams();
         sessions.clear();
         await runner.stop();
+        await runtime?.stop();
         await builder.dispose();
         await new Promise<void>((done) => bound.server.close(() => done()));
         await release();

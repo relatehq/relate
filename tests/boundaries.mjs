@@ -129,7 +129,8 @@ for (const workspace of workspaces) {
         (ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
         (ts.isExportDeclaration(node) && node.isTypeOnly);
 
-      // The CLI's application child imports the user's bundle by computed path.
+      // The CLI's application children (compile worker and runtime host)
+      // import the user's bundle and project packages by computed path.
       if (
         ts.isCallExpression(node) &&
         (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
@@ -138,7 +139,10 @@ for (const workspace of workspaces) {
         (!literal || !ts.isStringLiteral(literal)) &&
         !(
           owner === 'packages/cli' &&
-          relative(directory, file) === `src${sep}dev${sep}worker.ts` &&
+          [
+            `src${sep}dev${sep}worker.ts`,
+            `src${sep}dev${sep}runtime-host.ts`,
+          ].includes(relative(directory, file)) &&
           node.expression.kind === ts.SyntaxKind.ImportKeyword
         )
       )

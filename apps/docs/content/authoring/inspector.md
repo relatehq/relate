@@ -5,8 +5,11 @@ in a browser. Select a node or relationship to inspect its details. It updates
 when you save changes to the definitions.
 
 This is a view of the model, not a browser for individual customer or invoice
-records. The inspector compiles your definitions without starting the runtime,
-database, application server, or connectors.
+records. Alongside the graph, `relate dev` starts your application's runtime in
+a separate process (see
+[Development Principals and the Runtime](#development-principals-and-the-runtime)).
+Displaying the graph never depends on that runtime: a runtime that fails to
+start leaves the graph and its diagnostics visible.
 
 ## Open an Example Graph
 
@@ -26,7 +29,10 @@ pnpm relate dev --config examples/02-customer-workspace/relate.config.ts --open
 You should see **Customer**, **Invoice**, and **Account review**, connected by
 the **CustomerInvoices** and **CustomerReviews** relationships. The model has 3
 objects, 2 sources, and 2 relationships. No database or credentials are needed
-to inspect these definitions.
+to inspect these definitions. This config exports the graph without an app, so
+there is no `setup` to supply connections for its sources; the status bar shows
+a neutral **No runtime** and the graph itself is unaffected. Pass `--no-runtime`
+to inspect the model without starting the application at all.
 
 `--open` opens the browser. You can also open the complete Inspector URL printed
 in the terminal, including its `#token=…` fragment. That link establishes the
@@ -64,8 +70,55 @@ export, use a config file to re-export it as default.
 
 The inspector evaluates the entry and its imports. Keep them safe to import: put
 connector initialization and credential-dependent work inside your app's
-`setup`, which the inspector never calls. Do not point the inspector at an
-application entry that starts servers or runs queries at the top level.
+`setup`. Graph compilation never calls `setup`; only the separate runtime
+process does. Do not point the inspector at an application entry that starts
+servers or runs queries at the top level.
+
+## Development Principals and the Runtime
+
+For every successfully compiled change, `relate dev` starts a fresh runtime
+process for your app: it calls `setup` and starts the runtime exactly as your
+application would. That process has no HTTP listener of its own.
+
+The status bar shows its state:
+
+| Indicator              | Meaning                                                                                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Runtime starting**   | The first runtime is running `setup`.                                                                                                                 |
+| **Runtime restarting** | A newer change was accepted; the previous runtime is draining and a new one is starting.                                                              |
+| **Runtime running**    | Ready. Hover for its revision and store.                                                                                                              |
+| **Runtime failed**     | `setup` threw, timed out, or the store rejected the model. Hover for the diagnostic; the terminal prints it too. The next accepted change retries.    |
+| **No runtime**         | The config exports a bare graph whose sources need connections that only `defineApp` `setup` can supply. Not an error; export an app to run it.       |
+| **Data reset**         | The runtime restarted and the previous runtime's in-memory data was discarded.                                                                        |
+| **Runtime on abc1234** | The running runtime serves a different revision from the displayed model, for example while a restart is in progress or after the new runtime failed. |
+
+The runtime restarts on every accepted change, even when the model is unchanged,
+because connector and action code may have changed:
+
+- **No store from `setup`** (or no `setup`): the runtime's own in-memory store.
+  Its data is lost on every restart, and the terminal says so:
+  `runtime gen 2  running  in-memory store, previous data reset`.
+- **A persistent store** (for example Postgres) is used as-is. The runtime
+  checks the store's model revision as soon as it starts, before any request: an
+  empty store has the current revision written into it at that point, so
+  starting `relate dev` against a fresh database installs the model. If the
+  store already holds a different model revision, the runtime reports
+  `runtime.store-revision-mismatch` and stays stopped. It never resets or
+  migrates your data to recover. Use `--no-runtime` to inspect without touching
+  the store.
+
+Resetting the in-memory store does not undo anything a connector or action
+already did in an external system. Receipts are lost with it, so reusing an
+idempotency key after a restart may perform an action again.
+
+The runtime process does not receive `ANTHROPIC_API_KEY` from your environment;
+every other variable is inherited.
+
+**Principal selector.** When the graph declares
+[development principals](./access-control.md#development-principals), the status
+bar shows an **as** selector listing them; the first declared one is the
+default. The choice belongs to your browser tab and is remembered per graph.
+Without declared principals the status bar shows **no principals**.
 
 ## Switch Between Graphs
 
@@ -97,8 +150,11 @@ Without `--port`, the command picks the first free port from **4318–4327** on
 ## Editing and Troubleshooting
 
 - **Changes on save:** imported definition files are watched. Successful
-  compilation updates the graph; invalid code shows diagnostics and keeps the
-  last good model visible until you fix it.
+  compilation updates the graph and restarts the runtime; invalid code shows
+  diagnostics and keeps the last good model and runtime until you fix it.
+- **Runtime failed:** read the `runtime.*` diagnostic in the terminal. A
+  graph-only config has no `setup`, so source-backed objects have no
+  connections; export `defineApp({ graph, setup })` to run it.
 - **No config found:** create `relate.config.ts` or pass `--config` explicitly.
   The repository root does not ship a default config.
 - **Missing inspector assets:** run `pnpm build` from the repository root.

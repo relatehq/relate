@@ -6,12 +6,16 @@
  * Runs with `--enable-source-maps`, so captured declaration stacks already
  * point at authored TypeScript when esbuild emitted a source map.
  */
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { GraphDefinition } from 'relate';
 import type { ModelIssue, SourceSite } from 'relate/diagnostics';
 import type { Diagnostic } from '@relate/inspector/protocol';
+import {
+  createChildSupport,
+  isCompileError,
+  sanitizeMessage,
+  selectExport,
+} from './child-support.js';
 import {
   decodeWorkerArguments,
   type WorkerMessage,
@@ -22,10 +26,11 @@ type RelateModule = typeof import('relate');
 type CompilerModule = typeof import('relate/compiler');
 
 const args = decodeWorkerArguments(process.argv[2]);
-const workerFile = fileURLToPath(import.meta.url);
-const buildDirectory = dirname(args.bundlePath);
-/** Package roots whose frames are library internals, not the user's declarations. */
-const libraryRoots: string[] = [];
+const support = createChildSupport({
+  ...args,
+  childFile: fileURLToPath(import.meta.url),
+});
+const { userSite, projectRelative } = support;
 
 let reported = false;
 
@@ -42,47 +47,12 @@ function send(message: WorkerMessage): void {
   process.send(message, () => process.exit(0));
 }
 
-/**
- * Prefer the project's own `relate` so provenance and `CompileError` identity
- * match the instance the user's modules import. Falls back to the CLI's copy.
- */
-function projectPackageEntry(
-  name: string,
-  subpath: string,
-): string | undefined {
-  let directory = dirname(args.configPath);
-
-  for (;;) {
-    const manifestPath = join(directory, 'node_modules', name, 'package.json');
-
-    if (existsSync(manifestPath)) {
-      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
-        exports?: Record<string, { import?: string } | string>;
-      };
-      const entry = manifest.exports?.[subpath];
-      const target = typeof entry === 'string' ? entry : entry?.import;
-      // Linked workspace packages resolve through symlinks and source maps.
-      const root = realpathSync(dirname(manifestPath));
-
-      if (!libraryRoots.includes(root)) libraryRoots.push(root);
-
-      return target ? resolve(dirname(manifestPath), target) : undefined;
-    }
-
-    const parent = dirname(directory);
-
-    if (parent === directory) return undefined;
-
-    directory = parent;
-  }
-}
-
 async function loadRelate(): Promise<{
   relate: RelateModule;
   compiler: CompilerModule;
 }> {
-  const relateEntry = projectPackageEntry('relate', '.');
-  const compilerEntry = projectPackageEntry('relate', './compiler');
+  const relateEntry = support.packageEntry('relate', '.');
+  const compilerEntry = support.packageEntry('relate', './compiler');
 
   if (relateEntry && compilerEntry)
     return {
@@ -96,75 +66,6 @@ async function loadRelate(): Promise<{
     relate: await import('relate'),
     compiler: await import('relate/compiler'),
   };
-}
-
-function projectRelative(path: string): string {
-  const rel = relative(args.projectRoot, path);
-
-  return rel && !rel.startsWith('..') && !isAbsolute(rel)
-    ? rel.split(sep).join('/')
-    : path;
-}
-
-/** First stack frame in the user's project, outside relate, node_modules and the bundle. */
-function userSite(
-  stack: string | undefined,
-  precision: SourceSite['precision'],
-): SourceSite | undefined {
-  if (!stack) return undefined;
-
-  for (const line of stack.split('\n')) {
-    const match = /\(?((?:file:\/\/)?[^():\s]+):(\d+):(\d+)\)?\s*$/.exec(
-      line.trim(),
-    );
-
-    if (!match || !line.trim().startsWith('at ')) continue;
-
-    let file = match[1]!;
-
-    if (file.startsWith('node:')) continue;
-
-    if (file.startsWith('file://')) {
-      try {
-        file = fileURLToPath(file);
-      } catch {
-        continue;
-      }
-    }
-
-    if (
-      file === workerFile ||
-      file.includes(`${sep}node_modules${sep}`) ||
-      file.startsWith(buildDirectory + sep) ||
-      libraryRoots.some((root) => file.startsWith(root + sep))
-    )
-      continue;
-
-    return {
-      file: projectRelative(file),
-      line: Number(match[2]),
-      column: Number(match[3]),
-      precision,
-    };
-  }
-
-  return undefined;
-}
-
-function isCompileError(
-  error: unknown,
-): error is Error & { issues: readonly ModelIssue[] } {
-  return (
-    error instanceof Error &&
-    error.name === 'CompileError' &&
-    Array.isArray((error as { issues?: unknown }).issues)
-  );
-}
-
-function sanitizeMessage(error: unknown): string {
-  if (error instanceof Error) return `${error.name}: ${error.message}`;
-
-  return typeof error === 'string' ? error : 'Unknown error';
 }
 
 function importFailure(error: unknown, code: string): Diagnostic {
@@ -257,35 +158,13 @@ function compileDiagnostics(
 function selectGraph(
   module: Record<string, unknown>,
 ): GraphDefinition | undefined {
-  const candidates = [module.default, module.app, module.graph];
+  const selected = selectExport(module);
 
-  for (const candidate of candidates) {
-    if (!candidate || typeof candidate !== 'object') continue;
+  if (!selected) return undefined;
 
-    const value = candidate as {
-      kind?: unknown;
-      graph?: unknown;
-      objects?: unknown;
-      policies?: unknown;
-    };
-
-    if (
-      value.kind === 'relate.app' &&
-      value.graph &&
-      typeof value.graph === 'object'
-    )
-      return value.graph as GraphDefinition;
-
-    if (
-      value.objects &&
-      typeof value.objects === 'object' &&
-      value.policies &&
-      typeof value.policies === 'object'
-    )
-      return value as unknown as GraphDefinition;
-  }
-
-  return undefined;
+  return (
+    selected.kind === 'app' ? selected.app.graph : selected.graph
+  ) as GraphDefinition;
 }
 
 process.on('uncaughtException', (error) => {
@@ -348,6 +227,7 @@ if (!graph) {
       type: 'model',
       manifest: model.manifest,
       definitionRevision: model.definitionRevision,
+      principals: Object.keys(model.principals ?? {}),
       sites,
     });
   } catch (error) {

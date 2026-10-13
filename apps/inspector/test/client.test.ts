@@ -16,6 +16,8 @@ const model = (generation: number) => ({
   generation,
   definitionRevision: compiled.definitionRevision,
   manifest: compiled.manifest,
+  principals: [],
+  defaultPrincipal: null,
 });
 
 class FakeEventSource {
@@ -97,6 +99,7 @@ const snapshot = (sequence: number, instanceId = 'i1'): DevEvent => ({
   type: 'snapshot',
   model: model(1),
   failure: null,
+  runtime: null,
 });
 
 it('exchanges the fragment token, loads a snapshot and streams in-order events', async () => {
@@ -187,7 +190,7 @@ it('keeps the graph as stale when the session is rejected or the protocol is uns
   client.stop();
 
   const upgraded: Server = {
-    snapshot: () => ({ ...snapshot(1), protocolVersion: 2 }),
+    snapshot: () => ({ ...snapshot(1), protocolVersion: 3 }),
     requests: [],
   };
   const old = setup(upgraded);
@@ -196,7 +199,7 @@ it('keeps the graph as stale when the session is rejected or the protocol is uns
   expect(old.getState()).toMatchObject({
     connection: 'stale',
     staleReason: 'protocol',
-    unsupportedProtocol: 2,
+    unsupportedProtocol: 3,
   });
   expect(FakeEventSource.instances).toHaveLength(0);
   old.stop();
