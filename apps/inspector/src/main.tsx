@@ -11,6 +11,7 @@ import '@xyflow/react/dist/style.css';
 import './theme/theme-light.css';
 import './theme/theme-dark.css';
 import './styles.css';
+import { createActivityClient } from './connection/activity.js';
 import {
   createDevClient,
   inspectorBaseUrl,
@@ -23,15 +24,17 @@ import { createInspectorRouter } from './router.js';
 const token = takeFragmentToken(window.location, window.history);
 const baseUrl = inspectorBaseUrl(window.location);
 const client = createDevClient({ baseUrl, token });
+const activity = createActivityClient({ baseUrl });
 const queryClient = new QueryClient();
 const router = createInspectorRouter();
 
-void client.start();
+// The activity stream needs the session cookie the dev client exchanges for.
+void client.start().then(() => activity.start());
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <DevClientProvider client={client}>
+      <DevClientProvider client={client} activity={activity}>
         <RouterProvider router={router} />
       </DevClientProvider>
     </QueryClientProvider>

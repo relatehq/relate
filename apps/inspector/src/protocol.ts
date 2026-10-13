@@ -183,6 +183,158 @@ export type CompileIssue = CompileDiagnostic & ModelIssue;
 
 export type { Manifest, ModelIssue, SourceSite };
 
+/**
+ * Activity: what MCP clients (and later `/api` callers) did against the
+ * runtime, served by `GET /dev/activity` separately from `/dev/events`. Events
+ * are upserts keyed by their ID: a `running` event is replaced by its final
+ * version. Record values never appear; requests and results are previews.
+ */
+export const activityStatusSchema = z.enum(['running', 'succeeded', 'failed']);
+
+export const activityOperationSchema = z.enum([
+  'get',
+  'query',
+  'traverse',
+  'invoke',
+  'getReceipt',
+]);
+
+/**
+ * Who made a graph operation. `executionId` is present only when agent
+ * JavaScript made the call; a transport request (a future `/api`) has none.
+ */
+export const operationContextSchema = z.strictObject({
+  requestId: text,
+  runtimeId: text,
+  definitionRevision: text,
+  principal: text,
+  transport: z.enum(['mcp', 'http']),
+  executionId: text.optional(),
+});
+
+const errorSummarySchema = z.strictObject({
+  code: text,
+  message: z.string().optional(),
+  /** Request issues as a bounded JSON preview. */
+  issues: z.string().optional(),
+});
+
+export const activityEventSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('call'),
+    requestId: text,
+    /** Null when no runtime was running to bind the call to. */
+    runtimeId: text.nullable(),
+    source: z.enum(['inspector-agent', 'external']),
+    /** Null when no model declared a principal to resolve. */
+    principal: text.nullable(),
+    tool: z.enum(['discover', 'execute']),
+    at: text,
+    status: activityStatusSchema,
+    ms: z.number().nonnegative().optional(),
+    /** Why the call could not reach a runtime, or the tool error code. */
+    error: z.string().optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('execution'),
+    executionId: text,
+    requestId: text,
+    runtimeId: text,
+    principal: text,
+    at: text,
+    code: z.string(),
+    codeTruncated: z.boolean(),
+    status: activityStatusSchema,
+    logs: z
+      .array(
+        z.strictObject({
+          stream: z.enum(['stdout', 'stderr']),
+          text: z.string(),
+        }),
+      )
+      .readonly(),
+    logsTruncated: z.boolean(),
+    error: z
+      .strictObject({
+        name: z.string(),
+        message: z.string(),
+        code: z.string().optional(),
+      })
+      .optional(),
+    resultPreview: z.string().optional(),
+    ms: z.number().nonnegative().optional(),
+  }),
+  z.strictObject({
+    kind: z.literal('operation'),
+    opId: text,
+    context: operationContextSchema,
+    at: text,
+    op: activityOperationSchema,
+    /** Object definition ID, or the action's for `invoke` and `getReceipt`. */
+    definitionId: z.string(),
+    request: z.strictObject({
+      objectId: z.string().optional(),
+      traversal: z.string().optional(),
+      select: z.array(z.string()).readonly().optional(),
+      /** Bounded JSON previews. */
+      where: z.string().optional(),
+      input: z.string().optional(),
+      limit: z.number().optional(),
+      cursor: z.string().optional(),
+      idempotencyKey: z.string().optional(),
+      invocationId: z.string().optional(),
+    }),
+    status: activityStatusSchema,
+    outcome: z
+      .strictObject({
+        found: z.boolean().optional(),
+        records: z.number().int().nonnegative().optional(),
+        hasMore: z.boolean().optional(),
+        receiptState: z.string().optional(),
+        invocationId: z.string().optional(),
+        error: errorSummarySchema.optional(),
+        evidenceWarnings: z.number().int().nonnegative().optional(),
+      })
+      .optional(),
+    /** IDs of the records returned, bounded. */
+    recordIds: z.array(z.string()).readonly(),
+    ms: z.number().nonnegative().optional(),
+  }),
+]);
+
+export const activityMessageSchema = z.discriminatedUnion('type', [
+  z.strictObject({
+    type: z.literal('snapshot'),
+    events: z.array(activityEventSchema).readonly(),
+  }),
+  z.strictObject({ type: z.literal('event'), event: activityEventSchema }),
+]);
+
+export type ActivityStatus = z.infer<typeof activityStatusSchema>;
+export type OperationContext = z.infer<typeof operationContextSchema>;
+export type ActivityEvent = z.infer<typeof activityEventSchema>;
+export type CallEvent = Extract<ActivityEvent, { kind: 'call' }>;
+export type ExecutionEvent = Extract<ActivityEvent, { kind: 'execution' }>;
+export type OperationEvent = Extract<ActivityEvent, { kind: 'operation' }>;
+export type ActivityMessage = z.infer<typeof activityMessageSchema>;
+
+/** The key an activity event is upserted under. */
+export function activityKey(event: ActivityEvent): string {
+  switch (event.kind) {
+    case 'call':
+      return `call:${event.requestId}`;
+    case 'execution':
+      return `execution:${event.executionId}`;
+    case 'operation':
+      return `operation:${event.opId}`;
+  }
+}
+
+/** The transport request an event belongs to; eviction is per request. */
+export function activityRequestId(event: ActivityEvent): string {
+  return event.kind === 'operation' ? event.context.requestId : event.requestId;
+}
+
 /** Bootstrap exchange: the terminal token becomes an opaque session cookie. */
 export const sessionRequestSchema = z.strictObject({ token: text });
 

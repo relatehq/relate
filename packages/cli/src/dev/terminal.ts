@@ -26,6 +26,9 @@ export interface Terminal {
     readonly project: string;
     readonly config: string;
     readonly inspectorUrl: string;
+    /** The `/mcp` endpoint and a ready-to-paste `claude mcp add` line. */
+    readonly mcpUrl?: string;
+    readonly mcpCommand?: string;
   }): void;
   notice(message: string): void;
   warn(message: string): void;
@@ -91,9 +94,11 @@ export function createTerminal(options: TerminalOptions): Terminal {
   let notConfiguredShown = false;
 
   return {
-    banner({ project, config, inspectorUrl }) {
+    banner({ project, config, inspectorUrl, mcpUrl, mcpCommand }) {
       if (options.quiet) {
         out(`Inspector  ${inspectorUrl}`);
+
+        if (mcpCommand) out(`MCP        ${mcpCommand}`);
 
         return;
       }
@@ -102,6 +107,15 @@ export function createTerminal(options: TerminalOptions): Terminal {
       out(`  ${pad('Project', 10)} ${project}`);
       out(`  ${pad('Config', 10)} ${displayPath(config)}`);
       out(`  ${pad('Inspector', 10)} ${paint('cyan', inspectorUrl)}`);
+
+      if (mcpUrl && mcpCommand) {
+        out(`  ${pad('MCP', 10)} ${paint('cyan', mcpUrl)}`);
+        out(`  ${pad('', 10)} ${mcpCommand}`);
+        out(
+          `  ${pad('', 10)} ${paint('dim', 'Append ?as=<principal> to act as another development principal')}`,
+        );
+      }
+
       out(`  ${pad('Watching', 10)} application definitions`);
     },
     notice(message) {

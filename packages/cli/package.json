@@ -22,6 +22,7 @@
   "dependencies": {
     "@hono/node-server": "2.1.3",
     "@relate/inspector": "workspace:*",
+    "@relate/mcp": "workspace:*",
     "@relate/node": "workspace:*",
     "@relate/protocol": "workspace:*",
     "esbuild": "0.28.2",
@@ -30,5 +31,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.3.1"
   }
 }

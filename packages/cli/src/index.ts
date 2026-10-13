@@ -71,3 +71,20 @@ export type {
   RuntimeRequest,
   WireError,
 } from './dev/runtime-protocol.js';
+
+export {
+  activityLimits,
+  createActivityLog,
+  observeExecutor,
+  observeOperations,
+  observeRequests,
+} from './dev/activity/index.js';
+
+export type {
+  ActivityLog,
+  CallObservation,
+  CallSource,
+} from './dev/activity/index.js';
+
+export { createMcpEndpoint, mcpAddCommand } from './dev/mcp.js';
+export type { McpEndpoint, McpEndpointOptions } from './dev/mcp.js';

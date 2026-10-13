@@ -1245,9 +1245,10 @@ Next cannot implement this product.
 **Status:** design agreed 2026-10-13 and revised the same day after review
 (runtime pinning, discovery snapshots, storage, per-principal conversations,
 reserved `/api`). Step 1 (development principals, the runtime host and
-`RuntimeBinding`) is implemented; `/mcp`, activity and the agent are not. The
-IPC reply carries errors as `{ type: 'error', id, error }` rather than a `reply`
-with an `error` field, and the parent-side lifecycle lives in
+`RuntimeBinding`) and step 2 (`/mcp` with activity observation, the activity
+timeline and graph highlights) are implemented; the agent is not. The IPC reply
+carries errors as `{ type: 'error', id, error }` rather than a `reply` with an
+`error` field, and the parent-side lifecycle lives in
 `packages/cli/src/dev/runtime-controller.ts`. This replaces the earlier "live
 runtime extension" sketch, which planned attachment to production hosts.
 
@@ -1590,6 +1591,15 @@ type ActivityEvent =
     };
 ```
 
+As implemented ([`protocol.ts`](./src/protocol.ts)), every event also carries
+`status: 'running' | 'succeeded' | 'failed'` and is an upsert keyed by its ID,
+so a running call, execution or operation is visible and later replaced by its
+final version. `ms` and `outcome` are present once it finishes. A call's
+`runtimeId` and `principal` are null when no runtime or model could serve it
+(the call then fails with the reason in `error`). Filters, action inputs and
+issues are bounded JSON preview strings rather than `Json`, and an operation
+records `invocationId` for receipts.
+
 The executor decorator links operations to their execution by handing the inner
 executor a per-execution wrapped binding:
 
@@ -1641,8 +1651,8 @@ therefore which data, connectors and action code) each call ran against.
 | `packages/cli/src/dev/child-process.ts`, `child-support.ts`   | Shared fork/termination/output handling, and the in-child helpers, for both children (implemented) |
 | `packages/protocol`                                           | `runtime-retired` read and action error code (public, so clients can tell it from a denial)        |
 | `packages/cli/src/dev/runtime-binding.ts`                     | `RuntimeBinding`: discovery snapshot + pinned IPC operations, shared by `/mcp` and future `/api`   |
-| `packages/cli/src/dev/mcp.ts`                                 | `/mcp`, bearer token, `?as=`                                                                       |
-| `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity`                                                     |
+| `packages/cli/src/dev/mcp.ts`                                 | `/mcp`, bearer token, `?as=` (implemented)                                                         |
+| `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity` (implemented)                                       |
 | `packages/cli/src/dev/agent.ts`                               | Agent loop, `/dev/agent/*`                                                                         |
 | `apps/inspector`                                              | Principal selector, agent panel, activity timeline, graph highlights, protocol types               |
 | `tests/architecture/package-boundaries.ts`                    | `packages/cli` may import `@relate/mcp`, `@modelcontextprotocol/client`, `@anthropic-ai/sdk`       |

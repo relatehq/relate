@@ -15,12 +15,15 @@ import { createInspectorApp } from '@relate/inspector/server';
 import type { InspectorApp } from '@relate/inspector/server';
 import { UsageError, devUsage, parseDevArguments } from './arguments.js';
 import type { DevArguments } from './arguments.js';
+import { createActivityLog } from './activity/index.js';
 import { createAttemptRunner } from './attempts.js';
 import type { AttemptOutcome } from './attempts.js';
 import { createBuilder } from './build.js';
 import { createRuntimeController } from './runtime-controller.js';
+import type { RuntimeController } from './runtime-controller.js';
 import { summarizeDiff } from './diff.js';
 import { bindLoopback, ListenError } from './listener.js';
+import { createMcpEndpoint, mcpAddCommand } from './mcp.js';
 import { acquireLock, devDirectory } from './lock.js';
 import type { Lock, LockMetadata } from './lock.js';
 import { openBrowser } from './open.js';
@@ -48,6 +51,16 @@ export const exitCodes = Object.freeze({ ok: 0, fatal: 1, usage: 2 });
 
 const tokenFile = (projectRoot: string) =>
   join(devDirectory(projectRoot), 'token');
+const mcpTokenFile = (projectRoot: string) =>
+  join(devDirectory(projectRoot), 'mcp-token');
+
+async function readSecret(path: string): Promise<string | null> {
+  try {
+    return (await readFile(path, 'utf8')).trim() || null;
+  } catch {
+    return null;
+  }
+}
 
 async function verifyOwner(metadata: LockMetadata): Promise<boolean> {
   if (!metadata.url) return false;
@@ -149,14 +162,8 @@ export async function runDev(options: RunDevOptions): Promise<number> {
 
     // Reuse the complete bootstrap link, just as the initial banner does.
     // Read owner-only token material only after verifying the running owner.
-    let token: string | null = null;
-
-    try {
-      token = (await readFile(tokenFile(project.root), 'utf8')).trim() || null;
-    } catch {
-      token = null;
-    }
-
+    const token = await readSecret(tokenFile(project.root));
+    const mcpToken = await readSecret(mcpTokenFile(project.root));
     const inspectorUrl = token
       ? `${metadata.url}/#token=${token}`
       : `${metadata.url}/`;
@@ -166,6 +173,9 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       [
         `Relate dev is already running for ${project.root}`,
         `Inspector  ${inspectorUrl}`,
+        ...(mcpToken && metadata.url
+          ? [`MCP        ${mcpAddCommand(`${metadata.url}/mcp`, mcpToken)}`]
+          : []),
         ...(args.quiet
           ? []
           : [
@@ -197,6 +207,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
   let app: Hono | null = null;
   const release = async () => {
     await rm(tokenFile(project.root), { force: true });
+    await rm(mcpTokenFile(project.root), { force: true });
     await lock.release();
   };
 
@@ -227,15 +238,37 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       return fail((error as Error).message);
     }
 
+    const activity = createActivityLog();
+    // Assigned below once the runtime controller exists; `/mcp` reads it per request.
+    let runtime: RuntimeController | null = null;
+    const mcp = createMcpEndpoint({
+      get runtime() {
+        return runtime;
+      },
+      principals: () => {
+        const model = supervisor.state.model;
+
+        return model
+          ? {
+              names: model.principals,
+              defaultPrincipal: model.defaultPrincipal,
+            }
+          : null;
+      },
+      activity,
+    });
     const server = createDevServer({
       supervisor,
       sessions,
       ownerId: lock.metadata.ownerId,
       inspector,
+      activity,
+      mcp: mcp.handle,
     });
 
     app = server.app;
     await writeFile(tokenFile(project.root), sessions.token, { mode: 0o600 });
+    await writeFile(mcpTokenFile(project.root), mcp.token, { mode: 0o600 });
     await lock.update({ state: 'listening', url: bound.url });
     const inspectorUrl = `${bound.url}/#token=${sessions.token}`;
 
@@ -244,6 +277,8 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       project: project.root,
       config: project.configPath,
       inspectorUrl,
+      mcpUrl: `${bound.url}/mcp`,
+      mcpCommand: mcpAddCommand(`${bound.url}/mcp`, mcp.token),
     });
 
     if (bound.notice) terminal.notice(bound.notice);
@@ -280,8 +315,9 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       isStderrSaturated,
       ...(options.workerPath ? { workerPath: options.workerPath } : {}),
     });
+
     // `--no-runtime`: inspect the model only; accepted bundles are released.
-    const runtime = args.runtime
+    runtime = args.runtime
       ? createRuntimeController({
           projectRoot: project.root,
           configPath: project.configPath,

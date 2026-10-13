@@ -11,6 +11,7 @@
     { "path": "../relate" },
     { "path": "../node" },
     { "path": "../protocol" },
+    { "path": "../mcp" },
     { "path": "../../apps/inspector/tsconfig.server.json" }
   ]
 }

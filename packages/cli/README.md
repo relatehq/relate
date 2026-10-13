@@ -58,6 +58,9 @@ shown as **No runtime**) instead of failing on every save.
   Project    /work/my-product
   Config     relate.config.ts
   Inspector  http://127.0.0.1:4318/#token=…
+  MCP        http://127.0.0.1:4318/mcp
+             claude mcp add --transport http relate "http://127.0.0.1:4318/mcp" --header "Authorization: Bearer …"
+             Append ?as=<principal> to act as another development principal
   Watching   application definitions
   Loading    attempt 1
 
@@ -76,6 +79,9 @@ shown as **No runtime**) instead of failing on every save.
   fragment carries a per-instance bootstrap token; the page exchanges it for an
   HttpOnly, SameSite=Strict session cookie. Visiting the bare URL shows how to
   open the terminal link instead.
+- The `MCP` lines carry a separate per-instance bearer token for `/mcp` (see
+  [MCP](#mcp)). `--quiet` prints only the `Inspector` line and the
+  `claude mcp add` line.
 - Successful loads advance the generation; failed attempts keep the last good
   model on screen and print structured diagnostics with `path:line:column`
   tokens relative to the invoking directory.
@@ -147,8 +153,57 @@ any `--allowed-origin`, and cross-site fetches are rejected.
 | `POST /dev/session` | no      | Exchange `{ token }` for the session cookie; Origin required |
 | `GET /dev/snapshot` | yes     | Current model, failure, runtime status and sequence          |
 | `GET /dev/events`   | yes     | SSE: snapshot, then `model` / `diagnostics` / `runtime`      |
+| `GET /dev/activity` | yes     | Activity snapshot (JSON), or SSE with `text/event-stream`    |
+| `POST /mcp`         | bearer  | `@relate/mcp` `discover` / `execute`; see [MCP](#mcp)        |
 
 The wire shapes are validated with `@relate/inspector/protocol`.
+
+### MCP
+
+`/mcp` mounts `@relate/mcp`'s stateless Streamable HTTP handler with
+`createDevelopmentExecutor()` (a fresh Node child per `execute`; development,
+not a sandbox), bound to the active runtime host:
+
+```http
+POST /mcp?as=alice
+Authorization: Bearer <token printed by relate dev>
+Content-Type: application/json
+Accept: application/json, text/event-stream
+```
+
+| Request                                        | Response                                              |
+| ---------------------------------------------- | ----------------------------------------------------- |
+| Missing or wrong bearer token                  | `401` with `WWW-Authenticate: Bearer`                 |
+| Any `Origin` header (browsers)                 | `403`; the inspector session cookie never applies     |
+| Host not the loopback origin or allowed origin | `403` (the dev server's Host guard)                   |
+| `?as=` not declared in `defineGraph`           | `404` naming the declared principals                  |
+| No `?as=`                                      | The model's default (first declared) principal        |
+| Runtime starting, restarting, failed or off    | Immediate `binding` tool error, recorded as activity  |
+| Otherwise                                      | `runtime.binding(principal)`: pinned to its runtimeId |
+
+The token is 256 random bits per dev server, kept in `.relate/dev/mcp-token`
+(mode 0600) so a second invocation can print the `claude mcp add` line again,
+and removed on shutdown. Each HTTP request binds afresh, so a request after a
+restart reaches the new runtime; operations inside an execution stay pinned to
+the runtime that execution started on and fail with `runtime-retired` after it.
+
+### Activity
+
+Three decorators in `src/dev/activity/` record what MCP clients do, without
+changing `@relate/mcp`:
+
+```text
+/mcp request ─ L1 observeRequests ─▶ execute ─ L2 observeExecutor ─▶ graph.objects.X.query() ─ L3 observeOperations ─▶ runtime host
+requestId                            executionId                      opId
+```
+
+L3 is transport-independent: every operation carries an `OperationContext`
+(`{ requestId, runtimeId, definitionRevision, principal, transport, executionId? }`)
+and `executionId` is present only when agent JavaScript made the call. Events
+(`call`, `execution`, `operation`) are upserts keyed by ID: a `running` event is
+replaced by its final version. The log is a ring buffer of the last 200 requests
+(500 operations each) with bounded code, logs and previews; record values are
+never kept, only IDs and counts.
 
 ## Programmatic API
 
@@ -156,8 +211,9 @@ The wire shapes are validated with `@relate/inspector/protocol`.
 embedding: `runDev`, `parseDevArguments`, `resolveProject`, `acquireLock`,
 `bindLoopback`, `createSessions`, `createDevServer`, `Supervisor`,
 `createBuilder`, `createWatcher`, `createAttemptRunner`, `createTerminal`,
-`createRuntimeController`, `createRuntimeBinding`, `diffManifests` and
-`summarizeDiff`.
+`createRuntimeController`, `createRuntimeBinding`, `createMcpEndpoint`,
+`createActivityLog`, `observeRequests`, `observeExecutor`, `observeOperations`,
+`diffManifests` and `summarizeDiff`.
 
 A `RuntimeBinding` is one `(runtimeId, principal)` view of the runtime host:
 
@@ -180,6 +236,8 @@ await alice.operations.query('business.customer'); // IPC, pinned to alice.runti
 
 ## Not yet implemented
 
+- The built-in agent panel (`/dev/agent/*`).
+- A consumer HTTP API at `/api` (reserved).
 - Type diagnostics (`typecheck` events) from a watch-mode type checker.
 - Telemetry; no collector exists in this scope.
 - Watching non-imported files read at evaluation time.

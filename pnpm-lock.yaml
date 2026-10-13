@@ -437,6 +437,9 @@ importers:
       '@relate/inspector':
         specifier: workspace:*
         version: link:../../apps/inspector
+      '@relate/mcp':
+        specifier: workspace:*
+        version: link:../mcp
       '@relate/node':
         specifier: workspace:*
         version: link:../node
@@ -452,6 +455,10 @@ importers:
       relate:
         specifier: workspace:*
         version: link:../relate
+    devDependencies:
+      '@modelcontextprotocol/client':
+        specifier: 2.3.1
+        version: 2.3.1
 
   packages/client:
     dependencies:

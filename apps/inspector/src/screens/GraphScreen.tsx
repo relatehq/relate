@@ -2,7 +2,11 @@ import { useMemo, useState } from 'react';
 import { ModelGraph } from '../graph/ModelGraph.js';
 import { highlightable, mapManifest } from '../graph/map.js';
 import { SidePanel, panelNeeded } from '../panel/SidePanel.js';
-import { useDevClient, useInspectorState } from '../inspector-context.js';
+import {
+  useDevClient,
+  useInspectorState,
+  useTouchedDefinitions,
+} from '../inspector-context.js';
 import { Callout } from '../ui.js';
 
 export function GraphScreen() {
@@ -31,6 +35,17 @@ export function GraphScreen() {
       edges: present.edges,
     };
   }, [model, state.failure]);
+  const touchedIds = useTouchedDefinitions();
+  // An action glows through the objects it creates; the graph has no action nodes.
+  const touched = useMemo(() => {
+    const objects = new Set(touchedIds);
+
+    for (const action of state.model?.manifest.actions ?? [])
+      if (touchedIds.has(action.id))
+        for (const id of action.creates) objects.add(id);
+
+    return objects;
+  }, [touchedIds, state.model]);
   const [selected, setSelected] = useState<string | null>(null);
   const showPanel = panelNeeded(state, selected);
   const stale =
@@ -44,6 +59,7 @@ export function GraphScreen() {
           model={model}
           generation={generation ?? 0}
           highlights={highlights}
+          touched={touched}
           selected={selected}
           onSelect={setSelected}
         />

@@ -21,7 +21,7 @@ import { useTheme } from '../theme/theme.js';
 import { Button } from '../ui.js';
 
 export type ObjectFlowNode = Node<
-  ObjectNodeData & { issues: number },
+  ObjectNodeData & { issues: number; touched: boolean },
   'object'
 >;
 
@@ -41,6 +41,8 @@ export interface ModelGraphProps {
     readonly nodes: ReadonlyMap<string, number>;
     readonly edges: ReadonlySet<string>;
   };
+  /** Object definition IDs a graph operation touched just now. */
+  readonly touched?: ReadonlySet<string>;
   readonly selected: string | null;
   readonly onSelect: (id: string | null) => void;
 }
@@ -54,7 +56,7 @@ export function ModelGraph(props: ModelGraphProps) {
 }
 
 function ModelGraphView(props: ModelGraphProps) {
-  const { model, generation, highlights, selected, onSelect } = props;
+  const { model, generation, highlights, touched, selected, onSelect } = props;
   const client = useDevClient();
   const flow = useReactFlow();
   const { theme } = useTheme();
@@ -123,10 +125,14 @@ function ModelGraphView(props: ModelGraphProps) {
         connectable: false,
         deletable: false,
         selected: selected === node.id,
-        data: { ...node.data, issues: highlights.nodes.get(node.id) ?? 0 },
+        data: {
+          ...node.data,
+          issues: highlights.nodes.get(node.id) ?? 0,
+          touched: touched?.has(node.id) ?? false,
+        },
       };
     });
-  }, [model, layout.positions, selected, highlights.nodes]);
+  }, [model, layout.positions, selected, highlights.nodes, touched]);
   const edges = useMemo<RelationshipFlowEdge[]>(
     () =>
       (model?.edges ?? []).map((edge) => ({
