@@ -1424,10 +1424,21 @@ The five questions the earlier sketch left open, answered for development only:
    waiting never starts.
 4. **Revisions:** the inspector shows the compiled `definitionRevision` and the
    runtime host's active revision separately; a displayed model is not proof the
-   runtime started. `setup` failures are diagnostics, not crashes. `setup` and
-   the store check must finish within 30 s (`runtime.timeout`).
+   runtime started. Setup and seed failures are diagnostics, not crashes. Setup,
+   the store check and any seed must finish within 30 s (`runtime.timeout`).
 5. **Invalidation:** restart on every accepted build, even when the Manifest is
    unchanged, because connector and action code may have changed.
+
+With `relate dev --seed`, the runtime host awaits the config's named
+`seed(relate)` export after startup and the store revision check, before
+reporting ready. It receives the same runtime used by MCP and the built-in
+agent. The seed runs once per accepted runtime start, including reloads;
+ordinary `startApp` and the compile worker never invoke it. Missing or invalid
+exports report `runtime.seed-missing` before setup; throws or rejections close
+the runtime and report `runtime.seed-failed`. Seed output uses the existing
+runtime terminal prefix, and failures use the existing runtime diagnostics UI.
+Seeds are not a transaction and must handle repeated execution with persistent
+stores. `--seed --no-runtime` is a usage error.
 
 Resetting a local store does not reset provider data or undo external actions
 already performed. Receipts are lost with an in-memory store, so idempotency

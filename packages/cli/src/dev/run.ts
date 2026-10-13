@@ -247,6 +247,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
     // `--no-runtime`: inspect the model only; accepted bundles are released.
     const runtime = args.runtime
       ? createRuntimeController({
+          seed: args.seed,
           projectRoot: project.root,
           configPath: project.configPath,
           env: options.env,

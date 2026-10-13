@@ -138,6 +138,7 @@ async function createProject(): Promise<Project> {
 function createController(
   project: Project,
   options: {
+    seed?: boolean;
     env?: NodeJS.ProcessEnv;
     drainTimeoutMs?: number;
     startTimeoutMs?: number;
@@ -152,6 +153,7 @@ function createController(
     onStatus: (status) => statuses.push(status),
     writeStdout: (line) => stdout.push(line),
     writeStderr: () => {},
+    seed: options.seed ?? false,
     ...(options.drainTimeoutMs !== undefined
       ? { drainTimeoutMs: options.drainTimeoutMs }
       : {}),
@@ -263,6 +265,148 @@ it('serves a discovery snapshot equal to runtime.operations(principal).discovery
   expect(
     Object.keys(bindings.bob.operations.discovery.describe().objects),
   ).toEqual([]);
+});
+
+it('ignores the seed export without opt-in, including in ordinary startApp', async () => {
+  const project = await createProject();
+  const build = await project.build(`${noteApp()}
+export function seed() { throw new Error('Seed must not run'); }
+`);
+  const { controller, waitFor } = createController(project);
+  const local = await startApp(
+    (await import(pathToFileURL(build.path).href)).default,
+  );
+
+  cleanups.push(() => local.close());
+  await controller.restart({ generation: 1, bundle: build.bundle });
+  await waitFor((s) => s.state === 'running');
+  const binding = await controller.binding('alice');
+
+  expect((await binding.operations.query('notes.note')).data).toEqual([]);
+});
+
+it.each(['', 'export const seed = 42;'])(
+  'requires a seed function before opening application resources: %s',
+  async (seed) => {
+    const project = await createProject();
+    const build = await project.build(
+      `${noteApp({
+        setup: "() => { throw new Error('Setup must not run'); }",
+      })}\n${seed}`,
+    );
+    const { controller, waitFor } = createController(project, { seed: true });
+
+    await controller.restart({ generation: 1, bundle: build.bundle });
+    const failed = await waitFor((s) => s.state === 'failed');
+
+    expect(failed.diagnostics).toEqual([
+      expect.objectContaining({ code: 'runtime.seed-missing' }),
+    ]);
+    await expect(controller.binding('alice')).rejects.toMatchObject({
+      reason: 'not-running',
+    });
+  },
+);
+
+it('closes resources after a failed seed and recovers with seeded native data on the next build', async () => {
+  const project = await createProject();
+  const marker = join(project.root, 'seed-disposed');
+  const failedBuild =
+    await project.build(`import { writeFileSync } from 'node:fs';
+${noteApp({
+  setup: `({ onDispose }) => {
+      onDispose(async () => {
+        await new Promise((done) => setTimeout(done, 50));
+        writeFileSync(${JSON.stringify(marker)}, 'disposed');
+      });
+      return { connections: [], actionImplementations: [addNote] };
+    }`,
+})}
+export async function seed() { throw new Error('Fixture unavailable'); }
+`);
+  const next = await project.build(`${noteApp()}
+export async function seed(relate) {
+  await relate.as({ id: 'alice', roles: ['writer'] }).actions.addNote({
+    input: { body: 'Seeded note' }, idempotencyKey: 'seed-note',
+  });
+}
+`);
+  const { controller, waitFor } = createController(project, { seed: true });
+
+  await controller.restart({ generation: 1, bundle: failedBuild.bundle });
+  const failed = await waitFor((s) => s.state === 'failed');
+
+  expect(failed.diagnostics).toEqual([
+    expect.objectContaining({
+      code: 'runtime.seed-failed',
+      message: expect.stringContaining('Fixture unavailable'),
+    }),
+  ]);
+  expect(existsSync(marker)).toBe(true);
+  await expect(controller.binding('alice')).rejects.toMatchObject({
+    reason: 'not-running',
+  });
+  await controller.restart({ generation: 2, bundle: next.bundle });
+  await waitFor((s) => s.state === 'running' && s.generation === 2);
+  const binding = await controller.binding('alice');
+
+  expect((await binding.operations.query('notes.note')).data).toMatchObject([
+    { data: { body: 'Seeded note' } },
+  ]);
+});
+
+it('finishes and cleans up a seed retired during startup without publishing it as running', async () => {
+  const project = await createProject();
+  const marker = join(project.root, 'retired-seed-disposed');
+  const build = await project.build(`import { writeFileSync } from 'node:fs';
+${noteApp({
+  setup: `({ onDispose }) => {
+      onDispose(() => writeFileSync(${JSON.stringify(marker)}, 'disposed'));
+      return { connections: [], actionImplementations: [addNote] };
+    }`,
+})}
+export async function seed() {
+  console.log('seed started');
+  await new Promise((done) => setTimeout(done, 300));
+}
+`);
+  const { controller, statuses, stdout } = createController(project, {
+    seed: true,
+  });
+
+  await controller.restart({ generation: 1, bundle: build.bundle });
+  await expect
+    .poll(() => stdout.join('\n'), { timeout: 15_000 })
+    .toContain('seed started');
+  await controller.stop();
+
+  expect(existsSync(marker)).toBe(true);
+  expect(statuses.some((s) => s.state === 'running')).toBe(false);
+});
+
+it('bounds a seed that never settles by the runtime startup deadline', async () => {
+  const project = await createProject();
+  const build = await project.build(`${noteApp()}
+export function seed() {
+  console.log('seed started');
+  return new Promise(() => {});
+}
+`);
+  const { controller, stdout, waitFor } = createController(project, {
+    seed: true,
+    startTimeoutMs: 3_000,
+  });
+
+  await controller.restart({ generation: 1, bundle: build.bundle });
+  await expect
+    .poll(() => stdout.join('\n'), { timeout: 15_000 })
+    .toContain('seed started');
+  const failed = await waitFor((s) => s.state === 'failed');
+
+  expect(failed.diagnostics).toEqual([
+    expect.objectContaining({ code: 'runtime.timeout' }),
+  ]);
+  await expect.poll(() => build.released()).toBe(true);
 });
 
 it('restarts on every accepted build, resets in-memory data and never replays on the new runtime', async () => {
@@ -393,9 +537,13 @@ it('reports a persistent store that holds another revision and leaves it untouch
       },
     };
   }`,
-    })}`,
+    })}
+export function seed() { console.log('seed must not run'); }
+`,
   );
-  const { controller, waitFor } = createController(project);
+  const { controller, stdout, waitFor } = createController(project, {
+    seed: true,
+  });
 
   await controller.restart({ generation: 1, bundle: build.bundle });
   const failed = await waitFor((s) => s.state === 'failed');
@@ -407,6 +555,7 @@ it('reports a persistent store that holds another revision and leaves it untouch
       message: expect.stringContaining('left untouched'),
     }),
   ]);
+  expect(stdout.join('\n')).not.toContain('seed must not run');
 });
 
 it('reports the application store and withholds ANTHROPIC_API_KEY from the runtime host', async () => {
@@ -570,6 +719,7 @@ it('exits on its own when the dev server disconnects during a setup that never s
         projectRoot: project.root,
         configPath: project.configPath,
         runtimeId: 'runtime-1',
+        seed: false,
         drainTimeoutMs: 200,
       }),
     ],

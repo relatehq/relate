@@ -10,6 +10,8 @@ export interface DevArguments {
   readonly quiet: boolean;
   /** Inspect the model only: start no runtime host. */
   readonly runtime: boolean;
+  /** Run the config's named seed export in each new runtime. */
+  readonly seed: boolean;
   /** Replace the project's saved `/mcp` bearer token with a new one. */
   readonly rotateMcpToken: boolean;
   readonly evalTimeoutMs: number;
@@ -41,6 +43,8 @@ Options:
                             first free)
   --quiet                   Hide status chatter; keep the URL and diagnostics
   --open                    Open the inspector URL once it is ready
+  --seed                    Run the config's seed(relate) export on every
+                            runtime start, including after reload
   --no-runtime              Inspect the model only; do not start the
                             application or run its setup
   --rotate-mcp-token        Issue a new /mcp bearer token for this project;
@@ -123,6 +127,7 @@ export function parseDevArguments(
   let open = false;
   let quiet = false;
   let runtime = true;
+  let seed = false;
   let rotateMcpToken = false;
   let evalTimeoutMs = DEFAULT_EVAL_TIMEOUT_MS;
   const allowedOrigins: string[] = [];
@@ -178,6 +183,11 @@ export function parseDevArguments(
 
         runtime = false;
         break;
+      case '--seed':
+        if (inline !== undefined) throw new UsageError('--seed takes no value');
+
+        seed = true;
+        break;
       case '--rotate-mcp-token':
         if (inline !== undefined)
           throw new UsageError('--rotate-mcp-token takes no value');
@@ -195,12 +205,16 @@ export function parseDevArguments(
     }
   }
 
+  if (seed && !runtime)
+    throw new UsageError('--seed cannot be combined with --no-runtime');
+
   return Object.freeze({
     config,
     port,
     open,
     quiet,
     runtime,
+    seed,
     rotateMcpToken,
     evalTimeoutMs,
     allowedOrigins: Object.freeze([...new Set(allowedOrigins)]),

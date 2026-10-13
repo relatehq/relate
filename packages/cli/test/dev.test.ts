@@ -627,6 +627,97 @@ export const graph = defineGraph({
   });
 }, 60_000);
 
+it('adopts seed records into the served runtime and reseeds after editing an imported seed module', async () => {
+  const project = await createProject();
+
+  projects.push(project.root);
+  await project.write(
+    'src/relate/graph.ts',
+    graphSource('reader').replace(
+      "id: 'business',",
+      "id: 'business', principals: { alice: { roles: ['reader'] } },",
+    ),
+  );
+  await project.write(
+    'src/relate/app.ts',
+    `import { connect, defineApp } from 'relate';
+import { graph, Customer } from './graph.js';
+export default defineApp({
+  graph,
+  setup() {
+    return {
+      connections: [connect(Customer.membership.resource, {
+        connectionId: 'crm', providerAccountId: 'test-account',
+        connector: {
+          identify: async () => 'test-account',
+          fetch: async (id) => ({
+            providerAccountId: 'test-account', state: 'present',
+            record: { id, name: id === 'customer-1' ? 'Northwind' : 'Contoso' },
+          }),
+        },
+      })],
+    };
+  },
+});
+`,
+  );
+  const seedSource = (id: string) => `import { Customer } from './graph.js';
+import type { Relate } from '@relate/node';
+import app from './app.js';
+export async function seed(relate: Relate<typeof app.graph>) {
+  await relate.host.adopt(Customer, '${id}');
+  console.log('seed complete: ${id}');
+}
+`;
+
+  await project.write('src/relate/seed.ts', seedSource('customer-1'));
+  await project.write(
+    'relate.config.ts',
+    "export { default } from './src/relate/app.js';\nexport { seed } from './src/relate/seed.js';\n",
+  );
+  const dev = await startDev(project, ['--seed']);
+
+  await dev.waitForStdout(/^\s+runtime gen 1\s+running/);
+  const line = await dev.waitForStdout(/claude mcp add --transport http/);
+  const token = /Authorization: Bearer ([A-Za-z0-9_-]+)/.exec(line)![1];
+  const client = new Client({ name: 'seed-test', version: '1' });
+
+  try {
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(`${dev.url}/mcp?as=alice`), {
+        requestInit: { headers: { authorization: `Bearer ${token}` } },
+      }),
+    );
+    const read = () =>
+      client.callTool({
+        name: 'execute',
+        arguments: {
+          code: 'return (await graph.objects.Customer.query()).data.map((row) => row.data.name);',
+        },
+      });
+
+    expect((await read()).structuredContent).toMatchObject({
+      status: 'succeeded',
+      result: ['Northwind'],
+    });
+    await project.write('src/relate/seed.ts', seedSource('customer-2'));
+    await dev.waitForStdout(/^\s+runtime gen 2\s+running/);
+    expect((await read()).structuredContent).toMatchObject({
+      status: 'succeeded',
+      result: ['Contoso'],
+    });
+    // The compile worker also imports the config but must never run the seed.
+    expect(
+      dev.stdout.filter((line) => line.includes('seed complete:')),
+    ).toEqual([
+      '[runtime gen 1 stdout] seed complete: customer-1',
+      '[runtime gen 2 stdout] seed complete: customer-2',
+    ]);
+  } finally {
+    await client.close();
+  }
+}, 60_000);
+
 it('withholds ANTHROPIC_API_KEY from the compile worker and starts no runtime with --no-runtime', async () => {
   const project = await createProject();
 

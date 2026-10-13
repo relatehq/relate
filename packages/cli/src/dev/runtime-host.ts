@@ -1,7 +1,8 @@
 /**
  * Runtime host child: one per accepted build. Imports the accepted bundle,
  * calls `startApp(app)` unchanged (so `setup`, connectors and the application's
- * chosen store run exactly as in production) and answers graph operations and
+ * chosen store run exactly as in production), optionally runs the config's
+ * seed export against that runtime, and answers graph operations and
  * discovery over IPC for one `runtimeId`. It has no HTTP listener and knows
  * nothing about MCP or HTTP; the dev server owns every transport.
  *
@@ -210,6 +211,14 @@ try {
 
 const selected = selectExport(module!);
 
+if (args.seed && typeof module!.seed !== 'function')
+  await fail([
+    runtimeDiagnostic(
+      'runtime.seed-missing',
+      `--seed requires ${support.projectRelative(args.configPath)} to export a function named seed: export async function seed(relate) { ... }`,
+    ),
+  ]);
+
 if (!selected)
   await fail([
     runtimeDiagnostic(
@@ -308,6 +317,25 @@ if (store) {
             'runtime.store-revision-mismatch',
             `The application's persistent store holds a different model revision than ${model!.definitionRevision}. The runtime stays stopped and the store is left untouched; migrate or point setup at a fresh store. (${sanitizeMessage(error)})`,
           ),
+    ]);
+  }
+}
+
+if (shuttingDown) await closeAndExit();
+
+if (args.seed) {
+  try {
+    await (module!.seed as (runtime: Relate) => unknown)(relate!);
+  } catch (error) {
+    // Finish owned cleanup before reporting failure: the parent terminates a
+    // failed host. Successful writes already made by the seed are not rolled back.
+    await relate!.close().catch(() => {});
+    await fail([
+      runtimeDiagnostic(
+        'runtime.seed-failed',
+        `Seeding the application failed: ${sanitizeMessage(error)}`,
+        error,
+      ),
     ]);
   }
 }

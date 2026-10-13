@@ -27,6 +27,7 @@ pnpm relate dev --config ./packages/business/relate.config.ts
 pnpm relate dev --port 4500 --open
 pnpm relate dev --eval-timeout 60000
 pnpm relate dev --no-runtime
+pnpm relate dev --seed
 pnpm relate dev --rotate-mcp-token
 pnpm relate dev --allowed-origin https://my-private-forward.example
 ```
@@ -51,6 +52,55 @@ A config that exports a bare graph (no `defineApp`) still gets a runtime host
 with the in-memory store. When its sources need connections that only `setup`
 can supply, the runtime reports a neutral `not-configured` state (printed once,
 shown as **No runtime**) instead of failing on every save.
+
+### Seed the development runtime
+
+Export a function named `seed` from the config and opt in with
+`relate dev --seed`:
+
+```ts
+// relate.config.ts
+import type { Relate } from '@relate/node';
+import { app } from './src/app.js';
+import { Customer, Invoice } from './src/graph.js';
+
+export default app;
+
+export async function seed(relate: Relate<typeof app.graph>) {
+  const customerId = await relate.host.adopt(Customer, 'crm_456');
+  await relate.host.adopt(Invoice, 'INV-1042');
+  console.log('Seeded customer:', customerId);
+}
+```
+
+The runtime host calls this function with its own live runtime after `setup` and
+the store revision check, before serving graph operations. It awaits the result;
+any return value is ignored. The function can live in a separate module
+re-exported by the config. Imported seed files are watched like other project
+modules.
+
+- Seeding runs once per runtime start, including every accepted reload, even
+  when the graph definition is unchanged. Without `--seed` the export is
+  ignored. Neither the compile worker nor ordinary `startApp(app)` calls it.
+- `host.adopt` reads an existing source record and adds graph membership; create
+  provider fixtures first, for example in `setup`. Use declared actions to
+  create native records through `relate.as(principal).actions`.
+- Make seeds repeatable. Adoption reuses the identity for the same source record
+  within the same scope. For persistent stores, other writes need duplicate
+  handling. A seed is not one transaction: completed writes remain if a later
+  step fails, and external writes are not undone by an in-memory restart.
+- A missing or non-function export reports `runtime.seed-missing` before setup.
+  A thrown or rejected seed closes the runtime and reports
+  `runtime.seed-failed`; the graph remains visible, but that runtime serves no
+  operations. Seed errors appear in the terminal and inspector runtime
+  diagnostics; `console` output goes to the terminal with the runtime prefix.
+  Fixing the code and saving retries.
+- Setup, the store check and seeding share the 30-second runtime startup
+  deadline. A stuck seed is terminated with `runtime.timeout`. `--eval-timeout`
+  only changes the separate definition-loading deadline.
+- `--seed` and `--no-runtime` cannot be combined. If a dev server already owns
+  the project, another invocation reuses it without changing its flags; stop it
+  and restart with `--seed` to enable seeding.
 
 ### What it prints
 
@@ -93,9 +143,9 @@ shown as **No runtime**) instead of failing on every save.
   protocol message.
 - Runtime host output is forwarded as `[runtime gen N stdout]` /
   `[runtime gen N stderr]`. A runtime failure (`runtime.setup-failed`,
-  `runtime.store-revision-mismatch`, `runtime.timeout`, `runtime.exited`, …)
-  prints `error  runtime gen N failed` with its diagnostics; the model stays
-  published.
+  `runtime.store-revision-mismatch`, `runtime.seed-failed`, `runtime.timeout`,
+  `runtime.exited`, …) prints `error  runtime gen N failed` with its
+  diagnostics; the model stays published.
 - Output is append-only and plain text when redirected or `NO_COLOR` is set.
   Standard output carries the banner, lifecycle lines and child stdout; standard
   error carries diagnostics, warnings and child stderr.
@@ -123,17 +173,17 @@ shown as **No runtime**) instead of failing on every save.
   Requests addressed to a retired `runtimeId` fail with
   `ReadError('runtime-retired')` / `ActionError('runtime-retired')` and are
   never replayed on the new runtime; an action cut off by the kill rejects with
-  `ActionError('uncertain')`. `setup` and the store check must finish within 30
-  seconds. With no store from `setup`, data lives in memory and is lost on every
-  restart. A persistent store keeps its revision check, which runs eagerly at
-  startup: an empty store gets the current revision written into it as soon as
-  `relate dev` starts the runtime, and after a model change the runtime reports
-  `runtime.store-revision-mismatch` and stays down, never resetting data. A
-  `close` or a vanished dev server during a slow `setup` lets `setup` finish so
-  `onDispose` cleanup runs, bounded by the same five-second deadline. The
-  runtime host has no HTTP listener. Action inputs and results cross IPC by
-  structured clone, so values JSON cannot represent (`NaN`, `undefined`, `Date`)
-  reach validation unchanged, as in an embedded runtime.
+  `ActionError('uncertain')`. `setup`, the store check and any seed must finish
+  within 30 seconds. With no store from `setup`, data lives in memory and is
+  lost on every restart. A persistent store keeps its revision check, which runs
+  eagerly at startup: an empty store gets the current revision written into it
+  as soon as `relate dev` starts the runtime, and after a model change the
+  runtime reports `runtime.store-revision-mismatch` and stays down, never
+  resetting data. A `close` or a vanished dev server during a slow `setup` lets
+  `setup` finish so `onDispose` cleanup runs, bounded by the same five-second
+  deadline. The runtime host has no HTTP listener. Action inputs and results
+  cross IPC by structured clone, so values JSON cannot represent (`NaN`,
+  `undefined`, `Date`) reach validation unchanged, as in an embedded runtime.
 - Environment variables are inherited from the invoking shell, except that the
   compile worker and the runtime host, which both import your modules, never
   receive `ANTHROPIC_API_KEY`; the command loads no `.env` files. Use the

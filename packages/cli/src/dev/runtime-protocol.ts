@@ -205,6 +205,7 @@ export interface RuntimeHostArguments {
   readonly projectRoot: string;
   readonly configPath: string;
   readonly runtimeId: string;
+  readonly seed: boolean;
   /** How long the host may close on its own once the dev server is gone. */
   readonly drainTimeoutMs: number;
 }
@@ -214,6 +215,7 @@ const hostArgumentsSchema = z.strictObject({
   projectRoot: text,
   configPath: text,
   runtimeId: text,
+  seed: z.boolean(),
   drainTimeoutMs: z.number().int().positive(),
 });
 
