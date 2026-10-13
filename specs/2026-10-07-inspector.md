@@ -1597,18 +1597,19 @@ type OperationContext = {
 };
 ```
 
-**L3 is interim.** The runtime activity log specified in
-[2026-10-13: Runtime activity log](./2026-10-13-activity.md) replaces it: the
-runtime engine records `read`, `invoke` and `create` entries in an
-`ActivityStore`, with `OperationContext` and the entry shape moved to
-`@relate/protocol`. Only the engine knows which objects and fields a read
+**L3 is interim.** The runtime activity backbone specified in
+[2026-10-13: Runtime activity backbone](./2026-10-13-activity.md) replaces it:
+the runtime records best-effort access attempts and transactional committed
+changes in an `ActivityStore`, with `OperationContext` and the entry shape owned
+by `@relate/protocol`. Only the engine knows which objects and fields a read
 returned or withheld and which objects an action created; a dev-server decorator
 sees only call arguments and counts. When the log lands, the inspector shows its
 entries in place of L3's. L1 (MCP call) and L2 (agent code) remain in the dev
 server: they describe transport and agent behavior, not graph access, and join
 runtime entries by `requestId` and `executionId`. Until then L3 stays small, in
-memory and development-only, and `OperationContext` already uses the planned
-protocol shape so the move is a rename.
+memory and development-only. Its context is a starting point; the revised
+activity contract adds operation identity and trusted attribution. Explicit
+pre-dispatch rejection capture remains at the routing boundary.
 
 **Dev history must survive runtime restarts.** In `relate dev` the runtime
 engine lives in the runtime host, which restarts on every accepted build, and
