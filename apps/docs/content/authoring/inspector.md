@@ -80,17 +80,28 @@ For every successfully compiled change, `relate dev` starts a fresh runtime
 process for your app: it calls `setup` and starts the runtime exactly as your
 application would. That process has no HTTP listener of its own.
 
-The status bar shows its state:
+The status bar shows one status pill for the page's connection to `relate dev`
+and this runtime together, worst state first. The connection comes first: a page
+that is not connected cannot know the runtime's current state.
 
-| Indicator              | Meaning                                                                                                                                               |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Runtime starting**   | The first runtime is running `setup`.                                                                                                                 |
-| **Runtime restarting** | A newer change was accepted; the previous runtime is draining and a new one is starting.                                                              |
-| **Runtime running**    | Ready. Hover for its revision and store.                                                                                                              |
-| **Runtime failed**     | `setup` threw, timed out, or the store rejected the model. Hover for the diagnostic; the terminal prints it too. The next accepted change retries.    |
-| **No runtime**         | The config exports a bare graph whose sources need connections that only `defineApp` `setup` can supply. Not an error; export an app to run it.       |
-| **Data reset**         | The runtime restarted and the previous runtime's in-memory data was discarded.                                                                        |
-| **Runtime on abc1234** | The running runtime serves a different revision from the displayed model, for example while a restart is in progress or after the new runtime failed. |
+| Pill                             | Meaning                                                                                                                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Live**                         | Connected, and the runtime is running the displayed model.                                                                                                                            |
+| **Starting**                     | The first runtime is running `setup`.                                                                                                                                                 |
+| **Restarting**                   | A newer change was accepted; the previous runtime is draining and a new one is starting.                                                                                              |
+| **Updating**                     | The running runtime serves a different revision from the displayed model, for example while a restart is in progress or after the new runtime failed.                                 |
+| **Runtime failed**               | `setup` threw, timed out, or the store rejected the model. Hover for the diagnostic; the terminal prints it too. The next accepted change retries.                                    |
+| **No runtime**                   | The config exports a bare graph whose sources need connections that only `defineApp` `setup` can supply. Not an error, but the agent and MCP need a runtime; export an app to run it. |
+| **Connecting**, **Reconnecting** | The page is opening, or recovering, its stream from `relate dev`.                                                                                                                     |
+| **Paused**                       | The page stopped following `relate dev`.                                                                                                                                              |
+| **No session**                   | The page has no valid session; open the link `relate dev` printed.                                                                                                                    |
+
+Hover the pill for the details: the displayed model's generation (how many times
+`relate dev` has compiled a change this session) and revision (a content hash of
+the graph definition, unchanged when only code outside the graph changed), the
+connection, and the runtime's state, revision, store and diagnostics. When a
+restart discarded the previous runtime's in-memory data, an amber dot marks the
+pill until you hover it, and the card says so.
 
 The runtime restarts on every accepted change, even when the model is unchanged,
 because connector and action code may have changed:
@@ -116,10 +127,12 @@ The runtime process does not receive `ANTHROPIC_API_KEY` (the
 other variable is inherited.
 
 **Principal selector.** When the graph declares
-[development principals](./access-control.md#development-principals), the status
-bar shows an **as** selector listing them; the first declared one is the
-default. The choice belongs to your browser tab and is remembered per graph.
-Without declared principals the status bar shows **no principals**.
+[development principals](./access-control.md#development-principals), the
+**Agent** page's header shows an **as** selector listing them; the first
+declared one is the default. It chooses who the built-in agent acts as and which
+conversation you see; the other pages show the same model whoever is selected.
+The choice belongs to your browser tab and is remembered per graph. Without
+declared principals the Agent page shows **no principals**.
 
 ## Connect Claude or Another MCP Client
 
@@ -175,28 +188,30 @@ development data.
 
 ## Ask the Built-in Agent
 
-The chat button at the right of the status bar opens the **Agent** panel. Ask a
-question about your graph, or ask it to do something, and the agent answers as
-the principal selected in the **as** selector, through the same `/mcp` endpoint
-and policies an external client uses:
+Open the **Agent** page from the rail on the left. Ask a question about your
+graph, or ask it to do something, and the agent answers as the principal
+selected in the **as** selector, through the same `/mcp` endpoint and policies
+an external client uses:
 
 ```text
-Add a note saying "Call the customer", then tell me how many notes exist.
+You    Add a note saying "Call the customer", then tell me how many notes exist.
 
-  discover  succeeded                                            Activity →
-  execute   succeeded                                            Activity →
-    return await graph.actions.addNote({ input: { body: 'Call the customer' }, idempotencyKey: 'alice-note-1' });
-    [addNote]
-  execute   succeeded                                            Activity →
-    const page = await graph.objects.Note.query({ limit: 100 }); …
-    [Note]
+       Discovered the graph                                              7 ms
+       Ran 1 line of JavaScript · 1 action                              64 ms
+       Ran 2 lines of JavaScript                                        41 ms
 
-I added the note. Alice can see 1 note; the count only covers notes alice may read.
+Agent  I added the note. Alice can see 1 note; the count only covers notes
+       alice may read.
 ```
 
-Each tool call shows the code it ran and the objects it touched. **Activity →**
-opens that call in the activity log, and hovering a call highlights its objects
-on the graph.
+The conversation reads as a chat, with each tool call as one quiet line. Press
+**Trace** in the header, or click any call, to switch the same conversation to a
+timeline: every message and call gets its time, each call its latency bar, the
+tool, what it returned (records read, actions run) and the principal. Click a
+call in the trace to expand the code it ran, its result, any error and the
+objects it touched; **Activity →** opens that call in the activity log. The
+choice between chat and trace is remembered in the browser. **MCP tools** in the
+header lists the tools `/mcp` exposes.
 
 **Setup.** The agent runs inside `relate dev`, never in the browser, and uses
 the `claude-opus-5-5` model with your own Anthropic API key. Put the key in the
@@ -210,7 +225,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 pnpm exec dotenvx run -f .env -- pnpm relate dev
 ```
 
-Without a key the panel explains this setup, the terminal prints
+Without a key the Agent page explains this setup, the terminal prints
 `Agent      off: no ANTHROPIC_API_KEY`, and everything else in the inspector
 works as before. The key is read only by the `relate dev` process: your
 application code (the compile and runtime processes), the code the agent runs in
@@ -238,8 +253,8 @@ before asking again.
 return `binding-unavailable` with `retryable: true`. The agent sees that result
 and decides what to do; `relate dev` never repeats a call for it. When the
 runtime restarted between two of your messages, the next message tells the agent
-that in-memory data was reset and earlier reads may be stale, and the panel
-shows a note saying so.
+that in-memory data was reset and earlier reads may be stale, and the
+conversation shows a note saying so.
 
 ## The Activity Log
 

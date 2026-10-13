@@ -18,7 +18,7 @@ import { useLayout } from '../layout/useLayout.js';
 import type { LayoutRequest } from '../layout/elk.js';
 import { useDevClient } from '../inspector-context.js';
 import { useTheme } from '../theme/theme.js';
-import { Button } from '../ui.js';
+import { Button } from '../ui/button.js';
 
 export type ObjectFlowNode = Node<
   ObjectNodeData & { issues: number; touched: boolean },
@@ -241,14 +241,14 @@ function ModelGraphView(props: ModelGraphProps) {
           aria-label="View controls"
         >
           <Button
-            ariaLabel="Zoom out"
+            aria-label="Zoom out"
             title="Zoom out"
             onClick={() => void flow.zoomOut({ duration })}
           >
             −
           </Button>
           <Button
-            ariaLabel="Zoom in"
+            aria-label="Zoom in"
             title="Zoom in"
             onClick={() => void flow.zoomIn({ duration })}
           >

@@ -8,8 +8,8 @@ import type {
   ExecutionEvent,
   OperationEvent,
 } from '../protocol.js';
-import { Tag } from '../ui.js';
-import type { TagColor } from '../ui.js';
+import { Tag } from '../ui/tag.js';
+import type { TagColor } from '../ui/tag.js';
 
 const statusColor: Record<ActivityStatus, TagColor> = {
   running: 'sky',
@@ -178,7 +178,7 @@ function Request(props: {
   readonly activeRuntime: string | null;
   readonly labels: ReadonlyMap<string, string>;
   readonly open: boolean;
-  /** Linked from the agent panel: opened, scrolled to and marked. */
+  /** Linked from the agent page: opened, scrolled to and marked. */
   readonly focused: boolean;
 }) {
   const { call, execution, operations } = props.request;
@@ -279,10 +279,9 @@ export function ActivityScreen() {
         <div className="placeholder-screen">
           <div className="title">No activity yet</div>
           <div className="hint">
-            Ask the agent (the chat button in the header), or connect an MCP
-            client with the <code>claude mcp add</code> line printed by relate
-            dev. Its calls, the code it runs and every graph read and action
-            appear here.
+            Ask the agent on the Agent page, or connect an MCP client with the{' '}
+            <code>claude mcp add</code> line printed by relate dev. Its calls,
+            the code it runs and every graph read and action appear here.
           </div>
         </div>
       ) : (

@@ -3,7 +3,9 @@ import { failureOrigin } from '../connection/store.js';
 import type { InspectorState } from '../connection/store.js';
 import type { GraphModel } from '../graph/map.js';
 import type { Diagnostic } from '../protocol.js';
-import { Button, Callout, Tag } from '../ui.js';
+import { Button } from '../ui/button.js';
+import { Callout } from '../ui/callout.js';
+import { Tag } from '../ui/tag.js';
 
 export interface SidePanelProps {
   readonly state: InspectorState;
@@ -77,7 +79,7 @@ export function SidePanel(props: SidePanelProps) {
           {selected && (
             <span className="close">
               <Button
-                ariaLabel="Clear selection"
+                aria-label="Clear selection"
                 title="Clear selection"
                 onClick={props.onClose}
               >

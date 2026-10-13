@@ -2,8 +2,8 @@ import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import type { ObjectFlowNode } from './ModelGraph.js';
-import { Tag } from '../ui.js';
-import type { TagColor } from '../ui.js';
+import { Tag } from '../ui/tag.js';
+import type { TagColor } from '../ui/tag.js';
 
 // Source tags cycle through hues that stay clear of the problem colors.
 const sourceColors: readonly TagColor[] = [

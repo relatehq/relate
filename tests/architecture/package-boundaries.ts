@@ -139,6 +139,8 @@ export const packagePolicies: Record<
       '@tanstack/react-router',
       '@xyflow/react',
       '@xyflow/react/dist/style.css',
+      '@base-ui/react/popover',
+      '@base-ui/react/select',
       'elkjs/lib/elk-api.js',
       'elkjs/lib/elk-worker.min.js?worker&url',
       'vite',

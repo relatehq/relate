@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-router';
 import { PlaceholderScreen, inspectorPages } from './NavRail.js';
 import { ActivityScreen } from './screens/ActivityScreen.js';
+import { AgentScreen } from './screens/AgentScreen.js';
 import { GraphScreen } from './screens/GraphScreen.js';
 import { InspectorShell } from './screens/InspectorShell.js';
 
@@ -27,15 +28,23 @@ const graphRoute = createRoute({
 const activityRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/activity',
-  // `?request=<requestId>` opens one call, as linked from the agent panel.
+  // `?request=<requestId>` opens one call, as linked from the agent page.
   validateSearch: (search: Record<string, unknown>): { request?: string } =>
     typeof search.request === 'string' ? { request: search.request } : {},
   component: ActivityScreen,
 });
 
+const agentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/agent',
+  component: AgentScreen,
+});
+
+const builtPaths: ReadonlySet<string> = new Set(['/', '/activity', '/agent']);
+
 // Rail pages without a screen yet render a placeholder so navigation is complete.
 const placeholderRoutes = inspectorPages
-  .filter((page) => page.path !== '/' && page.path !== '/activity')
+  .filter((page) => !builtPaths.has(page.path))
   .map((page) =>
     createRoute({
       getParentRoute: () => rootRoute,
@@ -47,6 +56,7 @@ const placeholderRoutes = inspectorPages
 const routeTree = rootRoute.addChildren([
   graphRoute,
   activityRoute,
+  agentRoute,
   ...placeholderRoutes,
 ]);
 

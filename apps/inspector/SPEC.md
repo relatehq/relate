@@ -12,9 +12,9 @@ verification against real proxies and the benchmark fixtures are not
 implemented. Development principals and the runtime host (step 1 of
 [Live runtime, MCP and the built-in agent](#live-runtime-mcp-and-the-built-in-agent))
 landed on 2026-10-13, followed by step 2 (`/mcp`, the activity log, timeline and
-graph highlights) and step 3 (the built-in agent and its panel); all three steps
-are implemented. Where the sections below say "proposed", they preserve design
-sketches, not additional public API promises. The
+graph highlights) and step 3 (the built-in agent and its Agent page); all three
+steps are implemented. Where the sections below say "proposed", they preserve
+design sketches, not additional public API promises. The
 [Inspector README](./README.md), [CLI reference](../../packages/cli/README.md),
 [diagnostic types](../../packages/relate/src/diagnostics.ts), and
 [inspection protocol](./src/protocol.ts) describe the current implementation.
@@ -1251,9 +1251,9 @@ Next cannot implement this product.
 reserved `/api`). All three steps are implemented: step 1 (development
 principals, the runtime host and `RuntimeBinding`), step 2 (`/mcp` with activity
 observation, the activity timeline and graph highlights) and step 3 (the
-built-in agent, `/dev/agent/*` and the agent panel). The IPC reply carries
-errors as `{ type: 'error', id, error }` rather than a `reply` with an `error`
-field, and the parent-side lifecycle lives in
+built-in agent, `/dev/agent/*` and the Agent page). The IPC reply carries errors
+as `{ type: 'error', id, error }` rather than a `reply` with an `error` field,
+and the parent-side lifecycle lives in
 `packages/cli/src/dev/runtime-controller.ts`. This replaces the earlier "live
 runtime extension" sketch, which planned attachment to production hosts.
 
@@ -1298,9 +1298,9 @@ model.principals; // { alice: { roles, claims }, ... }, not hashed, not stored
 - Outside `relate dev` nothing reads `principals`; they are inert fixtures.
 
 The snapshot carries the principal names and a default (the first declared). The
-inspector shows a principal selector; the choice belongs to the browser and
-selects which agent conversation is shown (see
-[Built-in agent](#built-in-agent)). External MCP clients choose with
+Agent page shows a principal selector in its header (no other page depends on
+it); the choice belongs to the browser and selects which agent conversation is
+shown (see [Built-in agent](#built-in-agent)). External MCP clients choose with
 `?as=<name>`.
 
 ### Processes
@@ -1488,7 +1488,7 @@ pnpm exec dotenvx run -f .env -- pnpm relate dev
 
 `ANTHROPIC_API_KEY` is removed from the runtime host's environment so
 application code cannot read it; execute children already inherit only `PATH`.
-Without credentials the agent panel explains the setup and the rest of the
+Without credentials the Agent page explains the setup and the rest of the
 inspector is unaffected.
 
 The Anthropic API's own MCP connector needs a URL Anthropic can reach, which a
@@ -1533,17 +1533,17 @@ conversation and does not affect a turn already running. Direct tool calls from
 the UI (a playground without the model) are later work.
 
 As implemented: `claude-opus-5-5`, streamed, adaptive thinking (summarized, and
-shown in the panel as collapsed progress) with effort `high`, `max_tokens`
-64,000, without automatic refusal fallbacks. `stop_reason` is checked before
-tools run; every `tool_use` of a response runs and all results return in one
-user message; history is append-only, so thinking blocks stay valid. Cancelling
-a turn aborts MCP setup, the stream and any in-flight `tools/call`. History
-records the cancellation so a later message does not resume the cancelled
-request without the developer explicitly asking. A cancelled call is answered to
-the model as cancelled with an unknown outcome and never retried, and a
-retryable `binding-unavailable` result reaches the model unchanged.
-Conversations are in memory and lost when `relate dev` stops; the model's
-history is never trimmed, so **New conversation** resets a principal's
+shown in the conversation as collapsed progress) with effort `high`,
+`max_tokens` 64,000, without automatic refusal fallbacks. `stop_reason` is
+checked before tools run; every `tool_use` of a response runs and all results
+return in one user message; history is append-only, so thinking blocks stay
+valid. Cancelling a turn aborts MCP setup, the stream and any in-flight
+`tools/call`. History records the cancellation so a later message does not
+resume the cancelled request without the developer explicitly asking. A
+cancelled call is answered to the model as cancelled with an unknown outcome and
+never retried, and a retryable `binding-unavailable` result reaches the model
+unchanged. Conversations are in memory and lost when `relate dev` stops; the
+model's history is never trimmed, so **New conversation** resets a principal's
 conversation (refused while a turn runs), for example after the context window
 is exceeded. A runtime restart between turns is not a conversation boundary: the
 next user message starts with a note that in-memory data was reset and earlier
@@ -1722,7 +1722,7 @@ therefore which data, connectors and action code) each call ran against.
 | `packages/cli/src/dev/mcp.ts`                                 | `/mcp`, bearer token, `?as=` (implemented)                                                                     |
 | `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity` (implemented; L3 interim until the runtime activity stream)     |
 | `packages/cli/src/dev/agent.ts`                               | Agent loop, `/dev/agent/*` (implemented)                                                                       |
-| `apps/inspector`                                              | Principal selector, agent panel, activity timeline, graph highlights, protocol types (implemented)             |
+| `apps/inspector`                                              | Principal selector, Agent page, activity timeline, graph highlights, protocol types (implemented)              |
 | `tests/architecture/package-boundaries.ts`                    | `packages/cli` may import `@relate/mcp`, `@modelcontextprotocol/client` (step 2), `@anthropic-ai/sdk` (step 3) |
 
 Delivery order: (1) principals, the runtime host and `RuntimeBinding`; (2)

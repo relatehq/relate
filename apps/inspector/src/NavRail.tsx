@@ -3,18 +3,20 @@ import { Icon } from './icons.js';
 import type { IconName } from './icons.js';
 
 export type InspectorPage = {
-  readonly path: '/' | '/objects' | '/sources' | '/policies' | '/activity';
+  readonly path:
+    '/' | '/objects' | '/sources' | '/policies' | '/activity' | '/agent';
   readonly label: string;
   readonly icon: IconName;
 };
 
-/** Every inspector screen, in rail order. The graph and activity are built so far. */
+/** Every inspector screen, in rail order. The graph, activity and agent are built so far. */
 export const inspectorPages: readonly InspectorPage[] = [
   { path: '/', label: 'Graph', icon: 'sitemap' },
   { path: '/objects', label: 'Objects', icon: 'cube' },
   { path: '/sources', label: 'Sources', icon: 'database' },
   { path: '/policies', label: 'Policies', icon: 'shield' },
   { path: '/activity', label: 'Activity', icon: 'history' },
+  { path: '/agent', label: 'Agent', icon: 'robot' },
 ];
 
 /** The page whose route is currently matched, if any. */
