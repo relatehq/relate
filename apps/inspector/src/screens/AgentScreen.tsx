@@ -412,6 +412,54 @@ function Code(props: { readonly source: string; readonly numbered?: boolean }) {
   );
 }
 
+/** Prettier loads on first use, so it stays out of the inspector's startup bundle. */
+let prettier: Promise<(source: string) => Promise<string>> | undefined;
+
+const formatJavaScript = (source: string) => {
+  prettier ??= Promise.all([
+    import('prettier/standalone'),
+    import('prettier/plugins/babel'),
+    import('prettier/plugins/estree'),
+  ]).then(
+    ([{ format }, babel, estree]) =>
+      (code: string) =>
+        format(code, {
+          parser: 'babel',
+          plugins: [babel, estree],
+          singleQuote: true,
+        }),
+  );
+
+  return prettier.then((format) => format(source));
+};
+
+/** The model's JavaScript, formatted; the source as written until then, or if it doesn't parse. */
+function useFormatted(source: string) {
+  const [formatted, setFormatted] = useState<{
+    source: string;
+    text: string;
+  }>();
+
+  useEffect(() => {
+    let current = true;
+
+    formatJavaScript(source).then(
+      (text) => current && setFormatted({ source, text: text.trimEnd() }),
+      () => {},
+    );
+
+    return () => {
+      current = false;
+    };
+  }, [source]);
+
+  return formatted?.source === source ? formatted.text : source;
+}
+
+function JavaScript(props: { readonly source: string }) {
+  return <Code source={useFormatted(props.source)} numbered />;
+}
+
 /** Results are bounded previews: pretty-print the ones that are whole JSON. */
 const pretty = (result: string) => {
   try {
@@ -556,7 +604,11 @@ function ToolCall(props: {
                   <span className="label">
                     {execute ? 'Code · JavaScript' : 'Arguments'}
                   </span>
-                  <Code source={message.input} numbered />
+                  {execute ? (
+                    <JavaScript source={message.input} />
+                  ) : (
+                    <Code source={pretty(message.input)} numbered />
+                  )}
                 </div>
                 <div className="agent-call-block">
                   <span className="label">Result</span>

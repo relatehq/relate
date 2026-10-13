@@ -333,6 +333,9 @@ importers:
       elkjs:
         specifier: 0.12.0
         version: 0.12.0
+      prettier:
+        specifier: 3.9.9
+        version: 3.9.9
       react:
         specifier: 19.3.0
         version: 19.3.0
