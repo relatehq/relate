@@ -140,21 +140,28 @@ principal can see and do, add `?as=<name>` to the URL, for example
 reads and acts through the same policies as any other caller, so a principal
 without the `reader` role sees no customers at all.
 
-- **Token:** generated for each `relate dev` run and printed only in the
-  terminal. Restarting `relate dev` issues a new token; update the client's
-  header. A second `relate dev` invocation for the same project prints the
-  running server's line again. The inspector's browser session does not grant
-  MCP access.
+- **Token:** created the first time `relate dev` runs in a project and kept in
+  `.relate/dev/mcp-token`, readable only by you, so a saved client entry keeps
+  working when you restart `relate dev`. That directory gets its own
+  `.gitignore`, so the token is never committed. Run
+  `relate dev --rotate-mcp-token` to replace it, for example after sharing a
+  terminal recording; saved entries then need the new line. A second
+  `relate dev` invocation for the same project prints the line again. The
+  inspector's browser session does not grant MCP access.
 - **Local clients only:** the endpoint listens on `127.0.0.1` and refuses
-  requests sent from a web page. Clients that run in the cloud, such as ChatGPT
-  in the browser, cannot reach it. Any local client that supports Streamable
-  HTTP and a custom `Authorization` header can connect the same way.
+  requests sent from a web page. Any local client that supports Streamable HTTP
+  and a custom `Authorization` header can connect the same way. Clients that run
+  in the cloud, such as ChatGPT, cannot reach it: they need a public tunnel,
+  which `--allowed-origin` does not cover today. Tunnel support is planned.
 - **Unknown principals:** `?as=` with a name the graph does not declare is
   rejected with the declared names. A graph without declared principals cannot
   be served over MCP.
-- **No runtime:** while the runtime is restarting, failed or off
-  (`--no-runtime`), each tool call returns a tool error at once instead of
-  waiting.
+- **No runtime:** when the runtime cannot serve the call, each tool call returns
+  a `binding-unavailable` error at once with the reason and whether a retry can
+  help, instead of waiting. For example, while it restarts:
+  `{ "code": "binding-unavailable", "message": "The runtime is restarting; retry shortly", "retryable": true }`.
+  A failed runtime, `--no-runtime`, or a principal you just added that the
+  running runtime predates each say so.
 - **Restarts:** each call runs against the runtime that was active when it
   arrived. If you save a change while an `execute` call is still running, its
   later graph reads and actions fail with `runtime-retired`; they are never
@@ -225,9 +232,10 @@ Without `--port`, the command picks the first free port from **4318–4327** on
 - **No config found:** create `relate.config.ts` or pass `--config` explicitly.
   The repository root does not ship a default config.
 - **Missing inspector assets:** run `pnpm build` from the repository root.
-- **MCP client gets 401:** `relate dev` restarted and issued a new token; copy
-  the new `claude mcp add` line from the terminal. `relate dev` serves the
-  prebuilt inspector client.
+  `relate dev` serves the prebuilt inspector client.
+- **MCP client gets 401:** the project's token was rotated with
+  `--rotate-mcp-token`, or `.relate/dev/mcp-token` was deleted; copy the new
+  `claude mcp add` line from the terminal.
 - **Environment variables:** the command inherits your shell's environment and
   does not load `.env` files. If your definitions need them, use your project's
   environment loader. In this checkout, for example:

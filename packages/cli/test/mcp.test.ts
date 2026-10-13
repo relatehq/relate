@@ -3,7 +3,14 @@
  * dev server, backed by a real runtime host started from the built CLI. Each
  * test writes its own application module.
  */
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { request as httpRequest } from 'node:http';
 import type { Server } from 'node:http';
@@ -21,10 +28,13 @@ import {
   createActivityLog,
   createDevServer,
   createMcpEndpoint,
+  createMcpToken,
+  readMcpToken,
   createRuntimeController,
   createSessions,
 } from '@relate/cli';
 import type { ActivityLog, RuntimeController } from '@relate/cli';
+import { activityEventSchema } from '@relate/inspector/protocol';
 import type {
   ActivityEvent,
   CallEvent,
@@ -135,7 +145,12 @@ interface Harness {
 
 /** The dev server's HTTP surface with `/mcp`, over a real loopback listener. */
 async function createHarness(
-  options: { runtime?: boolean; drainTimeoutMs?: number } = {},
+  options: {
+    runtime?: boolean;
+    drainTimeoutMs?: number;
+    /** The accepted model's principals; may be ahead of the running runtime. */
+    principals?: readonly string[];
+  } = {},
 ): Promise<Harness> {
   const root = await mkdtemp(join(tmpdir(), 'relate-mcp-test-'));
 
@@ -158,9 +173,11 @@ async function createHarness(
   cleanups.push(() => controller.stop());
 
   const activity = createActivityLog();
+  const names = options.principals ?? ['alice', 'bob'];
   const mcp = createMcpEndpoint({
+    token: createMcpToken(),
     runtime: options.runtime === false ? null : controller,
-    principals: () => ({ names: ['alice', 'bob'], defaultPrincipal: 'alice' }),
+    principals: () => ({ names, defaultPrincipal: names[0] ?? null }),
     activity,
   });
   let app: { fetch(request: Request): Response | Promise<Response> } | null =
@@ -450,7 +467,7 @@ it('rejects a missing or wrong token, a browser Origin, a foreign Host and an un
   expect(harness.activity.snapshot()).toEqual([]);
 }, 30_000);
 
-it('returns a tool error at once when no runtime is running', async () => {
+it("returns the runtime's reason as a tool error at once when it cannot serve the call", async () => {
   const harness = await createHarness();
   const off = await createHarness({ runtime: false });
   const client = await harness.connect();
@@ -466,11 +483,24 @@ it('returns a tool error at once when no runtime is running', async () => {
   expect(Date.now() - started).toBeLessThan(5_000);
   expect(discover).toMatchObject({
     isError: true,
-    structuredContent: { error: { code: 'binding' } },
+    structuredContent: {
+      error: {
+        code: 'binding-unavailable',
+        message: 'The runtime has not started yet; retry shortly',
+        retryable: true,
+      },
+    },
   });
   expect(execute).toMatchObject({
     isError: true,
-    structuredContent: { status: 'failed', error: { code: 'binding' } },
+    structuredContent: {
+      status: 'failed',
+      error: {
+        code: 'binding-unavailable',
+        message: 'The runtime is off (relate dev --no-runtime)',
+        retryable: false,
+      },
+    },
   });
   expect(harness.activity.snapshot()).toMatchObject([
     {
@@ -479,7 +509,7 @@ it('returns a tool error at once when no runtime is running', async () => {
       status: 'failed',
       runtimeId: null,
       principal: 'alice',
-      error: 'The runtime is not running',
+      error: 'The runtime has not started yet; retry shortly',
     },
   ]);
   expect(off.activity.snapshot()).toMatchObject([
@@ -490,6 +520,105 @@ it('returns a tool error at once when no runtime is running', async () => {
     },
   ]);
 }, 30_000);
+
+it('explains a principal the model declares but the running runtime predates', async () => {
+  // The model now declares carol; the runtime started before she was added.
+  const harness = await createHarness({
+    principals: ['alice', 'bob', 'carol'],
+  });
+
+  await harness.start(noteApp());
+  const client = await harness.connect('/mcp?as=carol');
+  const discover = await client.callTool({ name: 'discover', arguments: {} });
+
+  expect(discover.structuredContent).toEqual({
+    error: {
+      code: 'binding-unavailable',
+      message:
+        "The running runtime (gen 1) does not declare principal 'carol'; it serves alice, bob. It restarts with the next accepted build.",
+      retryable: true,
+    },
+  });
+  expect(harness.activity.snapshot()).toMatchObject([
+    {
+      kind: 'call',
+      principal: 'carol',
+      error: expect.stringContaining("'carol'"),
+    },
+  ]);
+}, 30_000);
+
+it('bounds every caller-controlled string and records only finite limits', async () => {
+  const harness = await createHarness();
+
+  await harness.start(noteApp());
+  const client = await harness.connect();
+
+  await client.callTool({
+    name: 'execute',
+    arguments: {
+      code: `const results = [];
+for (const call of [
+  () => graph.objects.Note.query({ limit: NaN }),
+  () => graph.objects.Note.get('x'.repeat(600000)),
+  () => graph.objects.Note.query({ cursor: 'c'.repeat(600000), select: ['s'.repeat(600000)] }),
+  () => graph.actions.addNote({ input: { body: 'b'.repeat(600000) }, idempotencyKey: 'k'.repeat(600000) }),
+]) {
+  try { await call(); results.push('ok'); } catch (error) { results.push(error.code); }
+}
+return results;`,
+    },
+  });
+
+  const operations = ofKind(harness.activity.snapshot(), 'operation');
+  const sizes = harness.activity
+    .snapshot()
+    .map((event) => JSON.stringify(event).length);
+
+  expect(operations).toHaveLength(4);
+  // NaN never reaches the log: it would serialize as null.
+  expect(operations[0]!.request).not.toHaveProperty('limit');
+  expect(operations[0]!.outcome?.error?.code).toBe('invalid-request');
+  expect(operations[1]!.request.objectId).toMatch(
+    /^x{256}… \(599744 more characters\)$/,
+  );
+  expect(operations[2]!.request.cursor!.length).toBeLessThan(300);
+  expect(operations[2]!.request.select![0]!.length).toBeLessThan(300);
+  expect(operations[3]!.request.idempotencyKey!.length).toBeLessThan(300);
+  expect(operations[3]!.request.input!.length).toBeLessThan(1_100);
+  expect(Math.max(...sizes)).toBeLessThan(64 * 1024);
+
+  // Every recorded event is one the inspector accepts.
+  for (const event of harness.activity.snapshot())
+    expect(activityEventSchema.safeParse(event).success).toBe(true);
+}, 30_000);
+
+it('keeps the project token across restarts, rotates it on request and keeps it out of git', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'relate-mcp-token-'));
+
+  cleanups.push(() => rm(directory, { recursive: true, force: true }));
+
+  const first = await readMcpToken(directory);
+  const again = await readMcpToken(directory);
+  const rotated = await readMcpToken(directory, { rotate: true });
+
+  await writeFile(join(directory, 'mcp-token'), 'tampered');
+  const replaced = await readMcpToken(directory);
+
+  expect(first).toMatchObject({
+    created: true,
+    token: expect.stringMatching(/^[\w-]{43}$/),
+  });
+  expect(again).toEqual({ token: first.token, created: false });
+  expect(rotated.created).toBe(true);
+  expect(rotated.token).not.toBe(first.token);
+  expect(replaced.created).toBe(true);
+  expect(replaced.token).not.toBe('tampered');
+  expect(await readFile(join(directory, '.gitignore'), 'utf8')).toBe('*\n');
+
+  if (process.platform !== 'win32')
+    expect((await stat(join(directory, 'mcp-token'))).mode & 0o777).toBe(0o600);
+});
 
 it('fails an execution that outlives its runtime with runtime-retired instead of rebinding it', async () => {
   const harness = await createHarness();
@@ -591,9 +720,12 @@ it('shows an action cut off by a restart as uncertain, and never replays it', as
   });
 }, 60_000);
 
-it('bounds the activity log by request and keeps a request together', () => {
+it('bounds the activity log by finished request and never cuts a running one short', () => {
   const log = createActivityLog({ requests: 2, operationsPerRequest: 1 });
-  const call = (requestId: string): CallEvent => ({
+  const call = (
+    requestId: string,
+    status: CallEvent['status'] = 'running',
+  ): CallEvent => ({
     kind: 'call',
     requestId,
     runtimeId: 'runtime-1',
@@ -601,7 +733,7 @@ it('bounds the activity log by request and keeps a request together', () => {
     principal: 'alice',
     tool: 'execute',
     at: new Date(0).toISOString(),
-    status: 'running',
+    status,
   });
   const execution: ExecutionEvent = {
     kind: 'execution',
@@ -616,11 +748,11 @@ it('bounds the activity log by request and keeps a request together', () => {
     logs: [],
     logsTruncated: false,
   };
-  const operation = (opId: string): OperationEvent => ({
+  const operation = (requestId: string, opId: string): OperationEvent => ({
     kind: 'operation',
     opId,
     context: {
-      requestId: 'b',
+      requestId,
       runtimeId: 'runtime-1',
       definitionRevision: 'rev',
       principal: 'alice',
@@ -633,23 +765,41 @@ it('bounds the activity log by request and keeps a request together', () => {
     status: 'running',
     recordIds: [],
   });
+  const kinds = () =>
+    log
+      .snapshot()
+      .map((event) => [
+        event.kind,
+        (event as { requestId?: string }).requestId ?? 'op',
+        event.status,
+      ]);
 
   log.record(call('a'));
   log.record(execution);
   log.record(call('b'));
-  log.record(operation('op-1'));
+  log.record(operation('b', 'op-1'));
   // Over the per-request operation limit: not recorded.
-  log.record(operation('op-2'));
-  // Replaces in place and keeps first-seen order.
-  log.record({ ...call('a'), status: 'succeeded', ms: 1 });
-  // A third request evicts every event of the oldest one.
+  log.record(operation('b', 'op-2'));
+  log.record({ ...operation('b', 'op-1'), status: 'succeeded', ms: 1 });
+  log.record({ ...call('b'), status: 'succeeded', ms: 1 });
+  // A third request: a is still running, so the oldest finished one (b) goes.
   log.record(call('c'));
-  // The end of an evicted execution stays evicted.
-  log.record({ ...execution, status: 'succeeded', ms: 1 });
 
-  expect(log.snapshot().map((event) => [event.kind, event.status])).toEqual([
-    ['call', 'running'],
-    ['operation', 'running'],
-    ['call', 'running'],
+  expect(kinds()).toEqual([
+    ['call', 'a', 'running'],
+    ['execution', 'a', 'running'],
+    ['call', 'c', 'running'],
+  ]);
+
+  // A late operation of the evicted request does not start an orphan entry.
+  log.record(operation('b', 'op-3'));
+  // Once a finishes, it is evicted like any other.
+  log.record({ ...execution, status: 'succeeded', ms: 1 });
+  log.record({ ...call('a'), status: 'succeeded', ms: 1 });
+  log.record(call('d'));
+
+  expect(kinds()).toEqual([
+    ['call', 'c', 'running'],
+    ['call', 'd', 'running'],
   ]);
 });

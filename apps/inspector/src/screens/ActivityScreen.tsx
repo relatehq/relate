@@ -243,8 +243,9 @@ export function ActivityScreen() {
 
     return new Map(entries);
   }, [state.model]);
-  const activeRuntime =
-    state.runtime?.state === 'running' ? state.runtime.runtimeId : null;
+  // A restart retires the previous runtime as soon as it begins, so the
+  // newest runtime ID, starting or failed, is the current one.
+  const activeRuntime = state.runtime?.runtimeId ?? null;
 
   return (
     <div className="activity-screen">
@@ -253,7 +254,9 @@ export function ActivityScreen() {
         <span className="activity-hint">
           {activity.connection === 'reconnecting'
             ? 'Reconnecting…'
-            : `${requests.length} recent call${requests.length === 1 ? '' : 's'}; kept in memory by relate dev`}
+            : activity.connection === 'stopped'
+              ? 'Not connected: open the inspector link printed by relate dev'
+              : `${requests.length} recent call${requests.length === 1 ? '' : 's'}; kept in memory by relate dev`}
         </span>
       </div>
       {requests.length === 0 ? (

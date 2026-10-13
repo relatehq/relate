@@ -1,14 +1,16 @@
-import { expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import {
   ACTIVITY_REQUEST_LIMIT,
+  ActivityBuffer,
+  PUBLISH_MS,
   TOUCH_MS,
-  applyActivity,
   createActivityClient,
+  followSession,
   groupActivity,
-  initialActivity,
+  parseActivityMessage,
   touchedDefinitions,
 } from '../src/connection/activity.js';
-import { activityMessageSchema } from '../src/protocol.js';
+import type { ActivityState } from '../src/connection/activity.js';
 import type {
   CallEvent,
   ExecutionEvent,
@@ -65,35 +67,70 @@ const operation = (
   recordIds: [],
 });
 
-it('replaces events in place, groups them by request newest first and touches only live operations', () => {
-  const snapshot = applyActivity(
-    initialActivity,
-    {
-      type: 'snapshot',
-      events: [call('a'), operation('a', 'op-old', 'notes.old')],
+interface FakeSource {
+  url: string;
+  readyState: number;
+  onmessage: ((message: { data: string }) => void) | null;
+  onerror: (() => void) | null;
+  close: () => void;
+}
+
+function fakeSources() {
+  const sources: FakeSource[] = [];
+
+  return {
+    sources,
+    createEventSource: (url: string) => {
+      const source: FakeSource = {
+        url,
+        readyState: 1,
+        onmessage: null,
+        onerror: null,
+        close: vi.fn(),
+      };
+
+      sources.push(source);
+
+      return source as unknown as EventSource;
     },
-    1_000,
-  );
-  let state = snapshot;
+  };
+}
 
-  for (const event of [
-    call('b'),
-    execution('b'),
-    operation('b', 'op-1'),
-    { ...call('b'), status: 'succeeded' as const, ms: 12 },
-  ])
-    state = applyActivity(state, { type: 'event', event }, 1_000);
+const send = (source: FakeSource, payload: unknown) =>
+  source.onmessage!({ data: JSON.stringify(payload) });
 
-  expect(snapshot.connection).toBe('live');
-  expect(touchedDefinitions(snapshot, 1_000)).toEqual(new Set());
-  expect(state.events.map((event) => [event.kind, event.status])).toEqual([
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+it('replaces events in place, groups them by request newest first and touches only live operations', () => {
+  const buffer = new ActivityBuffer();
+
+  buffer.replace([call('a'), operation('a', 'op-old', 'notes.old')]);
+  buffer.upsert(call('b'), 1_000);
+  buffer.upsert(execution('b'), 1_000);
+  buffer.upsert(operation('b', 'op-1'), 1_000);
+  buffer.upsert({ ...call('b'), status: 'succeeded', ms: 12 }, 1_000);
+
+  const events = buffer.list();
+  const state: ActivityState = {
+    connection: 'live',
+    events,
+    touched: buffer.touched(1_000),
+  };
+
+  expect(events.map((event) => [event.kind, event.status])).toEqual([
     ['call', 'running'],
     ['operation', 'running'],
     ['call', 'succeeded'],
     ['execution', 'running'],
     ['operation', 'running'],
   ]);
-  expect(groupActivity(state.events)).toMatchObject([
+  expect(groupActivity(events)).toMatchObject([
     {
       requestId: 'b',
       call: { status: 'succeeded', ms: 12 },
@@ -102,83 +139,126 @@ it('replaces events in place, groups them by request newest first and touches on
     },
     { requestId: 'a', operations: [{ opId: 'op-old' }] },
   ]);
+  // The snapshot's notes.old never glows; the live notes.note does, briefly.
   expect(touchedDefinitions(state, 1_000 + TOUCH_MS - 1)).toEqual(
     new Set(['notes.note']),
   );
   expect(touchedDefinitions(state, 1_000 + TOUCH_MS)).toEqual(new Set());
+  expect(buffer.touched(1_000 + TOUCH_MS).size).toBe(0);
 });
 
 it('keeps the newest requests when a long-lived tab passes the limit', () => {
-  let state = initialActivity;
+  const buffer = new ActivityBuffer();
 
   for (let index = 0; index <= ACTIVITY_REQUEST_LIMIT; index += 1)
-    state = applyActivity(state, { type: 'event', event: call(`r${index}`) });
+    buffer.upsert(call(`r${index}`));
 
-  expect(state.events).toHaveLength(ACTIVITY_REQUEST_LIMIT);
-  expect(state.events[0]).toMatchObject({ requestId: 'r1' });
+  expect(buffer.list()).toHaveLength(ACTIVITY_REQUEST_LIMIT);
+  expect(buffer.list()[0]).toMatchObject({ requestId: 'r1' });
 });
 
-it('validates activity messages before applying them', () => {
+it('skips an unreadable event instead of discarding the snapshot around it', () => {
+  // A NaN limit once serialized as null; such an event must not poison the feed.
+  const broken = { ...operation('a', 'op-1'), request: { limit: null } };
+
   expect(
-    activityMessageSchema.safeParse({ type: 'event', event: call('a') })
-      .success,
-  ).toBe(true);
-  expect(
-    activityMessageSchema.safeParse({
+    parseActivityMessage({
+      type: 'snapshot',
+      events: [call('a'), broken, call('b')],
+    }),
+  ).toEqual({ type: 'snapshot', events: [call('a'), call('b')] });
+  expect(parseActivityMessage({ type: 'event', event: broken })).toEqual({
+    type: 'event',
+    event: null,
+  });
+  expect(parseActivityMessage({ type: 'other' })).toBeNull();
+});
+
+it('publishes a burst of events once, under the mount', () => {
+  const { sources, createEventSource } = fakeSources();
+  const client = createActivityClient({
+    baseUrl: new URL('http://127.0.0.1:4318/nested/'),
+    createEventSource,
+    now: () => 0,
+  });
+  const listener = vi.fn();
+
+  client.subscribe(listener);
+  client.start();
+  send(sources[0]!, { type: 'snapshot', events: [call('a')] });
+
+  for (let index = 0; index < 100; index += 1)
+    send(sources[0]!, {
       type: 'event',
-      event: { ...operation('a', 'op'), context: { requestId: 'a' } },
-    }).success,
-  ).toBe(false);
+      event: operation('a', `op-${index}`),
+    });
+
+  expect(sources[0]!.url).toBe('http://127.0.0.1:4318/nested/dev/activity');
+  expect(client.getState().events).toHaveLength(0);
+  listener.mockClear();
+  vi.advanceTimersByTime(PUBLISH_MS);
+
+  expect(listener).toHaveBeenCalledTimes(1);
+  expect(client.getState()).toMatchObject({ connection: 'live' });
+  expect(client.getState().events).toHaveLength(101);
+  client.stop();
 });
 
-it('opens /dev/activity under the mount and reopens a refused stream from a fresh snapshot', () => {
-  vi.useFakeTimers();
+it('reopens a refused stream with backoff and stops for good when told to', () => {
+  const { sources, createEventSource } = fakeSources();
+  const client = createActivityClient({
+    baseUrl: new URL('http://127.0.0.1:4318/'),
+    createEventSource,
+    retryDelaysMs: [100, 400],
+  });
 
-  try {
-    const sources: {
-      url: string;
-      readyState: number;
-      onmessage: ((message: { data: string }) => void) | null;
-      onerror: (() => void) | null;
-      close: () => void;
-    }[] = [];
-    const client = createActivityClient({
-      baseUrl: new URL('http://127.0.0.1:4318/nested/'),
-      retryMs: 100,
-      createEventSource: (url) => {
-        const source = {
-          url,
-          readyState: 1,
-          onmessage: null,
-          onerror: null,
-          close: vi.fn(),
-        };
+  client.start();
+  sources[0]!.readyState = 2;
+  sources[0]!.onerror!();
+  expect(client.getState().connection).toBe('reconnecting');
+  vi.advanceTimersByTime(100);
+  expect(sources).toHaveLength(2);
+  sources[1]!.readyState = 2;
+  sources[1]!.onerror!();
+  vi.advanceTimersByTime(399);
+  expect(sources).toHaveLength(2);
+  vi.advanceTimersByTime(1);
+  expect(sources).toHaveLength(3);
 
-        sources.push(source);
+  client.stop();
+  vi.advanceTimersByTime(10_000);
 
-        return source as unknown as EventSource;
-      },
-    });
+  expect(sources).toHaveLength(3);
+  expect(client.getState().connection).toBe('stopped');
+});
 
-    client.start();
-    sources[0]!.onmessage!({
-      data: JSON.stringify({ type: 'snapshot', events: [call('a')] }),
-    });
-    expect(sources[0]!.url).toBe('http://127.0.0.1:4318/nested/dev/activity');
-    expect(client.getState().events).toHaveLength(1);
+it('runs the stream only while the inspector session is live', () => {
+  let connection = 'connecting';
+  const listeners = new Set<() => void>();
+  const dev = {
+    getState: () => ({ connection }) as never,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
 
-    sources[0]!.readyState = 2;
-    sources[0]!.onerror!();
-    expect(client.getState().connection).toBe('reconnecting');
-    vi.advanceTimersByTime(100);
-    sources[1]!.onmessage!({
-      data: JSON.stringify({ type: 'snapshot', events: [] }),
-    });
+      return () => listeners.delete(listener);
+    },
+  };
+  const activity = { start: vi.fn(), stop: vi.fn() };
+  const change = (next: string) => {
+    connection = next;
 
-    expect(sources).toHaveLength(2);
-    expect(client.getState()).toMatchObject({ connection: 'live', events: [] });
-    client.stop();
-  } finally {
-    vi.useRealTimers();
-  }
+    for (const listener of listeners) listener();
+  };
+
+  followSession(dev, activity);
+  expect(activity.start).not.toHaveBeenCalled();
+  change('live');
+  expect(activity.start).toHaveBeenCalledTimes(1);
+  // A temporary drop keeps the stream's own retries; a lost session stops it.
+  change('reconnecting');
+  expect(activity.stop).not.toHaveBeenCalled();
+  change('stale');
+  expect(activity.stop).toHaveBeenCalledTimes(1);
+  change('unauthorized');
+  expect(activity.stop).toHaveBeenCalledTimes(2);
 });

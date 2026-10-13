@@ -10,6 +10,8 @@ export interface DevArguments {
   readonly quiet: boolean;
   /** Inspect the model only: start no runtime host. */
   readonly runtime: boolean;
+  /** Replace the project's saved `/mcp` bearer token with a new one. */
+  readonly rotateMcpToken: boolean;
   readonly evalTimeoutMs: number;
   readonly allowedOrigins: readonly string[];
 }
@@ -41,6 +43,8 @@ Options:
   --open                    Open the inspector URL once it is ready
   --no-runtime              Inspect the model only; do not start the
                             application or run its setup
+  --rotate-mcp-token        Issue a new /mcp bearer token for this project;
+                            saved MCP client entries need the new one
   --eval-timeout <ms>       Deadline for loading and compiling definitions
                             (default: ${DEFAULT_EVAL_TIMEOUT_MS})
   --allowed-origin <origin> Additionally accept this exact browser origin
@@ -119,6 +123,7 @@ export function parseDevArguments(
   let open = false;
   let quiet = false;
   let runtime = true;
+  let rotateMcpToken = false;
   let evalTimeoutMs = DEFAULT_EVAL_TIMEOUT_MS;
   const allowedOrigins: string[] = [];
   const take = (index: number, flag: string): string => {
@@ -173,6 +178,12 @@ export function parseDevArguments(
 
         runtime = false;
         break;
+      case '--rotate-mcp-token':
+        if (inline !== undefined)
+          throw new UsageError('--rotate-mcp-token takes no value');
+
+        rotateMcpToken = true;
+        break;
       case '--eval-timeout':
         evalTimeoutMs = integer(value(), '--eval-timeout', 1, MAX_TIMER_MS);
         break;
@@ -190,6 +201,7 @@ export function parseDevArguments(
     open,
     quiet,
     runtime,
+    rotateMcpToken,
     evalTimeoutMs,
     allowedOrigins: Object.freeze([...new Set(allowedOrigins)]),
   });

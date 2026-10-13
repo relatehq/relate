@@ -1,12 +1,13 @@
 /**
- * L1: observe transport requests. Only tool calls are recorded; MCP
- * handshakes and tool listings are not activity. The handler decides who the
- * caller is and which runtime serves it, then begins the call; the observer
- * finishes it from the response.
+ * L1: observe one authenticated transport request. Only tool calls are
+ * recorded; MCP handshakes and tool listings are not activity. Call this after
+ * authentication, so an unauthenticated body is never buffered or parsed. The
+ * handler decides which runtime serves the caller, then begins the call; the
+ * observer finishes it from the response.
  */
 import { randomUUID } from 'node:crypto';
 import type { CallEvent } from '@relate/inspector/protocol';
-import type { ActivityLog } from './log.js';
+import { activityLimits, truncate, type ActivityLog } from './log.js';
 
 export type CallTool = CallEvent['tool'];
 export type CallSource = CallEvent['source'];
@@ -79,55 +80,56 @@ async function failed(response: Response): Promise<string | null> {
   }
 }
 
-export function observeRequests(
+export async function observeRequest(
   log: ActivityLog,
-  handle: (request: Request, call: CallObservation) => Promise<Response>,
-): (request: Request) => Promise<Response> {
-  return async (request) => {
-    const tool = await toolOf(request);
-    const started = performance.now();
-    let begun: Omit<CallEvent, 'status' | 'ms' | 'error'> | null = null;
-    let unavailable: string | undefined;
-    const call: CallObservation = {
-      requestId: randomUUID(),
-      tool,
-      begin(details) {
-        if (!tool || begun) return;
+  request: Request,
+  handle: (call: CallObservation) => Promise<Response>,
+): Promise<Response> {
+  const tool = await toolOf(request);
+  const started = performance.now();
+  let begun: Omit<CallEvent, 'status' | 'ms' | 'error'> | null = null;
+  let unavailable: string | undefined;
+  const call: CallObservation = {
+    requestId: randomUUID(),
+    tool,
+    begin(details) {
+      if (!tool || begun) return;
 
-        unavailable = details.unavailable;
-        begun = {
-          kind: 'call',
-          requestId: call.requestId,
-          runtimeId: details.runtimeId,
-          source: details.source,
-          principal: details.principal,
-          tool,
-          at: new Date().toISOString(),
-        };
-        log.record({ ...begun, status: 'running' });
-      },
-    };
-    const finish = (error: string | null) => {
-      if (!begun) return;
-
-      log.record({
-        ...begun,
-        status: error === null ? 'succeeded' : 'failed',
-        ms: performance.now() - started,
-        ...(error === null ? {} : { error }),
-      });
-    };
-
-    try {
-      const response = await handle(request, call);
-
-      finish(unavailable ?? (await failed(response)));
-
-      return response;
-    } catch (error) {
-      finish(error instanceof Error ? error.message : 'Request failed');
-
-      throw error;
-    }
+      unavailable = details.unavailable;
+      begun = {
+        kind: 'call',
+        requestId: call.requestId,
+        runtimeId: details.runtimeId,
+        source: details.source,
+        principal: details.principal,
+        tool,
+        at: new Date().toISOString(),
+      };
+      log.record({ ...begun, status: 'running' });
+    },
   };
+  const finish = (error: string | null) => {
+    if (!begun) return;
+
+    log.record({
+      ...begun,
+      status: error === null ? 'succeeded' : 'failed',
+      ms: performance.now() - started,
+      ...(error === null
+        ? {}
+        : { error: truncate(error, activityLimits.preview).text }),
+    });
+  };
+
+  try {
+    const response = await handle(call);
+
+    finish(unavailable ?? (await failed(response)));
+
+    return response;
+  } catch (error) {
+    finish(error instanceof Error ? error.message : 'Request failed');
+
+    throw error;
+  }
 }

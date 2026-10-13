@@ -6,6 +6,7 @@ export type {
   GraphBinding,
 } from './executor.js';
 
+export { BindingUnavailableError } from './errors.js';
 export { createDevelopmentExecutor } from './development-executor.js';
 export type { DevelopmentExecutorOptions } from './development-executor.js';
 export { createMcpServer, javascriptInstructions } from './server.js';

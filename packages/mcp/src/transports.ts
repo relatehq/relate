@@ -1,13 +1,20 @@
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/server';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import type { Readable, Writable } from 'node:stream';
+import { isBindingUnavailable } from './errors.js';
+import type { BindingUnavailableError } from './errors.js';
 import { createMcpServer } from './server.js';
 import type { McpServerOptions } from './server.js';
 import type { CodeExecutor, GraphBinding } from './executor.js';
 
 export interface HttpOptions {
   executor: CodeExecutor;
-  /** Called on EVERY HTTP request. Return an authentication response (e.g. 401) or actor-bound operations. */
+  /**
+   * Called on EVERY HTTP request. Return an authentication response (e.g. 401)
+   * or actor-bound operations. Throw `BindingUnavailableError` for an
+   * authenticated caller the host cannot serve right now: the MCP handshake
+   * still succeeds and each tool call reports that error.
+   */
   bindGraph(
     request: Request,
   ): GraphBinding | Response | Promise<GraphBinding | Response>;
@@ -27,14 +34,17 @@ export function createStreamableHttpHandler(
     if (origin !== null && !origins.has(origin))
       return new Response('Forbidden origin', { status: 403 });
 
-    let graph: GraphBinding | Response;
+    let graph: GraphBinding | Response | BindingUnavailableError;
 
     try {
       graph = await options.bindGraph(request);
-    } catch {
-      return new Response('Authentication or graph binding failed', {
-        status: 500,
-      });
+    } catch (error) {
+      if (!isBindingUnavailable(error))
+        return new Response('Authentication or graph binding failed', {
+          status: 500,
+        });
+
+      graph = error;
     }
 
     if (graph instanceof Response) return graph;
@@ -46,7 +56,11 @@ export function createStreamableHttpHandler(
     const server = createMcpServer({
       executor: options.executor,
       signal: request.signal,
-      bindGraph: () => binding,
+      bindGraph: () => {
+        if (binding instanceof Error) throw binding;
+
+        return binding;
+      },
     });
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,

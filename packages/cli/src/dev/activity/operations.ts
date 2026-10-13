@@ -14,7 +14,13 @@ import type {
   OperationContext,
   OperationEvent,
 } from '@relate/inspector/protocol';
-import { activityLimits, preview, type ActivityLog } from './log.js';
+import {
+  activityLimits,
+  preview,
+  text,
+  truncate,
+  type ActivityLog,
+} from './log.js';
 
 type Operation = OperationEvent['op'];
 
@@ -27,20 +33,27 @@ const record = (value: unknown): Record<string, unknown> =>
     ? (value as Record<string, unknown>)
     : {};
 
+/** A bounded string, or undefined when the value is not one. */
 const asString = (value: unknown): string | undefined =>
-  typeof value === 'string' ? value : undefined;
+  typeof value === 'string' ? text(value) : undefined;
 
 /** The read options worth showing: selection, filter, paging. */
 function readRequest(value: unknown): Request {
   const request = record(value);
   const select = Array.isArray(request.select)
-    ? request.select.filter((item): item is string => typeof item === 'string')
+    ? request.select
+        .filter((item): item is string => typeof item === 'string')
+        .slice(0, 50)
+        .map(text)
     : undefined;
 
   return {
-    ...(select ? { select: select.slice(0, 50) } : {}),
+    ...(select ? { select } : {}),
     ...(request.where !== undefined ? { where: preview(request.where) } : {}),
-    ...(typeof request.limit === 'number' ? { limit: request.limit } : {}),
+    // NaN and Infinity have no JSON form; runtime validation reports them.
+    ...(typeof request.limit === 'number' && Number.isFinite(request.limit)
+      ? { limit: request.limit }
+      : {}),
     ...(asString(request.cursor) ? { cursor: asString(request.cursor) } : {}),
   };
 }
@@ -97,7 +110,7 @@ function summarize(value: unknown): {
   if (typeof result.state === 'string')
     return {
       outcome: {
-        receiptState: result.state,
+        receiptState: text(result.state),
         ...(asString(result.invocationId)
           ? { invocationId: asString(result.invocationId) }
           : {}),
@@ -111,7 +124,7 @@ function summarize(value: unknown): {
 /** Public protocol errors keep their code; anything else is `internal`. */
 function failure(error: unknown): Outcome {
   const value = record(error);
-  const code = asString(value.code) ?? 'internal';
+  const code = asString(value.code) || 'internal';
   const issues =
     Array.isArray(value.issues) && value.issues.length
       ? preview(value.issues)
@@ -120,7 +133,9 @@ function failure(error: unknown): Outcome {
   return {
     error: {
       code,
-      ...(error instanceof Error ? { message: error.message } : {}),
+      ...(error instanceof Error
+        ? { message: truncate(error.message, activityLimits.preview).text }
+        : {}),
       ...(issues ? { issues } : {}),
     },
   };
@@ -152,7 +167,7 @@ export function observeOperations(
       context,
       at: new Date().toISOString(),
       op,
-      definitionId: String(definitionId),
+      definitionId: text(definitionId),
       request: summary,
     };
 
@@ -190,7 +205,7 @@ export function observeOperations(
       observe(
         'get',
         definitionId,
-        () => ({ objectId: String(objectId), ...readRequest(request) }),
+        () => ({ objectId: text(objectId), ...readRequest(request) }),
         () => operations.get(definitionId, objectId, request),
       ),
     query: (definitionId, request) =>
@@ -205,8 +220,8 @@ export function observeOperations(
         'traverse',
         definitionId,
         () => ({
-          objectId: String(objectId),
-          traversal: String(traversal),
+          objectId: text(objectId),
+          traversal: text(traversal),
           ...readRequest(request),
         }),
         () => operations.traverse(definitionId, objectId, traversal, request),
@@ -231,7 +246,7 @@ export function observeOperations(
       observe(
         'getReceipt',
         definitionId,
-        () => ({ invocationId: String(invocationId) }),
+        () => ({ invocationId: text(invocationId) }),
         () => operations.getReceipt(definitionId, invocationId),
       ),
   } satisfies ConsumerOperations);

@@ -5,7 +5,12 @@
  *
  * Events are upserts keyed by ID (`activityKey`): a `running` event is
  * replaced by its final version in place. Eviction is per transport request,
- * so a request's call, execution and operations leave together.
+ * so a request's call, execution and operations leave together, and only
+ * finished requests are evicted: late events of an evicted request are
+ * dropped rather than starting an orphan entry.
+ *
+ * Every caller-controlled string is bounded where the event is built (see
+ * `activityLimits`); `record` also enforces a per-event budget as a backstop.
  */
 import {
   activityKey,
@@ -26,6 +31,12 @@ export const activityLimits = Object.freeze({
   preview: 1024,
   /** Record IDs kept per operation. */
   recordIds: 100,
+  /** Code units of an identifier, key, cursor or error code. */
+  text: 256,
+  /** Code units of one serialized event; larger events lose their details. */
+  event: 64 * 1024,
+  /** Evicted request IDs remembered, so their late events are dropped. */
+  evicted: 1_000,
 });
 
 export type ActivityListener = (event: ActivityEvent) => void;
@@ -54,30 +65,43 @@ export function createActivityLog(
   // Map order is insertion order, and replacing a value keeps its position.
   const events = new Map<string, ActivityEvent>();
   const requests = new Map<string, { keys: Set<string>; operations: number }>();
+  const evicted = new Set<string>();
   const listeners = new Set<ActivityListener>();
+  const running = (keys: Set<string>) =>
+    [...keys].some((key) => events.get(key)?.status === 'running');
+  /** Evict the oldest finished requests; a running one is never cut short. */
+  const evict = () => {
+    for (const [requestId, entry] of requests) {
+      if (requests.size <= maxRequests) return;
+
+      if (running(entry.keys)) continue;
+
+      requests.delete(requestId);
+
+      for (const key of entry.keys) events.delete(key);
+
+      evicted.add(requestId);
+
+      if (evicted.size > activityLimits.evicted)
+        evicted.delete(evicted.values().next().value!);
+    }
+  };
 
   return {
-    record(event) {
+    record(input) {
+      const event = withinBudget(input);
       const key = activityKey(event);
       const requestId = activityRequestId(event);
 
       if (!events.has(key)) {
         // Only a start opens an entry; the end of an evicted one stays evicted.
-        if (event.status !== 'running') return;
+        if (event.status !== 'running' || evicted.has(requestId)) return;
 
         let request = requests.get(requestId);
 
         if (!request) {
           request = { keys: new Set(), operations: 0 };
           requests.set(requestId, request);
-
-          while (requests.size > maxRequests) {
-            const [oldest, entry] = requests.entries().next().value!;
-
-            requests.delete(oldest);
-
-            for (const evicted of entry.keys) events.delete(evicted);
-          }
         }
 
         if (event.kind === 'operation') {
@@ -90,6 +114,7 @@ export function createActivityLog(
       }
 
       events.set(key, event);
+      evict();
 
       for (const listener of [...listeners]) listener(event);
     },
@@ -105,6 +130,37 @@ export function createActivityLog(
       };
     },
   };
+}
+
+/**
+ * Backstop for the per-event budget: an event over it keeps its identity,
+ * status and operation outcome but loses its request details, code and logs.
+ */
+function withinBudget(event: ActivityEvent): ActivityEvent {
+  if (JSON.stringify(event).length <= activityLimits.event) return event;
+
+  switch (event.kind) {
+    case 'call':
+      return { ...event, error: truncate(event.error ?? '', 64).text };
+    case 'execution': {
+      const { resultPreview: _result, error: _error, ...rest } = event;
+
+      return {
+        ...rest,
+        code: truncate(event.code, 1024).text,
+        codeTruncated: true,
+        logs: [],
+        logsTruncated: true,
+      };
+    }
+    case 'operation':
+      return { ...event, request: {}, recordIds: [] };
+  }
+}
+
+/** A bounded identifier, key or code. */
+export function text(value: unknown): string {
+  return truncate(String(value), activityLimits.text).text;
 }
 
 /** A bounded string: the head, then a marker saying how much was cut. */

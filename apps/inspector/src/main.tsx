@@ -11,7 +11,7 @@ import '@xyflow/react/dist/style.css';
 import './theme/theme-light.css';
 import './theme/theme-dark.css';
 import './styles.css';
-import { createActivityClient } from './connection/activity.js';
+import { createActivityClient, followSession } from './connection/activity.js';
 import {
   createDevClient,
   inspectorBaseUrl,
@@ -28,8 +28,9 @@ const activity = createActivityClient({ baseUrl });
 const queryClient = new QueryClient();
 const router = createInspectorRouter();
 
-// The activity stream needs the session cookie the dev client exchanges for.
-void client.start().then(() => activity.start());
+// The activity stream needs the dev client's session; it follows its lifetime.
+followSession(client, activity);
+void client.start();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

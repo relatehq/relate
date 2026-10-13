@@ -101,7 +101,6 @@ export const packagePolicies: Record<
       'zod',
       '@relate/mcp',
       '@modelcontextprotocol/client',
-      '@anthropic-ai/sdk',
     ],
     builtins: true,
   },

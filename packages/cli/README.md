@@ -27,6 +27,7 @@ pnpm relate dev --config ./packages/business/relate.config.ts
 pnpm relate dev --port 4500 --open
 pnpm relate dev --eval-timeout 60000
 pnpm relate dev --no-runtime
+pnpm relate dev --rotate-mcp-token
 pnpm relate dev --allowed-origin https://my-private-forward.example
 ```
 
@@ -79,9 +80,8 @@ shown as **No runtime**) instead of failing on every save.
   fragment carries a per-instance bootstrap token; the page exchanges it for an
   HttpOnly, SameSite=Strict session cookie. Visiting the bare URL shows how to
   open the terminal link instead.
-- The `MCP` lines carry a separate per-instance bearer token for `/mcp` (see
-  [MCP](#mcp)). `--quiet` prints only the `Inspector` line and the
-  `claude mcp add` line.
+- The `MCP` lines carry the project's bearer token for `/mcp` (see [MCP](#mcp)).
+  `--quiet` prints only the `Inspector` line and the `claude mcp add` line.
 - Successful loads advance the generation; failed attempts keep the last good
   model on screen and print structured diagnostics with `path:line:column`
   tokens relative to the invoking directory.
@@ -178,14 +178,40 @@ Accept: application/json, text/event-stream
 | Host not the loopback origin or allowed origin | `403` (the dev server's Host guard)                   |
 | `?as=` not declared in `defineGraph`           | `404` naming the declared principals                  |
 | No `?as=`                                      | The model's default (first declared) principal        |
-| Runtime starting, restarting, failed or off    | Immediate `binding` tool error, recorded as activity  |
+| Runtime cannot serve the principal             | Immediate `binding-unavailable` tool error (below)    |
 | Otherwise                                      | `runtime.binding(principal)`: pinned to its runtimeId |
 
-The token is 256 random bits per dev server, kept in `.relate/dev/mcp-token`
-(mode 0600) so a second invocation can print the `claude mcp add` line again,
-and removed on shutdown. Each HTTP request binds afresh, so a request after a
-restart reaches the new runtime; operations inside an execution stay pinned to
-the runtime that execution started on and fail with `runtime-retired` after it.
+Origin, token and principal are checked before the request body is read; only an
+authenticated request is parsed and recorded as activity.
+
+The token is 256 random bits per project, kept in `.relate/dev/mcp-token` (mode
+0600, next to a `.gitignore` of `*`) and reused on every start, so a saved
+`claude mcp add` entry survives restarts. A missing or malformed file, or
+`--rotate-mcp-token`, issues a new one. Each HTTP request binds afresh, so a
+request after a restart reaches the new runtime; operations inside an execution
+stay pinned to the runtime that execution started on and fail with
+`runtime-retired` after it.
+
+When the runtime cannot serve the principal, `runtime.binding()` rejects with a
+`RuntimeUnavailableError { reason, retryable }`, which `/mcp` forwards as
+`@relate/mcp`'s `BindingUnavailableError`. The MCP handshake still succeeds and
+both tools report it:
+
+```json
+{
+  "error": {
+    "code": "binding-unavailable",
+    "message": "The runtime is restarting; retry shortly",
+    "retryable": true
+  }
+}
+```
+
+| Situation                                           | `retryable` |
+| --------------------------------------------------- | ----------- |
+| Starting or restarting; no model compiled yet       | `true`      |
+| Principal declared by the model, not by the runtime | `true`      |
+| Runtime failed or not configured; `--no-runtime`    | `false`     |
 
 ### Activity
 
@@ -193,7 +219,7 @@ Three decorators in `src/dev/activity/` record what MCP clients do, without
 changing `@relate/mcp`:
 
 ```text
-/mcp request ─ L1 observeRequests ─▶ execute ─ L2 observeExecutor ─▶ graph.objects.X.query() ─ L3 observeOperations ─▶ runtime host
+/mcp request ─ L1 observeRequest ─▶ execute ─ L2 observeExecutor ─▶ graph.objects.X.query() ─ L3 observeOperations ─▶ runtime host
 requestId                            executionId                      opId
 ```
 
@@ -201,9 +227,12 @@ L3 is transport-independent: every operation carries an `OperationContext`
 (`{ requestId, runtimeId, definitionRevision, principal, transport, executionId? }`)
 and `executionId` is present only when agent JavaScript made the call. Events
 (`call`, `execution`, `operation`) are upserts keyed by ID: a `running` event is
-replaced by its final version. The log is a ring buffer of the last 200 requests
-(500 operations each) with bounded code, logs and previews; record values are
-never kept, only IDs and counts.
+replaced by its final version. The log is a ring buffer of the last 200 finished
+requests (a running request is never evicted; late events of an evicted one are
+dropped) with 500 operations each. Every caller-controlled string is bounded:
+identifiers, keys and cursors to 256 characters, previews to 1 KiB, code and
+logs to 16 KiB each, with a 64 KiB per-event backstop. Record values are never
+kept, only IDs and counts.
 
 ## Programmatic API
 
@@ -212,8 +241,8 @@ embedding: `runDev`, `parseDevArguments`, `resolveProject`, `acquireLock`,
 `bindLoopback`, `createSessions`, `createDevServer`, `Supervisor`,
 `createBuilder`, `createWatcher`, `createAttemptRunner`, `createTerminal`,
 `createRuntimeController`, `createRuntimeBinding`, `createMcpEndpoint`,
-`createActivityLog`, `observeRequests`, `observeExecutor`, `observeOperations`,
-`diffManifests` and `summarizeDiff`.
+`readMcpToken`, `createActivityLog`, `observeRequest`, `observeExecutor`,
+`observeOperations`, `diffManifests` and `summarizeDiff`.
 
 A `RuntimeBinding` is one `(runtimeId, principal)` view of the runtime host:
 
@@ -238,6 +267,8 @@ await alice.operations.query('business.customer'); // IPC, pinned to alice.runti
 
 - The built-in agent panel (`/dev/agent/*`).
 - A consumer HTTP API at `/api` (reserved).
+- Remote MCP clients (such as ChatGPT) through a public tunnel; `/mcp` is
+  loopback-only and `--allowed-origin` covers browser origins, not tunnels.
 - Type diagnostics (`typecheck` events) from a watch-mode type checker.
 - Telemetry; no collector exists in this scope.
 - Watching non-imported files read at evaluation time.

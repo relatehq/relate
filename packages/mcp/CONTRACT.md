@@ -13,7 +13,12 @@ semantics, authentication, persistence, or action transactions.
 
 `createMcpServer({ executor, bindGraph })` registers exactly `discover` and
 `execute`. Tool inputs use strict schemas. The binding callback runs per tool
-invocation. Host/executor exceptions become sanitized tool failures. `discover`
+invocation. Host/executor exceptions become sanitized tool failures, except
+`BindingUnavailableError(message, { retryable })` thrown by the binding
+callback: both tools forward it as
+`error: { code: 'binding-unavailable', message, retryable }` (for `execute`,
+also `name: 'BindingUnavailableError'` and empty `logs`). It is matched by name
+and shape, so a host's separate module instance still qualifies. `discover`
 returns actor-visible overview metadata and JS instructions; object and action
 details remain accessible through the injected consumer's describe methods.
 `execute` returns the executor's result as both structured content and JSON
@@ -22,12 +27,15 @@ ordinary execution results.
 
 `createStreamableHttpHandler({ executor, bindGraph, allowedOrigins? })` returns
 a Fetch handler. The host binding callback authenticates every HTTP request and
-can return a `Response` for denial/challenges. Present origins are denied unless
-explicitly allowed. This is stateless Streamable HTTP with JSON responses, no
-sessions or resumability; GET/DELETE return 405. Cross-request MCP cancellation
-is not correlated; an aborted HTTP Request signal cancels its own execution. The
-HTTP host must link client disconnects to that signal. The host owns HTTP
-serving, TLS and host-header checks.
+can return a `Response` for denial/challenges. A thrown
+`BindingUnavailableError` does not fail the HTTP request: initialization and
+tool listing succeed and each tool call reports it; any other exception is a
+sanitized 500. Present origins are denied unless explicitly allowed. This is
+stateless Streamable HTTP with JSON responses, no sessions or resumability;
+GET/DELETE return 405. Cross-request MCP cancellation is not correlated; an
+aborted HTTP Request signal cancels its own execution. The HTTP host must link
+client disconnects to that signal. The host owns HTTP serving, TLS and
+host-header checks.
 
 `connectStdio({ executor, bindGraph, input?, output? })` returns a connected MCP
 server; the host/launcher chooses an authenticated actor. Stdout carries only

@@ -212,9 +212,15 @@ it('starts the application and serves graph operations for a declared principal'
   });
   expect(receipt).toMatchObject({ state: 'succeeded', output: { ok: true } });
   expect(page.data).toHaveLength(1);
-  await expect(controller.binding('mallory')).rejects.toThrow(
-    /Unknown development principal 'mallory'/,
-  );
+  // A principal the running runtime does not declare (e.g. added after it started).
+  await expect(controller.binding('mallory')).rejects.toMatchObject({
+    name: 'RuntimeUnavailableError',
+    reason: 'unknown-principal',
+    retryable: true,
+    message: expect.stringContaining(
+      "does not declare principal 'mallory'; it serves alice, bob",
+    ),
+  });
 });
 
 it('serves a discovery snapshot equal to runtime.operations(principal).discovery', async () => {
@@ -360,9 +366,12 @@ it('reports a setup failure as a runtime diagnostic and serves no bindings', asy
       },
     ],
   });
-  await expect(controller.binding('alice')).rejects.toThrow(
-    /runtime is not running/,
-  );
+  await expect(controller.binding('alice')).rejects.toMatchObject({
+    name: 'RuntimeUnavailableError',
+    reason: 'not-running',
+    retryable: false,
+    message: expect.stringContaining('The runtime failed to start'),
+  });
   await expect.poll(() => build.released()).toBe(true);
 });
 

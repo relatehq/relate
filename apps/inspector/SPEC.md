@@ -598,6 +598,9 @@ $ pnpm relate dev
   Project    /work/my-product
   Config     relate.config.ts
   Inspector  http://127.0.0.1:4318
+  MCP        http://127.0.0.1:4318/mcp
+             claude mcp add --transport http relate "http://127.0.0.1:4318/mcp" --header "Authorization: Bearer …"
+             Append ?as=<principal> to act as another development principal
   Watching   application definitions
   Loading    attempt 1
 
@@ -1446,7 +1449,16 @@ in-memory data, and any `runtime.*` diagnostics.
 
 `/mcp` requires a bearer token printed in the terminal; the inspector session
 cookie does not apply because MCP clients are not browsers. Host validation
-still applies; requests carrying a browser `Origin` are refused.
+still applies; requests carrying a browser `Origin` are refused. The token is
+per project (`.relate/dev/mcp-token`, owner-only, rotated with
+`--rotate-mcp-token`) so saved client entries survive restarts. When the runtime
+cannot serve a principal, tool calls fail at once with `@relate/mcp`'s public
+`BindingUnavailableError { message, retryable }`, so an agent can tell
+"restarting, retry" from "broken".
+
+**Later (planned):** cloud MCP clients such as ChatGPT need a public tunnel to
+reach `/mcp`. `--allowed-origin` admits browser origins, not tunnels, and the
+endpoint is loopback-only; tunnel support needs its own Host and token design.
 
 `/api` is reserved as a sibling of `/mcp`, not built now. When added, it mounts
 `@relate/http` in the dev server over the same `RuntimeBinding`; the runtime
@@ -1643,19 +1655,19 @@ therefore which data, connectors and action code) each call ran against.
 
 ### Ownership
 
-| Location                                                      | Adds                                                                                               |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `packages/relate`                                             | `defineGraph({ principals })`, validation, `compile().principals`                                  |
-| `packages/cli/src/dev/runtime-host.ts`, `runtime-protocol.ts` | Runtime host child and its IPC contract (implemented)                                              |
-| `packages/cli/src/dev/runtime-controller.ts`                  | Parent-side lifecycle: start, retire, drain, kill, status (implemented)                            |
-| `packages/cli/src/dev/child-process.ts`, `child-support.ts`   | Shared fork/termination/output handling, and the in-child helpers, for both children (implemented) |
-| `packages/protocol`                                           | `runtime-retired` read and action error code (public, so clients can tell it from a denial)        |
-| `packages/cli/src/dev/runtime-binding.ts`                     | `RuntimeBinding`: discovery snapshot + pinned IPC operations, shared by `/mcp` and future `/api`   |
-| `packages/cli/src/dev/mcp.ts`                                 | `/mcp`, bearer token, `?as=` (implemented)                                                         |
-| `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity` (implemented)                                       |
-| `packages/cli/src/dev/agent.ts`                               | Agent loop, `/dev/agent/*`                                                                         |
-| `apps/inspector`                                              | Principal selector, agent panel, activity timeline, graph highlights, protocol types               |
-| `tests/architecture/package-boundaries.ts`                    | `packages/cli` may import `@relate/mcp`, `@modelcontextprotocol/client`, `@anthropic-ai/sdk`       |
+| Location                                                      | Adds                                                                                                           |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `packages/relate`                                             | `defineGraph({ principals })`, validation, `compile().principals`                                              |
+| `packages/cli/src/dev/runtime-host.ts`, `runtime-protocol.ts` | Runtime host child and its IPC contract (implemented)                                                          |
+| `packages/cli/src/dev/runtime-controller.ts`                  | Parent-side lifecycle: start, retire, drain, kill, status (implemented)                                        |
+| `packages/cli/src/dev/child-process.ts`, `child-support.ts`   | Shared fork/termination/output handling, and the in-child helpers, for both children (implemented)             |
+| `packages/protocol`                                           | `runtime-retired` read and action error code (public, so clients can tell it from a denial)                    |
+| `packages/cli/src/dev/runtime-binding.ts`                     | `RuntimeBinding`: discovery snapshot + pinned IPC operations, shared by `/mcp` and future `/api`               |
+| `packages/cli/src/dev/mcp.ts`                                 | `/mcp`, bearer token, `?as=` (implemented)                                                                     |
+| `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity` (implemented)                                                   |
+| `packages/cli/src/dev/agent.ts`                               | Agent loop, `/dev/agent/*`                                                                                     |
+| `apps/inspector`                                              | Principal selector, agent panel, activity timeline, graph highlights, protocol types                           |
+| `tests/architecture/package-boundaries.ts`                    | `packages/cli` may import `@relate/mcp`, `@modelcontextprotocol/client` (step 2), `@anthropic-ai/sdk` (step 3) |
 
 Delivery order: (1) principals, the runtime host and `RuntimeBinding`; (2)
 `/mcp` with observation; (3) the agent and activity UI. Public docs

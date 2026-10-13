@@ -9,7 +9,13 @@ import type {
   ExecutionEvent,
   OperationContext,
 } from '@relate/inspector/protocol';
-import { activityLimits, preview, truncate, type ActivityLog } from './log.js';
+import {
+  activityLimits,
+  preview,
+  text,
+  truncate,
+  type ActivityLog,
+} from './log.js';
 import { observeOperations } from './operations.js';
 
 function boundedLogs(result: ExecutionResult): {
@@ -84,7 +90,10 @@ export function observeExecutor(
           logsTruncated: false,
           error: {
             name: 'Error',
-            message: error instanceof Error ? error.message : String(error),
+            message: truncate(
+              error instanceof Error ? error.message : String(error),
+              activityLimits.preview,
+            ).text,
           },
           ms: performance.now() - started,
         });
@@ -101,10 +110,10 @@ export function observeExecutor(
           : {
               status: 'failed',
               error: {
-                name: result.error.name,
+                name: text(result.error.name),
                 message: truncate(result.error.message, activityLimits.preview)
                   .text,
-                ...(result.error.code ? { code: result.error.code } : {}),
+                ...(result.error.code ? { code: text(result.error.code) } : {}),
               },
             }),
       });
