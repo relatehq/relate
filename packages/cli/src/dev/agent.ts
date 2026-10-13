@@ -16,7 +16,8 @@
  * One conversation per development principal. A turn is pinned to the
  * principal it started with; selecting another principal in the inspector
  * shows another conversation and never touches a running turn. Cancelling a
- * turn aborts the model stream and any in-flight tool call; a cancelled call
+ * turn aborts MCP setup, the model stream and any in-flight tool call. History
+ * records the cancellation so the request is not resumed. A cancelled call
  * is reported to the model as cancelled with an unknown outcome, never
  * retried. A retryable `binding-unavailable` result (the runtime restarting)
  * reaches the model as the tool result; the model decides what to do.
@@ -113,6 +114,7 @@ export interface AgentToolSession {
 
 export type ConnectAgentTools = (
   principal: string,
+  signal: AbortSignal,
 ) => Promise<AgentToolSession>;
 
 export interface AgentOptions {
@@ -242,7 +244,9 @@ export function connectLoopbackMcp(options: {
   /** The in-process agent token (`McpEndpoint.agentToken`). */
   readonly token: string;
 }): ConnectAgentTools {
-  return async (principal) => {
+  return async (principal, signal) => {
+    signal.throwIfAborted();
+
     const client = new Client({
       name: 'relate-inspector-agent',
       version: '0.0.0-dev.0',
@@ -250,16 +254,24 @@ export function connectLoopbackMcp(options: {
     const url = new URL(options.url);
 
     url.searchParams.set('as', principal);
-    await client.connect(
-      new StreamableHTTPClientTransport(url, {
-        requestInit: {
-          headers: { authorization: `Bearer ${options.token}` },
-        },
-      }),
-    );
+    const transport = new StreamableHTTPClientTransport(url, {
+      requestInit: {
+        headers: { authorization: `Bearer ${options.token}` },
+      },
+    });
+    // Also interrupt handshake notifications, which have no request signal.
+    const abort = () => {
+      void transport.close().catch(() => {});
+    };
+
+    signal.addEventListener('abort', abort, { once: true });
 
     try {
-      const { tools } = await client.listTools();
+      await client.connect(transport, { signal });
+      signal.throwIfAborted();
+      const { tools } = await client.listTools(undefined, { signal });
+
+      signal.throwIfAborted();
 
       return {
         instructions: client.getInstructions(),
@@ -275,6 +287,8 @@ export function connectLoopbackMcp(options: {
       await client.close().catch(() => {});
 
       throw error;
+    } finally {
+      signal.removeEventListener('abort', abort);
     }
   };
 }
@@ -424,9 +438,6 @@ export function createAgent(options: AgentOptions): Agent {
         // Summarized so the panel shows progress instead of a silent wait.
         thinking: { type: 'adaptive', display: 'summarized' },
         output_config: { effort: agentEffort },
-        // A refusal is retried server-side on a fallback model.
-        betas: ['server-side-fallback-2026-07-01'],
-        fallbacks: 'default',
         cache_control: { type: 'ephemeral' },
         system: request.system,
         tools: request.tools,
@@ -599,7 +610,7 @@ export function createAgent(options: AgentOptions): Agent {
     let session: AgentToolSession | null = null;
 
     try {
-      session = await options.connect(turn.principal);
+      session = await options.connect(turn.principal, signal);
 
       const request = {
         system: systemPrompt(turn.principal, session.instructions),
@@ -661,6 +672,13 @@ export function createAgent(options: AgentOptions): Agent {
         notice(target, 'info', 'Cancelled before the model finished.');
       else notice(target, 'error', redact(describe(error)));
     } finally {
+      if (signal.aborted)
+        target.history.push({
+          role: 'user',
+          content:
+            'The developer cancelled this turn. Do not resume the cancelled request unless they explicitly ask you to. Cancellation does not undo completed actions; any tool outcome reported as unknown must be checked before acting again.',
+        });
+
       await session?.close().catch(() => {});
       target.turn = null;
       emit({ type: 'turn', principal: target.principal, turn: null });

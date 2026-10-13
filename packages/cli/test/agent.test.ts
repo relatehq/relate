@@ -394,6 +394,8 @@ it('streams each response with the pinned model, explicit effort and the mapped 
     tools: toAnthropicTools(mcpTools()),
     messages: [{ role: 'user', content: 'What is in the graph?' }],
   });
+  expect(model.requests[0]).not.toHaveProperty('fallbacks');
+  expect(model.requests[0]).not.toHaveProperty('betas');
   expect(model.requests[0]!.system).toContain('"alice"');
   expect(model.requests[0]!.system).toContain('Call discover first.');
   expect(conversation.messages).toMatchObject([
@@ -690,7 +692,7 @@ it('cancels a turn while the model is streaming and keeps the conversation usabl
       () => reply([{ type: 'text', text: 'Fresh answer.' }]),
     ],
   });
-  const { turnId } = agent.send('alice', 'Long question');
+  const { turnId } = agent.send('alice', 'Delete all notes');
 
   await waitUntil(() => model.requests.length === 1, 'the first request');
   expect(agent.cancel(turnId)).toBe(true);
@@ -701,11 +703,15 @@ it('cancels a turn while the model is streaming and keeps the conversation usabl
     level: 'info',
     text: 'Cancelled before the model finished.',
   });
-  agent.send('alice', 'Another question');
+  agent.send('alice', 'How many remain?');
   await settled(agent, 'alice');
   expect(model.requests[1]!.messages).toEqual([
-    { role: 'user', content: 'Long question' },
-    { role: 'user', content: 'Another question' },
+    { role: 'user', content: 'Delete all notes' },
+    {
+      role: 'user',
+      content: expect.stringContaining('Do not resume the cancelled request'),
+    },
+    { role: 'user', content: 'How many remain?' },
   ]);
   expect(agent.cancel(turnId)).toBe(false);
 });
@@ -743,7 +749,11 @@ it('cancels an in-flight tool call, reports it to the model as cancelled and nev
     kind: 'notice',
     text: 'Cancelled.',
   });
-  expect(history.at(-2)).toEqual({
+  expect(history.at(-2)).toMatchObject({
+    role: 'user',
+    content: expect.stringContaining('Do not resume the cancelled request'),
+  });
+  expect(history.at(-3)).toEqual({
     role: 'user',
     content: [
       {
@@ -1195,6 +1205,7 @@ async function createLoopback(options: {
   steps: Step[];
   /** Replace the runtime; default: a real runtime host running `noteApp`. */
   runtime?: 'note-app' | { binding(principal: string): Promise<never> };
+  beforeRequest?: (request: Request) => Promise<void>;
 }) {
   const activity = createActivityLog();
   let runtime;
@@ -1244,7 +1255,11 @@ async function createLoopback(options: {
   let app: { fetch(request: Request): Response | Promise<Response> } | null =
     null;
   const server = createAdaptorServer({
-    fetch: (request) => app!.fetch(request),
+    fetch: async (request) => {
+      await options.beforeRequest?.(request);
+
+      return app!.fetch(request);
+    },
   }) as Server;
 
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
@@ -1401,4 +1416,84 @@ it('delivers a retryable BindingUnavailableError from the real /mcp to the model
       requestId: toolMessages(conversation)[0]!.requestId,
     },
   ]);
+});
+
+it.each(['initialize', 'notifications/initialized', 'tools/list'])(
+  'cancels real MCP setup during %s and records cancellation before the next turn',
+  async (method) => {
+    const release = deferred<void>();
+    let waiting = false;
+    const { agent, model } = await createLoopback({
+      runtime: {
+        binding: async () => {
+          throw new RuntimeUnavailableError('Restarting', 'not-running', true);
+        },
+      },
+      steps: [() => reply([{ type: 'text', text: 'New question.' }])],
+      beforeRequest: async (request) => {
+        if (request.method !== 'POST') return;
+
+        const body = (await request.clone().json()) as { method: string };
+
+        if (body.method !== method || waiting) return;
+
+        waiting = true;
+        await release.promise;
+      },
+    });
+
+    try {
+      const { turnId } = agent.send('alice', 'Delete all notes');
+
+      await waitUntil(() => waiting, method);
+      agent.cancel(turnId);
+      await settled(agent, 'alice');
+      await agent.stop();
+      expect(model.requests).toHaveLength(0);
+
+      agent.send('alice', 'How many remain?');
+      await settled(agent, 'alice');
+      expect(model.requests[0]!.messages).toEqual([
+        { role: 'user', content: 'Delete all notes' },
+        {
+          role: 'user',
+          content: expect.stringContaining(
+            'Do not resume the cancelled request',
+          ),
+        },
+        { role: 'user', content: 'How many remain?' },
+      ]);
+    } finally {
+      release.resolve();
+    }
+  },
+);
+
+it('shutdown aborts real MCP initialization without waiting for the server', async () => {
+  const release = deferred<void>();
+  let waiting = false;
+  const { agent, model } = await createLoopback({
+    runtime: {
+      binding: async () => {
+        throw new RuntimeUnavailableError('Restarting', 'not-running', true);
+      },
+    },
+    steps: [],
+    beforeRequest: async () => {
+      waiting = true;
+      await release.promise;
+    },
+  });
+
+  try {
+    agent.send('alice', 'Delete all notes');
+    await waitUntil(() => waiting, 'MCP initialization');
+    const stopped = agent.stop();
+
+    await settled(agent, 'alice');
+    await stopped;
+    expect(model.requests).toHaveLength(0);
+  } finally {
+    release.resolve();
+  }
 });

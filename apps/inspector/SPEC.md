@@ -1534,12 +1534,14 @@ the UI (a playground without the model) are later work.
 
 As implemented: `claude-opus-5-5`, streamed, adaptive thinking (summarized, and
 shown in the panel as collapsed progress) with effort `high`, `max_tokens`
-64,000, server-side refusal fallbacks. `stop_reason` is checked before tools
-run; every `tool_use` of a response runs and all results return in one user
-message; history is append-only, so thinking blocks stay valid. Cancelling a
-turn aborts the stream and any in-flight `tools/call`; a cancelled call is
-answered to the model as cancelled with an unknown outcome and never retried,
-and a retryable `binding-unavailable` result reaches the model unchanged.
+64,000, without automatic refusal fallbacks. `stop_reason` is checked before
+tools run; every `tool_use` of a response runs and all results return in one
+user message; history is append-only, so thinking blocks stay valid. Cancelling
+a turn aborts MCP setup, the stream and any in-flight `tools/call`. History
+records the cancellation so a later message does not resume the cancelled
+request without the developer explicitly asking. A cancelled call is answered to
+the model as cancelled with an unknown outcome and never retried, and a
+retryable `binding-unavailable` result reaches the model unchanged.
 Conversations are in memory and lost when `relate dev` stops; the model's
 history is never trimmed, so **New conversation** resets a principal's
 conversation (refused while a turn runs), for example after the context window

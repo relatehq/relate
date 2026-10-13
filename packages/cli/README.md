@@ -244,10 +244,10 @@ kept, only IDs and counts.
 
 `src/dev/agent.ts` runs the inspector's agent loop in the dev server with
 `@anthropic-ai/sdk`: model `claude-opus-5-5`, streamed, adaptive thinking with
-effort `high` set explicitly, `max_tokens` 64,000, and server-side refusal
-fallbacks (`fallbacks: 'default'`). The key comes from `ANTHROPIC_API_KEY` in
-the dev server's environment only; without it the agent reports `missing-key`
-and `POST /dev/agent/turns` answers `503` with the setup line.
+effort `high` set explicitly and `max_tokens` 64,000. Refusals are shown without
+switching to a fallback model. The key comes from `ANTHROPIC_API_KEY` in the dev
+server's environment only; without it the agent reports `missing-key` and
+`POST /dev/agent/turns` answers `503` with the setup line.
 
 The model reaches the graph exactly as an external client does: an
 `@modelcontextprotocol/client` connects over loopback to this server's own
@@ -282,15 +282,17 @@ Turn requests need the session cookie, the page's own `Origin` and a JSON body.
 `400` for an empty or oversized message, `404` for an undeclared principal,
 `409` while that principal already has a running turn or before the first model,
 `503` without a key. Conversations are in memory, one per principal; a turn is
-pinned to the principal it started with. Cancelling aborts the model stream and
-any in-flight `tools/call`; a cancelled call is answered to the model as
-cancelled with an unknown outcome and never retried. A retryable
-`binding-unavailable` result reaches the model unchanged. A reset clears that
-principal's history and display and emits a `reset` event. Thinking is requested
-with `display: 'summarized'` and streamed as `thinking` messages. When the
-running runtime changed since a conversation's previous turn, the next user
-message starts with a note that earlier reads may be stale. Shapes are in
-`@relate/inspector/protocol` (`agentEventSchema` and friends).
+pinned to the principal it started with. Cancelling aborts MCP setup, the model
+stream and any in-flight `tools/call`. History records that the developer
+cancelled the turn and it must not be resumed without an explicit request. A
+cancelled call is answered to the model as cancelled with an unknown outcome and
+never retried. A retryable `binding-unavailable` result reaches the model
+unchanged. A reset clears that principal's history and display and emits a
+`reset` event. Thinking is requested with `display: 'summarized'` and streamed
+as `thinking` messages. When the running runtime changed since a conversation's
+previous turn, the next user message starts with a note that earlier reads may
+be stale. Shapes are in `@relate/inspector/protocol` (`agentEventSchema` and
+friends).
 
 ## Programmatic API
 

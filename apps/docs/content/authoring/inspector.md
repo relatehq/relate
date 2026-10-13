@@ -227,10 +227,12 @@ longer fits the model's context window; cancel a running question first.
 **Thinking.** While the agent works, a collapsed **Thinking** entry shows a
 summary of its reasoning, so a long pause has visible progress.
 
-**Cancel.** While the agent works, **Cancel** stops the response and any tool
-call still running. A cancelled call is reported to the agent as cancelled with
-an unknown outcome and is never retried: an action may or may not have run, so
-check the data before asking again.
+**Cancel.** While the agent works, **Cancel** stops connection setup, the
+response and any tool call still running. The conversation records the
+cancellation so the agent knows not to resume that request unless you ask it to.
+A cancelled call is reported to the agent as cancelled with an unknown outcome
+and is never retried: an action may or may not have run, so check the data
+before asking again.
 
 **Restarts.** If you save a change while the agent works, its next tool call can
 return `binding-unavailable` with `retryable: true`. The agent sees that result
