@@ -202,6 +202,13 @@ function Message(props: {
           <ModelText text={message.text} />
         </div>
       );
+    case 'thinking':
+      return message.text.trim() === '' ? null : (
+        <details className="agent-thinking">
+          <summary>Thinking</summary>
+          <ModelText text={message.text} />
+        </details>
+      );
     case 'notice':
       return (
         <div className={`agent-notice ${message.level}`}>{message.text}</div>
@@ -287,6 +294,15 @@ export function AgentPanel() {
     if (result.ok) setDraft('');
     else setError(result.error);
   };
+  const reset = async () => {
+    if (!client || principal === null || turn) return;
+
+    setError(null);
+
+    const result = await client.reset(principal);
+
+    if (!result.ok) setError(result.error);
+  };
   const cancel = async () => {
     if (!client || !turn) return;
 
@@ -307,6 +323,19 @@ export function AgentPanel() {
         <div className="title-row">
           <span className="title">Agent</span>
           {principal !== null && <span className="meta">as {principal}</span>}
+          {available && principal !== null && messages.length > 0 && (
+            <Button
+              ariaLabel="Start a new conversation"
+              title={
+                turn
+                  ? 'Cancel the running turn first'
+                  : `Clear the conversation as ${principal} and start afresh`
+              }
+              onClick={() => void reset()}
+            >
+              New conversation
+            </Button>
+          )}
           <span className="close">
             <Button
               ariaLabel="Close the agent panel"

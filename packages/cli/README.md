@@ -270,12 +270,13 @@ answered as such); every `tool_use` of a response runs and all `tool_result`s
 return in one user message; history is append-only. A turn stops after 40 model
 responses.
 
-| Route                                  | Body / reply                                                     |
-| -------------------------------------- | ---------------------------------------------------------------- |
-| `GET /dev/agent/conversations`         | `AgentSnapshot`: availability and one conversation per principal |
-| `GET /dev/agent/events`                | SSE: `AgentSnapshot`, then `turn` / `message` / `text` events    |
-| `POST /dev/agent/turns`                | `{ principal, text }` → `202 { turnId, principal }`              |
-| `POST /dev/agent/turns/:turnId/cancel` | `202 { turnId, principal }`, or `404` when not running           |
+| Route                                            | Body / reply                                                     |
+| ------------------------------------------------ | ---------------------------------------------------------------- |
+| `GET /dev/agent/conversations`                   | `AgentSnapshot`: availability and one conversation per principal |
+| `GET /dev/agent/events`                          | SSE: `AgentSnapshot`, then `turn` / `message` / `text` events    |
+| `POST /dev/agent/turns`                          | `{ principal, text }` → `202 { turnId, principal }`              |
+| `POST /dev/agent/turns/:turnId/cancel`           | `202 { turnId, principal }`, or `404` when not running           |
+| `POST /dev/agent/conversations/:principal/reset` | `202 { principal }`; `404` undeclared, `409` while a turn runs   |
 
 Turn requests need the session cookie, the page's own `Origin` and a JSON body.
 `400` for an empty or oversized message, `404` for an undeclared principal,
@@ -284,7 +285,11 @@ Turn requests need the session cookie, the page's own `Origin` and a JSON body.
 pinned to the principal it started with. Cancelling aborts the model stream and
 any in-flight `tools/call`; a cancelled call is answered to the model as
 cancelled with an unknown outcome and never retried. A retryable
-`binding-unavailable` result reaches the model unchanged. Shapes are in
+`binding-unavailable` result reaches the model unchanged. A reset clears that
+principal's history and display and emits a `reset` event. Thinking is requested
+with `display: 'summarized'` and streamed as `thinking` messages. When the
+running runtime changed since a conversation's previous turn, the next user
+message starts with a note that earlier reads may be stale. Shapes are in
 `@relate/inspector/protocol` (`agentEventSchema` and friends).
 
 ## Programmatic API

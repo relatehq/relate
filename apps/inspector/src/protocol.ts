@@ -350,6 +350,7 @@ export function activityRequestId(event: ActivityEvent): string {
  *   GET  /dev/agent/events (SSE)             → AgentSnapshot, then AgentEvent…
  *   POST /dev/agent/turns  AgentTurnRequest  → 202 AgentTurnAccepted
  *   POST /dev/agent/turns/:turnId/cancel     → 202 AgentTurnAccepted
+ *   POST /dev/agent/conversations/:principal/reset → 202 AgentResetAccepted
  */
 export const AGENT_TEXT_LIMIT = 32 * 1024;
 
@@ -371,6 +372,8 @@ export const agentMessageSchema = z.discriminatedUnion('kind', [
   }),
   /** One text block of a model response; grows by `text` events while streaming. */
   z.strictObject({ kind: z.literal('assistant'), id: text, text: z.string() }),
+  /** A summary of the model's reasoning; grows by `text` events while streaming. */
+  z.strictObject({ kind: z.literal('thinking'), id: text, text: z.string() }),
   z.strictObject({
     kind: z.literal('tool'),
     /** The model's `tool_use` ID. */
@@ -426,13 +429,15 @@ export const agentEventSchema = z.discriminatedUnion('type', [
     principal: text,
     message: agentMessageSchema,
   }),
-  /** Append streamed text to an assistant message. */
+  /** Append streamed text to an assistant or thinking message. */
   z.strictObject({
     type: z.literal('text'),
     principal: text,
     messageId: text,
     delta: z.string(),
   }),
+  /** The principal's conversation was cleared; the model starts afresh. */
+  z.strictObject({ type: z.literal('reset'), principal: text }),
 ]);
 
 export const agentTurnRequestSchema = z.strictObject({
@@ -445,6 +450,8 @@ export const agentTurnAcceptedSchema = z.strictObject({
   principal: text,
 });
 
+export const agentResetAcceptedSchema = z.strictObject({ principal: text });
+
 export const agentErrorSchema = z.strictObject({ error: z.string() });
 
 export type AgentAvailability = z.infer<typeof agentAvailabilitySchema>;
@@ -456,6 +463,7 @@ export type AgentSnapshot = z.infer<typeof agentSnapshotSchema>;
 export type AgentEvent = z.infer<typeof agentEventSchema>;
 export type AgentTurnRequest = z.infer<typeof agentTurnRequestSchema>;
 export type AgentTurnAccepted = z.infer<typeof agentTurnAcceptedSchema>;
+export type AgentResetAccepted = z.infer<typeof agentResetAcceptedSchema>;
 
 /** Bootstrap exchange: the terminal token becomes an opaque session cookie. */
 export const sessionRequestSchema = z.strictObject({ token: text });

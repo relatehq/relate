@@ -220,7 +220,12 @@ application code (the compile and runtime processes), the code the agent runs in
 principal's own conversation; the model never sees records it read as someone
 else. A question that is still running keeps the principal it started with, even
 if you switch while it works. Conversations are kept in memory and are cleared
-when `relate dev` stops.
+when `relate dev` stops. **New conversation** clears the selected principal's
+conversation so the agent starts afresh, for example once a long conversation no
+longer fits the model's context window; cancel a running question first.
+
+**Thinking.** While the agent works, a collapsed **Thinking** entry shows a
+summary of its reasoning, so a long pause has visible progress.
 
 **Cancel.** While the agent works, **Cancel** stops the response and any tool
 call still running. A cancelled call is reported to the agent as cancelled with
@@ -229,7 +234,10 @@ check the data before asking again.
 
 **Restarts.** If you save a change while the agent works, its next tool call can
 return `binding-unavailable` with `retryable: true`. The agent sees that result
-and decides what to do; `relate dev` never repeats a call for it.
+and decides what to do; `relate dev` never repeats a call for it. When the
+runtime restarted between two of your messages, the next message tells the agent
+that in-memory data was reset and earlier reads may be stale, and the panel
+shows a note saying so.
 
 ## The Activity Log
 

@@ -20,6 +20,7 @@ import {
   agentModel,
   agentSetup,
   connectLoopbackMcp,
+  runtimeRestartedNote,
   createActivityLog,
   createAgent,
   createDevServer,
@@ -37,6 +38,7 @@ import type {
 } from '@relate/cli';
 import {
   agentEventSchema,
+  agentResetAcceptedSchema,
   agentSnapshotSchema,
   agentTurnAcceptedSchema,
 } from '@relate/inspector/protocol';
@@ -66,6 +68,11 @@ type Message = Awaited<
 
 type Block =
   | { readonly type: 'text'; readonly text: string }
+  | {
+      readonly type: 'thinking';
+      readonly thinking: string;
+      readonly signature: string;
+    }
   | {
       readonly type: 'tool_use';
       readonly id: string;
@@ -155,7 +162,11 @@ function fakeModel(steps: Step[]) {
           ).then((message) => {
             message.content.forEach((block, index) => {
               const start =
-                block.type === 'text' ? { ...block, text: '' } : block;
+                block.type === 'text'
+                  ? { ...block, text: '' }
+                  : block.type === 'thinking'
+                    ? { ...block, thinking: '' }
+                    : block;
 
               for (const listener of listeners)
                 listener({
@@ -170,6 +181,14 @@ function fakeModel(steps: Step[]) {
                     type: 'content_block_delta',
                     index,
                     delta: { type: 'text_delta', text: block.text },
+                  } as never);
+
+              if (block.type === 'thinking')
+                for (const listener of listeners)
+                  listener({
+                    type: 'content_block_delta',
+                    index,
+                    delta: { type: 'thinking_delta', thinking: block.thinking },
                   } as never);
             });
 
@@ -315,6 +334,7 @@ function createTestAgent(options: {
   tools?: ReturnType<typeof fakeTools>;
   principals?: readonly string[];
   env?: NodeJS.ProcessEnv;
+  runtimeId?: () => string | null;
 }) {
   const model = fakeModel(options.steps);
   const tools = options.tools ?? fakeTools();
@@ -324,6 +344,7 @@ function createTestAgent(options: {
     principals: () => ({ names }),
     connect: tools.connect,
     createClient: () => model.client,
+    ...(options.runtimeId ? { runtimeId: options.runtimeId } : {}),
   });
 
   cleanups.push(() => agent.stop());
@@ -369,7 +390,7 @@ it('streams each response with the pinned model, explicit effort and the mapped 
   expect(model.requests[0]).toMatchObject({
     model: 'claude-opus-5-5',
     output_config: { effort: agentEffort },
-    thinking: { type: 'adaptive' },
+    thinking: { type: 'adaptive', display: 'summarized' },
     tools: toAnthropicTools(mcpTools()),
     messages: [{ role: 'user', content: 'What is in the graph?' }],
   });
@@ -378,6 +399,125 @@ it('streams each response with the pinned model, explicit effort and the mapped 
   expect(conversation.messages).toMatchObject([
     { kind: 'user', text: 'What is in the graph?' },
     { kind: 'assistant', text: 'The graph has notes.' },
+  ]);
+});
+
+it('shows summarized thinking as it streams and keeps the thinking block in the model history', async () => {
+  const thinking = {
+    type: 'thinking' as const,
+    thinking: 'Notes are the only object; count them.',
+    signature: 'sig',
+  };
+  const { agent, model } = createTestAgent({
+    steps: [
+      () => reply([thinking, { type: 'text', text: 'One note.' }]),
+      () => reply([{ type: 'text', text: 'Still one.' }]),
+    ],
+  });
+
+  agent.send('alice', 'How many notes?');
+  const conversation = await settled(agent, 'alice');
+
+  agent.send('alice', 'And now?');
+  await settled(agent, 'alice');
+
+  expect(conversation.messages).toMatchObject([
+    { kind: 'user', text: 'How many notes?' },
+    { kind: 'thinking', text: 'Notes are the only object; count them.' },
+    { kind: 'assistant', text: 'One note.' },
+  ]);
+  // Append-only history: the next request replays the thinking block unchanged.
+  expect(model.requests[1]!.messages[1]).toMatchObject({
+    role: 'assistant',
+    content: [thinking, { type: 'text', text: 'One note.' }],
+  });
+});
+
+it('starts a new conversation on reset, and refuses while a turn runs or for an unknown principal', async () => {
+  const hold = deferred<Message>();
+  const { agent, model } = createTestAgent({
+    steps: [
+      () => reply([{ type: 'text', text: 'First.' }]),
+      () => hold.promise,
+      () => reply([{ type: 'text', text: 'Fresh.' }]),
+    ],
+  });
+  const events: AgentEvent[] = [];
+
+  agent.subscribe((event) => events.push(event));
+  agent.send('alice', 'One');
+  await settled(agent, 'alice');
+  agent.send('alice', 'Two');
+
+  expect(() => agent.reset('alice')).toThrow(
+    expect.objectContaining({ status: 409 }),
+  );
+  expect(() => agent.reset('mallory')).toThrow(
+    expect.objectContaining({ status: 404 }),
+  );
+
+  hold.resolve(reply([{ type: 'text', text: 'Second.' }]));
+  await settled(agent, 'alice');
+
+  expect(agent.reset('alice')).toEqual({ principal: 'alice' });
+  expect(conversationOf(agent, 'alice')).toBeUndefined();
+  expect(events.at(-1)).toEqual({ type: 'reset', principal: 'alice' });
+
+  agent.send('alice', 'Three');
+  const fresh = await settled(agent, 'alice');
+
+  expect(model.requests[2]!.messages).toEqual([
+    { role: 'user', content: 'Three' },
+  ]);
+  expect(fresh.messages).toMatchObject([
+    { kind: 'user', text: 'Three' },
+    { kind: 'assistant', text: 'Fresh.' },
+  ]);
+  // A principal with no conversation yet resets without error.
+  expect(agent.reset('bob')).toEqual({ principal: 'bob' });
+});
+
+it('tells the model once when the runtime restarted since its previous turn', async () => {
+  let runtimeId: string | null = 'runtime-a';
+  const { agent, model } = createTestAgent({
+    runtimeId: () => runtimeId,
+    steps: [
+      () => reply([{ type: 'text', text: 'Added.' }]),
+      () => reply([{ type: 'text', text: 'Same runtime.' }]),
+      () => reply([{ type: 'text', text: 'Re-reading.' }]),
+      () => reply([{ type: 'text', text: 'Still fine.' }]),
+    ],
+  });
+
+  agent.send('alice', 'Add a note');
+  await settled(agent, 'alice');
+  agent.send('alice', 'Count them');
+  await settled(agent, 'alice');
+  runtimeId = 'runtime-b';
+  agent.send('alice', 'Count again');
+  await settled(agent, 'alice');
+  agent.send('alice', 'Once more');
+  const conversation = await settled(agent, 'alice');
+
+  expect(model.requests[1]!.messages.at(-1)).toEqual({
+    role: 'user',
+    content: 'Count them',
+  });
+  expect(model.requests[2]!.messages.at(-1)).toEqual({
+    role: 'user',
+    content: [
+      { type: 'text', text: runtimeRestartedNote },
+      { type: 'text', text: 'Count again' },
+    ],
+  });
+  expect(model.requests[3]!.messages.at(-1)).toEqual({
+    role: 'user',
+    content: 'Once more',
+  });
+  expect(
+    conversation.messages.filter((message) => message.kind === 'notice'),
+  ).toMatchObject([
+    { level: 'info', text: expect.stringContaining('restarted') },
   ]);
 });
 
@@ -891,6 +1031,38 @@ it('serves turns, cancellation, conversations and events under /dev/agent with a
       messages: [{ kind: 'user', text: 'Hello' }, { kind: 'notice' }],
     },
   ]);
+});
+
+it('resets a conversation over /dev/agent and refuses a reset from outside the page', async () => {
+  const { agent } = createTestAgent({
+    steps: [() => reply([{ type: 'text', text: 'Hi.' }])],
+  });
+  const { request } = await createRouteHarness(agent);
+
+  agent.send('alice', 'Hello');
+  await settled(agent, 'alice');
+
+  const crossSite = await request('/dev/agent/conversations/alice/reset', {
+    method: 'POST',
+    headers: { origin: 'https://evil.example' },
+    body: {},
+  });
+  const unknown = await request('/dev/agent/conversations/mallory/reset', {
+    method: 'POST',
+    body: {},
+  });
+  const reset = await request('/dev/agent/conversations/alice/reset', {
+    method: 'POST',
+    body: {},
+  });
+
+  expect(crossSite.status).toBe(403);
+  expect(unknown.status).toBe(404);
+  expect(reset.status).toBe(202);
+  expect(agentResetAcceptedSchema.parse(await reset.json())).toEqual({
+    principal: 'alice',
+  });
+  expect(conversationOf(agent, 'alice')).toBeUndefined();
 });
 
 it('refuses turns that do not come from the inspector page', async () => {

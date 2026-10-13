@@ -1532,17 +1532,23 @@ pinned to the principal it started with; switching in the UI selects another
 conversation and does not affect a turn already running. Direct tool calls from
 the UI (a playground without the model) are later work.
 
-As implemented: `claude-opus-5-5`, streamed, adaptive thinking with effort
-`high`, `max_tokens` 64,000, server-side refusal fallbacks. `stop_reason` is
-checked before tools run; every `tool_use` of a response runs and all results
-return in one user message; history is append-only, so thinking blocks stay
-valid. Cancelling a turn aborts the stream and any in-flight `tools/call`; a
-cancelled call is answered to the model as cancelled with an unknown outcome and
-never retried, and a retryable `binding-unavailable` result reaches the model
-unchanged. Conversations are in memory and lost when `relate dev` stops. The
-browser talks to the loop through `/dev/agent/*` (`GET conversations`,
-`GET events` (SSE), `POST turns`, `POST turns/:turnId/cancel`), whose shapes are
-in [`protocol.ts`](./src/protocol.ts) and validated by the browser.
+As implemented: `claude-opus-5-5`, streamed, adaptive thinking (summarized, and
+shown in the panel as collapsed progress) with effort `high`, `max_tokens`
+64,000, server-side refusal fallbacks. `stop_reason` is checked before tools
+run; every `tool_use` of a response runs and all results return in one user
+message; history is append-only, so thinking blocks stay valid. Cancelling a
+turn aborts the stream and any in-flight `tools/call`; a cancelled call is
+answered to the model as cancelled with an unknown outcome and never retried,
+and a retryable `binding-unavailable` result reaches the model unchanged.
+Conversations are in memory and lost when `relate dev` stops; the model's
+history is never trimmed, so **New conversation** resets a principal's
+conversation (refused while a turn runs), for example after the context window
+is exceeded. A runtime restart between turns is not a conversation boundary: the
+next user message starts with a note that in-memory data was reset and earlier
+reads may be stale. The browser talks to the loop through `/dev/agent/*`
+(`GET conversations`, `GET events` (SSE), `POST turns`,
+`POST turns/:turnId/cancel`, `POST conversations/:principal/reset`), whose
+shapes are in [`protocol.ts`](./src/protocol.ts) and validated by the browser.
 
 ### Activity observation
 

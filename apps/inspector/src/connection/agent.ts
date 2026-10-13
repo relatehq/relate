@@ -11,12 +11,14 @@
 import {
   agentErrorSchema,
   agentEventSchema,
+  agentResetAcceptedSchema,
   agentTurnAcceptedSchema,
 } from '../protocol.js';
 import type {
   AgentAvailability,
   AgentConversation,
   AgentEvent,
+  AgentResetAccepted,
   AgentTurnAccepted,
 } from '../protocol.js';
 
@@ -62,6 +64,13 @@ export function applyAgentEvent(
     };
 
   const conversations = new Map(state.conversations);
+
+  if (event.type === 'reset') {
+    conversations.delete(event.principal);
+
+    return { ...state, conversations };
+  }
+
   const current =
     conversations.get(event.principal) ?? emptyConversation(event.principal);
 
@@ -83,7 +92,8 @@ export function applyAgentEvent(
     }
     case 'text': {
       const messages = current.messages.map((message) =>
-        message.id === event.messageId && message.kind === 'assistant'
+        message.id === event.messageId &&
+        (message.kind === 'assistant' || message.kind === 'thinking')
           ? { ...message, text: message.text + event.delta }
           : message,
       );
@@ -100,6 +110,10 @@ export type SendResult =
   | { readonly ok: true; readonly turn: AgentTurnAccepted }
   | { readonly ok: false; readonly error: string };
 
+export type ResetResult =
+  | { readonly ok: true; readonly reset: AgentResetAccepted }
+  | { readonly ok: false; readonly error: string };
+
 export interface AgentClient {
   readonly getState: () => AgentState;
   readonly subscribe: (listener: () => void) => () => void;
@@ -109,6 +123,24 @@ export interface AgentClient {
   stop(): void;
   send(principal: string, text: string): Promise<SendResult>;
   cancel(turnId: string): Promise<SendResult>;
+  /** Start a new conversation for `principal`; refused while a turn runs. */
+  reset(principal: string): Promise<ResetResult>;
+}
+
+const unexpectedReply = 'relate dev sent an unexpected reply';
+
+function accepted(
+  result:
+    | { readonly ok: true; readonly payload: unknown }
+    | { readonly ok: false; readonly error: string },
+): SendResult {
+  if (!result.ok) return result;
+
+  const turn = agentTurnAcceptedSchema.safeParse(result.payload);
+
+  return turn.success
+    ? { ok: true, turn: turn.data }
+    : { ok: false, error: unexpectedReply };
 }
 
 const defaultRetries = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000];
@@ -191,7 +223,12 @@ export function createAgentClient(options: {
       else setConnection('reconnecting');
     };
   };
-  const post = async (path: string, body: unknown): Promise<SendResult> => {
+
+  type Posted =
+    | { readonly ok: true; readonly payload: unknown }
+    | { readonly ok: false; readonly error: string };
+
+  const post = async (path: string, body: unknown): Promise<Posted> => {
     let response: Response;
 
     try {
@@ -214,13 +251,7 @@ export function createAgentClient(options: {
       payload = null;
     }
 
-    if (response.ok) {
-      const turn = agentTurnAcceptedSchema.safeParse(payload);
-
-      return turn.success
-        ? { ok: true, turn: turn.data }
-        : { ok: false, error: 'relate dev sent an unexpected reply' };
-    }
+    if (response.ok) return { ok: true, payload };
 
     const failure = agentErrorSchema.safeParse(payload);
 
@@ -258,8 +289,25 @@ export function createAgentClient(options: {
       // restarted relate dev may have a key the old one lacked, or not.
       emit({ ...state, connection: 'stopped', availability: null });
     },
-    send: (principal, text) => post('dev/agent/turns', { principal, text }),
-    cancel: (turnId) =>
-      post(`dev/agent/turns/${encodeURIComponent(turnId)}/cancel`, {}),
+    send: async (principal, text) =>
+      accepted(await post('dev/agent/turns', { principal, text })),
+    cancel: async (turnId) =>
+      accepted(
+        await post(`dev/agent/turns/${encodeURIComponent(turnId)}/cancel`, {}),
+      ),
+    async reset(principal) {
+      const result = await post(
+        `dev/agent/conversations/${encodeURIComponent(principal)}/reset`,
+        {},
+      );
+
+      if (!result.ok) return result;
+
+      const reset = agentResetAcceptedSchema.safeParse(result.payload);
+
+      return reset.success
+        ? { ok: true, reset: reset.data }
+        : { ok: false, error: unexpectedReply };
+    },
   };
 }

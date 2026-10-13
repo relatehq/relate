@@ -297,6 +297,8 @@ export async function runDev(options: RunDevOptions): Promise<number> {
         url: `${bound.url}/mcp`,
         token: mcp.agentToken,
       }),
+      runtimeId: () =>
+        runtime?.status?.state === 'running' ? runtime.status.runtimeId : null,
     });
     const server = createDevServer({
       supervisor,

@@ -170,3 +170,57 @@ it('posts turns and cancellations and validates the replies', async () => {
     ['http://127.0.0.1:4318/dev/agent/turns/t1/cancel', '{}'],
   ]);
 });
+
+it('appends thinking text and clears a conversation on reset', () => {
+  const events: AgentEvent[] = [
+    snapshot(),
+    {
+      type: 'message',
+      principal: 'alice',
+      message: { kind: 'thinking', id: 'th1', text: 'Count ' },
+    },
+    { type: 'text', principal: 'alice', messageId: 'th1', delta: 'the notes.' },
+    {
+      type: 'message',
+      principal: 'bob',
+      message: { kind: 'assistant', id: 'a1', text: 'Nothing visible.' },
+    },
+  ];
+  const before = events.reduce(applyAgentEvent, initialAgent);
+
+  expect(before.conversations.get('alice')?.messages).toEqual([
+    { kind: 'thinking', id: 'th1', text: 'Count the notes.' },
+  ]);
+
+  const after = applyAgentEvent(before, { type: 'reset', principal: 'alice' });
+
+  expect(after.conversations.has('alice')).toBe(false);
+  expect(after.conversations.get('bob')?.messages).toHaveLength(1);
+});
+
+it('posts a reset for the principal and validates the reply', async () => {
+  const fetch = vi
+    .fn<typeof globalThis.fetch>()
+    .mockResolvedValueOnce(
+      Response.json({ principal: 'al ice' }, { status: 202 }),
+    )
+    .mockResolvedValueOnce(
+      Response.json({ error: 'A turn is running' }, { status: 409 }),
+    );
+  const client = createAgentClient({
+    baseUrl: new URL('http://127.0.0.1:4318/'),
+    fetch,
+  });
+
+  expect(await client.reset('al ice')).toEqual({
+    ok: true,
+    reset: { principal: 'al ice' },
+  });
+  expect(await client.reset('al ice')).toEqual({
+    ok: false,
+    error: 'A turn is running',
+  });
+  expect(fetch.mock.calls[0]![0]).toBe(
+    'http://127.0.0.1:4318/dev/agent/conversations/al%20ice/reset',
+  );
+});

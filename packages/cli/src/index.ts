@@ -104,6 +104,7 @@ export {
   agentMaxTokens,
   agentModel,
   agentSetup,
+  runtimeRestartedNote,
   connectLoopbackMcp,
   createAgent,
   mountAgentRoutes,

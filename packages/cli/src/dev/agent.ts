@@ -20,6 +20,11 @@
  * is reported to the model as cancelled with an unknown outcome, never
  * retried. A retryable `binding-unavailable` result (the runtime restarting)
  * reaches the model as the tool result; the model decides what to do.
+ *
+ * A conversation can be reset to start afresh, for example once it no longer
+ * fits the model's context window. When the runtime restarted since the
+ * previous turn, the next user message tells the model that earlier reads may
+ * describe data that no longer exists.
  */
 import { randomUUID } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
@@ -35,6 +40,7 @@ import {
   type AgentConversation,
   type AgentEvent,
   type AgentMessage,
+  type AgentResetAccepted,
   type AgentSnapshot,
   type AgentToolMessage,
   type AgentTurn,
@@ -117,6 +123,8 @@ export interface AgentOptions {
   readonly connect: ConnectAgentTools;
   /** Default: the Anthropic SDK with the key from `env`. */
   readonly createClient?: (apiKey: string) => AgentModelClient;
+  /** The running runtime host's ID, or null; used to notice restarts between turns. */
+  readonly runtimeId?: () => string | null;
 }
 
 export type AgentListener = (event: AgentEvent) => void;
@@ -133,6 +141,8 @@ export interface Agent {
   send(principal: string, text: string): AgentTurnAccepted;
   /** Cancel a running turn; false when no such turn is running. */
   cancel(turnId: string): boolean;
+  /** Clear a principal's conversation; throws `AgentRequestError` while a turn runs. */
+  reset(principal: string): AgentResetAccepted;
   /** Cancel every turn and wait for them to end, for shutdown. */
   stop(): Promise<void>;
 }
@@ -205,6 +215,10 @@ function errorResult(
   };
 }
 
+/** Prepended to the first user message after the runtime restarted. */
+export const runtimeRestartedNote =
+  'Note from relate dev: the runtime restarted since your previous turn (the developer changed code). Data in the in-memory store was reset, so records and receipts from earlier tool results may no longer exist. Re-read before relying on them.';
+
 const cancelledResult =
   'Cancelled by the developer before this call finished. Its outcome is unknown: an action may or may not have run. It was not retried; check the data before acting again.';
 
@@ -275,6 +289,8 @@ interface RunningTurn {
 
 interface Conversation {
   readonly principal: string;
+  /** The runtime the previous turn started on, to notice a restart. */
+  runtimeId: string | null;
   /** What the model sees: appended to, never edited (thinking stays valid). */
   readonly history: BetaMessageParam[];
   /** What the inspector shows, by ID in first-seen order. */
@@ -331,7 +347,13 @@ export function createAgent(options: AgentOptions): Agent {
     let found = conversations.get(principal);
 
     if (!found) {
-      found = { principal, history: [], messages: new Map(), turn: null };
+      found = {
+        principal,
+        runtimeId: null,
+        history: [],
+        messages: new Map(),
+        turn: null,
+      };
       conversations.set(principal, found);
     }
 
@@ -340,7 +362,11 @@ export function createAgent(options: AgentOptions): Agent {
   const upsert = (target: Conversation, message: AgentMessage) => {
     const clean = { ...message } as AgentMessage;
 
-    if (clean.kind === 'notice' || clean.kind === 'assistant')
+    if (
+      clean.kind === 'notice' ||
+      clean.kind === 'assistant' ||
+      clean.kind === 'thinking'
+    )
       clean.text = redact(clean.text);
 
     if (clean.kind === 'tool' && clean.result !== undefined)
@@ -356,7 +382,7 @@ export function createAgent(options: AgentOptions): Agent {
   const appendText = (target: Conversation, id: string, delta: string) => {
     const message = target.messages.get(id);
 
-    if (message?.kind !== 'assistant') return;
+    if (message?.kind !== 'assistant' && message?.kind !== 'thinking') return;
 
     const clean = redact(delta);
 
@@ -385,7 +411,7 @@ export function createAgent(options: AgentOptions): Agent {
     ),
   });
 
-  /** Stream one model response, showing its text blocks as they arrive. */
+  /** Stream one model response, showing its text and thinking summaries as they arrive. */
   const respond = async (
     target: Conversation,
     request: { readonly system: string; readonly tools: BetaTool[] },
@@ -395,7 +421,8 @@ export function createAgent(options: AgentOptions): Agent {
       {
         model: agentModel,
         max_tokens: agentMaxTokens,
-        thinking: { type: 'adaptive' },
+        // Summarized so the panel shows progress instead of a silent wait.
+        thinking: { type: 'adaptive', display: 'summarized' },
         output_config: { effort: agentEffort },
         // A refusal is retried server-side on a fallback model.
         betas: ['server-side-fallback-2026-07-01'],
@@ -407,26 +434,33 @@ export function createAgent(options: AgentOptions): Agent {
       },
       { signal },
     );
-    let text: string | null = null;
+    let block: string | null = null;
 
     stream.on('streamEvent', (event) => {
       if (event.type === 'content_block_start') {
-        text = null;
+        block = null;
 
         if (event.content_block.type === 'text') {
-          text = randomUUID();
+          block = randomUUID();
           upsert(target, {
             kind: 'assistant',
-            id: text,
+            id: block,
             text: event.content_block.text,
           });
+        } else if (event.content_block.type === 'thinking') {
+          block = randomUUID();
+          upsert(target, {
+            kind: 'thinking',
+            id: block,
+            text: event.content_block.thinking,
+          });
         }
-      } else if (
-        event.type === 'content_block_delta' &&
-        event.delta.type === 'text_delta' &&
-        text !== null
-      )
-        appendText(target, text, event.delta.text);
+      } else if (event.type === 'content_block_delta' && block !== null) {
+        if (event.delta.type === 'text_delta')
+          appendText(target, block, event.delta.text);
+        else if (event.delta.type === 'thinking_delta')
+          appendText(target, block, event.delta.thinking);
+      }
     });
 
     return stream.finalMessage();
@@ -681,9 +715,35 @@ export function createAgent(options: AgentOptions): Agent {
         done: Promise.resolve(),
       };
 
+      // A restart between turns reset in-memory data; say so once.
+      const runtimeId = options.runtimeId?.() ?? null;
+      const restarted =
+        target.history.length > 0 &&
+        target.runtimeId !== null &&
+        runtimeId !== null &&
+        runtimeId !== target.runtimeId;
+
+      if (runtimeId !== null) target.runtimeId = runtimeId;
+
       target.turn = turn;
-      target.history.push({ role: 'user', content: text });
+      target.history.push({
+        role: 'user',
+        content: restarted
+          ? [
+              { type: 'text', text: runtimeRestartedNote },
+              { type: 'text', text },
+            ]
+          : text,
+      });
       emit({ type: 'turn', principal, turn: publicTurn(turn) });
+
+      if (restarted)
+        notice(
+          target,
+          'info',
+          'The runtime restarted since the last message; the agent was told earlier reads may be stale.',
+        );
+
       upsert(target, {
         kind: 'user',
         id: randomUUID(),
@@ -714,6 +774,28 @@ export function createAgent(options: AgentOptions): Agent {
       }
 
       return false;
+    },
+    reset(principal) {
+      const target = conversations.get(principal);
+
+      if (!target) {
+        const declared = options.principals();
+
+        if (!declared?.names.includes(principal))
+          throw new AgentRequestError(
+            404,
+            `Unknown development principal '${principal}'`,
+          );
+      } else if (target.turn)
+        throw new AgentRequestError(
+          409,
+          `A turn is running as '${principal}'; cancel it before starting a new conversation`,
+        );
+
+      conversations.delete(principal);
+      emit({ type: 'reset', principal });
+
+      return { principal };
     },
     async stop() {
       const running = [...conversations.values()].flatMap((target) =>
@@ -809,6 +891,20 @@ export function mountAgentRoutes(
         202,
         noStore,
       );
+    } catch (failure) {
+      if (failure instanceof AgentRequestError)
+        return error(c, failure.status, failure.message);
+
+      throw failure;
+    }
+  });
+
+  app.post('/dev/agent/conversations/:principal/reset', (c) => {
+    if (!fromPage(c))
+      return error(c, 403, 'Reset must come from the inspector page as JSON');
+
+    try {
+      return c.json(agent.reset(c.req.param('principal')), 202, noStore);
     } catch (failure) {
       if (failure instanceof AgentRequestError)
         return error(c, failure.status, failure.message);
