@@ -515,6 +515,7 @@ it('finishes a slow setup when retired during startup, so its cleanup runs', asy
     `import { writeFileSync } from 'node:fs';\n${noteApp({
       setup: `async ({ onDispose }) => {
     onDispose(() => writeFileSync(${JSON.stringify(marker)}, 'disposed'));
+    console.log('setup started');
     await new Promise((done) => setTimeout(done, 300));
 
     return { connections: [], actionImplementations: [addNote] };
@@ -522,9 +523,13 @@ it('finishes a slow setup when retired during startup, so its cleanup runs', asy
     })}`,
   );
   const next = await project.build(noteApp());
-  const { controller, statuses, waitFor } = createController(project);
+  const { controller, statuses, stdout, waitFor } = createController(project);
 
   await controller.restart({ generation: 1, bundle: slow.bundle });
+  // Retire it only once setup is under way; earlier, nothing needs cleanup.
+  await expect
+    .poll(() => stdout.join('\n'), { timeout: 15_000 })
+    .toContain('setup started');
   const started = Date.now();
 
   await controller.restart({ generation: 2, bundle: next.bundle });
