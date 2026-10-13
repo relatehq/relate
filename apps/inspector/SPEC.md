@@ -9,8 +9,11 @@ CLI child) and reports `declaration` precision only. Type diagnostics remain a
 non-blocking follow-up: the protocol carries their shape and the inspector
 renders them, but no checker emits them yet. Telemetry, forwarded-origin
 verification against real proxies and the benchmark fixtures are not
-implemented. Where the sections below say "proposed", they preserve design
-sketches, not additional public API promises. The
+implemented. Development principals and the runtime host (step 1 of
+[Live runtime, MCP and the built-in agent](#live-runtime-mcp-and-the-built-in-agent))
+landed on 2026-10-13; `/mcp`, the activity log and the built-in agent are
+designed but not implemented. Where the sections below say "proposed", they
+preserve design sketches, not additional public API promises. The
 [Inspector README](./README.md), [CLI reference](../../packages/cli/README.md),
 [diagnostic types](../../packages/relate/src/diagnostics.ts), and
 [inspection protocol](./src/protocol.ts) describe the current implementation.
@@ -31,7 +34,8 @@ Record browsing, action forms, operational controls and direct tool calls are
 outside this implementation scope. Development principals, a live runtime, the
 `/mcp` endpoint, the built-in agent and the activity log are designed in
 [Live runtime, MCP and the built-in agent](#live-runtime-mcp-and-the-built-in-agent)
-(agreed 2026-10-13, not yet implemented).
+(agreed 2026-10-13). Principals and the runtime host are implemented; the rest
+is not yet.
 
 Agreed foundation:
 
@@ -45,12 +49,14 @@ Agreed foundation:
   `@relate/node`.
 - Browser code never imports the runtime, compiler, connectors or user modules.
 
-**Implemented scope:** the graph-only worker compiles definitions without
-starting a live runtime. Relate itself needs no database, credentials or
-provider requests for inspection; user imports may still require environment
-variables or perform side effects (see the environment contract below). Live
-runtime hosting remains the agreed extension of this process layout, with
-activation and storage questions explicitly open below.
+**Implemented scope:** the compile worker compiles definitions without starting
+a live runtime; compiling needs no database, credentials or provider requests,
+though user imports may still require environment variables or perform side
+effects (see the environment contract below). For every accepted build a
+separate runtime host then calls `startApp(app)`, which runs `setup` and may
+open connectors and the application's store. `relate dev --no-runtime` keeps the
+model-only behavior. See
+[Live runtime, MCP and the built-in agent](#live-runtime-mcp-and-the-built-in-agent).
 
 ## How the definitions connect
 
@@ -169,9 +175,10 @@ const connection = connect(customers, {
 // crmConnector supplies executable fetch behavior; it is not in the Manifest.
 ```
 
-The inspector reads `appDefinition.graph` and compiles it. It does not call
-`setup`. A live host calls `setup`, then composes the runtime using its returned
-bindings and that graph. `defineApp` itself is an inert, typed descriptor.
+The compile worker reads `appDefinition.graph` and compiles it. It does not call
+`setup`. A live host (in `relate dev`, the runtime host) calls `setup`, then
+composes the runtime using its returned bindings and that graph. `defineApp`
+itself is an inert, typed descriptor.
 
 Top-level imports must also be safe to evaluate. The CLI cannot stop a user's
 imported module from opening a socket or reading credentials as a side effect.
@@ -213,7 +220,8 @@ for that start. Setup failure releases resources already registered;
 before returning. This convenience does not change the existing borrowed-store
 contract of direct `createRuntime` calls.
 
-The graph-only inspector reads the app's `graph` without calling `startApp`.
+The compile worker reads the app's `graph` without calling `startApp`; the
+runtime host calls `startApp` unchanged, in its own process.
 
 ## Relate inside a bigger application
 
@@ -767,8 +775,10 @@ failure once rather than also dumping the same exception as a second raw stack.
 Forwarded application logs are user-authored output, not a guarantee that all
 embedded secrets can be redacted automatically.
 
-The graph-only child loads definitions; it does not call deferred setup merely
-to produce logs. Browser log streaming and a log viewer are outside this scope.
+The compile worker loads definitions; it does not call deferred setup merely to
+produce logs. Runtime host output is forwarded the same way, as
+`[runtime gen N stdout]` / `[runtime gen N stderr]`. Browser log streaming and a
+log viewer are outside this scope.
 
 ### Environment inherited by the child
 
@@ -784,7 +794,9 @@ pnpm exec dotenvx run -f .env -- pnpm relate dev
 
 Environment-file paths follow the loader's working-directory rules. Variables
 are loaded before the supervisor starts; editing that file requires restarting
-this command. The same inherited environment reaches every replacement child. No
+this command. The same inherited environment reaches every replacement child,
+except that `ANTHROPIC_API_KEY` (the built-in agent's key) is withheld from
+every child that runs user code: the compile worker and the runtime host. No
 values are substituted into browser assets or sent in session/model payloads.
 
 For example, importing an application-wide `env.ts` that immediately validates
@@ -1399,19 +1411,28 @@ The five questions the earlier sketch left open, answered for development only:
 2. **Compatibility:** in-memory stores start fresh per runtime host, so no
    revision migration arises. Persistent stores follow item 1.
 3. **Draining:** on a new accepted build, retire the current `runtimeId` (new
-   requests for it fail with `runtime-retired`), call `close()` with a deadline,
-   then kill. An action in flight at the deadline may be cut off; its outcome is
-   unknown, as with any timeout.
+   requests for it fail with `runtime-retired`), ask the host to close, and
+   allow 5 s for in-flight operations to drain. After that the host is killed;
+   an action cut off this way rejects with `ActionError('uncertain')`, because
+   its outcome is unknown. Restarts are serialized, and a build superseded while
+   waiting never starts.
+4. **Revisions:** the inspector shows the compiled `definitionRevision` and the
+   runtime host's active revision separately; a displayed model is not proof the
+   runtime started. `setup` failures are diagnostics, not crashes. `setup` and
+   the store check must finish within 30 s (`runtime.timeout`).
+5. **Invalidation:** restart on every accepted build, even when the Manifest is
+   unchanged, because connector and action code may have changed.
 
 Resetting a local store does not reset provider data or undo external actions
 already performed. Receipts are lost with an in-memory store, so idempotency
 continuity across restarts cannot be assumed: reusing an idempotency key after a
-restart may perform the action again. 4. **Revisions:** the inspector shows the
-compiled `definitionRevision` and the runtime host's active revision separately;
-a displayed model is not proof the runtime started. `setup` failures are
-diagnostics, not crashes. 5. **Invalidation:** restart on every accepted build,
-even when the Manifest is unchanged, because connector and action code may have
-changed.
+restart may perform the action again.
+
+The inspector shows the runtime as `RuntimeStatus` (inspector protocol version
+2, [`protocol.ts`](./src/protocol.ts)): `starting`, `restarting`, `running`,
+`not-configured` or `failed`, with its `runtimeId`, model generation, active
+revision, store kind (`memory` or `application`), whether the restart reset
+in-memory data, and any `runtime.*` diagnostics.
 
 ### Routes
 
@@ -1612,17 +1633,19 @@ therefore which data, connectors and action code) each call ran against.
 
 ### Ownership
 
-| Location                                                      | Adds                                                                                             |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `packages/relate`                                             | `defineGraph({ principals })`, validation, `compile().principals`                                |
-| `packages/cli/src/dev/runtime-host.ts`, `runtime-protocol.ts` | Runtime host child and its IPC contract                                                          |
-| `packages/protocol`                                           | `runtime-retired` read and action error code (public, so clients can tell it from a denial)      |
-| `packages/cli/src/dev/runtime-binding.ts`                     | `RuntimeBinding`: discovery snapshot + pinned IPC operations, shared by `/mcp` and future `/api` |
-| `packages/cli/src/dev/mcp.ts`                                 | `/mcp`, bearer token, `?as=`                                                                     |
-| `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity`                                                   |
-| `packages/cli/src/dev/agent.ts`                               | Agent loop, `/dev/agent/*`                                                                       |
-| `apps/inspector`                                              | Principal selector, agent panel, activity timeline, graph highlights, protocol types             |
-| `tests/architecture/package-boundaries.ts`                    | `packages/cli` may import `@relate/mcp`, `@modelcontextprotocol/client`, `@anthropic-ai/sdk`     |
+| Location                                                      | Adds                                                                                               |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `packages/relate`                                             | `defineGraph({ principals })`, validation, `compile().principals`                                  |
+| `packages/cli/src/dev/runtime-host.ts`, `runtime-protocol.ts` | Runtime host child and its IPC contract (implemented)                                              |
+| `packages/cli/src/dev/runtime-controller.ts`                  | Parent-side lifecycle: start, retire, drain, kill, status (implemented)                            |
+| `packages/cli/src/dev/child-process.ts`, `child-support.ts`   | Shared fork/termination/output handling, and the in-child helpers, for both children (implemented) |
+| `packages/protocol`                                           | `runtime-retired` read and action error code (public, so clients can tell it from a denial)        |
+| `packages/cli/src/dev/runtime-binding.ts`                     | `RuntimeBinding`: discovery snapshot + pinned IPC operations, shared by `/mcp` and future `/api`   |
+| `packages/cli/src/dev/mcp.ts`                                 | `/mcp`, bearer token, `?as=`                                                                       |
+| `packages/cli/src/dev/activity/`                              | L1–L3 decorators, ring buffer, `/dev/activity`                                                     |
+| `packages/cli/src/dev/agent.ts`                               | Agent loop, `/dev/agent/*`                                                                         |
+| `apps/inspector`                                              | Principal selector, agent panel, activity timeline, graph highlights, protocol types               |
+| `tests/architecture/package-boundaries.ts`                    | `packages/cli` may import `@relate/mcp`, `@modelcontextprotocol/client`, `@anthropic-ai/sdk`       |
 
 Delivery order: (1) principals, the runtime host and `RuntimeBinding`; (2)
 `/mcp` with observation; (3) the agent and activity UI. Public docs
