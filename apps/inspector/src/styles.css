@@ -1739,9 +1739,12 @@ a.icon-button.active {
   font-weight: var(--t-font-weight-medium);
 }
 
-.agent-user-text,
-.agent-assistant-text {
+.agent-user-text {
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.agent-assistant-text {
   overflow-wrap: anywhere;
 }
 
@@ -1752,11 +1755,105 @@ a.icon-button.active {
   text-wrap: pretty;
 }
 
-.agent-assistant-text code,
-.agent-thinking-text code,
 .agent-empty p {
   margin: 0;
   max-width: 520px;
+}
+
+/* The model's Markdown: compact blocks sized for a chat column */
+.agent-markdown > :first-child {
+  margin-top: 0;
+}
+
+.agent-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.agent-markdown :is(p, ul, ol, blockquote, table) {
+  margin: 0 0 8px;
+}
+
+.agent-markdown :is(h1, h2, h3, h4, h5, h6) {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.agent-markdown h1 {
+  font-size: 16px;
+}
+
+.agent-markdown h2 {
+  font-size: 14.5px;
+}
+
+.agent-markdown :is(ul, ol) {
+  padding-left: 20px;
+}
+
+.agent-markdown li + li,
+.agent-markdown li > :is(ul, ol) {
+  margin-top: 2px;
+}
+
+.agent-markdown li > :is(ul, ol) {
+  margin-bottom: 0;
+}
+
+.agent-markdown li > p {
+  margin: 0;
+}
+
+.agent-markdown li:has(> input[type='checkbox']) {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.agent-markdown a {
+  color: var(--t-accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.agent-markdown :not(pre) > code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--t-background-tertiary);
+  font-family: var(--t-code-font-family);
+  font-size: 0.9em;
+}
+
+.agent-markdown blockquote {
+  padding-left: 10px;
+  border-left: 2px solid var(--t-border-color-medium);
+  color: var(--t-font-color-secondary);
+}
+
+.agent-markdown hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--t-border-color-light);
+}
+
+.agent-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.agent-markdown :is(th, td) {
+  padding: 4px 8px;
+  border: 1px solid var(--t-border-color-light);
+  text-align: left;
+  vertical-align: top;
+}
+
+.agent-markdown th {
+  background: var(--t-background-secondary);
+  font-weight: 600;
 }
 
 .agent-empty code {
@@ -2074,7 +2171,6 @@ a.icon-button.active {
   margin-top: 4px;
   padding-left: 18px;
   line-height: 1.5;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 

@@ -7,6 +7,10 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
+import Markdown from 'react-markdown';
+import type { Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remend from 'remend';
 import { groupActivity } from '../connection/activity.js';
 import type { RequestActivity } from '../connection/activity.js';
 import { inspectorBaseUrl } from '../connection/client.js';
@@ -469,36 +473,36 @@ const pretty = (result: string) => {
   }
 };
 
+/** The text inside a Markdown syntax-tree element, such as a fenced block's code. */
+const textOf = (node: unknown): string => {
+  if (typeof node !== 'object' || node === null) return '';
+
+  if ('value' in node && typeof node.value === 'string') return node.value;
+
+  return 'children' in node && Array.isArray(node.children)
+    ? node.children.map(textOf).join('')
+    : '';
+};
+
+const markdownComponents: Components = {
+  a: ({ node: _node, ...props }) => (
+    <a {...props} target="_blank" rel="noreferrer" />
+  ),
+  pre: ({ node }) => <Code source={textOf(node).replace(/\n$/, '')} />,
+};
+
 /**
- * The model's light Markdown as React elements: fenced code, inline code and
- * bold. Never HTML; anything else stays plain text.
+ * The model's Markdown (GitHub flavour) as React elements. Raw HTML is never
+ * rendered. While a reply streams, `remend` closes half-written syntax such as
+ * an open `**` or code fence, so partial text renders as it will finish.
  */
 export function ModelText(props: { readonly text: string }) {
-  const inline = (text: string, key: string) =>
-    text
-      .split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/)
-      .map((part, index) =>
-        part.startsWith('`') && part.endsWith('`') && part.length > 2 ? (
-          <code key={`${key}-${index}`}>{part.slice(1, -1)}</code>
-        ) : part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
-          <strong key={`${key}-${index}`}>{part.slice(2, -2)}</strong>
-        ) : (
-          part
-        ),
-      );
-
   return (
-    <>
-      {props.text
-        .split(/```[^\n]*\n?/)
-        .map((part, index) =>
-          index % 2 === 1 ? (
-            <Code key={index} source={part.replace(/\n$/, '')} />
-          ) : (
-            inline(part, String(index))
-          ),
-        )}
-    </>
+    <div className="agent-markdown">
+      <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        {remend(props.text)}
+      </Markdown>
+    </div>
   );
 }
 
