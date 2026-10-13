@@ -52,9 +52,10 @@ app.route(
   for a bare `@relate/runtime` engine through the same contract.
 - Paired with `@relate/client`, which implements `ConsumerOperations` over HTTP
   and reuses the `relate/consumer` facade.
-- The [inspector specification](../../apps/inspector/SPEC.md) describes a future
-  development worker serving this package behind a supervisor proxy at `/api`.
-  Today's Inspector compiles definitions only and does not serve consumer reads.
+- The [inspector specification](../../specs/2026-10-07-inspector.md) describes a
+  future development worker serving this package behind a supervisor proxy at
+  `/api`. Today's Inspector compiles definitions only and does not serve
+  consumer reads.
 
 No request or route shape is fixed yet. The behavior to preserve is defined by
 the embedded path; see [`@relate/node`](../node/README.md).

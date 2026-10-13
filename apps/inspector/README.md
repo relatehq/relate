@@ -5,10 +5,10 @@ project's object types and relationships, served by
 [`relate dev`](../../packages/cli/README.md) and updated from compiled Manifest
 snapshots as local code changes.
 
-The [specification](./SPEC.md) records the agreed foundation; this package is
-its first implementation. One screen exists: the model graph, built with React
-Flow and ELK (`elkjs`) in a Web Worker, with a side panel for diagnostics and
-selection details.
+The [specification](../../specs/2026-10-07-inspector.md) records the agreed
+foundation; this package is its first implementation. One screen exists: the
+model graph, built with React Flow and ELK (`elkjs`) in a Web Worker, with a
+side panel for diagnostics and selection details.
 
 ## Layout
 

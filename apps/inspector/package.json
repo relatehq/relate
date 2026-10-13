@@ -7,8 +7,7 @@
   "description": "Developer inspector: a live model graph served by relate dev.",
   "files": [
     "dist",
-    "README.md",
-    "SPEC.md"
+    "README.md"
   ],
   "sideEffects": false,
   "exports": {

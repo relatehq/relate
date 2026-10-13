@@ -72,8 +72,9 @@ const page = await consumer.objects.Customer.query({
   it needs no runtime action definition or schema.
 - Pairs with the planned `@relate/http` adapter, which serves the same
   `ConsumerOperations` from `relate.operations(principal)`.
-- The [inspector specification](../../apps/inspector/SPEC.md) proposes this
-  client for future consumer screens. The current model graph does not use it.
+- The [inspector specification](../../specs/2026-10-07-inspector.md) proposes
+  this client for future consumer screens. The current model graph does not use
+  it.
 
 No request or route shape is fixed yet. See
 [`@relate/protocol`](../protocol/README.md) for the shapes the client will

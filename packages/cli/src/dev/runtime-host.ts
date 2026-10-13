@@ -13,7 +13,7 @@
  * Relate-hosted cloud with the inspector as their UI, this process is the seed
  * of that hosted runtime. Keep its IPC contract in public protocol shapes and
  * its lifecycle explicit so it can grow, but do not build for it now. See
- * apps/inspector/SPEC.md, "Live runtime, MCP and the built-in agent".
+ * specs/2026-10-07-inspector.md, "Live runtime, MCP and the built-in agent".
  */
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { AppDefinition, GraphDefinition, ObjectRegistry } from 'relate';
