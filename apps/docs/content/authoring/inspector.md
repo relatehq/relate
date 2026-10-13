@@ -31,7 +31,7 @@ You should see **Customer**, **Invoice**, and **Account review**, connected by
 the **CustomerInvoices** and **CustomerReviews** relationships. The model has 3
 objects, 2 sources, and 2 relationships. The app starts a CRM simulator and a
 temporary SQLite billing database; no credentials or database server are needed.
-`--seed` adopts Northwind and its two invoices into the runtime for the agent
+`--seed` adopts Mothlight and its two invoices into the runtime for the agent
 and MCP clients to query. Omit `--seed` and pass `--no-runtime` to inspect only
 the model without starting the application.
 
@@ -318,10 +318,10 @@ operation runs, the objects it touches are highlighted on the graph.
 
 ```text
 execute  as alice  external client  3 operations           runtime a5fb52bc  51 ms
-  await graph.actions.addCustomer({ input: { name: 'Acme' }, idempotencyKey: 'acme-1' });
-  const page = await graph.objects.Customer.query({ limit: 5, where: { name: 'Acme' } });
-  invoke  addCustomer  input {"name":"Acme"} · key acme-1    receipt succeeded
-  query   Customer     where {"name":"Acme"} · limit 5        1 record
+  await graph.actions.addCustomer({ input: { name: 'Spindle Ferry' }, idempotencyKey: 'spindle-ferry-1' });
+  const page = await graph.objects.Customer.query({ limit: 5, where: { name: 'Spindle Ferry' } });
+  invoke  addCustomer  input {"name":"Spindle Ferry"} · key spindle-ferry-1    receipt succeeded
+  query   Customer     where {"name":"Spindle Ferry"} · limit 5        1 record
 ```
 
 The log keeps the most recent 200 calls in the `relate dev` process and is

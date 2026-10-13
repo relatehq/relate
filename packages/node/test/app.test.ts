@@ -20,7 +20,7 @@ const connections = () => [
   connect(customers, {
     connectionId: 'crm',
     providerAccountId: 'example-account',
-    connector: connector({ name: 'Northwind', portfolio: 'north', revenue: 1 }),
+    connector: connector({ name: 'Mothlight', portfolio: 'north', revenue: 1 }),
   }),
   connect(invoices, {
     connectionId: 'billing',
@@ -58,7 +58,7 @@ it('starts the runtime through setup once and disposes registered resources on c
 
   expect(read.status).toBe('ok');
 
-  if (read.status === 'ok') expect(read.data.name).toBe('Northwind');
+  if (read.status === 'ok') expect(read.data.name).toBe('Mothlight');
 
   await relate.close();
   expect(events).toEqual(['setup', 'dispose:second', 'dispose:first']);

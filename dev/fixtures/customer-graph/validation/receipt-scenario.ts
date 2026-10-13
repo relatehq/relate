@@ -31,11 +31,11 @@ export interface ReceiptScenarioDriver {
 
 export async function completedReceiptScenario(
   relate: Relate<typeof graph>,
-  northwind: ObjectId<typeof Customer.id>,
+  mothlight: ObjectId<typeof Customer.id>,
   driver: ReceiptScenarioDriver,
 ) {
   const request = {
-    input: { customer: northwind, note: 'Follow up on the open invoice' },
+    input: { customer: mothlight, note: 'Follow up on the open invoice' },
     idempotencyKey: 'review-completed',
   };
 
@@ -101,11 +101,11 @@ export async function completedReceiptScenario(
 
 export async function lostResponseScenario(
   relate: Relate<typeof graph>,
-  northwind: ObjectId<typeof Customer.id>,
+  mothlight: ObjectId<typeof Customer.id>,
   driver: ReceiptScenarioDriver,
 ) {
   const request = {
-    input: { customer: northwind, note: 'Follow up after a lost response' },
+    input: { customer: mothlight, note: 'Follow up after a lost response' },
     idempotencyKey: 'review-lost-response',
   };
 
@@ -119,7 +119,7 @@ export async function lostResponseScenario(
   // Test observer sees the committed object; the caller received no invocation ID.
   const before = await relate
     .as(ana)
-    .objects.Customer.traverse.reviews(northwind);
+    .objects.Customer.traverse.reviews(mothlight);
 
   assert.equal(before.data.length, 1);
 
@@ -134,7 +134,7 @@ export async function lostResponseScenario(
   );
   const after = await relate
     .as(ana)
-    .objects.Customer.traverse.reviews(northwind);
+    .objects.Customer.traverse.reviews(mothlight);
 
   // Read evidence may change; the committed business records must not.
   assert.deepEqual(

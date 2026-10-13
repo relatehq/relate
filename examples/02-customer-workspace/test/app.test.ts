@@ -19,7 +19,7 @@ describe('interactive customer workspace', () => {
 
       expect(second.customerId).toBe(first.customerId);
       expect((await objects.Customer.query()).data).toMatchObject([
-        { id: first.customerId, data: { name: 'Northwind' } },
+        { id: first.customerId, data: { name: 'Mothlight' } },
       ]);
       const invoices = await objects.Customer.traverse.invoices(
         first.customerId,
@@ -52,7 +52,7 @@ describe('interactive customer workspace', () => {
 
       expect(ana.customer).toMatchObject({
         status: 'ok',
-        data: { name: 'Northwind' },
+        data: { name: 'Mothlight' },
       });
       expect(ana.invoices.data).toHaveLength(2);
       expect(ana.invoices.data[0]?.meta.fields?.totalMinor).toEqual({
@@ -81,10 +81,10 @@ describe('interactive customer workspace', () => {
 
       expect(reviewed.reviews.data).toHaveLength(1);
       expect(reviewed.reviews.data[0]?.data.note).toBe('Follow up Friday');
-      await app.rename('Northwind Studio');
+      await app.rename('Mothlight Studio');
       expect((await app.read('ana', true)).customer).toMatchObject({
         status: 'ok',
-        data: { name: 'Northwind Studio' },
+        data: { name: 'Mothlight Studio' },
       });
     } finally {
       await app.close();

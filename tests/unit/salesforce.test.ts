@@ -21,12 +21,12 @@ test('reads application-owned Customers and refreshes upstream changes', async (
     const before = await customer.get(id, { select: ['name'] });
 
     assertFields(before, ['name']);
-    expect(before.data.name).toBe('Northwind');
-    f.respond(queryResult([{ ...row(), Name: 'Northwind Updated' }]));
+    expect(before.data.name).toBe('Mothlight');
+    f.respond(queryResult([{ ...row(), Name: 'Mothlight Updated' }]));
     const after = await customer.get(id, { select: ['name'], refresh: true });
 
     assertFields(after, ['name']);
-    expect(after.data.name).toBe('Northwind Updated');
+    expect(after.data.name).toBe('Mothlight Updated');
     expect(
       await app
         .as({ id: 'outsider', roles: [], claims: {} })
@@ -81,7 +81,7 @@ test('temporary failures may retain authorized stale values', async () => {
       .objects.Customer.get(id, { select: ['name'], refresh: true });
 
     assertFields(result, ['name']);
-    expect(result.data.name).toBe('Northwind');
+    expect(result.data.name).toBe('Mothlight');
     expect(result.meta.fields?.name).toMatchObject({ refresh: 'unavailable' });
   } finally {
     await app.close();

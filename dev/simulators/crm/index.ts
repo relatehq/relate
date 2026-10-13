@@ -7,7 +7,7 @@ import { Hono } from 'hono';
 export async function startCrmSimulator() {
   let record: Record<string, unknown> = {
     id: 'crm_456',
-    display_name: 'Northwind',
+    display_name: 'Mothlight',
     portfolio: 'portfolio_north',
     revenue: 2_000_000,
     private_unmapped: 'never return this',

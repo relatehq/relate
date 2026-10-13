@@ -171,13 +171,13 @@ import { graph } from './graph.js';
 const crm: Record<string, z.infer<typeof customerSource.schema>> = {
   cust_101: {
     id: 'cust_101',
-    name: 'Acme Corp',
+    name: 'Spindle Ferry Co',
     region: 'emea',
     status: 'active',
   },
   cust_102: {
     id: 'cust_102',
-    name: 'Globex',
+    name: 'Tin Orchard',
     region: 'apac',
     status: 'active',
   },
@@ -205,7 +205,7 @@ const relate = createRuntime({
 
 try {
   // Adoption gives a source record its Relate object ID.
-  const acme = await relate.host.adopt(Customer, 'cust_101');
+  const spindleFerry = await relate.host.adopt(Customer, 'cust_101');
 
   // Scope operations to an authenticated caller.
   const { objects } = relate.as({
@@ -214,13 +214,13 @@ try {
     claims: { region: 'emea' },
   });
 
-  const result = await objects.Customer.get(acme, {
+  const result = await objects.Customer.get(spindleFerry, {
     select: ['name', 'status'],
   });
 
   if (result.status === 'ok') {
     console.log(result.data);
-    // { name: 'Acme Corp', status: 'active' }
+    // { name: 'Spindle Ferry Co', status: 'active' }
 
     console.log(result.meta.fields?.name);
     // undefined for routine available/fresh evidence in compact mode
@@ -248,8 +248,8 @@ Run the tutorial from the repository root:
 pnpm exec tsx tutorial/index.ts
 ```
 
-It prints Acme's name and status, followed by `undefined` for routine compact
-field evidence. No credentials or database server are required. The
+It prints Spindle Ferry's name and status, followed by `undefined` for routine
+compact field evidence. No credentials or database server are required. The
 [customer workspace](../../../examples/02-customer-workspace/README.md) is a
 maintained source-backed application if you prefer to start from existing files.
 

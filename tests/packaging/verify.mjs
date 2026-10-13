@@ -363,7 +363,7 @@ const definition = defineApp({ graph, setup({ onDispose }) {
   setupCalls++;
   onDispose(() => { disposed = true; });
   return { connections: [
-  connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Northwind', portfolio: 'north', revenue: 100 } }) } }),
+  connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Mothlight', portfolio: 'north', revenue: 100 } }) } }),
   connect(invoices, { connectionId: 'billing', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, customer_id: 'crm_1', status: 'open', total_minor: 12500 } }) } }),
 ] }; } });
 assert.equal(setupCalls, 0);
@@ -433,11 +433,11 @@ import { createConsumer } from 'relate/consumer';
 import { compile } from 'relate/compiler';
 import { graph, AddAccountReview, addAccountReview, ana, Customer, customers, invoices } from './built/native-action-model.js';
 const app = createRuntime({ graph, actionImplementations: [addAccountReview], connections: [
-  connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Northwind', portfolio: 'north' } }) } }),
+  connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Mothlight', portfolio: 'north' } }) } }),
   connect(invoices, { connectionId: 'billing', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id } }) } }),
 ] });
 try {
-  const customer = await app.host.adopt(Customer, 'northwind');
+  const customer = await app.host.adopt(Customer, 'mothlight');
   const receipt = await app.as(ana).actions.addAccountReview({ input: { customer, note: 'Packed native action' }, idempotencyKey: 'one' });
   assert.equal(receipt.state, 'succeeded');
   assert.equal(typeof receipt.invocationId, 'string');
@@ -632,7 +632,7 @@ const connector = {
   identify: async () => 'packed-account',
   fetch: async (id: string) => ({
     providerAccountId: 'packed-account', state: 'present' as const,
-    record: { id, name: 'Northwind', portfolio: 'north', revenue: 1 },
+    record: { id, name: 'Mothlight', portfolio: 'north', revenue: 1 },
   }),
 };
 export default defineApp({ graph, setup() {
@@ -645,7 +645,7 @@ export async function seed(relate: Relate<typeof graph>) {
   const page = await relate.as(ana).objects.Customer.query({ select: ['name'] });
   assert.equal(page.data.length, 1);
   assert.equal(page.data[0]?.id, id);
-  assert.equal(page.data[0]?.data.name, 'Northwind');
+  assert.equal(page.data[0]?.data.name, 'Mothlight');
   console.log('packed seed verified');
 }
 `,

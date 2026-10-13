@@ -116,7 +116,7 @@ export function domainActionContract(
                 state: 'present',
                 record: {
                   id,
-                  name: 'Northwind',
+                  name: 'Mothlight',
                   portfolio:
                     id === 'dependency'
                       ? dependencyPortfolio

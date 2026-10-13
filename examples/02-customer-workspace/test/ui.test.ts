@@ -39,7 +39,7 @@ const account = (finance: boolean) => ({
   customer: {
     status: 'ok',
     data: {
-      name: 'Northwind',
+      name: 'Mothlight',
       status: 'active',
       ...(finance ? { revenue: 2000000 } : {}),
     },
@@ -92,7 +92,7 @@ async function start(fetch: ReturnType<typeof vi.fn>) {
     Intl,
     console,
   });
-  await vi.waitFor(() => expect(element('name').textContent).toBe('Northwind'));
+  await vi.waitFor(() => expect(element('name').textContent).toBe('Mothlight'));
   await vi.waitFor(() => expect(element('actor').disabled).toBe(false));
 
   return element;
@@ -160,8 +160,8 @@ it('orders invoices by status and shows financial fields by role', async () => {
     /^Invoice 1Overdue.*Invoice 2Paid/,
   );
   expect(element('revenue').textContent).toBe('Revenue withheld');
-  expect(element('avatar').textContent).toBe('N');
-  expect(element('crm-name').value).toBe('Northwind');
+  expect(element('avatar').textContent).toBe('M');
+  expect(element('crm-name').value).toBe('Mothlight');
 
   element('actor').value = 'fin';
   await element('actor').listeners.get('change')!();

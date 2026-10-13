@@ -61,7 +61,7 @@ it.each(['capability', 'policy'])(
               return {
                 providerAccountId: 'example-account',
                 state: 'present',
-                record: { id, name: 'Northwind', portfolio: 'north' },
+                record: { id, name: 'Mothlight', portfolio: 'north' },
               };
             },
           },

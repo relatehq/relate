@@ -13,7 +13,7 @@ function createInvoiceApp() {
   const model = createInvoiceGraph();
   const rows = {
     customers: new Map([
-      ['c1', { id: 'c1', name: 'Northwind', portfolio: 'north', revenue: 5 }],
+      ['c1', { id: 'c1', name: 'Mothlight', portfolio: 'north', revenue: 5 }],
     ]),
     invoices: new Map([
       ['i1', { id: 'i1', customer_id: 'c1', status: 'Paid', total_minor: 10 }],
@@ -68,7 +68,7 @@ it('exposes the engine as definition-ID operations bound to one principal', asyn
   expect(customer).toMatchObject({
     status: 'ok',
     id: customerId,
-    data: { name: 'Northwind' },
+    data: { name: 'Mothlight' },
   });
 
   const page = await operations.query(Invoice.id, {

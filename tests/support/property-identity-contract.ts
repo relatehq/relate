@@ -15,7 +15,7 @@ export function propertyIdentityContract(
       const { Customer, customerGraph, employee } = createCustomerGraph();
       const record = {
         id: 'crm_1',
-        display_name: 'Northwind',
+        display_name: 'Mothlight',
         portfolio: 'portfolio_north',
         revenue: 12,
       };
@@ -58,7 +58,7 @@ export function propertyIdentityContract(
         },
       };
       const expected = {
-        [Customer.properties.name.id]: 'Northwind',
+        [Customer.properties.name.id]: 'Mothlight',
         [Customer.properties.portfolio.id]: 'portfolio_north',
         [Customer.properties.revenue.id]: 12,
       };
@@ -106,7 +106,7 @@ export function propertyIdentityContract(
 
           expect(result).toMatchObject({
             status: 'ok',
-            data: { [field]: 'Northwind' },
+            data: { [field]: 'Mothlight' },
             meta: {
               fields: {
                 [field]: { status: 'available' },
@@ -173,7 +173,7 @@ export function propertyIdentityContract(
               state: 'present',
               raw: record,
               values: {
-                name: 'Northwind',
+                name: 'Mothlight',
                 portfolio: 'portfolio_north',
                 revenue: 12,
               },
@@ -237,7 +237,7 @@ export function propertyIdentityContract(
             state: 'present',
             raw: record,
             values: {
-              name: 'Northwind',
+              name: 'Mothlight',
               portfolio: 'portfolio_north',
               revenue: 12,
             },

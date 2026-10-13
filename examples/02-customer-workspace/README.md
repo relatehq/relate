@@ -31,7 +31,7 @@ the key; reusing its URL does not reload its environment.
 
 ## Try it in this order
 
-1. Start as **Ana**, an account manager. Inspect Northwind's two invoices.
+1. Start as **Ana**, an account manager. Inspect Mothlight's two invoices.
    Amounts are withheld by Relate's financial field policy.
 2. Switch to **Fin**, who can see the amounts but cannot add reviews.
 3. Switch back to Ana and add a review. Expand **Action receipt** to see the
@@ -95,7 +95,7 @@ CRM simulator, billing database and memory store. Its `/mcp` endpoint serves
 `?as=ana` or `?as=fin`; `relate dev` prints the `claude mcp add` command. That
 runtime is separate from the browser application: reviews added in one do not
 appear in the other. The launcher passes `--seed`, so both runtimes start with
-Northwind (`crm_456`) and invoices `INV-1042` (overdue, GBP 4,800) and
+Mothlight (`crm_456`) and invoices `INV-1042` (overdue, GBP 4,800) and
 `INV-1043` (paid, GBP 1,250). The inspector reruns the seed after each accepted
 code change. Repeated seeding reuses those records' graph identities within the
 same runtime; it does not add duplicate customers or invoices. Reviews start

@@ -28,7 +28,7 @@ test('defers I/O and verifies identity with the same credentials for every read'
     record: {
       Id: accountId,
       IsDeleted: false,
-      Name: 'Northwind',
+      Name: 'Mothlight',
       Website: null,
     },
   });
@@ -161,7 +161,7 @@ test('field names match the response case-insensitively and in the selected spel
     record: {
       Id: accountId,
       IsDeleted: false,
-      name: 'Northwind',
+      name: 'Mothlight',
       website: null,
     },
   });

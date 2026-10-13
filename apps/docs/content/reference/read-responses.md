@@ -45,7 +45,7 @@ are illustrative.
 {
   "status": "ok",
   "id": "b2375d21-941a-4bc7-b9ae-669a3b798ecf",
-  "data": { "name": "Northwind", "status": "active" },
+  "data": { "name": "Mothlight", "status": "active" },
   "meta": {
     "evidence": "compact",
     "completeness": "complete",
@@ -154,7 +154,7 @@ permitted fields, so it does not enumerate forbidden fields.
   "data": [
     {
       "id": "b2375d21-941a-4bc7-b9ae-669a3b798ecf",
-      "data": { "name": "Northwind" },
+      "data": { "name": "Mothlight" },
       "meta": {
         "evidence": "compact",
         "completeness": "complete",

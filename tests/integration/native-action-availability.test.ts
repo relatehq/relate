@@ -71,7 +71,7 @@ function app(
             return {
               providerAccountId: 'example-account',
               state: 'present',
-              record: { id, name: 'Northwind', portfolio: 'north' },
+              record: { id, name: 'Mothlight', portfolio: 'north' },
             };
           },
         },
@@ -134,7 +134,7 @@ it('allows queued actions across runtimes while a handler waits beyond the forme
 
     return output;
   });
-  const customer = await slow.adopt(Customer.id, 'northwind');
+  const customer = await slow.adopt(Customer.id, 'mothlight');
   const first = slow.invoke(
     ana,
     AddAccountReview.id,
@@ -188,7 +188,7 @@ it('maps a real advisory lock timeout to unavailable and leaves the key retryabl
     ...store,
     native: createNativePostgresStore(nativePool),
   });
-  const customer = await blocked.adopt(Customer.id, 'northwind');
+  const customer = await blocked.adopt(Customer.id, 'mothlight');
   const blocker = await pool.connect();
 
   try {
@@ -234,7 +234,7 @@ it('interrupts a never-returning handler when its session dies and releases the 
   );
 
   try {
-    const customer = await runtime.adopt(Customer.id, 'northwind');
+    const customer = await runtime.adopt(Customer.id, 'mothlight');
 
     await expect(
       runtime.invoke(ana, AddAccountReview.id, request(customer)),
@@ -270,7 +270,7 @@ it('returns the pool slot and rolls back a never-returning handler at its execut
   );
 
   try {
-    const customer = await runtime.adopt(Customer.id, 'northwind');
+    const customer = await runtime.adopt(Customer.id, 'mothlight');
 
     await expect(
       runtime.invoke(ana, AddAccountReview.id, request(customer)),
@@ -323,7 +323,7 @@ it.each(['success', 'lost-ack'])(
     );
 
     try {
-      const customer = await runtime.adopt(Customer.id, 'northwind');
+      const customer = await runtime.adopt(Customer.id, 'mothlight');
       const invocation = runtime.invoke(
         ana,
         AddAccountReview.id,

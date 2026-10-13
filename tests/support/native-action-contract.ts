@@ -111,8 +111,8 @@ export function nativeActionContract(
                   state: 'present',
                   record: {
                     id,
-                    name: id === 'northwind' ? 'Northwind' : 'Southbank',
-                    portfolio: id === 'northwind' ? portfolio : 'south',
+                    name: id === 'mothlight' ? 'Mothlight' : 'Kettlewick',
+                    portfolio: id === 'mothlight' ? portfolio : 'south',
                   },
                 };
               },
@@ -170,7 +170,7 @@ export function nativeActionContract(
         return addAccountReview.implementation(context);
       };
       const first = app(handler);
-      const customer = await first.host.adopt(Customer, 'northwind');
+      const customer = await first.host.adopt(Customer, 'mothlight');
       const request = {
         input: { customer, note: 'Follow up' },
         idempotencyKey: 'external-write',
@@ -204,7 +204,7 @@ export function nativeActionContract(
         throw new Error('No receipt');
       };
       const first = app(handler);
-      const customer = await first.host.adopt(Customer, 'northwind');
+      const customer = await first.host.adopt(Customer, 'mothlight');
       const request = {
         input: { customer, note: 'Original' },
         idempotencyKey: 'key',
@@ -232,7 +232,7 @@ export function nativeActionContract(
       await first.close();
       graphId = randomUUID();
       const second = app(handler);
-      const otherCustomer = await second.host.adopt(Customer, 'northwind');
+      const otherCustomer = await second.host.adopt(Customer, 'mothlight');
 
       await expect(
         second.as(ana).actions.addAccountReview({
@@ -248,7 +248,7 @@ export function nativeActionContract(
 
     it('executes the real public action and atomically records a readable review and receipt', async () => {
       const relate = app();
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
       const receipt = await relate.as(ana).actions.addAccountReview({
         input: { customer, note: 'Follow up' },
         idempotencyKey: 'review',
@@ -347,7 +347,7 @@ export function nativeActionContract(
 
           return addAccountReview.implementation(context);
         });
-        const customer = await relate.host.adopt(Customer, 'northwind');
+        const customer = await relate.host.adopt(Customer, 'mothlight');
 
         await expect(
           relate.as(ana).actions.addAccountReview({
@@ -379,7 +379,7 @@ export function nativeActionContract(
       'accepts the note boundaries (%#. case)',
       async (note) => {
         const relate = app();
-        const customer = await relate.host.adopt(Customer, 'northwind');
+        const customer = await relate.host.adopt(Customer, 'mothlight');
         const receipt = await relate.as(ana).actions.addAccountReview({
           input: { customer, note },
           idempotencyKey: 'review',
@@ -392,7 +392,7 @@ export function nativeActionContract(
         ).toMatchObject({ status: 'ok', data: { note } });
       },
     );
-    it.each(['missing', 'southbank'])(
+    it.each(['missing', 'kettlewick'])(
       'uses not-found for a %s input reference, matching object reads',
       async (sourceId) => {
         let calls = 0;
@@ -426,7 +426,7 @@ export function nativeActionContract(
 
         return addAccountReview.implementation(context);
       });
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
 
       await expect(
         relate
@@ -457,7 +457,7 @@ export function nativeActionContract(
       expect(calls).toBe(0);
       await absent();
     });
-    it.each(['invoice', 'unknown', 'southbank', 'wrong-author'])(
+    it.each(['invoice', 'unknown', 'kettlewick', 'wrong-author'])(
       'enforces %s at create without an author pre-read, and rolls back an earlier valid write',
       async (invalid) => {
         let candidate: ObjectId<typeof Customer.id>;
@@ -475,15 +475,15 @@ export function nativeActionContract(
 
           return { reviewId: review.id };
         });
-        const customer = await relate.host.adopt(Customer, 'northwind');
+        const customer = await relate.host.adopt(Customer, 'mothlight');
 
         candidate = referenceInput(Customer).parse(
           invalid === 'invoice'
             ? await relate.host.adopt(Invoice, 'invoice-1')
             : invalid === 'unknown'
               ? 'missing-customer'
-              : invalid === 'southbank'
-                ? await relate.host.adopt(Customer, 'southbank')
+              : invalid === 'kettlewick'
+                ? await relate.host.adopt(Customer, 'kettlewick')
                 : customer,
         );
         await expect(
@@ -545,7 +545,7 @@ export function nativeActionContract(
 
           return { reviewId: review.id };
         });
-        const customer = await relate.host.adopt(Customer, 'northwind');
+        const customer = await relate.host.adopt(Customer, 'mothlight');
 
         await expect(
           relate.as(ana).actions.addAccountReview({
@@ -587,7 +587,7 @@ export function nativeActionContract(
 
         return { reviewId: review.id };
       });
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
       const pending = relate.as(ana).actions.addAccountReview({
         input: { customer, note: 'Private until commit' },
         idempotencyKey: 'review',
@@ -621,7 +621,7 @@ export function nativeActionContract(
 
           return result;
         });
-        const customer = await relate.host.adopt(Customer, 'northwind');
+        const customer = await relate.host.adopt(Customer, 'mothlight');
 
         await expect(
           relate.as(ana).actions.addAccountReview({
@@ -640,7 +640,7 @@ export function nativeActionContract(
         return addAccountReview.implementation(context);
       };
       const relate = app(handler);
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
       const request = {
         input: { customer, note: 'Once' },
         idempotencyKey: 'review',
@@ -662,7 +662,7 @@ export function nativeActionContract(
     });
     it('binds replay and lookup to the originating actor and current role and portfolio access', async () => {
       const relate = app();
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
       const request = {
         input: { customer, note: 'Private review' },
         idempotencyKey: 'owned',
@@ -744,7 +744,7 @@ export function nativeActionContract(
     });
     it('does not share a concurrently claimed invocation with another actor', async () => {
       const relate = app();
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
       const request = {
         input: { customer, note: 'One author' },
         idempotencyKey: 'race',
@@ -773,7 +773,7 @@ export function nativeActionContract(
     });
     it('executes more simultaneous actions than the native connection pool without starving source reads', async () => {
       const relate = app();
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
       const receipts = await Promise.all(
         Array.from({ length: 8 }, (_, index) =>
           relate.as(ana).actions.addAccountReview({
@@ -800,7 +800,7 @@ export function nativeActionContract(
     });
     it('withholds native reads when the caller loses portfolio access', async () => {
       const relate = app();
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
       const receipt = await relate.as(ana).actions.addAccountReview({
         input: { customer, note: 'Private' },
         idempotencyKey: 'review',
@@ -814,7 +814,7 @@ export function nativeActionContract(
     });
     it('sanitizes storage failures during native reads', async () => {
       const relate = app();
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
       const receipt = await relate.as(ana).actions.addAccountReview({
         input: { customer, note: 'Saved' },
         idempotencyKey: 'review',
@@ -868,7 +868,7 @@ export function nativeActionContract(
 
         return { reviewId: referenceInput(AccountReview).parse('invented') };
       }, broken);
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
 
       await expect(
         relate.as(ana).actions.addAccountReview({
@@ -897,7 +897,7 @@ export function nativeActionContract(
         },
       };
       const relate = app(undefined, store);
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
 
       await expect(
         relate.as(ana).actions.addAccountReview({
@@ -924,7 +924,7 @@ export function nativeActionContract(
           await addAccountReview.implementation(context);
           throw error;
         });
-        const customer = await relate.host.adopt(Customer, 'northwind');
+        const customer = await relate.host.adopt(Customer, 'mothlight');
         const request = {
           input: { customer, note: 'Retry safely' },
           idempotencyKey: 'review',
@@ -965,7 +965,7 @@ export function nativeActionContract(
           },
         },
       );
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
 
       await expect(
         relate.as(ana).actions.addAccountReview({
@@ -977,7 +977,7 @@ export function nativeActionContract(
       await absent();
     });
     it('maps unavailable installation before opening a native transaction', async () => {
-      const customer = await app().host.adopt(Customer, 'northwind');
+      const customer = await app().host.adopt(Customer, 'mothlight');
       const relate = app(undefined, {
         ...backing.store,
         async install() {
@@ -1028,7 +1028,7 @@ export function nativeActionContract(
         backing.store,
         500,
       );
-      const customer = await slow.host.adopt(Customer, 'northwind');
+      const customer = await slow.host.adopt(Customer, 'mothlight');
       const request = {
         input: { customer, note: 'Expired' },
         idempotencyKey: 'review',
@@ -1117,7 +1117,7 @@ export function nativeActionContract(
         },
         500,
       );
-      const customer = await slow.host.adopt(Customer, 'northwind');
+      const customer = await slow.host.adopt(Customer, 'mothlight');
       const request = {
         input: { customer, note: 'First' },
         idempotencyKey: 'review',
@@ -1157,7 +1157,7 @@ export function nativeActionContract(
         },
       };
       const relate = app(undefined, store);
-      const customer = await relate.host.adopt(Customer, 'northwind');
+      const customer = await relate.host.adopt(Customer, 'mothlight');
 
       await expect(
         relate.as(ana).actions.addAccountReview({

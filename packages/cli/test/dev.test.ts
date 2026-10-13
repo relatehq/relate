@@ -726,7 +726,7 @@ export default defineApp({
           identify: async () => 'test-account',
           fetch: async (id) => ({
             providerAccountId: 'test-account', state: 'present',
-            record: { id, name: id === 'customer-1' ? 'Northwind' : 'Contoso' },
+            record: { id, name: id === 'customer-1' ? 'Mothlight' : 'Bracken Kiln' },
           }),
         },
       })],
@@ -772,13 +772,13 @@ export async function seed(relate: Relate<typeof app.graph>) {
 
     expect((await read()).structuredContent).toMatchObject({
       status: 'succeeded',
-      result: ['Northwind'],
+      result: ['Mothlight'],
     });
     await project.write('src/relate/seed.ts', seedSource('customer-2'));
     await dev.waitForStdout(/^\s+runtime gen 2\s+running/);
     expect((await read()).structuredContent).toMatchObject({
       status: 'succeeded',
-      result: ['Contoso'],
+      result: ['Bracken Kiln'],
     });
     // The compile worker also imports the config but must never run the seed.
     expect(

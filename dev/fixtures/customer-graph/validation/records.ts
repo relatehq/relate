@@ -5,7 +5,7 @@ import type { billingInvoices, crmCustomers } from '../source/model.js';
 export const customers: Record<string, z.input<typeof crmCustomers.schema>> = {
   crm_456: {
     id: 'crm_456',
-    display_name: 'Northwind Studio',
+    display_name: 'Mothlight Studio',
     portfolio: 'portfolio_north',
     status: 'active',
     revenue: 2_000_000,
@@ -13,14 +13,14 @@ export const customers: Record<string, z.input<typeof crmCustomers.schema>> = {
   // Adopt only for the same-portfolio write-integrity cases.
   crm_654: {
     id: 'crm_654',
-    display_name: 'Harbour Design',
+    display_name: 'Paper Otter Press',
     portfolio: 'portfolio_north',
     status: 'active',
     revenue: 500_000,
   },
   crm_789: {
     id: 'crm_789',
-    display_name: 'Southbank Supply',
+    display_name: 'Kettlewick Supply',
     portfolio: 'portfolio_south',
     status: 'active',
     revenue: 750_000,

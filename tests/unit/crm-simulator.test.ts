@@ -13,7 +13,7 @@ it('isolates instances and preserves HTTP updates, denial, deletion, and source 
   try {
     expect(await read()).toMatchObject({
       state: 'present',
-      record: { display_name: 'Northwind' },
+      record: { display_name: 'Mothlight' },
       version: { domain: 'crm-v1', value: '1' },
     });
     await first.update({ display_name: 'Changed' });
@@ -24,7 +24,7 @@ it('isolates instances and preserves HTTP updates, denial, deletion, and source 
     expect(
       await (await fetch(`${second.url}/customers/crm_456`)).json(),
     ).toMatchObject({
-      record: { display_name: 'Northwind' },
+      record: { display_name: 'Mothlight' },
       version: { value: '1' },
     });
     expect((await fetch(`${first.url}/customers/missing`)).status).toBe(404);

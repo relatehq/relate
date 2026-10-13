@@ -48,7 +48,7 @@ the example. The browser demo and seeded graph also work without a key.
 A small app opens in your browser. Its customer comes from an HTTP CRM, its
 invoices from a SQLite database and its account reviews from Relate itself.
 
-1. As **Ana**, an account manager, you see Northwind's invoices but the amounts
+1. As **Ana**, an account manager, you see Mothlight's invoices but the amounts
    are withheld. The model says only finance sees them.
 2. Switch to **Fin** in finance. The amounts appear.
 3. As Ana, add a review, then click **Retry last submission**. You get the same
@@ -176,7 +176,7 @@ const relate = createRuntime({
   connections: [
     connect(crm, {
       connectionId: 'crm',
-      providerAccountId: 'acme-crm',
+      providerAccountId: 'spindle-ferry-crm',
       connector: crmApi,
     }),
     connect(billing, {
@@ -190,7 +190,7 @@ const relate = createRuntime({
 });
 
 // Records enter the graph by explicit adoption for now (see Status).
-const northwind = await relate.host.adopt(Customer, 'crm_456');
+const mothlight = await relate.host.adopt(Customer, 'crm_456');
 await relate.host.adopt(Invoice, 'INV-1042');
 
 // Your app authenticates the caller. Relate enforces the model's rules.
@@ -200,7 +200,7 @@ const { objects } = relate.as({
   claims: { portfolio: 'north' },
 });
 
-const invoices = await objects.Customer.traverse.invoices(northwind, {
+const invoices = await objects.Customer.traverse.invoices(mothlight, {
   select: ['status', 'total'],
 });
 ```

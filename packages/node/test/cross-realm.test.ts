@@ -24,7 +24,7 @@ const fromSandbox = <T>(value: T): T =>
 
 function createSandboxRuntime(options: { sandboxRecords?: boolean } = {}) {
   const record = (id: string) => {
-    const value = { id, name: 'Northwind', portfolio: 'north' };
+    const value = { id, name: 'Mothlight', portfolio: 'north' };
 
     return options.sandboxRecords ? fromSandbox(value) : value;
   };
@@ -67,7 +67,7 @@ function createSandboxRuntime(options: { sandboxRecords?: boolean } = {}) {
 
 it('invokes an action with input built in another realm', async () => {
   const relate = createSandboxRuntime();
-  const customer = await relate.host.adopt(Customer, 'northwind');
+  const customer = await relate.host.adopt(Customer, 'mothlight');
 
   const receipt = await relate.as(ana).actions.addAccountReview({
     input: fromSandbox({ customer, note: 'Follow up' }),
@@ -80,7 +80,7 @@ it('invokes an action with input built in another realm', async () => {
 
 it('still rejects action input that is a class instance', async () => {
   const relate = createSandboxRuntime();
-  const customer = await relate.host.adopt(Customer, 'northwind');
+  const customer = await relate.host.adopt(Customer, 'mothlight');
   const input = runInNewContext(
     'new (class Input { constructor(c) { this.customer = c; this.note = "n"; } })(customer)',
     { customer },
@@ -96,10 +96,10 @@ it('still rejects action input that is a class instance', async () => {
 
 it('reads a source record a connector built in another realm', async () => {
   const relate = createSandboxRuntime({ sandboxRecords: true });
-  const customer = await relate.host.adopt(Customer, 'northwind');
+  const customer = await relate.host.adopt(Customer, 'mothlight');
 
   expect(
     await relate.as(ana).objects.Customer.get(customer, { select: ['name'] }),
-  ).toMatchObject({ status: 'ok', data: { name: 'Northwind' } });
+  ).toMatchObject({ status: 'ok', data: { name: 'Mothlight' } });
   await relate.close();
 });

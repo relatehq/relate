@@ -24,7 +24,7 @@ function fixture() {
 
   cleanups.push(() => db.close());
   db.exec(`CREATE TABLE customers (id TEXT PRIMARY KEY NOT NULL, display_name TEXT NOT NULL, portfolio TEXT NOT NULL, stripe_customer_id TEXT);
-    INSERT INTO customers VALUES ('crm_northwind', 'Northwind', 'portfolio_north', 'cus_demo_northwind');`);
+    INSERT INTO customers VALUES ('crm_mothlight', 'Mothlight', 'portfolio_north', 'cus_demo_mothlight');`);
   db.exec(
     "CREATE TABLE account (id TEXT PRIMARY KEY NOT NULL); INSERT INTO account VALUES ('demo-crm')",
   );
@@ -46,29 +46,29 @@ test('reads database identity, scalar values, updates and affirmative absence', 
   const { db, connector } = fixture();
 
   expect(await connector.identify(request())).toBe('demo-crm');
-  expect(await connector.fetch('crm_northwind', request())).toEqual({
+  expect(await connector.fetch('crm_mothlight', request())).toEqual({
     providerAccountId: 'demo-crm',
     state: 'present',
     record: {
-      id: 'crm_northwind',
-      display_name: 'Northwind',
+      id: 'crm_mothlight',
+      display_name: 'Mothlight',
       portfolio: 'portfolio_north',
-      stripe_customer_id: 'cus_demo_northwind',
+      stripe_customer_id: 'cus_demo_mothlight',
     },
   });
   db.exec(
-    "UPDATE customers SET display_name = 'Updated', stripe_customer_id = NULL WHERE id = 'crm_northwind'",
+    "UPDATE customers SET display_name = 'Updated', stripe_customer_id = NULL WHERE id = 'crm_mothlight'",
   );
-  expect(await connector.fetch('crm_northwind', request())).toMatchObject({
+  expect(await connector.fetch('crm_mothlight', request())).toMatchObject({
     record: { display_name: 'Updated', stripe_customer_id: null },
   });
-  db.exec("DELETE FROM customers WHERE id = 'crm_northwind'");
-  expect(await connector.fetch('crm_northwind', request())).toEqual({
+  db.exec("DELETE FROM customers WHERE id = 'crm_mothlight'");
+  expect(await connector.fetch('crm_mothlight', request())).toEqual({
     providerAccountId: 'demo-crm',
     state: 'deleted',
   });
   db.exec('DROP TABLE customers');
-  await expect(connector.fetch('crm_northwind', request())).rejects.toThrow();
+  await expect(connector.fetch('crm_mothlight', request())).rejects.toThrow();
 });
 
 test('binds IDs and quotes identifiers without executing input as SQL', async () => {
@@ -121,7 +121,7 @@ test('does not cache identity, and rejects missing or ambiguous account evidence
     SourceAccessDenied,
   );
   await expect(
-    connector.fetch('crm_northwind', request()),
+    connector.fetch('crm_mothlight', request()),
   ).rejects.toBeInstanceOf(SourceAccessDenied);
   db.exec('DELETE FROM account');
   await expect(connector.identify(request())).rejects.toBeInstanceOf(
@@ -135,10 +135,10 @@ test('does not read or retain undeclared columns; rejects invalid selected value
   db.exec(
     "ALTER TABLE customers ADD COLUMN secret; ALTER TABLE customers ADD COLUMN avatar BLOB; ALTER TABLE customers ADD COLUMN external_id INTEGER; UPDATE customers SET secret = 'private', avatar = x'ffff', external_id = 9223372036854775807",
   );
-  expect(await connector.fetch('crm_northwind', request())).toMatchObject({
+  expect(await connector.fetch('crm_mothlight', request())).toMatchObject({
     state: 'present',
   });
-  const result = await connector.fetch('crm_northwind', request());
+  const result = await connector.fetch('crm_mothlight', request());
 
   if (result.state !== 'present') throw new Error('Expected record');
 
@@ -151,18 +151,18 @@ test('does not read or retain undeclared columns; rejects invalid selected value
   await expect(
     database
       .table('customers', { idColumn: 'id', columns: ['avatar'] })
-      .fetch('crm_northwind', request()),
+      .fetch('crm_mothlight', request()),
   ).rejects.toThrow('JSON scalar');
   await expect(
     database
       .table('customers', { idColumn: 'id', columns: ['external_id'] })
-      .fetch('crm_northwind', request()),
+      .fetch('crm_mothlight', request()),
   ).rejects.toThrow();
   db.exec('UPDATE customers SET secret = 1e999');
   await expect(
     database
       .table('customers', { idColumn: 'id', columns: ['secret'] })
-      .fetch('crm_northwind', request()),
+      .fetch('crm_mothlight', request()),
   ).rejects.toThrow('JSON scalar');
 });
 
@@ -173,8 +173,8 @@ test('aliases configured identifier casing and checks uniqueness only among exac
     columns: ['DISPLAY_NAME'],
   });
 
-  expect(await uppercase.fetch('crm_northwind', request())).toMatchObject({
-    record: { ID: 'crm_northwind', DISPLAY_NAME: 'Northwind' },
+  expect(await uppercase.fetch('crm_mothlight', request())).toMatchObject({
+    record: { ID: 'crm_mothlight', DISPLAY_NAME: 'Mothlight' },
   });
   db.exec(
     "CREATE TABLE mixed (id COLLATE NOCASE, name TEXT); INSERT INTO mixed VALUES ('abc', 'lower'), ('ABC', 'upper'), (1, 'integer'), ('1', 'text')",
@@ -203,12 +203,12 @@ test('honors cancellation, lock failures and owned connection disposal', async (
 
   controller.abort(new Error('cancelled'));
   await expect(
-    connector.fetch('crm_northwind', { signal: controller.signal }),
+    connector.fetch('crm_mothlight', { signal: controller.signal }),
   ).rejects.toThrow('cancelled');
   db.exec('BEGIN EXCLUSIVE');
 
   try {
-    await expect(connector.fetch('crm_northwind', request())).rejects.toThrow();
+    await expect(connector.fetch('crm_mothlight', request())).rejects.toThrow();
   } finally {
     db.exec('ROLLBACK');
   }
@@ -246,7 +246,7 @@ test('waits for a brief writer lock without blocking JavaScript timers', async (
   const release = setTimeout(() => db.exec('ROLLBACK'), 30);
 
   try {
-    expect(await connector.fetch('crm_northwind', request())).toMatchObject({
+    expect(await connector.fetch('crm_mothlight', request())).toMatchObject({
       state: 'present',
     });
     expect(db.isTransaction).toBe(false);
@@ -262,7 +262,7 @@ test('cancels queued requests without cancelling another resource read', async (
 
   await connector.identify(request());
   db.exec('BEGIN EXCLUSIVE');
-  const first = connector.fetch('crm_northwind', request());
+  const first = connector.fetch('crm_mothlight', request());
   const controller = new AbortController();
   const cancelled = connector.identify({ signal: controller.signal });
   const rejection = expect(cancelled).rejects.toThrow('queued cancellation');
@@ -311,7 +311,7 @@ test('close rejects active and queued reads and is safe to await twice', async (
 
   try {
     const active = expect(
-      connector.fetch('crm_northwind', request()),
+      connector.fetch('crm_mothlight', request()),
     ).rejects.toThrow('closed');
     const queued = expect(connector.identify(request())).rejects.toThrow(
       'closed',
@@ -421,7 +421,7 @@ test('padded account IDs fail closed with an actionable diagnostic', async () =>
       message: 'SQLite account ID must not have leading or trailing whitespace',
     });
     await expect(
-      connector.fetch('crm_northwind', request()),
+      connector.fetch('crm_mothlight', request()),
     ).rejects.toBeInstanceOf(SourceAccessDenied);
   }
 
@@ -443,9 +443,9 @@ test('defaults to application-owned identity without querying an account table',
 
   expect(connector.identity).toBe('application');
   expect(connector.identify).toBeUndefined();
-  expect(await connector.fetch('crm_northwind', request())).toEqual({
+  expect(await connector.fetch('crm_mothlight', request())).toEqual({
     state: 'present',
-    record: { id: 'crm_northwind', display_name: 'Northwind' },
+    record: { id: 'crm_mothlight', display_name: 'Mothlight' },
   });
   expect(await connector.fetch('absent', request())).toEqual({
     state: 'deleted',

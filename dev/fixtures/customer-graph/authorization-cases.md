@@ -9,8 +9,8 @@ introduced. Object policies remain on the graph; action policies stay colocated.
 ## Concrete setup
 
 One company runs this instance. Customer portfolios are internal account
-assignments, not separate tenant organizations. Northwind is in the North
-portfolio; Southbank is in the South portfolio. Ana and Fin are assigned to
+assignments, not separate tenant organizations. Mothlight is in the North
+portfolio; Kettlewick is in the South portfolio. Ana and Fin are assigned to
 North, Sara to South. Finance is a separate field-access role; it does not grant
 access to every portfolio. One portfolio per caller keeps this example small;
 multiple assignments are a future collection-predicate case.
@@ -21,10 +21,10 @@ Use the records in `validation/records.ts` and principals in
 - Ana: employee/account-manager, `portfolio_north`; Fin: employee/finance,
   `portfolio_north`.
 - Sara: employee/account-manager, `portfolio_south`.
-- Northwind (`crm_456`) and its `inv_1`/`inv_2`; Southbank (`crm_789`) and its
+- Mothlight (`crm_456`) and its `inv_1`/`inv_2`; Kettlewick (`crm_789`) and its
   open invoice `inv_south`. Adopt all records, retaining Relate-assigned IDs.
-- In separate authorized invocations, Ana escalates Northwind and Sara escalates
-  Southbank. Retain each returned review ID and task IDs. These actions provide
+- In separate authorized invocations, Ana escalates Mothlight and Sara escalates
+  Kettlewick. Retain each returned review ID and task IDs. These actions provide
   both portfolios' native child records without a special insertion API.
 
 The creation and read requirements below must agree: being able to construct
@@ -32,14 +32,14 @@ this setup must not require an undocumented authorization bypass.
 
 ## Required authorization outcomes
 
-- Ana's direct get/query and traversals expose no Southbank children. Known
+- Ana's direct get/query and traversals expose no Kettlewick children. Known
   hidden IDs must not reveal more than unknown IDs.
-- Sara can read Southbank's ordinary fields; finance still gates financial
+- Sara can read Kettlewick's ordinary fields; finance still gates financial
   fields.
-- Ana cannot use a Southbank customer reference to create a review merely
+- Ana cannot use a Kettlewick customer reference to create a review merely
   because she has the account-manager role. The explicit customer read rejects;
   the declared create rule must reject it even if code omits that read.
-- Fin cannot execute the actions despite being able to read Northwind.
+- Fin cannot execute the actions despite being able to read Mothlight.
 - An account-manager without employee access cannot pass the examples' object
   reads. No implicit permission is derived from an input reference.
 - Invoice review reads its customer ID first; a later denied customer lookup
@@ -90,7 +90,7 @@ cross-customer links and whole-action rollback. It reuses the declared graph
 rules; execution remains unimplemented.
 
 Future execution tests should deliberately attempt to create a review as another
-user, link a Northwind task to a Southbank invoice/customer/review, and supply
+user, link a Mothlight task to a Kettlewick invoice/customer/review, and supply
 missing or wrong-type IDs. All must reject under the applicable policy/integrity
 rules without partial native commits or hidden-value disclosure.
 
@@ -124,14 +124,14 @@ not prove them.
 
 Keep permission and relationship integrity separate:
 
-- Ana creates a review for Northwind: permitted by her account-manager role and
+- Ana creates a review for Mothlight: permitted by her account-manager role and
   North portfolio assignment. Set its author to Ana.
-- Ana supplies Southbank's ID, and the action omits its customer lookup: the
+- Ana supplies Kettlewick's ID, and the action omits its customer lookup: the
   object create rule must still reject a write outside her assigned portfolio.
 - Ana supplies another employee as author: reject impersonation even though
-  Northwind itself is in her portfolio.
-- Use the second North-portfolio customer, Harbour Design (`crm_654`). Ana can
-  read both, but a Task for Northwind must not link that other customer's
+  Mothlight itself is in her portfolio.
+- Use the second North-portfolio customer, Paper Otter Press (`crm_654`). Ana
+  can read both, but a Task for Mothlight must not link that other customer's
   invoice or review. This proves integrity independently of a portfolio-access
   denial.
 - Create a review and then its task in the same invocation: validation must

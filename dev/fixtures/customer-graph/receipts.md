@@ -7,7 +7,7 @@ submission is deferred for exploration.
 ```ts
 const caller = relate.as(ana);
 const request = {
-  input: { customer: northwind, note: 'Follow up' },
+  input: { customer: mothlight, note: 'Follow up' },
   idempotencyKey: 'review-2026-10',
 };
 const receipt = await caller.actions.addAccountReview(request);

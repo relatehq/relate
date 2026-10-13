@@ -255,7 +255,7 @@ business result in `output`; callers do not need to poll:
 
 ```ts
 const request = {
-  input: { customer: northwind, note: 'Follow up' },
+  input: { customer: mothlight, note: 'Follow up' },
   idempotencyKey: 'review-2026-10',
 };
 const caller = relate.as(ana);

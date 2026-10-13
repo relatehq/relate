@@ -7,41 +7,41 @@ export async function scenario() {
   const relate = createFixtureApp();
 
   try {
-    const northwind = await relate.host.adopt(Customer, 'crm_456');
-    const southbank = await relate.host.adopt(Customer, 'crm_789');
+    const mothlight = await relate.host.adopt(Customer, 'crm_456');
+    const kettlewick = await relate.host.adopt(Customer, 'crm_789');
 
     const openInvoice = await relate.host.adopt(Invoice, 'inv_1');
 
     await relate.host.adopt(Invoice, 'inv_2');
 
-    assert.notEqual(northwind, 'crm_456');
+    assert.notEqual(mothlight, 'crm_456');
 
     // Ana may read the customer, but not its financial field group.
-    const customer = await relate.as(ana).objects.Customer.get(northwind, {
+    const customer = await relate.as(ana).objects.Customer.get(mothlight, {
       select: ['name', 'revenue'],
     });
 
     assert.equal(customer.status, 'ok');
-    assert.equal(customer.id, northwind);
-    assert.deepEqual(customer.data, { name: 'Northwind Studio' });
+    assert.equal(customer.id, mothlight);
+    assert.deepEqual(customer.data, { name: 'Mothlight Studio' });
     assert.equal(customer.meta.completeness, 'partial');
     assert.equal(customer.meta.fields.name?.status, 'available');
     assert.equal(customer.meta.fields.revenue?.status, 'forbidden');
 
     // Finance in the same portfolio also sees revenue.
-    const financial = await relate.as(fin).objects.Customer.get(northwind, {
+    const financial = await relate.as(fin).objects.Customer.get(mothlight, {
       select: ['name', 'revenue'],
     });
 
     assert.equal(financial.status, 'ok');
     assert.deepEqual(financial.data, {
-      name: 'Northwind Studio',
+      name: 'Mothlight Studio',
       revenue: 2_000_000,
     });
     assert.equal(financial.meta.completeness, 'complete');
 
     // Another portfolio's customer is indistinguishable from a missing one.
-    assert.deepEqual(await relate.as(ana).objects.Customer.get(southbank), {
+    assert.deepEqual(await relate.as(ana).objects.Customer.get(kettlewick), {
       status: 'not-found',
     });
 
@@ -51,14 +51,14 @@ export async function scenario() {
 
     assert.deepEqual(
       customers.data.map((row) => row.data),
-      [{ id: northwind, name: 'Northwind Studio' }],
+      [{ id: mothlight, name: 'Mothlight Studio' }],
     );
     assert.equal(customers.meta.exhausted, true);
 
     // Billing's CRM key was translated: invoices hang off the Relate customer.
     const invoices = await relate
       .as(fin)
-      .objects.Customer.traverse.invoices(northwind, {
+      .objects.Customer.traverse.invoices(mothlight, {
         select: ['customer', 'status', 'totalMinor'],
       });
     const open = invoices.data.filter((row) => row.data.status === 'open');
@@ -66,12 +66,12 @@ export async function scenario() {
     assert.equal(invoices.data.length, 2);
     assert.deepEqual(
       open.map((row) => row.data),
-      [{ customer: northwind, status: 'open', totalMinor: 250_000 }],
+      [{ customer: mothlight, status: 'open', totalMinor: 250_000 }],
     );
 
     // Consumers can express the same filtered query used inside escalation.
     const openInvoices = await relate.as(ana).objects.Invoice.query({
-      where: { customer: northwind, status: 'open' },
+      where: { customer: mothlight, status: 'open' },
       select: ['id'],
       limit: 100,
     });
@@ -84,7 +84,7 @@ export async function scenario() {
 
     // Ana records a review. The implementation sets the author; she cannot choose it.
     const request = {
-      input: { customer: northwind, note: 'Follow up on the open invoice' },
+      input: { customer: mothlight, note: 'Follow up on the open invoice' },
       idempotencyKey: 'review-2026-10',
     };
     const receipt = await relate.as(ana).actions.addAccountReview(request);
@@ -93,14 +93,14 @@ export async function scenario() {
 
     const reviews = await relate
       .as(ana)
-      .objects.Customer.traverse.reviews(northwind);
+      .objects.Customer.traverse.reviews(mothlight);
 
     assert.deepEqual(
       reviews.data.map((row) => row.data),
       [
         {
           id: receipt.output.reviewId,
-          customer: northwind,
+          customer: mothlight,
           author: 'ana',
           note: 'Follow up on the open invoice',
         },
@@ -115,14 +115,14 @@ export async function scenario() {
       });
 
     assert.equal(reviewed.status, 'ok');
-    assert.deepEqual(reviewed.data, { name: 'Northwind Studio' });
+    assert.deepEqual(reviewed.data, { name: 'Mothlight Studio' });
 
     // A retry returns the original outcome and creates nothing new.
     const retried = await relate.as(ana).actions.addAccountReview(request);
 
     assert.deepEqual(retried, receipt);
     assert.equal(
-      (await relate.as(ana).objects.Customer.traverse.reviews(northwind)).data
+      (await relate.as(ana).objects.Customer.traverse.reviews(mothlight)).data
         .length,
       1,
     );
@@ -138,7 +138,7 @@ export async function scenario() {
     // Several native objects in one commit; source queries run as Ana.
     const escalation = await relate.as(ana).actions.escalateAccount({
       input: {
-        customer: northwind,
+        customer: mothlight,
         note: 'Escalated',
         assignee: 'sam',
         dueDate: '2026-10-20',
@@ -158,7 +158,7 @@ export async function scenario() {
       [
         {
           id: escalation.output.taskIds[0],
-          customer: northwind,
+          customer: mothlight,
           review: escalation.output.reviewId,
           invoice: openInvoice,
           assignee: 'sam',
@@ -181,9 +181,9 @@ export async function scenario() {
 
     assert.equal(invoiceReviewRecord.status, 'ok');
     assert.deepEqual(invoiceReviewRecord.data, {
-      customer: northwind,
+      customer: mothlight,
       author: 'ana',
-      note: 'Northwind Studio: Check payment timing',
+      note: 'Mothlight Studio: Check payment timing',
     });
   } finally {
     await relate.close();

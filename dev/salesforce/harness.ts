@@ -300,7 +300,7 @@ export class ScratchOrg {
       await this.save(state);
     }
 
-    for (const name of ['Northwind', 'Contoso']) {
+    for (const name of ['Mothlight', 'Bracken Kiln']) {
       signal?.throwIfAborted();
       const result = z
         .object({

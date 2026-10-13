@@ -29,20 +29,20 @@ that lookup.
 ## Required outcomes
 
 [`validation/adversarial-write-scenario.ts`](./validation/adversarial-write-scenario.ts)
-uses Ana, an account manager assigned to North. Northwind and Harbour Design are
-both in North; Southbank is in South. Each case opens fresh storage, adopts the
-source records, and creates an existing Harbour review through the ordinary
-authorized action. Reads establish that Ana can see both North customers, their
-invoices and the Harbour review.
+uses Ana, an account manager assigned to North. Mothlight and Paper Otter Press
+are both in North; Kettlewick is in South. Each case opens fresh storage, adopts
+the source records, and creates an existing Paper Otter review through the
+ordinary authorized action. Reads establish that Ana can see both North
+customers, their invoices and the Paper Otter review.
 
 | Case                              | Attempt                                                               | Expected outcome and owning rule                                                                           |
 | --------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Permitted without lookup          | Northwind review by Ana, Northwind invoice, new review linked to task | Success; both rows commit, including resolution of the new review in the same transaction                  |
-| Outside portfolio without lookup  | Southbank review by Ana                                               | Rejection by `AccountReview.create` customer portfolio condition                                           |
-| Another author                    | Northwind review attributed to Sara                                   | Rejection by `AccountReview.create` author condition                                                       |
-| Cross-portfolio invoice           | Northwind task linked to Southbank invoice                            | Rejection under task/customer–invoice integrity; hidden or unavailable evidence must never allow the write |
-| Readable other customer's invoice | Northwind task linked to Harbour invoice                              | Rejection by task/customer–invoice integrity even though both records are readable                         |
-| Readable other customer's review  | Northwind task with Northwind invoice and Harbour review              | Rejection by task/customer–review integrity even though every reference is readable                        |
+| Permitted without lookup          | Mothlight review by Ana, Mothlight invoice, new review linked to task | Success; both rows commit, including resolution of the new review in the same transaction                  |
+| Outside portfolio without lookup  | Kettlewick review by Ana                                              | Rejection by `AccountReview.create` customer portfolio condition                                           |
+| Another author                    | Mothlight review attributed to Sara                                   | Rejection by `AccountReview.create` author condition                                                       |
+| Cross-portfolio invoice           | Mothlight task linked to Kettlewick invoice                           | Rejection under task/customer–invoice integrity; hidden or unavailable evidence must never allow the write |
+| Readable other customer's invoice | Mothlight task linked to Paper Otter invoice                          | Rejection by task/customer–invoice integrity even though both records are readable                         |
+| Readable other customer's review  | Mothlight task with Mothlight invoice and Paper Otter review          | Rejection by task/customer–review integrity even though every reference is readable                        |
 
 Every rejection must leave committed reviews and tasks exactly as they were
 before the invocation, preserving the seed review and rolling back any newly

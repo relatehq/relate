@@ -43,7 +43,7 @@ try {
       select: ['id', 'name', 'revenue'],
     }),
   );
-  await crm.update({ display_name: 'Northwind Studio' });
+  await crm.update({ display_name: 'Mothlight Studio' });
   now += 1_000;
   show(
     'finance-refresh',

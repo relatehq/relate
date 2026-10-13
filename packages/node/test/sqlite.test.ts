@@ -23,7 +23,7 @@ test('executes typed authorized reads without an account table', async ({
 
   onTestFinished(() => db.close());
   db.exec(`CREATE TABLE customers (id TEXT PRIMARY KEY, display_name TEXT, portfolio TEXT, revenue REAL);
-    INSERT INTO customers VALUES ('crm_northwind', 'Northwind', 'portfolio_north', 10), ('crm_south', 'South Coast', 'portfolio_south', 20);`);
+    INSERT INTO customers VALUES ('crm_mothlight', 'Mothlight', 'portfolio_north', 10), ('crm_south', 'Saltglass Works', 'portfolio_south', 20);`);
   const app = await startApp(
     defineApp({
       graph: customerGraph,
@@ -48,25 +48,25 @@ test('executes typed authorized reads without an account table', async ({
   );
 
   try {
-    const id = await app.host.adopt(Customer, 'crm_northwind');
+    const id = await app.host.adopt(Customer, 'crm_mothlight');
     const south = await app.host.adopt(Customer, 'crm_south');
     const objects = app.as(employee).objects;
 
     expect(await objects.Customer.get(id)).toMatchObject({
       status: 'ok',
-      data: { name: 'Northwind' },
+      data: { name: 'Mothlight' },
     });
     expect(await objects.Customer.get(south)).toMatchObject({
       status: 'not-found',
     });
     db.exec(
-      "UPDATE customers SET display_name = 'Northwind Ltd' WHERE id = 'crm_northwind'",
+      "UPDATE customers SET display_name = 'Mothlight Ltd' WHERE id = 'crm_mothlight'",
     );
     expect(await objects.Customer.get(id, { maxAgeMs: 0 })).toMatchObject({
       status: 'ok',
-      data: { name: 'Northwind Ltd' },
+      data: { name: 'Mothlight Ltd' },
     });
-    db.exec("DELETE FROM customers WHERE id = 'crm_northwind'");
+    db.exec("DELETE FROM customers WHERE id = 'crm_mothlight'");
     expect(await objects.Customer.get(id, { maxAgeMs: 0 })).toMatchObject({
       status: 'not-found',
     });

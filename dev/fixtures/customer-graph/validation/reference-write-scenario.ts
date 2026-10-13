@@ -38,7 +38,7 @@ export async function referenceWriteScenario(
   driver: ReferenceWriteScenarioDriver,
 ) {
   const cases = [
-    { name: 'permitted', target: 'northwind', atWrite: false, prefix: false },
+    { name: 'permitted', target: 'mothlight', atWrite: false, prefix: false },
     {
       name: 'wrong-type-input',
       target: 'invoice',
@@ -52,7 +52,12 @@ export async function referenceWriteScenario(
       prefix: false,
     },
     { name: 'missing-write', target: 'missing', atWrite: true, prefix: false },
-    { name: 'denied-write', target: 'southbank', atWrite: true, prefix: false },
+    {
+      name: 'denied-write',
+      target: 'kettlewick',
+      atWrite: true,
+      prefix: false,
+    },
     {
       name: 'wrong-type-rollback',
       target: 'invoice',
@@ -61,7 +66,7 @@ export async function referenceWriteScenario(
     },
     {
       name: 'denied-rollback',
-      target: 'southbank',
+      target: 'kettlewick',
       atWrite: true,
       prefix: true,
     },
@@ -102,10 +107,10 @@ export async function referenceWriteScenario(
     const { relate, committedReviews } = await driver.open(implementation);
 
     try {
-      const northwind = await relate.host.adopt(Customer, 'crm_456');
-      const southbank = await relate.host.adopt(Customer, 'crm_789');
+      const mothlight = await relate.host.adopt(Customer, 'crm_456');
+      const kettlewick = await relate.host.adopt(Customer, 'crm_789');
       const invoice = await relate.host.adopt(Invoice, 'inv_1');
-      const rawId = { northwind, southbank, invoice, missing: 'not-adopted' }[
+      const rawId = { mothlight, kettlewick, invoice, missing: 'not-adopted' }[
         test.target
       ];
 
@@ -114,7 +119,7 @@ export async function referenceWriteScenario(
       // Model the external boundary without casts: parsing declares the expected
       // object type but does not prove membership or grant write permission.
       const input = AddAccountReview.input.parse({
-        customer: test.atWrite ? northwind : rawId,
+        customer: test.atWrite ? mothlight : rawId,
         note: test.atWrite ? rawId : 'Follow up',
       });
       const receipt = await relate.as(ana).actions.addAccountReview({
@@ -131,7 +136,7 @@ export async function referenceWriteScenario(
         assert.deepEqual(await committedReviews(), [
           {
             id: receipt.output.reviewId,
-            customer: northwind,
+            customer: mothlight,
             author: ana.id,
             note: 'Follow up',
           },

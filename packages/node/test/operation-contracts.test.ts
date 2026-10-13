@@ -11,7 +11,7 @@ function createInvoiceApp() {
   const model = createInvoiceGraph();
   const rows = {
     customers: new Map([
-      ['c1', { id: 'c1', name: 'Northwind', portfolio: 'north', revenue: 5 }],
+      ['c1', { id: 'c1', name: 'Mothlight', portfolio: 'north', revenue: 5 }],
     ]),
     invoices: new Map([
       ['i1', { id: 'i1', customer_id: 'c1', status: 'Paid', total_minor: 10 }],
@@ -297,7 +297,7 @@ it('explains traversal call mistakes without querying records', async () => {
       await readError(() =>
         Invoice.traverse.customer(
           'i1' as never,
-          { where: { name: 'Northwind' } } as never,
+          { where: { name: 'Mothlight' } } as never,
         ),
       )
     ).issues,

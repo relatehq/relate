@@ -106,7 +106,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
 
   expect(initial).toMatchObject({
     status: 'ok',
-    data: { id: key, name: 'Northwind' },
+    data: { id: key, name: 'Mothlight' },
     meta: { completeness: 'partial' },
   });
 
@@ -122,7 +122,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
     ),
   ).toEqual({ status: 'not-found' });
 
-  await crm.update({ display_name: 'Northwind Studio' });
+  await crm.update({ display_name: 'Mothlight Studio' });
   time.now += 1_000;
   const refreshed = await runtime.read(finance, Customer.id, key, {
     evidence: 'full',
@@ -132,7 +132,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
 
   expect(refreshed).toMatchObject({
     status: 'ok',
-    data: { name: 'Northwind Studio', revenue: 2_000_000 },
+    data: { name: 'Mothlight Studio', revenue: 2_000_000 },
     meta: {
       completeness: 'complete',
       degraded: false,
@@ -172,7 +172,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
 
   expect(JSON.parse(restarted.stdout)).toMatchObject({
     status: 'ok',
-    data: { name: 'Northwind Studio' },
+    data: { name: 'Mothlight Studio' },
     meta: { fields: { name: { freshness: 'stale', retention: 'confirmed' } } },
   });
   const fallback = await runtime.read(employee, Customer.id, key, {
@@ -182,7 +182,7 @@ it('refreshes, retains, restarts, and serves only currently authorized fallback 
 
   expect(fallback).toMatchObject({
     status: 'ok',
-    data: { name: 'Northwind Studio' },
+    data: { name: 'Mothlight Studio' },
     meta: {
       completeness: 'complete',
       degraded: true,
@@ -260,7 +260,7 @@ it('keeps raw inputs private and commits value history only when mapped values c
         Customer.properties.revenue.id,
       ].sort(),
     );
-    expect(initialValues[Customer.properties.name.id]).toBe('Northwind');
+    expect(initialValues[Customer.properties.name.id]).toBe('Mothlight');
     time.now += 100;
     await runtime.read(employee, Customer.id, key, { refresh: true });
     expect(await changes()).toHaveLength(1);
@@ -290,7 +290,7 @@ it('keeps raw inputs private and commits value history only when mapped values c
       (await changes())
         .map((row) => row.values[Customer.properties.name.id])
         .sort(),
-    ).toEqual(['Changed', 'Northwind']);
+    ).toEqual(['Changed', 'Mothlight']);
   } finally {
     await db.end();
   }
@@ -337,7 +337,7 @@ it('returns fresh authorized transient values when retention fails without chang
       select: ['name'],
       refresh: true,
     }),
-  ).toMatchObject({ status: 'ok', data: { name: 'Northwind' } });
+  ).toMatchObject({ status: 'ok', data: { name: 'Mothlight' } });
 });
 
 it('distinguishes an unconfirmed commit, successful readback, and unavailable ordering evidence', async () => {
@@ -549,7 +549,7 @@ it('refuses a provider-denied refresh without fallback and leaves cached reads t
     }),
   ).toMatchObject({
     status: 'ok',
-    data: { name: 'Northwind' },
+    data: { name: 'Mothlight' },
     meta: { fields: { name: { refresh: 'not-needed' } } },
   });
   time.now += 60_001;
@@ -567,7 +567,7 @@ it('refuses a provider-denied refresh without fallback and leaves cached reads t
     }),
   ).toMatchObject({
     status: 'ok',
-    data: { name: 'Northwind' },
+    data: { name: 'Mothlight' },
     meta: { fields: { name: { refresh: 'succeeded' } } },
   });
 });
@@ -591,7 +591,7 @@ it('bounds source waits and rejects malformed observations without overwriting r
     }),
   ).toMatchObject({
     status: 'ok',
-    data: { name: 'Northwind' },
+    data: { name: 'Mothlight' },
     meta: { degraded: true, fields: { name: { refresh: 'unavailable' } } },
   });
   expect(Date.now() - start).toBeLessThan(2_000);
@@ -603,7 +603,7 @@ it('bounds source waits and rejects malformed observations without overwriting r
     }),
   ).toMatchObject({
     status: 'ok',
-    data: { name: 'Northwind' },
+    data: { name: 'Mothlight' },
     meta: { fields: { name: { refresh: 'invalid' } } },
   });
 });
@@ -644,7 +644,7 @@ it('keeps the later accepted observation when two real database clients race', a
     state: 'present',
     record: {
       id: 'crm_456',
-      display_name: 'Northwind',
+      display_name: 'Mothlight',
       portfolio: 'portfolio_north',
       revenue: 2_000_000,
       private_unmapped: 'never return this',
@@ -697,8 +697,8 @@ it('rolls back raw retention, projection and history together on a database writ
       )
     ).rows[0].observation;
 
-    expect(stored.raw.display_name).toBe('Northwind');
-    expect(stored.values[Customer.properties.name.id]).toBe('Northwind');
+    expect(stored.raw.display_name).toBe('Mothlight');
+    expect(stored.values[Customer.properties.name.id]).toBe('Mothlight');
     expect(
       (
         await db.query('SELECT * FROM relate.value_changes WHERE graph_id=$1', [
@@ -916,7 +916,7 @@ it.each(['source-failure', 'conflicting-version'] as const)(
           state: 'present',
           record: {
             id: 'crm_456',
-            display_name: 'Northwind',
+            display_name: 'Mothlight',
             portfolio: 'portfolio_north',
             revenue: 2_000_000,
             private_unmapped: 'never return this',
@@ -958,7 +958,7 @@ it('verifies the HTTP provider account before cached reads and refreshes', async
   await expect(runtime.adopt(Customer.id, 'crm_456')).rejects.toThrow();
   crm.setAccount('example-account');
   expect(await runtime.read(employee, Customer.id, id)).toMatchObject({
-    data: { name: 'Northwind' },
+    data: { name: 'Mothlight' },
   });
 });
 

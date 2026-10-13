@@ -7,7 +7,7 @@ export const row = () => ({
   attributes: { type: 'Account' },
   Id: accountId,
   IsDeleted: false,
-  Name: 'Northwind',
+  Name: 'Mothlight',
   Website: null,
 });
 

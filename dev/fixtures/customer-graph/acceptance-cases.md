@@ -88,14 +88,14 @@ implementation deliberately omits `Customer.get()` and writes directly. It is
 typechecked only; the native-action executor and storage inspection driver are
 not implemented.
 
-| Case                                                                                                   | Required outcome                                                                                                         |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Ana creates a review for Northwind with herself as author                                              | Success and exactly one committed review. This positive control prevents a runtime that denies every write from passing. |
-| External `customer` input contains an adopted Invoice ID                                               | String parsing succeeds, but execution fails with no committed review. Parsing is not proof of Customer membership.      |
-| Valid Customer input, but action code supplies an Invoice ID to `create`                               | The write itself rejects. Checking reference inputs only at invocation is insufficient.                                  |
-| Action code supplies a nonblank, unadopted Customer ID to `create`                                     | The write rejects without adopting or inventing a customer.                                                              |
-| Action code supplies Southbank's real Customer ID for Ana                                              | The create policy rejects even though the reference identifies an existing Customer.                                     |
-| A valid Northwind review is created before a second write supplies an Invoice ID or Southbank customer | The action fails and neither review is committed. An allocated ID does not prove persistence.                            |
+| Case                                                                                                    | Required outcome                                                                                                         |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Ana creates a review for Mothlight with herself as author                                               | Success and exactly one committed review. This positive control prevents a runtime that denies every write from passing. |
+| External `customer` input contains an adopted Invoice ID                                                | String parsing succeeds, but execution fails with no committed review. Parsing is not proof of Customer membership.      |
+| Valid Customer input, but action code supplies an Invoice ID to `create`                                | The write itself rejects. Checking reference inputs only at invocation is insufficient.                                  |
+| Action code supplies a nonblank, unadopted Customer ID to `create`                                      | The write rejects without adopting or inventing a customer.                                                              |
+| Action code supplies Kettlewick's real Customer ID for Ana                                              | The create policy rejects even though the reference identifies an existing Customer.                                     |
+| A valid Mothlight review is created before a second write supplies an Invoice ID or Kettlewick customer | The action fails and neither review is committed. An allocated ID does not prove persistence.                            |
 
 The write-only cases carry the candidate ID through a scalar input and parse it
 inside the implementation, so invocation-time reference validation cannot mask a

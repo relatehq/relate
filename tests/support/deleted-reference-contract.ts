@@ -104,7 +104,7 @@ export function deletedReferenceContract(
                 state: 'present',
                 record: {
                   id,
-                  name: 'Northwind',
+                  name: 'Mothlight',
                   portfolio: 'north',
                   revenue: 1,
                 },
@@ -124,7 +124,7 @@ export function deletedReferenceContract(
                       state: 'present',
                       record: {
                         id,
-                        customer_id: 'northwind',
+                        customer_id: 'mothlight',
                         status: 'open',
                         total_minor: 100,
                       },
@@ -135,7 +135,7 @@ export function deletedReferenceContract(
       });
 
       try {
-        const customer = await relate.host.adopt(Customer, 'northwind');
+        const customer = await relate.host.adopt(Customer, 'mothlight');
         const invoice = await relate.host.adopt(Invoice, 'inv_1');
         const { objects, actions } = relate.as(ana);
         const receipt = await actions.createTask({

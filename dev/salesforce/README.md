@@ -52,12 +52,13 @@ pnpm test:unit -- connectors/salesforce/test
 
 An explicitly created org remains available; use `salesforce:dev delete` when
 finished. Reset deletes only recorded fixture Account IDs and seeds
-Northwind/Contoso automatically. Do not run reset/delete while an application or
-live suite is using the org. A second create refuses to overwrite existing
-state. All commands use the worktree-local `.relate/salesforce.json` ownership
-record. It contains the Dev Hub identity, unique scratch username, creation job
-ID, org ID, and seeded Account IDs, **never access tokens**. Do not remove it
-before teardown. Do not edit its ownership fields or move it between worktrees.
+Mothlight/Bracken Kiln automatically. Do not run reset/delete while an
+application or live suite is using the org. A second create refuses to overwrite
+existing state. All commands use the worktree-local `.relate/salesforce.json`
+ownership record. It contains the Dev Hub identity, unique scratch username,
+creation job ID, org ID, and seeded Account IDs, **never access tokens**. Do not
+remove it before teardown. Do not edit its ownership fields or move it between
+worktrees.
 
 The harness records intent before provisioning and recovers a lost creation
 response through the Dev Hub's `ScratchOrgInfo`. Before seeding, credential

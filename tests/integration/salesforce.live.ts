@@ -29,19 +29,19 @@ try {
       const initial = await customers.get(id, { select: ['name', 'website'] });
 
       assertFields(initial, ['name', 'website']);
-      assert.equal(initial.data.name, 'Northwind');
+      assert.equal(initial.data.name, 'Mothlight');
       assert.equal(initial.data.website, 'https://example.com');
       console.log(
         'PASS verified org identity and seeded Account read through Relate',
       );
-      await org.updateAccount(sourceId, 'Northwind Updated');
+      await org.updateAccount(sourceId, 'Mothlight Updated');
       const updated = await customers.get(id, {
         select: ['name'],
         refresh: true,
       });
 
       assertFields(updated, ['name']);
-      assert.equal(updated.data.name, 'Northwind Updated');
+      assert.equal(updated.data.name, 'Mothlight Updated');
       console.log('PASS upstream update appears on refresh');
       const denied = salesforce({
         credentials: { ...credentials, accessToken: 'invalid-session-token' },

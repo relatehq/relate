@@ -34,7 +34,7 @@ function fixture() {
               state: 'present',
               record: {
                 id,
-                name: 'Northwind',
+                name: 'Mothlight',
                 portfolio: 'north',
                 revenue: 250_000,
               },
@@ -72,7 +72,7 @@ it('adopts once and reads selected fields through a principal-bound object', asy
               state: 'present',
               record: {
                 id,
-                name: 'Northwind',
+                name: 'Mothlight',
                 portfolio: 'north',
                 revenue: 250_000,
               },
@@ -96,7 +96,7 @@ it('adopts once and reads selected fields through a principal-bound object', asy
     ).toMatchObject({
       status: 'ok',
       id,
-      data: { name: 'Northwind' },
+      data: { name: 'Mothlight' },
       meta: {
         completeness: 'partial',
         degraded: false,
@@ -122,14 +122,14 @@ it('grants financial fields only within the caller portfolio and never leaks hid
 
   if (hidden.status !== 'ok') throw new Error('Expected customer');
 
-  expect(hidden.data).toEqual({ name: 'Northwind' });
+  expect(hidden.data).toEqual({ name: 'Mothlight' });
   expect(() => assertFields(hidden, ['revenue'])).toThrow('incomplete');
   const visible = await relate
     .as(finance)
     .objects.Customer.get(id, { select: ['name', 'revenue'] });
 
   expect(visible).toMatchObject({
-    data: { name: 'Northwind', revenue: 250_000 },
+    data: { name: 'Mothlight', revenue: 250_000 },
     meta: { completeness: 'complete' },
   });
   expect(
@@ -173,7 +173,7 @@ it('keeps authorized stale values and their evidence, but cannot renew expired p
     .objects.Customer.get(id, { select: ['name', 'revenue'], maxAgeMs: 1_000 });
 
   assertFields(result, ['name']);
-  expect(result.data).toEqual({ name: 'Northwind' });
+  expect(result.data).toEqual({ name: 'Mothlight' });
   expect(result.meta).toMatchObject({
     completeness: 'partial',
     degraded: true,
@@ -266,7 +266,7 @@ it('binds an authenticated principal snapshot and keeps ingestion off the consum
   expect(
     await consumer.objects.Customer.get(id, { select: ['name', 'revenue'] }),
   ).toMatchObject({
-    data: { name: 'Northwind' },
+    data: { name: 'Mothlight' },
     meta: { fields: { revenue: { status: 'forbidden' } } },
   });
   await relate.close();
@@ -336,7 +336,7 @@ it('waits for an in-flight read at close and leaves borrowed storage usable', as
             state: 'present',
             record: {
               id,
-              name: 'Northwind',
+              name: 'Mothlight',
               portfolio: 'north',
               revenue: 250_000,
             },
@@ -388,7 +388,7 @@ it('denies objects with no policy even when they have been adopted', async () =>
               state: 'present',
               record: {
                 id,
-                name: 'Northwind',
+                name: 'Mothlight',
                 portfolio: 'north',
                 revenue: 250_000,
               },
@@ -422,7 +422,7 @@ it('defaults to compact, permits full evidence, and rejects invalid modes', asyn
     expect(compact).toMatchObject({
       status: 'ok',
       id,
-      data: { name: 'Northwind' },
+      data: { name: 'Mothlight' },
       meta: { evidence: 'compact' },
     });
 

@@ -73,11 +73,11 @@ export async function adversarialWriteScenario(
     );
 
     try {
-      const northwind = await relate.host.adopt(Customer, 'crm_456');
-      const harbour = await relate.host.adopt(Customer, 'crm_654');
-      const southbank = await relate.host.adopt(Customer, 'crm_789');
+      const mothlight = await relate.host.adopt(Customer, 'crm_456');
+      const paperOtter = await relate.host.adopt(Customer, 'crm_654');
+      const kettlewick = await relate.host.adopt(Customer, 'crm_789');
       const northInvoice = await relate.host.adopt(Invoice, 'inv_1');
-      const harbourInvoice = await relate.host.adopt(
+      const paperOtterInvoice = await relate.host.adopt(
         Invoice,
         'inv_north_other',
       );
@@ -90,19 +90,19 @@ export async function adversarialWriteScenario(
       const seed = await completedReceipt(
         AddAccountReview,
         await caller.actions.addAccountReview({
-          input: { customer: harbour, note: 'Existing Harbour review' },
-          idempotencyKey: 'seed-harbour-review',
+          input: { customer: paperOtter, note: 'Existing Paper Otter review' },
+          idempotencyKey: 'seed-paper-otter-review',
         }),
       );
 
       assert.equal(seed.state, 'succeeded');
 
       // Prove that same-portfolio mismatches cannot pass by read permission alone.
-      for (const id of [northwind, harbour]) {
+      for (const id of [mothlight, paperOtter]) {
         assert.equal((await caller.objects.Customer.get(id)).status, 'ok');
       }
 
-      for (const id of [northInvoice, harbourInvoice]) {
+      for (const id of [northInvoice, paperOtterInvoice]) {
         assert.equal((await caller.objects.Invoice.get(id)).status, 'ok');
       }
 
@@ -117,9 +117,9 @@ export async function adversarialWriteScenario(
       assert.deepEqual(before.reviews, [
         {
           id: seed.output.reviewId,
-          customer: harbour,
+          customer: paperOtter,
           author: ana.id,
-          note: 'Existing Harbour review',
+          note: 'Existing Paper Otter review',
         },
       ]);
 
@@ -129,12 +129,12 @@ export async function adversarialWriteScenario(
           input: {
             customer:
               name === 'outside-portfolio-without-lookup'
-                ? southbank
-                : northwind,
+                ? kettlewick
+                : mothlight,
             author: name === 'another-author' ? 'sara' : ana.id,
             invoice:
               name === 'readable-other-customer-invoice'
-                ? harbourInvoice
+                ? paperOtterInvoice
                 : name === 'cross-portfolio-invoice' ||
                     name === 'outside-portfolio-without-lookup'
                   ? southInvoice
@@ -157,7 +157,7 @@ export async function adversarialWriteScenario(
             ...before.reviews,
             {
               id: receipt.output.reviewId,
-              customer: northwind,
+              customer: mothlight,
               author: ana.id,
               note: 'Adversarial write',
             },
@@ -166,7 +166,7 @@ export async function adversarialWriteScenario(
         assert.deepEqual(after.tasks, [
           {
             id: receipt.output.taskId,
-            customer: northwind,
+            customer: mothlight,
             invoice: northInvoice,
             review: receipt.output.reviewId,
             assignee: 'sam',

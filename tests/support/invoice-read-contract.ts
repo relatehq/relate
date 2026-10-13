@@ -61,7 +61,7 @@ export function invoiceReadContract(
         return {
           providerAccountId: 'example-account',
           state: 'present' as const,
-          record: { id, name: 'Northwind', portfolio, revenue: 100 },
+          record: { id, name: 'Mothlight', portfolio, revenue: 100 },
         };
       });
       const relate = createRuntime({

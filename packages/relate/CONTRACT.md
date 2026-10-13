@@ -548,8 +548,8 @@ consumers and native action implementations; see the
 
 | Returned value                | Presence assertion               | Meaning                                                                  |
 | ----------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
-| Fresh `'Acme'`                | Passes                           | A value was supplied and its evidence is fresh.                          |
-| Stale `'Acme'`                | Passes                           | A value was supplied; an action may separately require fresher evidence. |
+| Fresh `'Spindle Ferry'`       | Passes                           | A value was supplied and its evidence is fresh.                          |
+| Stale `'Spindle Ferry'`       | Passes                           | A value was supplied; an action may separately require fresher evidence. |
 | `null` from a nullable schema | Passes                           | An explicit null value was supplied.                                     |
 | Missing or `undefined`        | Throws `ReadError('incomplete')` | No usable value was supplied for this field.                             |
 

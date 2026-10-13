@@ -459,18 +459,23 @@ export function traversalContract(
 
     it('does not confuse customers within the same readable portfolio', async () => {
       const north = await relate.host.adopt(Customer, 'north');
-      const harbour = await relate.host.adopt(Customer, 'harbour');
+      const paperOtter = await relate.host.adopt(Customer, 'paper-otter');
       const northInvoice = await adoptInvoice('inv_north');
-      const harbourInvoice = await adoptInvoice('inv_harbour', 'harbour');
+      const paperOtterInvoice = await adoptInvoice(
+        'inv_paper_otter',
+        'paper-otter',
+      );
       const page = await relate
         .as(ana)
         .objects.Customer.traverse.invoices(north);
 
       expect(page.data.map((r) => r.id)).toEqual([northInvoice]);
-      expect(JSON.stringify(page)).not.toContain(harbourInvoice);
+      expect(JSON.stringify(page)).not.toContain(paperOtterInvoice);
       expect(
-        await relate.as(ana).objects.Invoice.traverse.customer(harbourInvoice),
-      ).toMatchObject({ status: 'ok', id: harbour });
+        await relate
+          .as(ana)
+          .objects.Invoice.traverse.customer(paperOtterInvoice),
+      ).toMatchObject({ status: 'ok', id: paperOtter });
     });
 
     it('honors reference field restrictions even when the field is not selected', async () => {

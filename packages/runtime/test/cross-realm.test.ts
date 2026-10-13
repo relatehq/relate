@@ -26,7 +26,7 @@ it('queries with a where filter built in another realm', async () => {
           fetch: async (id) => ({
             providerAccountId: 'example-account',
             state: 'present',
-            record: { id, name: 'Northwind', portfolio: 'north' },
+            record: { id, name: 'Mothlight', portfolio: 'north' },
           }),
         },
       },
@@ -45,10 +45,10 @@ it('queries with a where filter built in another realm', async () => {
       },
     },
   });
-  const customer = await runtime.adopt(Customer.id, 'northwind');
+  const customer = await runtime.adopt(Customer.id, 'mothlight');
 
   const page = await runtime.query(ana, Customer.id, {
-    where: runInNewContext('({ name: "Northwind" })'),
+    where: runInNewContext('({ name: "Mothlight" })'),
   });
 
   expect(page.data.map((item) => item.id)).toEqual([customer]);

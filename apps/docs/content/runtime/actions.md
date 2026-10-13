@@ -187,7 +187,7 @@ const caller = relate.as({
 try {
   const receipt = await caller.actions.addAccountReview({
     input: { customer: customerId, note: 'Quarterly review completed.' },
-    idempotencyKey: 'review-2026-q3-northwind',
+    idempotencyKey: 'review-2026-q3-mothlight',
   });
 
   if (receipt.state === 'succeeded') {
