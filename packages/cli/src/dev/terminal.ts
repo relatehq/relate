@@ -44,7 +44,7 @@ export interface Terminal {
     keptGeneration: number | null,
   ): void;
   startupError(message: string): void;
-  /** Runtime host transitions: running, failed and restarts. */
+  /** Runtime host transitions: running, failed, not configured and restarts. */
   runtime(status: RuntimeStatus): void;
   childStdout(line: string): void;
   childStderr(line: string): void;
@@ -87,6 +87,8 @@ export function createTerminal(options: TerminalOptions): Terminal {
     return files.length > 1 ? `${first} (+${files.length - 1} files)` : first;
   };
   const pad = (text: string, width: number) => text.padEnd(width);
+  // A bare graph stays unconfigured across saves; say so once.
+  let notConfiguredShown = false;
 
   return {
     banner({ project, config, inspectorUrl }) {
@@ -147,6 +149,19 @@ export function createTerminal(options: TerminalOptions): Terminal {
 
         return;
       }
+
+      if (status.state === 'not-configured') {
+        if (options.quiet || notConfiguredShown) return;
+
+        notConfiguredShown = true;
+        out(
+          `  ${paint('dim', 'runtime')} not configured: the config exports a graph without defineApp setup; graph operations are unavailable`,
+        );
+
+        return;
+      }
+
+      if (status.state === 'running') notConfiguredShown = false;
 
       if (options.quiet || status.state !== 'running') return;
 

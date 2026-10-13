@@ -1388,8 +1388,12 @@ The five questions the earlier sketch left open, answered for development only:
    - No store from `setup` (or no `setup`): the runtime's default in-memory
      store. This is the expected development case. Data is lost on every
      restart, and the inspector and terminal say so.
+   - A bare graph (no `defineApp`) whose sources need connections cannot start
+     without `setup`; the runtime reports a neutral `not-configured` state, not
+     a failure. `relate dev --no-runtime` starts no runtime host.
    - A persistent store (for example Postgres): used as-is. Its existing
-     revision check applies, so after a model change the runtime host reports a
+     revision check applies eagerly at startup (an empty store records the
+     current revision then), so after a model change the runtime host reports a
      diagnostic and stays down; it never resets data to recover. Postgres
      continuity across model changes is later work.
 2. **Compatibility:** in-memory stores start fresh per runtime host, so no

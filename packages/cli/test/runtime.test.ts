@@ -2,12 +2,18 @@
  * Process tests for the runtime host: real children started from the built
  * CLI, each test writing its own application module.
  */
+import { fork } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
-import { createRuntimeController } from '@relate/cli';
+import {
+  createRuntimeController,
+  defaultRuntimeHostPath,
+  encodeRuntimeHostArguments,
+} from '@relate/cli';
 import type { RuntimeController } from '@relate/cli';
 import type { RuntimeStatus } from '@relate/inspector/protocol';
 import { startApp } from '@relate/node';
@@ -17,7 +23,9 @@ import { compile } from 'relate/compiler';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
 /** A native Note object, an action that creates one and two principals. */
-function noteApp(options: { setup?: string; implementation?: string } = {}) {
+function noteApp(
+  options: { setup?: string; implementation?: string; input?: string } = {},
+) {
   return `import { z } from 'zod';
 import {
   defineAccess, defineAction, defineApp, defineGraph, defineObject,
@@ -39,7 +47,7 @@ export const Note = defineObject({
 });
 const AddNote = defineAction({
   id: 'notes.add',
-  input: z.object({ body: z.string() }),
+  input: ${options.input ?? 'z.object({ body: z.string() })'},
   output: z.object({ ok: z.boolean() }),
   creates: [Note],
   policy: { execute: access.role('writer') },
@@ -425,4 +433,214 @@ it('reports the application store and withholds ANTHROPIC_API_KEY from the runti
     .toContain('[runtime gen 1 stdout] marker:inherited');
   expect(stdout.join('\n')).toContain('[runtime gen 1 stdout] key:absent');
   expect(stdout.join('\n')).not.toContain('sk-ant-secret');
+});
+
+it('passes action inputs through unchanged, so NaN is rejected exactly as in an embedded runtime', async () => {
+  const project = await createProject();
+  const build = await project.build(
+    noteApp({
+      input: 'z.object({ score: z.number().nullable() })',
+      implementation: 'async () => ({ ok: true })',
+    }),
+  );
+  const { controller, waitFor } = createController(project);
+  const local = await startApp(
+    (await import(pathToFileURL(build.path).href)).default,
+  );
+
+  cleanups.push(() => local.close());
+  await controller.restart({ generation: 1, bundle: build.bundle });
+  await waitFor((s) => s.state === 'running');
+  const alice = await controller.binding('alice');
+  const request = { input: { score: Number.NaN }, idempotencyKey: 'nan' };
+  const embedded = await local
+    .operations({
+      id: 'alice',
+      roles: ['reader', 'writer'],
+      claims: { team: 'core' },
+    })
+    .invoke('notes.add', request)
+    .catch((error: unknown) => error);
+  const overIpc = await alice.operations
+    .invoke('notes.add', request)
+    .catch((error: unknown) => error);
+  // A function cannot cross IPC at all (agent JavaScript can still pass
+  // one); it is rejected before sending.
+  const unsendable = await alice.operations
+    .invoke('notes.add', {
+      input: { score: (() => 1) as unknown as number },
+      idempotencyKey: 'fn',
+    })
+    .catch((error: unknown) => error);
+
+  expect(embedded).toMatchObject({ name: 'ActionError', code: 'invalid' });
+  expect(overIpc).toBeInstanceOf(ActionError);
+  expect(overIpc).toMatchObject({ code: 'invalid' });
+  expect(unsendable).toMatchObject({ name: 'ActionError', code: 'invalid' });
+});
+
+it('sends the reply of an action that completes while the runtime drains', async () => {
+  const project = await createProject();
+  const slow = await project.build(
+    noteApp({
+      implementation: `async ({ input, objects }) => {
+  await new Promise((done) => setTimeout(done, 300));
+  await objects.Note.create({ body: input.body });
+
+  return { ok: true };
+}`,
+    }),
+  );
+  const next = await project.build(noteApp());
+  const { controller, waitFor } = createController(project);
+
+  await controller.restart({ generation: 1, bundle: slow.bundle });
+  await waitFor((s) => s.state === 'running');
+  const binding = await controller.binding('alice');
+  const inFlight = binding.operations.invoke('notes.add', {
+    input: { body: 'Finishes during the drain' },
+    idempotencyKey: 'drain',
+  });
+
+  await new Promise((done) => setTimeout(done, 50));
+  await controller.restart({ generation: 2, bundle: next.bundle });
+
+  expect(await inFlight).toMatchObject({ state: 'succeeded' });
+});
+
+it('finishes a slow setup when retired during startup, so its cleanup runs', async () => {
+  const project = await createProject();
+  const marker = join(project.root, 'disposed');
+  const slow = await project.build(
+    `import { writeFileSync } from 'node:fs';\n${noteApp({
+      setup: `async ({ onDispose }) => {
+    onDispose(() => writeFileSync(${JSON.stringify(marker)}, 'disposed'));
+    await new Promise((done) => setTimeout(done, 300));
+
+    return { connections: [], actionImplementations: [addNote] };
+  }`,
+    })}`,
+  );
+  const next = await project.build(noteApp());
+  const { controller, statuses, waitFor } = createController(project);
+
+  await controller.restart({ generation: 1, bundle: slow.bundle });
+  const started = Date.now();
+
+  await controller.restart({ generation: 2, bundle: next.bundle });
+  await waitFor((s) => s.state === 'running' && s.generation === 2);
+
+  expect(existsSync(marker)).toBe(true);
+  // Closed by the host itself, not killed at the 5 s drain deadline.
+  expect(Date.now() - started).toBeLessThan(4_000);
+  expect(statuses.some((s) => s.state === 'failed')).toBe(false);
+});
+
+it('exits on its own when the dev server disconnects during a setup that never settles', async () => {
+  const project = await createProject();
+  const build = await project.build(
+    noteApp({
+      setup: `() => {
+    setInterval(() => {}, 1_000);
+    console.log('setup started');
+
+    return new Promise(() => {});
+  }`,
+    }),
+  );
+  const child = fork(
+    defaultRuntimeHostPath(),
+    [
+      encodeRuntimeHostArguments({
+        bundlePath: build.path,
+        projectRoot: project.root,
+        configPath: project.configPath,
+        runtimeId: 'runtime-1',
+        drainTimeoutMs: 200,
+      }),
+    ],
+    {
+      cwd: project.root,
+      stdio: ['ignore', 'pipe', 'inherit', 'ipc'],
+      serialization: 'advanced',
+    },
+  );
+  const exited = new Promise<number | null>((done) =>
+    child.once('exit', (code) => done(code)),
+  );
+
+  cleanups.push(async () => {
+    if (child.exitCode === null && child.signalCode === null)
+      child.kill('SIGKILL');
+  });
+  await new Promise<void>((done) =>
+    child.stdout!.on('data', (chunk: Buffer) => {
+      if (chunk.toString('utf8').includes('setup started')) done();
+    }),
+  );
+  child.disconnect();
+
+  expect(await exited).toBe(1);
+});
+
+it('reports a host that cannot be spawned, releases its bundle and still stops', async () => {
+  const project = await createProject();
+  const build = await project.build(noteApp());
+  const { controller, waitFor } = createController({
+    ...project,
+    root: join(project.root, 'missing'),
+  });
+
+  await controller.restart({ generation: 1, bundle: build.bundle });
+  const failed = await waitFor((s) => s.state === 'failed');
+
+  expect(failed.diagnostics).toEqual([
+    expect.objectContaining({ code: 'runtime.spawn-failed' }),
+  ]);
+  await controller.stop();
+  expect(build.released()).toBe(true);
+});
+
+it('reports a bare graph that needs connections as not configured, not failed', async () => {
+  const project = await createProject();
+  const build = await project.build(`import { z } from 'zod';
+import {
+  defineAccess, defineGraph, defineObject, defineSource, from, objectId, source,
+} from 'relate';
+
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
+const customers = defineSource({
+  id: 'crm.customers',
+  idField: 'id',
+  schema: z.object({ id: z.string(), name: z.string() }),
+});
+const Customer = defineObject({
+  id: 'crm.customer',
+  membership: source(customers),
+  properties: {
+    id: objectId({ id: 'customer.id' }),
+    name: from(customers.fields.name, { id: 'customer.name' }),
+  },
+});
+
+export default defineGraph({
+  id: 'crm',
+  objects: { Customer },
+  access,
+  policies: { Customer: { read: { gate: access.role('reader') } } },
+});
+`);
+  const { controller, statuses, waitFor } = createController(project);
+
+  await controller.restart({ generation: 1, bundle: build.bundle });
+  const status = await waitFor((s) => s.state === 'not-configured');
+
+  expect(status.diagnostics).toEqual([
+    expect.objectContaining({
+      code: 'runtime.not-configured',
+      severity: 'warning',
+    }),
+  ]);
+  expect(statuses.some((s) => s.state === 'failed')).toBe(false);
+  await expect.poll(() => build.released()).toBe(true);
 });

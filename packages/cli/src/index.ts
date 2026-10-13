@@ -59,8 +59,9 @@ export type {
 
 export {
   encodeError,
+  encodeRuntimeHostArguments,
   restoreError,
-  runtimeHostEnvironment,
+  userCodeEnvironment,
   withheldVariables,
 } from './dev/runtime-protocol.js';
 

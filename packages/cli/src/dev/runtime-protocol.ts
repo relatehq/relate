@@ -4,8 +4,9 @@
  * the dev server both reject a retired one with a public `runtime-retired`
  * error and never redirect or replay it.
  *
- * Plain validated JSON in both directions. Errors cross as public protocol
- * codes only, never stacks or causes.
+ * Validated messages in both directions over structured-clone IPC, so values
+ * JSON cannot represent (NaN, undefined, Dates) arrive unchanged. Errors cross
+ * as public protocol codes only, never stacks or causes.
  */
 import { z } from 'zod';
 import { ActionError, ReadError } from '@relate/protocol';
@@ -96,6 +97,12 @@ export const runtimeMessageSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({
     type: z.literal('failed'),
+    runtimeId: text,
+    diagnostics: z.array(diagnosticSchema).min(1),
+  }),
+  /** A bare graph whose start needs bindings only `defineApp` setup can supply. */
+  z.strictObject({
+    type: z.literal('not-configured'),
     runtimeId: text,
     diagnostics: z.array(diagnosticSchema).min(1),
   }),
@@ -198,6 +205,8 @@ export interface RuntimeHostArguments {
   readonly projectRoot: string;
   readonly configPath: string;
   readonly runtimeId: string;
+  /** How long the host may close on its own once the dev server is gone. */
+  readonly drainTimeoutMs: number;
 }
 
 const hostArgumentsSchema = z.strictObject({
@@ -205,6 +214,7 @@ const hostArgumentsSchema = z.strictObject({
   projectRoot: text,
   configPath: text,
   runtimeId: text,
+  drainTimeoutMs: z.number().int().positive(),
 });
 
 /** Instructions travel as JSON on argv so the environment stays the user's. */
@@ -226,12 +236,13 @@ export function decodeRuntimeHostArguments(
   return parsed.data;
 }
 
-/** Variables the runtime host never inherits: user code must not read the agent's key. */
+/**
+ * Variables no child that imports user code inherits (the compile worker and
+ * the runtime host): user code must not read the agent's key.
+ */
 export const withheldVariables = ['ANTHROPIC_API_KEY'] as const;
 
-export function runtimeHostEnvironment(
-  env: NodeJS.ProcessEnv,
-): NodeJS.ProcessEnv {
+export function userCodeEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const copy = { ...env };
 
   for (const name of withheldVariables) delete copy[name];

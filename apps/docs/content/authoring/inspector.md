@@ -30,9 +30,9 @@ You should see **Customer**, **Invoice**, and **Account review**, connected by
 the **CustomerInvoices** and **CustomerReviews** relationships. The model has 3
 objects, 2 sources, and 2 relationships. No database or credentials are needed
 to inspect these definitions. This config exports the graph without an app, so
-there are no connections for its sources and the status bar shows **Runtime
-failed** with a `runtime.setup-failed` diagnostic; the graph itself is
-unaffected.
+there is no `setup` to supply connections for its sources; the status bar shows
+a neutral **No runtime** and the graph itself is unaffected. Pass `--no-runtime`
+to inspect the model without starting the application at all.
 
 `--open` opens the browser. You can also open the complete Inspector URL printed
 in the terminal, including its `#token=…` fragment. That link establishes the
@@ -88,6 +88,7 @@ The status bar shows its state:
 | **Runtime restarting** | A newer change was accepted; the previous runtime is draining and a new one is starting.                                                              |
 | **Runtime running**    | Ready. Hover for its revision and store.                                                                                                              |
 | **Runtime failed**     | `setup` threw, timed out, or the store rejected the model. Hover for the diagnostic; the terminal prints it too. The next accepted change retries.    |
+| **No runtime**         | The config exports a bare graph whose sources need connections that only `defineApp` `setup` can supply. Not an error; export an app to run it.       |
 | **Data reset**         | The runtime restarted and the previous runtime's in-memory data was discarded.                                                                        |
 | **Runtime on abc1234** | The running runtime serves a different revision from the displayed model, for example while a restart is in progress or after the new runtime failed. |
 
@@ -97,10 +98,14 @@ because connector and action code may have changed:
 - **No store from `setup`** (or no `setup`): the runtime's own in-memory store.
   Its data is lost on every restart, and the terminal says so:
   `runtime gen 2  running  in-memory store, previous data reset`.
-- **A persistent store** (for example Postgres) is used as-is. If it already
-  holds a different model revision, the runtime reports
+- **A persistent store** (for example Postgres) is used as-is. The runtime
+  checks the store's model revision as soon as it starts, before any request: an
+  empty store has the current revision written into it at that point, so
+  starting `relate dev` against a fresh database installs the model. If the
+  store already holds a different model revision, the runtime reports
   `runtime.store-revision-mismatch` and stays stopped. It never resets or
-  migrates your data to recover.
+  migrates your data to recover. Use `--no-runtime` to inspect without touching
+  the store.
 
 Resetting the in-memory store does not undo anything a connector or action
 already did in an external system. Receipts are lost with it, so reusing an

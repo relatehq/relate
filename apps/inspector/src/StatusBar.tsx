@@ -44,7 +44,7 @@ function PrincipalSelector(props: { readonly model: ModelSnapshot }) {
   );
 }
 
-/** Running, starting, restarting or failed; says when a restart reset in-memory data. */
+/** Running, starting, restarting, not configured or failed; says when a restart reset in-memory data. */
 function RuntimeIndicator(props: {
   readonly runtime: RuntimeStatus;
   readonly compiledRevision: string | null;
@@ -88,12 +88,17 @@ function RuntimeIndicator(props: {
           Runtime failed
         </Tag>
       )}
+      {runtime.state === 'not-configured' && (
+        <Tag color="gray" title={detail}>
+          No runtime
+        </Tag>
+      )}
       {behind && (
         <Tag color="amber" weight="medium" title={detail}>
           Runtime on {shortRevision(active)}
         </Tag>
       )}
-      {runtime.dataReset && runtime.state !== 'failed' && (
+      {runtime.dataReset && runtime.state === 'running' && (
         <Tag
           color="gray"
           title="The runtime restarted; in-memory data from the previous runtime was discarded"

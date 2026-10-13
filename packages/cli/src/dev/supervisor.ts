@@ -86,16 +86,13 @@ export class Supervisor {
     model: {
       readonly manifest: Manifest;
       readonly definitionRevision: string;
-      /** Names, or the compiler's principal registry. */
-      readonly principals?:
-        readonly string[] | Readonly<Record<string, unknown>>;
+      /** Development principal names in declaration order. */
+      readonly principals: readonly string[];
     },
     durationMs: number,
   ): { readonly event: ModelEvent; readonly previous: Manifest | null } {
     const previous = this.current.model;
-    const principals = Array.isArray(model.principals)
-      ? [...(model.principals as readonly string[])]
-      : Object.keys(model.principals ?? {});
+    const principals = [...model.principals];
     const snapshot: ModelSnapshot = {
       generation: this.current.generation + 1,
       definitionRevision: model.definitionRevision,

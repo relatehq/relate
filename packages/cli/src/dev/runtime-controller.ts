@@ -6,15 +6,13 @@
  * drain and close within a deadline, kills it if it does not, then starts the
  * replacement with a fresh `runtimeId`.
  */
-import { fork } from 'node:child_process';
-import type { ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ConsumerDescription } from 'relate/consumer';
 import { ActionError, ReadError } from '@relate/protocol';
 import type { Diagnostic, RuntimeStatus } from '@relate/inspector/protocol';
-import { LinePrefixer } from './streams.js';
+import { spawnChild, type ManagedChild } from './child-process.js';
 import {
   createRuntimeBinding,
   type RuntimeBinding,
@@ -24,7 +22,7 @@ import {
   encodeRuntimeHostArguments,
   restoreError,
   retiredError,
-  runtimeHostEnvironment,
+  userCodeEnvironment,
   runtimeMessageSchema,
   type RuntimeOperation,
   type RuntimeRequest,
@@ -43,6 +41,8 @@ export interface RuntimeControllerOptions {
   readonly onStatus: (status: RuntimeStatus) => void;
   readonly writeStdout: (line: string) => void;
   readonly writeStderr: (line: string) => void;
+  readonly isStdoutSaturated?: () => boolean;
+  readonly isStderrSaturated?: () => boolean;
   readonly hostPath?: string;
   /** Deadline for `setup` and the store check. */
   readonly startTimeoutMs?: number;
@@ -51,7 +51,10 @@ export interface RuntimeControllerOptions {
 }
 
 export interface RuntimeController {
-  /** Retire the current runtime and start one for this build. */
+  /**
+   * Retire the current runtime and start one for this build. Never rejects:
+   * a host that cannot start is reported as a `failed` status.
+   */
   restart(build: AcceptedBuild): Promise<void>;
   /** The active runtime's binding for a declared principal; cached until it retires. */
   binding(principal: string): Promise<RuntimeBinding>;
@@ -76,11 +79,10 @@ interface Pending {
 interface Host {
   readonly runtimeId: string;
   readonly generation: number;
-  readonly child: ChildProcess;
-  readonly exited: Promise<void>;
+  readonly child: ManagedChild;
   readonly pending: Map<number, Pending>;
   readonly bindings: Map<string, Promise<RuntimeBinding>>;
-  state: 'starting' | 'running' | 'failed' | 'retired';
+  state: 'starting' | 'running' | 'not-configured' | 'failed' | 'retired';
   ready?: {
     readonly definitionRevision: string;
     readonly store: 'memory' | 'application';
@@ -96,6 +98,13 @@ function lostError(operation: RuntimeOperation | 'discovery'): Error {
   if (operation === 'getReceipt') return new ActionError('unavailable');
 
   return new ReadError('unavailable');
+}
+
+/** Arguments IPC cannot carry (functions, symbols) never reach the runtime. */
+function unsendableError(operation: RuntimeOperation | 'discovery'): Error {
+  return operation === 'invoke' || operation === 'getReceipt'
+    ? new ActionError('invalid')
+    : new ReadError('invalid-request');
 }
 
 export function createRuntimeController(
@@ -126,7 +135,7 @@ export function createRuntimeController(
       if (host.state === 'retired' || host !== active)
         return Promise.reject(retiredError(operation));
 
-      if (host.state !== 'running' || !host.child.connected)
+      if (host.state !== 'running' || !host.child.process.connected)
         return Promise.reject(lostError(operation));
 
       const id = ++requestId;
@@ -149,35 +158,40 @@ export function createRuntimeController(
 
       return new Promise((resolve, reject) => {
         host.pending.set(id, { operation, resolve, reject });
-        host.child.send(message, (error) => {
-          if (!error) return;
 
+        try {
+          host.child.process.send(message, (error) => {
+            if (!error) return;
+
+            host.pending.delete(id);
+            reject(lostError(operation));
+          });
+        } catch {
+          // Structured clone refused a value before anything was sent.
           host.pending.delete(id);
-          reject(lostError(operation));
-        });
+          reject(unsendableError(operation));
+        }
       });
     },
   });
   const retire = async (host: Host) => {
-    if (host.state === 'retired') return host.exited;
+    if (host.state === 'retired') {
+      await host.child.exited;
+
+      return;
+    }
 
     host.state = 'retired';
     host.bindings.clear();
-
-    if (host.child.exitCode !== null || host.child.signalCode !== null)
-      return host.exited;
-
-    const deadline = setTimeout(
-      () => host.child.kill('SIGKILL'),
-      drainTimeoutMs,
-    );
-
-    if (host.child.connected)
-      host.child.send({ type: 'close' } satisfies RuntimeRequest, () => {});
-    else host.child.kill('SIGTERM');
-
-    await host.exited;
-    clearTimeout(deadline);
+    // Ask the host to drain and close; kill it at the deadline.
+    await host.child.terminate(drainTimeoutMs, () => {
+      if (host.child.process.connected)
+        host.child.process.send(
+          { type: 'close' } satisfies RuntimeRequest,
+          () => {},
+        );
+      else host.child.process.kill('SIGTERM');
+    });
   };
   const start = (
     build: AcceptedBuild,
@@ -188,33 +202,36 @@ export function createRuntimeController(
       previous?.state === 'retired' && previous.ready
         ? previous.ready.store
         : null;
-    const child = fork(
-      hostPath,
-      [
-        encodeRuntimeHostArguments({
-          bundlePath: build.bundle.path,
-          projectRoot: options.projectRoot,
-          configPath: options.configPath,
-          runtimeId,
-        }),
-      ],
-      {
-        cwd: options.projectRoot,
-        env: runtimeHostEnvironment(options.env),
-        execArgv: ['--enable-source-maps'],
-        stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-        serialization: 'json',
-      },
-    );
     const prefix = (stream: 'stdout' | 'stderr') =>
       `[runtime gen ${build.generation} ${stream}]`;
-    const stdout = new LinePrefixer({
-      prefix: prefix('stdout'),
-      write: options.writeStdout,
-    });
-    const stderr = new LinePrefixer({
-      prefix: prefix('stderr'),
-      write: options.writeStderr,
+    // Structured clone, not JSON: action inputs reach validation unchanged
+    // (NaN stays NaN instead of becoming null), as in an embedded runtime.
+    const child = spawnChild({
+      modulePath: hostPath,
+      argument: encodeRuntimeHostArguments({
+        bundlePath: build.bundle.path,
+        projectRoot: options.projectRoot,
+        configPath: options.configPath,
+        runtimeId,
+        drainTimeoutMs,
+      }),
+      cwd: options.projectRoot,
+      env: userCodeEnvironment(options.env),
+      serialization: 'advanced',
+      stdout: {
+        prefix: prefix('stdout'),
+        write: options.writeStdout,
+        ...(options.isStdoutSaturated
+          ? { isSaturated: options.isStdoutSaturated }
+          : {}),
+      },
+      stderr: {
+        prefix: prefix('stderr'),
+        write: options.writeStderr,
+        ...(options.isStderrSaturated
+          ? { isSaturated: options.isStderrSaturated }
+          : {}),
+      },
     });
     const host: Host = {
       runtimeId,
@@ -223,9 +240,6 @@ export function createRuntimeController(
       pending: new Map(),
       bindings: new Map(),
       state: 'starting',
-      exited: new Promise<void>((resolve) => {
-        child.once('exit', () => resolve());
-      }),
     };
     const base = {
       runtimeId,
@@ -234,7 +248,7 @@ export function createRuntimeController(
       diagnostics: [] as Diagnostic[],
     };
     const failed = (diagnostics: Diagnostic[]) => {
-      if (host.state === 'failed' || host.state === 'retired') return;
+      if (host.state !== 'starting' && host.state !== 'running') return;
 
       host.state = 'failed';
 
@@ -247,8 +261,7 @@ export function createRuntimeController(
           diagnostics,
         });
 
-      if (child.exitCode === null && child.signalCode === null)
-        child.kill('SIGKILL');
+      void child.kill();
     };
     const startup = setTimeout(() => {
       failed([
@@ -262,11 +275,7 @@ export function createRuntimeController(
     }, startTimeoutMs);
 
     hosts.add(host);
-    child.stdout?.on('data', (chunk: Buffer) => stdout.push(chunk));
-    child.stderr?.on('data', (chunk: Buffer) => stderr.push(chunk));
-    child.stdout?.on('end', () => stdout.end());
-    child.stderr?.on('end', () => stderr.end());
-    child.on('message', (raw) => {
+    child.process.on('message', (raw) => {
       const parsed = runtimeMessageSchema.safeParse(raw);
 
       if (!parsed.success) {
@@ -330,20 +339,29 @@ export function createRuntimeController(
           if (message.runtimeId === runtimeId) failed([...message.diagnostics]);
 
           return;
+        case 'not-configured':
+          clearTimeout(startup);
+
+          if (message.runtimeId !== runtimeId || host.state !== 'starting')
+            return;
+
+          // Nothing to run is not a failure; the host exits on its own.
+          host.state = 'not-configured';
+
+          if (active === host)
+            publish({
+              ...base,
+              state: 'not-configured',
+              definitionRevision: null,
+              store: null,
+              diagnostics: [...message.diagnostics],
+            });
+
+          return;
       }
     });
-    child.on('error', (error) => {
-      clearTimeout(startup);
-      failed([
-        {
-          kind: 'runtime',
-          code: 'runtime.spawn-failed',
-          severity: 'error',
-          message: `Could not start the runtime host: ${error.message}`,
-        },
-      ]);
-    });
-    child.on('exit', (code, signal) => {
+    // Also settles when the spawn fails and Node emits no `exit`.
+    void child.exited.then(({ code, signal, spawnError }) => {
       clearTimeout(startup);
       hosts.delete(host);
       void build.bundle.release();
@@ -357,7 +375,18 @@ export function createRuntimeController(
         );
       }
 
-      if (host.state === 'retired') return;
+      if (spawnError) {
+        failed([
+          {
+            kind: 'runtime',
+            code: 'runtime.spawn-failed',
+            severity: 'error',
+            message: `Could not start the runtime host: ${spawnError.message}`,
+          },
+        ]);
+
+        return;
+      }
 
       failed([
         {
@@ -372,14 +401,33 @@ export function createRuntimeController(
     });
 
     active = host;
-
-    if (!previous)
-      publish({
-        ...base,
-        state: 'starting',
-        definitionRevision: null,
-        store: null,
-      });
+  };
+  /** A host that could not even be forked: report it, release its bundle. */
+  const unstartable = (
+    build: AcceptedBuild,
+    runtimeId: string,
+    error: unknown,
+  ) => {
+    active = null;
+    void build.bundle.release();
+    publish({
+      state: 'failed',
+      runtimeId,
+      generation: build.generation,
+      definitionRevision: null,
+      store: null,
+      dataReset: false,
+      diagnostics: [
+        {
+          kind: 'runtime',
+          code: 'runtime.spawn-failed',
+          severity: 'error',
+          message: `Could not start the runtime host: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        },
+      ],
+    });
   };
 
   return {
@@ -404,18 +452,17 @@ export function createRuntimeController(
           const runtimeId = randomUUID();
 
           // Say so before draining: the retired runtime no longer answers.
-          if (previous) {
-            publish({
-              state: 'restarting',
-              runtimeId,
-              generation: build.generation,
-              definitionRevision: null,
-              store: null,
-              dataReset: false,
-              diagnostics: [],
-            });
-            await retire(previous);
-          }
+          publish({
+            state: previous?.state === 'running' ? 'restarting' : 'starting',
+            runtimeId,
+            generation: build.generation,
+            definitionRevision: null,
+            store: null,
+            dataReset: false,
+            diagnostics: [],
+          });
+
+          if (previous) await retire(previous);
 
           if (stopped || ticket !== latest) {
             await build.bundle.release();
@@ -423,7 +470,11 @@ export function createRuntimeController(
             return;
           }
 
-          start(build, previous, runtimeId);
+          try {
+            start(build, previous, runtimeId);
+          } catch (error) {
+            unstartable(build, runtimeId, error);
+          }
         });
 
       return queue;

@@ -248,6 +248,11 @@ export async function runDev(options: RunDevOptions): Promise<number> {
 
     if (bound.notice) terminal.notice(bound.notice);
 
+    if (!args.runtime)
+      terminal.notice(
+        'Runtime    off (--no-runtime); the application is not started',
+      );
+
     if (args.open)
       try {
         await openBrowser(inspectorUrl);
@@ -259,6 +264,10 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       projectRoot: project.root,
       configPath: project.configPath,
     });
+    const isStdoutSaturated = () =>
+      (options.stdout.writableLength ?? 0) > 1_000_000;
+    const isStderrSaturated = () =>
+      (options.stderr.writableLength ?? 0) > 1_000_000;
     const runner = createAttemptRunner({
       builder,
       projectRoot: project.root,
@@ -267,24 +276,31 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       env: options.env,
       writeStdout: (line) => terminal.childStdout(line),
       writeStderr: (line) => terminal.childStderr(line),
-      isStdoutSaturated: () => (options.stdout.writableLength ?? 0) > 1_000_000,
-      isStderrSaturated: () => (options.stderr.writableLength ?? 0) > 1_000_000,
+      isStdoutSaturated,
+      isStderrSaturated,
       ...(options.workerPath ? { workerPath: options.workerPath } : {}),
     });
-    const runtime = createRuntimeController({
-      projectRoot: project.root,
-      configPath: project.configPath,
-      env: options.env,
-      onStatus: (status) => {
-        if (stopping) return;
+    // `--no-runtime`: inspect the model only; accepted bundles are released.
+    const runtime = args.runtime
+      ? createRuntimeController({
+          projectRoot: project.root,
+          configPath: project.configPath,
+          env: options.env,
+          onStatus: (status) => {
+            if (stopping) return;
 
-        supervisor.acceptRuntime(status);
-        terminal.runtime(status);
-      },
-      writeStdout: (line) => terminal.childStdout(line),
-      writeStderr: (line) => terminal.childStderr(line),
-      ...(options.runtimeHostPath ? { hostPath: options.runtimeHostPath } : {}),
-    });
+            supervisor.acceptRuntime(status);
+            terminal.runtime(status);
+          },
+          writeStdout: (line) => terminal.childStdout(line),
+          writeStderr: (line) => terminal.childStderr(line),
+          isStdoutSaturated,
+          isStderrSaturated,
+          ...(options.runtimeHostPath
+            ? { hostPath: options.runtimeHostPath }
+            : {}),
+        })
+      : null;
     let lastGoodInputs: readonly string[] = [project.configPath];
     let stopping = false;
     const watcher = createWatcher({
@@ -316,11 +332,14 @@ export async function runDev(options: RunDevOptions): Promise<number> {
         );
 
         // Every accepted build restarts the runtime: connector and action
-        // code may have changed even when the Manifest did not.
-        void runtime.restart({
-          generation: event.model.generation,
-          bundle: outcome.bundle,
-        });
+        // code may have changed even when the Manifest did not. `restart`
+        // reports its own failures as runtime status and never rejects.
+        if (runtime)
+          void runtime.restart({
+            generation: event.model.generation,
+            bundle: outcome.bundle,
+          });
+        else void outcome.bundle.release();
 
         if (event.fromGeneration === null)
           terminal.ready(
@@ -381,7 +400,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
         server.closeStreams();
         sessions.clear();
         await runner.stop();
-        await runtime.stop();
+        await runtime?.stop();
         await builder.dispose();
         await new Promise<void>((done) => bound.server.close(() => done()));
         await release();

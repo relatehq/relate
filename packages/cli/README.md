@@ -26,6 +26,7 @@ pnpm relate dev
 pnpm relate dev --config ./packages/business/relate.config.ts
 pnpm relate dev --port 4500 --open
 pnpm relate dev --eval-timeout 60000
+pnpm relate dev --no-runtime
 pnpm relate dev --allowed-origin https://my-private-forward.example
 ```
 
@@ -41,7 +42,14 @@ Top-level imports of that module must be safe to evaluate; put connector and
 credential work in `setup`, which only the runtime host calls.
 
 Use `--quiet` to hide routine status lines while keeping the inspector URL,
-application output, warnings and errors visible.
+application output, warnings and errors visible. Use `--no-runtime` to inspect
+the model only: no runtime host starts, so `setup` never runs and no store is
+opened.
+
+A config that exports a bare graph (no `defineApp`) still gets a runtime host
+with the in-memory store. When its sources need connections that only `setup`
+can supply, the runtime reports a neutral `not-configured` state (printed once,
+shown as **No runtime**) instead of failing on every save.
 
 ### What it prints
 
@@ -108,13 +116,19 @@ application output, warnings and errors visible.
   never replayed on the new runtime; an action cut off by the kill rejects with
   `ActionError('uncertain')`. `setup` and the store check must finish within 30
   seconds. With no store from `setup`, data lives in memory and is lost on every
-  restart. A persistent store keeps its revision check: after a model change the
-  runtime reports `runtime.store-revision-mismatch` and stays down, never
-  resetting data. The runtime host has no HTTP listener.
+  restart. A persistent store keeps its revision check, which runs eagerly at
+  startup: an empty store gets the current revision written into it as soon as
+  `relate dev` starts the runtime, and after a model change the runtime reports
+  `runtime.store-revision-mismatch` and stays down, never resetting data. A
+  `close` or a vanished dev server during a slow `setup` lets `setup` finish so
+  `onDispose` cleanup runs, bounded by the same five-second deadline. The
+  runtime host has no HTTP listener. Action inputs and results cross IPC by
+  structured clone, so values JSON cannot represent (`NaN`, `undefined`, `Date`)
+  reach validation unchanged, as in an embedded runtime.
 - Environment variables are inherited from the invoking shell, except that the
-  runtime host never receives `ANTHROPIC_API_KEY`; the command loads no `.env`
-  files. Use the project's own loader:
-  `pnpm exec dotenvx run -f .env -- pnpm relate dev`.
+  compile worker and the runtime host, which both import your modules, never
+  receive `ANTHROPIC_API_KEY`; the command loads no `.env` files. Use the
+  project's own loader: `pnpm exec dotenvx run -f .env -- pnpm relate dev`.
 - Ctrl+C stops the watcher, terminates owned children (five seconds of grace, or
   immediately on a second Ctrl+C), closes the listener and releases the lock.
   Exit codes: 0 normal, 1 fatal startup or supervisor failure, 2 invalid

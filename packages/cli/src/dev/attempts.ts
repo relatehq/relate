@@ -3,15 +3,15 @@
  * evaluation deadline and classify the outcome. Only the newest attempt may
  * report; superseded ones are cancelled silently.
  */
-import { fork } from 'node:child_process';
-import type { ChildProcess } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Manifest } from 'relate/model';
 import type { SourceSite } from 'relate/diagnostics';
 import type { Diagnostic } from '@relate/inspector/protocol';
 import type { Builder } from './build.js';
-import { LinePrefixer, streamPrefix } from './streams.js';
+import { spawnChild, type ManagedChild } from './child-process.js';
+import { userCodeEnvironment } from './runtime-protocol.js';
+import { streamPrefix } from './streams.js';
 import {
   encodeWorkerArguments,
   workerMessageSchema,
@@ -70,29 +70,12 @@ export interface AttemptRunner {
 
 interface Handle {
   readonly attempt: number;
-  child: ChildProcess | null;
+  child: ManagedChild | null;
   cancelled: boolean;
 }
 
 export function defaultWorkerPath(): string {
   return join(dirname(fileURLToPath(import.meta.url)), 'worker.js');
-}
-
-function terminate(child: ChildProcess, graceMs: number): Promise<void> {
-  if (child.exitCode !== null || child.signalCode !== null)
-    return Promise.resolve();
-
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL');
-    }, graceMs);
-
-    child.once('exit', () => {
-      clearTimeout(timer);
-      resolve();
-    });
-    child.kill('SIGTERM');
-  });
 }
 
 export function createAttemptRunner(
@@ -102,7 +85,7 @@ export function createAttemptRunner(
   const killGraceMs = options.killGraceMs ?? 2_000;
   let counter = 0;
   let active: Handle | null = null;
-  const children = new Set<ChildProcess>();
+  const children = new Set<ManagedChild>();
   const run = async (handle: Handle): Promise<AttemptOutcome> => {
     const { attempt } = handle;
     const cancelled = () => handle.cancelled;
@@ -130,36 +113,35 @@ export function createAttemptRunner(
       let accepted = false;
       let timedOut = false;
       let sawOom = false;
-      const child = fork(
-        workerPath,
-        [
-          encodeWorkerArguments({
-            bundlePath: build.bundlePath,
-            projectRoot: options.projectRoot,
-            configPath: options.configPath,
-          }),
-        ],
-        {
-          cwd: options.projectRoot,
-          env: options.env,
-          execArgv: ['--enable-source-maps'],
-          stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-          serialization: 'json',
+      const child = spawnChild({
+        modulePath: workerPath,
+        argument: encodeWorkerArguments({
+          bundlePath: build.bundlePath,
+          projectRoot: options.projectRoot,
+          configPath: options.configPath,
+        }),
+        cwd: options.projectRoot,
+        // The worker imports the same user modules as the runtime host.
+        env: userCodeEnvironment(options.env),
+        serialization: 'json',
+        stdout: {
+          prefix: streamPrefix(attempt, 'stdout'),
+          write: options.writeStdout,
+          ...(options.isStdoutSaturated
+            ? { isSaturated: options.isStdoutSaturated }
+            : {}),
         },
-      );
-      const stdout = new LinePrefixer({
-        prefix: streamPrefix(attempt, 'stdout'),
-        write: options.writeStdout,
-        ...(options.isStdoutSaturated
-          ? { isSaturated: options.isStdoutSaturated }
-          : {}),
-      });
-      const stderr = new LinePrefixer({
-        prefix: streamPrefix(attempt, 'stderr'),
-        write: options.writeStderr,
-        ...(options.isStderrSaturated
-          ? { isSaturated: options.isStderrSaturated }
-          : {}),
+        stderr: {
+          prefix: streamPrefix(attempt, 'stderr'),
+          write: options.writeStderr,
+          ...(options.isStderrSaturated
+            ? { isSaturated: options.isStderrSaturated }
+            : {}),
+        },
+        onStderr: (chunk) => {
+          if (/JavaScript heap out of memory/.test(chunk.toString('utf8')))
+            sawOom = true;
+        },
       });
       const finish = (outcome: AttemptOutcome) => {
         if (settled) return;
@@ -187,24 +169,15 @@ export function createAttemptRunner(
             message: `Loading and compiling the definitions exceeded ${options.evalTimeoutMs} ms; the child was terminated. Unsettled top-level await or an infinite loop in an imported module can cause this.`,
           },
         ]);
-        void terminate(child, killGraceMs);
+        void child.terminate(killGraceMs);
       }, options.evalTimeoutMs);
 
       children.add(child);
       handle.child = child;
 
-      if (handle.cancelled) void terminate(child, killGraceMs);
+      if (handle.cancelled) void child.terminate(killGraceMs);
 
-      child.stdout?.on('data', (chunk: Buffer) => stdout.push(chunk));
-      child.stderr?.on('data', (chunk: Buffer) => {
-        if (/JavaScript heap out of memory/.test(chunk.toString('utf8')))
-          sawOom = true;
-
-        stderr.push(chunk);
-      });
-      child.stdout?.on('end', () => stdout.end());
-      child.stderr?.on('end', () => stderr.end());
-      child.on('message', (raw) => {
+      child.process.on('message', (raw) => {
         const parsed = workerMessageSchema.safeParse(raw);
 
         if (!parsed.success) {
@@ -217,7 +190,7 @@ export function createAttemptRunner(
                 'The application child sent a message the supervisor could not validate',
             },
           ]);
-          void terminate(child, killGraceMs);
+          void child.terminate(killGraceMs);
 
           return;
         }
@@ -225,10 +198,10 @@ export function createAttemptRunner(
         const message = parsed.data;
 
         if (message.type === 'model') {
-          if (settled) return;
+          if (settled || cancelled()) return;
 
-          // An accepted bundle outlives this child: the runtime host loads it.
-          accepted = !cancelled();
+          // From here the outcome owns the bundle: the runtime host loads it.
+          accepted = true;
           finish({
             kind: 'model',
             attempt,
@@ -245,20 +218,24 @@ export function createAttemptRunner(
           });
         } else failure([...message.diagnostics]);
       });
-      child.on('error', (error) => {
-        failure([
-          {
-            kind: 'worker',
-            code: 'worker.spawn-failed',
-            severity: 'error',
-            message: `Could not start the application child: ${error.message}`,
-          },
-        ]);
-      });
-      child.on('exit', (code, signal) => {
+      void child.exited.then(({ code, signal, spawnError }) => {
         children.delete(child);
 
-        if (!accepted || cancelled()) void options.builder.discard(attempt);
+        // Until it is accepted, the bundle belongs to this attempt.
+        if (!accepted) void options.builder.discard(attempt);
+
+        if (spawnError) {
+          failure([
+            {
+              kind: 'worker',
+              code: 'worker.spawn-failed',
+              severity: 'error',
+              message: `Could not start the application child: ${spawnError.message}`,
+            },
+          ]);
+
+          return;
+        }
 
         // A termination we caused (timeout or cancellation) is not a second failure.
         if (settled || timedOut || cancelled()) {
@@ -291,7 +268,7 @@ export function createAttemptRunner(
   const cancel = (handle: Handle) => {
     handle.cancelled = true;
 
-    if (handle.child) void terminate(handle.child, killGraceMs);
+    if (handle.child) void handle.child.terminate(killGraceMs);
   };
 
   return {
@@ -313,6 +290,8 @@ export function createAttemptRunner(
       return run(handle).then((outcome) => {
         if (active === handle) active = null;
 
+        // Cancelled after acceptance: the bundle is the outcome's, and nobody
+        // else will receive it.
         if (handle.cancelled && outcome.kind === 'model')
           void outcome.bundle.release();
 
@@ -327,12 +306,7 @@ export function createAttemptRunner(
       active = null;
       await Promise.all(
         [...children].map((child) =>
-          stopOptions?.immediate
-            ? new Promise<void>((resolve) => {
-                child.once('exit', () => resolve());
-                child.kill('SIGKILL');
-              })
-            : terminate(child, 5_000),
+          stopOptions?.immediate ? child.kill() : child.terminate(5_000),
         ),
       );
     },

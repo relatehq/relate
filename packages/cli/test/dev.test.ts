@@ -133,14 +133,18 @@ function lines(buffer: { text: string }, chunk: Buffer, into: string[]) {
   into.push(...parts);
 }
 
-async function startDev(project: Project, args: string[] = []): Promise<Dev> {
+async function startDev(
+  project: Project,
+  args: string[] = [],
+  env: NodeJS.ProcessEnv = {},
+): Promise<Dev> {
   const port = await freePort();
   const child = spawn(
     process.execPath,
     [binary, 'dev', '--port', String(port), ...args],
     {
       cwd: project.root,
-      env: { ...process.env, NO_COLOR: '1' },
+      env: { ...process.env, NO_COLOR: '1', ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
   );
@@ -567,6 +571,34 @@ export const graph = defineGraph({
   await dev.waitForStdout(
     /^\s+runtime gen 2\s+running\s+in-memory store, previous data reset/,
   );
+  await stream.return(undefined);
+}, 60_000);
+
+it('withholds ANTHROPIC_API_KEY from the compile worker and starts no runtime with --no-runtime', async () => {
+  const project = await createProject();
+
+  projects.push(project.root);
+  await project.write(
+    'src/relate/app.ts',
+    "import { defineApp } from 'relate';\nimport { graph } from './graph.js';\n\nconsole.log('worker-key:' + (process.env.ANTHROPIC_API_KEY ?? 'absent'));\nexport default defineApp({ graph });\n",
+  );
+  const dev = await startDev(project, ['--no-runtime'], {
+    ANTHROPIC_API_KEY: 'sk-ant-secret',
+  });
+
+  await dev.waitForStdout(/Runtime\s+off \(--no-runtime\)/);
+  await dev.waitForStdout(/\[app attempt 1 stdout\] worker-key:absent/);
+  await dev.waitForStdout(/ready\s+gen 1/);
+  const cookie = await openSession(dev);
+  const stream = events(dev, cookie);
+
+  expect(await take(stream)).toMatchObject({
+    type: 'snapshot',
+    model: { generation: 1 },
+    runtime: null,
+  });
+  expect(dev.stdout.join('\n')).not.toContain('sk-ant-secret');
+  expect(dev.stdout.join('\n')).not.toMatch(/runtime gen/);
   await stream.return(undefined);
 }, 60_000);
 

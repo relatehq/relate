@@ -75,7 +75,17 @@ export const modelSnapshotSchema = z.strictObject({
  * model's while a restart is in progress or after the runtime failed.
  */
 export const runtimeStatusSchema = z.strictObject({
-  state: z.enum(['starting', 'restarting', 'running', 'failed']),
+  /**
+   * `not-configured`: the config exports a bare graph whose start needs
+   * bindings only `defineApp` setup can supply. Neutral, not a failure.
+   */
+  state: z.enum([
+    'starting',
+    'restarting',
+    'running',
+    'not-configured',
+    'failed',
+  ]),
   runtimeId: text,
   /** The accepted model generation this runtime was started for. */
   generation: z.number().int().positive(),

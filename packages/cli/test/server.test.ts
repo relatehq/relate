@@ -181,7 +181,14 @@ it('streams a snapshot first, then events in order, and resynchronizes from /dev
     sequence: 1,
     attempt: 1,
   });
-  supervisor.acceptModel(model, 42);
+  supervisor.acceptModel(
+    {
+      manifest: model.manifest,
+      definitionRevision: model.definitionRevision,
+      principals: [],
+    },
+    42,
+  );
   expect(await next()).toMatchObject({
     type: 'model',
     sequence: 2,

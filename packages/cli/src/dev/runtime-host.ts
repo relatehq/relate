@@ -61,9 +61,44 @@ function send(message: RuntimeMessage): Promise<void> {
     process.exit(1);
   }
 
+  // The dev server is gone; there is nobody left to tell.
+  if (!process.connected) return Promise.resolve();
+
   return new Promise((resolve) => {
     process.send!(message, () => resolve());
   });
+}
+
+let relate: Relate | undefined;
+/** Set once startup has passed its last shutdown check. */
+let started = false;
+let shuttingDown = false;
+/** Requests being answered, including sending the reply. */
+const answering = new Set<Promise<void>>();
+
+/**
+ * Close and exit. Runs after startup so `onDispose` cleanup always runs;
+ * `close()` drains in-flight operations, then their replies are sent before
+ * the process exits.
+ */
+async function closeAndExit(): Promise<never> {
+  await relate?.close().catch(() => {});
+  await Promise.allSettled(answering);
+  process.exit(0);
+}
+
+/**
+ * A `close` from the dev server, or the dev server going away. Startup
+ * finishes first (it checks `shuttingDown`); the deadline bounds a setup or
+ * cleanup that never settles, also when nobody is left to kill this process.
+ */
+function shutdown(): void {
+  if (shuttingDown) return;
+
+  shuttingDown = true;
+  setTimeout(() => process.exit(1), args.drainTimeoutMs);
+
+  if (started) void closeAndExit();
 }
 
 let failedReported = false;
@@ -115,6 +150,26 @@ process.on('unhandledRejection', (error) => {
   ]);
 });
 
+// Registered before any user code runs, so a close or a departed dev server
+// during a slow setup is never missed.
+process.on('message', (raw) => {
+  const parsed = runtimeRequestSchema.safeParse(raw);
+
+  if (!parsed.success) return;
+
+  if (parsed.data.type === 'close') {
+    shutdown();
+
+    return;
+  }
+
+  const answer = respond(parsed.data);
+
+  answering.add(answer);
+  void answer.finally(() => answering.delete(answer));
+});
+process.on('disconnect', shutdown);
+
 /** The project's own packages, so definitions and the runtime share one `relate`. */
 async function loadPackages(): Promise<{
   compiler: CompilerModule;
@@ -135,6 +190,8 @@ async function loadPackages(): Promise<{
 
 const { compiler, node } = await loadPackages();
 let module: Record<string, unknown>;
+
+if (shuttingDown) await closeAndExit();
 
 try {
   module = (await import(pathToFileURL(args.bundlePath).href)) as Record<
@@ -199,26 +256,43 @@ const observed: App = Object.freeze({
       }
     : {}),
 });
-let relate: Relate;
+
+if (shuttingDown) await closeAndExit();
 
 try {
   relate = await node.startApp(observed);
 } catch (error) {
+  // A bare graph has no setup; when it needs bindings, there is nothing to run.
+  if (selected!.kind === 'graph') {
+    await send({
+      type: 'not-configured',
+      runtimeId: args.runtimeId,
+      diagnostics: [
+        {
+          kind: 'runtime',
+          code: 'runtime.not-configured',
+          severity: 'warning',
+          message: `The config exports a graph without an app, so there is no setup to supply its connections (${sanitizeMessage(error)}). Export defineApp({ graph, setup }) to run it.`,
+        },
+      ],
+    });
+    process.exit(0);
+  }
+
   await fail([
     runtimeDiagnostic(
       'runtime.setup-failed',
-      `Starting the application failed: ${sanitizeMessage(error)}${
-        selected!.kind === 'graph'
-          ? '. The config exports a graph without an app, so there is no setup to supply connections; export defineApp({ graph, setup }) to run it.'
-          : ''
-      }`,
+      `Starting the application failed: ${sanitizeMessage(error)}`,
       error,
     ),
   ]);
 }
 
+if (shuttingDown) await closeAndExit();
+
 // A persistent store keeps its own revision check. Run it now so a model
-// change reports a diagnostic at startup; never reset data to recover.
+// change reports a diagnostic at startup; never reset data to recover. An
+// empty store records this revision here, as the first operation would.
 if (store) {
   try {
     await store.install(graphId, model!.definitionRevision);
@@ -238,9 +312,10 @@ if (store) {
   }
 }
 
+if (shuttingDown) await closeAndExit();
+
 const principals = model!.principals ?? {};
 const bound = new Map<string, ConsumerOperations>();
-let retiring = false;
 
 function operationsFor(principal: string): ConsumerOperations | undefined {
   if (!Object.hasOwn(principals, principal)) return undefined;
@@ -289,20 +364,20 @@ function discover(operations: ConsumerOperations): DiscoverySnapshot {
   return { overview, objects, actions };
 }
 
-async function answer(request: RuntimeRequest): Promise<void> {
-  if (request.type === 'close') {
-    retiring = true;
-    // close() rejects new operations and awaits in-flight ones; the dev
-    // server kills this process if draining outlives its deadline.
-    await relate!.close().catch(() => {});
-    process.exit(0);
-  }
-
+async function respond(
+  request: Exclude<RuntimeRequest, { type: 'close' }>,
+): Promise<void> {
   const operation = request.type === 'op' ? request.operation : 'discovery';
 
   try {
-    if (retiring || request.runtimeId !== args.runtimeId)
+    if (shuttingDown || request.runtimeId !== args.runtimeId)
       throw retiredError(operation);
+
+    // The dev server sends nothing before `ready`.
+    if (!started)
+      throw operation === 'invoke' || operation === 'getReceipt'
+        ? new ActionError('unavailable')
+        : new ReadError('unavailable');
 
     const operations = operationsFor(request.principal);
 
@@ -327,16 +402,7 @@ async function answer(request: RuntimeRequest): Promise<void> {
   }
 }
 
-process.on('message', (raw) => {
-  const parsed = runtimeRequestSchema.safeParse(raw);
-
-  if (parsed.success) void answer(parsed.data);
-});
-// The dev server going away ends this runtime.
-process.on('disconnect', () => {
-  void relate!.close().finally(() => process.exit(0));
-});
-
+started = true;
 await send({
   type: 'ready',
   runtimeId: args.runtimeId,

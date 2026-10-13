@@ -12,6 +12,7 @@ it('parses defaults, explicit flags and inline values', () => {
     port: undefined,
     open: false,
     quiet: false,
+    runtime: true,
     evalTimeoutMs: DEFAULT_EVAL_TIMEOUT_MS,
     allowedOrigins: [],
   });
@@ -22,6 +23,7 @@ it('parses defaults, explicit flags and inline values', () => {
       '--port=4500',
       '--open',
       '--quiet',
+      '--no-runtime',
       '--eval-timeout',
       '60000',
       '--allowed-origin',
@@ -34,6 +36,7 @@ it('parses defaults, explicit flags and inline values', () => {
     port: 4500,
     open: true,
     quiet: true,
+    runtime: false,
     evalTimeoutMs: 60_000,
     allowedOrigins: ['https://my-private-forward.example'],
   });
@@ -50,6 +53,7 @@ it.each([
   [['--eval-timeout', '2147483648'], /through 2147483647/],
   [['--quiet=yes'], /takes no value/],
   [['--open=yes'], /takes no value/],
+  [['--no-runtime=yes'], /takes no value/],
   [['--bogus'], /Unknown option/],
   [['--allowed-origin', 'not a url'], /absolute origin/],
   [['--allowed-origin', 'http://remote.example'], /HTTPS/],
