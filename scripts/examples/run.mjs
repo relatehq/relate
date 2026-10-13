@@ -56,7 +56,10 @@ if (!example || forwarded.some((arg) => arg !== '--no-open')) {
 
   if (process.exitCode === 0) {
     // Node's optional env file preserves exported variables and needs no wrapper process.
-    const envArgs = name === 'postgres' ? ['--env-file-if-exists=.env'] : [];
+    const envArgs =
+      name === 'postgres' || name === 'customer-workspace'
+        ? ['--env-file-if-exists=.env']
+        : [];
 
     process.exitCode = await runCommand(
       process.execPath,

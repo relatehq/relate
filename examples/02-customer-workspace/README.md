@@ -23,6 +23,12 @@ leaves the borrowed inspector running. Stop the original owner to close the
 inspector. A second Ctrl+C forces a stuck shutdown; shutdown also has a
 six-second limit.
 
+The launcher loads the repository root `.env` if it exists, preserving variables
+already exported in your shell. Put `ANTHROPIC_API_KEY` there to enable the
+inspector's built-in agent. Without a key, the example and seeded graph still
+work, but the agent is unavailable. Restart an existing inspector after changing
+the key; reusing its URL does not reload its environment.
+
 ## Try it in this order
 
 1. Start as **Ana**, an account manager. Inspect Northwind's two invoices.
@@ -95,10 +101,12 @@ code change. Repeated seeding reuses those records' graph identities within the
 same runtime; it does not add duplicate customers or invoices. Reviews start
 empty and can be created through `addAccountReview` as Ana.
 
-To run only the seeded inspector from the repository root:
+To run only the seeded inspector with the repository's `.env` loaded, start from
+the repository root:
 
 ```sh
-pnpm relate dev --config examples/02-customer-workspace/relate.config.ts --seed --open
+pnpm build
+pnpm exec dotenvx run -f .env -- pnpm relate dev --config examples/02-customer-workspace/relate.config.ts --seed --open
 ```
 
 In its Agent page, ask to list customers and their invoices, or use the printed
