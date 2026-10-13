@@ -11,7 +11,7 @@ describe('interactive customer workspace', () => {
     const relate = await startApp(workspaceApp);
 
     try {
-      const { objects } = relate.as(actors.fin);
+      const { objects } = relate.as(actors.ana);
 
       expect((await objects.Customer.query()).data).toEqual([]);
       const first = await seed(relate);
@@ -32,10 +32,10 @@ describe('interactive customer workspace', () => {
           .sort((a, b) => a! - b!),
       ).toEqual([125000, 480000]);
       expect((await objects.Invoice.query()).data).toHaveLength(2);
-      const anaInvoices = await relate.as(actors.ana).objects.Invoice.query();
+      const finInvoices = await relate.as(actors.fin).objects.Invoice.query();
 
       expect(
-        anaInvoices.data.every(
+        finInvoices.data.every(
           (invoice) => invoice.data.totalMinor === undefined,
         ),
       ).toBe(true);
@@ -55,16 +55,34 @@ describe('interactive customer workspace', () => {
         data: { name: 'Mothlight' },
       });
       expect(ana.invoices.data).toHaveLength(2);
-      expect(ana.invoices.data[0]?.meta.fields?.totalMinor).toEqual({
+      expect(fin.invoices.data).toHaveLength(2);
+      expect(
+        ana.customer.status === 'ok' && ana.customer.data.revenue,
+      ).toBeUndefined();
+      expect(fin.customer).toMatchObject({
+        status: 'ok',
+        data: { revenue: 2000000 },
+      });
+      expect(
+        ana.invoices.data.every((invoice) => invoice.data.currency === 'GBP'),
+      ).toBe(true);
+
+      for (const invoice of fin.invoices.data) {
+        expect(invoice.data.status).toBeDefined();
+        expect(invoice.data.currency).toBeUndefined();
+        expect(invoice.meta.fields?.currency).toEqual({ status: 'forbidden' });
+      }
+
+      expect(fin.invoices.data[0]?.meta.fields?.totalMinor).toEqual({
         status: 'forbidden',
       });
       expect(
-        ana.invoices.data.every(
+        fin.invoices.data.every(
           (invoice) => invoice.data.totalMinor === undefined,
         ),
       ).toBe(true);
       expect(
-        fin.invoices.data
+        ana.invoices.data
           .map((invoice) => invoice.data.totalMinor)
           .sort((a, b) => a! - b!),
       ).toEqual([125000, 480000]);

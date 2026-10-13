@@ -84,11 +84,13 @@ test(
       const fin = await request({ operation: 'read', actor: 'fin' });
 
       assert.equal(
-        ana.invoices.data[0].meta.fields.totalMinor.status,
+        fin.invoices.data[0].meta.fields.totalMinor.status,
         'forbidden',
       );
       assert.deepEqual(
-        fin.invoices.data.map((invoice) => invoice.data.totalMinor).sort(),
+        ana.invoices.data
+          .map((invoice) => invoice.data.totalMinor)
+          .sort((a, b) => a - b),
         [125000, 480000],
       );
       const review = {

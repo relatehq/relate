@@ -35,16 +35,18 @@ class Element {
 }
 
 const response = (data: unknown, ok = true) => ({ ok, json: async () => data });
-const account = (finance: boolean) => ({
+const account = (actor: 'ana' | 'fin') => ({
   customer: {
     status: 'ok',
     data: {
       name: 'Mothlight',
       status: 'active',
-      ...(finance ? { revenue: 2000000 } : {}),
+      ...(actor === 'fin' ? { revenue: 2000000 } : {}),
     },
     meta: {
-      fields: { revenue: { status: finance ? 'available' : 'forbidden' } },
+      fields: {
+        revenue: { status: actor === 'fin' ? 'available' : 'forbidden' },
+      },
     },
   },
   invoices: {
@@ -56,11 +58,11 @@ const account = (finance: boolean) => ({
       {
         data: {
           status: 'Overdue',
-          ...(finance ? { totalMinor: 480000, currency: 'GBP' } : {}),
+          ...(actor === 'ana' ? { totalMinor: 480000, currency: 'GBP' } : {}),
         },
         meta: {
           fields: {
-            totalMinor: { status: finance ? 'available' : 'forbidden' },
+            totalMinor: { status: actor === 'ana' ? 'available' : 'forbidden' },
           },
         },
       },
@@ -104,17 +106,14 @@ it('clears the previous role data and evidence before a failed role switch', asy
     .mockResolvedValueOnce(
       response({ inspectorUrl: 'http://127.0.0.1:4318/#token=abc' }),
     )
-    .mockResolvedValueOnce(response(account(false)))
-    .mockResolvedValueOnce(response(account(true)))
+    .mockResolvedValueOnce(response(account('ana')))
     .mockResolvedValueOnce(response({ error: 'Source unavailable' }, false));
   const element = await start(fetch);
 
-  element('actor').value = 'fin';
-  await element('actor').listeners.get('change')!();
   expect(element('invoices').textContent).toContain('4,800');
   expect(element('evidence').textContent).toContain('480000');
   element('receipt').textContent = 'Previous receipt';
-  element('actor').value = 'ana';
+  element('actor').value = 'fin';
   await element('actor').listeners.get('change')!();
   expect(element('invoices').textContent).toBe('');
   expect(element('evidence').textContent).toBe('');
@@ -134,7 +133,7 @@ it.each([
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(config)
-      .mockResolvedValueOnce(response(account(false)));
+      .mockResolvedValueOnce(response(account('ana')));
     const element = await start(fetch);
 
     expect(element('inspector').href).toBeUndefined();
@@ -142,7 +141,7 @@ it.each([
     expect(element('feedback').textContent).toContain(
       'Model inspector link unavailable',
     );
-    expect(element('invoices').textContent).toContain('Withheld');
+    expect(element('invoices').textContent).toContain('4,800');
   },
 );
 
@@ -152,18 +151,24 @@ it('orders invoices by status and shows financial fields by role', async () => {
     .mockResolvedValueOnce(
       response({ inspectorUrl: 'http://127.0.0.1:4318/#token=abc' }),
     )
-    .mockResolvedValueOnce(response(account(false)))
-    .mockResolvedValueOnce(response(account(true)));
+    .mockResolvedValueOnce(response(account('ana')))
+    .mockResolvedValueOnce(response(account('fin')));
   const element = await start(fetch);
 
   expect(element('invoices').textContent).toMatch(
     /^Invoice 1Overdue.*Invoice 2Paid/,
   );
   expect(element('revenue').textContent).toBe('Revenue withheld');
+  expect(element('invoices').textContent).toContain('4,800');
+  expect(element('save').disabled).toBe(false);
   expect(element('avatar').textContent).toBe('M');
   expect(element('crm-name').value).toBe('Mothlight');
 
   element('actor').value = 'fin';
   await element('actor').listeners.get('change')!();
   expect(element('revenue').textContent).toBe('Revenue £2,000,000.00');
+  expect(element('invoices').textContent).toContain('Withheld');
+  expect(element('invoices').textContent).not.toContain('4,800');
+  expect(element('evidence').textContent).not.toContain('480000');
+  expect(element('save').disabled).toBe(true);
 });

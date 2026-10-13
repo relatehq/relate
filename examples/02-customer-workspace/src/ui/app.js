@@ -93,8 +93,8 @@ async function read(refresh = false) {
 
   $('role').textContent =
     actor === 'ana'
-      ? 'Ana manages this account and can add reviews. Financial fields are withheld by Relate.'
-      : 'Fin can see financial fields. Adding account reviews is reserved for account managers.';
+      ? 'Ana can see invoice amounts and add reviews. Customer revenue is withheld by Relate.'
+      : 'Fin can see customer revenue. Invoice amounts and currency are withheld; only account managers can add reviews.';
   $('review-hint').textContent =
     actor === 'ana'
       ? 'Retrying uses the original input and key. It returns the same receipt.'

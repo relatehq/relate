@@ -31,9 +31,10 @@ the key; reusing its URL does not reload its environment.
 
 ## Try it in this order
 
-1. Start as **Ana**, an account manager. Inspect Mothlight's two invoices.
-   Amounts are withheld by Relate's financial field policy.
-2. Switch to **Fin**, who can see the amounts but cannot add reviews.
+1. Start as **Ana**, an account manager. Inspect Mothlight's two invoices. Ana
+   can see invoice amounts and currency, but customer revenue is withheld.
+2. Switch to **Fin**, who can see customer revenue but cannot see invoice
+   amounts or currency, or add reviews.
 3. Switch back to Ana and add a review. Expand **Action receipt** to see the
    action's returned result.
 4. Click **Retry last submission**. The original input and idempotency key are
@@ -110,9 +111,10 @@ pnpm exec dotenvx run -f .env -- pnpm relate dev --config examples/02-customer-w
 ```
 
 In its Agent page, ask to list customers and their invoices, or use the printed
-MCP command. Ana can see invoice statuses; Fin can also see amounts. Omitting
-`--seed` starts the providers but leaves graph membership empty. If an inspector
-is already running without seeding, stop it before launching with `--seed`.
+MCP command. Both can see invoice statuses; only Ana can see amounts and
+currency. Omitting `--seed` starts the providers but leaves graph membership
+empty. If an inspector is already running without seeding, stop it before
+launching with `--seed`.
 
 For durable Relate state, continue to
 [03 · Postgres persistence](../03-postgres-persistence). Return to the

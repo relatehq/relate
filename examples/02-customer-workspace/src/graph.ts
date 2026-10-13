@@ -183,7 +183,7 @@ export const graph = defineGraph({
         where: { customer: { portfolio: { eq: access.claims.portfolio } } },
         evidenceMaxAgeMs: 30000,
       },
-      groups: { financial: access.role('finance') },
+      groups: { financial: access.role('account-manager') },
     },
     AccountReview: {
       read: {

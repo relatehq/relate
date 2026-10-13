@@ -48,9 +48,10 @@ the example. The browser demo and seeded graph also work without a key.
 A small app opens in your browser. Its customer comes from an HTTP CRM, its
 invoices from a SQLite database and its account reviews from Relate itself.
 
-1. As **Ana**, an account manager, you see Mothlight's invoices but the amounts
-   are withheld. The model says only finance sees them.
-2. Switch to **Fin** in finance. The amounts appear.
+1. As **Ana**, an account manager, you see Mothlight's invoices, amounts and
+   currency. Customer revenue is withheld.
+2. Switch to **Fin** in finance. Customer revenue appears, but invoice amounts
+   and currency are withheld.
 3. As Ana, add a review, then click **Retry last submission**. You get the same
    receipt back and no duplicate review.
 4. Rename the customer in the CRM and click **Refresh from sources**.
@@ -83,7 +84,7 @@ Describe the systems you already have, the objects you want and the rules:
 
 ```ts
 const access = defineAccess({
-  roles: ['employee', 'finance'],
+  roles: ['employee', 'account-manager', 'finance'],
   fieldGroups: ['ordinary', 'financial'],
   claims: { portfolio: z.string() },
 });
@@ -155,14 +156,14 @@ const graph = defineGraph({
         evidenceMaxAgeMs: 30_000,
       },
     },
-    // ...and those customers' invoices. Only finance sees amounts.
+    // ...and those customers' invoices. Only account managers see amounts.
     Invoice: {
       read: {
         gate: access.role('employee'),
         where: { customer: { portfolio: { eq: access.claims.portfolio } } },
         evidenceMaxAgeMs: 30_000,
       },
-      groups: { financial: access.role('finance') },
+      groups: { financial: access.role('account-manager') },
     },
   },
 });
@@ -195,8 +196,8 @@ await relate.host.adopt(Invoice, 'INV-1042');
 
 // Your app authenticates the caller. Relate enforces the model's rules.
 const { objects } = relate.as({
-  id: 'ana',
-  roles: ['employee'],
+  id: 'fin',
+  roles: ['employee', 'finance'],
   claims: { portfolio: 'north' },
 });
 
@@ -205,7 +206,7 @@ const invoices = await objects.Customer.traverse.invoices(mothlight, {
 });
 ```
 
-Ana gets the status. Compact evidence keeps the explanation for the withheld
+Fin gets the status. Compact evidence keeps the explanation for the withheld
 amount. Each record in the page looks like this:
 
 ```json
@@ -225,7 +226,7 @@ amount. Each record in the page looks like this:
 Pass `evidence: 'full'` to include every selected field's provenance and
 freshness details.
 
-A customer outside Ana's portfolio returns `not-found`, the same as one that
+A customer outside Fin's portfolio returns `not-found`, the same as one that
 doesn't exist.
 
 ## What's different

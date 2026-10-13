@@ -35,6 +35,10 @@ temporary SQLite billing database; no credentials or database server are needed.
 and MCP clients to query. Omit `--seed` and pass `--no-runtime` to inspect only
 the model without starting the application.
 
+Both demo principals can read invoice statuses. Ana can also read invoice
+amounts and currency and create account reviews. Fin can read customer revenue,
+but invoice amounts and currency are withheld and he cannot create reviews.
+
 The CLI itself does not load `.env`; use the loader above when your key lives in
 that file. For the full browser example, `pnpm example:customer-workspace`
 builds the packages and loads the root `.env` automatically if it exists. The
