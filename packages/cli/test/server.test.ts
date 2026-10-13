@@ -231,15 +231,19 @@ it('binds the first free port in the default range and fails clearly on an occup
     await expect(bindLoopback(createServer, port)).rejects.toThrow(
       `Port ${port} is in use`,
     );
+    // Another process on the machine may hold port + 1, so accept the first
+    // free port after ours rather than assuming port + 1.
     bound = await bindLoopback(createServer, undefined, {
       from: port,
-      to: port + 2,
+      to: port + 3,
     });
-    expect(bound.port).toBe(port + 1);
-    expect(bound.url).toBe(`http://127.0.0.1:${port + 1}`);
-    expect(bound.notice).toBe(`Port ${port} is in use; using ${port + 1}`);
+    expect(bound.port).toBeGreaterThan(port);
+    expect(bound.port).toBeLessThanOrEqual(port + 3);
+    expect(bound.url).toBe(`http://127.0.0.1:${bound.port}`);
+    expect(bound.notice).toBe(`Port ${port} is in use; using ${bound.port}`);
+    // Every port in this range is held by this test or by something else.
     await expect(
-      bindLoopback(createServer, undefined, { from: port, to: port + 1 }),
+      bindLoopback(createServer, undefined, { from: port, to: bound.port }),
     ).rejects.toThrow(/all in use/);
   } finally {
     await new Promise<void>((resolve) => occupied.close(() => resolve()));
