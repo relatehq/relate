@@ -425,6 +425,101 @@ a.icon-button.active {
   color: var(--t-font-color-tertiary);
 }
 
+/* Dialog: a centred popup that grows out of a dimmed backdrop */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--t-background-transparent-strong);
+  transition: opacity 0.2s;
+}
+
+.dialog-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 61;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: min(960px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  border-radius: 10px;
+  border: 1px solid var(--t-border-color-medium);
+  background: var(--t-background-primary);
+  color: var(--t-font-color-primary);
+  box-shadow: var(--t-box-shadow-strong);
+  font-family: var(--t-font-family);
+  font-size: 13px;
+  outline: none;
+  transform: translate(-50%, -50%);
+  transition:
+    opacity 0.2s,
+    transform 0.24s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.dialog-backdrop[data-starting-style],
+.dialog-backdrop[data-ending-style],
+.dialog-popup[data-starting-style],
+.dialog-popup[data-ending-style] {
+  opacity: 0;
+}
+
+.dialog-popup[data-starting-style],
+.dialog-popup[data-ending-style] {
+  transform: translate(-50%, -50%) scale(0.96);
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 10px 14px;
+  border-bottom: 1px solid var(--t-border-color-light);
+}
+
+.dialog-title {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: var(--t-font-weight-semi-bold);
+}
+
+.dialog-close {
+  display: flex;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--t-font-color-tertiary);
+  cursor: pointer;
+}
+
+.dialog-close:hover {
+  background: var(--t-background-transparent-light);
+  color: var(--t-font-color-primary);
+}
+
+.dialog-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px 14px;
+}
+
+.code-dialog .agent-code {
+  max-height: none;
+  margin: 0;
+  overflow: visible;
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog-backdrop,
+  .dialog-popup {
+    transition: none;
+  }
+}
+
 /* Header status: one pill, connection and runtime on hover */
 .health {
   position: relative;
@@ -2086,6 +2181,41 @@ a.icon-button.active {
 
 .agent-call-block .agent-code {
   margin: 0;
+}
+
+/* The expand control: barely there until the panel is hovered or it has focus */
+.agent-code-frame {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.agent-code-expand {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  padding: 4px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--t-background-tertiary);
+  color: var(--t-font-color-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.agent-code-frame:hover .agent-code-expand,
+.agent-code-expand:focus-visible {
+  opacity: 1;
+}
+
+.agent-code-expand:hover {
+  background: var(--t-background-transparent-medium);
+  color: var(--t-font-color-primary);
 }
 
 .agent-code.numbered {

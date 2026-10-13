@@ -335,7 +335,7 @@ function resultPreview(block: BetaToolResultBlockParam): string {
     content
       .map((part) => (part.type === 'text' ? part.text : `[${part.type}]`))
       .join('\n'),
-    1024,
+    16 * 1024,
   ).text;
 }
 

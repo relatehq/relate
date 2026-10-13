@@ -52,6 +52,7 @@ const paths = {
   check: ['M5 12l5 5l10 -10'],
   x: ['M18 6l-12 12', 'M6 6l12 12'],
   plus: ['M12 5l0 14', 'M5 12l14 0'],
+  maximize: ['M16 4l4 0l0 4', 'M14 10l6 -6', 'M8 20l-4 0l0 -4', 'M4 20l6 -6'],
   'chevron-down': ['M6 9l6 6l6 -6'],
   'chevron-right': ['M9 6l6 6l-6 6'],
   'arrow-up': ['M12 5l0 14', 'M18 11l-6 -6', 'M6 11l6 -6'],

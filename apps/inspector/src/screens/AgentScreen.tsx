@@ -32,6 +32,7 @@ import type {
   OperationEvent,
 } from '../protocol.js';
 import { Button } from '../ui/button.js';
+import { Dialog, DialogContent, DialogTrigger } from '../ui/dialog.js';
 import {
   Popover,
   PopoverContent,
@@ -461,7 +462,13 @@ function useFormatted(source: string) {
 }
 
 function JavaScript(props: { readonly source: string }) {
-  return <Code source={useFormatted(props.source)} numbered />;
+  return (
+    <CodeBlock
+      label="Code · JavaScript"
+      source={useFormatted(props.source)}
+      numbered
+    />
+  );
 }
 
 /** Results are bounded previews: pretty-print the ones that are whole JSON. */
@@ -469,9 +476,80 @@ const pretty = (result: string) => {
   try {
     return JSON.stringify(JSON.parse(result), null, 2);
   } catch {
-    return result;
+    return /^\s*[[{]/.test(result) ? indentJson(result) : result;
   }
 };
+
+/**
+ * Indents JSON that doesn't parse, usually a preview cut off mid-value: breaks
+ * after brackets and commas outside strings, and leaves the rest as written.
+ */
+function indentJson(text: string) {
+  let out = '';
+  let depth = 0;
+  let quoted = false;
+  const newline = () => '\n' + '  '.repeat(depth);
+
+  for (let at = 0; at < text.length; at++) {
+    const char = text[at]!;
+
+    if (quoted) {
+      out += char;
+
+      if (char === '\\') out += text[++at] ?? '';
+      else if (char === '"') quoted = false;
+    } else if (char === '"') {
+      out += char;
+      quoted = true;
+    } else if (char === '{' || char === '[') {
+      const close = char === '{' ? '}' : ']';
+      const rest = text.slice(at + 1).trimStart();
+
+      if (rest.startsWith(close)) {
+        out += char + close;
+        at = text.indexOf(close, at + 1);
+      } else {
+        depth++;
+        out += char + newline();
+      }
+    } else if (char === '}' || char === ']') {
+      depth = Math.max(0, depth - 1);
+      out += newline() + char;
+    } else if (char === ',') out += char + newline();
+    else if (char === ':') out += ': ';
+    else if (!/\s/.test(char)) out += char;
+    else if (!/[\s,:{}[\]]/.test(text[at + 1] ?? '')) out += char;
+  }
+
+  return out;
+}
+
+/** A code panel with a quiet expand control that opens the same code in a dialog. */
+function CodeBlock(props: {
+  readonly label: string;
+  readonly source: string;
+  readonly numbered?: boolean;
+}) {
+  return (
+    <div className="agent-call-block">
+      <span className="label">{props.label}</span>
+      <div className="agent-code-frame">
+        <Code source={props.source} numbered={props.numbered ?? false} />
+        <Dialog>
+          <DialogTrigger
+            className="agent-code-expand"
+            aria-label={`Expand ${props.label.toLowerCase()}`}
+          >
+            <Icon name="maximize" size={12} />
+          </DialogTrigger>
+          <DialogContent title={props.label} className="code-dialog">
+            <Code source={props.source} numbered={props.numbered ?? false} />
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
 
 /** The text inside a Markdown syntax-tree element, such as a fenced block's code. */
 const textOf = (node: unknown): string => {
@@ -604,24 +682,23 @@ function ToolCall(props: {
                 </div>
               )}
               <div className="agent-call-io">
-                <div className="agent-call-block">
-                  <span className="label">
-                    {execute ? 'Code · JavaScript' : 'Arguments'}
-                  </span>
-                  {execute ? (
-                    <JavaScript source={message.input} />
-                  ) : (
-                    <Code source={pretty(message.input)} numbered />
-                  )}
-                </div>
-                <div className="agent-call-block">
-                  <span className="label">Result</span>
-                  {message.result === undefined ? (
+                {execute ? (
+                  <JavaScript source={message.input} />
+                ) : (
+                  <CodeBlock
+                    label="Arguments"
+                    source={pretty(message.input)}
+                    numbered
+                  />
+                )}
+                {message.result === undefined ? (
+                  <div className="agent-call-block">
+                    <span className="label">Result</span>
                     <div className="agent-code empty">—</div>
-                  ) : (
-                    <Code source={pretty(message.result)} />
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <CodeBlock label="Result" source={pretty(message.result)} />
+                )}
               </div>
               <div className="agent-call-touched">
                 {touched.length > 0 && <span className="label">Touched</span>}
