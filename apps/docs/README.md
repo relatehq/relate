@@ -25,8 +25,7 @@ contain declaration-only proposals.
 Public guides own walkthroughs, the Read Responses page owns the response and
 options reference, and package contracts own implementation guarantees. Package
 READMEs should summarize their API and link to those guides rather than
-duplicate whole tutorials. Keep current-status statements current; migration
-history lives in `DEVELOPMENT_NOTES.md`.
+duplicate whole tutorials. Keep current-status statements current.
 
 The app uses Fumadocs' default neutral theme, layouts, and Markdown components.
 Dev and build commands copy the logos and favicon from `assets/brand` into the

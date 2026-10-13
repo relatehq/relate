@@ -3,19 +3,19 @@
 Relate is in development mode. Do not add changesets, bump package versions,
 enter prerelease mode, or run release preparation/publication as part of feature
 PRs. Keep all public packages at `0.0.0-dev.0`; explain changes in the PR
-instead. Preserve breaking-change and migration guidance in
-`DEVELOPMENT_NOTES.md` without adding a Changeset. `pnpm check:development`
-enforces this in CI. Release commands are disabled by
-`scripts/releases/policy.json`. Enabling releases requires an explicit owner
-request and a separate reviewed change to that policy and release documentation.
-Package build and installed-tarball tests remain part of ordinary validation;
-they do not publish packages.
+instead. Before the first release, breaking-change tracking and migration notes
+are not required. `pnpm check:development` enforces the version and changeset
+policy in CI. Release commands are disabled by `scripts/releases/policy.json`.
+Enabling releases requires an explicit owner request and a separate reviewed
+change to that policy and release documentation. Package build and
+installed-tarball tests remain part of ordinary validation; they do not publish
+packages.
 
 ## Commit messages
 
 Use Conventional Commits: `<type>[optional scope]: <description>` (for example,
 `docs: update license documentation` or `feat(runtime): add durable reads`).
-Mark breaking changes with `!` after the type or scope.
+Breaking-change markers (`!`) are not required before the first release.
 
 Do not add AI attribution to commits or pull requests. No `Co-Authored-By`
 trailers for Claude, Codex, or any other agent, and no "Generated with" lines or
@@ -122,8 +122,7 @@ proposals, declaration shims, or historical scenarios. A typechecking fixture is
 not proof of execution, authorization, atomicity, persistence, or durability.
 
 When a public contract changes, update its owning package documentation and the
-public docs or examples that teach it. Record breaking-change and migration
-guidance in `DEVELOPMENT_NOTES.md` while releases remain disabled.
+public docs or examples that teach it.
 
 ## Architecture and ownership
 

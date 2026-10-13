@@ -8,9 +8,8 @@
 
 Do not add changesets, change package versions, or run release preparation in
 feature PRs. Describe behavior and validation in the PR. All public packages
-stay at `0.0.0-dev.0`. Pending changesets have been removed. Their migration
-guidance is preserved in [DEVELOPMENT_NOTES.md](DEVELOPMENT_NOTES.md), outside
-release automation.
+stay at `0.0.0-dev.0`. Before the first release, breaking-change tracking and
+migration notes are not required.
 
 `scripts/releases/policy.json` sets `enabled: false`. The `pnpm changeset`,
 `pnpm release:prepare`, and `pnpm release:artifacts` commands fail before
@@ -22,10 +21,8 @@ are not releases.
 
 To begin releasing, obtain an explicit owner decision and make a separate
 reviewed PR enabling that policy, choosing the first version and release scope,
-incorporating [development migration notes](DEVELOPMENT_NOTES.md) into the first
-release notes and migration guide, and updating this document. The procedures
-below describe the dormant release tooling and must not be run while development
-mode is active.
+and updating this document. The procedures below describe the dormant release
+tooling and must not be run while development mode is active.
 
 ## What is versioned
 
