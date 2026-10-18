@@ -299,14 +299,6 @@ After that comes work lineage: a graph of how an agent's work unfolded, linking
 each object it read, each traversal it followed and each action it took, so you
 can see what it looked at and why it did what it did.
 
-## Compact evidence
-
-Reads default to compact evidence, preserving exceptional field states and
-warnings. Pass `evidence: 'full'` for every selected field's provenance and
-freshness. See
-[Read Responses & Evidence](apps/docs/content/reference/read-responses.md) for
-the canonical response and options reference.
-
 ## Feedback
 
 We'd most like to hear about:
