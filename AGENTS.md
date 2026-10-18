@@ -126,6 +126,10 @@ public docs or examples that teach it.
 
 ## Architecture and ownership
 
+Keep features cohesive: things that change together should live together, so
+adding or evolving a feature stays within its owning module rather than
+scattering changes across packages.
+
 Keep dependencies aligned with the policies in
 `tests/architecture/package-boundaries.ts` and
 `tests/architecture/runtime-boundaries.ts`. Declaring a workspace dependency
