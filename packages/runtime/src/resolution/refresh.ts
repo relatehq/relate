@@ -21,15 +21,12 @@ import {
   SourceAccessDenied,
 } from '../observations/index.js';
 import type { AnySourceConnector } from 'relate/connectors';
-import {
-  activeOperation,
-  createOperationScope,
-  nestedScope,
-  referenceEntry,
-  runtimeActor,
-  uuidv7,
+import { nestedScope, referenceEntry, uuidv7 } from '../activity/index.js';
+import type {
+  Capture,
+  OperationBody,
+  OperationScope,
 } from '../activity/index.js';
-import type { Capture, OperationBody } from '../activity/index.js';
 
 type RefreshBody = Extract<OperationBody, { kind: 'refresh' }>;
 
@@ -49,6 +46,7 @@ export async function refreshObservation(options: {
   sourcePermission: boolean;
   evidenceMaxAgeMs: number;
   capture: Capture;
+  operation: OperationScope;
 }) {
   const {
     store,
@@ -95,12 +93,8 @@ export async function refreshObservation(options: {
   ) {
     // Each fetch attempt is a nested operation of the enclosing attempt, with
     // its own outcome; a fresh observation that needs no fetch records none.
-    // Work outside any consumer or host call (none today) is the runtime's
-    // own top-level refresh rather than a child of an invented parent.
-    const parent = activeOperation()?.scope;
-    const attempt = parent
-      ? nestedScope(parent)
-      : createOperationScope(runtimeActor);
+    const parent = options.operation;
+    const attempt = nestedScope(parent);
     const started = { at: Date.now(), monotonic: performance.now() };
     let settled: RefreshOutcome = {
       outcome: { status: 'rejected', code: 'internal' },
@@ -156,7 +150,7 @@ export async function refreshObservation(options: {
               attribution: {
                 changeId: uuidv7(),
                 operationId: attempt.id,
-                ...(parent ? { parentOperationId: parent.id } : {}),
+                parentOperationId: parent.id,
                 actor: attempt.actor,
                 context: attempt.context,
                 occurredAt: observedAt,

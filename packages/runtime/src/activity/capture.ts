@@ -10,8 +10,7 @@ import type {
 } from '@relate/protocol';
 import type { OperationDraft } from '../storage.js';
 import type { OperationRecorder } from './recorder.js';
-import type { ActiveOperation, OperationScope } from './scope.js';
-import { runInOperation } from './scope.js';
+import type { OperationScope } from './scope.js';
 
 type ObjectType = Manifest['objects'][number];
 
@@ -147,29 +146,25 @@ export function createCapture(options: {
   return {
     /**
      * Run one consumer or host operation in its scope and record it once it
-     * settles. Nested work, such as a refresh, sees this scope as its parent.
+     * settles. Execution passes the scope explicitly to any nested work.
      */
     async operation<T>(
       scope: OperationScope,
       run: () => Promise<T>,
-      describe: (
-        settled: Settled<T>,
-        active: ActiveOperation,
-      ) => OperationBody | undefined,
+      describe: (settled: Settled<T>) => OperationBody | undefined,
     ): Promise<T> {
       const started = { at: Date.now(), monotonic: performance.now() };
-      const active: ActiveOperation = { scope };
       let settled: Settled<T>;
 
       try {
-        settled = { ok: true, value: await runInOperation(active, run) };
+        settled = { ok: true, value: await run() };
       } catch (error) {
         settled = { ok: false, error };
       }
 
       if (recorder.enabled)
         try {
-          const body = describe(settled, active);
+          const body = describe(settled);
 
           if (body) record(scope, started, body);
         } catch {

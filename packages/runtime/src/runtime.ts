@@ -157,6 +157,7 @@ export function createRuntime(options: RuntimeOptions) {
   };
 
   async function resolveEvidence(
+    attempt: OperationScope,
     target: (typeof manifest.objects)[number],
     key: string,
     maxAgeMs: number,
@@ -173,6 +174,7 @@ export function createRuntime(options: RuntimeOptions) {
     }
 
     return source.resolveSourceEvidence(
+      attempt,
       target,
       key,
       maxAgeMs,
@@ -212,6 +214,7 @@ export function createRuntime(options: RuntimeOptions) {
   });
 
   async function readObject(
+    attempt: OperationScope,
     principal: Principal,
     objectDefinitionId: string,
     objectId: string,
@@ -224,6 +227,7 @@ export function createRuntime(options: RuntimeOptions) {
 
     if (object?.sourceDefinitionId)
       return source.read(
+        attempt,
         principal,
         objectDefinitionId,
         objectId,
@@ -234,6 +238,7 @@ export function createRuntime(options: RuntimeOptions) {
       );
 
     return native.read(
+      attempt,
       principal,
       objectDefinitionId,
       objectId,
@@ -295,8 +300,17 @@ export function createRuntime(options: RuntimeOptions) {
     install,
     handlers: options.actionHandlers ?? {},
     validate: native.validate,
-    read: (actor, type, id, request, transaction, captureAuthorization) =>
+    read: (
+      attempt,
+      actor,
+      type,
+      id,
+      request,
+      transaction,
+      captureAuthorization,
+    ) =>
       readObject(
+        attempt,
         actor,
         type,
         id,
@@ -408,7 +422,7 @@ export function createRuntime(options: RuntimeOptions) {
       return presenting(request, (r) =>
         capture.operation(
           attempt,
-          () => query(principal, objectDefinitionId, r),
+          () => query(attempt, principal, objectDefinitionId, r),
           (settled): OperationBody => ({
             kind: 'query',
             definitionId: objectDefinitionId,
@@ -443,7 +457,7 @@ export function createRuntime(options: RuntimeOptions) {
       return presenting(request, (r) =>
         capture.operation(
           attempt,
-          () => readObject(principal, objectDefinitionId, objectId, r),
+          () => readObject(attempt, principal, objectDefinitionId, objectId, r),
           (settled): OperationBody => ({
             kind: 'get',
             definitionId: objectDefinitionId,
@@ -476,30 +490,32 @@ export function createRuntime(options: RuntimeOptions) {
     ) {
       const attempt = consumerScope(principal, scope);
 
-      return capture.operation(
-        attempt,
-        () => executor.invoke(principal, actionId, request, attempt),
-        (settled, active): OperationBody => ({
-          kind: 'invoke',
-          definitionId: actionId,
-          objects: [],
-          details: {},
-          ...(settled.ok
-            ? {
-                outcome: receiptOutcome(settled.value),
-                invocationId: settled.value.invocationId,
-                replayed: active.invocation?.replayed ?? false,
-              }
-            : {
-                outcome:
-                  settled.error instanceof ActionError &&
-                  settled.error.code === 'uncertain'
-                    ? { status: 'uncertain' }
-                    : rejected(settled.error),
-                replayed: false,
-              }),
-        }),
-      );
+      return capture
+        .operation(
+          attempt,
+          () => executor.invoke(principal, actionId, request, attempt),
+          (settled): OperationBody => ({
+            kind: 'invoke',
+            definitionId: actionId,
+            objects: [],
+            details: {},
+            ...(settled.ok
+              ? {
+                  outcome: receiptOutcome(settled.value.receipt),
+                  invocationId: settled.value.receipt.invocationId,
+                  replayed: settled.value.replayed,
+                }
+              : {
+                  outcome:
+                    settled.error instanceof ActionError &&
+                    settled.error.code === 'uncertain'
+                      ? { status: 'uncertain' }
+                      : rejected(settled.error),
+                  replayed: false,
+                }),
+          }),
+        )
+        .then(({ receipt }) => receipt);
     },
     async getReceipt(
       principal: Principal,
@@ -507,9 +523,11 @@ export function createRuntime(options: RuntimeOptions) {
       invocationId: string,
       scope?: OperationScope,
     ) {
+      const attempt = consumerScope(principal, scope);
+
       return capture.operation(
-        consumerScope(principal, scope),
-        () => executor.getReceipt(principal, actionId, invocationId),
+        attempt,
+        () => executor.getReceipt(principal, actionId, invocationId, attempt),
         (settled): OperationBody => ({
           kind: 'receipt',
           definitionId: actionId,
@@ -594,7 +612,7 @@ export function createRuntime(options: RuntimeOptions) {
       return presenting(request, (r) =>
         capture.operation(
           attempt,
-          () => traverse(principal, typeId, id, name, r),
+          () => traverse(attempt, principal, typeId, id, name, r),
           describe,
         ),
       );

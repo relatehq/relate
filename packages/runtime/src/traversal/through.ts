@@ -1,3 +1,4 @@
+import type { OperationScope } from '../activity/index.js';
 import type { Manifest } from 'relate/model';
 import type {
   FullPageResult,
@@ -66,6 +67,7 @@ export function createThroughTraversal(options: TraversalOptions) {
         : store.native!.scan(nativeScope, object.id, input);
 
   return async (
+    attempt: OperationScope,
     principal: Principal,
     typeId: string,
     id: string,
@@ -123,7 +125,9 @@ export function createThroughTraversal(options: TraversalOptions) {
       requireComplete: false,
     };
 
-    if ((await read(principal, typeId, id, rootRequest)).status !== 'ok')
+    if (
+      (await read(attempt, principal, typeId, id, rootRequest)).status !== 'ok'
+    )
       return empty();
 
     const linkRequest: ReadRequest = {
@@ -187,7 +191,9 @@ export function createThroughTraversal(options: TraversalOptions) {
         (d) => !rejected.has(d) && admits(d),
       );
       const results = await Promise.all(
-        unseen.map((d) => read(principal, target.id, d, filterRequest)),
+        unseen.map((d) =>
+          read(attempt, principal, target.id, d, filterRequest),
+        ),
       );
 
       unseen.forEach((d, j) => {
@@ -213,7 +219,9 @@ export function createThroughTraversal(options: TraversalOptions) {
       for (let i = 0; i < batch.ids.length; i += 8) {
         const links = batch.ids.slice(i, i + 8);
         const members = await Promise.all(
-          links.map((link) => read(principal, owner.id, link, linkRequest)),
+          links.map((link) =>
+            read(attempt, principal, owner.id, link, linkRequest),
+          ),
         );
 
         const found = links.flatMap((link, j) => {
@@ -280,6 +288,7 @@ export function createThroughTraversal(options: TraversalOptions) {
 
     for (const [destination, linkId] of page) {
       const result = await read(
+        attempt,
         principal,
         target.id,
         destination,
@@ -292,6 +301,7 @@ export function createThroughTraversal(options: TraversalOptions) {
 
       let linkAllowed = async () => false;
       const link = await read(
+        attempt,
         principal,
         owner.id,
         linkId,
@@ -312,6 +322,7 @@ export function createThroughTraversal(options: TraversalOptions) {
       // Recheck the destination after link validation may have refreshed private evidence.
       let targetAllowed = async () => false;
       const final = await read(
+        attempt,
         principal,
         target.id,
         destination,
@@ -334,6 +345,7 @@ export function createThroughTraversal(options: TraversalOptions) {
 
     let rootAllowed = async () => false;
     const finalRoot = await read(
+      attempt,
       principal,
       typeId,
       id,
@@ -355,6 +367,7 @@ export function createThroughTraversal(options: TraversalOptions) {
       const at = await filter.confirm(item, async () => {
         let allowed = async () => false;
         const result = await read(
+          attempt,
           principal,
           target.id,
           item.id,

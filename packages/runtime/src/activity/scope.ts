@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type { OperationActor, OperationContext } from '@relate/protocol';
 import { isUuidv7, uuidv7 } from './ids.js';
@@ -16,20 +15,6 @@ export interface OperationScope {
     readonly actor: OperationActor;
   };
 }
-
-/** Mutable facts the engine learns while an operation runs. */
-export interface ActiveOperation {
-  readonly scope: OperationScope;
-  invocation?: { readonly id: string; readonly replayed: boolean };
-}
-
-const active = new AsyncLocalStorage<ActiveOperation>();
-
-/** The runtime's own work outside any consumer or host call. */
-export const runtimeActor: OperationActor = Object.freeze({
-  kind: 'system',
-  id: 'relate.runtime',
-});
 
 /**
  * Embedded callers get a fresh request ID per operation, not per binding. A
@@ -82,22 +67,4 @@ export function nestedScope(parent: OperationScope): OperationScope {
     context: parent.context,
     parent: { id: parent.id, actor: parent.actor },
   };
-}
-
-export function runInOperation<T>(
-  operation: ActiveOperation,
-  run: () => Promise<T>,
-): Promise<T> {
-  return active.run(operation, run);
-}
-
-export function activeOperation(): ActiveOperation | undefined {
-  return active.getStore();
-}
-
-/** Record which invocation the current invoke attempt executed or replayed. */
-export function noteInvocation(id: string, replayed: boolean): void {
-  const operation = activeOperation();
-
-  if (operation) operation.invocation = { id, replayed };
 }

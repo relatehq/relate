@@ -29,7 +29,7 @@ import type {
   ObservationStore,
 } from '../storage.js';
 import type { Principal } from '../authorization/index.js';
-import { noteInvocation, uuidv7 } from '../activity/index.js';
+import { uuidv7 } from '../activity/index.js';
 import type { OperationScope } from '../activity/index.js';
 import type { FeedDraft } from '../storage.js';
 import { createActionDeadline } from './deadline.js';
@@ -85,6 +85,7 @@ export function createActionExecutor(options: {
   install(): Promise<void>;
   handlers: Readonly<Record<string, ActionHandler>>;
   read(
+    attempt: OperationScope,
     principal: Principal,
     type: string,
     id: string,
@@ -93,6 +94,7 @@ export function createActionExecutor(options: {
     captureAuthorization?: (check: () => Promise<boolean>) => void,
   ): Promise<FullObjectResult>;
   query(
+    attempt: OperationScope,
     principal: Principal,
     type: string,
     request: QueryRequest,
@@ -103,6 +105,7 @@ export function createActionExecutor(options: {
     ) => void,
   ): Promise<FullPageResult>;
   validate(
+    attempt: OperationScope,
     principal: Principal,
     type: ObjectType,
     record: NativeRecord,
@@ -121,6 +124,7 @@ export function createActionExecutor(options: {
   }
 
   async function authorizeReceipt(
+    attempt: OperationScope,
     actor: Principal,
     action: Action,
     saved: NativeInvocation | undefined,
@@ -177,6 +181,7 @@ export function createActionExecutor(options: {
         throw new ActionError('denied');
 
       const result = await options.read(
+        attempt,
         actor,
         object.id,
         read.objectId,
@@ -230,7 +235,7 @@ export function createActionExecutor(options: {
     actionId: string,
     request: { input: unknown; idempotencyKey: string },
     attempt: OperationScope,
-  ): Promise<ActionReceipt> => {
+  ): Promise<{ receipt: ActionReceipt; replayed: boolean }> => {
     const actor = structuredClone(principal);
     const action = authorizedAction(actor, actionId);
 
@@ -272,6 +277,7 @@ export function createActionExecutor(options: {
                 throw new ActionError('denied');
 
               const receipt = await authorizeReceipt(
+                attempt,
                 actor,
                 action,
                 existing,
@@ -282,9 +288,7 @@ export function createActionExecutor(options: {
                 throw new ActionError('conflict');
 
               // A replay commits nothing of its own and keeps the saved ID.
-              noteInvocation(receipt.invocationId, true);
-
-              return receipt;
+              return { receipt, replayed: true };
             }
 
             // Allocated before the handler runs: creation provenance, the
@@ -370,6 +374,7 @@ export function createActionExecutor(options: {
                 if (field.references) {
                   check();
                   const result = await options.read(
+                    attempt,
                     actor,
                     field.references,
                     values[name] as string,
@@ -440,6 +445,7 @@ export function createActionExecutor(options: {
                     run(() =>
                       presenting(request, (r) =>
                         options.query(
+                          attempt,
                           actor,
                           type,
                           r,
@@ -452,6 +458,7 @@ export function createActionExecutor(options: {
                     run(() =>
                       presenting(request, async (r) => {
                         const result = await options.read(
+                          attempt,
                           actor,
                           type,
                           id,
@@ -518,6 +525,7 @@ export function createActionExecutor(options: {
                       };
 
                       await options.validate(
+                        attempt,
                         actor,
                         object,
                         record,
@@ -560,6 +568,7 @@ export function createActionExecutor(options: {
 
             for (const record of domain ? [] : created)
               await options.validate(
+                attempt,
                 actor,
                 manifest.objects.find(
                   (o) => o.id === record.objectDefinitionId,
@@ -619,7 +628,13 @@ export function createActionExecutor(options: {
             // Rollback changes the authorization view. Recheck recorded fields too,
             // since scalar failure details may have been derived from those reads.
             if (domain)
-              await authorizeReceipt(actor, action, invocation, transaction);
+              await authorizeReceipt(
+                attempt,
+                actor,
+                action,
+                invocation,
+                transaction,
+              );
 
             await transaction.saveInvocation(invocation);
 
@@ -663,9 +678,7 @@ export function createActionExecutor(options: {
               await transaction.appendFeed(drafts);
             }
 
-            noteInvocation(invocationId, false);
-
-            return receipt;
+            return { receipt, replayed: false };
           });
         },
       );
@@ -683,6 +696,7 @@ export function createActionExecutor(options: {
       principal: Principal,
       actionId: string,
       invocationId: string,
+      attempt: OperationScope,
     ): Promise<ActionReceipt> {
       const actor = structuredClone(principal);
       const action = authorizedAction(actor, actionId);
@@ -704,6 +718,7 @@ export function createActionExecutor(options: {
 
             return deadline.run(async (transaction) =>
               authorizeReceipt(
+                attempt,
                 actor,
                 action,
                 await transaction.findInvocation(action.id, invocationId),

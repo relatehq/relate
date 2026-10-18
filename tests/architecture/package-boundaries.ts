@@ -41,8 +41,7 @@ export const packagePolicies: Record<
       'relate/storage',
       '@relate/protocol',
     ],
-    // async_hooks carries the current operation scope to nested refreshes.
-    builtins: ['node:crypto', 'node:async_hooks'],
+    builtins: ['node:crypto'],
   },
   'packages/postgres': {
     imports: ['relate/model', '@relate/runtime/storage', 'pg'],

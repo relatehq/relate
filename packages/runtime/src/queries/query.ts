@@ -1,3 +1,4 @@
+import type { OperationScope } from '../activity/index.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { canonicalJson } from 'relate/model';
 import type { Manifest } from 'relate/model';
@@ -45,6 +46,7 @@ export function createGraphQuery(options: {
   cursorKey?: Uint8Array;
   scopeFor(type: string, source: string): StorageScope;
   read(
+    attempt: OperationScope,
     principal: Principal,
     type: string,
     id: string,
@@ -59,6 +61,7 @@ export function createGraphQuery(options: {
   const transactions = new WeakMap<NativeTransaction, string>();
 
   return async (
+    attempt: OperationScope,
     principal: Principal,
     type: string,
     input: QueryRequest = {},
@@ -162,6 +165,7 @@ export function createGraphQuery(options: {
     const readCandidate = async (id: string) => {
       let allowed = async () => false;
       const result = await options.read(
+        attempt,
         principal,
         type,
         id,

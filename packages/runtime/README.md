@@ -171,8 +171,16 @@ await runtime.drainActivity(5_000);
 Engine methods accept an optional trailing `OperationScope` from
 `createOperationScope(actor, context)`; its actor must be the call's principal
 (or, for `adopt`, the host actor). Without one, each call gets a fresh operation
-and request ID. Capture limits default to 1,000 queued operations, 8 MiB queued,
-100 per append, 1,000 lineage entries and 256 KiB per operation. See
+and request ID. Inside the engine, this scope is required and passed explicitly
+through reads, queries, traversals, action execution and authorization evidence
+resolution. Each source refresh derives its child scope from that argument;
+there is no ambient context or fallback actor. Action execution returns its
+receipt and replay flag together for capture. The public result remains the
+receipt alone. Transport/IPC boundaries must pass their trusted scope
+explicitly.
+
+Capture limits default to 1,000 queued operations, 8 MiB queued, 100 per append,
+1,000 lineage entries and 256 KiB per operation. See
 [Activity & Provenance](../../apps/docs/content/runtime/activity.md) and the
 [store contract](./STORE_CONTRACT.md#activity-capability).
 

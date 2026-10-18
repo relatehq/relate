@@ -46,6 +46,7 @@ export function createSourceOperations(options: {
   scopeFor(objectId: string, sourceId: string): StorageScope;
   capture: Capture;
   resolve(
+    attempt: OperationScope,
     target: Manifest['objects'][number],
     key: string,
     maxAgeMs: number,
@@ -76,6 +77,7 @@ export function createSourceOperations(options: {
   }
 
   async function resolveSourceEvidence(
+    attempt: OperationScope,
     target: Manifest['objects'][number],
     key: string,
     maxAgeMs: number,
@@ -112,6 +114,7 @@ export function createSourceOperations(options: {
       sourcePermission: true,
       evidenceMaxAgeMs: maxAgeMs,
       capture: options.capture,
+      operation: attempt,
     });
 
     if (!(await accountAllowed(target.sourceDefinitionId, request)))
@@ -124,6 +127,7 @@ export function createSourceOperations(options: {
   }
 
   async function readObject(
+    attempt: OperationScope,
     principal: Principal,
     objectDefinitionId: string,
     objectId: string,
@@ -203,6 +207,7 @@ export function createSourceOperations(options: {
         ? policy.read.evidenceMaxAgeMs
         : 60_000,
       capture: options.capture,
+      operation: attempt,
     });
 
     if (!resolved) return { status: 'not-found' };
@@ -214,7 +219,15 @@ export function createSourceOperations(options: {
       principal,
       clock,
       resolve: (target, key, maxAgeMs, canonical = false) =>
-        options.resolve(target, key, maxAgeMs, canonical, transaction, request),
+        options.resolve(
+          attempt,
+          target,
+          key,
+          maxAgeMs,
+          canonical,
+          transaction,
+          request,
+        ),
     });
 
     if (!(await evidence.allows(object, resolved)))

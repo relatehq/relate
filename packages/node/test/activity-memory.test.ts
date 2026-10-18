@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { connect, implementAction } from 'relate';
 import { createRuntime } from '@relate/node';
 import { createMemoryStore } from '@relate/runtime';
@@ -8,6 +8,7 @@ import type { ObservationStore } from '@relate/runtime/storage';
 import type { Change, Operation } from '@relate/protocol';
 import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
 import {
+  AccountReview,
   AddAccountReview,
   Customer,
   addAccountReview,
@@ -258,6 +259,7 @@ describe('memory activity', () => {
     for (const principal of [ana, finance])
       await runtime.as(principal).objects.Customer.traverse.invoices(customer, {
         select: ['status', 'totalMinor'],
+        refresh: true,
       });
 
     let traversals: readonly Operation[] = [];
@@ -303,6 +305,26 @@ describe('memory activity', () => {
       ],
     });
     expect(anaTraversal!.objects.slice(1)).toEqual(returned(['invoice.total']));
+    const refreshes = (
+      await runtime.host.activity.operations.list({
+        filter: { kinds: ['refresh'] },
+      })
+    ).entries;
+
+    expect(refreshes.length).toBeGreaterThan(0);
+
+    for (const refresh of refreshes) {
+      const parent = traversals.find(
+        (row) => row.id === refresh.parentOperationId,
+      );
+
+      expect(parent).toBeDefined();
+      expect(refresh).toMatchObject({
+        actor: parent!.actor,
+        context: parent!.context,
+      });
+    }
+
     expect(
       fin!.objects
         .slice(1)
@@ -448,6 +470,78 @@ describe('memory activity', () => {
     ).toHaveLength(2);
     await runtime.close();
   });
+
+  it.each(['native-read', 'receipt'] as const)(
+    'passes the %s scope through private authorization refreshes',
+    async (kind) => {
+      const store = createMemoryStore();
+      const graphId = randomUUID();
+      let now = 1_000_000;
+      let name = 'Before';
+      const runtime = reviewApp(store, graphId, {
+        now: () => now,
+        name: () => name,
+      });
+
+      onTestFinished(() => runtime.close());
+      const customer = await runtime.host.adopt(Customer, 'one');
+      const receipt = await runtime.as(ana).actions.addAccountReview({
+        input: { customer, note: 'Review' },
+        idempotencyKey: 'one',
+      });
+      const context = { requestId: kind, transport: 'http' as const };
+      const operations = runtime.operations(ana, context);
+
+      now += 120_000;
+      name = 'After';
+
+      if (kind === 'native-read')
+        expect(
+          await operations.get(AccountReview.id, receipt.output.reviewId),
+        ).toMatchObject({ status: 'ok' });
+      else
+        expect(
+          await operations.getReceipt(
+            AddAccountReview.id,
+            receipt.invocationId,
+          ),
+        ).toEqual(receipt);
+
+      await runtime.close();
+
+      const rows = (
+        await store.activity!.operations.list(graphId, {
+          filter: { requestId: kind },
+        })
+      ).entries;
+      const parent = rows.find(
+        (row) => row.kind === (kind === 'native-read' ? 'get' : 'receipt'),
+      )!;
+      const refresh = rows.find((row) => row.kind === 'refresh')!;
+
+      expect(rows).toHaveLength(2);
+      expect(refresh).toMatchObject({
+        parentOperationId: parent.id,
+        actor: { kind: 'principal', id: ana.id },
+        context,
+        details: { refresh: 'changed' },
+      });
+      expect(
+        (
+          await store.activity!.feed.read(graphId, {
+            filter: { kinds: ['updated'] },
+          })
+        ).entries,
+      ).toEqual([
+        expect.objectContaining({
+          operationId: refresh.id,
+          parentOperationId: parent.id,
+          triggeredBy: parent.actor,
+          context,
+        }),
+      ]);
+    },
+  );
 
   it('truncates oversized lineage and says so', async () => {
     const runtime = createRuntime({
