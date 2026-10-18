@@ -1,7 +1,8 @@
 /**
  * L2: observe code executions. The inner executor receives a per-execution
- * binding whose operations are observed with this execution's ID, which is how
- * every graph operation links back to the code that made it.
+ * binding whose operations carry this execution's request context, which is
+ * how every graph operation (and the runtime's record of it) links back to
+ * the code that made it.
  */
 import { randomUUID } from 'node:crypto';
 import type { CodeExecutor, ExecutionResult } from '@relate/mcp';
@@ -16,7 +17,7 @@ import {
   truncate,
   type ActivityLog,
 } from './log.js';
-import { observeOperations } from './operations.js';
+import { withActivityContext } from './context.js';
 
 function boundedLogs(result: ExecutionResult): {
   readonly logs: ExecutionEvent['logs'];
@@ -52,7 +53,7 @@ export function observeExecutor(
       const executionId = randomUUID();
       const observed = {
         ...graph,
-        operations: observeOperations(graph.operations, log, {
+        operations: withActivityContext(graph.operations, {
           ...request,
           executionId,
         }),

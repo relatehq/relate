@@ -39,6 +39,21 @@ export const runtimeRequestSchema = z.discriminatedUnion('type', [
     runtimeId: text,
     principal: text,
     operation: z.enum(runtimeOperations),
+    /**
+     * Operation identity the dev binding assigned, so the runtime's rows join
+     * its dispatch event. The actor is always `principal`.
+     */
+    attempt: z
+      .strictObject({
+        operationId: text,
+        context: z.strictObject({
+          requestId: text,
+          transport: z.enum(['embedded', 'http', 'mcp']),
+          runtimeId: text,
+          executionId: text.optional(),
+        }),
+      })
+      .optional(),
     args: z.array(z.unknown()),
   }),
   z.strictObject({
@@ -68,7 +83,45 @@ export const wireErrorSchema = z.strictObject({
 
 export type WireError = z.infer<typeof wireErrorSchema>;
 
+/**
+ * Runtime rows cross IPC from the trusted host; check their shape enough to
+ * route and project them. The runtime validated them when it recorded them.
+ */
+const runtimeRow = z.looseObject({
+  id: text,
+  graphId: text,
+  kind: text,
+  definitionRevision: text,
+  actor: z.looseObject({ kind: text, id: text }),
+  context: z.looseObject({ requestId: text, transport: text }),
+});
+
 export const runtimeMessageSchema = z.discriminatedUnion('type', [
+  /**
+   * Committed feed entries and settled operation rows of this runtime's dev
+   * requests, forwarded after they are recorded. Best effort.
+   */
+  z.strictObject({
+    type: z.literal('activity'),
+    runtimeId: text,
+    feed: z.array(runtimeRow.extend({ position: text, occurredAt: text })),
+    operations: z.array(
+      runtimeRow.extend({
+        startedAt: text,
+        durationMs: z.number().nonnegative(),
+        definitionId: text,
+        outcome: z.looseObject({ status: text }),
+        objects: z.array(
+          z.looseObject({
+            objectId: text,
+            role: text,
+            forbidden: z.array(z.string()),
+          }),
+        ),
+        details: z.looseObject({}),
+      }),
+    ),
+  }),
   z.strictObject({
     type: z.literal('reply'),
     id,

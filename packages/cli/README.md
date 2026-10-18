@@ -277,24 +277,53 @@ both tools report it:
 
 ### Activity
 
-Three decorators in `src/dev/activity/` record what MCP clients do, without
-changing `@relate/mcp`:
+The dev server records what MCP clients do in `src/dev/activity/`, without
+changing `@relate/mcp`. The runtime records the graph operations themselves
+([activity spec](../../specs/2026-10-13-activity.md)); the dev server joins its
+own events to the runtime's rows:
 
 ```text
-/mcp request ─ L1 observeRequest ─▶ execute ─ L2 observeExecutor ─▶ graph.objects.X.query() ─ L3 observeOperations ─▶ runtime host
-requestId                            executionId                      opId
+/mcp request ─ L1 observeRequest ─▶ execute ─ L2 observeExecutor ─▶ graph.objects.X.query()
+requestId                            executionId
+  ─▶ runtime binding (observeDispatch) ─ IPC { attempt: { operationId, context } } ─▶ runtime host
+     operationId (UUIDv7)                                                          relate.host.dispatch(...)
+
+runtime host ─ { type: 'activity', feed, operations } ─▶ projectActivity ─▶ activity log
 ```
 
-L3 is transport-independent: every operation carries an `OperationContext`
-(`{ requestId, runtimeId, definitionRevision, principal, transport, executionId? }`)
-and `executionId` is present only when agent JavaScript made the call. Events
-(`call`, `execution`, `operation`) are upserts keyed by ID: a `running` event is
-replaced by its final version. The log is a ring buffer of the last 200 finished
-requests (a running request is never evicted; late events of an evicted one are
-dropped) with 500 operations each. Every caller-controlled string is bounded:
-identifiers, keys and cursors to 256 characters, previews to 1 KiB, code and
-logs to 16 KiB each, with a 64 KiB per-event backstop. Record values are never
-kept, only IDs and counts.
+- **Dispatch event.** The runtime binding assigns each operation a fresh
+  operation ID and records a `running` operation event with bounded request
+  previews (filter, selection, input). It settles with the transport's answer,
+  including the error message and issues the caller saw. A call that never
+  reached the engine (`runtime-retired`, a killed host) has only this event and
+  says what the transport reported, never an engine result.
+- **Runtime record.** The host runs the call with
+  `relate.host.dispatch(principal, { operationId, context }, method, args)`, so
+  the runtime's operation row has the same ID. For about a second after each
+  call, the host forwards rows whose context names its `runtimeId`: settled
+  operation rows (newest first, down to the last pass) and committed feed
+  entries (from a checkpoint taken at startup). Seeds and earlier history in a
+  persistent store are not forwarded.
+- **Projection.** A runtime row merges into the dispatch event with its ID, in
+  either order, and is authoritative for the outcome; nested refreshes and
+  committed entries (`created`, `updated`, `invocation-succeeded`, …) join the
+  request by request ID. Their `runtime` summary says `attempt` or `committed`,
+  with actor, parent operation, replay, refresh result, refused field IDs, and
+  feed position. Values never cross.
+
+Every event carries an `OperationContext`
+(`{ requestId, runtimeId, definitionRevision, principal, transport, executionId? }`);
+`executionId` is present only when agent JavaScript made the call. Events
+(`call`, `execution`, `operation`) are upserts keyed by ID. The log is a ring
+buffer of the last 200 finished requests (a running request is never evicted;
+late events of an evicted one are dropped) with 500 operation events each. A
+runtime row opens an event only within a request the log holds. Every
+caller-controlled string is bounded: identifiers, keys and cursors to 256
+characters, previews to 1 KiB, code and logs to 16 KiB each, with a 64 KiB
+per-event backstop that keeps the runtime summary.
+
+Runtime rows are best effort: a missing one is not evidence that nothing
+happened, and the store's feed stays the record of what committed.
 
 ### Built-in agent
 
@@ -358,8 +387,8 @@ embedding: `runDev`, `parseDevArguments`, `resolveProject`, `acquireLock`,
 `createBuilder`, `createWatcher`, `createAttemptRunner`, `createTerminal`,
 `createRuntimeController`, `createRuntimeBinding`, `createMcpEndpoint`,
 `readMcpToken`, `createActivityLog`, `observeRequest`, `observeExecutor`,
-`observeOperations`, `createAgent`, `connectLoopbackMcp`, `mountAgentRoutes`,
-`diffManifests` and `summarizeDiff`.
+`observeDispatch`, `withActivityContext`, `projectActivity`, `createAgent`,
+`connectLoopbackMcp`, `mountAgentRoutes`, `diffManifests` and `summarizeDiff`.
 
 `createAgent` takes its model client and tool connection as parameters, so a
 test can drive it without the network:

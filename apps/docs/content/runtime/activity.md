@@ -150,6 +150,22 @@ const operations = runtime.operations(principal, {
 Bind `transport` in every transport host (`'mcp'` for an MCP `bindGraph`,
 `'http'` for an HTTP API). Calls bound without it are recorded as `'embedded'`.
 
+A trusted transport that keeps its own record of each call can assign the
+operation ID itself, so its record and the runtime's row share one ID. The
+`relate dev` runtime host does this to join the Inspector's display to runtime
+rows:
+
+```ts
+await runtime.host.dispatch(
+  principal,
+  { operationId, context: { requestId, transport: 'mcp' } }, // operationId: UUIDv7
+  'query',
+  ['business.customer', { limit: 10 }],
+);
+```
+
+The actor is always the principal, and the ID must be a fresh UUIDv7 per call.
+
 Operation rows are recorded after each operation settles through a bounded
 queue. Recording never fails or delays the caller's operation, and rows can be
 missing, for example after queue overflow or a failed append. A missing row is

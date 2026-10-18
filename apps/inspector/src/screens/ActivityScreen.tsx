@@ -30,9 +30,19 @@ const clock = (at: string) => new Date(at).toLocaleTimeString();
 
 /** `where`, selection and paging in one line; values are previews already. */
 function requestSummary(operation: OperationEvent): string {
-  const { request } = operation;
+  const { request, runtime } = operation;
 
   return [
+    runtime?.record === 'committed' && runtime.position !== undefined
+      ? `committed #${runtime.position}`
+      : null,
+    runtime?.changedPropertyIds?.length
+      ? runtime.changedPropertyIds.join(', ')
+      : null,
+    runtime?.actor.kind === 'source' ? `from ${runtime.actor.id}` : null,
+    runtime?.parentOperationId
+      ? `within ${shortId(runtime.parentOperationId)}`
+      : null,
     request.objectId !== undefined ? `id ${request.objectId}` : null,
     request.traversal !== undefined ? `→ ${request.traversal}` : null,
     request.where !== undefined ? `where ${request.where}` : null,
@@ -51,13 +61,44 @@ function requestSummary(operation: OperationEvent): string {
     .join(' · ');
 }
 
+/** What only the runtime knows: replay, refresh result, refused fields. */
+function runtimeSummary(operation: OperationEvent): (string | null)[] {
+  const runtime = operation.runtime;
+
+  if (!runtime) return [];
+
+  return [
+    runtime.replayed ? 'replayed' : null,
+    runtime.refresh ?? null,
+    runtime.forbidden?.length
+      ? `${runtime.forbidden.length} field${
+          runtime.forbidden.length === 1 ? '' : 's'
+        } refused`
+      : null,
+    runtime.omittedObjects
+      ? `${runtime.omittedObjects} more objects not recorded`
+      : null,
+  ];
+}
+
 function outcomeSummary(operation: OperationEvent): string {
   const outcome = operation.outcome;
 
-  if (!outcome) return 'running…';
+  if (!outcome)
+    return operation.status === 'running'
+      ? 'running…'
+      : runtimeSummary(operation)
+          .filter((part): part is string => part !== null)
+          .join(' · ');
 
   if (outcome.error)
-    return [outcome.error.code, outcome.error.issues].filter(Boolean).join(' ');
+    return [
+      outcome.error.code,
+      outcome.error.issues,
+      ...runtimeSummary(operation),
+    ]
+      .filter(Boolean)
+      .join(' ');
 
   return [
     outcome.found === true
@@ -78,6 +119,7 @@ function outcomeSummary(operation: OperationEvent): string {
           outcome.evidenceWarnings === 1 ? '' : 's'
         }`
       : null,
+    ...runtimeSummary(operation),
   ]
     .filter((part): part is string => part !== null)
     .join(' · ');
@@ -157,7 +199,23 @@ function Operations(props: {
     <table className="activity-operations">
       <tbody>
         {props.operations.map((operation) => (
-          <tr key={operation.opId} className={operation.status}>
+          <tr
+            key={operation.opId}
+            className={[
+              operation.status,
+              operation.runtime?.record === 'committed' ? 'committed' : '',
+              operation.runtime?.parentOperationId ? 'nested' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            title={
+              operation.runtime?.record === 'committed'
+                ? 'Committed with the state it describes'
+                : operation.runtime
+                  ? 'Recorded by the runtime (best effort)'
+                  : 'Seen by the dev server; no runtime record yet'
+            }
+          >
             <td className="activity-op">{operation.op}</td>
             <td className="activity-definition" title={operation.definitionId}>
               {props.labels.get(operation.definitionId) ??

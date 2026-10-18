@@ -502,10 +502,10 @@ describe('memory activity', () => {
         },
       },
       actionImplementations: [
-        implementAction(graph, AddAccountReview, async () => {
+        implementAction(graph, AddAccountReview, async (context) => {
           ran = true;
 
-          return { reviewId: 'never' };
+          return addAccountReview.implementation(context);
         }),
       ],
       connections: reviewConnections(),
@@ -610,6 +610,63 @@ describe('memory activity', () => {
     expect(invokes[0]).not.toHaveProperty('invocationId');
     // The attempt still links to what it committed.
     expect(feed[1]!.operationId).toBe(invokes[0]!.id);
+    await runtime.close();
+  });
+
+  it('dispatches under a transport-assigned operation ID, always as the principal', async () => {
+    const runtime = reviewApp(createMemoryStore());
+    const customer = await runtime.host.adopt(Customer, 'mothlight');
+    const operationId = '01920000-0000-7000-8000-000000000001';
+
+    expect(
+      await runtime.host.dispatch(
+        ana,
+        {
+          operationId,
+          context: {
+            requestId: 'dev-request',
+            transport: 'mcp',
+            runtimeId: 'runtime-1',
+          },
+        },
+        'get',
+        [Customer.id, customer, { select: ['name'] }],
+      ),
+    ).toMatchObject({ status: 'ok', id: customer });
+
+    let gets: readonly Operation[] = [];
+
+    await vi.waitFor(async () => {
+      gets = (
+        await runtime.host.activity.operations.list({
+          filter: { kinds: ['get'] },
+        })
+      ).entries;
+      expect(gets).toHaveLength(1);
+    });
+    expect(gets[0]).toMatchObject({
+      id: operationId,
+      actor: { kind: 'principal', id: 'ana' },
+      context: {
+        requestId: 'dev-request',
+        transport: 'mcp',
+        runtimeId: 'runtime-1',
+      },
+    });
+
+    for (const [attempt, method] of [
+      [{ operationId: 'not-a-uuid' }, 'get'],
+      [{ operationId: randomUUID() }, 'get'],
+      [{ operationId, context: { transport: 'smtp' } }, 'get'],
+      [{ operationId }, 'discovery'],
+    ] as const)
+      await expect(
+        runtime.host.dispatch(ana, attempt as never, method as never, [
+          Customer.id,
+          customer,
+        ]),
+      ).rejects.toThrow();
+
     await runtime.close();
   });
 });

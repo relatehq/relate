@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type { OperationActor, OperationContext } from '@relate/protocol';
-import { uuidv7 } from './ids.js';
+import { isUuidv7, uuidv7 } from './ids.js';
 
 /**
  * One attempt's identity at the trusted dispatch boundary. Never a consumer
@@ -31,13 +31,21 @@ export const runtimeActor: OperationActor = Object.freeze({
   id: 'relate.runtime',
 });
 
-/** Embedded callers get a fresh request ID per operation, not per binding. */
+/**
+ * Embedded callers get a fresh request ID per operation, not per binding. A
+ * trusted transport that assigns operation identity itself (the `relate dev`
+ * runtime host) passes a UUIDv7 `id`.
+ */
 export function createOperationScope(
   actor: OperationActor,
   context: Partial<OperationContext> = {},
+  id?: string,
 ): OperationScope {
+  if (id !== undefined && !isUuidv7(id))
+    throw new Error('Operation ID must be a UUIDv7');
+
   return {
-    id: uuidv7(),
+    id: id ?? uuidv7(),
     actor: { kind: actor.kind, id: actor.id },
     context: snapshotContext(context),
   };

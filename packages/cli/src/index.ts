@@ -76,10 +76,12 @@ export type {
 export {
   activityLimits,
   createActivityLog,
+  observeDispatch,
   observeExecutor,
-  observeOperations,
   observeRequest,
+  projectActivity,
   requestIdMeta,
+  withActivityContext,
 } from './dev/activity/index.js';
 
 export type {

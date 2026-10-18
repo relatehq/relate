@@ -11,7 +11,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ConsumerDescription } from 'relate/consumer';
 import { ActionError, ReadError } from '@relate/protocol';
+import type { FeedEntry, Operation } from '@relate/protocol';
 import type { Diagnostic, RuntimeStatus } from '@relate/inspector/protocol';
+import type { ActivityLog } from './activity/log.js';
+import { projectActivity } from './activity/projection.js';
 import { spawnChild, type ManagedChild } from './child-process.js';
 import {
   createRuntimeBinding,
@@ -35,6 +38,11 @@ export interface AcceptedBuild {
 }
 
 export interface RuntimeControllerOptions {
+  /**
+   * The dev activity log: bindings record each dispatched operation in it,
+   * and the runtime's forwarded rows are projected onto it.
+   */
+  readonly activity?: ActivityLog;
   readonly projectRoot: string;
   readonly configPath: string;
   readonly env: NodeJS.ProcessEnv;
@@ -195,6 +203,7 @@ export function createRuntimeController(
               runtimeId: host.runtimeId,
               principal: request.principal,
               operation: request.operation,
+              ...(request.attempt ? { attempt: request.attempt } : {}),
               args: [...request.args],
             }
           : {
@@ -344,6 +353,15 @@ export function createRuntimeController(
       const message = parsed.data;
 
       switch (message.type) {
+        case 'activity':
+          // Rows of a retired runtime still describe what it did.
+          if (options.activity && message.runtimeId === runtimeId)
+            projectActivity(options.activity, runtimeId, {
+              feed: message.feed as unknown as readonly FeedEntry[],
+              operations: message.operations as unknown as readonly Operation[],
+            });
+
+          return;
         case 'reply':
         case 'error': {
           const pending = host.pending.get(message.id);
@@ -554,6 +572,7 @@ export function createRuntimeController(
           definitionRevision: host.ready.definitionRevision,
           principal,
           description: host.ready.consumer,
+          ...(options.activity ? { activity: options.activity } : {}),
         });
         // A failed snapshot is not cached; the next call retries.
         binding.catch(() => host.bindings.delete(principal));

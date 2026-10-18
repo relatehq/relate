@@ -10,8 +10,8 @@ import { manifestSchema } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import type { ModelIssue, SourceSite } from 'relate/diagnostics';
 
-/** 2: model principals and the runtime host status. */
-export const PROTOCOL_VERSION = 2 as const;
+/** 3: runtime activity records on operation events. */
+export const PROTOCOL_VERSION = 3 as const;
 
 const text = z.string().min(1);
 const identifierList = z.array(text).readonly();
@@ -197,7 +197,51 @@ export const activityOperationSchema = z.enum([
   'traverse',
   'invoke',
   'getReceipt',
+  // Recorded by the runtime only: nested source refreshes and host adoption.
+  'refresh',
+  'adopt',
+  // Committed feed entries: business changes and finished invocations.
+  'created',
+  'adopted',
+  'updated',
+  'deleted',
+  'restored',
+  'invocation-succeeded',
+  'invocation-failed',
 ]);
+
+const activityActorSchema = z.strictObject({
+  kind: z.enum(['principal', 'system', 'source']),
+  id: text,
+});
+
+/**
+ * What the runtime recorded for an operation event, forwarded by the runtime
+ * host. An `attempt` is a best-effort operation row; `committed` is a durable
+ * feed entry, committed with the state it describes. Metadata only: IDs,
+ * actors and outcomes, never values.
+ */
+export const runtimeRecordSchema = z.strictObject({
+  record: z.enum(['attempt', 'committed']),
+  actor: activityActorSchema,
+  /** A source change: the actor whose operation triggered the refresh. */
+  triggeredBy: activityActorSchema.optional(),
+  /** The enclosing operation, e.g. the read that triggered a refresh. */
+  parentOperationId: text.optional(),
+  /** Attempts: the runtime outcome status and its sanitized code. */
+  outcome: z
+    .enum(['ok', 'not-found', 'succeeded', 'failed', 'rejected', 'uncertain'])
+    .optional(),
+  code: text.optional(),
+  replayed: z.boolean().optional(),
+  refresh: z.enum(['changed', 'unchanged', 'superseded']).optional(),
+  /** Stable property IDs the actor was refused, across the lineage. */
+  forbidden: z.array(text).readonly().optional(),
+  omittedObjects: z.number().int().nonnegative().optional(),
+  /** Committed entries: feed position and changed property IDs. */
+  position: text.optional(),
+  changedPropertyIds: z.array(text).readonly().optional(),
+});
 
 /**
  * Who made a graph operation. `executionId` is present only when agent
@@ -304,6 +348,8 @@ export const activityEventSchema = z.discriminatedUnion('kind', [
     /** IDs of the records returned, bounded. */
     recordIds: z.array(z.string()).readonly(),
     ms: z.number().nonnegative().optional(),
+    /** Present once the runtime's own record of this operation arrives. */
+    runtime: runtimeRecordSchema.optional(),
   }),
 ]);
 
@@ -321,6 +367,7 @@ export type ActivityEvent = z.infer<typeof activityEventSchema>;
 export type CallEvent = Extract<ActivityEvent, { kind: 'call' }>;
 export type ExecutionEvent = Extract<ActivityEvent, { kind: 'execution' }>;
 export type OperationEvent = Extract<ActivityEvent, { kind: 'operation' }>;
+export type RuntimeRecord = z.infer<typeof runtimeRecordSchema>;
 export type ActivityMessage = z.infer<typeof activityMessageSchema>;
 
 /** The key an activity event is upserted under. */

@@ -1554,6 +1554,15 @@ a.icon-button.active {
   color: var(--t-font-color-tertiary);
 }
 
+/* Committed feed entries: durable changes, set apart from attempts. */
+.activity-operations tr.committed .activity-op {
+  color: var(--t-color-jade11);
+}
+
+.activity-operations tr.nested .activity-op {
+  padding-left: 12px;
+}
+
 .activity-request-card.focused {
   border-color: var(--t-color-blue8);
   box-shadow: 0 0 0 2px var(--t-color-blue4);

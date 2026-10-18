@@ -28,6 +28,11 @@ and unpublished while implementation is in progress.
   `actions.addAccountReview.describe()`.
 - `relate.host.adopt(Customer, sourceRecordId)` is the trusted membership
   operation; `relate.close()` drains in-flight work.
+- `relate.host.activity`, `relate.host.provenance(object)` and
+  `relate.host.dispatch(principal, { operationId, context }, method, args)` are
+  trusted host APIs: the activity feed and operation history, who created or
+  adopted an object, and a single call under a transport-assigned operation ID.
+  None of them is exposed to consumers.
 - `connect` and `defineApp` are portable authoring helpers imported from
   `relate`. This package executes their definitions.
 

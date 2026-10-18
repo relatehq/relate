@@ -29,3 +29,9 @@ export function uuidv7(now = Date.now()): string {
 
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
+
+const uuidv7Pattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+export const isUuidv7 = (value: unknown): value is string =>
+  typeof value === 'string' && uuidv7Pattern.test(value);

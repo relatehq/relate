@@ -28,6 +28,19 @@ import type { SourceBinding } from 'relate/connectors';
 import type { ActionHandler } from '@relate/runtime';
 import type { Relate } from './types.js';
 
+/** Consumer operations a trusted transport may dispatch with its own identity. */
+export type DispatchMethod = Exclude<keyof ConsumerOperations, 'discovery'>;
+
+/**
+ * Operation identity assigned by a trusted transport, such as the `relate dev`
+ * runtime host joining its display to runtime rows. One ID per call.
+ */
+export interface HostDispatch {
+  /** UUIDv7; never reused across calls. */
+  readonly operationId: string;
+  readonly context?: Partial<OperationContext>;
+}
+
 /** Trusted host attribution for host operations such as adoption. */
 export interface HostAttribution {
   /** Defaults to the named system actor `relate.host`. */
@@ -334,6 +347,69 @@ export function createRuntime<
       provenance: (object: ActivityObjectRef) =>
         run(() => engine.provenance(object)),
       activityCounters: () => engine.activityCounters(),
+      dispatch(
+        principal: Principal,
+        attempt: HostDispatch,
+        method: DispatchMethod,
+        args: readonly unknown[],
+      ): Promise<unknown> {
+        return run(async () => {
+          if (!attempt || typeof attempt !== 'object' || !Array.isArray(args))
+            throw new Error('Invalid dispatch');
+
+          const actor = structuredClone(principal);
+          // The bound principal is the actor; the caller supplies identity and context only.
+          const scope = createOperationScope(
+            { kind: 'principal', id: actor.id },
+            attempt.context ? requestContext(attempt.context) : undefined,
+            attempt.operationId,
+          );
+          const [definitionId, ...rest] = args as [string, ...unknown[]];
+
+          switch (method) {
+            case 'get':
+              return engine.read(
+                actor,
+                definitionId,
+                rest[0] as string,
+                rest[1] as Parameters<typeof engine.read>[3],
+                scope,
+              );
+            case 'query':
+              return engine.query(
+                actor,
+                definitionId,
+                rest[0] as Parameters<typeof engine.query>[2],
+                scope,
+              );
+            case 'traverse':
+              return engine.traverse(
+                actor,
+                definitionId,
+                rest[0] as string,
+                rest[1] as string,
+                rest[2] as Parameters<typeof engine.traverse>[4],
+                scope,
+              );
+            case 'invoke':
+              return engine.invoke(
+                actor,
+                definitionId,
+                rest[0] as Parameters<typeof engine.invoke>[2],
+                scope,
+              );
+            case 'getReceipt':
+              return engine.getReceipt(
+                actor,
+                definitionId,
+                rest[0] as string,
+                scope,
+              );
+            default:
+              throw new Error('Invalid dispatch method');
+          }
+        });
+      },
     }),
     async close() {
       closed = true;

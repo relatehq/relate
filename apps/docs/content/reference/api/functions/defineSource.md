@@ -9,7 +9,7 @@ function defineSource<S>(definition): Readonly<{
 }>;
 ```
 
-Defined in: [packages/relate/src/index.ts:82](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L82)
+Defined in: [packages/relate/src/index.ts:83](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L83)
 
 Define the shape and identity of records supplied by a data source.
 

@@ -320,19 +320,30 @@ agent ran, its console output and result, and each graph read and action that
 code made, with filters, record counts, receipt states and errors. While an
 operation runs, the objects it touches are highlighted on the graph.
 
+Each operation also shows what the runtime recorded about it: a nested source
+refresh appears under the read that triggered it, a retried action says
+`replayed`, and a read lists the fields the principal was refused. Changes the
+call committed (`created`, `updated`, `invocation-succeeded` and so on) appear
+in the same request, marked as committed with their feed position.
+
 ```text
-execute  as alice  external client  3 operations           runtime a5fb52bc  51 ms
+execute  as alice  external client  4 operations                     runtime a5fb52bc  51 ms
   await graph.actions.addCustomer({ input: { name: 'Spindle Ferry' }, idempotencyKey: 'spindle-ferry-1' });
   const page = await graph.objects.Customer.query({ limit: 5, where: { name: 'Spindle Ferry' } });
-  invoke  addCustomer  input {"name":"Spindle Ferry"} · key spindle-ferry-1    receipt succeeded
-  query   Customer     where {"name":"Spindle Ferry"} · limit 5        1 record
+  invoke                addCustomer  input {"name":"Spindle Ferry"} · key spindle-ferry-1  receipt succeeded
+  query                 Customer     where {"name":"Spindle Ferry"} · limit 5             1 record
+  created               Customer     committed #41 · customer.name
+  invocation-succeeded  addCustomer  committed #42                                         receipt succeeded
 ```
 
 The log keeps the most recent 200 calls in the `relate dev` process and is
 cleared when it stops. It survives runtime restarts; calls made against an
 earlier runtime are marked **retired**, because that runtime's data and code may
 differ from the current one. Record values are never stored: the log keeps
-record IDs, counts and short previews of filters, action inputs and results.
+record IDs, counts and short previews of filters, action inputs and results. The
+runtime's records are best effort and arrive shortly after each call; the
+application's [activity feed](../runtime/activity.md) is the durable record of
+what committed.
 
 ## Switch Between Graphs
 

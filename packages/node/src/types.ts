@@ -9,6 +9,7 @@ import type {
   OperationContext,
 } from '@relate/protocol';
 import type { ActivityCounters, Principal } from '@relate/runtime';
+import type { DispatchMethod, HostDispatch } from './runtime.js';
 
 export type {
   ActionOperations,
@@ -67,6 +68,17 @@ export interface Relate<
     ): Promise<ObjectProvenance | undefined>;
     /** Operation-capture drop and truncation counters. */
     activityCounters(): ActivityCounters;
+    /**
+     * Run one consumer operation as `principal` under an operation ID the
+     * trusted transport assigned, so it can join its own records to the
+     * runtime's. Arguments are the `ConsumerOperations` method's arguments.
+     */
+    dispatch(
+      principal: Principal,
+      attempt: HostDispatch,
+      method: DispatchMethod,
+      args: readonly unknown[],
+    ): Promise<unknown>;
   };
   /**
    * Stop new operations, await in-flight operations, then flush captured
