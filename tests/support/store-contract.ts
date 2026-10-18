@@ -6,6 +6,7 @@ import type {
   ObservationStore,
   StorageScope,
 } from '@relate/runtime/storage';
+import { testAttribution } from './activity.js';
 
 /** The same behavioral checks run against each adapter. */
 export function storeContract(
@@ -25,6 +26,7 @@ export function storeContract(
     });
     const adopt = (incoming: Observation) =>
       store.accept(scope, {
+        attribution: testAttribution(),
         sourceRecordId: 'external-1',
         adopt: true,
         observation: incoming,
@@ -63,6 +65,7 @@ export function storeContract(
       const saved = await Promise.all(
         Array.from({ length: 5 }, async () =>
           store.accept(application, {
+            attribution: testAttribution(),
             sourceRecordId: 'external-1',
             adopt: true,
             observation: observation(await store.beginFetch()),
@@ -115,6 +118,7 @@ export function storeContract(
         store.accept(
           { ...scope, definitionRevision: 'revision-2' },
           {
+            attribution: testAttribution(),
             sourceRecordId: 'external-1',
             adopt: true,
             observation: observation(await store.beginFetch()),
@@ -154,6 +158,7 @@ export function storeContract(
       const saved = await Promise.all(
         ['one', 'two', 'three'].map(async (sourceRecordId) =>
           store.accept(scope, {
+            attribution: testAttribution(),
             sourceRecordId,
             adopt: true,
             observation: observation(await store.beginFetch()),
@@ -221,6 +226,7 @@ export function storeContract(
 
       await expect(
         store.accept(scope, {
+          attribution: testAttribution(),
           sourceRecordId: 'external-1',
           adopt: false,
           observation: first,
@@ -230,6 +236,7 @@ export function storeContract(
 
       await expect(
         store.accept(scope, {
+          attribution: testAttribution(),
           sourceRecordId: 'external-1',
           objectId: 'wrong',
           adopt: false,
@@ -237,6 +244,7 @@ export function storeContract(
         }),
       ).rejects.toBeInstanceOf(RetentionError);
       const deleted = await store.accept(scope, {
+        attribution: testAttribution(),
         sourceRecordId: 'external-1',
         objectId: object.objectId,
         adopt: false,

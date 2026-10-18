@@ -28,12 +28,22 @@ and unpublished while implementation is in progress.
   `actions.addAccountReview.describe()`.
 - `relate.host.adopt(Customer, sourceRecordId)` is the trusted membership
   operation; `relate.close()` drains in-flight work.
+- `relate.host.activity`, `relate.host.provenance(object)` and
+  `relate.host.dispatch(principal, { operationId, context }, method, args)` are
+  trusted host APIs: the activity feed and operation history, who created or
+  adopted an object, and a single call under a transport-assigned operation ID.
+  None of them is exposed to consumers.
 - `connect` and `defineApp` are portable authoring helpers imported from
   `relate`. This package executes their definitions.
 
 Authorization, transactions and evidence belong to the engine. This package adds
 types, composition and lifecycle. Storage defaults to isolated memory; an
 injected store is borrowed.
+
+Ordinary consumer operations and `host.dispatch` use the same typed engine
+binding in `src/runtime.ts`. Dispatch supplies one trusted operation scope;
+ordinary bindings create a fresh scope for each call. Both paths use the same
+lifecycle tracking, authorization and argument validation.
 
 ## How it fits
 
@@ -194,8 +204,10 @@ declared-failure receipts, and actor-bound lookup/replay with current-access
 checks. Ordinary calls wait for completion. Actor-bound discovery exposes the
 portable meaning and structure of these operations without returning source
 mappings or policy internals. `startApp` executes a portable `defineApp`
-descriptor and owns registered cleanup. Not implemented: background submission,
-provider-wide queries, automatic synchronization, servers and workers.
+descriptor and owns registered cleanup. The host activity reader and object
+provenance are implemented; `close()` flushes captured operations within
+`activity.flushTimeoutMs`. Not implemented: background submission, provider-wide
+queries, automatic synchronization, servers and workers.
 
 ## Further reading
 

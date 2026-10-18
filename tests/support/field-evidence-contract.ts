@@ -15,6 +15,7 @@ import {
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/runtime';
 import type { ObservationStore } from '@relate/runtime/storage';
+import { testCreation } from './activity.js';
 
 const access = defineAccess({
   roles: ['employee', 'finance'],
@@ -103,12 +104,15 @@ export function fieldEvidenceContract(
       await backing.store.native!.transaction(
         { graphId, definitionRevision: model.definitionRevision },
         (transaction) =>
-          transaction.insert({
-            objectDefinitionId: NativeCustomer.id,
-            objectId: nativeId,
-            values: { 'native.revenue': 250_000 },
-            createdAt: 1_000,
-          }),
+          transaction.insert(
+            {
+              objectDefinitionId: NativeCustomer.id,
+              objectId: nativeId,
+              values: { 'native.revenue': 250_000 },
+              createdAt: 1_000,
+            },
+            testCreation(),
+          ),
       );
     });
     afterEach(async () => {

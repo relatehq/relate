@@ -1221,6 +1221,7 @@ async function createLoopback(options: {
 
     const statuses: RuntimeStatus[] = [];
     const controller = createRuntimeController({
+      activity,
       projectRoot: root,
       configPath: join(root, 'relate.config.ts'),
       env: process.env,
@@ -1317,6 +1318,18 @@ return { state: receipt.state, notes: page.data.length, key: process.env.ANTHROP
   agent.send('alice', 'Add a note');
   const conversation = await settled(agent, 'alice');
   const [tool] = toolMessages(conversation);
+
+  // The runtime's records of the calls arrive after the turn settles.
+  await expect
+    .poll(() =>
+      activity
+        .snapshot()
+        .some(
+          (event) =>
+            event.kind === 'operation' && event.op === 'invocation-succeeded',
+        ),
+    )
+    .toBe(true);
   const events = activity.snapshot();
   const call = events.find(
     (event): event is CallEvent => event.kind === 'call',
@@ -1340,7 +1353,14 @@ return { state: receipt.state, notes: page.data.length, key: process.env.ANTHROP
     status: 'succeeded',
     resultPreview: '{"state":"succeeded","notes":1,"key":"absent"}',
   });
-  expect(events.filter((event) => event.kind === 'operation')).toMatchObject([
+  // Dispatch events first, then the committed entries of the invocation.
+  const order = ['invoke', 'query', 'created', 'invocation-succeeded'];
+
+  expect(
+    events
+      .filter((event) => event.kind === 'operation')
+      .sort((a, b) => order.indexOf(a.op) - order.indexOf(b.op)),
+  ).toMatchObject([
     {
       op: 'invoke',
       definitionId: 'notes.add',
@@ -1350,6 +1370,16 @@ return { state: receipt.state, notes: page.data.length, key: process.env.ANTHROP
       op: 'query',
       definitionId: 'notes.note',
       context: { requestId: tool!.requestId },
+    },
+    {
+      op: 'created',
+      context: { requestId: tool!.requestId },
+      runtime: { record: 'committed' },
+    },
+    {
+      op: 'invocation-succeeded',
+      context: { requestId: tool!.requestId },
+      runtime: { record: 'committed' },
     },
   ]);
   expect(result).toMatchObject({

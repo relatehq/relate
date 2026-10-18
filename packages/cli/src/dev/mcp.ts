@@ -223,13 +223,18 @@ export function createMcpEndpoint(options: McpEndpointOptions): McpEndpoint {
 
           return createStreamableHttpHandler({
             executor: binding
-              ? observeExecutor(executor, options.activity, {
-                  requestId: call.requestId,
-                  runtimeId: binding.runtimeId,
-                  definitionRevision: binding.definitionRevision,
-                  principal: binding.principal,
-                  transport: 'mcp',
-                })
+              ? observeExecutor(
+                  executor,
+                  options.activity,
+                  {
+                    requestId: call.requestId,
+                    runtimeId: binding.runtimeId,
+                    definitionRevision: binding.definitionRevision,
+                    principal: binding.principal,
+                    transport: 'mcp',
+                  },
+                  binding.operationsFor,
+                )
               : executor,
             bindGraph: () => {
               if (!graph) throw failure!;

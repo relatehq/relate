@@ -4,10 +4,17 @@
  * restarts; every event names the `runtimeId` it ran against.
  *
  * Events are upserts keyed by ID (`activityKey`): a `running` event is
- * replaced by its final version in place. Eviction is per transport request,
- * so a request's call, execution and operations leave together, and only
- * finished requests are evicted: late events of an evicted request are
+ * replaced by its final version in place. An operation's runtime record,
+ * forwarded by the runtime host, merges into the dispatch event with the same
+ * operation ID, in either order (`mergeOperation`). Eviction is per transport
+ * request, so a request's call, execution and operations leave together, and
+ * only finished requests are evicted: late events of an evicted request are
  * dropped rather than starting an orphan entry.
+ *
+ * A runtime record may open an entry without a running start (a nested
+ * refresh, a committed feed entry), but only within a request the log already
+ * holds: runtime activity outside a dev request (a seed, earlier history in a
+ * persistent store) is not shown.
  *
  * Every caller-controlled string is bounded where the event is built (see
  * `activityLimits`); `record` also enforces a per-event budget as a backstop.
@@ -16,6 +23,7 @@ import {
   activityKey,
   activityRequestId,
   type ActivityEvent,
+  type OperationEvent,
 } from '@relate/inspector/protocol';
 
 export const activityLimits = Object.freeze({
@@ -88,14 +96,25 @@ export function createActivityLog(
   };
 
   return {
-    record(input) {
-      const event = withinBudget(input);
+    record(event) {
       const key = activityKey(event);
       const requestId = activityRequestId(event);
 
-      if (!events.has(key)) {
+      const previous = events.get(key);
+
+      if (!previous) {
         // Only a start opens an entry; the end of an evicted one stays evicted.
-        if (event.status !== 'running' || evicted.has(requestId)) return;
+        // A runtime record joins a request the log already holds.
+        if (
+          evicted.has(requestId) ||
+          (event.status !== 'running' &&
+            !(
+              event.kind === 'operation' &&
+              event.runtime &&
+              requests.has(requestId)
+            ))
+        )
+          return;
 
         let request = requests.get(requestId);
 
@@ -113,10 +132,17 @@ export function createActivityLog(
         request.keys.add(key);
       }
 
-      events.set(key, event);
+      // Budget the merged event: both halves can be large on their own.
+      const next = withinBudget(
+        previous?.kind === 'operation' && event.kind === 'operation'
+          ? mergeOperation(previous, event)
+          : event,
+      );
+
+      events.set(key, next);
       evict();
 
-      for (const listener of [...listeners]) listener(event);
+      for (const listener of [...listeners]) listener(next);
     },
     snapshot: () => [...events.values()],
     subscribe(listener) {
@@ -133,8 +159,40 @@ export function createActivityLog(
 }
 
 /**
+ * The dispatch event (request previews, the transport's answer) and the
+ * runtime record (authoritative outcome, lineage) of one operation, whichever
+ * arrives first. A later dispatch update never overrides the runtime's status.
+ */
+export function mergeOperation(
+  previous: OperationEvent,
+  next: OperationEvent,
+): OperationEvent {
+  const runtime = next.runtime ?? previous.runtime;
+  const authoritative = next.runtime
+    ? next
+    : previous.runtime
+      ? previous
+      : next;
+  const outcome = { ...previous.outcome, ...next.outcome };
+  const ms = next.runtime ? (previous.ms ?? next.ms) : (next.ms ?? previous.ms);
+
+  return {
+    ...previous,
+    ...next,
+    at: previous.at,
+    request: Object.keys(next.request).length ? next.request : previous.request,
+    recordIds: next.recordIds.length ? next.recordIds : previous.recordIds,
+    status: authoritative.status,
+    ...(Object.keys(outcome).length ? { outcome } : {}),
+    ...(ms !== undefined ? { ms } : {}),
+    ...(runtime ? { runtime } : {}),
+  };
+}
+
+/**
  * Backstop for the per-event budget: an event over it keeps its identity,
- * status and operation outcome but loses its request details, code and logs.
+ * status, operation outcome and runtime record but loses its request
+ * details, code and logs.
  */
 function withinBudget(event: ActivityEvent): ActivityEvent {
   if (JSON.stringify(event).length <= activityLimits.event) return event;
@@ -154,7 +212,27 @@ function withinBudget(event: ActivityEvent): ActivityEvent {
       };
     }
     case 'operation':
-      return { ...event, request: {}, recordIds: [] };
+      return {
+        ...event,
+        request: {},
+        recordIds: [],
+        ...(event.runtime
+          ? {
+              runtime: {
+                ...event.runtime,
+                ...(event.runtime.forbidden
+                  ? { forbidden: event.runtime.forbidden.slice(0, 50) }
+                  : {}),
+                ...(event.runtime.changedPropertyIds
+                  ? {
+                      changedPropertyIds:
+                        event.runtime.changedPropertyIds.slice(0, 50),
+                    }
+                  : {}),
+              },
+            }
+          : {}),
+      };
   }
 }
 

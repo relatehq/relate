@@ -1,3 +1,4 @@
+import type { OperationScope } from '../activity/index.js';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
@@ -44,6 +45,7 @@ export interface TraversalOptions {
   cursorKey?: Uint8Array;
   scopeFor(objectId: string, sourceId: string): StorageScope;
   read(
+    attempt: OperationScope,
     principal: Principal,
     typeId: string,
     id: string,
@@ -60,6 +62,7 @@ export function createTraversal(options: TraversalOptions) {
   const empty = (): PageResult => ({ data: [], meta: { exhausted: true } });
 
   return async (
+    attempt: OperationScope,
     principal: Principal,
     typeId: string,
     id: string,
@@ -138,6 +141,7 @@ export function createTraversal(options: TraversalOptions) {
 
     if ('through' in relationship)
       return through(
+        attempt,
         principal,
         typeId,
         id,
@@ -183,7 +187,7 @@ export function createTraversal(options: TraversalOptions) {
     if (!ownerPolicy || !traversalAllowed(manifest, principal, match))
       return unavailable();
 
-    const root = await read(principal, typeId, id, {
+    const root = await read(attempt, principal, typeId, id, {
       ...readRequest,
       select: [],
       requireComplete: false,
@@ -199,17 +203,24 @@ export function createTraversal(options: TraversalOptions) {
     });
 
     if (!forward) {
-      const link = await read(principal, owner.id, id, linkRequest());
+      const link = await read(attempt, principal, owner.id, id, linkRequest());
       const targetId = link.status === 'ok' ? link.data[via.name] : undefined;
 
       if (typeof targetId !== 'string') return { status: 'not-found' };
 
-      const target = await read(principal, targetType, targetId, readRequest);
+      const target = await read(
+        attempt,
+        principal,
+        targetType,
+        targetId,
+        readRequest,
+      );
 
       if (target.status !== 'ok') return target;
 
       let linkAllowed = async () => false;
       const finalLink = await read(
+        attempt,
         principal,
         owner.id,
         id,
@@ -226,6 +237,7 @@ export function createTraversal(options: TraversalOptions) {
       // Recheck the destination after link validation may have refreshed private evidence.
       let targetAllowed = async () => false;
       const finalTarget = await read(
+        attempt,
         principal,
         targetType,
         targetId,
@@ -276,6 +288,7 @@ export function createTraversal(options: TraversalOptions) {
       capture?: (check: () => Promise<boolean>) => void,
     ): Promise<Available | undefined> {
       const target = await read(
+        attempt,
         principal,
         targetType,
         objectId,
@@ -331,6 +344,7 @@ export function createTraversal(options: TraversalOptions) {
     for (const item of pending) {
       let allowed = async () => false;
       const finalLink = await read(
+        attempt,
         principal,
         owner.id,
         item.id,
@@ -352,6 +366,7 @@ export function createTraversal(options: TraversalOptions) {
 
     let rootAllowed = async () => false;
     const finalRoot = await read(
+      attempt,
       principal,
       typeId,
       id,

@@ -14,6 +14,10 @@ import {
 const execFile = promisify(execFileCallback);
 
 it.each([
+  ['activity/descriptions.ts', 'resolution/index.ts', false],
+  ['activity/feed.ts', 'actions/index.ts', false],
+  ['queries/query.ts', 'activity/index.ts', false],
+  ['traversal/traversal.ts', 'activity/index.ts', false],
   ['authorization/policy.ts', 'resolution/index.ts', true],
   ['observations/fetch.ts', 'actions/index.ts', false],
   ['actions/execute.ts', 'resolution/index.ts', false],
@@ -33,6 +37,8 @@ it.each([
 });
 
 it.each([
+  ['queries/query.ts', 'activity/index.ts', true],
+  ['traversal/traversal.ts', 'activity/index.ts', true],
   ['runtime.ts', 'resolution/index.ts', false],
   ['runtime.ts', 'actions/index.ts', true],
   ['actions/native.ts', 'reads/index.ts', false],

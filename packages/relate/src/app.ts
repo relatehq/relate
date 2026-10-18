@@ -5,7 +5,7 @@ import type {
   SourceDefinition,
 } from './index.js';
 import type { SourceBinding } from './connectors.js';
-import type { ObservationStore } from './storage.js';
+import type { ActivityCaptureOptions, ObservationStore } from './storage.js';
 
 type Graph = GraphDefinition & { readonly objects: ObjectRegistry };
 
@@ -44,6 +44,8 @@ export interface AppBindings<
   readonly clock?: () => number;
   readonly actionTimeoutMs?: number;
   readonly cursorKey?: Uint8Array;
+  /** Operation capture; the feed and object provenance are always recorded. */
+  readonly activity?: ActivityCaptureOptions;
 }
 
 export interface AppSetupContext {

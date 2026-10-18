@@ -190,7 +190,7 @@ it('keeps the graph as stale when the session is rejected or the protocol is uns
   client.stop();
 
   const upgraded: Server = {
-    snapshot: () => ({ ...snapshot(1), protocolVersion: 3 }),
+    snapshot: () => ({ ...snapshot(1), protocolVersion: 4 }),
     requests: [],
   };
   const old = setup(upgraded);
@@ -199,7 +199,7 @@ it('keeps the graph as stale when the session is rejected or the protocol is uns
   expect(old.getState()).toMatchObject({
     connection: 'stale',
     staleReason: 'protocol',
-    unsupportedProtocol: 3,
+    unsupportedProtocol: 4,
   });
   expect(FakeEventSource.instances).toHaveLength(0);
   old.stop();

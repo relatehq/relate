@@ -158,7 +158,9 @@ async function createHarness(
   await symlink(join(repoRoot, 'node_modules'), join(root, 'node_modules'));
 
   const statuses: RuntimeStatus[] = [];
+  const activity = createActivityLog();
   const controller = createRuntimeController({
+    activity,
     projectRoot: root,
     configPath: join(root, 'relate.config.ts'),
     env: process.env,
@@ -172,7 +174,6 @@ async function createHarness(
 
   cleanups.push(() => controller.stop());
 
-  const activity = createActivityLog();
   const names = options.principals ?? ['alice', 'bob'];
   const mcp = createMcpEndpoint({
     token: createMcpToken(),
@@ -291,10 +292,23 @@ return { state: receipt.state, notes: page.data.length };`,
     result: { state: 'succeeded', notes: 1 },
   });
 
+  // The runtime's own records arrive after the call; wait for the last one.
+  await waitUntil(
+    () =>
+      ofKind(harness.activity.snapshot(), 'operation').find(
+        (event) => event.op === 'query' && event.runtime,
+      ),
+    'the runtime record of the query',
+  );
+
   const events = harness.activity.snapshot();
   const calls = ofKind(events, 'call');
   const [executed] = ofKind(events, 'execution');
-  const operations = ofKind(events, 'operation');
+  // Runtime records arrive asynchronously; compare in a fixed order.
+  const order = ['invoke', 'query', 'created', 'invocation-succeeded'];
+  const operations = ofKind(events, 'operation').sort(
+    (a, b) => order.indexOf(a.op) - order.indexOf(b.op),
+  );
 
   expect(calls).toMatchObject([
     {
@@ -324,6 +338,9 @@ return { state: receipt.state, notes: page.data.length };`,
     transport: 'mcp',
   };
 
+  // Each call's dispatch event (request previews) carries the runtime's own
+  // record (authoritative outcome) under the same operation ID; the committed
+  // feed entries of the invocation join the same request.
   expect(operations).toMatchObject([
     {
       op: 'invoke',
@@ -335,6 +352,11 @@ return { state: receipt.state, notes: page.data.length };`,
         input: '{"body":"Call the customer"}',
       },
       outcome: { receiptState: 'succeeded', invocationId: expect.any(String) },
+      runtime: {
+        record: 'attempt',
+        actor: { kind: 'principal', id: 'alice' },
+        outcome: 'succeeded',
+      },
     },
     {
       op: 'query',
@@ -344,10 +366,36 @@ return { state: receipt.state, notes: page.data.length };`,
       request: { limit: 10 },
       outcome: { records: 1, hasMore: false },
       recordIds: [expect.any(String)],
+      runtime: { record: 'attempt', outcome: 'ok' },
+    },
+    {
+      op: 'created',
+      definitionId: 'notes.note',
+      context,
+      status: 'succeeded',
+      recordIds: [operations[1]!.recordIds[0]],
+      runtime: { record: 'committed', position: expect.any(String) },
+    },
+    {
+      op: 'invocation-succeeded',
+      definitionId: 'notes.add',
+      context,
+      outcome: {
+        receiptState: 'succeeded',
+        invocationId: operations[0]!.outcome!.invocationId,
+      },
+      runtime: { record: 'committed' },
     },
   ]);
+
+  // Every event of the request is one the inspector accepts.
+  for (const event of events)
+    expect(activityEventSchema.safeParse(event).success).toBe(true);
+
   // Read results keep IDs and counts, never record values.
-  expect(JSON.stringify(operations[1])).not.toContain('Call the customer');
+  expect(JSON.stringify(operations.slice(1))).not.toContain(
+    'Call the customer',
+  );
 }, 60_000);
 
 it('serves the activity log to inspector sessions only, as a snapshot and a stream', async () => {
@@ -570,13 +618,29 @@ return results;`,
     },
   });
 
+  // Check the bounds once the runtime's records have arrived too: the two
+  // queries and the invoke, plus the invocation's committed feed entries.
+  await waitUntil(() => {
+    const events = ofKind(harness.activity.snapshot(), 'operation');
+
+    return events.filter((e) => e.runtime).length === 5 ? events : undefined;
+  }, 'the runtime records');
+
   const operations = ofKind(harness.activity.snapshot(), 'operation');
   const sizes = harness.activity
     .snapshot()
     .map((event) => JSON.stringify(event).length);
 
-  expect(operations).toHaveLength(4);
-  // NaN never reaches the log: it would serialize as null.
+  expect(operations.map((e) => [e.op, e.runtime?.outcome])).toEqual([
+    ['query', 'rejected'],
+    // Its 600,000-character target exceeds the runtime's per-row cap, so the
+    // runtime drops the row (and counts it); the dispatch event remains.
+    ['get', undefined],
+    ['query', 'rejected'],
+    ['invoke', 'succeeded'],
+    ['created', undefined],
+    ['invocation-succeeded', undefined],
+  ]);
   expect(operations[0]!.request).not.toHaveProperty('limit');
   expect(operations[0]!.outcome?.error?.code).toBe('invalid-request');
   expect(operations[1]!.request.objectId).toMatch(

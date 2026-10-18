@@ -35,6 +35,11 @@ export type {
 
 export { createRuntime } from './runtime.js';
 
-export type { AppOptions } from './runtime.js';
+export type {
+  AppOptions,
+  DispatchMethod,
+  HostAttribution,
+  HostDispatch,
+} from './runtime.js';
 
 export { startApp } from './app.js';

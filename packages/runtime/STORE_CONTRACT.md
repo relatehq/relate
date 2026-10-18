@@ -17,8 +17,10 @@ import {
 
 The base interface is the source-observation contract. The optional `native`
 capability supplies native transactions; source-only adapters remain valid for
-read-only applications. History querying and consumer receipt lookup are
-separate.
+read-only applications. The optional `activity` capability supplies the durable
+feed and best-effort operation history (see [Activity](#activity-capability)).
+Object provenance is part of the base and native contracts, not of activity.
+History querying and consumer receipt lookup are separate.
 
 ## Property identity
 
@@ -59,7 +61,8 @@ policy denial. Native records already used property IDs.
 | `load(scope, objectId)`                | Return the latest accepted whole object in precisely this scope and revision, or `undefined` if absent/mismatched. Operational failures reject; they must not masquerade as absence.                                                                                                                                  |
 | `resolve(scope, sourceRecordId)`       | Return an existing identity and its latest observation in the exact scope/revision, or `undefined`. Never adopt, fetch, or create an alias. Preserve tombstones; the runtime decides readability. Failures reject.                                                                                                    |
 | `scan(scope, { after, limit })`        | Enumerate adopted identities (including tombstones) in the exact scope/revision, ordered lexically by opaque `objectId`. `after` is exclusive. Return at most `limit` independent snapshots and `hasMore`; reject limits outside integer 1–100. Never fetch, adopt, filter by caller access, or skip unknown records. |
-| `accept(scope, input)`                 | Atomically check installation and membership, compare ordering, and retain the winning whole observation and identity. Return `{ object, acceptance }`, including the current winner when the incoming observation loses.                                                                                             |
+| `accept(scope, input)`                 | Atomically check installation and membership, compare ordering, and retain the winning whole observation and identity. Return `{ object, acceptance, change? }`, including the current winner when the incoming observation loses. `change` is present exactly when this acceptance changed business state.           |
+| `provenance(scope, objectId)`          | Return adoption provenance from the object's own row: `{ kind: 'adopted', actor, at, sourceDefinitionId }`, `{ kind: 'unknown' }` for identities stored without it, or `undefined` when the object is absent. Never read activity or receipts. Failures reject.                                                       |
 
 Every operation is scoped by installed graph ID/revision, object definition,
 source definition, connection ID, provider account identity and authorization
@@ -82,6 +85,26 @@ operation. It compares source versions before fetch-start tokens and returns:
 - `changed`: replace the retained observation.
 - `unchanged`: replace it too, advancing observation time and ordering evidence.
 - `superseded` or `replay`: preserve the existing observation and return it.
+
+For a winning `changed` or `unchanged` acceptance, call the exported
+`describeAcceptedChange(previous, accepted)` under the same lock, with the
+locked previous observation. It returns `adopted` for first membership,
+`deleted` and `restored` for state transitions (with no properties), `updated`
+with the sorted IDs of changed or removed mapped properties, or `undefined` when
+mapped values and state are unchanged, including raw-only provider differences.
+Do not call it for `superseded` or `replay`, and never derive a change from
+`Acceptance` alone or from a diff outside the lock. Return
+`{ id: input.attribution.changeId, ...classification }` as `change`.
+
+`input.attribution` is trusted runtime provenance: the adopting or triggering
+actor, operation and parent operation IDs, request context, occurrence time and
+a preassigned change ID. On first membership, persist the actor and occurrence
+time as adoption provenance with the identity, whether or not the store supports
+activity. When it does, record the change as a feed entry built with
+`sourceChangeDraft(scope, objectId, attribution, change)` in the same atomic
+operation. Failure to record a required change fails the acceptance with the
+existing `RetentionError` contract. Any value history the adapter records uses
+the same classification, so a raw-only acceptance writes neither.
 
 Propagate `OrderingConflict` without changing state. Never commit the raw
 record, mapped values, observation time or ordering token separately. If an
@@ -134,12 +157,13 @@ operations, not caller-authorized receipt APIs. Never expose them through a
 consumer or transport directly.
 
 `transaction(scope, callback)` gives the runtime `load`, `scan`, `insert`,
-`claim`, `findInvocation`, `saveInvocation` and `savepoint`. Reads see the
-transaction's writes; independent readers do not see uncommitted records. Commit
-every insert and invocation receipt together only after the callback succeeds.
-Any callback error rolls back both native effects and the key reservation.
-Reject unfinished claims. Invalidate the transaction handle before awaiting
-rollback and after completion; never expose mutable storage references.
+`claim`, `findInvocation`, `saveInvocation`, `savepoint` and, with activity,
+`appendFeed`. Reads see the transaction's writes; independent readers do not see
+uncommitted records. Commit every insert and invocation receipt together only
+after the callback succeeds. Any callback error rolls back both native effects
+and the key reservation. Reject unfinished claims. Invalidate the transaction
+handle before awaiting rollback and after completion; never expose mutable
+storage references.
 
 The runtime can reject the callback at its execution deadline even while handler
 code or object operations are still suspended. Roll back and release graph locks
@@ -157,14 +181,23 @@ an invocation by action and invocation ID in the transaction's graph/revision;
 missing and wrong-action IDs return `undefined`. Neither operation authorizes
 receipt disclosure. Runtime checks actor, input and current access.
 
+`insert(record, creation)` stores creation provenance (the creating actor and
+invocation ID) on the object row in the same write, alongside `createdAt`, even
+when the store does not support activity. `NativeStore.provenance(scope, ref)`
+reads it back as `{ kind: 'created', actor, at, invocationId }` with `at` from
+the object's own `createdAt`; never join receipts. Legacy rows return
+`{ kind: 'unknown' }` and absent objects `undefined`.
+
 Save validated input, originating actor ID, terminal receipt and runtime read
-dependencies under the new claim. Read dependencies use stable object/property
-definition IDs and canonical record IDs. Legacy actor/read provenance is null:
-preserve that evidence and its key, never infer ownership or make the key
-reusable. Key expiry and receipt-detail retention are separate future
-capabilities. Native record values use stable property definition IDs. The
-runtime owns value, reference and permission validation; adapters own isolation
-and atomicity.
+dependencies under the new claim. The runtime also supplies the attempt's actor
+kind, operation ID, request ID, transport, definition revision and start and
+completion times; persist them, and return null for legacy invocations. Read
+dependencies use stable object/property definition IDs and canonical record IDs.
+Legacy actor/read provenance is null: preserve that evidence and its key, never
+infer ownership or make the key reusable. Key expiry and receipt-detail
+retention are separate future capabilities. Native record values use stable
+property definition IDs. The runtime owns value, reference and permission
+validation; adapters own isolation and atomicity.
 
 Only known rollback can be treated as a confirmed failure. A lost commit
 acknowledgement raises `NativeCommitUncertain`; do not automatically retry it.
@@ -201,3 +234,58 @@ Transaction scans see earlier inserts, honor savepoint rollback, and reject
 calls after transaction revocation just like `load`. Independent scans see only
 committed state. Scanning does not authorize records or apply caller predicates;
 the runtime composes it with its existing authorized reads.
+
+## Activity capability
+
+`ObservationStore.activity?: ActivityStore` records the feed (changes and
+invocation events) and best-effort operations. A store that advertises it must
+record feed entries atomically for every write capability it exposes, and say so
+in `atomicFeed: { sourceAcceptance, nativeTransactions }`. Runtime setup rejects
+a store that advertises activity without covering its native capability. A
+standalone best-effort sink cannot advertise activity. Feed entries have the
+durability of the owning store.
+
+### Atomic feed recording
+
+`NativeTransaction.appendFeed(drafts)` stages ordered drafts. Staging follows
+savepoint rollback and handle revocation and does not take the publication lock.
+After the callback succeeds, publish the staged batch as the final work before
+COMMIT: assign positions, set `recordedAt`, and write every entry, with no user
+callback or provider I/O under the publication lock. Source acceptance publishes
+through the same path. If publication fails, nothing commits.
+
+Positions must become visible in allocation order: no earlier position may
+become visible after a later committed position has been returned. Postgres
+allocates from a per-graph counter row held until COMMIT; a bare sequence or
+UUID ordering is not sufficient. Memory publishes in its synchronous commit
+section. A batch the retained limits cannot hold rejects its write before
+publication; eviction never discards part of a newly committed batch.
+
+Validate drafts at the write boundary with `validateFeedDraft`, which rejects
+incomplete references, cross-variant fields and invalid source/trigger
+attribution. Store only `executionId`, `runtimeId` and `initiator` as context
+metadata; request ID and transport are typed fields.
+
+### Operations
+
+`appendOperations(graphId, drafts)` is called by the runtime's single writer,
+never inside a domain transaction. Validate with `validateOperationDraft`.
+Appends are first-write-wins by `(graphId, id)`, within and across batches:
+insert each new operation with all its lineage atomically, preserve lineage
+order, and never amend or mix lineage of an existing ID. Bound I/O; best-effort
+appends must not consume resources committed writes need.
+
+### Reading
+
+`feed.read(graphId, options)` returns retained entries oldest first, up to a
+committed high-water mark captured in one consistent snapshot with the retention
+floor. `operations.list(graphId, options)` returns operations newest first by
+`(recordedAt, id)`. Use `feedReadOptions` and `operationReadOptions` to validate
+options and decode cursors, `matchesFeedEntry` and `matchesOperation` for filter
+semantics, and `encodeActivityCursor` for `nextCursor`. Cursors bind graph,
+method and, for the feed, stream identity. A feed cursor behind the retention
+floor or from another stream rejects with `ActivityError('cursor-expired')`;
+never skip entries silently.
+
+`tests/support/activity-contract.ts` verifies these guarantees on memory and
+Postgres.

@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import type { NativeInvocation } from '@relate/runtime/storage';
 import { createNativeMemoryStore } from '../src/native-memory.js';
+import { testCreation } from '../../../tests/support/activity.js';
 
 it('undoes nested savepoint writes and restores claims without losing outer work', async () => {
   const store = createNativeMemoryStore(() => true);
@@ -21,16 +22,16 @@ it('undoes nested savepoint writes and restores claims without losing outer work
   });
 
   await store.transaction(scope, async (tx) => {
-    await tx.insert(record('retained'));
+    await tx.insert(record('retained'), testCreation());
     await tx.claim('review', 'outer');
     await expect(
       tx.savepoint(async () => {
-        await tx.insert(record('discarded'));
+        await tx.insert(record('discarded'), testCreation());
         await tx.saveInvocation(invocation('outer'));
         await tx.savepoint(async () => {
           await tx.claim('review', 'inner');
           await tx.saveInvocation(invocation('inner'));
-          await tx.insert(record('nested'));
+          await tx.insert(record('nested'), testCreation());
         });
         throw new Error('rollback outer');
       }),
@@ -45,10 +46,10 @@ it('undoes nested savepoint writes and restores claims without losing outer work
     await tx.claim('review', 'inner');
     await tx.saveInvocation(invocation('inner'));
     await tx.savepoint(async () => {
-      await tx.insert(record('committed'));
+      await tx.insert(record('committed'), testCreation());
       await expect(
         tx.savepoint(async () => {
-          await tx.insert(record('inner-discarded'));
+          await tx.insert(record('inner-discarded'), testCreation());
           throw new Error('rollback inner');
         }),
       ).rejects.toThrow('rollback inner');

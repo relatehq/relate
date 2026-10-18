@@ -7,6 +7,7 @@ import {
   nativeActionMigration,
 } from '../../packages/postgres/src/migrations.js';
 import { testDatabaseUrl } from '../support/database.js';
+import { testAttribution } from '../support/activity.js';
 
 it('preserves legacy rows without assigning unverified identities to an account', async () => {
   const connectionString = testDatabaseUrl();
@@ -75,6 +76,7 @@ it('preserves legacy rows without assigning unverified identities to an account'
       hasMore: false,
     });
     const appObject = await store.accept(application, {
+      attribution: testAttribution(),
       adopt: true,
       sourceRecordId: '1',
       observation,
@@ -92,6 +94,7 @@ it('preserves legacy rows without assigning unverified identities to an account'
     }
 
     const adopted = await store.accept(scope, {
+      attribution: testAttribution(),
       adopt: true,
       sourceRecordId: '1',
       observation,
@@ -101,7 +104,12 @@ it('preserves legacy rows without assigning unverified identities to an account'
     expect(adopted.object.objectId).not.toBe(appObject.object.objectId);
     const other = await store.accept(
       { ...scope, providerAccountId: 'account-b' },
-      { adopt: true, sourceRecordId: '1', observation },
+      {
+        attribution: testAttribution(),
+        adopt: true,
+        sourceRecordId: '1',
+        observation,
+      },
     );
 
     expect(other.object.objectId).not.toBe(adopted.object.objectId);
@@ -115,10 +123,25 @@ it('preserves legacy rows without assigning unverified identities to an account'
     expect(
       (
         await db.query(
-          "SELECT 1 FROM relate.value_changes WHERE object_key='old-id'",
+          "SELECT change_id FROM relate.object_versions WHERE object_key='old-id'",
         )
-      ).rowCount,
-    ).toBe(1);
+      ).rows,
+    ).toEqual([{ change_id: null }]);
+    // Legacy rows acquire no invented provenance or history.
+    expect(
+      (
+        await db.query(
+          "SELECT adopted_by_kind, adopted_at FROM relate.objects WHERE object_key='old-id'",
+        )
+      ).rows,
+    ).toEqual([{ adopted_by_kind: null, adopted_at: null }]);
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int AS count FROM relate.feed_entries WHERE object_key='old-id'",
+        )
+      ).rows,
+    ).toEqual([{ count: 0 }]);
   } finally {
     await store.close();
     await db.end();

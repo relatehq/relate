@@ -10,11 +10,12 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
 import {
+  createActivityLog,
   createRuntimeController,
   defaultRuntimeHostPath,
   encodeRuntimeHostArguments,
 } from '@relate/cli';
-import type { RuntimeController } from '@relate/cli';
+import type { ActivityLog, RuntimeController } from '@relate/cli';
 import type { RuntimeStatus } from '@relate/inspector/protocol';
 import { startApp } from '@relate/node';
 import { ActionError, ReadError } from '@relate/protocol';
@@ -142,6 +143,7 @@ function createController(
     env?: NodeJS.ProcessEnv;
     drainTimeoutMs?: number;
     startTimeoutMs?: number;
+    activity?: ActivityLog;
   } = {},
 ) {
   const statuses: RuntimeStatus[] = [];
@@ -154,6 +156,7 @@ function createController(
     writeStdout: (line) => stdout.push(line),
     writeStderr: () => {},
     seed: options.seed ?? false,
+    ...(options.activity ? { activity: options.activity } : {}),
     ...(options.drainTimeoutMs !== undefined
       ? { drainTimeoutMs: options.drainTimeoutMs }
       : {}),
@@ -747,6 +750,77 @@ it('sends the reply of an action that completes while the runtime drains', async
   await controller.restart({ generation: 2, bundle: next.bundle });
 
   expect(await inFlight).toMatchObject({ state: 'succeeded' });
+});
+
+it('forwards the runtime record of an operation whose row is still being appended at retirement', async () => {
+  const project = await createProject();
+  const slowAppend = await project.build(
+    `import { createMemoryStore } from '@relate/runtime';\n${noteApp({
+      setup: `() => {
+    const store = createMemoryStore();
+    const activity = store.activity;
+
+    return {
+      connections: [],
+      actionImplementations: [addNote],
+      store: {
+        ...store,
+        activity: {
+          ...activity,
+          appendOperations: async (...args) => {
+            await new Promise((done) => setTimeout(done, 300));
+
+            return activity.appendOperations(...args);
+          },
+        },
+      },
+    };
+  }`,
+    })}`,
+  );
+  const next = await project.build(noteApp());
+  const activity = createActivityLog();
+  const { controller, waitFor } = createController(project, { activity });
+
+  await controller.restart({ generation: 1, bundle: slowAppend.bundle });
+  await waitFor((s) => s.state === 'running');
+  const binding = await controller.binding('alice');
+  const call = {
+    kind: 'call',
+    requestId: 'retire',
+    runtimeId: binding.runtimeId,
+    source: 'external',
+    principal: 'alice',
+    tool: 'execute',
+    at: new Date().toISOString(),
+  } as const;
+
+  activity.record({ ...call, status: 'running' });
+  expect(
+    await binding
+      .operationsFor({
+        requestId: 'retire',
+        runtimeId: binding.runtimeId,
+        definitionRevision: binding.definitionRevision,
+        principal: 'alice',
+        transport: 'mcp',
+      })
+      .invoke('notes.add', {
+        input: { body: 'Recorded before retirement' },
+        idempotencyKey: 'retire',
+      }),
+  ).toMatchObject({ state: 'succeeded' });
+  await controller.restart({ generation: 2, bundle: next.bundle });
+  await waitFor((s) => s.state === 'running' && s.generation === 2);
+
+  // The row lands after the reply; the retiring host waits for it.
+  await expect
+    .poll(() =>
+      activity
+        .snapshot()
+        .find((event) => event.kind === 'operation' && event.op === 'invoke'),
+    )
+    .toMatchObject({ runtime: { record: 'attempt', outcome: 'succeeded' } });
 });
 
 it('finishes a slow setup when retired during startup, so its cleanup runs', async () => {

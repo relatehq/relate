@@ -1,3 +1,4 @@
+import type { OperationScope } from '../activity/index.js';
 import type { Manifest, Policy } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
@@ -54,6 +55,7 @@ export function createNativeOperations(options: {
   clock(): number;
   install(): Promise<void>;
   resolve(
+    attempt: OperationScope,
     object: ObjectType,
     key: string,
     age: number,
@@ -64,6 +66,7 @@ export function createNativeOperations(options: {
 }) {
   const { manifest, scope, store, clock } = options;
   const authorization = (
+    attempt: OperationScope,
     principal: Principal,
     transaction?: NativeTransaction,
     request?: ReadRequest,
@@ -73,11 +76,20 @@ export function createNativeOperations(options: {
       principal,
       clock,
       resolve: (object, key, age, canonical = false) =>
-        options.resolve(object, key, age, canonical, transaction, request),
+        options.resolve(
+          attempt,
+          object,
+          key,
+          age,
+          canonical,
+          transaction,
+          request,
+        ),
     });
 
   return {
     async validate(
+      attempt: OperationScope,
       principal: Principal,
       object: ObjectType,
       record: NativeRecord,
@@ -89,7 +101,7 @@ export function createNativeOperations(options: {
         throw new ActionError('denied');
 
       const evidence = nativeEvidence(object, record);
-      const auth = authorization(principal, transaction);
+      const auth = authorization(attempt, principal, transaction);
 
       for (const property of object.properties) {
         if (
@@ -109,6 +121,7 @@ export function createNativeOperations(options: {
         const targetEvidence =
           typeof id === 'string'
             ? await options.resolve(
+                attempt,
                 target,
                 id,
                 rule.evidenceMaxAgeMs,
@@ -127,6 +140,7 @@ export function createNativeOperations(options: {
         throw new ActionError('denied');
     },
     async read(
+      attempt: OperationScope,
       principal: Principal,
       objectDefinitionId: string,
       id: string,
@@ -163,7 +177,7 @@ export function createNativeOperations(options: {
       if (!record) return { status: 'not-found' };
 
       const evidence = nativeEvidence(object, record);
-      const auth = authorization(principal, transaction, request);
+      const auth = authorization(attempt, principal, transaction, request);
 
       if (!(await auth.allows(object, evidence)))
         return { status: 'not-found' };

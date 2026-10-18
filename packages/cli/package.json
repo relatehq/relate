@@ -27,6 +27,7 @@
     "@relate/mcp": "workspace:*",
     "@relate/node": "workspace:*",
     "@relate/protocol": "workspace:*",
+    "@relate/runtime": "workspace:*",
     "esbuild": "0.28.2",
     "hono": "4.13.13",
     "relate": "workspace:*"

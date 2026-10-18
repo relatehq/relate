@@ -23,6 +23,7 @@ import {
   invoices,
   ana,
 } from '../support/native-action-model.js';
+import { testCreation } from '../support/activity.js';
 
 const model = compile(graph);
 let store: ReturnType<typeof createPostgresStore>;
@@ -104,9 +105,14 @@ function request(customer: string, idempotencyKey = 'review') {
 }
 
 async function expectEmpty() {
-  for (const table of ['native_objects', 'native_invocations']) {
+  // Source adoption commits its own feed entry; native effects must leave none.
+  for (const rows of [
+    'relate.native_objects WHERE',
+    'relate.invocations WHERE',
+    'relate.feed_entries WHERE source_definition_id IS NULL AND',
+  ]) {
     const result = await pool.query(
-      `SELECT count(*)::int AS count FROM relate.${table} WHERE graph_id=$1`,
+      `SELECT count(*)::int AS count FROM ${rows} graph_id=$1`,
       [graphId],
     );
 
@@ -362,8 +368,8 @@ it('does not return success when COMMIT acknowledges ROLLBACK', async () => {
         createdAt: Date.now(),
       };
 
-      await tx.insert(record);
-      await tx.insert(record).catch(() => {});
+      await tx.insert(record, testCreation());
+      await tx.insert(record, testCreation()).catch(() => {});
     }),
   ).rejects.toBeInstanceOf(StorageUnavailable);
   await expectEmpty();
@@ -388,12 +394,15 @@ it('keeps a lost COMMIT acknowledgement uncertain even when the connection error
   });
   await expect(
     createNativePostgresStore(pool).transaction(scope(), async (tx) => {
-      await tx.insert({
-        objectDefinitionId: AccountReview.id,
-        objectId: 'committed',
-        values: {},
-        createdAt: Date.now(),
-      });
+      await tx.insert(
+        {
+          objectDefinitionId: AccountReview.id,
+          objectId: 'committed',
+          values: {},
+          createdAt: Date.now(),
+        },
+        testCreation(),
+      );
     }),
   ).rejects.toBeInstanceOf(NativeCommitUncertain);
   expect(

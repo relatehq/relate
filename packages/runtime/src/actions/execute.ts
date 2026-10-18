@@ -29,6 +29,8 @@ import type {
   ObservationStore,
 } from '../storage.js';
 import type { Principal } from '../authorization/index.js';
+import { invocationFeed } from '../activity/index.js';
+import type { OperationScope } from '../activity/index.js';
 import { createActionDeadline } from './deadline.js';
 import { actionAllowed } from './available.js';
 
@@ -82,6 +84,7 @@ export function createActionExecutor(options: {
   install(): Promise<void>;
   handlers: Readonly<Record<string, ActionHandler>>;
   read(
+    attempt: OperationScope,
     principal: Principal,
     type: string,
     id: string,
@@ -90,6 +93,7 @@ export function createActionExecutor(options: {
     captureAuthorization?: (check: () => Promise<boolean>) => void,
   ): Promise<FullObjectResult>;
   query(
+    attempt: OperationScope,
     principal: Principal,
     type: string,
     request: QueryRequest,
@@ -100,6 +104,7 @@ export function createActionExecutor(options: {
     ) => void,
   ): Promise<FullPageResult>;
   validate(
+    attempt: OperationScope,
     principal: Principal,
     type: ObjectType,
     record: NativeRecord,
@@ -118,6 +123,7 @@ export function createActionExecutor(options: {
   }
 
   async function authorizeReceipt(
+    attempt: OperationScope,
     actor: Principal,
     action: Action,
     saved: NativeInvocation | undefined,
@@ -174,6 +180,7 @@ export function createActionExecutor(options: {
         throw new ActionError('denied');
 
       const result = await options.read(
+        attempt,
         actor,
         object.id,
         read.objectId,
@@ -218,11 +225,16 @@ export function createActionExecutor(options: {
     throw new ActionError('internal');
   }
 
+  /**
+   * `attempt` is the trusted scope of this call; its actor is the principal.
+   * Creation provenance and invocation attempt metadata come from it.
+   */
   const invoke = async (
     principal: Principal,
     actionId: string,
     request: { input: unknown; idempotencyKey: string },
-  ): Promise<ActionReceipt> => {
+    attempt: OperationScope,
+  ): Promise<{ receipt: ActionReceipt; replayed: boolean }> => {
     const actor = structuredClone(principal);
     const action = authorizedAction(actor, actionId);
 
@@ -239,6 +251,8 @@ export function createActionExecutor(options: {
 
     if (!handler || !store.native) throw new ActionError('unsupported');
 
+    const startedAt = options.clock();
+
     let deadline: ReturnType<typeof createActionDeadline> | undefined;
 
     try {
@@ -247,6 +261,10 @@ export function createActionExecutor(options: {
       return await store.native.transaction(
         options.scope,
         async (transaction) => {
+          // Fail before the handler can cause external effects, not after.
+          if (store.activity && !transaction.appendFeed)
+            throw new Error('Activity store lacks atomic native feed staging');
+
           deadline = createActionDeadline(transaction, options.timeoutMs);
 
           return deadline.run(async (transaction, check) => {
@@ -258,6 +276,7 @@ export function createActionExecutor(options: {
                 throw new ActionError('denied');
 
               const receipt = await authorizeReceipt(
+                attempt,
                 actor,
                 action,
                 existing,
@@ -267,8 +286,14 @@ export function createActionExecutor(options: {
               if (canonicalJson(existing.input) !== canonicalJson(input))
                 throw new ActionError('conflict');
 
-              return receipt;
+              // A replay commits nothing of its own and keeps the saved ID.
+              return { receipt, replayed: true };
             }
+
+            // Allocated before the handler runs: creation provenance, the
+            // receipt and the invocation event share it. Allocation alone is
+            // not durable; a rejected or rolled-back attempt leaves nothing.
+            const invocationId = randomUUID();
 
             const reads: NativeReceiptRead[] = [];
             const definitions = new Map(manifest.objects.map((o) => [o.id, o]));
@@ -348,6 +373,7 @@ export function createActionExecutor(options: {
                 if (field.references) {
                   check();
                   const result = await options.read(
+                    attempt,
                     actor,
                     field.references,
                     values[name] as string,
@@ -418,6 +444,7 @@ export function createActionExecutor(options: {
                     run(() =>
                       presenting(request, (r) =>
                         options.query(
+                          attempt,
                           actor,
                           type,
                           r,
@@ -430,6 +457,7 @@ export function createActionExecutor(options: {
                     run(() =>
                       presenting(request, async (r) => {
                         const result = await options.read(
+                          attempt,
                           actor,
                           type,
                           id,
@@ -496,12 +524,16 @@ export function createActionExecutor(options: {
                       };
 
                       await options.validate(
+                        attempt,
                         actor,
                         object,
                         record,
                         transaction,
                       );
-                      await transaction.insert(record);
+                      await transaction.insert(record, {
+                        actor: attempt.actor,
+                        invocationId,
+                      });
                       created.push(record);
 
                       return { id: record.objectId };
@@ -535,6 +567,7 @@ export function createActionExecutor(options: {
 
             for (const record of domain ? [] : created)
               await options.validate(
+                attempt,
                 actor,
                 manifest.objects.find(
                   (o) => o.id === record.objectDefinitionId,
@@ -552,12 +585,12 @@ export function createActionExecutor(options: {
 
             const receipt: ActionReceipt = domain
               ? {
-                  invocationId: randomUUID(),
+                  invocationId,
                   state: 'failed',
                   error: domain,
                 }
               : {
-                  invocationId: randomUUID(),
+                  invocationId,
                   state: 'succeeded',
                   output,
                 };
@@ -574,10 +607,18 @@ export function createActionExecutor(options: {
                     ),
                 )
               : reads;
+            const completedAt = options.clock();
             const invocation: NativeInvocation = {
               actionDefinitionId: action.id,
               idempotencyKey: key,
               actorId: actor.id,
+              actorKind: attempt.actor.kind,
+              operationId: attempt.id,
+              requestId: attempt.context.requestId,
+              transport: attempt.context.transport,
+              definitionRevision: options.scope.definitionRevision,
+              startedAt,
+              completedAt,
               reads: retainedReads,
               input,
               receipt,
@@ -586,11 +627,28 @@ export function createActionExecutor(options: {
             // Rollback changes the authorization view. Recheck recorded fields too,
             // since scalar failure details may have been derived from those reads.
             if (domain)
-              await authorizeReceipt(actor, action, invocation, transaction);
+              await authorizeReceipt(
+                attempt,
+                actor,
+                action,
+                invocation,
+                transaction,
+              );
 
             await transaction.saveInvocation(invocation);
 
-            return receipt;
+            if (store.activity && transaction.appendFeed) {
+              await transaction.appendFeed(
+                invocationFeed(options.scope, attempt, {
+                  actionDefinitionId: action.id,
+                  receipt,
+                  completedAt,
+                  created,
+                }),
+              );
+            }
+
+            return { receipt, replayed: false };
           });
         },
       );
@@ -608,6 +666,7 @@ export function createActionExecutor(options: {
       principal: Principal,
       actionId: string,
       invocationId: string,
+      attempt: OperationScope,
     ): Promise<ActionReceipt> {
       const actor = structuredClone(principal);
       const action = authorizedAction(actor, actionId);
@@ -629,6 +688,7 @@ export function createActionExecutor(options: {
 
             return deadline.run(async (transaction) =>
               authorizeReceipt(
+                attempt,
                 actor,
                 action,
                 await transaction.findInvocation(action.id, invocationId),

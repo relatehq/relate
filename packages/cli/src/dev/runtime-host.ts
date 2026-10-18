@@ -16,6 +16,7 @@
  * specs/2026-10-07-inspector.md, "Live runtime, MCP and the built-in agent".
  */
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createActivityForwarder } from './activity/forwarding.js';
 import type { AppDefinition, GraphDefinition, ObjectRegistry } from 'relate';
 import type { ObservationStore } from 'relate/storage';
 import { ActionError, ReadError } from '@relate/protocol';
@@ -71,6 +72,7 @@ function send(message: RuntimeMessage): Promise<void> {
 }
 
 let relate: Relate | undefined;
+let activityForwarder: ReturnType<typeof createActivityForwarder> | undefined;
 /** Set once startup has passed its last shutdown check. */
 let started = false;
 let shuttingDown = false;
@@ -85,6 +87,12 @@ const answering = new Set<Promise<void>>();
 async function closeAndExit(): Promise<never> {
   if (failure) return failure;
 
+  // New requests are already refused. Settle in-flight ones, wait for their
+  // operation rows to be appended, and forward their activity while the
+  // runtime can still be read; `close()` then drains anything later.
+  await Promise.allSettled(answering);
+  await relate?.host.flushActivity().catch(() => {});
+  await activityForwarder?.flush();
   await relate?.close().catch(() => {});
   await Promise.allSettled(answering);
 
@@ -362,9 +370,8 @@ if (shuttingDown) await closeAndExit();
 const principals = model!.principals ?? {};
 const bound = new Map<string, ConsumerOperations>();
 
-function operationsFor(principal: string): ConsumerOperations | undefined {
-  if (!Object.hasOwn(principals, principal)) return undefined;
-
+/** Discovery reads through a cached consumer binding; calls go through `host.dispatch`. */
+function operationsFor(principal: string): ConsumerOperations {
   let operations = bound.get(principal);
 
   if (!operations) {
@@ -424,29 +431,57 @@ async function respond(
         ? new ActionError('unavailable')
         : new ReadError('unavailable');
 
-    const operations = operationsFor(request.principal);
-
     // Names are checked by the dev server too; an unknown one is a bad request.
-    if (!operations)
+    if (!Object.hasOwn(principals, request.principal))
       throw operation === 'invoke' || operation === 'getReceipt'
         ? new ActionError('invalid')
         : new ReadError('invalid-request');
 
+    const definition = principals[request.principal]!;
     const value =
       request.type === 'discovery'
-        ? discover(operations)
-        : await (
-            operations[request.operation] as (
-              ...input: unknown[]
-            ) => Promise<unknown>
-          )(...request.args);
+        ? discover(operationsFor(request.principal))
+        : // The runtime records the operation under the dev binding's ID.
+          await relate!.host.dispatch(
+            {
+              id: request.principal,
+              roles: definition.roles,
+              claims: definition.claims,
+            },
+            {
+              operationId: request.attempt.operationId,
+              context: {
+                requestId: request.attempt.context.requestId,
+                transport: request.attempt.context.transport,
+                runtimeId: request.attempt.context.runtimeId,
+                ...(request.attempt.context.executionId
+                  ? { executionId: request.attempt.context.executionId }
+                  : {}),
+              },
+            },
+            request.operation,
+            request.args,
+          );
 
     await send({ type: 'reply', id: request.id, value });
   } catch (error) {
     await send({ type: 'error', id: request.id, error: encodeError(error) });
+  } finally {
+    if (request.type === 'op') activityForwarder?.schedule();
   }
 }
 
+activityForwarder = createActivityForwarder({
+  activity: relate!.host.activity,
+  runtimeId: args.runtimeId,
+  send: (rows) =>
+    send({
+      type: 'activity',
+      runtimeId: args.runtimeId,
+      ...rows,
+    }),
+});
+await activityForwarder.start();
 started = true;
 await send({
   type: 'ready',

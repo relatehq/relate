@@ -5,6 +5,8 @@ import type {
   FullObjectResult as ReadResult,
   FieldEvidence,
   Json,
+  RejectedOutcome,
+  UncertainOutcome,
 } from '@relate/protocol';
 import type {
   ObservationStore,
@@ -24,6 +26,7 @@ import type {
   AuthorizationEvidence,
 } from '../authorization/index.js';
 import {
+  InvalidObservation,
   boundedFetch,
   observation,
   verifyAccount,
@@ -32,6 +35,37 @@ import {
 import type { SourceBinding } from 'relate/connectors';
 import { validateReadRequest, summarize } from '../reads/index.js';
 import { refreshObservation } from './refresh.js';
+import { rejected, uuidv7 } from '../activity/index.js';
+import { RetentionError, StorageUnavailable } from '../storage.js';
+import type { Capture, OperationScope } from '../activity/index.js';
+
+/** An adoption request naming no valid object or source record. */
+export class InvalidAdoptionTarget extends Error {
+  constructor() {
+    super('Invalid adoption target');
+  }
+}
+
+/** Classify source-adoption failures without changing the caller's error. */
+export function classifyAdoptionFailure(
+  error: unknown,
+): RejectedOutcome | UncertainOutcome {
+  return error instanceof RetentionError && error.outcome === 'unconfirmed'
+    ? { status: 'uncertain' }
+    : {
+        status: 'rejected',
+        code:
+          error instanceof SourceAccessDenied
+            ? 'denied'
+            : error instanceof InvalidObservation ||
+                error instanceof InvalidAdoptionTarget
+              ? 'invalid'
+              : error instanceof RetentionError ||
+                  error instanceof StorageUnavailable
+                ? 'unavailable'
+                : rejected(error).code,
+      };
+}
 
 /** Source operations receive cross-object evidence resolution from composition. */
 export function createSourceOperations(options: {
@@ -42,7 +76,9 @@ export function createSourceOperations(options: {
   clock(): number;
   install(): Promise<void>;
   scopeFor(objectId: string, sourceId: string): StorageScope;
+  capture: Capture;
   resolve(
+    attempt: OperationScope,
     target: Manifest['objects'][number],
     key: string,
     maxAgeMs: number,
@@ -73,6 +109,7 @@ export function createSourceOperations(options: {
   }
 
   async function resolveSourceEvidence(
+    attempt: OperationScope,
     target: Manifest['objects'][number],
     key: string,
     maxAgeMs: number,
@@ -108,6 +145,8 @@ export function createSourceOperations(options: {
       needsSource: true,
       sourcePermission: true,
       evidenceMaxAgeMs: maxAgeMs,
+      capture: options.capture,
+      operation: attempt,
     });
 
     if (!(await accountAllowed(target.sourceDefinitionId, request)))
@@ -120,6 +159,7 @@ export function createSourceOperations(options: {
   }
 
   async function readObject(
+    attempt: OperationScope,
     principal: Principal,
     objectDefinitionId: string,
     objectId: string,
@@ -198,6 +238,8 @@ export function createSourceOperations(options: {
       evidenceMaxAgeMs: policy.read.where
         ? policy.read.evidenceMaxAgeMs
         : 60_000,
+      capture: options.capture,
+      operation: attempt,
     });
 
     if (!resolved) return { status: 'not-found' };
@@ -209,7 +251,15 @@ export function createSourceOperations(options: {
       principal,
       clock,
       resolve: (target, key, maxAgeMs, canonical = false) =>
-        options.resolve(target, key, maxAgeMs, canonical, transaction, request),
+        options.resolve(
+          attempt,
+          target,
+          key,
+          maxAgeMs,
+          canonical,
+          transaction,
+          request,
+        ),
     });
 
     if (!(await evidence.allows(object, resolved)))
@@ -323,15 +373,23 @@ export function createSourceOperations(options: {
 
   return {
     resolveSourceEvidence,
-    /** Trusted host ingestion operation. Ordinary reads cannot establish membership. */
+    /**
+     * Trusted host ingestion operation. Ordinary reads cannot establish
+     * membership. `scope` supplies the adopting actor.
+     */
     async adopt(
       objectDefinitionId: string,
       sourceRecordId: string,
+      scope: OperationScope,
     ): Promise<string> {
       const object = manifest.objects.find((o) => o.id === objectDefinitionId);
 
-      if (!object?.sourceDefinitionId || !sourceRecordId.trim())
-        throw new Error('Invalid adoption target');
+      if (
+        !object?.sourceDefinitionId ||
+        typeof sourceRecordId !== 'string' ||
+        !sourceRecordId.trim()
+      )
+        throw new InvalidAdoptionTarget();
 
       await install();
 
@@ -365,6 +423,14 @@ export function createSourceOperations(options: {
             sourceRecordId,
             adopt: true,
             observation: incoming,
+            attribution: {
+              changeId: uuidv7(),
+              operationId: scope.id,
+              ...(scope.parent ? { parentOperationId: scope.parent.id } : {}),
+              actor: scope.actor,
+              context: scope.context,
+              occurredAt: clock(),
+            },
           },
         )
       ).object.objectId;

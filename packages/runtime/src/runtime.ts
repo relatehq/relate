@@ -6,15 +6,34 @@ import {
 import type { ActionHandler } from './actions/index.js';
 import type { NativeTransaction, StorageScope } from './storage.js';
 import { createGraphQuery } from './queries/index.js';
-import { createTraversal } from './traversal/index.js';
-import { createSourceOperations } from './resolution/index.js';
+import { createTraversal, traversalsFrom } from './traversal/index.js';
+import {
+  createSourceOperations,
+  classifyAdoptionFailure,
+} from './resolution/index.js';
+import {
+  createCapture,
+  createOperationRecorder,
+  createOperationScope,
+  createOperationDescriptions,
+} from './activity/index.js';
+import type {
+  ActivityCaptureOptions,
+  OperationScope,
+} from './activity/index.js';
 import type { SourceBinding } from 'relate/connectors';
 import { createMemoryStore } from './memory.js';
 import { presenting } from './reads/index.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
+import { ActivityError } from '@relate/protocol';
 import type {
+  ActivityObjectRef,
+  ActivityReader,
+  ActivityStatus,
+  ObjectProvenance,
+  OperationActor,
   QueryRequest,
   ReadRequest,
   TraversalRequest,
@@ -35,7 +54,18 @@ export interface RuntimeOptions {
   readonly actionHandlers?: Readonly<Record<string, ActionHandler>>;
   /** Native callback budget after lock acquisition, 1–60,000 ms; defaults to 60,000. */
   readonly actionTimeoutMs?: number;
+  /** Operation capture configuration; the feed and provenance are always recorded. */
+  readonly activity?: ActivityCaptureOptions;
 }
+
+/** Trusted host operations without an explicit actor are attributed to this one. */
+export const hostActor: OperationActor = Object.freeze({
+  kind: 'system',
+  id: 'relate.host',
+});
+
+const nonblank = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
 
 export function createRuntime(options: RuntimeOptions) {
   const actionTimeoutMs = options.actionTimeoutMs ?? 60_000;
@@ -55,6 +85,18 @@ export function createRuntime(options: RuntimeOptions) {
 
   const store = options.store ?? createMemoryStore(),
     clock = options.clock ?? Date.now;
+
+  // A store advertising activity must record feed entries atomically for
+  // every write capability it exposes; a best-effort sink cannot claim that.
+  if (
+    store.activity &&
+    (store.activity.atomicFeed?.sourceAcceptance !== true ||
+      (store.native && store.activity.atomicFeed.nativeTransactions !== true))
+  )
+    throw new Error(
+      'Store advertises activity without atomic feed recording for every write capability',
+    );
+
   const sources = Object.fromEntries(
     Object.entries(options.sources).map(([id, source]) => [id, { ...source }]),
   );
@@ -107,6 +149,7 @@ export function createRuntime(options: RuntimeOptions) {
   };
 
   async function resolveEvidence(
+    attempt: OperationScope,
     target: (typeof manifest.objects)[number],
     key: string,
     maxAgeMs: number,
@@ -123,6 +166,7 @@ export function createRuntime(options: RuntimeOptions) {
     }
 
     return source.resolveSourceEvidence(
+      attempt,
       target,
       key,
       maxAgeMs,
@@ -131,6 +175,20 @@ export function createRuntime(options: RuntimeOptions) {
     );
   }
 
+  const recorder = createOperationRecorder({
+    ...(store.activity ? { store: store.activity } : {}),
+    graphId: options.graphId,
+    ...(options.activity ? { capture: options.activity } : {}),
+  });
+  const capture = createCapture({
+    graphId: options.graphId,
+    definitionRevision: revision,
+    recorder,
+  });
+  const describe = createOperationDescriptions(
+    manifest,
+    classifyAdoptionFailure,
+  );
   const source = createSourceOperations({
     manifest,
     revision,
@@ -139,6 +197,7 @@ export function createRuntime(options: RuntimeOptions) {
     clock,
     install,
     scopeFor,
+    capture,
     resolve: resolveEvidence,
   });
   const native = createNativeOperations({
@@ -151,6 +210,7 @@ export function createRuntime(options: RuntimeOptions) {
   });
 
   async function readObject(
+    attempt: OperationScope,
     principal: Principal,
     objectDefinitionId: string,
     objectId: string,
@@ -163,6 +223,7 @@ export function createRuntime(options: RuntimeOptions) {
 
     if (object?.sourceDefinitionId)
       return source.read(
+        attempt,
         principal,
         objectDefinitionId,
         objectId,
@@ -173,6 +234,7 @@ export function createRuntime(options: RuntimeOptions) {
       );
 
     return native.read(
+      attempt,
       principal,
       objectDefinitionId,
       objectId,
@@ -204,17 +266,115 @@ export function createRuntime(options: RuntimeOptions) {
     ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
   });
 
+  /** The authenticated principal is the actor; a supplied scope cannot change it. */
+  function consumerScope(principal: Principal, scope?: OperationScope) {
+    if (!scope)
+      return createOperationScope({ kind: 'principal', id: principal.id });
+
+    if (scope.actor.kind !== 'principal' || scope.actor.id !== principal.id)
+      throw new Error('Operation scope actor must be the bound principal');
+
+    return scope;
+  }
+
+  const executor = createActionExecutor({
+    query,
+    manifest,
+    scope: nativeScope,
+    store,
+    clock,
+    timeoutMs: actionTimeoutMs,
+    install,
+    handlers: options.actionHandlers ?? {},
+    validate: native.validate,
+    read: (
+      attempt,
+      actor,
+      type,
+      id,
+      request,
+      transaction,
+      captureAuthorization,
+    ) =>
+      readObject(
+        attempt,
+        actor,
+        type,
+        id,
+        request,
+        undefined,
+        captureAuthorization,
+        transaction,
+      ),
+  });
+
+  /** Trusted readers: unsupported is never an empty history. */
+  async function activityCall<T>(
+    read: (activity: NonNullable<typeof store.activity>) => Promise<T>,
+  ): Promise<T> {
+    if (!store.activity) throw new ActivityError('unsupported');
+
+    try {
+      await install();
+
+      return await read(store.activity);
+    } catch (error) {
+      if (error instanceof ActivityError) throw error;
+
+      throw new ActivityError('unavailable', { cause: error });
+    }
+  }
+
+  const activity: ActivityReader = Object.freeze({
+    async status(): Promise<ActivityStatus> {
+      return store.activity
+        ? {
+            state: 'available',
+            durability: store.durability,
+            operationCapture: recorder.enabled ? 'enabled' : 'disabled',
+          }
+        : { state: 'unsupported' };
+    },
+    feed: Object.freeze({
+      read: (readOptions?: Parameters<ActivityReader['feed']['read']>[0]) =>
+        activityCall((a) => a.feed.read(options.graphId, readOptions)),
+    }),
+    operations: Object.freeze({
+      list: (
+        readOptions?: Parameters<ActivityReader['operations']['list']>[0],
+      ) => activityCall((a) => a.operations.list(options.graphId, readOptions)),
+    }),
+  });
+
   return {
     discover: (principal: Principal) =>
       createDiscovery({ manifest, definitionRevision: revision }, principal),
-    adopt: source.adopt,
+    /** Trusted host ingestion, attributed to the host actor or the scope's actor. */
+    adopt(
+      objectDefinitionId: string,
+      sourceRecordId: string,
+      scope: OperationScope = createOperationScope(hostActor),
+    ): Promise<string> {
+      return capture.operation(
+        scope,
+        () => source.adopt(objectDefinitionId, sourceRecordId, scope),
+        describe.adopt(objectDefinitionId),
+      );
+    },
     async query(
       principal: Principal,
       objectDefinitionId: string,
       request: QueryRequest = {},
+      scope?: OperationScope,
     ) {
+      const attempt = consumerScope(principal, scope);
+
       return presenting(request, (r) =>
-        query(principal, objectDefinitionId, r),
+        capture.operation(
+          attempt,
+          () => query(attempt, principal, objectDefinitionId, r),
+          describe.query(objectDefinitionId),
+        ),
       );
     },
     async read(
@@ -222,42 +382,122 @@ export function createRuntime(options: RuntimeOptions) {
       objectDefinitionId: string,
       objectId: string,
       request: ReadRequest = {},
+      scope?: OperationScope,
     ) {
+      const attempt = consumerScope(principal, scope);
+
       return presenting(request, (r) =>
-        readObject(principal, objectDefinitionId, objectId, r),
+        capture.operation(
+          attempt,
+          () => readObject(attempt, principal, objectDefinitionId, objectId, r),
+          describe.get(objectDefinitionId, objectId),
+        ),
       );
     },
-    ...createActionExecutor({
-      query,
-      manifest,
-      scope: nativeScope,
-      store,
-      clock,
-      timeoutMs: actionTimeoutMs,
-      install,
-      handlers: options.actionHandlers ?? {},
-      validate: native.validate,
-      read: (actor, type, id, request, transaction, captureAuthorization) =>
-        readObject(
-          actor,
-          type,
-          id,
-          request,
-          undefined,
-          captureAuthorization,
-          transaction,
-        ),
-    }),
+    async invoke(
+      principal: Principal,
+      actionId: string,
+      request: { input: unknown; idempotencyKey: string },
+      scope?: OperationScope,
+    ) {
+      const attempt = consumerScope(principal, scope);
+
+      return capture
+        .operation(
+          attempt,
+          () => executor.invoke(principal, actionId, request, attempt),
+          describe.invoke(actionId),
+        )
+        .then(({ receipt }) => receipt);
+    },
+    async getReceipt(
+      principal: Principal,
+      actionId: string,
+      invocationId: string,
+      scope?: OperationScope,
+    ) {
+      const attempt = consumerScope(principal, scope);
+
+      return capture.operation(
+        attempt,
+        () => executor.getReceipt(principal, actionId, invocationId, attempt),
+        describe.receipt(actionId),
+      );
+    },
     async traverse(
       principal: Principal,
       typeId: string,
       id: string,
       name: string,
       request: TraversalRequest = {},
+      scope?: OperationScope,
     ) {
+      const attempt = consumerScope(principal, scope);
+      const edge = traversalsFrom(manifest, typeId).find(
+        ({ relationship, forward }) =>
+          (forward ? relationship.forward : relationship.reverse).name === name,
+      );
+      const resultType = edge
+        ? edge.forward
+          ? edge.relationship.toObjectDefinitionId
+          : edge.relationship.fromObjectDefinitionId
+        : typeId;
+
       return presenting(request, (r) =>
-        traverse(principal, typeId, id, name, r),
+        capture.operation(
+          attempt,
+          () => traverse(attempt, principal, typeId, id, name, r),
+          describe.traverse(
+            resultType,
+            { objectDefinitionId: typeId, objectId: id },
+            // An unknown name has no relationship; the traversal rejects it.
+            edge?.relationship.id ?? String(name),
+          ),
+        ),
       );
     },
+    /** Trusted host activity reading; never exposed to consumers. */
+    activity,
+    /** Who created or adopted an object, from object storage only. */
+    async provenance(
+      object: ActivityObjectRef,
+    ): Promise<ObjectProvenance | undefined> {
+      if (
+        !object ||
+        typeof object !== 'object' ||
+        !nonblank(object.objectDefinitionId) ||
+        !nonblank(object.objectId)
+      )
+        throw new ActivityError('invalid-request');
+
+      const definition = manifest.objects.find(
+        (o) => o.id === object.objectDefinitionId,
+      );
+
+      if (!definition) return undefined;
+
+      try {
+        await install();
+
+        if (definition.sourceDefinitionId)
+          return await store.provenance(
+            scopeFor(definition.id, definition.sourceDefinitionId),
+            object.objectId,
+          );
+
+        return await store.native?.provenance(nativeScope, {
+          objectDefinitionId: object.objectDefinitionId,
+          objectId: object.objectId,
+        });
+      } catch (error) {
+        throw new ActivityError('unavailable', { cause: error });
+      }
+    },
+    /** Operation-capture drop and truncation counters. */
+    activityCounters: () => recorder.counters(),
+    /** Wait for captured operations to be appended, without closing. */
+    flushActivity: (deadlineMs: number) => recorder.flush(deadlineMs),
+    /** Flush captured operations within the deadline; reports abandonment. */
+    drainActivity: (deadlineMs: number) => recorder.drain(deadlineMs),
   };
 }

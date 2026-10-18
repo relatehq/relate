@@ -144,3 +144,27 @@ field's provenance. Values and access rules are identical in both modes.
 See
 [Read Responses & Evidence](../../apps/docs/content/reference/read-responses.md)
 for the complete reference.
+
+## Activity records
+
+`activity.ts` defines the transport-safe activity contract: `Operation` (one
+attempt: `get`, `query`, `traverse`, `invoke`, `receipt`, `adopt` or `refresh`),
+`Change` and `InvocationEvent` (together `FeedEntry`, one publication order),
+`ObjectProvenance`, `OperationContext`, filters, `ActivityPage` and
+`ActivityStatus`. Records carry metadata, stable definition IDs and typed object
+references only, never property values, filter values, action inputs/outputs or
+raw errors.
+
+Each union constrains its variant: only `invoke` has `replayed`, a terminal
+invocation outcome always has an `invocationId`, only `refresh` has a refresh
+result, and only `query` and `traverse` successes have `hasMore`. `Change.kind`
+`created` never has a `sourceDefinitionId`; `adopted` and source-refresh changes
+always do, and source-refresh changes have the source as actor with
+`triggeredBy` naming the principal or system actor whose operation observed
+them. Schema versions are independent of graph revisions; consumers skip unknown
+kinds or versions while advancing their checkpoint.
+
+`ActivityPage.nextCursor` is opaque and advances over the scanned range even
+when no entry matched, unlike `Page<T>`. `ActivityError` codes are `unsupported`
+(never an empty history), `unavailable`, `invalid-request`, `invalid-cursor` and
+`cursor-expired`.

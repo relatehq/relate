@@ -1,1 +1,5 @@
-export { createSourceOperations } from './source.js';
+export {
+  createSourceOperations,
+  InvalidAdoptionTarget,
+  classifyAdoptionFailure,
+} from './source.js';

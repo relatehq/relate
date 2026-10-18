@@ -135,7 +135,10 @@ const handleMcp = createStreamableHttpHandler({
   async bindGraph(request) {
     const actor = await authenticate(request);
     if (!actor) return new Response('Unauthorized', { status: 401 });
-    return { description, operations: runtime.operations(actor) };
+    return {
+      description,
+      operations: runtime.operations(actor, { transport: 'mcp' }),
+    };
   },
 });
 
@@ -157,7 +160,10 @@ import { connectStdio, createDevelopmentExecutor } from '@relate/mcp';
 
 const server = await connectStdio({
   executor: createDevelopmentExecutor(),
-  bindGraph: () => ({ description, operations: runtime.operations(actor) }),
+  bindGraph: () => ({
+    description,
+    operations: runtime.operations(actor, { transport: 'mcp' }),
+  }),
 });
 // await server.close() during host shutdown; close the runtime separately.
 ```
@@ -183,7 +189,7 @@ async bindGraph(request) {
     throw new BindingUnavailableError('The graph is being upgraded; retry in a minute', {
       retryable: true,
     });
-  return { description, operations: runtime.operations(actor) };
+  return { description, operations: runtime.operations(actor, { transport: 'mcp' }) };
 }
 ```
 

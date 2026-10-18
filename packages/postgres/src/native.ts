@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import type {
+  FeedDraft,
   NativeStore,
   NativeScope,
   NativeRecord,
@@ -12,7 +13,9 @@ import {
   NativeCommitUncertain,
   StorageUnavailable,
 } from '@relate/runtime/storage';
+import { validateFeedDraft } from '@relate/runtime/storage';
 import { storageError, transactionRejected } from './errors.js';
+import { publishFeed } from './activity.js';
 
 export function createNativePostgresStore(pool: pg.Pool): NativeStore {
   function invocation(
@@ -23,6 +26,15 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
           actionDefinitionId: row.action_id,
           idempotencyKey: row.idempotency_key,
           actorId: row.actor_id ?? null,
+          actorKind: row.actor_kind ?? null,
+          operationId: row.operation_id ?? null,
+          requestId: row.request_id ?? null,
+          transport: row.transport ?? null,
+          definitionRevision: row.definition_revision ?? null,
+          startedAt: row.started_at ? new Date(row.started_at).getTime() : null,
+          completedAt: row.completed_at
+            ? new Date(row.completed_at).getTime()
+            : null,
           reads: row.reads ?? null,
           input: row.input,
           receipt: row.receipt,
@@ -94,7 +106,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
     scan: (scope, type, options) => scan(pool, scope, type, options),
     async loadInvocation(scope, actionDefinitionId, idempotencyKey) {
       const result = await pool.query(
-        `SELECT n.* FROM relate.native_invocations n JOIN relate.graphs g USING(graph_id) WHERE n.graph_id=$1 AND g.definition_revision=$2 AND n.action_id=$3 AND n.idempotency_key=$4`,
+        `SELECT n.* FROM relate.invocations n JOIN relate.graphs g USING(graph_id) WHERE n.graph_id=$1 AND g.definition_revision=$2 AND n.action_id=$3 AND n.idempotency_key=$4`,
         [
           scope.graphId,
           scope.definitionRevision,
@@ -106,6 +118,32 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
       return invocation(result.rows[0]);
     },
     load: (scope, type, id) => load(pool, scope, type, id),
+    async provenance(scope, object) {
+      const result = await pool.query(
+        `SELECT n.created_at,n.created_by_kind,n.created_by_id,n.created_invocation_id FROM relate.native_objects n
+         JOIN relate.graphs g USING (graph_id)
+         WHERE n.graph_id=$1 AND g.definition_revision=$2 AND n.object_type=$3 AND n.object_key=$4`,
+        [
+          scope.graphId,
+          scope.definitionRevision,
+          object.objectDefinitionId,
+          object.objectId,
+        ],
+      );
+      const row = result.rows[0];
+
+      if (!row) return undefined;
+
+      // The object's own insertion time and actor snapshot, never its receipt.
+      return row.created_by_kind !== null
+        ? {
+            kind: 'created',
+            actor: { kind: row.created_by_kind, id: row.created_by_id },
+            at: new Date(Number(row.created_at)).toISOString(),
+            invocationId: row.created_invocation_id,
+          }
+        : { kind: 'unknown' };
+    },
     async transaction(scope, operation) {
       const client = await pool.connect().catch((error: unknown) => {
         throw storageError(error);
@@ -130,6 +168,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
 
       client.on('error', onError);
       const claimed = new Set<string>();
+      const staged: FeedDraft[] = [];
       let savepointSequence = 0;
       const keyFor = (action: string, key: string) =>
         JSON.stringify([action, key]);
@@ -161,6 +200,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
               check();
               const name = `native_effects_${++savepointSequence}`;
               const claims = new Set(claimed);
+              const stagedLength = staged.length;
 
               await client.query(`SAVEPOINT ${name}`);
 
@@ -180,6 +220,8 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
 
                 for (const key of claims) claimed.add(key);
 
+                staged.length = stagedLength;
+
                 throw error;
               }
             },
@@ -188,23 +230,34 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
 
               return load(client, scope, type, id);
             },
-            async insert(record) {
+            async insert(record, creation) {
               check();
               await client.query(
-                'INSERT INTO relate.native_objects(graph_id,object_type,object_key,values,created_at) VALUES ($1,$2,$3,$4::jsonb,$5)',
+                'INSERT INTO relate.native_objects(graph_id,object_type,object_key,values,created_at,created_by_kind,created_by_id,created_invocation_id) VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8)',
                 [
                   scope.graphId,
                   record.objectDefinitionId,
                   record.objectId,
                   JSON.stringify(record.values),
                   record.createdAt,
+                  creation.actor.kind,
+                  creation.actor.id,
+                  creation.invocationId,
                 ],
               );
+            },
+            async appendFeed(drafts) {
+              check();
+
+              for (const draft of drafts) validateFeedDraft(draft);
+
+              // Staged in order; published as the final work before COMMIT.
+              staged.push(...structuredClone(drafts));
             },
             async claim(action, key) {
               check();
               const row = await client.query(
-                'INSERT INTO relate.native_invocations(graph_id,action_id,idempotency_key) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING action_id',
+                'INSERT INTO relate.invocations(graph_id,action_id,idempotency_key) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING action_id',
                 [scope.graphId, action, key],
               );
 
@@ -212,7 +265,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
                 const existing = invocation(
                   (
                     await client.query(
-                      'SELECT * FROM relate.native_invocations WHERE graph_id=$1 AND action_id=$2 AND idempotency_key=$3',
+                      'SELECT * FROM relate.invocations WHERE graph_id=$1 AND action_id=$2 AND idempotency_key=$3',
                       [scope.graphId, action, key],
                     )
                   ).rows[0],
@@ -231,7 +284,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
               return invocation(
                 (
                   await client.query(
-                    'SELECT * FROM relate.native_invocations WHERE graph_id=$1 AND action_id=$2 AND invocation_id=$3',
+                    'SELECT * FROM relate.invocations WHERE graph_id=$1 AND action_id=$2 AND invocation_id=$3',
                     [scope.graphId, action, id],
                   )
                 ).rows[0],
@@ -251,7 +304,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
                 throw new Error('Invocation was not claimed');
 
               await client.query(
-                'UPDATE relate.native_invocations SET invocation_id=$4,input=$5::jsonb,receipt=$6::jsonb,actor_id=$7,reads=$8::jsonb WHERE graph_id=$1 AND action_id=$2 AND idempotency_key=$3',
+                'UPDATE relate.invocations SET invocation_id=$4,input=$5::jsonb,receipt=$6::jsonb,actor_id=$7,reads=$8::jsonb,actor_kind=$9,operation_id=$10,request_id=$11,transport=$12,definition_revision=$13,started_at=$14,completed_at=$15 WHERE graph_id=$1 AND action_id=$2 AND idempotency_key=$3',
                 [
                   scope.graphId,
                   invocation.actionDefinitionId,
@@ -261,6 +314,17 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
                   JSON.stringify(invocation.receipt),
                   invocation.actorId,
                   JSON.stringify(invocation.reads),
+                  invocation.actorKind ?? null,
+                  invocation.operationId ?? null,
+                  invocation.requestId ?? null,
+                  invocation.transport ?? null,
+                  invocation.definitionRevision ?? null,
+                  invocation.startedAt != null
+                    ? new Date(invocation.startedAt)
+                    : null,
+                  invocation.completedAt != null
+                    ? new Date(invocation.completedAt)
+                    : null,
                 ],
               );
             },
@@ -270,6 +334,11 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
 
         if (claimed.size) throw new Error('Unfinished native invocation');
 
+        // Final database work, without user callbacks under the stream lock.
+        await Promise.race([
+          publishFeed(client, scope.graphId, staged),
+          clientFailed,
+        ]);
         active = false;
 
         if (clientFailure) throw clientFailure;

@@ -23,7 +23,7 @@ const handleMcp = createStreamableHttpHandler({
     if (!actor) return new Response('Unauthorized', { status: 401 });
     return {
       description: compile(graph).consumer,
-      operations: runtime.operations(actor),
+      operations: runtime.operations(actor, { transport: 'mcp' }),
     };
   },
 });

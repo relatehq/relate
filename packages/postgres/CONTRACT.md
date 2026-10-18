@@ -35,15 +35,16 @@ lifecycle.
 
 ## Native transactions
 
-The additive second migration creates `native_objects` and `native_invocations`.
-Native values use stable property definition IDs. A native transaction
-serializes writes per graph, reserves the graph/action/key, and commits native
-inserts with successful receipt/input evidence. Errors roll back the entire
-transaction; a lost COMMIT acknowledgement throws `NativeCommitUncertain`
-instead of claiming failure. This is surfaced as a sanitized uncertain action
-rejection. Authorized same-key replay and receipt lookup can recover a committed
-success without another write. Migration 4 adds actor/read provenance; legacy
-rows keep their keys but cannot be consumer-recovered without that evidence.
+The additive second migration creates `native_objects` and `native_invocations`
+(renamed `invocations` by migration 6). Native values use stable property
+definition IDs. A native transaction serializes writes per graph, reserves the
+graph/action/key, and commits native inserts with successful receipt/input
+evidence. Errors roll back the entire transaction; a lost COMMIT acknowledgement
+throws `NativeCommitUncertain` instead of claiming failure. This is surfaced as
+a sanitized uncertain action rejection. Authorized same-key replay and receipt
+lookup can recover a committed success without another write. Migration 4 adds
+actor/read provenance; legacy rows keep their keys but cannot be
+consumer-recovered without that evidence.
 
 Native transactions use a separate five-connection pool from source
 observations, so queued native writers cannot starve their own authorization
@@ -70,3 +71,35 @@ There is no distributed snapshot guarantee.
 
 See [native account reviews](../node/NATIVE_ACTIONS.md) and
 [the adapter contract](../runtime/STORE_CONTRACT.md#native-write-capability).
+
+## Activity
+
+Migration 6 renames `native_invocations` to `invocations` and `value_changes` to
+`object_versions`, and adds:
+
+| Table               | Holds                                                                     |
+| ------------------- | ------------------------------------------------------------------------- |
+| `feed_entries`      | Committed changes and invocation events, one publication order per graph  |
+| `feed_streams`      | Per-graph stream identity, last committed position and retention floor    |
+| `operations`        | Best-effort operation rows: actor, request, timing, outcome, kind details |
+| `operation_objects` | Operation lineage in result order, cascading with its operation           |
+
+`invocations` gains actor kind, operation, request, transport, revision and
+timing columns; `object_versions` gains `change_id`; `native_objects` gains
+creation provenance and `objects` adoption provenance. Legacy rows keep null
+values and report `{ kind: 'unknown' }` provenance; migration invents no
+operation, change or invocation event.
+
+A source acceptance writes the observation, its adoption provenance, any version
+row and its feed entry in one transaction. A native transaction publishes its
+staged feed entries as its final statements before COMMIT. Both allocate
+positions by updating their graph's `feed_streams` row, whose lock is held until
+COMMIT, after their domain locks; they never take the `graphs` row lock. Feed
+CHECK constraints reject incomplete references, invocation events without IDs,
+mismatched failure codes and invalid source or trigger attribution.
+
+Operation appends use a dedicated one-connection pool with the source pool's
+timeouts, so a hung best-effort append cannot consume connections committed
+writes need. `close()` closes all three pools. Feed reads take one
+repeatable-read snapshot for the page, high-water mark and floor. Nothing is
+pruned yet; `floor` stays 0 and stream identity changes only on explicit reset.

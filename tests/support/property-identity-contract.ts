@@ -5,6 +5,7 @@ import { canonicalJson, validateManifest } from 'relate/model';
 import { createRuntime } from '@relate/runtime';
 import type { ObservationStore, StorageScope } from '@relate/runtime/storage';
 import { createCustomerGraph } from './customer-graph.js';
+import { testAttribution } from './activity.js';
 
 export function propertyIdentityContract(
   name: string,
@@ -167,6 +168,7 @@ export function propertyIdentityContract(
           // succeeds, but the existing payload still uses the old property names.
           await backing.store.install(graphId, model.definitionRevision);
           const saved = await backing.store.accept(scope, {
+            attribution: testAttribution(),
             sourceRecordId: record.id,
             adopt: true,
             observation: {
@@ -231,6 +233,7 @@ export function propertyIdentityContract(
         expect(() => validateManifest(legacy)).toThrow();
         await backing.store.install(graphId, revision);
         const saved = await backing.store.accept(scope, {
+          attribution: testAttribution(),
           sourceRecordId: record.id,
           adopt: true,
           observation: {

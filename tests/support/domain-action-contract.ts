@@ -96,9 +96,9 @@ export function domainActionContract(
               store.native!.transaction(scope, (tx) =>
                 operation({
                   ...tx,
-                  async insert(record) {
+                  async insert(record, creation) {
                     records.push(record);
-                    await tx.insert(record);
+                    await tx.insert(record, creation);
                   },
                 }),
               ),

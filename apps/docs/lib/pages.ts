@@ -93,6 +93,14 @@ export const pages: readonly DocPage[] = [
     section: 'Runtime',
   },
   {
+    slug: ['runtime', 'activity'],
+    name: 'Activity',
+    title: 'Activity & Provenance',
+    description:
+      'Follow the feed of changes, browse operations, and read object provenance.',
+    section: 'Runtime',
+  },
+  {
     slug: ['runtime', 'discovery'],
     name: 'Discovery',
     title: 'Discovering the Graph',
