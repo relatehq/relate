@@ -7,6 +7,7 @@ const dependencies: Record<string, readonly string[]> = {
     'discovery',
     'observations',
     'memory',
+    'activity',
   ],
   composition: [
     'actions',
@@ -18,9 +19,10 @@ const dependencies: Record<string, readonly string[]> = {
     'storage',
     'memory',
     'discovery',
+    'activity',
   ],
-  actions: ['authorization', 'reads', 'storage'],
-  resolution: ['authorization', 'observations', 'reads', 'storage'],
+  actions: ['authorization', 'reads', 'storage', 'activity'],
+  resolution: ['authorization', 'observations', 'reads', 'storage', 'activity'],
   traversal: ['authorization', 'reads', 'storage'],
   queries: ['authorization', 'reads', 'storage'],
   authorization: ['storage'],
@@ -31,17 +33,22 @@ const dependencies: Record<string, readonly string[]> = {
   reads: [],
   storage: ['observations'],
   memory: ['storage', 'observations'],
+  // Operation capture: scopes, lineage and the best-effort queue.
+  activity: ['storage'],
 };
 const roots: Record<string, string> = {
   'index.ts': 'public',
   'runtime.ts': 'composition',
   'storage.ts': 'storage',
+  'activity-store.ts': 'storage',
   'memory.ts': 'memory',
   'native-memory.ts': 'memory',
+  'memory-activity.ts': 'memory',
   'discovery.ts': 'discovery',
   'contracts.ts': 'discovery',
 };
 const folders = new Set([
+  'activity',
   'actions',
   'authorization',
   'resolution',
@@ -77,7 +84,7 @@ export function assertRuntimeDependency(
   // operation is re-exported for adapters. The reverse edge carries types only.
   const ordering =
     (owner === 'storage' || owner === 'memory') &&
-    to === 'observations/ordering.ts';
+    (to === 'observations/ordering.ts' || to === 'observations/changes.ts');
   const contract =
     target === 'storage' &&
     ((owner !== 'observations' && owner !== 'authorization') || typeOnly);

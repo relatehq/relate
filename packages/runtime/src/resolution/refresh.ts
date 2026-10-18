@@ -21,6 +21,17 @@ import {
   SourceAccessDenied,
 } from '../observations/index.js';
 import type { AnySourceConnector } from 'relate/connectors';
+import {
+  currentScope,
+  nestedScope,
+  referenceEntry,
+  uuidv7,
+} from '../activity/index.js';
+import type { Capture, OperationBody } from '../activity/index.js';
+
+type RefreshBody = Extract<OperationBody, { kind: 'refresh' }>;
+
+type RefreshOutcome = Pick<RefreshBody, 'outcome' | 'details'>;
 
 /** Shared by projected data and private authorization evidence. */
 export async function refreshObservation(options: {
@@ -35,6 +46,7 @@ export async function refreshObservation(options: {
   needsSource: boolean;
   sourcePermission: boolean;
   evidenceMaxAgeMs: number;
+  capture: Capture;
 }) {
   const {
     store,
@@ -79,114 +91,186 @@ export async function refreshObservation(options: {
     (needsSource && (request.refresh || age > maxAge || age < 0)) ||
     (sourcePermission && (request.refresh || age > evidenceMaxAgeMs || age < 0))
   ) {
+    // Each fetch attempt is a nested operation of the enclosing attempt, with
+    // its own outcome; a fresh observation that needs no fetch records none.
+    const parent = currentScope();
+    const attempt = nestedScope(parent);
+    const started = { at: Date.now(), monotonic: performance.now() };
+    let settled: RefreshOutcome = {
+      outcome: { status: 'rejected', code: 'internal' },
+      details: {},
+    };
+    const ok = (result: 'changed' | 'unchanged' | 'superseded') => {
+      settled = { outcome: { status: 'ok' }, details: { refresh: result } };
+    };
+
+    // Recorded on every path, including early returns, once the attempt settles.
     try {
-      const token = await store.beginFetch(),
-        observedAt = clock();
-      const fetched = await boundedFetch(
-        connector,
-        stored.sourceRecordId,
-        timeout,
-        scope.providerAccountId,
-      );
-      const incoming = observation(
-        fetched,
-        resource,
-        object,
-        stored.sourceRecordId,
-        token,
-        observedAt,
-      );
-      // Even when retention fails, a confirmed deletion cannot return old data.
-      const known = compareObservation(stored.observation, incoming);
+      try {
+        const token = await store.beginFetch(),
+          observedAt = clock();
+        const fetched = await boundedFetch(
+          connector,
+          stored.sourceRecordId,
+          timeout,
+          scope.providerAccountId,
+        );
+        const incoming = observation(
+          fetched,
+          resource,
+          object,
+          stored.sourceRecordId,
+          token,
+          observedAt,
+        );
+        // Even when retention fails, a confirmed deletion cannot return old data.
+        const known = compareObservation(stored.observation, incoming);
 
-      if (known === 'superseded' || known === 'replay') {
-        // Re-read the winner because another process may have advanced it further.
-        const winner = await store.load(scope, objectId);
+        if (known === 'superseded' || known === 'replay') {
+          // Re-read the winner because another process may have advanced it further.
+          const winner = await store.load(scope, objectId);
 
-        if (!winner) return undefined;
+          if (!winner) return undefined;
 
-        candidate = winner;
-        permissionCandidate = candidate;
-        refresh = 'superseded';
-      } else {
-        refresh = 'succeeded';
+          candidate = winner;
+          permissionCandidate = candidate;
+          refresh = 'superseded';
+          ok('superseded');
+        } else {
+          refresh = 'succeeded';
 
-        try {
-          candidate = (
-            await store.accept(scope, {
+          try {
+            const accepted = await store.accept(scope, {
               sourceRecordId: stored.sourceRecordId,
               objectId,
               adopt: false,
               observation: incoming,
-            })
-          ).object;
-          permissionCandidate = candidate;
+              attribution: {
+                changeId: uuidv7(),
+                operationId: attempt.id,
+                parentOperationId: parent.id,
+                actor: attempt.actor,
+                context: attempt.context,
+                occurredAt: observedAt,
+              },
+            });
 
-          if (candidate.observation.token !== incoming.token)
-            refresh = 'superseded';
-        } catch (error) {
-          if (error instanceof OrderingConflict) throw error;
+            candidate = accepted.object;
+            permissionCandidate = candidate;
 
-          retention =
-            error instanceof RetentionError ? error.outcome : 'unconfirmed';
-          candidate = { ...stored, observation: incoming };
+            if (candidate.observation.token !== incoming.token)
+              refresh = 'superseded';
 
-          try {
-            const latest = await store.load(scope, objectId);
-
-            if (!latest) return undefined;
-
-            permissionCandidate = latest;
-            const acceptance = compareObservation(latest.observation, incoming);
-
-            if (acceptance === 'superseded' || acceptance === 'replay') {
-              candidate = latest;
-              retention = 'confirmed';
-              refresh =
-                acceptance === 'superseded' ? 'superseded' : 'succeeded';
-            }
-          } catch (checkError) {
-            if (checkError instanceof OrderingConflict) throw checkError;
-
-            ordering = 'unconfirmed';
-          }
-
-          if (retention !== 'confirmed')
-            warnings.push(
-              retention === 'failed'
-                ? 'observation_not_retained'
-                : 'retention_unconfirmed',
+            // The adapter's locked classification, not Acceptance or a local diff.
+            ok(
+              accepted.change
+                ? 'changed'
+                : accepted.acceptance === 'changed' ||
+                    accepted.acceptance === 'unchanged'
+                  ? 'unchanged'
+                  : 'superseded',
             );
+          } catch (error) {
+            if (error instanceof OrderingConflict) throw error;
 
-          if (ordering === 'unconfirmed') warnings.push('ordering_unconfirmed');
+            retention =
+              error instanceof RetentionError ? error.outcome : 'unconfirmed';
+            // A known rollback is a sanitized rejection; anything else may have committed.
+            settled =
+              retention === 'failed'
+                ? {
+                    outcome: { status: 'rejected', code: 'unavailable' },
+                    details: {},
+                  }
+                : { outcome: { status: 'uncertain' }, details: {} };
+            candidate = { ...stored, observation: incoming };
+
+            try {
+              const latest = await store.load(scope, objectId);
+
+              if (!latest) return undefined;
+
+              permissionCandidate = latest;
+              const acceptance = compareObservation(
+                latest.observation,
+                incoming,
+              );
+
+              if (acceptance === 'superseded' || acceptance === 'replay') {
+                candidate = latest;
+                retention = 'confirmed';
+                refresh =
+                  acceptance === 'superseded' ? 'superseded' : 'succeeded';
+              }
+            } catch (checkError) {
+              if (checkError instanceof OrderingConflict) throw checkError;
+
+              ordering = 'unconfirmed';
+            }
+
+            if (retention !== 'confirmed')
+              warnings.push(
+                retention === 'failed'
+                  ? 'observation_not_retained'
+                  : 'retention_unconfirmed',
+              );
+
+            if (ordering === 'unconfirmed')
+              warnings.push('ordering_unconfirmed');
+          }
         }
+      } catch (error) {
+        settled = {
+          outcome: {
+            status: 'rejected',
+            code:
+              error instanceof SourceAccessDenied
+                ? 'denied'
+                : error instanceof InvalidObservation ||
+                    error instanceof OrderingConflict
+                  ? 'invalid'
+                  : 'unavailable',
+          },
+          details: {},
+        };
+
+        // Explicit provider denial is not an outage and cannot authorize fallback.
+        if (error instanceof SourceAccessDenied) return undefined;
+
+        refresh =
+          error instanceof InvalidObservation ||
+          error instanceof OrderingConflict
+            ? 'invalid'
+            : 'unavailable';
+        // A failed refresh must not restore an earlier snapshot after another
+        // request retained a newer value, deletion, or permission change.
+        candidate = permissionCandidate;
+
+        try {
+          const winner = await store.load(scope, objectId);
+
+          if (!winner) return undefined;
+
+          candidate = winner;
+        } catch {
+          // Preserve the latest known durable snapshot; freshness still applies.
+        }
+
+        permissionCandidate = candidate;
+        retention = 'confirmed';
+        ordering = 'confirmed';
+        warnings.length = 0;
       }
-    } catch (error) {
-      // Explicit provider denial is not an outage and cannot authorize fallback.
-      if (error instanceof SourceAccessDenied) return undefined;
-
-      refresh =
-        error instanceof InvalidObservation || error instanceof OrderingConflict
-          ? 'invalid'
-          : 'unavailable';
-      // A failed refresh must not restore an earlier snapshot after another
-      // request retained a newer value, deletion, or permission change.
-      candidate = permissionCandidate;
-
-      try {
-        const winner = await store.load(scope, objectId);
-
-        if (!winner) return undefined;
-
-        candidate = winner;
-      } catch {
-        // Preserve the latest known durable snapshot; freshness still applies.
-      }
-
-      permissionCandidate = candidate;
-      retention = 'confirmed';
-      ordering = 'confirmed';
-      warnings.length = 0;
+    } finally {
+      options.capture.record(attempt, started, {
+        kind: 'refresh',
+        definitionId: object.id,
+        target: { objectDefinitionId: object.id, objectId },
+        objects: [
+          referenceEntry({ objectDefinitionId: object.id, objectId }, 'target'),
+        ],
+        ...settled,
+      } as RefreshBody);
     }
   }
 

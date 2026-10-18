@@ -245,9 +245,10 @@ it('keeps raw inputs private and commits value history only when mapped values c
   try {
     const changes = async () =>
       (
-        await db.query('SELECT * FROM relate.value_changes WHERE graph_id=$1', [
-          graphId,
-        ])
+        await db.query(
+          'SELECT * FROM relate.object_versions WHERE graph_id=$1',
+          [graphId],
+        )
       ).rows;
 
     expect(await changes()).toHaveLength(1);
@@ -678,7 +679,7 @@ it('rolls back raw retention, projection and history together on a database writ
       `CREATE FUNCTION relate.reject_history() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected failure'; END $$`,
     );
     await db.query(
-      'CREATE TRIGGER reject_history BEFORE INSERT ON relate.value_changes FOR EACH ROW EXECUTE FUNCTION relate.reject_history()',
+      'CREATE TRIGGER reject_history BEFORE INSERT ON relate.object_versions FOR EACH ROW EXECUTE FUNCTION relate.reject_history()',
     );
     await crm.update({ display_name: 'Not committed' });
     expect(
@@ -701,14 +702,15 @@ it('rolls back raw retention, projection and history together on a database writ
     expect(stored.values[Customer.properties.name.id]).toBe('Mothlight');
     expect(
       (
-        await db.query('SELECT * FROM relate.value_changes WHERE graph_id=$1', [
-          graphId,
-        ])
+        await db.query(
+          'SELECT * FROM relate.object_versions WHERE graph_id=$1',
+          [graphId],
+        )
       ).rowCount,
     ).toBe(1);
   } finally {
     await db.query(
-      'DROP TRIGGER IF EXISTS reject_history ON relate.value_changes',
+      'DROP TRIGGER IF EXISTS reject_history ON relate.object_versions',
     );
     await db.query('DROP FUNCTION IF EXISTS relate.reject_history()');
     await db.end();

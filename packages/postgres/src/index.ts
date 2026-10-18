@@ -3,16 +3,20 @@ import pg from 'pg';
 import { canonicalJson } from 'relate/model';
 import {
   compareObservation,
+  describeAcceptedChange,
   OrderingConflict,
   RetentionError,
+  sourceChangeDraft,
 } from '@relate/runtime/storage';
 import type {
+  AcceptedChange,
   ObservationStore,
   StorageScope,
   StoredObject,
   Observation,
 } from '@relate/runtime/storage';
 import { createNativePostgresStore } from './native.js';
+import { createActivityPostgresStore, publishFeed } from './activity.js';
 import { storageError } from './errors.js';
 import {
   initialMigration,
@@ -20,6 +24,7 @@ import {
   providerAccountMigration,
   receiptRecoveryMigration,
   applicationIdentityMigration,
+  activityMigration,
 } from './migrations.js';
 
 export interface PostgresOptions {
@@ -50,6 +55,11 @@ export function createPostgresStore(
   });
 
   nativePool.on('error', () => {});
+  // The single best-effort operation writer gets its own bounded connection:
+  // a hung append can never consume connections committed writes need.
+  const activityPool = new pg.Pool({ ...poolOptions, max: 1 });
+
+  activityPool.on('error', () => {});
 
   // Idle client failures are handled by pg; callers receive operation failures.
   pool.on('error', () => {});
@@ -85,6 +95,7 @@ export function createPostgresStore(
   return {
     durability: 'persistent',
     native: createNativePostgresStore(nativePool),
+    activity: createActivityPostgresStore(pool, activityPool),
     async migrate() {
       const client = await pool.connect();
 
@@ -103,6 +114,7 @@ export function createPostgresStore(
           providerAccountMigration,
           receiptRecoveryMigration,
           applicationIdentityMigration,
+          activityMigration,
         ];
         const existing = await client.query<{
           version: number;
@@ -145,6 +157,11 @@ export function createPostgresStore(
           'INSERT INTO relate.graphs(graph_id,definition_revision) VALUES ($1,$2) ON CONFLICT DO NOTHING',
           [graphId, definitionRevision],
         );
+        // Stream identity persists across restarts; it changes only on reset.
+        await pool.query(
+          'INSERT INTO relate.feed_streams(graph_id,stream_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+          [graphId, randomUUID()],
+        );
         const result = await pool.query(
           'SELECT 1 FROM relate.graphs WHERE graph_id=$1 AND definition_revision=$2',
           [graphId, definitionRevision],
@@ -174,6 +191,26 @@ export function createPostgresStore(
       );
 
       return result.rows[0] ? rowObject(result.rows[0]) : undefined;
+    },
+    async provenance(scope, objectId) {
+      const result = await pool.query(
+        `SELECT o.adopted_by_kind,o.adopted_by_id,o.adopted_at FROM relate.objects o
+        JOIN relate.graphs g USING (graph_id)
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND o.object_key=$7 AND g.definition_revision=$8`,
+        [...scopeValues(scope), objectId, scope.definitionRevision],
+      );
+      const row = result.rows[0];
+
+      if (!row) return undefined;
+
+      return row.adopted_by_kind !== null
+        ? {
+            kind: 'adopted',
+            actor: { kind: row.adopted_by_kind, id: row.adopted_by_id },
+            at: new Date(row.adopted_at).toISOString(),
+            sourceDefinitionId: scope.sourceDefinitionId,
+          }
+        : { kind: 'unknown' };
     },
     async resolve(scope, sourceRecordId) {
       const result = await pool.query(
@@ -247,6 +284,7 @@ export function createPostgresStore(
           input.observation,
         );
         let object = previous;
+        let change: AcceptedChange | undefined;
 
         if (acceptance === 'changed' || acceptance === 'unchanged') {
           object = {
@@ -254,28 +292,35 @@ export function createPostgresStore(
             sourceRecordId: input.sourceRecordId,
             observation: input.observation,
           };
+          const { attribution } = input;
+
+          // First membership writes adoption provenance with the identity.
           await client.query(
-            `INSERT INTO relate.objects(graph_id,object_type,source_id,connection_id,partition,provider_account_id,identity_kind,object_key,provider_key,observation)
-            VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $6='' THEN 'application' ELSE 'provider' END,$7,$8,$9::jsonb)
+            `INSERT INTO relate.objects(graph_id,object_type,source_id,connection_id,partition,provider_account_id,identity_kind,object_key,provider_key,observation,adopted_by_kind,adopted_by_id,adopted_at)
+            VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $6='' THEN 'application' ELSE 'provider' END,$7,$8,$9::jsonb,$10,$11,$12)
             ON CONFLICT (graph_id,object_type,object_key) DO UPDATE SET observation=EXCLUDED.observation`,
             [
               ...scopeValues(scope),
               object.objectId,
               input.sourceRecordId,
               JSON.stringify(input.observation),
+              attribution.actor.kind,
+              attribution.actor.id,
+              new Date(attribution.occurredAt),
             ],
           );
-          // Whole source record changes alone do not invent business value changes.
-          const valueChanged =
-            !previous ||
-            previous.observation.state !== input.observation.state ||
-            canonicalJson(previous.observation.values) !==
-              canonicalJson(input.observation.values);
+          // The shared classifier under this lock decides both the version row
+          // and the feed entry; raw-only changes produce neither.
+          const transition = describeAcceptedChange(
+            previous?.observation,
+            input.observation,
+          );
 
-          if (valueChanged)
+          if (transition) {
+            change = { id: attribution.changeId, ...transition };
             await client.query(
-              `INSERT INTO relate.value_changes(graph_id,object_type,object_key,origin,state,values,observed_at,fetch_token)
-            VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8)`,
+              `INSERT INTO relate.object_versions(graph_id,object_type,object_key,origin,state,values,observed_at,fetch_token,change_id)
+            VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9)`,
               [
                 scope.graphId,
                 scope.objectDefinitionId,
@@ -285,14 +330,20 @@ export function createPostgresStore(
                 JSON.stringify(input.observation.values),
                 new Date(input.observation.observedAt),
                 input.observation.token,
+                change.id,
               ],
             );
+            // Final work before COMMIT, after every domain write.
+            await publishFeed(client, scope.graphId, [
+              sourceChangeDraft(scope, object.objectId, attribution, change),
+            ]);
+          }
         }
 
         committing = true;
         await client.query('COMMIT');
 
-        return { object: object!, acceptance };
+        return { object: object!, acceptance, ...(change ? { change } : {}) };
       } catch (error) {
         await client.query('ROLLBACK').catch(() => {});
 
@@ -306,7 +357,7 @@ export function createPostgresStore(
       }
     },
     close: async () => {
-      await Promise.all([pool.end(), nativePool.end()]);
+      await Promise.all([pool.end(), nativePool.end(), activityPool.end()]);
     },
   };
 }

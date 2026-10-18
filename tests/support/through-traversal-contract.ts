@@ -19,6 +19,7 @@ import type { SourceConnector } from 'relate/connectors';
 import type { ObservationStore } from 'relate/storage';
 import { z } from 'zod';
 import { createPlaylistGraph } from './playlist-graph.js';
+import { testCreation } from './activity.js';
 
 type Backing = { store: ObservationStore; close(): Promise<void> };
 
@@ -535,26 +536,35 @@ export function throughTraversalContract(
 
       await backing.store.install(graphId, definitionRevision);
       await backing.store.native!.transaction(scope, async (tx) => {
-        await tx.insert({
-          objectDefinitionId: Playlist.id,
-          objectId: 'p',
-          values: { 'np.name': 'Morning' },
-          createdAt: 1000,
-        });
-        await tx.insert({
-          objectDefinitionId: Song.id,
-          objectId: 's',
-          values: { 'ns.title': 'Song' },
-          createdAt: 1000,
-        });
+        await tx.insert(
+          {
+            objectDefinitionId: Playlist.id,
+            objectId: 'p',
+            values: { 'np.name': 'Morning' },
+            createdAt: 1000,
+          },
+          testCreation(),
+        );
+        await tx.insert(
+          {
+            objectDefinitionId: Song.id,
+            objectId: 's',
+            values: { 'ns.title': 'Song' },
+            createdAt: 1000,
+          },
+          testCreation(),
+        );
 
         for (const id of ['one', 'two'])
-          await tx.insert({
-            objectDefinitionId: Membership.id,
-            objectId: id,
-            values: { 'nm.playlist': 'p', 'nm.song': 's' },
-            createdAt: 1000,
-          });
+          await tx.insert(
+            {
+              objectDefinitionId: Membership.id,
+              objectId: id,
+              values: { 'nm.playlist': 'p', 'nm.song': 's' },
+              createdAt: 1000,
+            },
+            testCreation(),
+          );
       });
       const runtime = createRuntime({
         graph,

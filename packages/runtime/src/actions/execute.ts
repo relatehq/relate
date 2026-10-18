@@ -29,6 +29,8 @@ import type {
   ObservationStore,
 } from '../storage.js';
 import type { Principal } from '../authorization/index.js';
+import { currentScope, noteInvocation, uuidv7 } from '../activity/index.js';
+import type { FeedDraft } from '../storage.js';
 import { createActionDeadline } from './deadline.js';
 import { actionAllowed } from './available.js';
 
@@ -239,6 +241,10 @@ export function createActionExecutor(options: {
 
     if (!handler || !store.native) throw new ActionError('unsupported');
 
+    // The attempt that executes or replays this invocation; fresh per retry.
+    const attempt = currentScope();
+    const startedAt = options.clock();
+
     let deadline: ReturnType<typeof createActionDeadline> | undefined;
 
     try {
@@ -267,8 +273,16 @@ export function createActionExecutor(options: {
               if (canonicalJson(existing.input) !== canonicalJson(input))
                 throw new ActionError('conflict');
 
+              // A replay commits nothing of its own and keeps the saved ID.
+              noteInvocation(receipt.invocationId, true);
+
               return receipt;
             }
+
+            // Allocated before the handler runs: creation provenance, the
+            // receipt and the invocation event share it. Allocation alone is
+            // not durable; a rejected or rolled-back attempt leaves nothing.
+            const invocationId = randomUUID();
 
             const reads: NativeReceiptRead[] = [];
             const definitions = new Map(manifest.objects.map((o) => [o.id, o]));
@@ -501,7 +515,10 @@ export function createActionExecutor(options: {
                         record,
                         transaction,
                       );
-                      await transaction.insert(record);
+                      await transaction.insert(record, {
+                        actor: attempt.actor,
+                        invocationId,
+                      });
                       created.push(record);
 
                       return { id: record.objectId };
@@ -552,12 +569,12 @@ export function createActionExecutor(options: {
 
             const receipt: ActionReceipt = domain
               ? {
-                  invocationId: randomUUID(),
+                  invocationId,
                   state: 'failed',
                   error: domain,
                 }
               : {
-                  invocationId: randomUUID(),
+                  invocationId,
                   state: 'succeeded',
                   output,
                 };
@@ -574,10 +591,18 @@ export function createActionExecutor(options: {
                     ),
                 )
               : reads;
+            const completedAt = options.clock();
             const invocation: NativeInvocation = {
               actionDefinitionId: action.id,
               idempotencyKey: key,
               actorId: actor.id,
+              actorKind: attempt.actor.kind,
+              operationId: attempt.id,
+              requestId: attempt.context.requestId,
+              transport: attempt.context.transport,
+              definitionRevision: options.scope.definitionRevision,
+              startedAt,
+              completedAt,
               reads: retainedReads,
               input,
               receipt,
@@ -589,6 +614,53 @@ export function createActionExecutor(options: {
               await authorizeReceipt(actor, action, invocation, transaction);
 
             await transaction.saveInvocation(invocation);
+
+            if (store.activity) {
+              if (!transaction.appendFeed)
+                throw new Error(
+                  'Activity store lacks atomic native feed staging',
+                );
+
+              const envelope = {
+                schemaVersion: 1 as const,
+                graphId: options.scope.graphId,
+                definitionRevision: options.scope.definitionRevision,
+                operationId: attempt.id,
+                invocationId,
+                actor: attempt.actor,
+                context: attempt.context,
+              };
+              const drafts: FeedDraft[] = [
+                // One change per committed creation; a domain failure has none.
+                ...(domain ? [] : created).map((record): FeedDraft => ({
+                  ...envelope,
+                  id: uuidv7(),
+                  kind: 'created',
+                  object: {
+                    objectDefinitionId: record.objectDefinitionId,
+                    objectId: record.objectId,
+                  },
+                  changedPropertyIds: Object.keys(record.values).sort(),
+                  occurredAt: new Date(record.createdAt).toISOString(),
+                })),
+                {
+                  ...envelope,
+                  id: uuidv7(),
+                  actionDefinitionId: action.id,
+                  occurredAt: new Date(completedAt).toISOString(),
+                  ...(domain
+                    ? {
+                        kind: 'invocation-failed' as const,
+                        failureCode: domain.code,
+                      }
+                    : { kind: 'invocation-succeeded' as const }),
+                },
+              ];
+
+              await transaction.appendFeed(drafts);
+            }
+
+            noteInvocation(invocationId, false);
 
             return receipt;
           });

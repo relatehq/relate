@@ -60,7 +60,10 @@ export async function startApp<G extends Graph>(
 
   return Object.freeze({
     as: (principal: Principal) => runtime.as(principal),
-    operations: (principal: Principal) => runtime.operations(principal),
+    operations: (
+      principal: Principal,
+      context?: Parameters<Relate<G>['operations']>[1],
+    ) => runtime.operations(principal, context),
     host: runtime.host,
     async close() {
       await runtime.close();

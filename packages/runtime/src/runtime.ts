@@ -6,15 +6,42 @@ import {
 import type { ActionHandler } from './actions/index.js';
 import type { NativeTransaction, StorageScope } from './storage.js';
 import { createGraphQuery } from './queries/index.js';
-import { createTraversal } from './traversal/index.js';
-import { createSourceOperations } from './resolution/index.js';
+import { createTraversal, traversalsFrom } from './traversal/index.js';
+import {
+  createSourceOperations,
+  InvalidObservation,
+  SourceAccessDenied,
+} from './resolution/index.js';
+import {
+  createCapture,
+  createOperationRecorder,
+  createOperationScope,
+  lineageEntry,
+  referenceEntry,
+  rejected,
+} from './activity/index.js';
+import type {
+  ActivityCaptureOptions,
+  OperationBody,
+  OperationScope,
+  Settled,
+} from './activity/index.js';
+import { RetentionError, StorageUnavailable } from './storage.js';
 import type { SourceBinding } from 'relate/connectors';
 import { createMemoryStore } from './memory.js';
 import { presenting } from './reads/index.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
+import { ActionError, ActivityError } from '@relate/protocol';
 import type {
+  ActionReceipt,
+  ActivityObjectRef,
+  ActivityReader,
+  ActivityStatus,
+  FullPageResult,
+  ObjectProvenance,
+  OperationActor,
   QueryRequest,
   ReadRequest,
   TraversalRequest,
@@ -35,7 +62,18 @@ export interface RuntimeOptions {
   readonly actionHandlers?: Readonly<Record<string, ActionHandler>>;
   /** Native callback budget after lock acquisition, 1–60,000 ms; defaults to 60,000. */
   readonly actionTimeoutMs?: number;
+  /** Operation capture configuration; the feed and provenance are always recorded. */
+  readonly activity?: ActivityCaptureOptions;
 }
+
+/** Trusted host operations without an explicit actor are attributed to this one. */
+export const hostActor: OperationActor = Object.freeze({
+  kind: 'system',
+  id: 'relate.host',
+});
+
+const nonblank = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
 
 export function createRuntime(options: RuntimeOptions) {
   const actionTimeoutMs = options.actionTimeoutMs ?? 60_000;
@@ -55,6 +93,18 @@ export function createRuntime(options: RuntimeOptions) {
 
   const store = options.store ?? createMemoryStore(),
     clock = options.clock ?? Date.now;
+
+  // A store advertising activity must record feed entries atomically for
+  // every write capability it exposes; a best-effort sink cannot claim that.
+  if (
+    store.activity &&
+    (store.activity.atomicFeed?.sourceAcceptance !== true ||
+      (store.native && store.activity.atomicFeed.nativeTransactions !== true))
+  )
+    throw new Error(
+      'Store advertises activity without atomic feed recording for every write capability',
+    );
+
   const sources = Object.fromEntries(
     Object.entries(options.sources).map(([id, source]) => [id, { ...source }]),
   );
@@ -131,6 +181,16 @@ export function createRuntime(options: RuntimeOptions) {
     );
   }
 
+  const recorder = createOperationRecorder({
+    ...(store.activity ? { store: store.activity } : {}),
+    graphId: options.graphId,
+    ...(options.activity ? { capture: options.activity } : {}),
+  });
+  const capture = createCapture({
+    graphId: options.graphId,
+    definitionRevision: revision,
+    recorder,
+  });
   const source = createSourceOperations({
     manifest,
     revision,
@@ -139,6 +199,7 @@ export function createRuntime(options: RuntimeOptions) {
     clock,
     install,
     scopeFor,
+    capture,
     resolve: resolveEvidence,
   });
   const native = createNativeOperations({
@@ -204,17 +265,169 @@ export function createRuntime(options: RuntimeOptions) {
     ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
   });
 
+  /** The authenticated principal is the actor; a supplied scope cannot change it. */
+  function consumerScope(principal: Principal, scope?: OperationScope) {
+    if (!scope)
+      return createOperationScope({ kind: 'principal', id: principal.id });
+
+    if (scope.actor.kind !== 'principal' || scope.actor.id !== principal.id)
+      throw new Error('Operation scope actor must be the bound principal');
+
+    return scope;
+  }
+
+  const ref = (objectDefinitionId: string, objectId: string) => ({
+    objectDefinitionId,
+    objectId,
+  });
+  const receiptOutcome = (receipt: ActionReceipt) =>
+    receipt.state === 'succeeded'
+      ? { status: 'succeeded' as const }
+      : { status: 'failed' as const, code: receipt.error.code };
+
+  const executor = createActionExecutor({
+    query,
+    manifest,
+    scope: nativeScope,
+    store,
+    clock,
+    timeoutMs: actionTimeoutMs,
+    install,
+    handlers: options.actionHandlers ?? {},
+    validate: native.validate,
+    read: (actor, type, id, request, transaction, captureAuthorization) =>
+      readObject(
+        actor,
+        type,
+        id,
+        request,
+        undefined,
+        captureAuthorization,
+        transaction,
+      ),
+  });
+
+  /** Trusted readers: unsupported is never an empty history. */
+  async function activityCall<T>(
+    read: (activity: NonNullable<typeof store.activity>) => Promise<T>,
+  ): Promise<T> {
+    if (!store.activity) throw new ActivityError('unsupported');
+
+    try {
+      await install();
+
+      return await read(store.activity);
+    } catch (error) {
+      if (error instanceof ActivityError) throw error;
+
+      throw new ActivityError('unavailable', { cause: error });
+    }
+  }
+
+  const activity: ActivityReader = Object.freeze({
+    async status(): Promise<ActivityStatus> {
+      return store.activity
+        ? {
+            state: 'available',
+            durability: store.durability,
+            operationCapture: recorder.enabled ? 'enabled' : 'disabled',
+          }
+        : { state: 'unsupported' };
+    },
+    feed: Object.freeze({
+      read: (readOptions?: Parameters<ActivityReader['feed']['read']>[0]) =>
+        activityCall((a) => a.feed.read(options.graphId, readOptions)),
+    }),
+    operations: Object.freeze({
+      list: (
+        readOptions?: Parameters<ActivityReader['operations']['list']>[0],
+      ) => activityCall((a) => a.operations.list(options.graphId, readOptions)),
+    }),
+  });
+
   return {
     discover: (principal: Principal) =>
       createDiscovery({ manifest, definitionRevision: revision }, principal),
-    adopt: source.adopt,
+    /** Trusted host ingestion, attributed to the host actor or the scope's actor. */
+    adopt(
+      objectDefinitionId: string,
+      sourceRecordId: string,
+      scope: OperationScope = createOperationScope(hostActor),
+    ): Promise<string> {
+      return capture.operation(
+        scope,
+        () => source.adopt(objectDefinitionId, sourceRecordId),
+        (settled): OperationBody => ({
+          kind: 'adopt',
+          definitionId: objectDefinitionId,
+          ...(settled.ok
+            ? {
+                target: ref(objectDefinitionId, settled.value),
+                outcome: { status: 'ok' },
+                objects: [
+                  referenceEntry(
+                    ref(objectDefinitionId, settled.value),
+                    'target',
+                  ),
+                ],
+              }
+            : {
+                outcome:
+                  settled.error instanceof RetentionError &&
+                  settled.error.outcome === 'unconfirmed'
+                    ? { status: 'uncertain' }
+                    : {
+                        status: 'rejected',
+                        code:
+                          settled.error instanceof SourceAccessDenied
+                            ? 'denied'
+                            : settled.error instanceof InvalidObservation ||
+                                (settled.error instanceof Error &&
+                                  settled.error.message ===
+                                    'Invalid adoption target')
+                              ? 'invalid'
+                              : settled.error instanceof RetentionError ||
+                                  settled.error instanceof StorageUnavailable
+                                ? 'unavailable'
+                                : rejected(settled.error).code,
+                      },
+                objects: [],
+              }),
+          details: {},
+        }),
+      );
+    },
     async query(
       principal: Principal,
       objectDefinitionId: string,
       request: QueryRequest = {},
+      scope?: OperationScope,
     ) {
+      const attempt = consumerScope(principal, scope);
+
       return presenting(request, (r) =>
-        query(principal, objectDefinitionId, r),
+        capture.operation(
+          attempt,
+          () => query(principal, objectDefinitionId, r),
+          (settled): OperationBody => ({
+            kind: 'query',
+            definitionId: objectDefinitionId,
+            ...(settled.ok
+              ? {
+                  outcome: { status: 'ok' },
+                  objects: settled.value.data.map((record) =>
+                    lineageEntry(
+                      manifest,
+                      objectDefinitionId,
+                      'returned',
+                      record,
+                    ),
+                  ),
+                  details: { hasMore: !settled.value.meta.exhausted },
+                }
+              : { outcome: rejected(settled.error), objects: [], details: {} }),
+          }),
+        ),
       );
     },
     async read(
@@ -222,42 +435,208 @@ export function createRuntime(options: RuntimeOptions) {
       objectDefinitionId: string,
       objectId: string,
       request: ReadRequest = {},
+      scope?: OperationScope,
     ) {
+      const attempt = consumerScope(principal, scope);
+      const target = ref(objectDefinitionId, objectId);
+
       return presenting(request, (r) =>
-        readObject(principal, objectDefinitionId, objectId, r),
+        capture.operation(
+          attempt,
+          () => readObject(principal, objectDefinitionId, objectId, r),
+          (settled): OperationBody => ({
+            kind: 'get',
+            definitionId: objectDefinitionId,
+            // The requested identity, without asserting the object exists:
+            // hidden and missing objects share one outcome.
+            target,
+            outcome: settled.ok
+              ? { status: settled.value.status }
+              : rejected(settled.error),
+            objects: [
+              settled.ok && settled.value.status === 'ok'
+                ? lineageEntry(
+                    manifest,
+                    objectDefinitionId,
+                    'target',
+                    settled.value,
+                  )
+                : referenceEntry(target, 'target'),
+            ],
+            details: {},
+          }),
+        ),
       );
     },
-    ...createActionExecutor({
-      query,
-      manifest,
-      scope: nativeScope,
-      store,
-      clock,
-      timeoutMs: actionTimeoutMs,
-      install,
-      handlers: options.actionHandlers ?? {},
-      validate: native.validate,
-      read: (actor, type, id, request, transaction, captureAuthorization) =>
-        readObject(
-          actor,
-          type,
-          id,
-          request,
-          undefined,
-          captureAuthorization,
-          transaction,
-        ),
-    }),
+    async invoke(
+      principal: Principal,
+      actionId: string,
+      request: { input: unknown; idempotencyKey: string },
+      scope?: OperationScope,
+    ) {
+      return capture.operation(
+        consumerScope(principal, scope),
+        () => executor.invoke(principal, actionId, request),
+        (settled, active): OperationBody => ({
+          kind: 'invoke',
+          definitionId: actionId,
+          objects: [],
+          details: {},
+          ...(settled.ok
+            ? {
+                outcome: receiptOutcome(settled.value),
+                invocationId: settled.value.invocationId,
+                replayed: active.invocation?.replayed ?? false,
+              }
+            : {
+                outcome:
+                  settled.error instanceof ActionError &&
+                  settled.error.code === 'uncertain'
+                    ? { status: 'uncertain' }
+                    : rejected(settled.error),
+                replayed: false,
+              }),
+        }),
+      );
+    },
+    async getReceipt(
+      principal: Principal,
+      actionId: string,
+      invocationId: string,
+      scope?: OperationScope,
+    ) {
+      return capture.operation(
+        consumerScope(principal, scope),
+        () => executor.getReceipt(principal, actionId, invocationId),
+        (settled): OperationBody => ({
+          kind: 'receipt',
+          definitionId: actionId,
+          objects: [],
+          details: {},
+          ...(settled.ok
+            ? {
+                outcome: receiptOutcome(settled.value),
+                invocationId: settled.value.invocationId,
+              }
+            : { outcome: rejected(settled.error) }),
+        }),
+      );
+    },
     async traverse(
       principal: Principal,
       typeId: string,
       id: string,
       name: string,
       request: TraversalRequest = {},
+      scope?: OperationScope,
     ) {
+      const attempt = consumerScope(principal, scope);
+      const edge = traversalsFrom(manifest, typeId).find(
+        ({ relationship, forward }) =>
+          (forward ? relationship.forward : relationship.reverse).name === name,
+      );
+      const resultType = edge
+        ? edge.forward
+          ? edge.relationship.toObjectDefinitionId
+          : edge.relationship.fromObjectDefinitionId
+        : typeId;
+      const from = ref(typeId, id);
+      const describe = (
+        settled: Settled<FullPageResult | ReadResult>,
+      ): OperationBody => {
+        const origin = referenceEntry(from, 'traversal-origin');
+        const details = {
+          traversalId: edge?.relationship.id ?? String(name),
+          from,
+        };
+
+        if (!settled.ok)
+          return {
+            kind: 'traverse',
+            definitionId: resultType,
+            outcome: rejected(settled.error),
+            objects: [origin],
+            details,
+          };
+
+        const value = settled.value;
+
+        if ('data' in value && 'meta' in value && !('status' in value))
+          return {
+            kind: 'traverse',
+            definitionId: resultType,
+            outcome: { status: 'ok' },
+            objects: [
+              origin,
+              ...value.data.map((record) =>
+                lineageEntry(manifest, resultType, 'returned', record),
+              ),
+            ],
+            details: { ...details, hasMore: !value.meta.exhausted },
+          };
+
+        const one = value as ReadResult;
+
+        return {
+          kind: 'traverse',
+          definitionId: resultType,
+          outcome: { status: one.status },
+          objects:
+            one.status === 'ok'
+              ? [origin, lineageEntry(manifest, resultType, 'returned', one)]
+              : [origin],
+          details,
+        };
+      };
+
       return presenting(request, (r) =>
-        traverse(principal, typeId, id, name, r),
+        capture.operation(
+          attempt,
+          () => traverse(principal, typeId, id, name, r),
+          describe,
+        ),
       );
     },
+    /** Trusted host activity reading; never exposed to consumers. */
+    activity,
+    /** Who created or adopted an object, from object storage only. */
+    async provenance(
+      object: ActivityObjectRef,
+    ): Promise<ObjectProvenance | undefined> {
+      if (
+        !object ||
+        typeof object !== 'object' ||
+        !nonblank(object.objectDefinitionId) ||
+        !nonblank(object.objectId)
+      )
+        throw new ActivityError('invalid-request');
+
+      const definition = manifest.objects.find(
+        (o) => o.id === object.objectDefinitionId,
+      );
+
+      if (!definition) return undefined;
+
+      try {
+        await install();
+
+        if (definition.sourceDefinitionId)
+          return await store.provenance(
+            scopeFor(definition.id, definition.sourceDefinitionId),
+            object.objectId,
+          );
+
+        return await store.native?.provenance(nativeScope, {
+          objectDefinitionId: object.objectDefinitionId,
+          objectId: object.objectId,
+        });
+      } catch (error) {
+        throw new ActivityError('unavailable', { cause: error });
+      }
+    },
+    /** Operation-capture drop and truncation counters. */
+    activityCounters: () => recorder.counters(),
+    /** Flush captured operations within the deadline; reports abandonment. */
+    drainActivity: (deadlineMs: number) => recorder.drain(deadlineMs),
   };
 }

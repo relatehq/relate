@@ -38,6 +38,11 @@ export function createActionDeadline(
       guard(() => transaction.findInvocation(...args)),
     saveInvocation: (...args) =>
       guard(() => transaction.saveInvocation(...args)),
+    ...(transaction.appendFeed
+      ? {
+          appendFeed: (drafts) => guard(() => transaction.appendFeed!(drafts)),
+        }
+      : {}),
   };
   const close = () => {
     clearTimeout(timer);

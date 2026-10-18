@@ -1,4 +1,11 @@
-import type { ConsumerOperations, QueryRequest } from '@relate/protocol';
+import type {
+  ActivityActor,
+  ActivityObjectRef,
+  ConsumerOperations,
+  OperationActor,
+  OperationContext,
+  QueryRequest,
+} from '@relate/protocol';
 import { compile } from 'relate/compiler';
 import type {
   ActionDefinition,
@@ -11,11 +18,85 @@ import type {
 } from 'relate';
 import { createConsumer, createPagedQuery } from 'relate/consumer';
 import type { Consumer } from 'relate/consumer';
-import { createRuntime as createEngine } from '@relate/runtime';
+import {
+  createOperationScope,
+  createRuntime as createEngine,
+  hostActor,
+} from '@relate/runtime';
 import type { Principal } from '@relate/runtime';
 import type { SourceBinding } from 'relate/connectors';
 import type { ActionHandler } from '@relate/runtime';
 import type { Relate } from './types.js';
+
+/** Trusted host attribution for host operations such as adoption. */
+export interface HostAttribution {
+  /** Defaults to the named system actor `relate.host`. */
+  readonly actor?: OperationActor;
+  readonly context?: Partial<OperationContext>;
+}
+
+const actorKinds = new Set(['principal', 'system']);
+
+function hostAttribution(attribution?: HostAttribution): OperationActor {
+  const actor = attribution?.actor ?? hostActor;
+
+  if (
+    !actor ||
+    !actorKinds.has(actor.kind) ||
+    typeof actor.id !== 'string' ||
+    !actor.id.trim()
+  )
+    throw new Error('Host actor must be a principal or system actor');
+
+  return { kind: actor.kind, id: actor.id };
+}
+
+/** Trusted transport context; it cannot override the actor or revision. */
+function requestContext(
+  context: Partial<OperationContext>,
+): Partial<OperationContext> {
+  const text = (value: unknown) =>
+    value === undefined || (typeof value === 'string' && value.trim());
+
+  if (
+    !context ||
+    typeof context !== 'object' ||
+    !text(context.requestId) ||
+    !text(context.executionId) ||
+    !text(context.runtimeId) ||
+    (context.transport !== undefined &&
+      !['embedded', 'http', 'mcp'].includes(context.transport))
+  )
+    throw new Error('Invalid operation context');
+
+  const initiator = context.initiator as ActivityActor | undefined;
+
+  if (
+    initiator !== undefined &&
+    (!['principal', 'system', 'source'].includes(initiator?.kind) ||
+      typeof initiator.id !== 'string' ||
+      !initiator.id.trim())
+  )
+    throw new Error('Invalid operation initiator');
+
+  return {
+    ...(context.requestId !== undefined
+      ? { requestId: context.requestId }
+      : {}),
+    ...(context.transport !== undefined
+      ? { transport: context.transport }
+      : {}),
+    ...(context.executionId !== undefined
+      ? { executionId: context.executionId }
+      : {}),
+    ...(context.runtimeId !== undefined
+      ? { runtimeId: context.runtimeId }
+      : {}),
+    ...(initiator
+      ? { initiator: { kind: initiator.kind, id: initiator.id } }
+      : {}),
+  };
+}
 
 export interface AppOptions<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
@@ -115,7 +196,13 @@ export function createRuntime<
     ...(options.store ? { store: options.store } : {}),
     ...(options.clock ? { clock: options.clock } : {}),
     ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+    ...(options.activity ? { activity: options.activity } : {}),
   });
+  const flushTimeoutMs = options.activity?.flushTimeoutMs ?? 5_000;
+
+  if (!Number.isInteger(flushTimeoutMs) || flushTimeoutMs < 0)
+    throw new Error('activity.flushTimeoutMs must be a non-negative integer');
+
   let closed = false;
   const pending = new Set<Promise<unknown>>();
   const open = () => {
@@ -135,12 +222,23 @@ export function createRuntime<
     }
   };
 
-  /** Bind one host-authenticated principal; every call is tracked for `close()`. */
-  function operations(principal: Principal): ConsumerOperations {
+  /**
+   * Bind one host-authenticated principal and request context; every call is
+   * tracked for `close()`. The binding carries context, never an operation
+   * ID: each call is its own attempt, and embedded callers without a request
+   * ID get a fresh one per call.
+   */
+  function operations(
+    principal: Principal,
+    context?: Partial<OperationContext>,
+  ): ConsumerOperations {
     open();
 
     // A handle binds a snapshot of the host-authenticated principal.
     const actor = structuredClone(principal);
+    const request = context ? requestContext(context) : undefined;
+    const scope = () =>
+      createOperationScope({ kind: 'principal', id: actor.id }, request);
     const discovery = engine.discover(actor);
     const bound: ConsumerOperations = {
       discovery: Object.freeze({
@@ -160,24 +258,29 @@ export function createRuntime<
           return discovery.describeAction(actionDefinitionId);
         },
       }),
-      get: (objectDefinitionId, objectId, request) =>
-        run(() => engine.read(actor, objectDefinitionId, objectId, request)),
-      query: (objectDefinitionId, request) =>
-        run(() => engine.query(actor, objectDefinitionId, request)),
-      traverse: (objectDefinitionId, objectId, traversal, request) =>
+      get: (objectDefinitionId, objectId, options) =>
+        run(() =>
+          engine.read(actor, objectDefinitionId, objectId, options, scope()),
+        ),
+      query: (objectDefinitionId, options) =>
+        run(() => engine.query(actor, objectDefinitionId, options, scope())),
+      traverse: (objectDefinitionId, objectId, traversal, options) =>
         run(() =>
           engine.traverse(
             actor,
             objectDefinitionId,
             objectId,
             traversal,
-            request,
+            options,
+            scope(),
           ),
         ),
-      invoke: (actionDefinitionId, request) =>
-        run(() => engine.invoke(actor, actionDefinitionId, request)),
+      invoke: (actionDefinitionId, options) =>
+        run(() => engine.invoke(actor, actionDefinitionId, options, scope())),
       getReceipt: (actionDefinitionId, invocationId) =>
-        run(() => engine.getReceipt(actor, actionDefinitionId, invocationId)),
+        run(() =>
+          engine.getReceipt(actor, actionDefinitionId, invocationId, scope()),
+        ),
     };
 
     return Object.freeze(bound);
@@ -198,20 +301,46 @@ export function createRuntime<
       >(
         object: O,
         sourceRecordId: string,
+        adoption?: HostAttribution,
       ) =>
         run(async () => {
           if (!registered.has(object))
             throw new Error('Unregistered adoption target');
 
+          const scope = createOperationScope(
+            hostAttribution(adoption),
+            adoption?.context ? requestContext(adoption.context) : undefined,
+          );
+
           // Adoption establishes the canonical ID for this registered definition.
-          return (await engine.adopt(object.id, sourceRecordId)) as ObjectId<
-            O['id']
-          >;
+          return (await engine.adopt(
+            object.id,
+            sourceRecordId,
+            scope,
+          )) as ObjectId<O['id']>;
         }),
+      activity: Object.freeze({
+        status: () => run(() => engine.activity.status()),
+        feed: Object.freeze({
+          read: (options?: Parameters<typeof engine.activity.feed.read>[0]) =>
+            run(() => engine.activity.feed.read(options)),
+        }),
+        operations: Object.freeze({
+          list: (
+            options?: Parameters<typeof engine.activity.operations.list>[0],
+          ) => run(() => engine.activity.operations.list(options)),
+        }),
+      }),
+      provenance: (object: ActivityObjectRef) =>
+        run(() => engine.provenance(object)),
+      activityCounters: () => engine.activityCounters(),
     }),
     async close() {
       closed = true;
       await Promise.allSettled([...pending]);
+      // Drain tracked operations first, then flush capture within a deadline.
+      // Expiry reports abandoned rows; a borrowed store stays open either way.
+      await engine.drainActivity(flushTimeoutMs);
     },
   };
 }

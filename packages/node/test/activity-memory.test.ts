@@ -1,0 +1,483 @@
+import { randomUUID } from 'node:crypto';
+import { describe, expect, it, vi } from 'vitest';
+import { connect } from 'relate';
+import { createRuntime } from '@relate/node';
+import { createMemoryStore } from '@relate/runtime';
+import type { ObservationStore } from '@relate/runtime/storage';
+import type { Change, Operation } from '@relate/protocol';
+import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
+import {
+  AddAccountReview,
+  Customer,
+  addAccountReview,
+  ana,
+  customers,
+  graph,
+  invoices,
+} from '../../../tests/support/native-action-model.js';
+
+function reviewConnections(
+  crm: { name?: () => string; portfolio?: () => string } = {},
+) {
+  return [
+    connect(customers, {
+      providerAccountId: 'example-account',
+      connectionId: 'crm',
+      connector: {
+        identify: async () => 'example-account',
+        fetch: async (id) => ({
+          providerAccountId: 'example-account',
+          state: 'present',
+          record: {
+            id,
+            name: crm.name?.() ?? `Customer ${id}`,
+            portfolio: crm.portfolio?.() ?? 'north',
+          },
+        }),
+      },
+    }),
+    connect(invoices, {
+      providerAccountId: 'example-account',
+      connectionId: 'billing',
+      connector: {
+        identify: async () => 'example-account',
+        fetch: async (id) => ({
+          providerAccountId: 'example-account',
+          state: 'present',
+          record: { id },
+        }),
+      },
+    }),
+  ];
+}
+
+function reviewApp(
+  store: ObservationStore,
+  graphId: string = randomUUID(),
+  crm: {
+    now?: () => number;
+    name?: () => string;
+    portfolio?: () => string;
+  } = {},
+) {
+  return createRuntime({
+    graph,
+    graphId,
+    store,
+    ...(crm.now ? { clock: crm.now } : {}),
+    actionImplementations: [addAccountReview],
+    connections: reviewConnections(crm),
+  });
+}
+
+describe('memory activity', () => {
+  it('rejects activity reads when unsupported but keeps object provenance', async () => {
+    const runtime = reviewApp(createMemoryStore({ activity: false }));
+    const customer = await runtime.host.adopt(Customer, 'mothlight');
+    const receipt = await runtime.as(ana).actions.addAccountReview({
+      input: { customer, note: 'Without activity' },
+      idempotencyKey: 'review',
+    });
+
+    expect(await runtime.host.activity.status()).toEqual({
+      state: 'unsupported',
+    });
+    await expect(runtime.host.activity.feed.read()).rejects.toMatchObject({
+      code: 'unsupported',
+    });
+    await expect(runtime.host.activity.operations.list()).rejects.toMatchObject(
+      { code: 'unsupported' },
+    );
+    expect(
+      await runtime.host.provenance({
+        objectDefinitionId: Customer.id,
+        objectId: customer,
+      }),
+    ).toMatchObject({ kind: 'adopted', actor: { id: 'relate.host' } });
+    expect(
+      await runtime.host.provenance({
+        objectDefinitionId: 'business.account-review',
+        objectId:
+          receipt.state === 'succeeded' ? receipt.output.reviewId : 'missing',
+      }),
+    ).toMatchObject({
+      kind: 'created',
+      actor: { kind: 'principal', id: 'ana' },
+      invocationId: receipt.invocationId,
+    });
+    expect(
+      await runtime.host.provenance({
+        objectDefinitionId: Customer.id,
+        objectId: 'missing',
+      }),
+    ).toBeUndefined();
+    expect(
+      await runtime.host.provenance({
+        objectDefinitionId: 'unknown.object',
+        objectId: customer,
+      }),
+    ).toBeUndefined();
+    await runtime.close();
+  });
+
+  it('rejects a store that advertises activity without atomic feed recording', () => {
+    const store = createMemoryStore();
+
+    expect(() =>
+      reviewApp({
+        ...store,
+        activity: {
+          ...store.activity!,
+          atomicFeed: { sourceAcceptance: true, nativeTransactions: false },
+        },
+      }),
+    ).toThrow(/atomic feed/);
+  });
+
+  it('evicts a feed prefix, expires older cursors and keeps provenance', async () => {
+    const store = createMemoryStore({
+      activity: { feedEntries: 2, operations: 1 },
+    });
+    const graphId = randomUUID();
+    const runtime = reviewApp(store, graphId);
+    const first = await runtime.host.adopt(Customer, 'one');
+    const early = await runtime.host.activity.feed.read();
+
+    await runtime.host.adopt(Customer, 'two');
+    await runtime.host.adopt(Customer, 'three');
+
+    const retained = await runtime.host.activity.feed.read();
+
+    expect(retained.entries.map((entry) => entry.position)).toEqual(['2', '3']);
+    // Entries stand alone: actor and context survive operation eviction.
+    expect(retained.entries[0]).toMatchObject({
+      actor: { kind: 'system', id: 'relate.host' },
+      context: { transport: 'embedded' },
+    });
+    await expect(
+      runtime.host.activity.feed.read({ cursor: early.nextCursor }),
+    ).resolves.toMatchObject({
+      entries: [{ position: '2' }, { position: '3' }],
+    });
+
+    await runtime.host.adopt(Customer, 'four');
+    await expect(
+      runtime.host.activity.feed.read({ cursor: early.nextCursor }),
+    ).rejects.toMatchObject({ code: 'cursor-expired' });
+    expect(
+      await runtime.host.provenance({
+        objectDefinitionId: Customer.id,
+        objectId: first,
+      }),
+    ).toMatchObject({ kind: 'adopted' });
+    await vi.waitFor(async () =>
+      expect(
+        (await runtime.host.activity.operations.list()).entries,
+      ).toHaveLength(1),
+    );
+
+    // A replacement store is a new stream: old cursors expire explicitly.
+    const replacement = reviewApp(createMemoryStore(), graphId);
+
+    await replacement.host.adopt(Customer, 'one');
+    await expect(
+      replacement.host.activity.feed.read({ cursor: retained.nextCursor }),
+    ).rejects.toMatchObject({ code: 'cursor-expired' });
+    await runtime.close();
+    await replacement.close();
+  });
+
+  it('rolls back writes whose feed batch exceeds retained limits', async () => {
+    const store = createMemoryStore({ activity: { rowBytes: 100 } });
+    const runtime = reviewApp(store);
+
+    await expect(runtime.host.adopt(Customer, 'mothlight')).rejects.toThrow();
+
+    const roomy = createMemoryStore({ activity: { feedEntries: 2 } });
+    const reviews = reviewApp(roomy);
+    const customer = await reviews.host.adopt(Customer, 'mothlight');
+
+    // Creation plus its invocation event fit; with the adoption retained the
+    // prefix is evicted, never part of the new batch.
+    await reviews.as(ana).actions.addAccountReview({
+      input: { customer, note: 'Fits' },
+      idempotencyKey: 'fits',
+    });
+    expect(
+      (await reviews.host.activity.feed.read()).entries.map((e) => e.kind),
+    ).toEqual(['created', 'invocation-succeeded']);
+    await runtime.close();
+    await reviews.close();
+  });
+
+  it('records traversal lineage with its origin and authorized fields', async () => {
+    const { graph, customers, invoices, Customer, Invoice, finance, ana } =
+      createInvoiceGraph();
+    const runtime = createRuntime({
+      graph,
+      graphId: randomUUID(),
+      connections: [
+        connect(customers, {
+          providerAccountId: 'example-account',
+          connectionId: 'crm',
+          connector: {
+            identify: async () => 'example-account',
+            fetch: async (id) => ({
+              providerAccountId: 'example-account',
+              state: 'present',
+              record: { id, name: 'Mothlight', portfolio: 'north', revenue: 1 },
+            }),
+          },
+        }),
+        connect(invoices, {
+          providerAccountId: 'example-account',
+          connectionId: 'billing',
+          connector: {
+            identify: async () => 'example-account',
+            fetch: async (id) => ({
+              providerAccountId: 'example-account',
+              state: 'present',
+              record: {
+                id,
+                customer_id: 'mothlight',
+                status: 'paid',
+                total_minor: 100,
+              },
+            }),
+          },
+        }),
+      ],
+    });
+    const customer = await runtime.host.adopt(Customer, 'mothlight');
+    const invoiceIds = [
+      await runtime.host.adopt(Invoice, 'inv_01'),
+      await runtime.host.adopt(Invoice, 'inv_02'),
+    ];
+
+    for (const principal of [ana, finance])
+      await runtime.as(principal).objects.Customer.traverse.invoices(customer, {
+        select: ['status', 'totalMinor'],
+      });
+
+    let traversals: readonly Operation[] = [];
+
+    await vi.waitFor(async () => {
+      traversals = (
+        await runtime.host.activity.operations.list({
+          filter: { kinds: ['traverse'] },
+        })
+      ).entries;
+      expect(traversals).toHaveLength(2);
+    });
+
+    const [fin, anaTraversal] = traversals;
+    const returned = (forbidden: string[]) =>
+      [...invoiceIds].sort().map(() =>
+        expect.objectContaining({
+          objectDefinitionId: 'business.invoice',
+          role: 'returned',
+          forbidden,
+        }),
+      );
+
+    expect(fin).toMatchObject({
+      kind: 'traverse',
+      definitionId: 'business.invoice',
+      outcome: { status: 'ok' },
+      details: {
+        traversalId: 'business.customer-invoices',
+        from: { objectDefinitionId: 'business.customer', objectId: customer },
+        hasMore: false,
+      },
+      objects: [
+        {
+          objectDefinitionId: 'business.customer',
+          objectId: customer,
+          role: 'traversal-origin',
+          returned: [],
+          forbidden: [],
+          unavailable: [],
+        },
+        ...returned([]),
+      ],
+    });
+    expect(anaTraversal!.objects.slice(1)).toEqual(returned(['invoice.total']));
+    expect(
+      fin!.objects
+        .slice(1)
+        .map((object) => object.objectId)
+        .sort(),
+    ).toEqual([...invoiceIds].sort());
+    await runtime.close();
+  });
+
+  it('records receipt lookups without claiming to execute', async () => {
+    const runtime = reviewApp(createMemoryStore());
+    const customer = await runtime.host.adopt(Customer, 'mothlight');
+    const receipt = await runtime.as(ana).actions.addAccountReview({
+      input: { customer, note: 'Look me up' },
+      idempotencyKey: 'lookup',
+    });
+
+    await runtime
+      .as(ana)
+      .receipts.get('addAccountReview', receipt.invocationId);
+    await expect(
+      runtime.as(ana).receipts.get('addAccountReview', 'missing'),
+    ).rejects.toMatchObject({ code: 'denied' });
+
+    let lookups: readonly Operation[] = [];
+
+    await vi.waitFor(async () => {
+      lookups = (
+        await runtime.host.activity.operations.list({
+          filter: { kinds: ['receipt'] },
+        })
+      ).entries;
+      expect(lookups).toHaveLength(2);
+    });
+    expect(lookups.map((operation) => operation.outcome)).toEqual([
+      { status: 'rejected', code: 'denied' },
+      { status: 'succeeded' },
+    ]);
+    expect(lookups[1]).toMatchObject({
+      definitionId: AddAccountReview.id,
+      invocationId: receipt.invocationId,
+    });
+    expect('replayed' in lookups[1]!).toBe(false);
+    expect(
+      (
+        await runtime.host.activity.feed.read({
+          filter: { kinds: ['invocation-succeeded'] },
+        })
+      ).entries,
+    ).toHaveLength(1);
+    await runtime.close();
+  });
+
+  it('keeps refreshes made by receipt authorization, nested under the attempt', async () => {
+    let now = 1_000_000;
+    let name = 'Mothlight';
+    let portfolio = 'north';
+    const runtime = reviewApp(createMemoryStore(), randomUUID(), {
+      now: () => now,
+      name: () => name,
+      portfolio: () => portfolio,
+    });
+    const customer = await runtime.host.adopt(Customer, 'mothlight');
+    const request = {
+      input: { customer, note: 'Replay me' },
+      idempotencyKey: 'replay',
+    };
+    const receipt = await runtime.as(ana).actions.addAccountReview(request);
+
+    // Stale evidence: the replay's receipt authorization refreshes the customer.
+    now += 120_000;
+    name = 'Mothlight Studio';
+    expect(await runtime.as(ana).actions.addAccountReview(request)).toEqual(
+      receipt,
+    );
+    // The customer moves away: the replay is denied, its refresh still commits.
+    now += 120_000;
+    name = 'Mothlight Moved';
+    portfolio = 'south';
+    await expect(
+      runtime.as(ana).actions.addAccountReview(request),
+    ).rejects.toMatchObject({ code: 'denied' });
+
+    const updates = (
+      await runtime.host.activity.feed.read({ filter: { kinds: ['updated'] } })
+    ).entries as readonly Change[];
+    let invokes: readonly Operation[] = [];
+
+    await vi.waitFor(async () => {
+      invokes = (
+        await runtime.host.activity.operations.list({
+          filter: { kinds: ['invoke'] },
+        })
+      ).entries;
+      expect(invokes).toHaveLength(3);
+    });
+
+    const [denied, replay] = invokes;
+
+    expect(updates).toHaveLength(2);
+    expect(updates.map((update) => update.parentOperationId)).toEqual([
+      replay!.id,
+      denied!.id,
+    ]);
+
+    for (const update of updates) {
+      expect(update.invocationId).toBeUndefined();
+      expect(update).toMatchObject({
+        actor: { kind: 'source', id: customers.id },
+        triggeredBy: { kind: 'principal', id: 'ana' },
+      });
+    }
+
+    expect(replay).toMatchObject({
+      replayed: true,
+      invocationId: receipt.invocationId,
+    });
+    expect(denied).toMatchObject({
+      outcome: { status: 'rejected', code: 'denied' },
+      replayed: false,
+    });
+
+    const nested = (
+      await runtime.host.activity.operations.list({
+        filter: { operationId: replay!.id, kinds: ['refresh'] },
+      })
+    ).entries;
+
+    expect(nested).toEqual([
+      expect.objectContaining({
+        parentOperationId: replay!.id,
+        details: { refresh: 'changed' },
+      }),
+    ]);
+    expect('invocationId' in nested[0]!).toBe(false);
+    // No native change or invocation event from either replay attempt.
+    expect(
+      (
+        await runtime.host.activity.feed.read({
+          filter: { kinds: ['created', 'invocation-succeeded'] },
+        })
+      ).entries,
+    ).toHaveLength(2);
+    await runtime.close();
+  });
+
+  it('truncates oversized lineage and says so', async () => {
+    const runtime = createRuntime({
+      graph,
+      graphId: randomUUID(),
+      store: createMemoryStore(),
+      activity: { maxObjects: 1 },
+      actionImplementations: [addAccountReview],
+      connections: reviewConnections(),
+    });
+
+    await runtime.host.adopt(Customer, 'one');
+    await runtime.host.adopt(Customer, 'two');
+    await runtime.as(ana).objects.Customer.query({ select: ['name'] });
+
+    let queries: readonly Operation[] = [];
+
+    await vi.waitFor(async () => {
+      queries = (
+        await runtime.host.activity.operations.list({
+          filter: { kinds: ['query'] },
+        })
+      ).entries;
+      expect(queries).toHaveLength(1);
+    });
+    expect(queries[0]!.objects).toHaveLength(1);
+    expect(queries[0]!.details).toEqual({
+      hasMore: false,
+      truncated: { omittedObjects: 1 },
+    });
+    expect(runtime.host.activityCounters().truncated).toBe(1);
+    await runtime.close();
+  });
+});

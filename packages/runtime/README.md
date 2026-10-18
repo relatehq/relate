@@ -139,6 +139,43 @@ Both missing statuses fail `requireComplete: true`. Permission-only omissions do
 not mark a read degraded. Whole-object denial remains `not-found`, and neither
 missing status exposes policy or provider evidence.
 
+## Activity
+
+Every consumer and host call is one operation. The engine records committed
+changes and invocation events in the store's feed atomically with the state they
+describe, and enqueues one best-effort operation row per call once it settles.
+Trusted hosts read them through `runtime.activity` and `runtime.provenance`;
+neither is exposed to consumers.
+
+```ts
+const runtime = createRuntime({
+  model,
+  graphId: 'business',
+  sources,
+  activity: { operations: 'enabled', queueEntries: 1_000 },
+});
+
+const batch = await runtime.activity.feed.read({ limit: 100 });
+const page = await runtime.activity.operations.list({
+  filter: { kinds: ['refresh'] },
+});
+const provenance = await runtime.provenance({
+  objectDefinitionId: 'business.customer',
+  objectId: id,
+});
+
+// Before discarding the engine: flush queued operation rows within a deadline.
+await runtime.drainActivity(5_000);
+```
+
+Engine methods accept an optional trailing `OperationScope` from
+`createOperationScope(actor, context)`; its actor must be the call's principal
+(or, for `adopt`, the host actor). Without one, each call gets a fresh operation
+and request ID. Capture limits default to 1,000 queued operations, 8 MiB queued,
+100 per append, 1,000 lineage entries and 256 KiB per operation. See
+[Activity & Provenance](../../apps/docs/content/runtime/activity.md) and the
+[store contract](./STORE_CONTRACT.md#activity-capability).
+
 ## Status
 
 Implemented: authorized reads and graph queries, source-backed references,
@@ -146,7 +183,9 @@ bidirectional traversal with pagination, and synchronous native actions with
 atomic success or declared-failure receipts on memory and Postgres. Not
 implemented: automatic synchronization, delegated credentials, provider-wide
 queries and durable pending execution. Receipt lookup and same-key replay are
-implemented with originating-actor and current-access checks.
+implemented with originating-actor and current-access checks. The activity feed,
+best-effort operation capture and object provenance are implemented on memory
+and Postgres; feed and operation pruning are not.
 
 ## Further reading
 

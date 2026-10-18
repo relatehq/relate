@@ -85,10 +85,10 @@ export function nativeActionContract(
               native.transaction(scope, (transaction) =>
                 operation({
                   ...transaction,
-                  async insert(record) {
+                  async insert(record, creation) {
                     attempted.push(record);
 
-                    return transaction.insert(record);
+                    return transaction.insert(record, creation);
                   },
                 }),
               ),
@@ -847,8 +847,8 @@ export function nativeActionContract(
             native.transaction(scope, (transaction) =>
               operation({
                 ...transaction,
-                async insert(record) {
-                  await transaction.insert(record);
+                async insert(record, creation) {
+                  await transaction.insert(record, creation);
                   throw undefined;
                 },
               }),

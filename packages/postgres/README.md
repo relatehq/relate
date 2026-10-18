@@ -66,11 +66,11 @@ try {
 The same store works with the engine directly:
 `createRuntime({ model, graphId, sources, store })` from `@relate/runtime`.
 
-Source observation values and `relate.value_changes.values` use stable property
-IDs, as native records already do. Manifest format 3 changes the definition
-revision and refuses existing name-keyed installations until explicitly
-migrated. `migrate()` does not convert graph data or activate a new model
-revision; see
+Source observation values and `relate.object_versions.values` use stable
+property IDs, as native records already do. Manifest format 3 changes the
+definition revision and refuses existing name-keyed installations until
+explicitly migrated. `migrate()` does not convert graph data or activate a new
+model revision; see
 [property identity](../runtime/STORE_CONTRACT.md#property-identity).
 
 ## Provider account migration
@@ -85,9 +85,11 @@ explicit reconciliation. No automatic reassignment or deletion is performed.
 ## Status
 
 Implemented: durable source observations with history, installed-revision
-pinning, and native transactions for the account-review action path. Not
-implemented: history query APIs, retention and cleanup scheduling, erasure, and
-model migrations between definition revisions.
+pinning, native transactions for the account-review action path, the durable
+activity feed, best-effort operation history and object provenance. Not
+implemented: history query APIs, retention and cleanup scheduling (including
+feed and operation pruning), erasure, and model migrations between definition
+revisions.
 
 ## Further reading
 

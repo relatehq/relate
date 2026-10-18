@@ -1,11 +1,42 @@
 import { ReadError } from '@relate/protocol';
 
+/** Activity record contracts adapters persist; transport-safe protocol types. */
+export { ActivityError } from '@relate/protocol';
+
+export type {
+  ActivityActor,
+  ActivityObjectRef,
+  ActivityPage,
+  ActivityReadOptions,
+  Change,
+  FeedEntry,
+  FeedFilter,
+  InvocationEvent,
+  ObjectProvenance,
+  Operation,
+  OperationActor,
+  OperationContext,
+  OperationFilter,
+  OperationObject,
+} from '@relate/protocol';
+
 export type {
   StorageScope,
   Observation,
   StoredObject,
   Acceptance,
+  AcceptAttribution,
+  AcceptedChange,
+  ActivityCaptureOptions,
+  ActivityDiagnostic,
+  ActivityDropReason,
+  ActivityStore,
+  ChangeDraft,
+  FeedDraft,
+  InvocationEventDraft,
+  NativeCreation,
   ObservationStore,
+  OperationDraft,
   NativeScope,
   NativeRecord,
   NativeInvocation,
@@ -31,6 +62,30 @@ export {
   compareObservation,
   OrderingConflict,
 } from './observations/ordering.js';
+
+export { describeAcceptedChange } from './observations/changes.js';
+
+export {
+  activityBytes,
+  activityPageLimits,
+  decodeActivityCursor,
+  encodeActivityCursor,
+  feedEntryKinds,
+  feedReadOptions,
+  matchesFeedEntry,
+  matchesOperation,
+  operationKinds,
+  operationOutcomes,
+  operationReadOptions,
+  sourceChangeDraft,
+  validateFeedDraft,
+  validateFeedFilter,
+  validateOperationContext,
+  validateOperationDraft,
+  validateOperationFilter,
+} from './activity-store.js';
+
+export type { ActivityCursor } from './activity-store.js';
 
 /** Scan order for opaque object IDs: UTF-8 bytewise, matching Postgres COLLATE "C". */
 export function compareObjectIds(a: string, b: string): number {

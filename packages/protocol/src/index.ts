@@ -286,3 +286,33 @@ export type {
 } from './discovery.js';
 
 export type { ConsumerOperations } from './consumer.js';
+
+export { ActivityError } from './activity.js';
+
+export type {
+  ActivityActor,
+  ActivityFilter,
+  ActivityObjectRef,
+  ActivityPage,
+  ActivityReader,
+  ActivityReadOptions,
+  ActivityStatus,
+  ActivityTransport,
+  Change,
+  FeedEntry,
+  FeedEntryKind,
+  FeedFilter,
+  InvocationEvent,
+  InvocationOutcome,
+  ObjectProvenance,
+  Operation,
+  OperationActor,
+  OperationContext,
+  OperationDetails,
+  OperationFilter,
+  OperationKind,
+  OperationObject,
+  OperationOutcome,
+  RejectedOutcome,
+  UncertainOutcome,
+} from './activity.js';

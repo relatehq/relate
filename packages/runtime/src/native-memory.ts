@@ -1,20 +1,29 @@
 import type {
+  FeedDraft,
   NativeStore,
   NativeScope,
   NativeRecord,
+  NativeCreation,
   NativeInvocation,
   NativeScanOptions,
 } from './storage.js';
-import { NativeConflict, compareObjectIds } from './storage.js';
+import {
+  NativeConflict,
+  compareObjectIds,
+  validateFeedDraft,
+} from './storage.js';
 
 /** Private transaction snapshots; observation refreshes are independently retained. */
 export function createNativeMemoryStore(
   installed: (scope: NativeScope) => boolean,
+  /** Present when the owning store supports activity; prepares an atomic feed append. */
+  prepareFeed?: (graphId: string, drafts: readonly FeedDraft[]) => () => void,
 ): NativeStore {
   const graphs = new Map<
     string,
     {
       records: Map<string, NativeRecord>;
+      creations: Map<string, NativeCreation>;
       invocations: Map<string, NativeInvocation>;
     }
   >();
@@ -79,6 +88,27 @@ export function createNativeMemoryStore(
 
       return value && structuredClone(value);
     },
+    async provenance(scope, object) {
+      if (!installed(scope)) return undefined;
+
+      const key = recordKey(object.objectDefinitionId, object.objectId);
+      const state = graphs.get(scope.graphId);
+      const record = state?.records.get(key);
+
+      if (!record) return undefined;
+
+      const creation = state!.creations.get(key);
+
+      // The object's own insertion time and actor snapshot, never its receipt.
+      return creation
+        ? {
+            kind: 'created',
+            actor: structuredClone(creation.actor),
+            at: new Date(record.createdAt).toISOString(),
+            invocationId: creation.invocationId,
+          }
+        : { kind: 'unknown' };
+    },
     async transaction(scope, operation) {
       const previous = locks.get(scope.graphId) ?? Promise.resolve();
       let release!: () => void;
@@ -100,10 +130,12 @@ export function createNativeMemoryStore(
         const state = structuredClone(
           graphs.get(scope.graphId) ?? {
             records: new Map(),
+            creations: new Map(),
             invocations: new Map(),
           },
         );
         const claimed = new Set<string>();
+        const staged: FeedDraft[] = [];
         const undo: (() => void)[] = [];
         let savepointDepth = 0;
         const recordUndo = (operation: () => void) => {
@@ -144,17 +176,38 @@ export function createNativeMemoryStore(
 
             return value && structuredClone(value);
           },
-          async insert(record) {
+          async insert(record, creation) {
             check();
             const key = recordKey(record.objectDefinitionId, record.objectId);
 
             if (state.records.has(key)) throw new NativeConflict();
 
             state.records.set(key, structuredClone(record));
+            state.creations.set(key, {
+              actor: { kind: creation.actor.kind, id: creation.actor.id },
+              invocationId: creation.invocationId,
+            });
             recordUndo(() => {
               state.records.delete(key);
+              state.creations.delete(key);
             });
           },
+          ...(prepareFeed
+            ? {
+                async appendFeed(drafts: readonly FeedDraft[]) {
+                  check();
+
+                  for (const draft of drafts) validateFeedDraft(draft);
+
+                  const length = staged.length;
+
+                  staged.push(...structuredClone(drafts));
+                  recordUndo(() => {
+                    staged.length = length;
+                  });
+                },
+              }
+            : {}),
           async claim(action, key) {
             check();
             const scopeKey = invocationKey(action, key);
@@ -207,8 +260,11 @@ export function createNativeMemoryStore(
         if (claimed.size) throw new Error('Unfinished native invocation');
 
         const snapshot = structuredClone(result);
+        // Final work before commit: a batch the feed cannot hold rolls back.
+        const publish = prepareFeed?.(scope.graphId, staged) ?? (() => {});
 
         graphs.set(scope.graphId, state);
+        publish();
 
         return snapshot;
       } finally {

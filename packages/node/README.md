@@ -194,8 +194,10 @@ declared-failure receipts, and actor-bound lookup/replay with current-access
 checks. Ordinary calls wait for completion. Actor-bound discovery exposes the
 portable meaning and structure of these operations without returning source
 mappings or policy internals. `startApp` executes a portable `defineApp`
-descriptor and owns registered cleanup. Not implemented: background submission,
-provider-wide queries, automatic synchronization, servers and workers.
+descriptor and owns registered cleanup. The host activity reader and object
+provenance are implemented; `close()` flushes captured operations within
+`activity.flushTimeoutMs`. Not implemented: background submission, provider-wide
+queries, automatic synchronization, servers and workers.
 
 ## Further reading
 

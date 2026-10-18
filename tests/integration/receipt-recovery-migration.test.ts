@@ -116,14 +116,30 @@ it('preserves legacy receipt/key evidence without inventing an actor or allowing
         AddAccountReview.id,
         'old-key',
       ),
-    ).toMatchObject({ actorId: null, reads: null, receipt, input });
+    ).toMatchObject({
+      actorId: null,
+      actorKind: null,
+      operationId: null,
+      requestId: null,
+      transport: null,
+      startedAt: null,
+      completedAt: null,
+      reads: null,
+      receipt,
+      input,
+    });
+    expect(
+      (await db.query('SELECT count(*)::int AS count FROM relate.invocations'))
+        .rows,
+    ).toEqual([{ count: 1 }]);
+    // Migration invents no operation, change or invocation event.
     expect(
       (
         await db.query(
-          'SELECT count(*)::int AS count FROM relate.native_invocations',
+          'SELECT (SELECT count(*)::int FROM relate.feed_entries) AS feed, (SELECT count(*)::int FROM relate.operations) AS operations',
         )
       ).rows,
-    ).toEqual([{ count: 1 }]);
+    ).toEqual([{ feed: 0, operations: 0 }]);
   } finally {
     await store.close();
     await db.end();

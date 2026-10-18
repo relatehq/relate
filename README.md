@@ -287,6 +287,7 @@ for a complete example.
 | SQLite, Stripe and Salesforce (read-only) connectors                   | Cloud MCP clients (ChatGPT) for `relate dev`  |
 | MCP discovery and JS execution (stdio / Streamable HTTP)               |                                               |
 | `relate dev` model inspector, `/mcp` and activity log                  |                                               |
+| Activity feed, operation history and object provenance (host APIs)     |                                               |
 
 Relate runs embedded in a Node application and exposes actor-bound graph access
 through two MCP tools: `discover` and `execute`. Both stdio and Streamable HTTP
