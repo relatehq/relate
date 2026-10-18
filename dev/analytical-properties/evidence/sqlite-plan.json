@@ -1,0 +1,62 @@
+[
+  {
+    "id": "3",
+    "parent": "0",
+    "notused": "0",
+    "detail": "MATERIALIZE keys"
+  },
+  {
+    "id": "5",
+    "parent": "3",
+    "notused": "0",
+    "detail": "SCAN 1000 CONSTANT ROWS"
+  },
+  {
+    "id": "5009",
+    "parent": "0",
+    "notused": "0",
+    "detail": "MATERIALIZE agg"
+  },
+  {
+    "id": "5019",
+    "parent": "5009",
+    "notused": "216",
+    "detail": "SCAN k"
+  },
+  {
+    "id": "5021",
+    "parent": "5009",
+    "notused": "62",
+    "detail": "SEARCH e USING INDEX events_customer (customer_id=?)"
+  },
+  {
+    "id": "5028",
+    "parent": "5009",
+    "notused": "0",
+    "detail": "USE TEMP B-TREE FOR GROUP BY"
+  },
+  {
+    "id": "5072",
+    "parent": "0",
+    "notused": "1016",
+    "detail": "SCAN k"
+  },
+  {
+    "id": "5078",
+    "parent": "0",
+    "notused": "0",
+    "detail": "BLOOM FILTER ON a (slot=?)"
+  },
+  {
+    "id": "5088",
+    "parent": "0",
+    "notused": "47",
+    "detail": "SEARCH a USING AUTOMATIC COVERING INDEX (slot=?) LEFT-JOIN"
+  },
+  {
+    "id": "5107",
+    "parent": "0",
+    "notused": "0",
+    "detail": "USE TEMP B-TREE FOR ORDER BY"
+  }
+]

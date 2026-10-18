@@ -14,3 +14,6 @@ truth for implemented behavior.
 - [2026-10-18: Analytical datasets and computed fields](./2026-10-18-analytical-properties.md)
   — direction, authoring API, backends and computed filter/order agreed; column
   typing, evidence and parser proposed; not implemented.
+- [2026-10-18: Analytical properties spike report](./2026-10-18-analytical-properties-spike.md)
+  — executable API/parser/backend experiments, measured findings and proposed
+  ownership; not a shipped feature.

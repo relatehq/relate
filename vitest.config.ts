@@ -10,6 +10,7 @@ export default defineConfig({
             'packages/*/test/**/*.test.ts',
             'connectors/*/test/**/*.test.ts',
             'dev/salesforce/test/**/*.test.ts',
+            'dev/analytical-properties/test/**/*.test.ts',
             'apps/*/test/**/*.test.ts',
             'examples/*/test/**/*.test.ts',
             'tests/unit/**/*.test.ts',
@@ -20,7 +21,10 @@ export default defineConfig({
       {
         test: {
           name: 'integration',
-          include: ['tests/integration/**/*.test.ts'],
+          include: [
+            'tests/integration/**/*.test.ts',
+            'dev/analytical-properties/test/*.integration.ts',
+          ],
           globalSetup: ['./tests/support/database-setup.ts'],
           // These suites share a schema and install failure-injection triggers.
           fileParallelism: false,

@@ -1,0 +1,162 @@
+[
+  {
+    "QUERY PLAN": [
+      {
+        "Plan": {
+          "Node Type": "Sort",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 3287.14,
+          "Total Cost": 3289.64,
+          "Plan Rows": 1000,
+          "Plan Width": 12,
+          "Disabled": false,
+          "Sort Key": ["k.slot"],
+          "Plans": [
+            {
+              "Node Type": "Values Scan",
+              "Parent Relationship": "InitPlan",
+              "Subplan Name": "CTE keys",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Alias": "*VALUES*",
+              "Startup Cost": 0,
+              "Total Cost": 12.5,
+              "Plan Rows": 1000,
+              "Plan Width": 36,
+              "Disabled": false
+            },
+            {
+              "Node Type": "Hash Join",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Join Type": "Left",
+              "Startup Cost": 3202.13,
+              "Total Cost": 3224.81,
+              "Plan Rows": 1000,
+              "Plan Width": 12,
+              "Disabled": false,
+              "Inner Unique": true,
+              "Hash Cond": "(k.slot = a.slot)",
+              "Plans": [
+                {
+                  "Node Type": "CTE Scan",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "CTE Name": "keys",
+                  "Alias": "k",
+                  "Startup Cost": 0,
+                  "Total Cost": 20,
+                  "Plan Rows": 1000,
+                  "Plan Width": 4,
+                  "Disabled": false
+                },
+                {
+                  "Node Type": "Hash",
+                  "Parent Relationship": "Inner",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 3199.63,
+                  "Total Cost": 3199.63,
+                  "Plan Rows": 200,
+                  "Plan Width": 12,
+                  "Disabled": false,
+                  "Plans": [
+                    {
+                      "Node Type": "Subquery Scan",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Alias": "a",
+                      "Startup Cost": 3195.63,
+                      "Total Cost": 3199.63,
+                      "Plan Rows": 200,
+                      "Plan Width": 12,
+                      "Disabled": false,
+                      "Plans": [
+                        {
+                          "Node Type": "Aggregate",
+                          "Strategy": "Hashed",
+                          "Partial Mode": "Simple",
+                          "Parent Relationship": "Subquery",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Startup Cost": 3195.63,
+                          "Total Cost": 3197.63,
+                          "Plan Rows": 200,
+                          "Plan Width": 12,
+                          "Disabled": false,
+                          "Group Key": ["k_1.slot"],
+                          "Planned Partitions": 0,
+                          "Plans": [
+                            {
+                              "Node Type": "Hash Join",
+                              "Parent Relationship": "Outer",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Join Type": "Inner",
+                              "Startup Cost": 2986,
+                              "Total Cost": 3120.79,
+                              "Plan Rows": 9979,
+                              "Plan Width": 10,
+                              "Disabled": false,
+                              "Inner Unique": false,
+                              "Hash Cond": "(k_1.p0 = e.customer_id)",
+                              "Plans": [
+                                {
+                                  "Node Type": "CTE Scan",
+                                  "Parent Relationship": "Outer",
+                                  "Parallel Aware": false,
+                                  "Async Capable": false,
+                                  "CTE Name": "keys",
+                                  "Alias": "k_1",
+                                  "Startup Cost": 0,
+                                  "Total Cost": 20,
+                                  "Plan Rows": 1000,
+                                  "Plan Width": 36,
+                                  "Disabled": false
+                                },
+                                {
+                                  "Node Type": "Hash",
+                                  "Parent Relationship": "Inner",
+                                  "Parallel Aware": false,
+                                  "Async Capable": false,
+                                  "Startup Cost": 1736,
+                                  "Total Cost": 1736,
+                                  "Plan Rows": 100000,
+                                  "Plan Width": 19,
+                                  "Disabled": false,
+                                  "Plans": [
+                                    {
+                                      "Node Type": "Seq Scan",
+                                      "Parent Relationship": "Outer",
+                                      "Parallel Aware": false,
+                                      "Async Capable": false,
+                                      "Relation Name": "analytical_bench_4932246905f24fbbbf082ac69b23f33f",
+                                      "Alias": "e",
+                                      "Startup Cost": 0,
+                                      "Total Cost": 1736,
+                                      "Plan Rows": 100000,
+                                      "Plan Width": 19,
+                                      "Disabled": false
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

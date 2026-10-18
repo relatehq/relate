@@ -1,0 +1,84 @@
+{
+  "at": "2026-10-18T17:53:01.514Z",
+  "node": "v26.9.0",
+  "platform": "darwin-arm64",
+  "specSha256": "8bc512535739f2945e6ec1d06543fea3d6e2ab8de084a23a739622463260a4d1",
+  "parser": {
+    "version": "18.1.5",
+    "wasmBytes": 1717872,
+    "wasmSha256": "378b64e6182f65c71ad5dbd2c31c81e9dfed7d2f2debfb4b51c0d0de8fa2ae36",
+    "importMs": 6.385249999999999,
+    "firstParseMs": 9.475916999999995,
+    "warmIterations": 1000,
+    "warmP50Ms": 0.014291999999997529,
+    "warmP95Ms": 0.023041000000006306
+  },
+  "sqliteVersion": "3.53.4",
+  "sqliteProgressHandler": false,
+  "workerTermination": {
+    "terminatedWithin500Ms": false
+  },
+  "postgresVersion": "PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "batchSamples": [
+    {
+      "backend": "sqlite",
+      "candidates": 1000,
+      "events": 100000,
+      "elapsedMs": 78.51420800000005,
+      "statements": 1,
+      "result": {
+        "returned": 25,
+        "count": "10"
+      }
+    },
+    {
+      "backend": "sqlite",
+      "candidates": 10000,
+      "events": 100000,
+      "elapsedMs": 380.35895800000003,
+      "statements": 10,
+      "result": {
+        "returned": 25,
+        "count": "10"
+      }
+    },
+    {
+      "backend": "sqlite",
+      "candidates": 10001,
+      "events": 100000,
+      "elapsedMs": 0.23299999999994725,
+      "statements": 0,
+      "result": "Error: invalid-request: not-supported: narrow the property filter"
+    },
+    {
+      "backend": "postgres",
+      "candidates": 1000,
+      "events": 100000,
+      "elapsedMs": 46.91741699999989,
+      "statements": 1,
+      "result": {
+        "returned": 25,
+        "count": "10"
+      }
+    },
+    {
+      "backend": "postgres",
+      "candidates": 10000,
+      "events": 100000,
+      "elapsedMs": 281.24679100000003,
+      "statements": 10,
+      "result": {
+        "returned": 25,
+        "count": "10"
+      }
+    },
+    {
+      "backend": "postgres",
+      "candidates": 10001,
+      "events": 100000,
+      "elapsedMs": 0.5053749999999582,
+      "statements": 0,
+      "result": "Error: invalid-request: not-supported: narrow the property filter"
+    }
+  ]
+}

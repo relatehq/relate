@@ -1,0 +1,130 @@
+{
+  "version": 180004,
+  "stmts": [
+    {
+      "stmt": {
+        "SelectStmt": {
+          "targetList": [
+            {
+              "ResTarget": {
+                "val": {
+                  "FuncCall": {
+                    "funcname": [
+                      {
+                        "String": {
+                          "sval": "count"
+                        }
+                      }
+                    ],
+                    "agg_star": true,
+                    "funcformat": "COERCE_EXPLICIT_CALL",
+                    "location": 7
+                  }
+                },
+                "location": 7
+              }
+            }
+          ],
+          "fromClause": [
+            {
+              "RangeVar": {
+                "schemaname": "self",
+                "relname": "events",
+                "inh": true,
+                "relpersistence": "p",
+                "alias": {
+                  "aliasname": "e"
+                },
+                "location": 21
+              }
+            }
+          ],
+          "whereClause": {
+            "BoolExpr": {
+              "boolop": "AND_EXPR",
+              "args": [
+                {
+                  "A_Expr": {
+                    "kind": "AEXPR_OP",
+                    "name": [
+                      {
+                        "String": {
+                          "sval": "="
+                        }
+                      }
+                    ],
+                    "lexpr": {
+                      "ColumnRef": {
+                        "fields": [
+                          {
+                            "String": {
+                              "sval": "e"
+                            }
+                          },
+                          {
+                            "String": {
+                              "sval": "eventtype"
+                            }
+                          }
+                        ],
+                        "location": 41
+                      }
+                    },
+                    "rexpr": {
+                      "A_Const": {
+                        "sval": {
+                          "sval": "login"
+                        },
+                        "location": 55
+                      }
+                    },
+                    "location": 53
+                  }
+                },
+                {
+                  "A_Expr": {
+                    "kind": "AEXPR_OP",
+                    "name": [
+                      {
+                        "String": {
+                          "sval": ">="
+                        }
+                      }
+                    ],
+                    "lexpr": {
+                      "ColumnRef": {
+                        "fields": [
+                          {
+                            "String": {
+                              "sval": "e"
+                            }
+                          },
+                          {
+                            "String": {
+                              "sval": "occurredat"
+                            }
+                          }
+                        ],
+                        "location": 67
+                      }
+                    },
+                    "rexpr": {
+                      "ParamRef": {
+                        "number": 1,
+                        "location": 83
+                      }
+                    },
+                    "location": 80
+                  }
+                }
+              ],
+              "location": 63
+            }
+          },
+          "limitOption": "LIMIT_OPTION_DEFAULT",
+          "op": "SETOP_NONE"
+        }
+      }
+    }
+  ]
+}
