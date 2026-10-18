@@ -268,16 +268,21 @@ async ({ idempotencyId, input }) => {
 };
 ```
 
-Why not forward the caller's `idempotencyKey` directly? Relate treats a key as
-unique only per graph, actor and action, so Ana and Fin can both send
-`idempotencyKey: '1'`. A provider sees only the string and would merge their
-requests. `idempotencyId` folds that scope into the value:
+Why not forward the caller's `idempotencyKey` directly? Relate reserves a key
+per graph instance and action. Different graph instances or actions can reuse
+`idempotencyKey: '1'`, while a provider may see only the string and merge their
+requests. `idempotencyId` includes the graph instance, action and actor:
 
 ```ts
-// Ana and Fin both call addAccountReview({ input, idempotencyKey: '1' })
-// Ana's handler: idempotencyId === 'relate-op-v1-3f9a…'
-// Fin's handler: idempotencyId === 'relate-op-v1-b27c…'
+// Ana calls addAccountReview({ input, idempotencyKey: '1' }) in two graph instances.
+// graphId 'workspace-a': idempotencyId === 'relate-op-v1-3f9a…'
+// graphId 'workspace-b': idempotencyId === 'relate-op-v1-b27c…'
 ```
+
+The actor in the derived ID does not give each actor a separate receipt-key
+namespace. Within one graph and action, another actor reusing a key with a saved
+receipt receives `denied`, as described under
+[Idempotency and Replay](#idempotency-and-replay).
 
 `idempotencyId` is an opaque, deterministic identifier scoped to the runtime's
 `graphId`, actor ID, action definition ID and caller idempotency key. It
