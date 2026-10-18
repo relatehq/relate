@@ -370,9 +370,8 @@ if (shuttingDown) await closeAndExit();
 const principals = model!.principals ?? {};
 const bound = new Map<string, ConsumerOperations>();
 
-function operationsFor(principal: string): ConsumerOperations | undefined {
-  if (!Object.hasOwn(principals, principal)) return undefined;
-
+/** Discovery reads through a cached consumer binding; calls go through `host.dispatch`. */
+function operationsFor(principal: string): ConsumerOperations {
   let operations = bound.get(principal);
 
   if (!operations) {
@@ -432,10 +431,8 @@ async function respond(
         ? new ActionError('unavailable')
         : new ReadError('unavailable');
 
-    const operations = operationsFor(request.principal);
-
     // Names are checked by the dev server too; an unknown one is a bad request.
-    if (!operations)
+    if (!Object.hasOwn(principals, request.principal))
       throw operation === 'invoke' || operation === 'getReceipt'
         ? new ActionError('invalid')
         : new ReadError('invalid-request');
@@ -443,34 +440,28 @@ async function respond(
     const definition = principals[request.principal]!;
     const value =
       request.type === 'discovery'
-        ? discover(operations)
-        : request.attempt
-          ? // The runtime records the operation under the dev binding's ID.
-            await relate!.host.dispatch(
-              {
-                id: request.principal,
-                roles: definition.roles,
-                claims: definition.claims,
+        ? discover(operationsFor(request.principal))
+        : // The runtime records the operation under the dev binding's ID.
+          await relate!.host.dispatch(
+            {
+              id: request.principal,
+              roles: definition.roles,
+              claims: definition.claims,
+            },
+            {
+              operationId: request.attempt.operationId,
+              context: {
+                requestId: request.attempt.context.requestId,
+                transport: request.attempt.context.transport,
+                runtimeId: request.attempt.context.runtimeId,
+                ...(request.attempt.context.executionId
+                  ? { executionId: request.attempt.context.executionId }
+                  : {}),
               },
-              {
-                operationId: request.attempt.operationId,
-                context: {
-                  requestId: request.attempt.context.requestId,
-                  transport: request.attempt.context.transport,
-                  runtimeId: request.attempt.context.runtimeId,
-                  ...(request.attempt.context.executionId
-                    ? { executionId: request.attempt.context.executionId }
-                    : {}),
-                },
-              },
-              request.operation,
-              request.args,
-            )
-          : await (
-              operations[request.operation] as (
-                ...input: unknown[]
-              ) => Promise<unknown>
-            )(...request.args);
+            },
+            request.operation,
+            request.args,
+          );
 
     await send({ type: 'reply', id: request.id, value });
   } catch (error) {
@@ -488,7 +479,7 @@ activityForwarder = createActivityForwarder({
       type: 'activity',
       runtimeId: args.runtimeId,
       ...rows,
-    } as unknown as RuntimeMessage),
+    }),
 });
 await activityForwarder.start();
 started = true;

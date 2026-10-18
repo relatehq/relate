@@ -23,9 +23,11 @@ const receiptOutcome = (receipt: ActionReceipt) =>
     : { status: 'failed' as const, code: receipt.error.code };
 
 /**
- * Metadata-only projections of execution results. Execution owns its outcomes;
- * this module owns their activity representation. Source-specific failures are
- * classified by resolution, without making activity depend on source execution.
+ * Metadata-only projections of execution results. This module classifies
+ * public protocol errors (`ReadError`, `ActionError`, including an uncertain
+ * invocation) itself. Runtime-internal failures are classified by the module
+ * that raises them: resolution supplies `adoptionFailure` and the refresh
+ * outcome, so activity never imports execution modules.
  */
 export function createOperationDescriptions(
   manifest: Manifest,
@@ -135,14 +137,12 @@ export function createOperationDescriptions(
     traverse(
       resultType: string,
       from: ActivityObjectRef,
-      traversal: { readonly id?: string; readonly name: string },
+      /** The relationship ID; it does not encode direction. */
+      traversalId: string,
     ): Description<FullPageResult | ReadResult> {
       return (settled: Settled<FullPageResult | ReadResult>): OperationBody => {
         const origin = referenceEntry(from, 'traversal-origin');
-        const details = {
-          traversalId: traversal.id ?? String(traversal.name),
-          from,
-        };
+        const details = { traversalId, from };
 
         if (!settled.ok)
           return {
@@ -188,7 +188,12 @@ export function createOperationDescriptions(
 
 type RefreshBody = Extract<OperationBody, { kind: 'refresh' }>;
 
-export type RefreshOutcome = Pick<RefreshBody, 'outcome' | 'details'>;
+/** Distributes over the ok/failed variants so each keeps its own details. */
+export type RefreshOutcome = RefreshBody extends infer Body
+  ? Body extends RefreshBody
+    ? Pick<Body, 'outcome' | 'details'>
+    : never
+  : never;
 
 /** A refresh's outcome comes from resolution; lineage and record shape live here. */
 export function describeRefresh(
@@ -201,5 +206,5 @@ export function describeRefresh(
     target,
     objects: [referenceEntry(target, 'target')],
     ...settled,
-  } as RefreshBody;
+  };
 }

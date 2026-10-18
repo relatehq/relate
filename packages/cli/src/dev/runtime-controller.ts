@@ -11,7 +11,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ConsumerDescription } from 'relate/consumer';
 import { ActionError, ReadError } from '@relate/protocol';
-import type { FeedEntry, Operation } from '@relate/protocol';
 import type { Diagnostic, RuntimeStatus } from '@relate/inspector/protocol';
 import type { ActivityLog } from './activity/log.js';
 import { projectActivity } from './activity/projection.js';
@@ -27,6 +26,7 @@ import {
   retiredError,
   userCodeEnvironment,
   runtimeMessageSchema,
+  type RuntimeMessage,
   type RuntimeOperation,
   type RuntimeRequest,
 } from './runtime-protocol.js';
@@ -203,7 +203,7 @@ export function createRuntimeController(
               runtimeId: host.runtimeId,
               principal: request.principal,
               operation: request.operation,
-              ...(request.attempt ? { attempt: request.attempt } : {}),
+              attempt: request.attempt,
               args: [...request.args],
             }
           : {
@@ -350,16 +350,13 @@ export function createRuntimeController(
         return;
       }
 
-      const message = parsed.data;
+      const message = parsed.data as RuntimeMessage;
 
       switch (message.type) {
         case 'activity':
           // Rows of a retired runtime still describe what it did.
           if (options.activity && message.runtimeId === runtimeId)
-            projectActivity(options.activity, runtimeId, {
-              feed: message.feed as unknown as readonly FeedEntry[],
-              operations: message.operations as unknown as readonly Operation[],
-            });
+            projectActivity(options.activity, runtimeId, message);
 
           return;
         case 'reply':

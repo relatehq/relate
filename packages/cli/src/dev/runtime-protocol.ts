@@ -10,6 +10,7 @@
  */
 import { z } from 'zod';
 import { ActionError, ReadError } from '@relate/protocol';
+import type { FeedEntry, Operation } from '@relate/protocol';
 import type {
   ActionDescription,
   GraphDescription,
@@ -43,17 +44,15 @@ export const runtimeRequestSchema = z.discriminatedUnion('type', [
      * Operation identity the dev binding assigned, so the runtime's rows join
      * its dispatch event. The actor is always `principal`.
      */
-    attempt: z
-      .strictObject({
-        operationId: text,
-        context: z.strictObject({
-          requestId: text,
-          transport: z.enum(['embedded', 'http', 'mcp']),
-          runtimeId: text,
-          executionId: text.optional(),
-        }),
-      })
-      .optional(),
+    attempt: z.strictObject({
+      operationId: text,
+      context: z.strictObject({
+        requestId: text,
+        transport: z.enum(['embedded', 'http', 'mcp']),
+        runtimeId: text,
+        executionId: text.optional(),
+      }),
+    }),
     args: z.array(z.unknown()),
   }),
   z.strictObject({
@@ -161,7 +160,18 @@ export const runtimeMessageSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
-export type RuntimeMessage = z.infer<typeof runtimeMessageSchema>;
+/**
+ * The schema checks activity rows only enough to route and project them; the
+ * trusted host sends the runtime's own `FeedEntry` and `Operation` rows.
+ */
+export type RuntimeMessage =
+  | Exclude<z.infer<typeof runtimeMessageSchema>, { type: 'activity' }>
+  | {
+      readonly type: 'activity';
+      readonly runtimeId: string;
+      readonly feed: readonly FeedEntry[];
+      readonly operations: readonly Operation[];
+    };
 
 /** One principal's complete discovery, read once so a binding can answer synchronously. */
 export interface DiscoverySnapshot {

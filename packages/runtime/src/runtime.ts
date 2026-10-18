@@ -450,7 +450,8 @@ export function createRuntime(options: RuntimeOptions) {
           describe.traverse(
             resultType,
             { objectDefinitionId: typeId, objectId: id },
-            { ...(edge ? { id: edge.relationship.id } : {}), name },
+            // An unknown name has no relationship; the traversal rejects it.
+            edge?.relationship.id ?? String(name),
           ),
         ),
       );

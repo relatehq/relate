@@ -51,7 +51,7 @@ export interface RuntimeConnection {
           readonly type: 'op';
           readonly principal: string;
           readonly operation: RuntimeOperation;
-          readonly attempt?: Extract<RuntimeRequest, { type: 'op' }>['attempt'];
+          readonly attempt: Extract<RuntimeRequest, { type: 'op' }>['attempt'];
           readonly args: readonly unknown[];
         }
       | { readonly type: 'discovery'; readonly principal: string },
