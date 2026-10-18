@@ -7,7 +7,6 @@ export {
 } from './log.js';
 
 export type { ActivityListener, ActivityLog } from './log.js';
-export { withActivityContext } from './context.js';
 export { observeDispatch } from './dispatch.js';
 export { projectActivity } from './projection.js';
 export { observeExecutor } from './executor.js';

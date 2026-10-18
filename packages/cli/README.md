@@ -387,8 +387,8 @@ embedding: `runDev`, `parseDevArguments`, `resolveProject`, `acquireLock`,
 `createBuilder`, `createWatcher`, `createAttemptRunner`, `createTerminal`,
 `createRuntimeController`, `createRuntimeBinding`, `createMcpEndpoint`,
 `readMcpToken`, `createActivityLog`, `observeRequest`, `observeExecutor`,
-`observeDispatch`, `withActivityContext`, `projectActivity`, `createAgent`,
-`connectLoopbackMcp`, `mountAgentRoutes`, `diffManifests` and `summarizeDiff`.
+`observeDispatch`, `projectActivity`, `createAgent`, `connectLoopbackMcp`,
+`mountAgentRoutes`, `diffManifests` and `summarizeDiff`.
 
 `createAgent` takes its model client and tool connection as parameters, so a
 test can drive it without the network:

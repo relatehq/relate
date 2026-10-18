@@ -81,7 +81,6 @@ export {
   observeRequest,
   projectActivity,
   requestIdMeta,
-  withActivityContext,
 } from './dev/activity/index.js';
 
 export type {

@@ -8,13 +8,14 @@
  * and a future `/api` share the same binding.
  *
  * Each operation gets a fresh operation ID here, the routing boundary, and
- * carries the dev request it belongs to (`withActivityContext`). The runtime
+ * carries the dev request it belongs to (`operationsFor`). The runtime
  * records the operation under that ID, so its row joins the dispatch event
  * this binding records.
  */
 import { randomUUID } from 'node:crypto';
 import type { ConsumerDescription } from 'relate/consumer';
 import type { ConsumerOperations, Discovery } from '@relate/protocol';
+import type { OperationContext } from '@relate/inspector/protocol';
 import {
   discoverySnapshotSchema,
   type DiscoverySnapshot,
@@ -22,7 +23,6 @@ import {
   type RuntimeRequest,
 } from './runtime-protocol.js';
 import { uuidv7 } from '@relate/runtime';
-import { activityContext } from './activity/context.js';
 import { observeDispatch } from './activity/dispatch.js';
 import type { ActivityLog } from './activity/log.js';
 
@@ -34,6 +34,8 @@ export interface RuntimeBinding {
   readonly description: ConsumerDescription;
   /** Prefetched discovery plus IPC calls pinned to `runtimeId`. */
   readonly operations: ConsumerOperations;
+  /** The same operations, each call recorded under the dev `request`. */
+  operationsFor(request: OperationContext): ConsumerOperations;
 }
 
 /** The dev server's channel to one runtime host. */
@@ -105,9 +107,8 @@ export async function createRuntimeBinding(options: {
     );
 
   const call =
-    (operation: RuntimeOperation) =>
+    (operation: RuntimeOperation, request?: OperationContext) =>
     async (...args: unknown[]) => {
-      const request = activityContext();
       const attempt = {
         operationId: uuidv7(),
         context: {
@@ -146,20 +147,23 @@ export async function createRuntimeBinding(options: {
         throw error;
       }
     };
-  const operations = {
-    discovery: snapshotDiscovery(snapshot),
-    get: call('get'),
-    query: call('query'),
-    traverse: call('traverse'),
-    invoke: call('invoke'),
-    getReceipt: call('getReceipt'),
-  } as ConsumerOperations;
+  const discovery = snapshotDiscovery(snapshot);
+  const bind = (request?: OperationContext): ConsumerOperations =>
+    Object.freeze({
+      discovery,
+      get: call('get', request),
+      query: call('query', request),
+      traverse: call('traverse', request),
+      invoke: call('invoke', request),
+      getReceipt: call('getReceipt', request),
+    } as ConsumerOperations);
 
   return Object.freeze({
     runtimeId: connection.runtimeId,
     definitionRevision: options.definitionRevision,
     principal,
     description: options.description,
-    operations: Object.freeze(operations),
+    operations: bind(),
+    operationsFor: (request: OperationContext) => bind(request),
   });
 }

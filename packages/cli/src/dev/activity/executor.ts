@@ -2,10 +2,11 @@
  * L2: observe code executions. The inner executor receives a per-execution
  * binding whose operations carry this execution's request context, which is
  * how every graph operation (and the runtime's record of it) links back to
- * the code that made it.
+ * the code that made it. `operationsFor` builds those operations.
  */
 import { randomUUID } from 'node:crypto';
 import type { CodeExecutor, ExecutionResult } from '@relate/mcp';
+import type { ConsumerOperations } from '@relate/protocol';
 import type {
   ExecutionEvent,
   OperationContext,
@@ -17,7 +18,6 @@ import {
   truncate,
   type ActivityLog,
 } from './log.js';
-import { withActivityContext } from './context.js';
 
 function boundedLogs(result: ExecutionResult): {
   readonly logs: ExecutionEvent['logs'];
@@ -47,16 +47,14 @@ export function observeExecutor(
   request: Omit<OperationContext, 'executionId' | 'runtimeId'> & {
     readonly runtimeId: string;
   },
+  operationsFor: (context: OperationContext) => ConsumerOperations,
 ): CodeExecutor {
   return {
     async execute({ code, graph, signal }) {
       const executionId = randomUUID();
       const observed = {
         ...graph,
-        operations: withActivityContext(graph.operations, {
-          ...request,
-          executionId,
-        }),
+        operations: operationsFor({ ...request, executionId }),
       };
       const source = truncate(code, activityLimits.code);
       const started = performance.now();

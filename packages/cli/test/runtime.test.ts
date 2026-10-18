@@ -14,7 +14,6 @@ import {
   createRuntimeController,
   defaultRuntimeHostPath,
   encodeRuntimeHostArguments,
-  withActivityContext,
 } from '@relate/cli';
 import type { ActivityLog, RuntimeController } from '@relate/cli';
 import type { RuntimeStatus } from '@relate/inspector/protocol';
@@ -798,16 +797,18 @@ it('forwards the runtime record of an operation whose row is still being appende
 
   activity.record({ ...call, status: 'running' });
   expect(
-    await withActivityContext(binding.operations, {
-      requestId: 'retire',
-      runtimeId: binding.runtimeId,
-      definitionRevision: binding.definitionRevision,
-      principal: 'alice',
-      transport: 'mcp',
-    }).invoke('notes.add', {
-      input: { body: 'Recorded before retirement' },
-      idempotencyKey: 'retire',
-    }),
+    await binding
+      .operationsFor({
+        requestId: 'retire',
+        runtimeId: binding.runtimeId,
+        definitionRevision: binding.definitionRevision,
+        principal: 'alice',
+        transport: 'mcp',
+      })
+      .invoke('notes.add', {
+        input: { body: 'Recorded before retirement' },
+        idempotencyKey: 'retire',
+      }),
   ).toMatchObject({ state: 'succeeded' });
   await controller.restart({ generation: 2, bundle: next.bundle });
   await waitFor((s) => s.state === 'running' && s.generation === 2);
