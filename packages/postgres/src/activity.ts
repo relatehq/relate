@@ -23,6 +23,41 @@ import { storageError } from './errors.js';
 
 type Client = Pick<pg.PoolClient, 'query'>;
 
+/** PostgreSQL's Bind message can carry at most 65,535 parameters. */
+const maxBindParameters = 65_535;
+
+/** Insert ordered chunks on the caller's transaction; never commit between chunks. */
+async function insertRows<Row extends pg.QueryResultRow = pg.QueryResultRow>(
+  client: Client,
+  statement: string,
+  rows: readonly (readonly unknown[])[],
+  suffix = '',
+): Promise<Row[]> {
+  if (!rows.length) return [];
+
+  const chunkSize = Math.floor(maxBindParameters / rows[0]!.length);
+  const returned: Row[] = [];
+
+  for (let start = 0; start < rows.length; start += chunkSize) {
+    const values: unknown[] = [];
+    const tuples = rows.slice(start, start + chunkSize).map((row) => {
+      const offset = values.length;
+
+      values.push(...row);
+
+      return `(${row.map((_, index) => `$${offset + index + 1}`).join(',')})`;
+    });
+    const result = await client.query<Row>(
+      `${statement} VALUES ${tuples.join(',')} ${suffix}`,
+      values,
+    );
+
+    returned.push(...result.rows);
+  }
+
+  return returned;
+}
+
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Resuming from this bound returns nothing: every row is newer.
@@ -77,13 +112,13 @@ export async function publishFeed(
   const first =
     BigInt(allocated.rows[0]!.position) - BigInt(drafts.length) + 1n;
   const recordedAt = new Date().toISOString();
-  const values: unknown[] = [];
   const rows = drafts.map((draft, index) => {
     const change = 'object' in draft ? draft : undefined;
     const event = change
       ? undefined
       : (draft as Extract<FeedDraft, { actionDefinitionId: string }>);
-    const row = [
+
+    return [
       graphId,
       draft.id,
       draft.schemaVersion,
@@ -109,17 +144,12 @@ export async function publishFeed(
       draft.occurredAt,
       recordedAt,
     ];
-    const offset = values.length;
-
-    values.push(...row);
-
-    return `(${row.map((_, i) => `$${offset + i + 1}`).join(',')})`;
   });
 
-  await client.query(
-    `INSERT INTO relate.feed_entries(graph_id,id,schema_version,position,kind,object_type,object_key,changed_property_ids,source_definition_id,action_id,failure_code,invocation_id,operation_id,parent_operation_id,actor_kind,actor_id,triggered_by_kind,triggered_by_id,request_id,transport,context,definition_revision,occurred_at,recorded_at)
-     VALUES ${rows.join(',')}`,
-    values,
+  await insertRows(
+    client,
+    'INSERT INTO relate.feed_entries(graph_id,id,schema_version,position,kind,object_type,object_key,changed_property_ids,source_definition_id,action_id,failure_code,invocation_id,operation_id,parent_operation_id,actor_kind,actor_id,triggered_by_kind,triggered_by_id,request_id,transport,context,definition_revision,occurred_at,recorded_at)',
+    rows,
   );
 }
 
@@ -414,10 +444,10 @@ export function createActivityPostgresStore(
       try {
         await client.query('BEGIN');
         const recordedAt = new Date().toISOString();
-        const values: unknown[] = [];
         const rows = unique.map((draft) => {
           const target = 'target' in draft ? draft.target : undefined;
-          const row = [
+
+          return [
             graphId,
             draft.id,
             draft.schemaVersion,
@@ -445,28 +475,22 @@ export function createActivityPostgresStore(
             'replayed' in draft ? draft.replayed : false,
             JSON.stringify(draft.details),
           ];
-          const offset = values.length;
-
-          values.push(...row);
-
-          return `(${row.map((_, i) => `$${offset + i + 1}`).join(',')})`;
         });
-        const inserted = await client.query<{ id: string }>(
-          `INSERT INTO relate.operations(graph_id,id,schema_version,parent_operation_id,kind,actor_kind,actor_id,request_id,transport,execution_id,runtime_id,initiator_kind,initiator_id,definition_revision,started_at,completed_at,duration_ms,recorded_at,outcome,outcome_code,definition_id,target_type,target_key,invocation_id,replayed,details)
-           VALUES ${rows.join(',')}
-           ON CONFLICT (graph_id,id) DO NOTHING RETURNING id`,
-          values,
+        const inserted = await insertRows<{ id: string }>(
+          client,
+          'INSERT INTO relate.operations(graph_id,id,schema_version,parent_operation_id,kind,actor_kind,actor_id,request_id,transport,execution_id,runtime_id,initiator_kind,initiator_id,definition_revision,started_at,completed_at,duration_ms,recorded_at,outcome,outcome_code,definition_id,target_type,target_key,invocation_id,replayed,details)',
+          rows,
+          'ON CONFLICT (graph_id,id) DO NOTHING RETURNING id',
         );
         // Lineage only for operations this append newly inserted.
-        const fresh = new Set(inserted.rows.map((row) => row.id));
-        const lineage: unknown[] = [];
-        const lineageRows: string[] = [];
+        const fresh = new Set(inserted.map((row) => row.id));
+        const lineage: unknown[][] = [];
 
         for (const draft of unique) {
           if (!fresh.has(draft.id)) continue;
 
           draft.objects.forEach((object, ordinal) => {
-            const row = [
+            lineage.push([
               graphId,
               draft.id,
               ordinal,
@@ -476,22 +500,15 @@ export function createActivityPostgresStore(
               [...object.returned],
               [...object.forbidden],
               [...object.unavailable],
-            ];
-            const offset = lineage.length;
-
-            lineage.push(...row);
-            lineageRows.push(
-              `(${row.map((_, i) => `$${offset + i + 1}`).join(',')})`,
-            );
+            ]);
           });
         }
 
-        if (lineageRows.length)
-          await client.query(
-            `INSERT INTO relate.operation_objects(graph_id,operation_id,ordinal,object_type,object_key,role,returned,forbidden,unavailable)
-             VALUES ${lineageRows.join(',')}`,
-            lineage,
-          );
+        await insertRows(
+          client,
+          'INSERT INTO relate.operation_objects(graph_id,operation_id,ordinal,object_type,object_key,role,returned,forbidden,unavailable)',
+          lineage,
+        );
 
         await client.query('COMMIT');
       } catch (error) {

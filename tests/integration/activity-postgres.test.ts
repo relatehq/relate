@@ -1,7 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { connect } from 'relate';
+import { z } from 'zod';
+import {
+  connect,
+  defineAccess,
+  defineAction,
+  defineGraph,
+  defineObject,
+  implementAction,
+  native,
+  nativeMembership,
+  objectId,
+} from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/node';
 import { createPostgresStore } from '@relate/postgres';
@@ -44,7 +55,7 @@ describe('Postgres activity storage', () => {
    * Fail inserts into `table` for this test's graph only: test files share the
    * database and run in parallel, so an unscoped trigger breaks other tests.
    */
-  async function rejectInserts(table: string) {
+  async function rejectInserts(table: string, when = 'TRUE') {
     const trigger = `reject_${randomUUID().replaceAll('-', '')}`;
 
     await db.query(
@@ -55,7 +66,7 @@ describe('Postgres activity storage', () => {
        END $$`,
     );
     await db.query(
-      `CREATE TRIGGER ${trigger} BEFORE INSERT ON relate.${table} FOR EACH ROW EXECUTE FUNCTION relate.reject_graph_insert('${graphId}')`,
+      `CREATE TRIGGER ${trigger} BEFORE INSERT ON relate.${table} FOR EACH ROW WHEN (${when}) EXECUTE FUNCTION relate.reject_graph_insert('${graphId}')`,
     );
     triggers.push([table, trigger]);
   }
@@ -229,6 +240,167 @@ describe('Postgres activity storage', () => {
         ])
       ).rowCount,
     ).toBe(0);
+  });
+
+  it('appends large lineage batches without losing order or mixing duplicate IDs', async () => {
+    const drafts = Array.from({ length: 100 }, () => draft(100));
+
+    await store.activity!.appendOperations(graphId, drafts);
+    await store.activity!.appendOperations(graphId, [
+      { ...drafts[0]!, objects: [] },
+    ]);
+
+    const page = await store.activity!.operations.list(graphId, { limit: 100 });
+    const retained = new Map(page.entries.map((row) => [row.id, row]));
+
+    expect(retained.size).toBe(drafts.length);
+
+    for (const row of drafts)
+      expect(retained.get(row.id)).toEqual({
+        ...row,
+        recordedAt: expect.any(String),
+      });
+  });
+
+  it('chunks operation rows and rolls back earlier lineage chunks on failure', async () => {
+    const drafts = Array.from({ length: 2_600 }, () => draft(0));
+
+    await store.activity!.appendOperations(graphId, drafts);
+    expect(
+      (
+        await db.query('SELECT 1 FROM relate.operations WHERE graph_id=$1', [
+          graphId,
+        ])
+      ).rowCount,
+    ).toBe(drafts.length);
+
+    const failed = draft(8_000);
+
+    await rejectInserts('operation_objects', 'NEW.ordinal >= 7500');
+    await expect(
+      store.activity!.appendOperations(graphId, [failed]),
+    ).rejects.toThrow();
+
+    for (const [table, column] of [
+      ['operations', 'id'],
+      ['operation_objects', 'operation_id'],
+    ])
+      expect(
+        (
+          await db.query(
+            `SELECT 1 FROM relate.${table} WHERE graph_id=$1 AND ${column}=$2`,
+            [graphId, failed.id],
+          )
+        ).rowCount,
+      ).toBe(0);
+  });
+
+  it('commits large action feeds atomically and rolls back a failed later chunk', async () => {
+    const access = defineAccess({
+      roles: ['writer'],
+      fieldGroups: ['ordinary'],
+      claims: {},
+    });
+    const Item = defineObject({
+      id: 'bulk.item',
+      membership: nativeMembership(),
+      properties: {
+        id: objectId({ id: 'item.id' }),
+        label: native(z.string(), { id: 'item.label' }),
+      },
+    });
+    const Add = defineAction({
+      id: 'bulk.add',
+      input: z.object({}),
+      output: z.object({ count: z.number() }),
+      creates: [Item],
+      policy: { execute: access.role('writer') },
+    });
+    const bulkGraph = defineGraph({
+      id: 'bulk',
+      objects: { Item },
+      actions: { add: Add },
+      access,
+      policies: {
+        Item: {
+          read: { gate: access.role('writer') },
+          create: { gate: access.role('writer') },
+        },
+      },
+    });
+
+    // This test owns a different model, so install it under a fresh graph ID.
+    graphId = randomUUID();
+    const runtime = createRuntime({
+      graph: bulkGraph,
+      graphId,
+      store,
+      connections: [],
+      actionImplementations: [
+        implementAction(bulkGraph, Add, async ({ objects }) => {
+          for (let index = 0; index < 2_800; index++)
+            await objects.Item.create({ label: String(index) });
+
+          return { count: 2_800 };
+        }),
+      ],
+    });
+    const actions = runtime.as({
+      id: 'writer',
+      roles: ['writer'],
+      claims: {},
+    }).actions;
+
+    try {
+      const receipt = await actions.add({
+        input: {},
+        idempotencyKey: 'success',
+      });
+
+      expect(receipt.state).toBe('succeeded');
+      const feed = await db.query(
+        'SELECT position::text, kind, invocation_id FROM relate.feed_entries f WHERE graph_id=$1 ORDER BY f.position',
+        [graphId],
+      );
+
+      expect(feed.rows).toEqual(
+        Array.from({ length: 2_801 }, (_, index) => ({
+          position: String(index + 1),
+          kind: index === 2_800 ? 'invocation-succeeded' : 'created',
+          invocation_id: receipt.invocationId,
+        })),
+      );
+
+      // The terminal event is in the second chunk, after creations were inserted.
+      await rejectInserts('feed_entries', "NEW.kind = 'invocation-succeeded'");
+      await expect(
+        actions.add({ input: {}, idempotencyKey: 'failed' }),
+      ).rejects.toThrow();
+
+      for (const [table, count] of [
+        ['native_objects', 2_800],
+        ['invocations', 1],
+        ['feed_entries', 2_801],
+      ] as const)
+        expect(
+          (
+            await db.query(`SELECT 1 FROM relate.${table} WHERE graph_id=$1`, [
+              graphId,
+            ])
+          ).rowCount,
+        ).toBe(count);
+
+      expect(
+        (
+          await db.query(
+            'SELECT position::text FROM relate.feed_streams WHERE graph_id=$1',
+            [graphId],
+          )
+        ).rows,
+      ).toEqual([{ position: '2801' }]);
+    } finally {
+      await runtime.close();
+    }
   });
 
   it('reports legacy objects without provenance as unknown', async () => {
