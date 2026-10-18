@@ -347,6 +347,7 @@ export function createRuntime<
       provenance: (object: ActivityObjectRef) =>
         run(() => engine.provenance(object)),
       activityCounters: () => engine.activityCounters(),
+      flushActivity: () => engine.flushActivity(flushTimeoutMs),
       dispatch(
         principal: Principal,
         attempt: HostDispatch,

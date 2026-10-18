@@ -21,7 +21,8 @@ import {
   type RuntimeOperation,
   type RuntimeRequest,
 } from './runtime-protocol.js';
-import { activityContext, operationId } from './activity/context.js';
+import { uuidv7 } from '@relate/runtime';
+import { activityContext } from './activity/context.js';
 import { observeDispatch } from './activity/dispatch.js';
 import type { ActivityLog } from './activity/log.js';
 
@@ -108,7 +109,7 @@ export async function createRuntimeBinding(options: {
     async (...args: unknown[]) => {
       const request = activityContext();
       const attempt = {
-        operationId: operationId(),
+        operationId: uuidv7(),
         context: {
           requestId: request?.requestId ?? randomUUID(),
           transport: request?.transport ?? 'embedded',

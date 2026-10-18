@@ -4,6 +4,7 @@ export type { RuntimeOptions } from './runtime.js';
 export {
   activityCaptureDefaults,
   createOperationScope,
+  uuidv7,
 } from './activity/index.js';
 
 export type {

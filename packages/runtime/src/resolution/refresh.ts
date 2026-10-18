@@ -11,6 +11,7 @@ import type {
 } from '../storage.js';
 import {
   compareObservation,
+  describeAcceptedChange,
   OrderingConflict,
   RetentionError,
 } from '../storage.js';
@@ -203,6 +204,16 @@ export async function refreshObservation(options: {
                 retention = 'confirmed';
                 refresh =
                   acceptance === 'superseded' ? 'superseded' : 'succeeded';
+                // The retention is proven, so the attempt settles ok. Without
+                // the adapter's classification, compare with the snapshot
+                // this refresh started from.
+                ok(
+                  acceptance === 'superseded'
+                    ? 'superseded'
+                    : describeAcceptedChange(stored.observation, incoming)
+                      ? 'changed'
+                      : 'unchanged',
+                );
               }
             } catch (checkError) {
               if (checkError instanceof OrderingConflict) throw checkError;

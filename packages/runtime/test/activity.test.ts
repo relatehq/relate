@@ -9,6 +9,7 @@ import type {
   OperationDraft,
   FeedDraft,
 } from '@relate/runtime/storage';
+import { createMemoryStore } from '@relate/runtime';
 import { createOperationRecorder } from '../src/activity/recorder.js';
 import { uuidv7 } from '../src/activity/ids.js';
 
@@ -273,6 +274,45 @@ describe('operation recorder', () => {
     expect(recorder.counters().dropped.shutdown).toBe(1);
   });
 
+  it('flushes appended rows without closing', async () => {
+    const appended: OperationDraft[] = [];
+    let finish!: () => void;
+    const recorder = createOperationRecorder({
+      graphId: 'graph',
+      store: {
+        atomicFeed: { sourceAcceptance: true, nativeTransactions: true },
+        appendOperations: async (_graph, drafts) => {
+          await new Promise<void>((resolve) => {
+            finish = resolve;
+          });
+          appended.push(...drafts);
+        },
+        feed: {
+          read: async () => ({ entries: [], nextCursor: '', hasMore: false }),
+        },
+        operations: {
+          list: async () => ({ entries: [], nextCursor: '', hasMore: false }),
+        },
+      },
+    });
+
+    recorder.record(operation());
+    expect(await recorder.flush(20)).toBe('pending');
+    finish();
+    expect(await recorder.flush(1_000)).toBe('flushed');
+    expect(appended).toHaveLength(1);
+    // Still open: later operations are captured, not dropped.
+    recorder.record(operation());
+    await new Promise((resolve) => setImmediate(resolve));
+    finish();
+    expect(await recorder.flush(1_000)).toBe('flushed');
+    expect(recorder.counters()).toMatchObject({
+      enqueued: 2,
+      appended: 2,
+      dropped: { shutdown: 0 },
+    });
+  });
+
   it('drops invalid and oversized operations without throwing', () => {
     const recorder = createOperationRecorder({
       graphId: 'graph',
@@ -306,6 +346,32 @@ describe('operation recorder', () => {
       invalid: 1,
       oversized: 1,
     });
+  });
+});
+
+describe('memory operation retention', () => {
+  it('rejects an operation larger than retention instead of evicting it', async () => {
+    const activity = createMemoryStore({
+      activity: { operationBytes: 1_000, rowBytes: 4_096 },
+    }).activity!;
+    const large = operation({
+      objects: Array.from({ length: 20 }, (_, index) => ({
+        objectDefinitionId: 'business.customer',
+        objectId: `cus_${index}`,
+        role: 'returned',
+        returned: [],
+        forbidden: [],
+        unavailable: [],
+      })),
+    });
+
+    await expect(activity.appendOperations('graph', [large])).rejects.toThrow(
+      'Operation batch exceeds activity limits',
+    );
+    await activity.appendOperations('graph', [operation()]);
+    expect((await activity.operations.list('graph', {})).entries).toHaveLength(
+      1,
+    );
   });
 });
 

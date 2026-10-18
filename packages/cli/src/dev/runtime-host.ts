@@ -85,9 +85,11 @@ const answering = new Set<Promise<void>>();
 async function closeAndExit(): Promise<never> {
   if (failure) return failure;
 
-  // New requests are already refused. Settle in-flight ones and forward their
-  // activity while the runtime can still be read; `close()` then drains.
+  // New requests are already refused. Settle in-flight ones, wait for their
+  // operation rows to be appended, and forward their activity while the
+  // runtime can still be read; `close()` then drains anything later.
   await Promise.allSettled(answering);
+  await relate?.host.flushActivity().catch(() => {});
   await forwardActivity(true);
   await relate?.close().catch(() => {});
   await Promise.allSettled(answering);
@@ -398,6 +400,8 @@ function operationsFor(principal: string): ConsumerOperations | undefined {
  */
 const forwarding = {
   enabled: false,
+  /** Feed entries from before this host started are never ours. */
+  feedFrom: '',
   feedCursor: undefined as string | undefined,
   /** Newest `recordedAt` seen (epoch ms), and the IDs seen at or after it. */
   since: 0,
@@ -428,7 +432,7 @@ async function forwardPass(): Promise<void> {
       const page = await activity.feed.read(
         forwarding.feedCursor
           ? { cursor: forwarding.feedCursor, limit: 200 }
-          : { limit: 200 },
+          : { filter: { from: forwarding.feedFrom }, limit: 200 },
       );
 
       forwarding.feedCursor = page.nextCursor;
@@ -442,6 +446,7 @@ async function forwardPass(): Promise<void> {
   }
 
   let newest = forwarding.since;
+  let scanned = false;
 
   try {
     let cursor: string | undefined;
@@ -469,14 +474,20 @@ async function forwardPass(): Promise<void> {
 
       cursor = page.nextCursor;
     }
+
+    scanned = true;
   } catch {
     // Operation rows are best effort; the next pass resumes at the watermark.
   }
 
-  forwarding.since = newest;
+  // A partial scan keeps the old watermark so unread older rows are revisited;
+  // `seen` already holds the rows forwarded from it.
+  if (scanned) {
+    forwarding.since = newest;
 
-  for (const [id, at] of forwarding.seen)
-    if (at < newest) forwarding.seen.delete(id);
+    for (const [id, at] of forwarding.seen)
+      if (at < newest) forwarding.seen.delete(id);
+  }
 
   if (feed.length || operations.length)
     await send({
@@ -524,6 +535,10 @@ function scheduleForwarding(): void {
  */
 async function startForwarding(): Promise<void> {
   const activity = relate!.host.activity;
+
+  // Feed entries carry this process's clock; the filter keeps the first pass
+  // from paging through every retained entry of earlier hosts.
+  forwarding.feedFrom = new Date().toISOString();
 
   try {
     if ((await activity.status()).state !== 'available') return;

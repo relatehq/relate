@@ -1,4 +1,4 @@
-export { createSourceOperations } from './source.js';
+export { createSourceOperations, InvalidAdoptionTarget } from './source.js';
 
 // Composition classifies adoption failures without depending on observations.
 export {

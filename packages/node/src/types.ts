@@ -69,6 +69,12 @@ export interface Relate<
     /** Operation-capture drop and truncation counters. */
     activityCounters(): ActivityCounters;
     /**
+     * Wait, within `activity.flushTimeoutMs`, until operations captured so far
+     * are appended or dropped, so `activity.operations` can read them. Does
+     * not stop new operations; `pending` means rows were still queued.
+     */
+    flushActivity(): Promise<'flushed' | 'pending'>;
+    /**
      * Run one consumer operation as `principal` under an operation ID the
      * trusted transport assigned, so it can join its own records to the
      * runtime's. Arguments are the `ConsumerOperations` method's arguments.

@@ -467,6 +467,9 @@ importers:
       '@relate/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@relate/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       esbuild:
         specifier: 0.28.2
         version: 0.28.2

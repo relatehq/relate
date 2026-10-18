@@ -9,6 +9,7 @@ import { createGraphQuery } from './queries/index.js';
 import { createTraversal, traversalsFrom } from './traversal/index.js';
 import {
   createSourceOperations,
+  InvalidAdoptionTarget,
   InvalidObservation,
   SourceAccessDenied,
 } from './resolution/index.js';
@@ -396,9 +397,7 @@ export function createRuntime(options: RuntimeOptions) {
                           settled.error instanceof SourceAccessDenied
                             ? 'denied'
                             : settled.error instanceof InvalidObservation ||
-                                (settled.error instanceof Error &&
-                                  settled.error.message ===
-                                    'Invalid adoption target')
+                                settled.error instanceof InvalidAdoptionTarget
                               ? 'invalid'
                               : settled.error instanceof RetentionError ||
                                   settled.error instanceof StorageUnavailable
@@ -656,6 +655,8 @@ export function createRuntime(options: RuntimeOptions) {
     },
     /** Operation-capture drop and truncation counters. */
     activityCounters: () => recorder.counters(),
+    /** Wait for captured operations to be appended, without closing. */
+    flushActivity: (deadlineMs: number) => recorder.flush(deadlineMs),
     /** Flush captured operations within the deadline; reports abandonment. */
     drainActivity: (deadlineMs: number) => recorder.drain(deadlineMs),
   };

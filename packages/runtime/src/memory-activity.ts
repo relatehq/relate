@@ -174,8 +174,13 @@ export function createMemoryActivity(input: MemoryActivityLimits = {}) {
       });
       const total = sized.reduce((sum, item) => sum + item.bytes, 0);
 
+      // A row larger than retention would evict itself, and every older row,
+      // after resolving; reject it so the recorder reports the drop.
       if (
-        sized.some((item) => item.bytes > limits.rowBytes) ||
+        sized.some(
+          (item) =>
+            item.bytes > limits.rowBytes || item.bytes > limits.operationBytes,
+        ) ||
         total > limits.batchBytes
       )
         throw new Error('Operation batch exceeds activity limits');

@@ -156,6 +156,26 @@ export function createOperationRecorder(options: {
       });
   };
 
+  /** Write until the queue is empty; false when the deadline passes first. */
+  async function settle(deadlineMs: number): Promise<boolean> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<'expired'>((resolve) => {
+      timer = setTimeout(() => resolve('expired'), deadlineMs);
+    });
+
+    try {
+      while (writer || queue.length) {
+        if (!writer) schedule();
+
+        if ((await Promise.race([writer, expired])) === 'expired') return false;
+      }
+
+      return true;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   return {
     enabled,
     limits,
@@ -191,6 +211,13 @@ export function createOperationRecorder(options: {
       }
     },
     /**
+     * Wait until operations recorded so far are appended or dropped, without
+     * closing. `pending` means rows were still queued at the deadline.
+     */
+    async flush(deadlineMs: number): Promise<'flushed' | 'pending'> {
+      return (await settle(deadlineMs)) ? 'flushed' : 'pending';
+    },
+    /**
      * Stop accepting operations and flush within the deadline. Rows still
      * queued at expiry are abandoned and reported; a hung append is left to
      * its store's own I/O bounds.
@@ -198,35 +225,17 @@ export function createOperationRecorder(options: {
     async drain(deadlineMs: number): Promise<'drained' | 'abandoned'> {
       closed = true;
 
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      const expired = new Promise<'expired'>((resolve) => {
-        timer = setTimeout(() => resolve('expired'), deadlineMs);
-      });
+      if (await settle(deadlineMs)) return 'drained';
 
-      try {
-        while (writer || queue.length) {
-          if (!writer) schedule();
+      const abandoned = queue.splice(0);
 
-          if ((await Promise.race([writer, expired])) === 'expired') {
-            const abandoned = queue.splice(0);
+      pendingBytes -= abandoned.reduce((sum, item) => sum + item.bytes, 0);
+      drop(
+        'shutdown',
+        abandoned.map((item) => item.draft.kind),
+      );
 
-            pendingBytes -= abandoned.reduce(
-              (sum, item) => sum + item.bytes,
-              0,
-            );
-            drop(
-              'shutdown',
-              abandoned.map((item) => item.draft.kind),
-            );
-
-            return 'abandoned';
-          }
-        }
-
-        return 'drained';
-      } finally {
-        clearTimeout(timer);
-      }
+      return 'abandoned';
     },
     counters(): ActivityCounters {
       return {

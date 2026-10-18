@@ -240,6 +240,18 @@ empty history.
 until `flushTimeoutMs`. Rows still queued at the deadline are reported as
 dropped with reason `shutdown`; a borrowed store stays open.
 
+Operation rows are appended in the background, after the operation returns. To
+read them back before closing, `await runtime.host.flushActivity()` waits up to
+`flushTimeoutMs` until rows captured so far are appended or dropped. It returns
+`'pending'` if rows were still queued at the deadline. It does not stop new
+operations.
+
+```ts
+await runtime.as(ana).objects.Customer.get(id);
+await runtime.host.flushActivity();
+const { entries } = await runtime.host.activity.operations.list({ limit: 1 });
+```
+
 ---
 
 ## 5. Storage and Retention

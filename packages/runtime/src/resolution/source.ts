@@ -35,6 +35,13 @@ import { refreshObservation } from './refresh.js';
 import { uuidv7 } from '../activity/index.js';
 import type { Capture, OperationScope } from '../activity/index.js';
 
+/** An adoption request naming no valid object or source record. */
+export class InvalidAdoptionTarget extends Error {
+  constructor() {
+    super('Invalid adoption target');
+  }
+}
+
 /** Source operations receive cross-object evidence resolution from composition. */
 export function createSourceOperations(options: {
   manifest: Manifest;
@@ -357,7 +364,7 @@ export function createSourceOperations(options: {
         typeof sourceRecordId !== 'string' ||
         !sourceRecordId.trim()
       )
-        throw new Error('Invalid adoption target');
+        throw new InvalidAdoptionTarget();
 
       await install();
 

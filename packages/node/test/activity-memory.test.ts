@@ -3,7 +3,7 @@ import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { connect, implementAction } from 'relate';
 import { createRuntime } from '@relate/node';
 import { createMemoryStore } from '@relate/runtime';
-import { NativeCommitUncertain } from '@relate/runtime/storage';
+import { NativeCommitUncertain, RetentionError } from '@relate/runtime/storage';
 import type { ObservationStore } from '@relate/runtime/storage';
 import type { Change, Operation } from '@relate/protocol';
 import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
@@ -542,6 +542,49 @@ describe('memory activity', () => {
       ]);
     },
   );
+
+  it('records a refresh as ok when a lost commit reply is proven retained', async () => {
+    const memory = createMemoryStore();
+    let loseReply = false;
+    const store: ObservationStore = {
+      ...memory,
+      async accept(...args) {
+        const accepted = await memory.accept(...args);
+
+        // The commit happened; only its acknowledgement is lost.
+        if (loseReply) throw new RetentionError('unconfirmed');
+
+        return accepted;
+      },
+    };
+    const graphId = randomUUID();
+    let name = 'Before';
+    const runtime = reviewApp(store, graphId, { name: () => name });
+
+    onTestFinished(() => runtime.close());
+    const customer = await runtime.host.adopt(Customer, 'one');
+    const context = { requestId: 'lost-reply', transport: 'http' as const };
+
+    name = 'After';
+    loseReply = true;
+    const read = await runtime
+      .operations(ana, context)
+      .get(Customer.id, customer, { refresh: true });
+
+    expect(read).toMatchObject({ status: 'ok', meta: { degraded: false } });
+    await runtime.close();
+
+    const refresh = (
+      await store.activity!.operations.list(graphId, {
+        filter: { requestId: 'lost-reply' },
+      })
+    ).entries.find((row) => row.kind === 'refresh');
+
+    expect(refresh).toMatchObject({
+      outcome: { status: 'ok' },
+      details: { refresh: 'changed' },
+    });
+  });
 
   it('truncates oversized lineage and says so', async () => {
     const runtime = createRuntime({
