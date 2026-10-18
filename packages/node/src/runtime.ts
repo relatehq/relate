@@ -23,7 +23,7 @@ import {
   createRuntime as createEngine,
   hostActor,
 } from '@relate/runtime';
-import type { Principal } from '@relate/runtime';
+import type { OperationScope, Principal } from '@relate/runtime';
 import type { SourceBinding } from 'relate/connectors';
 import type { ActionHandler } from '@relate/runtime';
 import type { Relate } from './types.js';
@@ -235,6 +235,38 @@ export function createRuntime<
     }
   };
 
+  /** One typed engine binding for embedded calls and trusted transport dispatch. */
+  function bindCalls(
+    actor: Principal,
+    scope: () => OperationScope,
+  ): Omit<ConsumerOperations, 'discovery'> {
+    return {
+      get: (objectDefinitionId, objectId, options) =>
+        run(() =>
+          engine.read(actor, objectDefinitionId, objectId, options, scope()),
+        ),
+      query: (objectDefinitionId, options) =>
+        run(() => engine.query(actor, objectDefinitionId, options, scope())),
+      traverse: (objectDefinitionId, objectId, traversal, options) =>
+        run(() =>
+          engine.traverse(
+            actor,
+            objectDefinitionId,
+            objectId,
+            traversal,
+            options,
+            scope(),
+          ),
+        ),
+      invoke: (actionDefinitionId, options) =>
+        run(() => engine.invoke(actor, actionDefinitionId, options, scope())),
+      getReceipt: (actionDefinitionId, invocationId) =>
+        run(() =>
+          engine.getReceipt(actor, actionDefinitionId, invocationId, scope()),
+        ),
+    };
+  }
+
   /**
    * Bind one host-authenticated principal and request context; every call is
    * tracked for `close()`. The binding carries context, never an operation
@@ -271,29 +303,7 @@ export function createRuntime<
           return discovery.describeAction(actionDefinitionId);
         },
       }),
-      get: (objectDefinitionId, objectId, options) =>
-        run(() =>
-          engine.read(actor, objectDefinitionId, objectId, options, scope()),
-        ),
-      query: (objectDefinitionId, options) =>
-        run(() => engine.query(actor, objectDefinitionId, options, scope())),
-      traverse: (objectDefinitionId, objectId, traversal, options) =>
-        run(() =>
-          engine.traverse(
-            actor,
-            objectDefinitionId,
-            objectId,
-            traversal,
-            options,
-            scope(),
-          ),
-        ),
-      invoke: (actionDefinitionId, options) =>
-        run(() => engine.invoke(actor, actionDefinitionId, options, scope())),
-      getReceipt: (actionDefinitionId, invocationId) =>
-        run(() =>
-          engine.getReceipt(actor, actionDefinitionId, invocationId, scope()),
-        ),
+      ...bindCalls(actor, scope),
     };
 
     return Object.freeze(bound);
@@ -348,68 +358,34 @@ export function createRuntime<
         run(() => engine.provenance(object)),
       activityCounters: () => engine.activityCounters(),
       flushActivity: () => engine.flushActivity(flushTimeoutMs),
-      dispatch(
+      async dispatch(
         principal: Principal,
         attempt: HostDispatch,
         method: DispatchMethod,
         args: readonly unknown[],
       ): Promise<unknown> {
-        return run(async () => {
-          if (!attempt || typeof attempt !== 'object' || !Array.isArray(args))
-            throw new Error('Invalid dispatch');
+        open();
 
-          const actor = structuredClone(principal);
-          // The bound principal is the actor; the caller supplies identity and context only.
-          const scope = createOperationScope(
-            { kind: 'principal', id: actor.id },
-            attempt.context ? requestContext(attempt.context) : undefined,
-            attempt.operationId,
-          );
-          const [definitionId, ...rest] = args as [string, ...unknown[]];
+        if (!attempt || typeof attempt !== 'object' || !Array.isArray(args))
+          throw new Error('Invalid dispatch');
 
-          switch (method) {
-            case 'get':
-              return engine.read(
-                actor,
-                definitionId,
-                rest[0] as string,
-                rest[1] as Parameters<typeof engine.read>[3],
-                scope,
-              );
-            case 'query':
-              return engine.query(
-                actor,
-                definitionId,
-                rest[0] as Parameters<typeof engine.query>[2],
-                scope,
-              );
-            case 'traverse':
-              return engine.traverse(
-                actor,
-                definitionId,
-                rest[0] as string,
-                rest[1] as string,
-                rest[2] as Parameters<typeof engine.traverse>[4],
-                scope,
-              );
-            case 'invoke':
-              return engine.invoke(
-                actor,
-                definitionId,
-                rest[0] as Parameters<typeof engine.invoke>[2],
-                scope,
-              );
-            case 'getReceipt':
-              return engine.getReceipt(
-                actor,
-                definitionId,
-                rest[0] as string,
-                scope,
-              );
-            default:
-              throw new Error('Invalid dispatch method');
-          }
-        });
+        const actor = structuredClone(principal);
+        // The bound principal is the actor; the caller supplies identity and context only.
+        const scope = createOperationScope(
+          { kind: 'principal', id: actor.id },
+          attempt.context ? requestContext(attempt.context) : undefined,
+          attempt.operationId,
+        );
+        const calls = bindCalls(actor, () => scope);
+
+        if (typeof method !== 'string' || !Object.hasOwn(calls, method))
+          throw new Error('Invalid dispatch method');
+
+        // Only this trusted transport boundary accepts untyped arguments.
+        // Engine methods validate them through the same binding as ordinary calls.
+        return (calls[method] as (...input: unknown[]) => Promise<unknown>)(
+          ...args,
+        );
       },
     }),
     async close() {

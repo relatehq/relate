@@ -9,38 +9,29 @@ import { createGraphQuery } from './queries/index.js';
 import { createTraversal, traversalsFrom } from './traversal/index.js';
 import {
   createSourceOperations,
-  InvalidAdoptionTarget,
-  InvalidObservation,
-  SourceAccessDenied,
+  classifyAdoptionFailure,
 } from './resolution/index.js';
 import {
   createCapture,
   createOperationRecorder,
   createOperationScope,
-  lineageEntry,
-  referenceEntry,
-  rejected,
+  createOperationDescriptions,
 } from './activity/index.js';
 import type {
   ActivityCaptureOptions,
-  OperationBody,
   OperationScope,
-  Settled,
 } from './activity/index.js';
-import { RetentionError, StorageUnavailable } from './storage.js';
 import type { SourceBinding } from 'relate/connectors';
 import { createMemoryStore } from './memory.js';
 import { presenting } from './reads/index.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
-import { ActionError, ActivityError } from '@relate/protocol';
+import { ActivityError } from '@relate/protocol';
 import type {
-  ActionReceipt,
   ActivityObjectRef,
   ActivityReader,
   ActivityStatus,
-  FullPageResult,
   ObjectProvenance,
   OperationActor,
   QueryRequest,
@@ -194,6 +185,10 @@ export function createRuntime(options: RuntimeOptions) {
     definitionRevision: revision,
     recorder,
   });
+  const describe = createOperationDescriptions(
+    manifest,
+    classifyAdoptionFailure,
+  );
   const source = createSourceOperations({
     manifest,
     revision,
@@ -282,15 +277,6 @@ export function createRuntime(options: RuntimeOptions) {
     return scope;
   }
 
-  const ref = (objectDefinitionId: string, objectId: string) => ({
-    objectDefinitionId,
-    objectId,
-  });
-  const receiptOutcome = (receipt: ActionReceipt) =>
-    receipt.state === 'succeeded'
-      ? { status: 'succeeded' as const }
-      : { status: 'failed' as const, code: receipt.error.code };
-
   const executor = createActionExecutor({
     query,
     manifest,
@@ -372,42 +358,7 @@ export function createRuntime(options: RuntimeOptions) {
       return capture.operation(
         scope,
         () => source.adopt(objectDefinitionId, sourceRecordId, scope),
-        (settled): OperationBody => ({
-          kind: 'adopt',
-          definitionId: objectDefinitionId,
-          ...(settled.ok
-            ? {
-                target: ref(objectDefinitionId, settled.value),
-                outcome: { status: 'ok' },
-                objects: [
-                  referenceEntry(
-                    ref(objectDefinitionId, settled.value),
-                    'target',
-                  ),
-                ],
-              }
-            : {
-                outcome:
-                  settled.error instanceof RetentionError &&
-                  settled.error.outcome === 'unconfirmed'
-                    ? { status: 'uncertain' }
-                    : {
-                        status: 'rejected',
-                        code:
-                          settled.error instanceof SourceAccessDenied
-                            ? 'denied'
-                            : settled.error instanceof InvalidObservation ||
-                                settled.error instanceof InvalidAdoptionTarget
-                              ? 'invalid'
-                              : settled.error instanceof RetentionError ||
-                                  settled.error instanceof StorageUnavailable
-                                ? 'unavailable'
-                                : rejected(settled.error).code,
-                      },
-                objects: [],
-              }),
-          details: {},
-        }),
+        describe.adopt(objectDefinitionId),
       );
     },
     async query(
@@ -422,24 +373,7 @@ export function createRuntime(options: RuntimeOptions) {
         capture.operation(
           attempt,
           () => query(attempt, principal, objectDefinitionId, r),
-          (settled): OperationBody => ({
-            kind: 'query',
-            definitionId: objectDefinitionId,
-            ...(settled.ok
-              ? {
-                  outcome: { status: 'ok' },
-                  objects: settled.value.data.map((record) =>
-                    lineageEntry(
-                      manifest,
-                      objectDefinitionId,
-                      'returned',
-                      record,
-                    ),
-                  ),
-                  details: { hasMore: !settled.value.meta.exhausted },
-                }
-              : { outcome: rejected(settled.error), objects: [], details: {} }),
-          }),
+          describe.query(objectDefinitionId),
         ),
       );
     },
@@ -451,33 +385,12 @@ export function createRuntime(options: RuntimeOptions) {
       scope?: OperationScope,
     ) {
       const attempt = consumerScope(principal, scope);
-      const target = ref(objectDefinitionId, objectId);
 
       return presenting(request, (r) =>
         capture.operation(
           attempt,
           () => readObject(attempt, principal, objectDefinitionId, objectId, r),
-          (settled): OperationBody => ({
-            kind: 'get',
-            definitionId: objectDefinitionId,
-            // The requested identity, without asserting the object exists:
-            // hidden and missing objects share one outcome.
-            target,
-            outcome: settled.ok
-              ? { status: settled.value.status }
-              : rejected(settled.error),
-            objects: [
-              settled.ok && settled.value.status === 'ok'
-                ? lineageEntry(
-                    manifest,
-                    objectDefinitionId,
-                    'target',
-                    settled.value,
-                  )
-                : referenceEntry(target, 'target'),
-            ],
-            details: {},
-          }),
+          describe.get(objectDefinitionId, objectId),
         ),
       );
     },
@@ -493,26 +406,7 @@ export function createRuntime(options: RuntimeOptions) {
         .operation(
           attempt,
           () => executor.invoke(principal, actionId, request, attempt),
-          (settled): OperationBody => ({
-            kind: 'invoke',
-            definitionId: actionId,
-            objects: [],
-            details: {},
-            ...(settled.ok
-              ? {
-                  outcome: receiptOutcome(settled.value.receipt),
-                  invocationId: settled.value.receipt.invocationId,
-                  replayed: settled.value.replayed,
-                }
-              : {
-                  outcome:
-                    settled.error instanceof ActionError &&
-                    settled.error.code === 'uncertain'
-                      ? { status: 'uncertain' }
-                      : rejected(settled.error),
-                  replayed: false,
-                }),
-          }),
+          describe.invoke(actionId),
         )
         .then(({ receipt }) => receipt);
     },
@@ -527,18 +421,7 @@ export function createRuntime(options: RuntimeOptions) {
       return capture.operation(
         attempt,
         () => executor.getReceipt(principal, actionId, invocationId, attempt),
-        (settled): OperationBody => ({
-          kind: 'receipt',
-          definitionId: actionId,
-          objects: [],
-          details: {},
-          ...(settled.ok
-            ? {
-                outcome: receiptOutcome(settled.value),
-                invocationId: settled.value.invocationId,
-              }
-            : { outcome: rejected(settled.error) }),
-        }),
+        describe.receipt(actionId),
       );
     },
     async traverse(
@@ -559,60 +442,16 @@ export function createRuntime(options: RuntimeOptions) {
           ? edge.relationship.toObjectDefinitionId
           : edge.relationship.fromObjectDefinitionId
         : typeId;
-      const from = ref(typeId, id);
-      const describe = (
-        settled: Settled<FullPageResult | ReadResult>,
-      ): OperationBody => {
-        const origin = referenceEntry(from, 'traversal-origin');
-        const details = {
-          traversalId: edge?.relationship.id ?? String(name),
-          from,
-        };
-
-        if (!settled.ok)
-          return {
-            kind: 'traverse',
-            definitionId: resultType,
-            outcome: rejected(settled.error),
-            objects: [origin],
-            details,
-          };
-
-        const value = settled.value;
-
-        if ('data' in value && 'meta' in value && !('status' in value))
-          return {
-            kind: 'traverse',
-            definitionId: resultType,
-            outcome: { status: 'ok' },
-            objects: [
-              origin,
-              ...value.data.map((record) =>
-                lineageEntry(manifest, resultType, 'returned', record),
-              ),
-            ],
-            details: { ...details, hasMore: !value.meta.exhausted },
-          };
-
-        const one = value as ReadResult;
-
-        return {
-          kind: 'traverse',
-          definitionId: resultType,
-          outcome: { status: one.status },
-          objects:
-            one.status === 'ok'
-              ? [origin, lineageEntry(manifest, resultType, 'returned', one)]
-              : [origin],
-          details,
-        };
-      };
 
       return presenting(request, (r) =>
         capture.operation(
           attempt,
           () => traverse(attempt, principal, typeId, id, name, r),
-          describe,
+          describe.traverse(
+            resultType,
+            { objectDefinitionId: typeId, objectId: id },
+            { ...(edge ? { id: edge.relationship.id } : {}), name },
+          ),
         ),
       );
     },

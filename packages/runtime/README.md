@@ -179,6 +179,16 @@ receipt and replay flag together for capture. The public result remains the
 receipt alone. Transport/IPC boundaries must pass their trusted scope
 explicitly.
 
+Activity representation lives in `src/activity/`: `descriptions.ts` maps settled
+consumer, adoption and refresh results to metadata-only operation bodies,
+`capture.ts` adds timing and identity, and `feed.ts` builds native
+invocation/change drafts. Resolution supplies adoption failure classification;
+activity never imports execution modules. The composition root wires these
+helpers to execution. Queries and traversals depend on activity only for the
+scope type. Native execution still stages feed drafts inside its transaction,
+and storage adapters retain responsibility for atomic publication and
+source-change classification.
+
 Capture limits default to 1,000 queued operations, 8 MiB queued, 100 per append,
 1,000 lineage entries and 256 KiB per operation. See
 [Activity & Provenance](../../apps/docs/content/runtime/activity.md) and the

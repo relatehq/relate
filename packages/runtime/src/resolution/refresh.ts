@@ -22,16 +22,12 @@ import {
   SourceAccessDenied,
 } from '../observations/index.js';
 import type { AnySourceConnector } from 'relate/connectors';
-import { nestedScope, referenceEntry, uuidv7 } from '../activity/index.js';
+import { describeRefresh, nestedScope, uuidv7 } from '../activity/index.js';
 import type {
   Capture,
-  OperationBody,
+  RefreshOutcome,
   OperationScope,
 } from '../activity/index.js';
-
-type RefreshBody = Extract<OperationBody, { kind: 'refresh' }>;
-
-type RefreshOutcome = Pick<RefreshBody, 'outcome' | 'details'>;
 
 /** Shared by projected data and private authorization evidence. */
 export async function refreshObservation(options: {
@@ -275,15 +271,11 @@ export async function refreshObservation(options: {
         warnings.length = 0;
       }
     } finally {
-      options.capture.record(attempt, started, {
-        kind: 'refresh',
-        definitionId: object.id,
-        target: { objectDefinitionId: object.id, objectId },
-        objects: [
-          referenceEntry({ objectDefinitionId: object.id, objectId }, 'target'),
-        ],
-        ...settled,
-      } as RefreshBody);
+      options.capture.record(
+        attempt,
+        started,
+        describeRefresh({ objectDefinitionId: object.id, objectId }, settled),
+      );
     }
   }
 

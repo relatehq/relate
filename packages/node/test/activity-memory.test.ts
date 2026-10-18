@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { connect, implementAction } from 'relate';
 import { createRuntime } from '@relate/node';
-import { createMemoryStore } from '@relate/runtime';
+import { createMemoryStore, uuidv7 } from '@relate/runtime';
 import { NativeCommitUncertain, RetentionError } from '@relate/runtime/storage';
 import type { ObservationStore } from '@relate/runtime/storage';
 import type { Change, Operation } from '@relate/protocol';
@@ -212,127 +212,150 @@ describe('memory activity', () => {
     await reviews.close();
   });
 
-  it('records traversal lineage with its origin and authorized fields', async () => {
-    const { graph, customers, invoices, Customer, Invoice, finance, ana } =
-      createInvoiceGraph();
-    const runtime = createRuntime({
-      graph,
-      graphId: randomUUID(),
-      connections: [
-        connect(customers, {
-          providerAccountId: 'example-account',
-          connectionId: 'crm',
-          connector: {
-            identify: async () => 'example-account',
-            fetch: async (id) => ({
-              providerAccountId: 'example-account',
-              state: 'present',
-              record: { id, name: 'Mothlight', portfolio: 'north', revenue: 1 },
-            }),
-          },
-        }),
-        connect(invoices, {
-          providerAccountId: 'example-account',
-          connectionId: 'billing',
-          connector: {
-            identify: async () => 'example-account',
-            fetch: async (id) => ({
-              providerAccountId: 'example-account',
-              state: 'present',
-              record: {
-                id,
-                customer_id: 'mothlight',
-                status: 'paid',
-                total_minor: 100,
-              },
-            }),
-          },
-        }),
-      ],
-    });
-    const customer = await runtime.host.adopt(Customer, 'mothlight');
-    const invoiceIds = [
-      await runtime.host.adopt(Invoice, 'inv_01'),
-      await runtime.host.adopt(Invoice, 'inv_02'),
-    ];
+  it.each(['embedded', 'dispatch'] as const)(
+    'records traversal lineage with its origin and authorized fields through %s',
+    async (mode) => {
+      const { graph, customers, invoices, Customer, Invoice, finance, ana } =
+        createInvoiceGraph();
+      const runtime = createRuntime({
+        graph,
+        graphId: randomUUID(),
+        connections: [
+          connect(customers, {
+            providerAccountId: 'example-account',
+            connectionId: 'crm',
+            connector: {
+              identify: async () => 'example-account',
+              fetch: async (id) => ({
+                providerAccountId: 'example-account',
+                state: 'present',
+                record: {
+                  id,
+                  name: 'Mothlight',
+                  portfolio: 'north',
+                  revenue: 1,
+                },
+              }),
+            },
+          }),
+          connect(invoices, {
+            providerAccountId: 'example-account',
+            connectionId: 'billing',
+            connector: {
+              identify: async () => 'example-account',
+              fetch: async (id) => ({
+                providerAccountId: 'example-account',
+                state: 'present',
+                record: {
+                  id,
+                  customer_id: 'mothlight',
+                  status: 'paid',
+                  total_minor: 100,
+                },
+              }),
+            },
+          }),
+        ],
+      });
+      const customer = await runtime.host.adopt(Customer, 'mothlight');
+      const invoiceIds = [
+        await runtime.host.adopt(Invoice, 'inv_01'),
+        await runtime.host.adopt(Invoice, 'inv_02'),
+      ];
 
-    for (const principal of [ana, finance])
-      await runtime.as(principal).objects.Customer.traverse.invoices(customer, {
-        select: ['status', 'totalMinor'],
-        refresh: true,
+      for (const principal of [ana, finance]) {
+        const request = {
+          select: ['status', 'totalMinor'],
+          refresh: true,
+        } as const;
+
+        if (mode === 'embedded')
+          await runtime
+            .as(principal)
+            .objects.Customer.traverse.invoices(customer, request);
+        else
+          await runtime.host.dispatch(
+            principal,
+            { operationId: uuidv7() },
+            'traverse',
+            [Customer.id, customer, 'invoices', request],
+          );
+      }
+
+      let traversals: readonly Operation[] = [];
+
+      await vi.waitFor(async () => {
+        traversals = (
+          await runtime.host.activity.operations.list({
+            filter: { kinds: ['traverse'] },
+          })
+        ).entries;
+        expect(traversals).toHaveLength(2);
       });
 
-    let traversals: readonly Operation[] = [];
+      const [fin, anaTraversal] = traversals;
+      const returned = (forbidden: string[]) =>
+        [...invoiceIds].sort().map(() =>
+          expect.objectContaining({
+            objectDefinitionId: 'business.invoice',
+            role: 'returned',
+            forbidden,
+          }),
+        );
 
-    await vi.waitFor(async () => {
-      traversals = (
+      expect(fin).toMatchObject({
+        kind: 'traverse',
+        definitionId: 'business.invoice',
+        outcome: { status: 'ok' },
+        details: {
+          traversalId: 'business.customer-invoices',
+          from: { objectDefinitionId: 'business.customer', objectId: customer },
+          hasMore: false,
+        },
+        objects: [
+          {
+            objectDefinitionId: 'business.customer',
+            objectId: customer,
+            role: 'traversal-origin',
+            returned: [],
+            forbidden: [],
+            unavailable: [],
+          },
+          ...returned([]),
+        ],
+      });
+      expect(anaTraversal!.objects.slice(1)).toEqual(
+        returned(['invoice.total']),
+      );
+      const refreshes = (
         await runtime.host.activity.operations.list({
-          filter: { kinds: ['traverse'] },
+          filter: { kinds: ['refresh'] },
         })
       ).entries;
-      expect(traversals).toHaveLength(2);
-    });
 
-    const [fin, anaTraversal] = traversals;
-    const returned = (forbidden: string[]) =>
-      [...invoiceIds].sort().map(() =>
-        expect.objectContaining({
-          objectDefinitionId: 'business.invoice',
-          role: 'returned',
-          forbidden,
-        }),
-      );
+      expect(refreshes.length).toBeGreaterThan(0);
 
-    expect(fin).toMatchObject({
-      kind: 'traverse',
-      definitionId: 'business.invoice',
-      outcome: { status: 'ok' },
-      details: {
-        traversalId: 'business.customer-invoices',
-        from: { objectDefinitionId: 'business.customer', objectId: customer },
-        hasMore: false,
-      },
-      objects: [
-        {
-          objectDefinitionId: 'business.customer',
-          objectId: customer,
-          role: 'traversal-origin',
-          returned: [],
-          forbidden: [],
-          unavailable: [],
-        },
-        ...returned([]),
-      ],
-    });
-    expect(anaTraversal!.objects.slice(1)).toEqual(returned(['invoice.total']));
-    const refreshes = (
-      await runtime.host.activity.operations.list({
-        filter: { kinds: ['refresh'] },
-      })
-    ).entries;
+      for (const refresh of refreshes) {
+        const parent = traversals.find(
+          (row) => row.id === refresh.parentOperationId,
+        );
 
-    expect(refreshes.length).toBeGreaterThan(0);
+        expect(parent).toBeDefined();
+        expect(refresh).toMatchObject({
+          actor: parent!.actor,
+          context: parent!.context,
+        });
+      }
 
-    for (const refresh of refreshes) {
-      const parent = traversals.find(
-        (row) => row.id === refresh.parentOperationId,
-      );
-
-      expect(parent).toBeDefined();
-      expect(refresh).toMatchObject({
-        actor: parent!.actor,
-        context: parent!.context,
-      });
-    }
-
-    expect(
-      fin!.objects
-        .slice(1)
-        .map((object) => object.objectId)
-        .sort(),
-    ).toEqual([...invoiceIds].sort());
-    await runtime.close();
-  });
+      expect(
+        fin!.objects
+          .slice(1)
+          .map((object) => object.objectId)
+          .sort(),
+      ).toEqual([...invoiceIds].sort());
+      await runtime.close();
+    },
+  );
 
   it('records receipt lookups without claiming to execute', async () => {
     const runtime = reviewApp(createMemoryStore());
@@ -750,6 +773,106 @@ describe('memory activity', () => {
     await runtime.close();
   });
 
+  it('shares reads, invocation replay and receipt authorization between consumer and host dispatch', async () => {
+    const runtime = reviewApp(createMemoryStore());
+
+    onTestFinished(() => runtime.close());
+    const customer = await runtime.host.adopt(Customer, 'mothlight');
+    const operations = runtime.operations(ana);
+    const invocation = {
+      input: { customer, note: 'One committed review' },
+      idempotencyKey: 'shared-binding',
+    };
+    const receipt = await operations.invoke(AddAccountReview.id, invocation);
+    const get = await operations.get(Customer.id, customer, {
+      select: ['name'],
+    });
+    const query = await operations.query(Customer.id, { select: ['name'] });
+    const lookup = await operations.getReceipt(
+      AddAccountReview.id,
+      receipt.invocationId,
+    );
+    const context = {
+      requestId: 'dispatch-parity',
+      transport: 'http' as const,
+    };
+    const attempts = new Map<string, string>();
+
+    for (const [method, args, expected] of [
+      ['get', [Customer.id, customer, { select: ['name'] }], get],
+      [
+        'query',
+        [Customer.id, { select: ['name'] }],
+        { data: query.data, meta: { exhausted: query.meta.exhausted } },
+      ],
+      ['invoke', [AddAccountReview.id, invocation], receipt],
+      ['getReceipt', [AddAccountReview.id, receipt.invocationId], lookup],
+    ] as const) {
+      const operationId = uuidv7();
+
+      attempts.set(method, operationId);
+      await expect(
+        runtime.host.dispatch(ana, { operationId, context }, method, args),
+      ).resolves.toMatchObject(expected);
+    }
+
+    const deniedId = uuidv7();
+    const denied = { ...ana, roles: [] };
+
+    await expect(
+      runtime
+        .operations(denied)
+        .getReceipt(AddAccountReview.id, receipt.invocationId),
+    ).rejects.toMatchObject({ code: 'denied' });
+    await expect(
+      runtime.host.dispatch(
+        denied,
+        { operationId: deniedId, context },
+        'getReceipt',
+        [AddAccountReview.id, receipt.invocationId],
+      ),
+    ).rejects.toMatchObject({ code: 'denied' });
+    await runtime.host.flushActivity();
+    const rows = (
+      await runtime.host.activity.operations.list({
+        filter: { requestId: context.requestId },
+      })
+    ).entries;
+
+    expect(rows).toHaveLength(5);
+
+    for (const [method, id] of attempts)
+      expect(rows).toContainEqual(
+        expect.objectContaining({
+          id,
+          kind: method === 'getReceipt' ? 'receipt' : method,
+          actor: { kind: 'principal', id: ana.id },
+          context: expect.objectContaining(context),
+        }),
+      );
+
+    expect(rows.find((row) => row.id === attempts.get('invoke'))).toMatchObject(
+      {
+        replayed: true,
+        invocationId: receipt.invocationId,
+      },
+    );
+    expect(rows.find((row) => row.id === deniedId)).toMatchObject({
+      outcome: { status: 'rejected', code: 'denied' },
+    });
+    expect(
+      (await runtime.host.activity.feed.read()).entries.map((row) => row.kind),
+    ).toEqual(['adopted', 'created', 'invocation-succeeded']);
+
+    await runtime.close();
+    await expect(
+      runtime.host.dispatch(ana, { operationId: uuidv7() }, 'get', [
+        Customer.id,
+        customer,
+      ]),
+    ).rejects.toThrow('Relate is closed');
+  });
+
   it('dispatches under a transport-assigned operation ID, always as the principal', async () => {
     const runtime = reviewApp(createMemoryStore());
     const customer = await runtime.host.adopt(Customer, 'mothlight');
@@ -796,6 +919,9 @@ describe('memory activity', () => {
       [{ operationId: randomUUID() }, 'get'],
       [{ operationId, context: { transport: 'smtp' } }, 'get'],
       [{ operationId }, 'discovery'],
+      [{ operationId }, 'toString'],
+      [{ operationId }, '__proto__'],
+      [{ operationId }, ['get']],
     ] as const)
       await expect(
         runtime.host.dispatch(ana, attempt as never, method as never, [

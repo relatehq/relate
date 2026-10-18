@@ -40,6 +40,11 @@ Authorization, transactions and evidence belong to the engine. This package adds
 types, composition and lifecycle. Storage defaults to isolated memory; an
 injected store is borrowed.
 
+Ordinary consumer operations and `host.dispatch` use the same typed engine
+binding in `src/runtime.ts`. Dispatch supplies one trusted operation scope;
+ordinary bindings create a fresh scope for each call. Both paths use the same
+lifecycle tracking, authorization and argument validation.
+
 ## How it fits
 
 - Depends on `relate`, `relate/compiler` and `relate/consumer`,

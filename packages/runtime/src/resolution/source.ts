@@ -5,6 +5,8 @@ import type {
   FullObjectResult as ReadResult,
   FieldEvidence,
   Json,
+  RejectedOutcome,
+  UncertainOutcome,
 } from '@relate/protocol';
 import type {
   ObservationStore,
@@ -24,6 +26,7 @@ import type {
   AuthorizationEvidence,
 } from '../authorization/index.js';
 import {
+  InvalidObservation,
   boundedFetch,
   observation,
   verifyAccount,
@@ -32,7 +35,8 @@ import {
 import type { SourceBinding } from 'relate/connectors';
 import { validateReadRequest, summarize } from '../reads/index.js';
 import { refreshObservation } from './refresh.js';
-import { uuidv7 } from '../activity/index.js';
+import { rejected, uuidv7 } from '../activity/index.js';
+import { RetentionError, StorageUnavailable } from '../storage.js';
 import type { Capture, OperationScope } from '../activity/index.js';
 
 /** An adoption request naming no valid object or source record. */
@@ -40,6 +44,27 @@ export class InvalidAdoptionTarget extends Error {
   constructor() {
     super('Invalid adoption target');
   }
+}
+
+/** Classify source-adoption failures without changing the caller's error. */
+export function classifyAdoptionFailure(
+  error: unknown,
+): RejectedOutcome | UncertainOutcome {
+  return error instanceof RetentionError && error.outcome === 'unconfirmed'
+    ? { status: 'uncertain' }
+    : {
+        status: 'rejected',
+        code:
+          error instanceof SourceAccessDenied
+            ? 'denied'
+            : error instanceof InvalidObservation ||
+                error instanceof InvalidAdoptionTarget
+              ? 'invalid'
+              : error instanceof RetentionError ||
+                  error instanceof StorageUnavailable
+                ? 'unavailable'
+                : rejected(error).code,
+      };
 }
 
 /** Source operations receive cross-object evidence resolution from composition. */

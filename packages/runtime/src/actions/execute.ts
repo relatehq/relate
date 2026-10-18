@@ -29,9 +29,8 @@ import type {
   ObservationStore,
 } from '../storage.js';
 import type { Principal } from '../authorization/index.js';
-import { uuidv7 } from '../activity/index.js';
+import { invocationFeed } from '../activity/index.js';
 import type { OperationScope } from '../activity/index.js';
-import type { FeedDraft } from '../storage.js';
 import { createActionDeadline } from './deadline.js';
 import { actionAllowed } from './available.js';
 
@@ -639,43 +638,14 @@ export function createActionExecutor(options: {
             await transaction.saveInvocation(invocation);
 
             if (store.activity && transaction.appendFeed) {
-              const envelope = {
-                schemaVersion: 1 as const,
-                graphId: options.scope.graphId,
-                definitionRevision: options.scope.definitionRevision,
-                operationId: attempt.id,
-                invocationId,
-                actor: attempt.actor,
-                context: attempt.context,
-              };
-              const drafts: FeedDraft[] = [
-                // One change per committed creation; a domain failure has none.
-                ...(domain ? [] : created).map((record): FeedDraft => ({
-                  ...envelope,
-                  id: uuidv7(),
-                  kind: 'created',
-                  object: {
-                    objectDefinitionId: record.objectDefinitionId,
-                    objectId: record.objectId,
-                  },
-                  changedPropertyIds: Object.keys(record.values).sort(),
-                  occurredAt: new Date(record.createdAt).toISOString(),
-                })),
-                {
-                  ...envelope,
-                  id: uuidv7(),
+              await transaction.appendFeed(
+                invocationFeed(options.scope, attempt, {
                   actionDefinitionId: action.id,
-                  occurredAt: new Date(completedAt).toISOString(),
-                  ...(domain
-                    ? {
-                        kind: 'invocation-failed' as const,
-                        failureCode: domain.code,
-                      }
-                    : { kind: 'invocation-succeeded' as const }),
-                },
-              ];
-
-              await transaction.appendFeed(drafts);
+                  receipt,
+                  completedAt,
+                  created,
+                }),
+              );
             }
 
             return { receipt, replayed: false };

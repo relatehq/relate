@@ -97,7 +97,10 @@ export function assertRuntimeDependency(
           ? to === `${target}/index.ts`
           : true;
 
-  if (!allowed || !entry)
+  const scopeOnly =
+    target === 'activity' && (owner === 'queries' || owner === 'traversal');
+
+  if (!allowed || !entry || (scopeOnly && !typeOnly))
     throw new Error(
       `Forbidden runtime dependency: ${from} -> ${to}${typeOnly ? ' (type)' : ''}`,
     );

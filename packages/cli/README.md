@@ -303,7 +303,9 @@ runtime host ─ { type: 'activity', feed, operations } ─▶ projectActivity �
   call, the host forwards rows whose context names its `runtimeId`: settled
   operation rows (newest first, down to the last pass) and committed feed
   entries (from a checkpoint taken at startup). Seeds and earlier history in a
-  persistent store are not forwarded.
+  persistent store are not forwarded. `src/dev/activity/forwarding.ts` owns
+  polling, checkpoints and runtime filtering; the runtime host starts it,
+  schedules passes and flushes it during shutdown.
 - **Projection.** A runtime row merges into the dispatch event with its ID, in
   either order, and is authoritative for the outcome; nested refreshes and
   committed entries (`created`, `updated`, `invocation-succeeded`, …) join the

@@ -26,3 +26,12 @@ export {
 } from './capture.js';
 
 export type { Capture, OperationBody, Settled } from './capture.js';
+
+export {
+  createOperationDescriptions,
+  describeRefresh,
+} from './descriptions.js';
+
+export type { RefreshOutcome } from './descriptions.js';
+
+export { invocationFeed } from './feed.js';
