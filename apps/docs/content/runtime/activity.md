@@ -147,6 +147,9 @@ const operations = runtime.operations(principal, {
 });
 ```
 
+Bind `transport` in every transport host (`'mcp'` for an MCP `bindGraph`,
+`'http'` for an HTTP API). Calls bound without it are recorded as `'embedded'`.
+
 Operation rows are recorded after each operation settles through a bounded
 queue. Recording never fails or delays the caller's operation, and rows can be
 missing, for example after queue overflow or a failed append. A missing row is

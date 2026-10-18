@@ -22,9 +22,11 @@ import {
 } from '../observations/index.js';
 import type { AnySourceConnector } from 'relate/connectors';
 import {
-  currentScope,
+  activeOperation,
+  createOperationScope,
   nestedScope,
   referenceEntry,
+  runtimeActor,
   uuidv7,
 } from '../activity/index.js';
 import type { Capture, OperationBody } from '../activity/index.js';
@@ -93,8 +95,12 @@ export async function refreshObservation(options: {
   ) {
     // Each fetch attempt is a nested operation of the enclosing attempt, with
     // its own outcome; a fresh observation that needs no fetch records none.
-    const parent = currentScope();
-    const attempt = nestedScope(parent);
+    // Work outside any consumer or host call (none today) is the runtime's
+    // own top-level refresh rather than a child of an invented parent.
+    const parent = activeOperation()?.scope;
+    const attempt = parent
+      ? nestedScope(parent)
+      : createOperationScope(runtimeActor);
     const started = { at: Date.now(), monotonic: performance.now() };
     let settled: RefreshOutcome = {
       outcome: { status: 'rejected', code: 'internal' },
@@ -127,6 +133,9 @@ export async function refreshObservation(options: {
         const known = compareObservation(stored.observation, incoming);
 
         if (known === 'superseded' || known === 'replay') {
+          // A competing observation won, whatever the re-read below finds.
+          ok('superseded');
+
           // Re-read the winner because another process may have advanced it further.
           const winner = await store.load(scope, objectId);
 
@@ -135,7 +144,6 @@ export async function refreshObservation(options: {
           candidate = winner;
           permissionCandidate = candidate;
           refresh = 'superseded';
-          ok('superseded');
         } else {
           refresh = 'succeeded';
 
@@ -148,7 +156,7 @@ export async function refreshObservation(options: {
               attribution: {
                 changeId: uuidv7(),
                 operationId: attempt.id,
-                parentOperationId: parent.id,
+                ...(parent ? { parentOperationId: parent.id } : {}),
                 actor: attempt.actor,
                 context: attempt.context,
                 occurredAt: observedAt,

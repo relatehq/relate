@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { connect } from 'relate';
+import { connect, implementAction } from 'relate';
 import { createRuntime } from '@relate/node';
 import { createMemoryStore } from '@relate/runtime';
+import { NativeCommitUncertain } from '@relate/runtime/storage';
 import type { ObservationStore } from '@relate/runtime/storage';
 import type { Change, Operation } from '@relate/protocol';
 import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
@@ -478,6 +479,137 @@ describe('memory activity', () => {
       truncated: { omittedObjects: 1 },
     });
     expect(runtime.host.activityCounters().truncated).toBe(1);
+    await runtime.close();
+  });
+
+  it('fails an invoke before its handler runs when the store cannot stage feed entries', async () => {
+    const store = createMemoryStore();
+    const native = store.native!;
+    let ran = false;
+    const runtime = createRuntime({
+      graph,
+      graphId: randomUUID(),
+      store: {
+        ...store,
+        native: {
+          ...native,
+          transaction: (scope, callback) =>
+            native.transaction(scope, (transaction) => {
+              const { appendFeed: _appendFeed, ...withoutFeed } = transaction;
+
+              return callback(withoutFeed);
+            }),
+        },
+      },
+      actionImplementations: [
+        implementAction(graph, AddAccountReview, async () => {
+          ran = true;
+
+          return { reviewId: 'never' };
+        }),
+      ],
+      connections: reviewConnections(),
+    });
+    const customer = await runtime.host.adopt(Customer, 'mothlight');
+
+    await expect(
+      runtime.as(ana).actions.addAccountReview({
+        input: { customer, note: 'No feed' },
+        idempotencyKey: 'no-feed',
+      }),
+    ).rejects.toMatchObject({ code: 'internal' });
+    expect(ran).toBe(false);
+    expect(
+      (await runtime.host.activity.feed.read()).entries.map((e) => e.kind),
+    ).toEqual(['adopted']);
+    await runtime.close();
+  });
+
+  it('records a refresh as superseded when the competing winner is gone', async () => {
+    let now = 1_000_000;
+    const store = createMemoryStore();
+    let vanish = false;
+    let stale = false;
+    const runtime = reviewApp(
+      {
+        ...store,
+        // A fetch token older than the stored observation loses to it.
+        beginFetch: async () =>
+          stale ? ((vanish = true), '0') : store.beginFetch(),
+        load: async (scope, objectId) =>
+          vanish ? undefined : store.load(scope, objectId),
+      },
+      randomUUID(),
+      { now: () => now },
+    );
+    const customer = await runtime.host.adopt(Customer, 'mothlight');
+
+    now += 120_000;
+    stale = true;
+    await runtime.as(ana).objects.Customer.get(customer, { select: ['name'] });
+
+    let refreshes: readonly Operation[] = [];
+
+    await vi.waitFor(async () => {
+      refreshes = (
+        await runtime.host.activity.operations.list({
+          filter: { kinds: ['refresh'] },
+        })
+      ).entries;
+      expect(refreshes).toHaveLength(1);
+    });
+    expect(refreshes[0]).toMatchObject({
+      outcome: { status: 'ok' },
+      details: { refresh: 'superseded' },
+    });
+    await runtime.close();
+  });
+
+  it('records a lost commit acknowledgement as uncertain and keeps the committed feed', async () => {
+    const store = createMemoryStore();
+    const native = store.native!;
+    const runtime = reviewApp({
+      ...store,
+      native: {
+        ...native,
+        async transaction(scope, callback) {
+          await native.transaction(scope, callback);
+          throw new NativeCommitUncertain();
+        },
+      },
+    });
+    const customer = await runtime.host.adopt(Customer, 'mothlight');
+
+    await expect(
+      runtime.as(ana).actions.addAccountReview({
+        input: { customer, note: 'Committed, unacknowledged' },
+        idempotencyKey: 'uncertain',
+      }),
+    ).rejects.toMatchObject({ code: 'uncertain' });
+
+    // The feed is authoritative for what committed.
+    const feed = (await runtime.host.activity.feed.read()).entries;
+
+    expect(feed.map((e) => e.kind)).toEqual([
+      'adopted',
+      'created',
+      'invocation-succeeded',
+    ]);
+
+    let invokes: readonly Operation[] = [];
+
+    await vi.waitFor(async () => {
+      invokes = (
+        await runtime.host.activity.operations.list({
+          filter: { kinds: ['invoke'] },
+        })
+      ).entries;
+      expect(invokes).toHaveLength(1);
+    });
+    expect(invokes[0]!.outcome).toEqual({ status: 'uncertain' });
+    expect(invokes[0]).not.toHaveProperty('invocationId');
+    // The attempt still links to what it committed.
+    expect(feed[1]!.operationId).toBe(invokes[0]!.id);
     await runtime.close();
   });
 });

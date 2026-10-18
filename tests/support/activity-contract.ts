@@ -277,6 +277,12 @@ export function activityContract(
         actor: { kind: 'principal', id: 'ana' },
         objects: [],
       });
+
+      // Nor does any operation row, including the adoption that fetched it.
+      const all = await operations(runtime, 2);
+
+      expect(JSON.stringify(all)).not.toContain('Renewal call booked');
+      expect(JSON.stringify(all)).not.toContain('Mothlight');
       await runtime.close();
     });
 

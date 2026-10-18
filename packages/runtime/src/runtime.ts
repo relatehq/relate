@@ -356,7 +356,7 @@ export function createRuntime(options: RuntimeOptions) {
     ): Promise<string> {
       return capture.operation(
         scope,
-        () => source.adopt(objectDefinitionId, sourceRecordId),
+        () => source.adopt(objectDefinitionId, sourceRecordId, scope),
         (settled): OperationBody => ({
           kind: 'adopt',
           definitionId: objectDefinitionId,
@@ -474,9 +474,11 @@ export function createRuntime(options: RuntimeOptions) {
       request: { input: unknown; idempotencyKey: string },
       scope?: OperationScope,
     ) {
+      const attempt = consumerScope(principal, scope);
+
       return capture.operation(
-        consumerScope(principal, scope),
-        () => executor.invoke(principal, actionId, request),
+        attempt,
+        () => executor.invoke(principal, actionId, request, attempt),
         (settled, active): OperationBody => ({
           kind: 'invoke',
           definitionId: actionId,

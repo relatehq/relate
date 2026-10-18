@@ -71,7 +71,7 @@ const runtime = createRuntime({
 const actor = { id: 'demo-editor', roles: ['editor'], claims: {} };
 const binding = {
   description: compile(graph).consumer,
-  operations: runtime.operations(actor),
+  operations: runtime.operations(actor, { transport: 'mcp' }),
 };
 const executor = createDevelopmentExecutor();
 

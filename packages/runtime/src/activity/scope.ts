@@ -87,11 +87,6 @@ export function activeOperation(): ActiveOperation | undefined {
   return active.getStore();
 }
 
-/** The current operation, or a runtime-owned scope for unattributed work. */
-export function currentScope(): OperationScope {
-  return activeOperation()?.scope ?? createOperationScope(runtimeActor);
-}
-
 /** Record which invocation the current invoke attempt executed or replayed. */
 export function noteInvocation(id: string, replayed: boolean): void {
   const operation = activeOperation();

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { connect } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/node';
@@ -11,6 +11,7 @@ import {
   AccountReview,
   Customer,
   addAccountReview,
+  ana,
   customers,
   graph,
   invoices,
@@ -30,12 +31,76 @@ describe('Postgres activity storage', () => {
     await store.install(graphId, compile(graph).definitionRevision);
   });
   afterEach(async () => {
-    await db.query(
-      'DROP TRIGGER IF EXISTS reject_lineage ON relate.operation_objects',
-    );
+    for (const [table, trigger] of triggers.splice(0))
+      await db.query(`DROP TRIGGER IF EXISTS ${trigger} ON relate.${table}`);
+
     await db.end();
     await store.close();
   });
+
+  const triggers: [table: string, trigger: string][] = [];
+
+  /**
+   * Fail inserts into `table` for this test's graph only: test files share the
+   * database and run in parallel, so an unscoped trigger breaks other tests.
+   */
+  async function rejectInserts(table: string) {
+    const trigger = `reject_${randomUUID().replaceAll('-', '')}`;
+
+    await db.query(
+      `CREATE OR REPLACE FUNCTION relate.reject_graph_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+       BEGIN
+         IF NEW.graph_id = TG_ARGV[0] THEN RAISE EXCEPTION 'injected failure'; END IF;
+         RETURN NEW;
+       END $$`,
+    );
+    await db.query(
+      `CREATE TRIGGER ${trigger} BEFORE INSERT ON relate.${table} FOR EACH ROW EXECUTE FUNCTION relate.reject_graph_insert('${graphId}')`,
+    );
+    triggers.push([table, trigger]);
+  }
+
+  function reviewRuntime(
+    crm: { name?: () => string; now?: () => number } = {},
+  ) {
+    return createRuntime({
+      graph,
+      graphId,
+      store,
+      ...(crm.now ? { clock: crm.now } : {}),
+      actionImplementations: [addAccountReview],
+      connections: [
+        connect(customers, {
+          providerAccountId: 'example-account',
+          connectionId: 'crm',
+          connector: {
+            identify: async () => 'example-account',
+            fetch: async (id) => ({
+              providerAccountId: 'example-account',
+              state: 'present',
+              record: {
+                id,
+                name: crm.name?.() ?? 'Legacy',
+                portfolio: 'north',
+              },
+            }),
+          },
+        }),
+        connect(invoices, {
+          providerAccountId: 'example-account',
+          connectionId: 'billing',
+          connector: {
+            identify: async () => 'example-account',
+            fetch: async (id) => ({
+              providerAccountId: 'example-account',
+              state: 'present',
+              record: { id },
+            }),
+          },
+        }),
+      ],
+    });
+  }
 
   const entry = (overrides: Record<string, unknown> = {}) => {
     const row: Record<string, unknown> = {
@@ -150,12 +215,7 @@ describe('Postgres activity storage', () => {
 
     expect(operation).toEqual({ ...recorded, recordedAt: expect.any(String) });
 
-    await db.query(
-      `CREATE OR REPLACE FUNCTION relate.reject_lineage() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected lineage failure'; END $$`,
-    );
-    await db.query(
-      'CREATE TRIGGER reject_lineage BEFORE INSERT ON relate.operation_objects FOR EACH ROW EXECUTE FUNCTION relate.reject_lineage()',
-    );
+    await rejectInserts('operation_objects');
 
     const failed = draft(2);
 
@@ -172,38 +232,7 @@ describe('Postgres activity storage', () => {
   });
 
   it('reports legacy objects without provenance as unknown', async () => {
-    const runtime = createRuntime({
-      graph,
-      graphId,
-      store,
-      actionImplementations: [addAccountReview],
-      connections: [
-        connect(customers, {
-          providerAccountId: 'example-account',
-          connectionId: 'crm',
-          connector: {
-            identify: async () => 'example-account',
-            fetch: async (id) => ({
-              providerAccountId: 'example-account',
-              state: 'present',
-              record: { id, name: 'Legacy', portfolio: 'north' },
-            }),
-          },
-        }),
-        connect(invoices, {
-          providerAccountId: 'example-account',
-          connectionId: 'billing',
-          connector: {
-            identify: async () => 'example-account',
-            fetch: async (id) => ({
-              providerAccountId: 'example-account',
-              state: 'present',
-              record: { id },
-            }),
-          },
-        }),
-      ],
-    });
+    const runtime = reviewRuntime();
     const customer = await runtime.host.adopt(Customer, 'legacy');
 
     await db.query(
@@ -225,4 +254,141 @@ describe('Postgres activity storage', () => {
 
     await runtime.close();
   });
+
+  it('rolls back an action, an adoption and a refresh when the feed insert fails', async () => {
+    let now = 1_000_000;
+    let name = 'Before';
+    const runtime = reviewRuntime({ now: () => now, name: () => name });
+    const customer = await runtime.host.adopt(Customer, 'kept');
+
+    await rejectInserts('feed_entries');
+
+    // Native transaction: no review, receipt or invocation event survives.
+    await expect(
+      runtime.as(ana).actions.addAccountReview({
+        input: { customer, note: 'Rolled back' },
+        idempotencyKey: 'rolled-back',
+      }),
+    ).rejects.toMatchObject({ code: expect.any(String) });
+    expect(
+      (
+        await db.query(
+          'SELECT 1 FROM relate.native_objects WHERE graph_id=$1 UNION ALL SELECT 1 FROM relate.invocations WHERE graph_id=$1',
+          [graphId],
+        )
+      ).rowCount,
+    ).toBe(0);
+
+    // Source acceptance with membership: the object is not adopted.
+    await expect(runtime.host.adopt(Customer, 'lost')).rejects.toThrow();
+    expect(
+      (
+        await db.query('SELECT 1 FROM relate.objects WHERE graph_id=$1', [
+          graphId,
+        ])
+      ).rowCount,
+    ).toBe(1);
+
+    // Source acceptance on refresh: a known rollback, so the change does not commit.
+    now += 120_000;
+    name = 'After';
+    await runtime.as(ana).objects.Customer.get(customer, { select: ['name'] });
+    await vi.waitFor(async () => {
+      const [refresh] = (
+        await runtime.host.activity.operations.list({
+          filter: { kinds: ['refresh'] },
+        })
+      ).entries;
+
+      expect(refresh?.outcome).toEqual({
+        status: 'rejected',
+        code: 'unavailable',
+      });
+    });
+    expect(
+      (
+        await db.query(
+          "SELECT observation->'values' AS values FROM relate.objects WHERE graph_id=$1 AND object_key=$2",
+          [graphId, customer],
+        )
+      ).rows[0]?.values,
+    ).not.toMatchObject({ 'customer.name': 'After' });
+
+    expect(
+      (await runtime.host.activity.feed.read()).entries.map((e) => e.kind),
+    ).toEqual(['adopted']);
+    await runtime.close();
+  });
+
+  for (const ending of ['COMMIT', 'ROLLBACK'] as const)
+    it(`publishes behind a writer holding the feed lock in commit order (${ending})`, async () => {
+      const runtime = reviewRuntime();
+      const customer = await runtime.host.adopt(Customer, 'mothlight');
+      const checkpoint = (await runtime.host.activity.feed.read()).nextCursor;
+      const writer = new pg.Client({ connectionString: testDatabaseUrl() });
+
+      await writer.connect();
+
+      try {
+        // Another writer allocates the next position and has not committed.
+        await writer.query('BEGIN');
+        const allocated = await writer.query<{ position: string }>(
+          'UPDATE relate.feed_streams SET position = position + 1 WHERE graph_id=$1 RETURNING position::text',
+          [graphId],
+        );
+
+        await writer.query(
+          `INSERT INTO relate.feed_entries
+           SELECT (jsonb_populate_record(e, jsonb_build_object('id', gen_random_uuid(), 'position', $2::bigint))).*
+           FROM relate.feed_entries e WHERE e.graph_id=$1 AND e.kind='adopted'`,
+          [graphId, allocated.rows[0]!.position],
+        );
+
+        const invoked = runtime.as(ana).actions.addAccountReview({
+          input: { customer, note: 'Behind the open writer' },
+          idempotencyKey: 'behind',
+        });
+
+        // The action waits for the stream lock; nothing is visible yet.
+        await vi.waitFor(
+          async () => {
+            const waiting = await db.query(
+              "SELECT 1 FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'UPDATE relate.feed_streams%'",
+            );
+
+            expect(waiting.rowCount).toBeGreaterThan(0);
+          },
+          { timeout: 5_000, interval: 20 },
+        );
+        expect(
+          (await runtime.host.activity.feed.read({ cursor: checkpoint }))
+            .entries,
+        ).toEqual([]);
+
+        await writer.query(ending);
+        expect((await invoked).state).toBe('succeeded');
+
+        const after = (
+          await runtime.host.activity.feed.read({ cursor: checkpoint })
+        ).entries;
+        const first = BigInt(allocated.rows[0]!.position);
+
+        expect(after.map((e) => [e.kind, BigInt(e.position) - first])).toEqual(
+          ending === 'COMMIT'
+            ? [
+                ['adopted', 0n],
+                ['created', 1n],
+                ['invocation-succeeded', 2n],
+              ]
+            : // A rolled-back allocation leaves no gap.
+              [
+                ['created', 0n],
+                ['invocation-succeeded', 1n],
+              ],
+        );
+      } finally {
+        await writer.end();
+        await runtime.close();
+      }
+    });
 });

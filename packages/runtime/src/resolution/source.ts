@@ -32,8 +32,8 @@ import {
 import type { SourceBinding } from 'relate/connectors';
 import { validateReadRequest, summarize } from '../reads/index.js';
 import { refreshObservation } from './refresh.js';
-import { currentScope, uuidv7 } from '../activity/index.js';
-import type { Capture } from '../activity/index.js';
+import { uuidv7 } from '../activity/index.js';
+import type { Capture, OperationScope } from '../activity/index.js';
 
 /** Source operations receive cross-object evidence resolution from composition. */
 export function createSourceOperations(options: {
@@ -330,11 +330,12 @@ export function createSourceOperations(options: {
     resolveSourceEvidence,
     /**
      * Trusted host ingestion operation. Ordinary reads cannot establish
-     * membership. The current operation scope supplies the adopting actor.
+     * membership. `scope` supplies the adopting actor.
      */
     async adopt(
       objectDefinitionId: string,
       sourceRecordId: string,
+      scope: OperationScope,
     ): Promise<string> {
       const object = manifest.objects.find((o) => o.id === objectDefinitionId);
 
@@ -344,8 +345,6 @@ export function createSourceOperations(options: {
         !sourceRecordId.trim()
       )
         throw new Error('Invalid adoption target');
-
-      const scope = currentScope();
 
       await install();
 

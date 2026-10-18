@@ -3,7 +3,6 @@ export { uuidv7 } from './ids.js';
 export {
   activeOperation,
   createOperationScope,
-  currentScope,
   nestedScope,
   noteInvocation,
   runtimeActor,

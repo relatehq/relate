@@ -29,7 +29,8 @@ import type {
   ObservationStore,
 } from '../storage.js';
 import type { Principal } from '../authorization/index.js';
-import { currentScope, noteInvocation, uuidv7 } from '../activity/index.js';
+import { noteInvocation, uuidv7 } from '../activity/index.js';
+import type { OperationScope } from '../activity/index.js';
 import type { FeedDraft } from '../storage.js';
 import { createActionDeadline } from './deadline.js';
 import { actionAllowed } from './available.js';
@@ -220,10 +221,15 @@ export function createActionExecutor(options: {
     throw new ActionError('internal');
   }
 
+  /**
+   * `attempt` is the trusted scope of this call; its actor is the principal.
+   * Creation provenance and invocation attempt metadata come from it.
+   */
   const invoke = async (
     principal: Principal,
     actionId: string,
     request: { input: unknown; idempotencyKey: string },
+    attempt: OperationScope,
   ): Promise<ActionReceipt> => {
     const actor = structuredClone(principal);
     const action = authorizedAction(actor, actionId);
@@ -241,8 +247,6 @@ export function createActionExecutor(options: {
 
     if (!handler || !store.native) throw new ActionError('unsupported');
 
-    // The attempt that executes or replays this invocation; fresh per retry.
-    const attempt = currentScope();
     const startedAt = options.clock();
 
     let deadline: ReturnType<typeof createActionDeadline> | undefined;
@@ -253,6 +257,10 @@ export function createActionExecutor(options: {
       return await store.native.transaction(
         options.scope,
         async (transaction) => {
+          // Fail before the handler can cause external effects, not after.
+          if (store.activity && !transaction.appendFeed)
+            throw new Error('Activity store lacks atomic native feed staging');
+
           deadline = createActionDeadline(transaction, options.timeoutMs);
 
           return deadline.run(async (transaction, check) => {
@@ -615,12 +623,7 @@ export function createActionExecutor(options: {
 
             await transaction.saveInvocation(invocation);
 
-            if (store.activity) {
-              if (!transaction.appendFeed)
-                throw new Error(
-                  'Activity store lacks atomic native feed staging',
-                );
-
+            if (store.activity && transaction.appendFeed) {
               const envelope = {
                 schemaVersion: 1 as const,
                 graphId: options.scope.graphId,
