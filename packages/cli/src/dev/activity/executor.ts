@@ -16,7 +16,7 @@ import {
   truncate,
   type ActivityLog,
 } from './log.js';
-import { observeOperations } from './operations.js';
+import { withActivityContext } from './context.js';
 
 function boundedLogs(result: ExecutionResult): {
   readonly logs: ExecutionEvent['logs'];
@@ -50,13 +50,6 @@ export function observeExecutor(
   return {
     async execute({ code, graph, signal }) {
       const executionId = randomUUID();
-      const observed = {
-        ...graph,
-        operations: observeOperations(graph.operations, log, {
-          ...request,
-          executionId,
-        }),
-      };
       const source = truncate(code, activityLimits.code);
       const started = performance.now();
       const base = {
@@ -80,11 +73,20 @@ export function observeExecutor(
       let result: ExecutionResult;
 
       try {
-        result = await inner.execute({
-          code,
-          graph: observed,
-          ...(signal ? { signal } : {}),
-        });
+        result = await withActivityContext(
+          {
+            requestId: request.requestId,
+            transport: request.transport,
+            runtimeId: request.runtimeId,
+            executionId,
+          },
+          () =>
+            inner.execute({
+              code,
+              graph,
+              ...(signal ? { signal } : {}),
+            }),
+        );
       } catch (error) {
         log.record({
           ...base,

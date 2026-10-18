@@ -1,6 +1,12 @@
 import { ReadError } from '@relate/protocol';
 
 export type {
+  ActivityStore,
+  FeedDraft,
+  OperationDraft,
+  AcceptanceProvenance,
+  ActivityCaptureOptions,
+  ActivityDiagnostic,
   StorageScope,
   Observation,
   StoredObject,
@@ -102,3 +108,20 @@ export class StorageUnavailable extends Error {
 
 /** A lost COMMIT acknowledgement cannot be described as a confirmed rollback. */
 export class NativeCommitUncertain extends Error {}
+
+export { describeAcceptedChange } from './observations/changes.js';
+
+export {
+  acceptedFeed,
+  validateBatch,
+  activityPage,
+  prepareActivityRead,
+  activityId,
+  activityBytes,
+} from './activity/index.js';
+
+export type {
+  ActivityLimits,
+  ActivitySnapshot,
+  ActivityQueryFilter,
+} from './activity/index.js';

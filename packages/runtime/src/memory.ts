@@ -1,3 +1,5 @@
+import { createMemoryActivity, acceptedFeed } from './activity/index.js';
+import type { ActivityLimits } from './activity/index.js';
 import { randomUUID } from 'node:crypto';
 import { canonicalJson } from 'relate/model';
 import type {
@@ -6,11 +8,18 @@ import type {
   StoredObject,
 } from './storage.js';
 import { createNativeMemoryStore } from './native-memory.js';
-import { RetentionError, compareObjectIds } from './storage.js';
+import {
+  RetentionError,
+  compareObjectIds,
+  describeAcceptedChange,
+} from './storage.js';
 import { compareObservation } from './observations/ordering.js';
 
 /** Isolated, process-local retention. Reuse the instance to share state between runtimes. */
-export function createMemoryStore(): ObservationStore {
+export function createMemoryStore(
+  limits: ActivityLimits = {},
+): ObservationStore {
+  const activity = createMemoryActivity(limits);
   const graphs = new Map<string, string>();
   const scopes = new Map<string, Map<string, StoredObject>>();
   let token = 0n;
@@ -18,8 +27,16 @@ export function createMemoryStore(): ObservationStore {
 
   return {
     durability: 'volatile',
+    activity: activity.store,
+    atomicActivity: true,
+    async provenance(scope, objectId) {
+      const object = await this.load(scope, objectId);
+
+      return object ? (object.provenance ?? { kind: 'unknown' }) : undefined;
+    },
     native: createNativeMemoryStore(
       (scope) => graphs.get(scope.graphId) === scope.definitionRevision,
+      activity.publish,
     ),
     async install(graphId, definitionRevision) {
       const installed = graphs.get(graphId);
@@ -96,10 +113,46 @@ export function createMemoryStore(): ObservationStore {
               objectId: previous?.objectId ?? randomUUID(),
               sourceRecordId: input.sourceRecordId,
               observation: input.observation,
+              provenance:
+                previous?.provenance ??
+                (input.provenance
+                  ? {
+                      kind: 'adopted' as const,
+                      actor: input.provenance.actor,
+                      at: input.provenance.occurredAt,
+                      sourceDefinitionId: scope.sourceDefinitionId,
+                    }
+                  : { kind: 'unknown' as const }),
             })
           : previous!;
       // Prepare the returned snapshot before mutating retained state.
-      const result = { object: structuredClone(object), acceptance };
+      const change =
+        acceptance === 'changed' || acceptance === 'unchanged'
+          ? describeAcceptedChange(previous?.observation, input.observation)
+          : undefined;
+      const result = {
+        object: structuredClone(object),
+        acceptance,
+        ...(change ? { change } : {}),
+      };
+
+      if (acceptance === 'changed' || acceptance === 'unchanged') {
+        const draft = acceptedFeed(
+          scope,
+          object.objectId,
+          previous?.observation,
+          input.observation,
+          input.provenance,
+        );
+
+        if (draft) {
+          try {
+            activity.publish(scope.graphId, [draft]);
+          } catch (error) {
+            throw new RetentionError('failed', { cause: error });
+          }
+        }
+      }
 
       objects.set(input.sourceRecordId, object);
       scopes.set(key, objects);

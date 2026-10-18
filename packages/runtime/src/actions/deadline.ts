@@ -29,6 +29,13 @@ export function createActionDeadline(
     return result;
   };
   const guarded: NativeTransaction = {
+    ...(transaction.appendFeed
+      ? {
+          appendFeed: (
+            drafts: Parameters<NonNullable<NativeTransaction['appendFeed']>>[0],
+          ) => guard(() => transaction.appendFeed!(drafts)),
+        }
+      : {}),
     scan: (...args) => guard(() => transaction.scan(...args)),
     savepoint: (operation) => guard(() => transaction.savepoint(operation)),
     load: (...args) => guard(() => transaction.load(...args)),

@@ -28,8 +28,25 @@ export interface Relate<
    * and addressed by definition IDs: the surface transport adapters such as
    * `@relate/http` serve. Calls after `close()` reject.
    */
-  operations(principal: Principal): ConsumerOperations;
+  operations(
+    principal: Principal,
+    context?: Partial<import('@relate/protocol').OperationContext>,
+  ): ConsumerOperations;
   readonly host: {
+    dispatch(
+      principal: Principal,
+      scope: import('@relate/runtime').OperationScope,
+      method: Exclude<keyof ConsumerOperations, 'discovery'>,
+      args: readonly unknown[],
+    ): Promise<unknown>;
+    readonly activity: import('@relate/protocol').ActivityReader;
+    readonly captureDiagnostics: {
+      readonly dropped: number;
+      readonly truncated: number;
+    };
+    provenance(
+      object: import('@relate/protocol').ActivityObjectRef,
+    ): Promise<import('@relate/protocol').ObjectProvenance | undefined>;
     adopt<
       O extends Extract<
         G['objects'][keyof G['objects']],

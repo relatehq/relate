@@ -108,3 +108,40 @@ top-level side effects still executes during inspection.
 
 The [customer workspace](../../../../examples/02-customer-workspace/src/app.ts)
 shows a complete app with source bindings, action implementations, and cleanup.
+
+## Host activity
+
+The runtime host exposes metadata-only history separately from consumer access:
+
+```ts
+const page = await runtime.host.activity.feed.read({ limit: 100 });
+for (const entry of page.entries) await handleIdempotently(entry);
+await saveCheckpoint(page.nextCursor);
+
+const attempts = await runtime.host.activity.operations.list({
+  filter: { object: { objectDefinitionId: 'business.customer', objectId } },
+});
+const provenance = await runtime.host.provenance({
+  objectDefinitionId: 'business.customer',
+  objectId,
+});
+```
+
+The feed follows committed object changes and successful/failed action receipts
+in publication order. Retrying an action does not duplicate its native feed
+entries. Operations record attempts and nested refreshes on a best-effort basis;
+they may be missing. Object provenance survives history eviction. None of these
+APIs is exposed by `as(principal)`.
+
+Resume with `{ cursor: page.nextCursor }`, without another filter. Store the
+checkpoint only after processing entries. Expired history reports
+`ActivityError('cursor-expired')`. An empty filtered page can still advance its
+checkpoint. `host.activity.status()` distinguishes unsupported, volatile and
+persistent activity.
+
+Set `activity: { enabled: false }` in setup to disable operation capture while
+keeping required feed writes and provenance. Capture has bounded buffers and a
+bounded shutdown flush; storage/queue failures do not change consumer results.
+Read the
+[complete host activity contract](../../../../packages/node/README.md#host-activity-and-provenance)
+for context, filters, retention, diagnostics and configuration.

@@ -8,7 +8,8 @@
   "dependencies": {
     "relate": "workspace:*",
     "@relate/runtime": "workspace:*",
-    "pg": "8.23.1"
+    "pg": "8.23.1",
+    "@relate/protocol": "workspace:*"
   },
   "files": [
     "dist",

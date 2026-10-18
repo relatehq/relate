@@ -41,6 +41,7 @@ export interface AppBindings<
   readonly graphId?: string;
   /** Borrowed storage: the caller owns migrations and closing it. */
   readonly store?: ObservationStore;
+  readonly activity?: import('./storage.js').ActivityCaptureOptions;
   readonly clock?: () => number;
   readonly actionTimeoutMs?: number;
   readonly cursorKey?: Uint8Array;

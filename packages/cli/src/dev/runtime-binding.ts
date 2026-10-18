@@ -1,3 +1,4 @@
+import { dispatchScope } from './activity/context.js';
 /**
  * One `(runtimeId, principal)` view of the runtime host as `ConsumerOperations`.
  *
@@ -36,6 +37,7 @@ export interface RuntimeConnection {
     request:
       | {
           readonly type: 'op';
+          readonly scope?: ReturnType<typeof dispatchScope>;
           readonly principal: string;
           readonly operation: RuntimeOperation;
           readonly args: readonly unknown[];
@@ -95,6 +97,7 @@ export async function createRuntimeBinding(options: {
     (...args: unknown[]) =>
       connection.request({
         type: 'op',
+        scope: dispatchScope(principal, connection.runtimeId),
         principal,
         operation,
         args: trimmed(args),

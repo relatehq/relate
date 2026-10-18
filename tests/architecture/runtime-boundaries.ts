@@ -1,6 +1,7 @@
 /** Paths are relative to packages/runtime/src. Unknown owners fail closed. */
 const dependencies: Record<string, readonly string[]> = {
   public: [
+    'activity',
     'composition',
     'actions',
     'authorization',
@@ -9,6 +10,7 @@ const dependencies: Record<string, readonly string[]> = {
     'memory',
   ],
   composition: [
+    'activity',
     'actions',
     'authorization',
     'resolution',
@@ -19,8 +21,8 @@ const dependencies: Record<string, readonly string[]> = {
     'memory',
     'discovery',
   ],
-  actions: ['authorization', 'reads', 'storage'],
-  resolution: ['authorization', 'observations', 'reads', 'storage'],
+  actions: ['activity', 'authorization', 'reads', 'storage'],
+  resolution: ['activity', 'authorization', 'observations', 'reads', 'storage'],
   traversal: ['authorization', 'reads', 'storage'],
   queries: ['authorization', 'reads', 'storage'],
   authorization: ['storage'],
@@ -29,8 +31,9 @@ const dependencies: Record<string, readonly string[]> = {
   discovery: ['authorization', 'actions', 'traversal', 'reads'],
   observations: ['storage'],
   reads: [],
-  storage: ['observations'],
-  memory: ['storage', 'observations'],
+  storage: ['observations', 'activity'],
+  activity: ['observations'],
+  memory: ['storage', 'observations', 'activity'],
 };
 const roots: Record<string, string> = {
   'index.ts': 'public',
@@ -42,6 +45,7 @@ const roots: Record<string, string> = {
   'contracts.ts': 'discovery',
 };
 const folders = new Set([
+  'activity',
   'actions',
   'authorization',
   'resolution',
@@ -77,18 +81,21 @@ export function assertRuntimeDependency(
   // operation is re-exported for adapters. The reverse edge carries types only.
   const ordering =
     (owner === 'storage' || owner === 'memory') &&
-    to === 'observations/ordering.ts';
+    ['observations/ordering.ts', 'observations/changes.ts'].includes(to);
   const contract =
     target === 'storage' &&
     ((owner !== 'observations' && owner !== 'authorization') || typeOnly);
   const entry =
     target === 'storage'
       ? contract
-      : target === 'observations' && (owner === 'storage' || owner === 'memory')
-        ? ordering
-        : folders.has(target)
-          ? to === `${target}/index.ts`
-          : true;
+      : owner === 'activity' && target === 'observations'
+        ? to === 'observations/changes.ts'
+        : target === 'observations' &&
+            (owner === 'storage' || owner === 'memory')
+          ? ordering
+          : folders.has(target)
+            ? to === `${target}/index.ts`
+            : true;
 
   if (!allowed || !entry)
     throw new Error(

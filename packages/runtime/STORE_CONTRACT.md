@@ -201,3 +201,71 @@ Transaction scans see earlier inserts, honor savepoint rollback, and reject
 calls after transaction revocation just like `load`. Independent scans see only
 committed state. Scanning does not authorize records or apply caller predicates;
 the runtime composes it with its existing authorized reads.
+
+## Activity and permanent provenance
+
+Built-in stores expose `ObservationStore.activity` and `atomicActivity: true`;
+their native capability also advertises `atomicActivity: true`. Runtime setup
+rejects incomplete combinations. Adapters without activity remain usable but
+must implement provenance reads. `accept` receives trusted adoption/refresh
+attribution, while `NativeRecord.provenance` retains creation actor, insertion
+time and invocation ID. Provenance reads return `undefined` for absent objects
+and `{ kind: 'unknown' }` for rows without attribution, without consulting
+activity or receipts.
+
+`NativeTransaction.appendFeed(drafts)` stages ordered metadata-only drafts.
+Staging participates in savepoint rollback and handle revocation. Publish the
+complete batch only after the callback succeeds, before committing, with no
+user/provider callback under the publication lock. The runtime allocates the
+invocation ID before the handler and saves its receipt, creation provenance,
+changes and invocation completion atomically. A domain failure saves only the
+failed receipt and completion. Independent source acceptance is not rolled back
+with native writes.
+
+Source acceptance calls `describeAcceptedChange(previous, accepted)` under its
+existing lock, only for winning changed/unchanged observations. Raw-only changes
+produce neither feed nor version entries. The result includes removed property
+IDs, deterministic ordering and state transitions. Return `change` in the
+acceptance result when a business transition occurred so refresh capture uses
+the winning comparison, not a stale pre-fetch snapshot. `acceptedFeed` builds
+the metadata draft from this transition and trusted attribution. Persist source
+state, adoption provenance, version/change linkage and feed publication
+together.
+
+The Postgres publisher updates the per-graph `feed_streams` counter as its final
+transaction work. Its lock remains held through COMMIT: no smaller position can
+appear after a larger visible checkpoint. Operations never take this lock.
+`invocations` replaces `native_invocations`; `object_versions` replaces
+`value_changes`. Migration preserves legacy keys/evidence and adds nullable
+provenance without inventing historical events.
+
+`appendOperations` is atomic, first-write-wins by graph/ID, including duplicate
+IDs within a batch. Only newly inserted rows acquire ordered lineage;
+conflicting re-appends never amend it. Runtime capture has one bounded writer,
+no retries, and no awaited append on the consumer result path. Postgres uses a
+separate single-connection pool with bounded acquisition, statement and lock
+timeouts.
+
+Both built-in adapters validate variant fields, source attribution, contexts,
+and row/batch budgets before writes. Defaults use UTF-8 bytes of JSON: 256 KiB
+per draft and 4 MiB per batch. Memory's
+`createMemoryStore({ maxEntries, maxBytes, rowBytes, batchBytes })` additionally
+bounds each retained family to 10,000 rows and 16 MiB by default, including
+lineage/context. A feed batch larger than retention is rejected atomically.
+Eviction advances a retention floor; checkpoints behind it expire. Retention
+does not remove object provenance. Postgres has no automatic pruning schedule.
+
+Readers bind opaque authenticated cursors to graph, stream, method and the
+initial filter. Feed reading scans forward to a captured committed high-water
+mark; empty filtered scans advance. Operation browsing pins an upper
+`(recordedAt, id)` pair and descends: late rows above an already-passed position
+require restarting browsing, while late rows below it can still appear.
+Timestamp ties use the ID. Stream replacement invalidates old cursors;
+persistent restart preserves them. SQL readers apply filters and bounds before
+fetching at most `limit + 1` records.
+
+Compatibility exception: low-level adapter writes can omit attribution,
+retaining `unknown` provenance and emitting no source feed entry. Runtime writes
+always supply attribution, even with operation capture disabled. This preserves
+existing adapter seeding/migration callers; such direct writes are outside the
+runtime's complete feed guarantee.

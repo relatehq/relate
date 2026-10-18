@@ -286,6 +286,7 @@ for a complete example.
 | In-memory and Postgres stores                                          | Work lineage graph of agent reads and actions |
 | SQLite, Stripe and Salesforce (read-only) connectors                   | Cloud MCP clients (ChatGPT) for `relate dev`  |
 | MCP discovery and JS execution (stdio / Streamable HTTP)               |                                               |
+| Host activity feed, operation browsing and permanent provenance        |                                               |
 | `relate dev` model inspector, `/mcp` and activity log                  |                                               |
 
 Relate runs embedded in a Node application and exposes actor-bound graph access

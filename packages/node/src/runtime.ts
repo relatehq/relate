@@ -1,3 +1,5 @@
+import { newOperationScope } from '@relate/runtime';
+import type { OperationContext } from '@relate/protocol';
 import type { ConsumerOperations, QueryRequest } from '@relate/protocol';
 import { compile } from 'relate/compiler';
 import type {
@@ -105,6 +107,7 @@ export function createRuntime<
     throw new Error('Missing action implementation');
 
   const engine = createEngine({
+    ...(options.activity ? { activity: options.activity } : {}),
     model,
     graphId: options.graphId ?? options.graph.id,
     sources,
@@ -136,11 +139,17 @@ export function createRuntime<
   };
 
   /** Bind one host-authenticated principal; every call is tracked for `close()`. */
-  function operations(principal: Principal): ConsumerOperations {
+  function operations(
+    principal: Principal,
+    context?: Partial<OperationContext>,
+  ): ConsumerOperations {
     open();
 
     // A handle binds a snapshot of the host-authenticated principal.
     const actor = structuredClone(principal);
+    const attribution = structuredClone(context ?? {});
+    const scope = () =>
+      newOperationScope({ kind: 'principal', id: actor.id }, attribution);
     const discovery = engine.discover(actor);
     const bound: ConsumerOperations = {
       discovery: Object.freeze({
@@ -161,9 +170,11 @@ export function createRuntime<
         },
       }),
       get: (objectDefinitionId, objectId, request) =>
-        run(() => engine.read(actor, objectDefinitionId, objectId, request)),
+        run(() =>
+          engine.read(actor, objectDefinitionId, objectId, request, scope()),
+        ),
       query: (objectDefinitionId, request) =>
-        run(() => engine.query(actor, objectDefinitionId, request)),
+        run(() => engine.query(actor, objectDefinitionId, request, scope())),
       traverse: (objectDefinitionId, objectId, traversal, request) =>
         run(() =>
           engine.traverse(
@@ -172,12 +183,15 @@ export function createRuntime<
             objectId,
             traversal,
             request,
+            scope(),
           ),
         ),
       invoke: (actionDefinitionId, request) =>
-        run(() => engine.invoke(actor, actionDefinitionId, request)),
+        run(() => engine.invoke(actor, actionDefinitionId, request, scope())),
       getReceipt: (actionDefinitionId, invocationId) =>
-        run(() => engine.getReceipt(actor, actionDefinitionId, invocationId)),
+        run(() =>
+          engine.getReceipt(actor, actionDefinitionId, invocationId, scope()),
+        ),
     };
 
     return Object.freeze(bound);
@@ -190,6 +204,63 @@ export function createRuntime<
     },
     operations,
     host: Object.freeze({
+      activity: engine.activity,
+      dispatch: (
+        principal: Principal,
+        scope: import('@relate/runtime').OperationScope,
+        method: Exclude<keyof ConsumerOperations, 'discovery'>,
+        args: readonly unknown[],
+      ) =>
+        run(() => {
+          const trusted = {
+            ...structuredClone(scope),
+            actor: { kind: 'principal' as const, id: principal.id },
+          };
+
+          switch (method) {
+            case 'get':
+              return engine.read(
+                principal,
+                args[0] as string,
+                args[1] as string,
+                args[2] as never,
+                trusted,
+              ) as Promise<unknown>;
+            case 'query':
+              return engine.query(
+                principal,
+                args[0] as string,
+                args[1] as never,
+                trusted,
+              ) as Promise<unknown>;
+            case 'traverse':
+              return engine.traverse(
+                principal,
+                args[0] as string,
+                args[1] as string,
+                args[2] as string,
+                args[3] as never,
+                trusted,
+              ) as Promise<unknown>;
+            case 'invoke':
+              return engine.invoke(
+                principal,
+                args[0] as string,
+                args[1] as never,
+                trusted,
+              ) as Promise<unknown>;
+            case 'getReceipt':
+              return engine.getReceipt(
+                principal,
+                args[0] as string,
+                args[1] as string,
+                trusted,
+              ) as Promise<unknown>;
+          }
+        }),
+      provenance: (object: import('@relate/protocol').ActivityObjectRef) =>
+        run(() => engine.provenance(object)),
+      captureDiagnostics: engine.captureDiagnostics,
       adopt: <
         O extends Extract<
           G['objects'][keyof G['objects']],
@@ -212,6 +283,7 @@ export function createRuntime<
     async close() {
       closed = true;
       await Promise.allSettled([...pending]);
+      await engine.flushActivity();
     },
   };
 }

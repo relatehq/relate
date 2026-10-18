@@ -1,3 +1,5 @@
+import { projectActivity, rejectedDispatch } from './activity/projection.js';
+import type { ActivityLog } from './activity/log.js';
 /**
  * Parent side of the runtime host: one host per accepted build. Every
  * accepted build restarts it, even when the Manifest is unchanged, because
@@ -35,6 +37,7 @@ export interface AcceptedBuild {
 }
 
 export interface RuntimeControllerOptions {
+  readonly activity?: ActivityLog;
   readonly projectRoot: string;
   readonly configPath: string;
   readonly env: NodeJS.ProcessEnv;
@@ -180,8 +183,16 @@ export function createRuntimeController(
       const operation = request.type === 'op' ? request.operation : 'discovery';
 
       // Pinned: a retired runtime never answers, and nothing is redirected.
-      if (host.state === 'retired' || host !== active)
+      if (host.state === 'retired' || host !== active) {
+        if (request.type === 'op' && request.scope && options.activity)
+          rejectedDispatch(
+            options.activity,
+            request,
+            host.ready?.definitionRevision ?? 'unknown',
+          );
+
         return Promise.reject(retiredError(operation));
+      }
 
       if (host.state !== 'running' || !host.child.process.connected)
         return Promise.reject(lostError(operation));
@@ -196,6 +207,7 @@ export function createRuntimeController(
               principal: request.principal,
               operation: request.operation,
               args: [...request.args],
+              ...(request.scope ? { scope: request.scope } : {}),
             }
           : {
               type: 'discovery',
@@ -344,6 +356,16 @@ export function createRuntimeController(
       const message = parsed.data;
 
       switch (message.type) {
+        case 'activity':
+          if (options.activity)
+            projectActivity(
+              options.activity,
+              message.runtimeId,
+              message.feed,
+              message.operations,
+            );
+
+          break;
         case 'reply':
         case 'error': {
           const pending = host.pending.get(message.id);

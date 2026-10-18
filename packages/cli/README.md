@@ -277,24 +277,29 @@ both tools report it:
 
 ### Activity
 
-Three decorators in `src/dev/activity/` record what MCP clients do, without
-changing `@relate/mcp`:
+The dev server records L1 requests and L2 code executions. The runtime captures
+settled operations and publishes committed feed entries; the old L3 result
+observer has been removed.
 
 ```text
-/mcp request ─ L1 observeRequest ─▶ execute ─ L2 observeExecutor ─▶ graph.objects.X.query() ─ L3 observeOperations ─▶ runtime host
-requestId                            executionId                      opId
+/mcp request → observeRequest → execute → observeExecutor → trusted IPC scope → runtime
+    requestId                    executionId                     operationId
 ```
 
-L3 is transport-independent: every operation carries an `OperationContext`
-(`{ requestId, runtimeId, definitionRevision, principal, transport, executionId? }`)
-and `executionId` is present only when agent JavaScript made the call. Events
-(`call`, `execution`, `operation`) are upserts keyed by ID: a `running` event is
-replaced by its final version. The log is a ring buffer of the last 200 finished
-requests (a running request is never evicted; late events of an evicted one are
-dropped) with 500 operations each. Every caller-controlled string is bounded:
-identifiers, keys and cursors to 256 characters, previews to 1 KiB, code and
-logs to 16 KiB each, with a 64 KiB per-event backstop. Record values are never
-kept, only IDs and counts.
+The scope carries authenticated actor and request context through IPC. Each
+runtime operation gets its own ID. A bounded projection forwards feed catch-up
+and operation browsing every 100 ms, deduplicated by graph/record ID. The
+Inspector distinguishes committed entries, attempts, nested refreshes, replay
+and uncertainty. Only definite pre-dispatch retirement is recorded at routing;
+unknown dispatch outcomes never fabricate an engine result.
+
+The dev server retains the last 200 finished requests, with 500 projected rows
+per request and bounded event/code/log sizes, across runtime-host restarts. This
+is a development display, not a durable checkpoint. Runtime rows contain
+metadata and property/object IDs only; action inputs, outputs, filter values and
+raw errors are excluded. L2 still shows the submitted code and execution output.
+Lost operation rows are possible; the persistent feed remains the record of what
+committed.
 
 ### Built-in agent
 

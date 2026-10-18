@@ -30,7 +30,19 @@ const clock = (at: string) => new Date(at).toLocaleTimeString();
 
 /** `where`, selection and paging in one line; values are previews already. */
 function requestSummary(operation: OperationEvent): string {
-  const { request } = operation;
+  const { request, runtimeRecord: row } = operation;
+
+  if (row)
+    return [
+      'objects' in row ? 'Attempt' : `Committed · position ${row.position}`,
+      'parentOperationId' in row && row.parentOperationId
+        ? `parent ${shortId(row.parentOperationId)}`
+        : '',
+      'sourceDefinitionId' in row ? row.sourceDefinitionId : '',
+      'changedPropertyIds' in row ? row.changedPropertyIds.join(', ') : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
   return [
     request.objectId !== undefined ? `id ${request.objectId}` : null,
@@ -52,6 +64,31 @@ function requestSummary(operation: OperationEvent): string {
 }
 
 function outcomeSummary(operation: OperationEvent): string {
+  const row = operation.runtimeRecord;
+
+  if (row) {
+    if ('outcome' in row)
+      return [
+        row.outcome.status,
+        'code' in row.outcome ? row.outcome.code : '',
+        row.kind === 'invoke' && row.replayed ? 'replayed' : '',
+        row.kind === 'refresh' && 'refresh' in row.details
+          ? row.details.refresh
+          : '',
+        row.details.truncated
+          ? `${row.details.truncated.omittedObjects} objects omitted`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+    return row.kind === 'invocation-failed'
+      ? row.failureCode
+      : row.actor.kind === 'source'
+        ? `Observed from ${row.actor.id}`
+        : `By ${row.actor.id}`;
+  }
+
   const outcome = operation.outcome;
 
   if (!outcome) return 'running…';

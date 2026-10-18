@@ -320,3 +320,10 @@ range operators. See
 for consumer examples and
 [the runtime contract](../runtime/CONTRACT.md#graph-queries) for validation,
 evidence and pagination rules.
+
+Storage adapters implement optional activity through `relate/storage`, including
+atomic feed staging and best-effort operation appends. Object provenance belongs
+to source/native storage independently of that capability. App setup accepts
+`activity` capture options; trusted readers belong to the Node runtime host, not
+the consumer facade. See the
+[storage contract](../runtime/STORE_CONTRACT.md#activity-and-permanent-provenance).

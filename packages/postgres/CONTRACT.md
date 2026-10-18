@@ -29,9 +29,9 @@ versions take precedence over fetch-start order. Failed commits do not advance
 accepted state; lost commit acknowledgements remain unconfirmed until readback.
 
 History currently records source adoption/refresh changes for this slice.
-History query APIs, cleanup/retention scheduling, erasure and model migrations
-are not implemented. Do not treat this initial schema as a production retention
-lifecycle.
+Historical-value query APIs, cleanup/retention scheduling, erasure and model
+migrations are not implemented. Do not treat this initial schema as a production
+retention lifecycle.
 
 ## Native transactions
 
@@ -70,3 +70,26 @@ There is no distributed snapshot guarantee.
 
 See [native account reviews](../node/NATIVE_ACTIONS.md) and
 [the adapter contract](../runtime/STORE_CONTRACT.md#native-write-capability).
+
+## Activity persistence
+
+Migration 6 renames `native_invocations` to `invocations` and `value_changes` to
+`object_versions`, adds permanent object provenance, and creates `feed_entries`,
+`feed_streams`, `operations`, and ordered `operation_objects`. Existing evidence
+is preserved without backfilling invented events or actors.
+
+Changes and invocation completions share one typed feed table and one unique
+publication position per graph. Source/native commits allocate positions under
+the same transactional counter lock, after all domain work. A required feed
+failure rolls back domain state and provenance. Lost commit acknowledgements do
+not erase committed feed entries, which remain recoverable by cursor.
+
+Operation capture uses a separate one-connection pool with the source pool's
+bounded timeouts. Insertion and lineage are atomic and first-write-wins;
+operation capture never acquires the publication lock. Activity reads use SQL
+cursor/filter bounds and fetch at most `limit + 1` rows. No automatic pruning is
+implemented. `close()` closes source, native and operation pools.
+
+See
+[the shared storage contract](../runtime/STORE_CONTRACT.md#activity-and-permanent-provenance)
+for metadata, retention, compatibility and failure semantics.

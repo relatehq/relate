@@ -115,7 +115,7 @@ it('preserves legacy rows without assigning unverified identities to an account'
     expect(
       (
         await db.query(
-          "SELECT 1 FROM relate.value_changes WHERE object_key='old-id'",
+          "SELECT 1 FROM relate.object_versions WHERE object_key='old-id'",
         )
       ).rowCount,
     ).toBe(1);

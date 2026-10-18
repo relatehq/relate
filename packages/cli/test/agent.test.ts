@@ -1221,6 +1221,7 @@ async function createLoopback(options: {
 
     const statuses: RuntimeStatus[] = [];
     const controller = createRuntimeController({
+      activity,
       projectRoot: root,
       configPath: join(root, 'relate.config.ts'),
       env: process.env,
@@ -1317,6 +1318,14 @@ return { state: receipt.state, notes: page.data.length, key: process.env.ANTHROP
   agent.send('alice', 'Add a note');
   const conversation = await settled(agent, 'alice');
   const [tool] = toolMessages(conversation);
+
+  await expect
+    .poll(() =>
+      activity
+        .snapshot()
+        .some((e) => e.kind === 'operation' && e.op === 'query'),
+    )
+    .toBe(true);
   const events = activity.snapshot();
   const call = events.find(
     (event): event is CallEvent => event.kind === 'call',
@@ -1340,7 +1349,19 @@ return { state: receipt.state, notes: page.data.length, key: process.env.ANTHROP
     status: 'succeeded',
     resultPreview: '{"state":"succeeded","notes":1,"key":"absent"}',
   });
-  expect(events.filter((event) => event.kind === 'operation')).toMatchObject([
+  expect(
+    events
+      .filter(
+        (event) =>
+          event.kind === 'operation' &&
+          (event.op === 'invoke' || event.op === 'query'),
+      )
+      .sort((a, b) =>
+        a.kind === 'operation' && b.kind === 'operation'
+          ? a.op.localeCompare(b.op)
+          : 0,
+      ),
+  ).toMatchObject([
     {
       op: 'invoke',
       definitionId: 'notes.add',

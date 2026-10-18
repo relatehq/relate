@@ -158,7 +158,9 @@ async function createHarness(
   await symlink(join(repoRoot, 'node_modules'), join(root, 'node_modules'));
 
   const statuses: RuntimeStatus[] = [];
+  const activity = createActivityLog();
   const controller = createRuntimeController({
+    activity,
     projectRoot: root,
     configPath: join(root, 'relate.config.ts'),
     env: process.env,
@@ -172,7 +174,6 @@ async function createHarness(
 
   cleanups.push(() => controller.stop());
 
-  const activity = createActivityLog();
   const names = options.principals ?? ['alice', 'bob'];
   const mcp = createMcpEndpoint({
     token: createMcpToken(),
@@ -291,10 +292,19 @@ return { state: receipt.state, notes: page.data.length };`,
     result: { state: 'succeeded', notes: 1 },
   });
 
+  await waitUntil(
+    () =>
+      ofKind(harness.activity.snapshot(), 'operation').find(
+        (e) => e.op === 'query',
+      ),
+    'runtime capture',
+  );
   const events = harness.activity.snapshot();
   const calls = ofKind(events, 'call');
   const [executed] = ofKind(events, 'execution');
-  const operations = ofKind(events, 'operation');
+  const operations = ofKind(events, 'operation')
+    .filter((e) => e.op === 'invoke' || e.op === 'query')
+    .sort((a, b) => a.op.localeCompare(b.op));
 
   expect(calls).toMatchObject([
     {
@@ -330,19 +340,20 @@ return { state: receipt.state, notes: page.data.length };`,
       definitionId: 'notes.add',
       context,
       status: 'succeeded',
-      request: {
-        idempotencyKey: 'first',
-        input: '{"body":"Call the customer"}',
+      request: {},
+      runtimeRecord: {
+        kind: 'invoke',
+        outcome: { status: 'succeeded' },
+        invocationId: expect.any(String),
       },
-      outcome: { receiptState: 'succeeded', invocationId: expect.any(String) },
     },
     {
       op: 'query',
       definitionId: 'notes.note',
       context,
       status: 'succeeded',
-      request: { limit: 10 },
-      outcome: { records: 1, hasMore: false },
+      request: {},
+      runtimeRecord: { kind: 'query', details: { hasMore: false } },
       recordIds: [expect.any(String)],
     },
   ]);
@@ -570,23 +581,29 @@ return results;`,
     },
   });
 
-  const operations = ofKind(harness.activity.snapshot(), 'operation');
-  const sizes = harness.activity
-    .snapshot()
-    .map((event) => JSON.stringify(event).length);
-
-  expect(operations).toHaveLength(4);
-  // NaN never reaches the log: it would serialize as null.
-  expect(operations[0]!.request).not.toHaveProperty('limit');
-  expect(operations[0]!.outcome?.error?.code).toBe('invalid-request');
-  expect(operations[1]!.request.objectId).toMatch(
-    /^x{256}… \(599744 more characters\)$/,
+  await waitUntil(
+    () =>
+      ofKind(harness.activity.snapshot(), 'operation').find(
+        (e) => e.op === 'invocation-succeeded',
+      ),
+    'committed invocation',
   );
-  expect(operations[2]!.request.cursor!.length).toBeLessThan(300);
-  expect(operations[2]!.request.select![0]!.length).toBeLessThan(300);
-  expect(operations[3]!.request.idempotencyKey!.length).toBeLessThan(300);
-  expect(operations[3]!.request.input!.length).toBeLessThan(1_100);
-  expect(Math.max(...sizes)).toBeLessThan(64 * 1024);
+  const operations = ofKind(harness.activity.snapshot(), 'operation');
+
+  expect(operations.length).toBeGreaterThan(0);
+
+  for (const operation of operations) {
+    expect(operation.request).toEqual({});
+    expect(JSON.stringify(operation)).not.toContain('b'.repeat(1000));
+  }
+
+  expect(
+    Math.max(
+      ...harness.activity
+        .snapshot()
+        .map((event) => JSON.stringify(event).length),
+    ),
+  ).toBeLessThan(64 * 1024);
 
   // Every recorded event is one the inspector accepts.
   for (const event of harness.activity.snapshot())
@@ -675,11 +692,17 @@ return { code: 'never retired' };`,
   expect(second.runtimeId).not.toBe(first.runtimeId);
 }, 60_000);
 
-it('shows an action cut off by a restart as uncertain, and never replays it', async () => {
+it('returns uncertainty after a host is killed without fabricating an engine operation', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'relate-activity-dispatch-'));
+
+  cleanups.push(() => rm(directory, { recursive: true, force: true }));
+  const marker = join(directory, 'started');
   const harness = await createHarness({ drainTimeoutMs: 200 });
 
   await harness.start(
-    noteApp({ implementation: '() => new Promise(() => {})' }),
+    noteApp({
+      implementation: `async () => { await (await import('node:fs/promises')).writeFile(${JSON.stringify(marker)}, 'started'); return new Promise(() => {}); }`,
+    }),
   );
   const client = await harness.connect();
   const result = client.callTool({
@@ -692,15 +715,17 @@ it('shows an action cut off by a restart as uncertain, and never replays it', as
 }`,
     },
   });
-  const invoke = await waitUntil(
-    () =>
-      ofKind(harness.activity.snapshot(), 'operation').find(
-        (op) => op.op === 'invoke',
-      ),
-    'the invocation',
-  );
 
-  expect(invoke.status).toBe('running');
+  await expect
+    .poll(() =>
+      stat(marker).then(
+        () => true,
+        () => false,
+      ),
+    )
+    .toBe(true);
+  // A killed host cannot settle its operation row. Dispatch uncertainty is returned
+  // to the caller, never fabricated as a known engine outcome by the transport.
   await harness.start(noteApp());
 
   expect((await result).structuredContent).toMatchObject({
@@ -712,12 +737,7 @@ it('shows an action cut off by a restart as uncertain, and never replays it', as
     'operation',
   );
 
-  expect(operations).toHaveLength(1);
-  expect(operations[0]).toMatchObject({
-    opId: invoke.opId,
-    status: 'failed',
-    outcome: { error: { code: 'uncertain' } },
-  });
+  expect(operations).toHaveLength(0);
 }, 60_000);
 
 it('bounds the activity log by finished request and never cuts a running one short', () => {

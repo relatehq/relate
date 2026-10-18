@@ -1,3 +1,4 @@
+import { operationScope, markReplay, activityId } from '../activity/index.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { accepts, canonicalJson, isPlainObject } from 'relate/model';
 import type { Manifest } from 'relate/model';
@@ -267,9 +268,13 @@ export function createActionExecutor(options: {
               if (canonicalJson(existing.input) !== canonicalJson(input))
                 throw new ActionError('conflict');
 
+              markReplay();
+
               return receipt;
             }
 
+            const invocationId = randomUUID();
+            const active = operationScope();
             const reads: NativeReceiptRead[] = [];
             const definitions = new Map(manifest.objects.map((o) => [o.id, o]));
             const recordRead = (
@@ -484,10 +489,21 @@ export function createActionExecutor(options: {
                         ]),
                       );
                       const parsed = parse(shape, values);
+                      const createdAt = options.clock();
                       const record: NativeRecord = {
                         objectDefinitionId: object.id,
                         objectId: randomUUID(),
-                        createdAt: options.clock(),
+                        createdAt,
+                        ...(active
+                          ? {
+                              provenance: {
+                                kind: 'created' as const,
+                                actor: active.scope.actor,
+                                at: new Date(createdAt).toISOString(),
+                                invocationId,
+                              },
+                            }
+                          : {}),
                         values: Object.fromEntries(
                           properties
                             .filter((p) => Object.hasOwn(parsed, p.name))
@@ -552,12 +568,12 @@ export function createActionExecutor(options: {
 
             const receipt: ActionReceipt = domain
               ? {
-                  invocationId: randomUUID(),
+                  invocationId,
                   state: 'failed',
                   error: domain,
                 }
               : {
-                  invocationId: randomUUID(),
+                  invocationId,
                   state: 'succeeded',
                   output,
                 };
@@ -578,6 +594,18 @@ export function createActionExecutor(options: {
               actionDefinitionId: action.id,
               idempotencyKey: key,
               actorId: actor.id,
+              ...(active
+                ? {
+                    activity: {
+                      actor: active.scope.actor,
+                      operationId: active.scope.id,
+                      context: active.scope.context,
+                      definitionRevision: options.scope.definitionRevision,
+                      startedAt: active.startedAt,
+                      completedAt: new Date().toISOString(),
+                    },
+                  }
+                : {}),
               reads: retainedReads,
               input,
               receipt,
@@ -589,6 +617,49 @@ export function createActionExecutor(options: {
               await authorizeReceipt(actor, action, invocation, transaction);
 
             await transaction.saveInvocation(invocation);
+
+            if (store.activity && active) {
+              if (!transaction.appendFeed)
+                throw new Error('Missing atomic feed capability');
+
+              const common = {
+                schemaVersion: 1 as const,
+                graphId: options.scope.graphId,
+                definitionRevision: options.scope.definitionRevision,
+                operationId: active.scope.id,
+                invocationId,
+                actor: active.scope.actor,
+                context: active.scope.context,
+              };
+
+              await transaction.appendFeed([
+                ...(domain
+                  ? []
+                  : created.map((record) => ({
+                      ...common,
+                      id: activityId(),
+                      kind: 'created' as const,
+                      object: {
+                        objectDefinitionId: record.objectDefinitionId,
+                        objectId: record.objectId,
+                      },
+                      changedPropertyIds: Object.keys(record.values).sort(),
+                      occurredAt: new Date(record.createdAt).toISOString(),
+                    }))),
+                {
+                  ...common,
+                  id: activityId(),
+                  actionDefinitionId: action.id,
+                  occurredAt: new Date().toISOString(),
+                  ...(domain
+                    ? {
+                        kind: 'invocation-failed' as const,
+                        failureCode: domain.code,
+                      }
+                    : { kind: 'invocation-succeeded' as const }),
+                },
+              ]);
+            }
 
             return receipt;
           });

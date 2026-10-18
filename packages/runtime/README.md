@@ -185,3 +185,9 @@ algorithms and storage contracts are allowed.
 Reads default to compact evidence. Pass `evidence: 'full'` for every selected
 field's provenance. See the
 [response reference](../../apps/docs/content/reference/read-responses.md).
+
+Runtime activity captures settled attempts, nested source refreshes and
+commit-boundary feed drafts. The built-in memory store supports the same feed,
+provenance and reader contracts as Postgres with bounded volatile retention. See
+[activity storage guarantees](./STORE_CONTRACT.md#activity-and-permanent-provenance)
+and the [host API](../node/README.md#host-activity-and-provenance).

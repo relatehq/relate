@@ -1,3 +1,5 @@
+import { acceptanceProvenance } from '../activity/index.js';
+import type { createActivityCapture } from '../activity/index.js';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
@@ -35,6 +37,7 @@ import { refreshObservation } from './refresh.js';
 
 /** Source operations receive cross-object evidence resolution from composition. */
 export function createSourceOperations(options: {
+  capture: ReturnType<typeof createActivityCapture>;
   manifest: Manifest;
   revision: string;
   store: ObservationStore;
@@ -95,6 +98,7 @@ export function createSourceOperations(options: {
       return undefined;
 
     const resolved = await refreshObservation({
+      capture: options.capture,
       store,
       scope: targetScope,
       stored: retained,
@@ -183,6 +187,7 @@ export function createSourceOperations(options: {
         ),
       ) || visible.some((p) => p.origin.kind === 'reference');
     const resolved = await refreshObservation({
+      capture: options.capture,
       store,
       scope,
       stored,
@@ -365,6 +370,7 @@ export function createSourceOperations(options: {
             sourceRecordId,
             adopt: true,
             observation: incoming,
+            provenance: acceptanceProvenance(),
           },
         )
       ).object.objectId;

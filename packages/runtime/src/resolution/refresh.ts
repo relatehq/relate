@@ -1,3 +1,7 @@
+import { acceptanceProvenance } from '../activity/index.js';
+import type { createActivityCapture } from '../activity/index.js';
+import { describeAcceptedChange } from '../storage.js';
+import type { OperationOutcome } from '@relate/protocol';
 import type { Manifest } from 'relate/model';
 import type {
   ReadRequest,
@@ -24,6 +28,8 @@ import type { AnySourceConnector } from 'relate/connectors';
 
 /** Shared by projected data and private authorization evidence. */
 export async function refreshObservation(options: {
+  capture?: ReturnType<typeof createActivityCapture> | undefined;
+  onOutcome?: (outcome: OperationOutcome) => void;
   store: ObservationStore;
   scope: StorageScope;
   stored: StoredObject;
@@ -35,7 +41,18 @@ export async function refreshObservation(options: {
   needsSource: boolean;
   sourcePermission: boolean;
   evidenceMaxAgeMs: number;
-}) {
+}): Promise<
+  | {
+      candidate: StoredObject;
+      permissionCandidate: StoredObject;
+      refresh: Refresh;
+      retention: 'confirmed' | 'failed' | 'unconfirmed';
+      ordering: 'confirmed' | 'unconfirmed';
+      activityRefresh?: 'changed' | 'unchanged' | 'superseded';
+      warnings: Extract<ReadResult, { status: 'ok' }>['meta']['warnings'];
+    }
+  | undefined
+> {
   const {
     store,
     scope,
@@ -68,6 +85,7 @@ export async function refreshObservation(options: {
   const maxAge = request.maxAgeMs ?? 60_000,
     timeout = request.timeoutMs ?? 3_000;
   let refresh: Refresh = 'not-needed';
+  let activityRefresh: 'changed' | 'unchanged' | 'superseded' | undefined;
   let retention: 'confirmed' | 'failed' | 'unconfirmed' = 'confirmed';
   let ordering: 'confirmed' | 'unconfirmed' = 'confirmed';
   const warnings: Extract<ReadResult, { status: 'ok' }>['meta']['warnings'] =
@@ -79,6 +97,63 @@ export async function refreshObservation(options: {
     (needsSource && (request.refresh || age > maxAge || age < 0)) ||
     (sourcePermission && (request.refresh || age > evidenceMaxAgeMs || age < 0))
   ) {
+    if (options.capture) {
+      let outcome: OperationOutcome | undefined;
+
+      return options.capture.refresh(
+        object.id,
+        objectId,
+        () =>
+          refreshObservation({
+            ...options,
+            capture: undefined,
+            onOutcome: (value) => {
+              outcome = value;
+            },
+          }),
+        (result) => {
+          if (outcome) return { outcome, details: {} };
+
+          if (!result)
+            return {
+              outcome: { status: 'rejected', code: 'unavailable' },
+              details: {},
+            };
+
+          if (result.retention === 'unconfirmed')
+            return { outcome: { status: 'uncertain' }, details: {} };
+
+          if (result.retention === 'failed')
+            return {
+              outcome: { status: 'rejected', code: 'unavailable' },
+              details: {},
+            };
+
+          if (result.refresh === 'invalid' || result.refresh === 'unavailable')
+            return {
+              outcome: { status: 'rejected', code: result.refresh },
+              details: {},
+            };
+
+          return {
+            outcome: { status: 'ok' },
+            details: {
+              refresh:
+                result.activityRefresh ??
+                (result.refresh === 'superseded'
+                  ? 'superseded'
+                  : describeAcceptedChange(
+                        stored.observation,
+                        result.candidate.observation,
+                      )
+                    ? 'changed'
+                    : 'unchanged'),
+            },
+          };
+        },
+      );
+    }
+
     try {
       const token = await store.beginFetch(),
         observedAt = clock();
@@ -112,14 +187,22 @@ export async function refreshObservation(options: {
         refresh = 'succeeded';
 
         try {
-          candidate = (
-            await store.accept(scope, {
-              sourceRecordId: stored.sourceRecordId,
-              objectId,
-              adopt: false,
-              observation: incoming,
-            })
-          ).object;
+          const accepted = await store.accept(scope, {
+            sourceRecordId: stored.sourceRecordId,
+            objectId,
+            adopt: false,
+            observation: incoming,
+            provenance: acceptanceProvenance(),
+          });
+
+          candidate = accepted.object;
+          activityRefresh =
+            accepted.acceptance === 'superseded' ||
+            accepted.acceptance === 'replay'
+              ? 'superseded'
+              : accepted.change
+                ? 'changed'
+                : 'unchanged';
           permissionCandidate = candidate;
 
           if (candidate.observation.token !== incoming.token)
@@ -163,7 +246,11 @@ export async function refreshObservation(options: {
       }
     } catch (error) {
       // Explicit provider denial is not an outage and cannot authorize fallback.
-      if (error instanceof SourceAccessDenied) return undefined;
+      if (error instanceof SourceAccessDenied) {
+        options.onOutcome?.({ status: 'rejected', code: 'denied' });
+
+        return undefined;
+      }
 
       refresh =
         error instanceof InvalidObservation || error instanceof OrderingConflict
@@ -194,6 +281,7 @@ export async function refreshObservation(options: {
   assertPropertyIds(permissionCandidate);
 
   return {
+    ...(activityRefresh ? { activityRefresh } : {}),
     candidate,
     permissionCandidate,
     refresh,

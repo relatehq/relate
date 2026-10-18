@@ -77,6 +77,59 @@ let shuttingDown = false;
 /** Requests being answered, including sending the reply. */
 const answering = new Set<Promise<void>>();
 
+let feedCursor: string | undefined;
+let forwarding: Promise<void> | undefined;
+const forwardedOperations = new Set<string>();
+
+function forwardActivity(): Promise<void> {
+  return (forwarding ??= (async () => {
+    if (!relate) return;
+
+    try {
+      let more = true;
+
+      while (more) {
+        const feed = await relate.host.activity.feed.read(
+          feedCursor ? { cursor: feedCursor, limit: 500 } : { limit: 500 },
+        );
+        const page = await relate.host.activity.operations.list({ limit: 500 });
+        const operations = page.entries.filter(
+          (row) => !forwardedOperations.has(row.id),
+        );
+
+        if (feed.entries.length || operations.length)
+          await send({
+            type: 'activity',
+            runtimeId: args.runtimeId,
+            feed: [...feed.entries],
+            operations,
+          });
+
+        feedCursor = feed.nextCursor;
+        more = feed.hasMore;
+
+        for (const row of operations) forwardedOperations.add(row.id);
+
+        while (forwardedOperations.size > 10000)
+          forwardedOperations.delete(
+            forwardedOperations.values().next().value!,
+          );
+      }
+    } catch (error) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'cursor-expired'
+      )
+        feedCursor = undefined;
+      /* Display forwarding is best effort; durable feed remains recoverable. */
+    }
+  })().finally(() => {
+    forwarding = undefined;
+  }));
+}
+
 /**
  * Close and exit. Runs after startup so `onDispose` cleanup always runs;
  * `close()` drains in-flight operations, then their replies are sent before
@@ -87,6 +140,7 @@ async function closeAndExit(): Promise<never> {
 
   await relate?.close().catch(() => {});
   await Promise.allSettled(answering);
+  await forwardActivity();
 
   if (failure) return failure;
 
@@ -435,11 +489,34 @@ async function respond(
     const value =
       request.type === 'discovery'
         ? discover(operations)
-        : await (
-            operations[request.operation] as (
-              ...input: unknown[]
-            ) => Promise<unknown>
-          )(...request.args);
+        : request.scope
+          ? await relate!.host.dispatch(
+              {
+                id: request.principal,
+                roles: principals[request.principal]!.roles,
+                claims: principals[request.principal]!.claims,
+              },
+              {
+                ...request.scope,
+                context: {
+                  requestId: request.scope.context.requestId,
+                  transport: request.scope.context.transport,
+                  ...(request.scope.context.runtimeId
+                    ? { runtimeId: request.scope.context.runtimeId }
+                    : {}),
+                  ...(request.scope.context.executionId
+                    ? { executionId: request.scope.context.executionId }
+                    : {}),
+                },
+              },
+              request.operation,
+              request.args,
+            )
+          : await (
+              operations[request.operation] as (
+                ...input: unknown[]
+              ) => Promise<unknown>
+            )(...request.args);
 
     await send({ type: 'reply', id: request.id, value });
   } catch (error) {
@@ -447,6 +524,11 @@ async function respond(
   }
 }
 
+const activityTimer = setInterval(() => {
+  void forwardActivity();
+}, 100);
+
+activityTimer.unref();
 started = true;
 await send({
   type: 'ready',

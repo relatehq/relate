@@ -95,7 +95,15 @@ export function createActivityLog(
 
       if (!events.has(key)) {
         // Only a start opens an entry; the end of an evicted one stays evicted.
-        if (event.status !== 'running' || evicted.has(requestId)) return;
+        if (
+          evicted.has(requestId) ||
+          (event.status !== 'running' &&
+            !(
+              event.kind === 'operation' &&
+              (event.runtimeRecord || event.preDispatch)
+            ))
+        )
+          return;
 
         let request = requests.get(requestId);
 
@@ -154,7 +162,7 @@ function withinBudget(event: ActivityEvent): ActivityEvent {
       };
     }
     case 'operation':
-      return { ...event, request: {}, recordIds: [] };
+      return { ...event, request: {}, recordIds: [], runtimeRecord: undefined };
   }
 }
 

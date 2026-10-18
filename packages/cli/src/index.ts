@@ -77,7 +77,6 @@ export {
   activityLimits,
   createActivityLog,
   observeExecutor,
-  observeOperations,
   observeRequest,
   requestIdMeta,
 } from './dev/activity/index.js';

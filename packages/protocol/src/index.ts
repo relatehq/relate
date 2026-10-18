@@ -286,3 +286,5 @@ export type {
 } from './discovery.js';
 
 export type { ConsumerOperations } from './consumer.js';
+
+export * from './activity.js';

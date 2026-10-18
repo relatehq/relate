@@ -41,10 +41,16 @@ export const packagePolicies: Record<
       'relate/storage',
       '@relate/protocol',
     ],
-    builtins: ['node:crypto'],
+    builtins: ['node:crypto', 'node:async_hooks'],
   },
   'packages/postgres': {
-    imports: ['relate/model', '@relate/runtime/storage', 'pg'],
+    imports: [
+      'relate/model',
+      'relate/storage',
+      '@relate/protocol',
+      '@relate/runtime/storage',
+      'pg',
+    ],
     builtins: true,
   },
   'packages/node': {
@@ -128,6 +134,7 @@ export const packagePolicies: Record<
   'apps/www': { imports: [] },
   'apps/inspector': {
     imports: [
+      '@relate/protocol',
       '@relate/client',
       'relate/model',
       'relate/diagnostics',

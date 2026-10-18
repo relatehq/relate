@@ -293,6 +293,9 @@ importers:
 
   apps/inspector:
     dependencies:
+      '@relate/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       hono:
         specifier: 4.13.13
         version: 4.13.13
@@ -530,6 +533,9 @@ importers:
 
   packages/postgres:
     dependencies:
+      '@relate/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       '@relate/runtime':
         specifier: workspace:*
         version: link:../runtime

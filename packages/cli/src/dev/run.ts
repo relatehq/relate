@@ -251,8 +251,10 @@ export async function runDev(options: RunDevOptions): Promise<number> {
     // Created before `/mcp` can answer, so a request during startup sees the
     // runtime starting rather than a runtime that is off.
     // `--no-runtime`: inspect the model only; accepted bundles are released.
+    const activity = createActivityLog();
     const runtime = args.runtime
       ? createRuntimeController({
+          activity,
           seed: args.seed,
           projectRoot: project.root,
           configPath: project.configPath,
@@ -272,7 +274,6 @@ export async function runDev(options: RunDevOptions): Promise<number> {
             : {}),
         })
       : null;
-    const activity = createActivityLog();
     const { token: mcpToken } = await readMcpToken(devDirectory(project.root), {
       rotate: args.rotateMcpToken,
     });

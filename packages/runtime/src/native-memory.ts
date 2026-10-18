@@ -1,4 +1,6 @@
+import { validateBatch } from './activity/index.js';
 import type {
+  FeedDraft,
   NativeStore,
   NativeScope,
   NativeRecord,
@@ -10,6 +12,7 @@ import { NativeConflict, compareObjectIds } from './storage.js';
 /** Private transaction snapshots; observation refreshes are independently retained. */
 export function createNativeMemoryStore(
   installed: (scope: NativeScope) => boolean,
+  publish?: (graphId: string, drafts: readonly FeedDraft[]) => void,
 ): NativeStore {
   const graphs = new Map<
     string,
@@ -54,6 +57,16 @@ export function createNativeMemoryStore(
   }
 
   return {
+    ...(publish ? { atomicActivity: true as const } : {}),
+    async provenance(scope, object) {
+      const record = await this.load(
+        scope,
+        object.objectDefinitionId,
+        object.objectId,
+      );
+
+      return record ? (record.provenance ?? { kind: 'unknown' }) : undefined;
+    },
     async scan(scope, type, options) {
       if (!installed(scope)) return { objects: [], hasMore: false };
 
@@ -90,6 +103,7 @@ export function createNativeMemoryStore(
       locks.set(scope.graphId, tail);
       await previous;
       let active = true;
+      const feed: FeedDraft[] = [];
       const check = () => {
         if (!active || !installed(scope))
           throw new Error('Inactive native transaction');
@@ -110,6 +124,16 @@ export function createNativeMemoryStore(
           if (savepointDepth) undo.push(operation);
         };
         const result = await operation({
+          async appendFeed(drafts) {
+            check();
+            validateBatch(scope.graphId, [...feed, ...drafts]);
+            const start = feed.length;
+
+            feed.push(...structuredClone(drafts));
+            recordUndo(() => {
+              feed.length = start;
+            });
+          },
           async scan(type, options) {
             check();
 
@@ -208,6 +232,7 @@ export function createNativeMemoryStore(
 
         const snapshot = structuredClone(result);
 
+        publish?.(scope.graphId, feed);
         graphs.set(scope.graphId, state);
 
         return snapshot;

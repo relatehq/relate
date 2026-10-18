@@ -28,9 +28,11 @@ flowchart TD
   relate --> migrations["migrations: applied migrations and checksums"]
   relate --> graphs["graphs: graph IDs and definition revisions"]
   relate --> objects["objects: adopted objects, aliases, latest observations"]
-  relate --> changes["value_changes: applied source value history"]
+  relate --> changes["object_versions: applied source value history"]
   relate --> native["native_objects: records written by actions"]
-  relate --> invocations["native_invocations: action invocations and receipts"]
+  relate --> invocations["invocations: action invocations and receipts"]
+  relate --> feed["feed_entries: committed changes and invocation completions"]
+  relate --> operations["operations: best-effort attempts and ordered lineage"]
 ```
 
 Relate does not create databases or start servers.

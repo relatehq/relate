@@ -237,3 +237,67 @@ field's provenance. Values and access rules are identical in both modes.
 See
 [Read Responses & Evidence](../../apps/docs/content/reference/read-responses.md)
 for the complete reference.
+
+## Host activity and provenance
+
+Trusted hosts can follow committed changes and action completions, browse
+best-effort attempts, and read permanent creation/adoption attribution:
+
+```ts
+const page = await relate.host.activity.feed.read({ limit: 100 });
+for (const entry of page.entries) await processIdempotently(entry);
+await saveCheckpoint(page.nextCursor);
+const next = await relate.host.activity.feed.read({ cursor: page.nextCursor });
+
+const attempts = await relate.host.activity.operations.list({
+  filter: { object: { objectDefinitionId: Person.id, objectId: id } },
+});
+const provenance = await relate.host.provenance({
+  objectDefinitionId: Person.id,
+  objectId: id,
+});
+```
+
+The feed contains `created`, `adopted`, `updated`, `deleted`, `restored`,
+`invocation-succeeded`, and `invocation-failed` entries in publication order.
+Entries contain metadata and stable property IDs, never values, action inputs,
+outputs, query predicates, or raw errors. Replay returns the original receipt
+without another native change or invocation event. Source refreshes can commit
+independently during receipt authorization, even if the enclosing action fails.
+
+`operations.list` is newest-first browsing, not a delivery checkpoint. Rows are
+captured after authorization, with ordered direct object references and
+returned/forbidden/unavailable property IDs. A refresh is a nested operation;
+its source change preserves both the source actor and the triggering actor.
+Missing operation rows never prove that an operation did not happen.
+
+Supply filters only on the initial request; a cursor retains the filter. Limits
+default to 50 (maximum 500). Feed cursors advance past nonmatching entries and
+reject expired history explicitly. `ActivityError.code` distinguishes
+`unsupported`, `unavailable`, `invalid-request`, `invalid-cursor`, and
+`cursor-expired`. `activity.status()` distinguishes unsupported storage from
+available volatile/persistent history and reports whether capture is enabled.
+Object filters match direct references only, not references mined from inputs.
+
+`provenance` reads the object itself and works without activity support. Absent
+objects return `undefined`; legacy objects return `{ kind: 'unknown' }`.
+Provenance survives feed, operation, and receipt retention. These capabilities
+are host-only; `as(principal)` does not expose historical data.
+
+`operations(principal, { requestId, transport, executionId?, runtimeId? })`
+binds trusted request context. Without it each call gets its own embedded
+request ID. Each attempt always gets a fresh operation ID. Internal transports
+can use `host.dispatch(principal, scope, method, args)` for a single dispatch
+whose scope ID they assigned before routing; its actor is overwritten with the
+authenticated principal. A scope is never a reusable consumer binding.
+
+Configure capture with
+`activity: { enabled, maxEntries, maxBytes, maxObjects, batchEntries, flushTimeoutMs, onError }`
+on runtime creation or app setup. Defaults are enabled, 1,024 queued/in-flight
+rows, 4 MiB, 1,000 lineage objects, 100 rows per append, and a 2-second shutdown
+flush. Oversized lineage is marked with `details.truncated`.
+`host.captureDiagnostics` reports dropped rows and omitted lineage objects;
+`onError` receives sanitized codes/counts/kinds. Capture failure never changes a
+consumer result; feed writes and provenance remain required when capture is
+disabled. `close()` drains tracked calls, then flushes capture with the
+configured deadline. Borrowed stores remain open.

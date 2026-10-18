@@ -1,4 +1,17 @@
-import type { Json } from '@relate/protocol';
+import type {
+  Change,
+  ActivityActor,
+  OperationContext,
+  ActivityObjectRef,
+  ObjectProvenance,
+  Operation,
+  FeedEntry,
+  ActivityReadOptions,
+  FeedFilter,
+  OperationFilter,
+  ActivityPage,
+  Json,
+} from '@relate/protocol';
 import type { SourceVersion } from './connectors.js';
 
 export type { SourceVersion } from './connectors.js';
@@ -27,6 +40,7 @@ export interface Observation {
 export interface StoredObject {
   readonly objectId: string;
   readonly sourceRecordId: string;
+  readonly provenance?: ObjectProvenance;
   readonly observation: Observation;
 }
 
@@ -36,6 +50,13 @@ export type Acceptance = 'changed' | 'unchanged' | 'superseded' | 'replay';
 export interface ObservationStore {
   /** Optional capability: source-only adapters remain valid for read-only graphs. */
   readonly native?: NativeStore;
+  readonly activity?: ActivityStore;
+  /** Declares atomic acceptance/feed support; required when activity is advertised. */
+  readonly atomicActivity?: true;
+  provenance(
+    scope: StorageScope,
+    objectId: string,
+  ): Promise<ObjectProvenance | undefined>;
   /** Whether confirmed retention survives process restart; not a write outcome. */
   readonly durability: 'volatile' | 'persistent';
   /** Pins an installed instance. Definition changes require explicit migration. */
@@ -65,8 +86,13 @@ export interface ObservationStore {
       objectId?: string;
       adopt: boolean;
       observation: Observation;
+      provenance?: AcceptanceProvenance | undefined;
     },
-  ): Promise<{ object: StoredObject; acceptance: Acceptance }>;
+  ): Promise<{
+    object: StoredObject;
+    acceptance: Acceptance;
+    change?: Pick<Change, 'kind' | 'changedPropertyIds'>;
+  }>;
 }
 
 export interface NativeScope {
@@ -80,6 +106,7 @@ export interface NativeRecord {
   /** Stable property definition IDs, never authoring property names. */
   readonly values: Readonly<Record<string, import('@relate/protocol').Json>>;
   readonly createdAt: number;
+  readonly provenance?: ObjectProvenance;
 }
 
 export interface NativeInvocation {
@@ -87,6 +114,7 @@ export interface NativeInvocation {
   readonly idempotencyKey: string;
   /** Null only for legacy invocations, which cannot be recovered by consumers. */
   readonly actorId: string | null;
+  readonly activity?: InvocationAttribution;
   readonly reads: readonly NativeReceiptRead[] | null;
   readonly input: import('@relate/protocol').Json;
   readonly receipt: import('@relate/protocol').ActionReceipt;
@@ -114,6 +142,7 @@ export interface NativeScanResult {
 }
 
 export interface NativeTransaction {
+  appendFeed?(drafts: readonly FeedDraft[]): Promise<void>;
   /** Includes this transaction's earlier inserts. */
   scan(
     objectDefinitionId: string,
@@ -139,6 +168,11 @@ export interface NativeTransaction {
 }
 
 export interface NativeStore {
+  readonly atomicActivity?: true;
+  provenance(
+    scope: NativeScope,
+    object: ActivityObjectRef,
+  ): Promise<ObjectProvenance | undefined>;
   scan(
     scope: NativeScope,
     objectDefinitionId: string,
@@ -160,4 +194,67 @@ export interface NativeStore {
     scope: NativeScope,
     operation: (transaction: NativeTransaction) => Promise<T>,
   ): Promise<T>;
+}
+
+/** Metadata only; adapters assign publication position and recording time. */
+type Draft<T> = T extends unknown ? Omit<T, 'recordedAt' | 'position'> : never;
+
+export type FeedDraft = Draft<FeedEntry>;
+export type OperationDraft = Draft<Operation>;
+
+export interface InvocationAttribution {
+  readonly actor: ActivityActor;
+  readonly operationId: string;
+  readonly context: OperationContext;
+  readonly definitionRevision: string;
+  readonly startedAt: string;
+  readonly completedAt: string;
+}
+
+export interface AcceptanceProvenance {
+  readonly actor: Exclude<ActivityActor, { kind: 'source' }>;
+  readonly operationId: string;
+  readonly parentOperationId?: string;
+  readonly context: OperationContext;
+  readonly occurredAt: string;
+  readonly changeId: string;
+}
+
+export interface ActivityStore {
+  status(graphId: string): Promise<{
+    readonly state: 'available';
+    readonly durability: 'volatile' | 'persistent';
+  }>;
+  appendOperations(
+    graphId: string,
+    drafts: readonly OperationDraft[],
+  ): Promise<void>;
+  readonly feed: {
+    read(
+      graphId: string,
+      options?: ActivityReadOptions<FeedFilter>,
+    ): Promise<ActivityPage<FeedEntry>>;
+  };
+  readonly operations: {
+    list(
+      graphId: string,
+      options?: ActivityReadOptions<OperationFilter>,
+    ): Promise<ActivityPage<Operation>>;
+  };
+}
+
+export interface ActivityCaptureOptions {
+  readonly enabled?: boolean;
+  readonly maxEntries?: number;
+  readonly maxBytes?: number;
+  readonly maxObjects?: number;
+  readonly batchEntries?: number;
+  readonly flushTimeoutMs?: number;
+  readonly onError?: (diagnostic: ActivityDiagnostic) => void;
+}
+
+export interface ActivityDiagnostic {
+  readonly code: 'overflow' | 'write-failed' | 'shutdown' | 'truncated';
+  readonly count: number;
+  readonly kinds: readonly Operation['kind'][];
 }

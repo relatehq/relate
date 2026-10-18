@@ -39,6 +39,18 @@ export const runtimeRequestSchema = z.discriminatedUnion('type', [
     runtimeId: text,
     principal: text,
     operation: z.enum(runtimeOperations),
+    scope: z
+      .strictObject({
+        id: text,
+        actor: z.strictObject({ kind: z.literal('principal'), id: text }),
+        context: z.strictObject({
+          requestId: text,
+          transport: z.enum(['embedded', 'http', 'mcp']),
+          runtimeId: text.optional(),
+          executionId: text.optional(),
+        }),
+      })
+      .optional(),
     args: z.array(z.unknown()),
   }),
   z.strictObject({
@@ -69,6 +81,12 @@ export const wireErrorSchema = z.strictObject({
 export type WireError = z.infer<typeof wireErrorSchema>;
 
 export const runtimeMessageSchema = z.discriminatedUnion('type', [
+  z.strictObject({
+    type: z.literal('activity'),
+    runtimeId: text,
+    feed: z.array(z.custom<import('@relate/protocol').FeedEntry>()),
+    operations: z.array(z.custom<import('@relate/protocol').Operation>()),
+  }),
   z.strictObject({
     type: z.literal('reply'),
     id,

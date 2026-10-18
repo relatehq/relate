@@ -119,3 +119,12 @@ Discovery describes local calendar fields as `format: 'local-datetime'` with
 on the wire. See the
 [owning scalar contract](../relate/CONTRACT.md#local-calendar-datetimes) for
 validation, clock-domain semantics and migration requirements.
+
+## Host activity types
+
+`Operation`, `Change`, `InvocationEvent`, `FeedEntry`, `ObjectProvenance`,
+`OperationContext`, activity filters/pages, `ActivityReader`, and
+`ActivityError` are portable metadata contracts. They are not members of
+`ConsumerOperations`: historical access is reserved for trusted hosts. Feed
+positions are opaque strings, distinct from record IDs. See the
+[host API guide](../../packages/node/README.md#host-activity-and-provenance).

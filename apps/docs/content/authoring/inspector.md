@@ -313,26 +313,31 @@ conversation shows a note saying so.
 
 ## The Activity Log
 
-The **Activity** page (the clock icon in the left rail) shows every `discover`
-and `execute` call as it happens: who called (**inspector agent** for the
-built-in agent, **external client** otherwise), as which principal, the code an
-agent ran, its console output and result, and each graph read and action that
-code made, with filters, record counts, receipt states and errors. While an
-operation runs, the objects it touches are highlighted on the graph.
+The **Activity** page (the clock icon in the left rail) groups `discover` and
+`execute` calls with the code, console output and result of each execution.
+Runtime rows distinguish committed changes/action completions from best-effort
+attempts. Nested refreshes show their parent operation; retries show `replayed`;
+a lost commit acknowledgement can show `uncertain` while the feed independently
+records what committed.
 
 ```text
-execute  as alice  external client  3 operations           runtime a5fb52bc  51 ms
-  await graph.actions.addCustomer({ input: { name: 'Spindle Ferry' }, idempotencyKey: 'spindle-ferry-1' });
-  const page = await graph.objects.Customer.query({ limit: 5, where: { name: 'Spindle Ferry' } });
-  invoke  addCustomer  input {"name":"Spindle Ferry"} · key spindle-ferry-1    receipt succeeded
-  query   Customer     where {"name":"Spindle Ferry"} · limit 5        1 record
+execute as alice · external client
+  created               business.customer · committed · position 41
+  invocation-succeeded  business.add-customer · committed · position 42
+  invoke                business.add-customer · attempt · succeeded
+  query                 business.customer · attempt · ok
 ```
 
-The log keeps the most recent 200 calls in the `relate dev` process and is
-cleared when it stops. It survives runtime restarts; calls made against an
-earlier runtime are marked **retired**, because that runtime's data and code may
-differ from the current one. Record values are never stored: the log keeps
-record IDs, counts and short previews of filters, action inputs and results.
+The display keeps the most recent 200 requests in the `relate dev` process and
+survives runtime-host restarts. Earlier runtimes are marked **retired**. Runtime
+rows retain object/property IDs, actors, request links and outcomes; they
+exclude values, filter values, action inputs/outputs and raw errors. The
+execution view still shows submitted code and its output.
+
+Operation capture and forwarding are best effort. A missing row is not evidence
+that nothing happened, and a killed runtime may leave no settled operation row.
+The host feed API is the durable recovery path when using Postgres. The
+Inspector display is not an integration checkpoint.
 
 ## Switch Between Graphs
 

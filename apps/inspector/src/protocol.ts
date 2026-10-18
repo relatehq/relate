@@ -192,6 +192,15 @@ export type { Manifest, ModelIssue, SourceSite };
 export const activityStatusSchema = z.enum(['running', 'succeeded', 'failed']);
 
 export const activityOperationSchema = z.enum([
+  'adopt',
+  'refresh',
+  'created',
+  'adopted',
+  'updated',
+  'deleted',
+  'restored',
+  'invocation-succeeded',
+  'invocation-failed',
   'get',
   'query',
   'traverse',
@@ -271,6 +280,13 @@ export const activityEventSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({
     kind: z.literal('operation'),
+    runtimeRecord: z
+      .custom<
+        | import('@relate/protocol').Operation
+        | import('@relate/protocol').FeedEntry
+      >()
+      .optional(),
+    preDispatch: z.boolean().optional(),
     opId: text,
     context: operationContextSchema,
     at: text,

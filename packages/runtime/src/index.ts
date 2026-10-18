@@ -13,3 +13,6 @@ export { operationContracts } from './contracts.js';
 export type { OperationContract, OperationContracts } from './contracts.js';
 
 export { ActionError } from '@relate/protocol';
+
+export { newOperationScope } from './activity/index.js';
+export type { OperationScope } from './activity/index.js';

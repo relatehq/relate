@@ -118,11 +118,8 @@ it('preserves legacy receipt/key evidence without inventing an actor or allowing
       ),
     ).toMatchObject({ actorId: null, reads: null, receipt, input });
     expect(
-      (
-        await db.query(
-          'SELECT count(*)::int AS count FROM relate.native_invocations',
-        )
-      ).rows,
+      (await db.query('SELECT count(*)::int AS count FROM relate.invocations'))
+        .rows,
     ).toEqual([{ count: 1 }]);
   } finally {
     await store.close();

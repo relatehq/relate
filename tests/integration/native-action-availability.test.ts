@@ -104,7 +104,7 @@ function request(customer: string, idempotencyKey = 'review') {
 }
 
 async function expectEmpty() {
-  for (const table of ['native_objects', 'native_invocations']) {
+  for (const table of ['native_objects', 'invocations']) {
     const result = await pool.query(
       `SELECT count(*)::int AS count FROM relate.${table} WHERE graph_id=$1`,
       [graphId],
