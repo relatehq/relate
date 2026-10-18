@@ -11,3 +11,6 @@ truth for implemented behavior.
 
 - [2026-10-07: Inspector architecture and design record](./2026-10-07-inspector.md)
 - [2026-10-13: Runtime activity backbone](./2026-10-13-activity.md)
+- [2026-10-18: Analytical datasets and computed object properties](./2026-10-18-analytical-properties.md)
+  — direction and authoring API agreed; policy, typing and evidence proposed;
+  not implemented.
