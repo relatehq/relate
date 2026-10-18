@@ -155,15 +155,15 @@ export function nativeActionContract(
       ).toBeUndefined();
     }
 
-    it('reuses an external operation identity after rollback and runtime reconstruction', async () => {
+    it('reuses the idempotency ID after rollback and runtime reconstruction', async () => {
       const operations: string[] = [];
       const externalResults = new Map<string, string>();
       let mutations = 0;
       const handler: Handler = async (context) => {
-        operations.push(context.operationId);
+        operations.push(context.idempotencyId);
 
-        if (!externalResults.has(context.operationId)) {
-          externalResults.set(context.operationId, `comment-${++mutations}`);
+        if (!externalResults.has(context.idempotencyId)) {
+          externalResults.set(context.idempotencyId, `comment-${++mutations}`);
           throw new Error('Readback failed after the external write');
         }
 
@@ -197,10 +197,10 @@ export function nativeActionContract(
       await second.close();
     });
 
-    it('scopes operation identity to graph, actor and key without incorporating changed input', async () => {
+    it('scopes the idempotency ID to graph, actor and key without incorporating changed input', async () => {
       const operations: string[] = [];
-      const handler: Handler = async ({ operationId }) => {
-        operations.push(operationId);
+      const handler: Handler = async ({ idempotencyId }) => {
+        operations.push(idempotencyId);
         throw new Error('No receipt');
       };
       const first = app(handler);

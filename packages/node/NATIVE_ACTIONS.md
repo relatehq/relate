@@ -348,15 +348,18 @@ their original transaction. Source queries still cover adopted graph members
 only and do not imply a source snapshot. See the
 [graph query contract](../runtime/CONTRACT.md#graph-queries).
 
-## External operation identity
+## Idempotency ID for external writes
 
-Handlers receive `operationId`, an opaque deterministic string scoped to
-`graphId`, actor ID, action definition ID and caller idempotency key. It stays
-stable after rollback, runtime restart and definition revision changes. Input is
-excluded so an integration can detect conflicting retries in its journal. Use
-distinct stable graph IDs for independent deployments sharing a provider. The
-operation ID is neither the successful receipt's `invocationId` nor an access
-token; it grants no authorization.
+Handlers receive `idempotencyId`, an opaque deterministic string scoped to
+`graphId`, actor ID, action definition ID and caller idempotency key. Forward it
+instead of the raw key: two actors or actions may legitimately reuse the same
+key, but their idempotency IDs differ. It stays stable after rollback, runtime
+restart and definition revision changes. Input is excluded so an integration can
+detect conflicting retries in its journal. Use distinct stable graph IDs for
+independent deployments sharing a provider. The operation ID is neither the
+successful receipt's `invocationId` nor an access token; it grants no
+authorization. It is also not an activity operation ID, which identifies one
+attempt and changes on every retry.
 
 Forward it to an integration-owned journal or provider idempotency API. External
 mutations are outside the native transaction: the adapter must reserve and

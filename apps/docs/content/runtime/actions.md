@@ -137,8 +137,9 @@ export const addAccountReview = implementAction(
 
 The handler receives:
 
-- `operationId`: a stable identity for this graph instance, actor, action and
-  idempotency key, including retries after a thrown error.
+- `idempotencyId`: your caller's idempotency key scoped to this graph instance,
+  actor and action. It stays the same across retries, including after a thrown
+  error. Forward it to external APIs instead of the raw key.
 - `actor`: the calling principal.
 - `input`: the parsed input.
 - `objects.<Name>.get(id, options)`: reads as the caller, with the same result
@@ -247,27 +248,38 @@ recovery. Use a newly authenticated caller handle after roles or claims change.
 See the [native action contract](../../../../packages/node/NATIVE_ACTIONS.md)
 for transaction boundaries, concurrent retries, dependency checks, and recovery
 limits. The native transaction does not cover external side effects; see
-[External writes and operation identity](#external-writes-and-operation-identity).
+[External writes and idempotency IDs](#external-writes-and-idempotency-ids).
 Background execution is not supported.
 
-### External writes and operation identity
+### External writes and idempotency IDs
 
-A handler can forward `operationId` to a provider's idempotency API or an
+A handler can forward `idempotencyId` to a provider's idempotency API or an
 integration-owned operation journal:
 
 ```ts
 // Inside an implementAction handler. provider is your integration's API client.
-async ({ operationId, input }) => {
+async ({ idempotencyId, input }) => {
   const result = await provider.createComment({
     transactionId: input.transactionId,
     comment: input.comment,
-    idempotencyKey: operationId,
+    idempotencyKey: idempotencyId,
   });
   return { commentId: result.id };
 };
 ```
 
-`operationId` is an opaque, deterministic identifier scoped to the runtime's
+Why not forward the caller's `idempotencyKey` directly? Relate treats a key as
+unique only per graph, actor and action, so Ana and Fin can both send
+`idempotencyKey: '1'`. A provider sees only the string and would merge their
+requests. `idempotencyId` folds that scope into the value:
+
+```ts
+// Ana and Fin both call addAccountReview({ input, idempotencyKey: '1' })
+// Ana's handler: idempotencyId === 'relate-op-v1-3f9a…'
+// Fin's handler: idempotencyId === 'relate-op-v1-b27c…'
+```
+
+`idempotencyId` is an opaque, deterministic identifier scoped to the runtime's
 `graphId`, actor ID, action definition ID and caller idempotency key. It
 survives handler rollback and runtime restart when those values stay the same.
 Input and definition revision are deliberately excluded: an external journal
@@ -277,7 +289,7 @@ Separate installations sharing a provider account must use distinct stable
 authorization credential.
 
 Relate's transaction covers native writes and receipts. It cannot roll back an
-external API call. Passing `operationId` only helps if the provider or
+external API call. Passing `idempotencyId` only helps if the provider or
 integration actually enforces deduplication. Scope journal entries to the
 provider account, reserve before dispatch, and retain confirmed results
 independently of the native transaction. Track graph refresh separately so a

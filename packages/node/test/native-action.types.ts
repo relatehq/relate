@@ -79,11 +79,11 @@ const Review = defineAction({
 const domainGraph = defineGraph({ ...graph, actions: { review: Review } });
 
 implementAction(domainGraph, Review, async (context) => {
-  const operationId: string = context.operationId;
+  const idempotencyId: string = context.idempotencyId;
 
-  // @ts-expect-error operation identity is runtime-owned
-  context.operationId = 'replacement';
-  void operationId;
+  // @ts-expect-error idempotency identity is runtime-owned
+  context.idempotencyId = 'replacement';
+  void idempotencyId;
   const { fail } = context;
 
   // @ts-expect-error empty detail schemas still require an object

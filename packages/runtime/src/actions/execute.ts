@@ -37,7 +37,7 @@ type Action = NonNullable<Manifest['actions']>[number];
 type ObjectType = Manifest['objects'][number];
 
 export interface ActionExecutionContext {
-  readonly operationId: string;
+  readonly idempotencyId: string;
   readonly actor: Principal;
   readonly input: Record<string, Json>;
   read(type: string, id: string, request?: ReadRequest): Promise<ObjectResult>;
@@ -369,7 +369,9 @@ export function createActionExecutor(options: {
                   // Exclude input and definition revision: a retry must reach the
                   // same external journal entry even after rollback or deployment.
                   // Integrations must compare inputs and scope provider accounts.
-                  operationId: `relate-op-v1-${createHash('sha256')
+                  // The hash prefix predates the rename; keep it so issued IDs
+                  // stay stable.
+                  idempotencyId: `relate-op-v1-${createHash('sha256')
                     .update(
                       JSON.stringify([
                         'relate.operation.v1',

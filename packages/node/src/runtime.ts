@@ -75,7 +75,7 @@ export function createRuntime<
 
     handlers[implementation.action.id] = (context) =>
       implementation.implementation({
-        operationId: context.operationId,
+        idempotencyId: context.idempotencyId,
         actor: context.actor,
         input: context.input,
         fail: context.fail,
