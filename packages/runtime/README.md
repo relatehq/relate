@@ -40,9 +40,9 @@ concrete store or connector.
   only supported mode in this slice.
 - `@relate/node` composes this engine with an authored graph, binds it to the
   `ConsumerOperations` contract per principal and adds the `relate/consumer`
-  facade. The planned `@relate/http` and `@relate/mcp` serve the same contract
-  remotely. Lazy pagination (`createQuery`) lives in `relate/consumer`, not
-  here.
+  facade. The implemented `@relate/mcp` serves the same contract remotely; the
+  standalone `@relate/http` adapter remains planned. Lazy pagination
+  (`createQuery`) lives in `relate/consumer`, not here.
 
 ## Public API
 

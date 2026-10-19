@@ -88,6 +88,13 @@ automatically. If you call `createRuntime` directly, manage cleanup yourself:
 close the runtime first, then its store and provider clients. Avoid closing a
 shared resource while another runtime still uses it.
 
+`close()` rejects new operations, waits for in-flight work, then flushes
+captured operation rows within `activity.flushTimeoutMs`. Rows still queued at
+the deadline are reported as dropped. Use `host.flushActivity()` to wait for
+captured rows without closing the runtime. See
+[Activity & Provenance](./activity.md) and the
+[Runtime and Consumer API](../reference/runtime-api.md).
+
 The installation's `graphId` defaults to the graph definition's `id`. Persistent
 installations pin a definition revision. Changing the model requires a new
 development installation or an explicit migration; revision migrations are not

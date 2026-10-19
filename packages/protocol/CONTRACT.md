@@ -28,7 +28,8 @@ retention/ordering warnings still set `degraded: true`.
 
 Completeness, freshness, and durability are independent. Evidence reports source
 identity only for authorized exposed values and never includes raw provider
-errors or aliases. HTTP and MCP adapters are not implemented in this slice.
+errors or aliases. The MCP adapter is implemented; the standalone HTTP adapter
+remains planned.
 
 Field evidence separates the retention outcome from `retentionDurability`:
 `volatile` for memory and `persistent` for storage that survives process

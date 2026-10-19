@@ -132,6 +132,14 @@ export const pages: readonly DocPage[] = [
       'Diagnose model errors, missing records, unavailable fields, and revision conflicts.',
     section: 'Reference',
   },
+  {
+    slug: ['reference', 'runtime-api'],
+    name: 'Runtime & Consumer API',
+    title: 'Runtime and Consumer API',
+    description:
+      'Runtime setup, typed consumer methods, and trusted host APIs.',
+    section: 'Reference',
+  },
   ...generatedReference,
   {
     slug: ['deployment', 'postgres'],

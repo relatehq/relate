@@ -133,8 +133,9 @@ Supported schemas and policy predicates remain those of `relate`.
 
 Storage defaults to isolated volatile memory; `graphId` defaults to the graph
 definition ID. An injected `store` is borrowed: the caller owns migrations and
-closing it. `close()` rejects new operations and waits for in-flight operations;
-it does not close borrowed storage or provider clients.
+closing it. `close()` rejects new operations, waits for in-flight operations,
+and flushes captured operation rows within `activity.flushTimeoutMs`; it does
+not close borrowed storage or provider clients.
 
 Native account-review actions now execute with authorized creation, rollback and
 successful receipts and actor-bound lookup/replay; see
@@ -197,3 +198,57 @@ starting object, traversal and options. They expire after 15 minutes. The
 default key is private to each runtime; supply the same secret 32-byte
 `cursorKey` to trusted runtimes sharing storage if continuations must survive
 restarts or move between instances. Every page rechecks current access.
+
+## Host activity, attribution and shutdown
+
+`operations(principal, context?)` accepts trusted request context such as
+`{ requestId, transport: 'mcp' }`. The principal always supplies the actor.
+Without context, embedded calls receive a fresh request ID per call. Request IDs
+group calls; every operation still has its own operation ID.
+
+`host.adopt(Object, sourceRecordId, { actor?, context? }?)` defaults to the
+system actor `relate.host`. The host may explicitly attribute adoption to an
+importer or another system actor. This attribution does not grant read access.
+
+The host surface also provides:
+
+- `host.activity.status()` for store support, durability and capture status.
+- `host.activity.feed.read(options?)` for committed changes and invocation
+  events in publication order, atomic with their corresponding stored state.
+- `host.activity.operations.list(options?)` for best-effort operation history,
+  newest recorded first. A missing operation row does not prove no work
+  occurred.
+- `host.provenance({ objectDefinitionId, objectId })` for creation/adoption
+  attribution independent of history retention. Unknown objects return
+  `undefined`; legacy objects return `{ kind: 'unknown' }`.
+- `host.activityCounters()` for capture drop and truncation counters.
+- `host.flushActivity()` to wait up to `activity.flushTimeoutMs` for captured
+  rows to be appended or dropped. It returns `'pending'` if rows remain at the
+  deadline, otherwise `'flushed'`; it does not stop new work.
+
+A trusted transport can dispatch a consumer method with its own operation ID:
+
+```ts
+await relate.host.dispatch(
+  principal,
+  { operationId, context: { requestId, transport: 'mcp' } },
+  'query',
+  ['business.customer', { limit: 10 }],
+);
+```
+
+`operationId` must be a fresh UUIDv7 per call. `method` is a
+`ConsumerOperations` method other than `discovery`; `args` are that method's
+arguments. The principal supplies the actor, and normal consumer authorization
+still applies. This lets transport diagnostics and runtime history share an ID.
+
+None of the host APIs is exposed through `as`, `ConsumerOperations` or MCP. See
+[Activity & Provenance](../../apps/docs/content/runtime/activity.md) for capture
+defaults, filtering, cursor semantics, retention and unsupported stores. The
+public types are in [types.ts](./src/types.ts).
+
+Shutdown drains in-flight work before flushing captured operations. At the flush
+deadline, queued rows are reported as dropped with reason `shutdown`. Borrowed
+stores remain open; close the runtime before closing its store. `startApp` then
+runs registered disposal callbacks. Operation capture is best effort and is
+separate from the feed's atomic publication guarantees.

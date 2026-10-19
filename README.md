@@ -10,9 +10,9 @@ TypeScript.**
 
 Relate lets you describe your business objects (customers, invoices, reviews),
 where each field comes from, how the objects relate and who may see what. Your
-application, and eventually your agents, then read across your CRM, billing
-database and other systems through one typed API. Every read is filtered for the
-caller and says where each value came from and how fresh it is.
+application and agents then read across your CRM, billing database and other
+systems through one typed API. Every read is filtered for the caller and says
+where each value came from and how fresh it is.
 
 > **Request for comment.** Relate is early (`0.0.0-dev.0`), not yet on npm and
 > not ready for production. We're publishing it now to get the model right in
@@ -310,8 +310,8 @@ We'd most like to hear about:
    noise? What would you do with it?
 3. **Getting records in.** Adoption is explicit today. Would you want sync,
    scanning, change feeds or on-demand fetches?
-4. **Agents.** What should an agent see? Is a tool per object the right
-   granularity for MCP?
+4. **Agents.** The MCP interface exposes `discover` and `execute`. Does this
+   discovery-and-code approach give agents the context and control they need?
 5. **Connectors.** Which systems would you need first?
 
 Please open a [discussion](https://github.com/relatehq/relate/discussions) or an

@@ -228,7 +228,7 @@ error.acceptedOptions; // present when an option was unknown
 | `problem`           | Meaning                                                                                     |
 | ------------------- | ------------------------------------------------------------------------------------------- |
 | `unknown-option`    | Not a read option. Common paging, filter and selection names point to the generic option.   |
-| `not-supported`     | A read option this operation does not take, such as `where` on a traversal.                 |
+| `not-supported`     | A read option this operation does not take, such as `where` on a to-one traversal.          |
 | `invalid-value`     | An option, filter value or argument has the wrong type or range; the message says expected. |
 | `unknown-property`  | A `where` name that is not a filterable property for this reader; `accepted` lists them.    |
 | `unknown-traversal` | A traversal this reader cannot use from that object; `accepted` lists those it can.         |
@@ -238,5 +238,6 @@ Issues name only options, arguments and properties the reader can already
 discover. A property the reader may not read and one that does not exist give
 the same issue, and the cursor issue does not say why a cursor was rejected.
 
-HTTP and MCP adapters remain planned. This reference describes the currently
-implemented embedded APIs and the shared protocol they will use.
+Embedded consumers and the implemented [MCP interface](../runtime/mcp.md) use
+these result and evidence contracts. A standalone HTTP consumer adapter remains
+planned.

@@ -28,8 +28,9 @@ Relate consumer surface. Private and unpublished.
 - `ConsumerOperations`: the actor-bound, definition-ID-addressed operations
   every consumer surface shares (`get`, `query`, `traverse`, `invoke`,
   `getReceipt`, `discovery`), each returning the complete public result. The
-  engine implements it, `@relate/http` serves it, `@relate/client` implements it
-  over a transport, and `relate/consumer` types it.
+  engine implements it, the planned `@relate/http` serves it, and the planned
+  `@relate/client` implements it over a transport, and `relate/consumer` types
+  it.
 - `Json`.
 
 These are types, two error classes and pure evidence presentation helpers. The
@@ -43,9 +44,9 @@ performs no validation itself.
   `relate/consumer` facade; `relate/model` validates manifests against
   `ScalarSchema`. `@relate/runtime` produces results and discovery.
   `@relate/node` binds the engine to `ConsumerOperations` per principal.
-- The planned `@relate/http`, `@relate/client` and `@relate/mcp` carry exactly
-  these shapes over the wire, so embedded and remote consumers see the same
-  results and evidence.
+- The implemented `@relate/mcp` exposes these operations through `discover` and
+  `execute` over stdio or Streamable HTTP. The standalone `@relate/http` adapter
+  and `@relate/client` remain planned.
 
 ## Public API
 
@@ -90,9 +91,9 @@ function isIncomplete(error: unknown): boolean {
 ## Status
 
 Results, pages, evidence, errors, discovery shapes and the consumer operations
-contract are implemented and used by the engine. HTTP and MCP encodings are not
-implemented. The types alone do not validate incoming JSON; the runtime
-validates what it produces and accepts.
+contract are implemented and used by the engine and MCP adapter. The standalone
+HTTP adapter remains planned. The types alone do not validate incoming JSON; the
+runtime validates what it produces and accepts.
 
 ## Further reading
 

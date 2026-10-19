@@ -45,12 +45,14 @@ flowchart LR
 ```
 ````
 
-## Generated API reference preview
+## API reference
 
-The API Reference sidebar section contains four selected public exports from
-`relate`: `defineSource`, `ObjectId`, `ReadOptions`, and `QueryOptions`, plus an
-index. TypeDoc and `typedoc-plugin-markdown` generate ordinary Markdown,
-rendered with the same Fumadocs components and theme as the handwritten guides.
+The API Reference sidebar section covers core authoring helpers and common
+request/result types from `relate`, plus an index. The handwritten
+[Runtime and Consumer API](./content/reference/runtime-api.md) covers runtime
+setup, consumer methods and trusted host APIs. TypeDoc and
+`typedoc-plugin-markdown` generate ordinary Markdown, rendered with the same
+Fumadocs components and theme as the handwritten guides.
 
 Edit the `selected` allowlist in `scripts/generate-reference.mjs` to change the
 subset. Missing exports fail generation. Edit API descriptions and examples in
@@ -64,12 +66,12 @@ Generation reads TypeScript source directly (including protocol types), so no
 package build is needed. It also runs before docs dev, build, and typecheck.
 During a running dev server, rerun the command after editing API comments or
 changing the allowlist. Generated Markdown in `content/reference/api/` and its
-page manifest in `lib/generated-reference.json` are committed so the preview is
-reviewable; do not edit them by hand. Regeneration replaces only that generated
-directory. The existing docs checker validates their registration, links, and
-anchors too.
+page manifest in `lib/generated-reference.json` are committed so the reference
+is reviewable; do not edit them by hand. Regeneration replaces only that
+generated directory. The existing docs checker validates their registration,
+links, and anchors too.
 
-This is a filtered preview, not a complete API reference. Types outside the
-allowlist remain plain type names; source signatures can expose detailed
-TypeScript generics. The handwritten guides and response reference continue to
-provide the broader behavioral explanations.
+The generated section is a curated reference, not an exhaustive export list.
+Types outside the allowlist remain plain type names; source signatures can
+expose detailed TypeScript generics. The handwritten guides and response
+reference continue to provide the broader behavioral explanations.

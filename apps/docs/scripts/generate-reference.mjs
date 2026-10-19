@@ -6,8 +6,38 @@ import { Application, Converter } from 'typedoc';
 const appDirectory = fileURLToPath(new URL('../', import.meta.url));
 const repository = path.resolve(appDirectory, '../..');
 const output = path.join(appDirectory, 'content/reference/api');
-// Keep the preview small. Only these public exports receive reference pages.
-const selected = ['defineSource', 'ObjectId', 'ReadOptions', 'QueryOptions'];
+// Author-facing entry points and their commonly used request/result types.
+// Runtime and consumer entry points have a separate handwritten API reference.
+const selected = [
+  'defineSource',
+  'defineObject',
+  'defineRelationship',
+  'defineGraph',
+  'defineAccess',
+  'defineAction',
+  'implementAction',
+  'defineApp',
+  'connect',
+  'source',
+  'nativeMembership',
+  'objectId',
+  'from',
+  'native',
+  'reference',
+  'referenceInput',
+  'localDateTime',
+  'assertFields',
+  'ObjectId',
+  'ReadOptions',
+  'QueryOptions',
+  'PageOptions',
+  'QueryResult',
+  'ObjectResult',
+  'ObjectRecord',
+  'ActionContext',
+  'ActionRequest',
+  'Receipt',
+];
 const app = await Application.bootstrapWithPlugins({
   entryPoints: [path.join(repository, 'packages/relate/src/index.ts')],
   tsconfig: path.join(appDirectory, 'tsconfig.reference.json'),

@@ -54,8 +54,10 @@ app.route(
   and reuses the `relate/consumer` facade.
 - The [inspector specification](../../specs/2026-10-07-inspector.md) describes a
   future development worker serving this package behind a supervisor proxy at
-  `/api`. Today's Inspector compiles definitions only and does not serve
-  consumer reads.
+  `/api`. Today's Inspector already runs an embedded runtime for its built-in
+  agent, MCP endpoint and activity view; it does not use this planned HTTP
+  adapter. See the
+  [Inspector guide](../../apps/docs/content/authoring/inspector.md).
 
 No request or route shape is fixed yet. The behavior to preserve is defined by
 the embedded path; see [`@relate/node`](../node/README.md).

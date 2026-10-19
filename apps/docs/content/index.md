@@ -85,8 +85,9 @@ Relate's runtime state. Source systems keep ownership of their data; current
 actions create native records and do not write back to external systems.
 
 Relate is intended for software and AI agents working with operational business
-data. An MCP interface is planned but is not yet implemented. The APIs and
-storage implementation are still under development.
+data. The [MCP interface](./runtime/mcp.md) exposes `discover` and `execute`
+over stdio and Streamable HTTP. A standalone HTTP consumer API remains planned.
+The APIs and storage implementation are still under development.
 
 ## Continue Reading
 
