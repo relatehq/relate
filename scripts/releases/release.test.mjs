@@ -58,6 +58,7 @@ test('release inventory includes connectors and their tarballs', async () => {
   const duckdb = packages.find(
     (entry) => entry.name === '@relate/connector-duckdb',
   );
+
   assert.ok(duckdb);
   assert.equal(duckdb.directory, 'connectors/duckdb');
   assert.ok(packedPackages.includes(duckdb.directory));
