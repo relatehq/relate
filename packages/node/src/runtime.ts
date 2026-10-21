@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { canonicalJson } from 'relate/model';
 import { bindHostResources } from './datasets.js';
 import type { HostBindings } from './datasets.js';
 import type {
@@ -187,7 +189,7 @@ export async function startRuntime<
 function composeRuntime<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(
-  options: AppOptions<G>,
+  options: StartupOptions<G>,
   model: ReturnType<typeof compile<G>>,
   bindings: HostBindings,
 ): Relate<G> {
@@ -247,7 +249,36 @@ function composeRuntime<
   if (actions.some(([, action]) => !Object.hasOwn(handlers, action.id)))
     throw new Error('Missing action implementation');
 
+  const analyticalLifetime = new AbortController();
   const engine = createEngine({
+    ...(options.sqlParser
+      ? {
+          analytics: {
+            parser: options.sqlParser,
+            signal: analyticalLifetime.signal,
+            binding(datasetId: string) {
+              const dataset = bindings.datasets.get(datasetId);
+
+              if (!dataset) throw new Error('Missing analytical binding');
+
+              return {
+                resource: dataset.binding.resource,
+                connector: dataset.connector,
+                queue: dataset.queue,
+                bindingRevision: `sha256:${createHash('sha256')
+                  .update(
+                    canonicalJson({
+                      connectionId: dataset.binding.connectionId,
+                      resourceId: dataset.binding.resourceId,
+                      columns: dataset.binding.columns,
+                    }),
+                  )
+                  .digest('hex')}`,
+              };
+            },
+          },
+        }
+      : {}),
     model,
     graphId: options.graphId ?? options.graph.id,
     sources: bindings.sources,
@@ -439,6 +470,7 @@ function composeRuntime<
     }),
     async close() {
       closed = true;
+      analyticalLifetime.abort();
       await bindings.retire();
       await Promise.allSettled([...pending]);
       // Drain tracked operations first, then flush capture within a deadline.

@@ -36,8 +36,11 @@ Relate consumer surface. Private and unpublished.
   it.
 - `Json` and analytical wire contracts (`AnalyticalExpression`, `LogicalType`,
   `ComputedResultType`, `OrderEntry`, `ComputedUnavailableReason`). Analytical
-  execution is still being implemented; declaring these types does not add
-  analytical options to current operations.
+  object `get` accepts `compute` and selected declared calculations through a
+  configured Node runtime. Computed values have `source: 'computed'`,
+  `freshness: 'unverified'`, complete coverage, input timestamps and ordinary
+  dependency evidence. `meta.computed` carries logical result types in compact
+  and full modes. Query integration remains in progress.
 
 These are types, two error classes and pure evidence presentation helpers. The
 package has no runtime, database, provider or schema-library dependency and

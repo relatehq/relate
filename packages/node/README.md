@@ -50,6 +50,16 @@ binding in `src/runtime.ts`. Dispatch supplies one trusted operation scope;
 ordinary bindings create a fresh scope for each call. Both paths use the same
 lifecycle tracking, authorization and argument validation.
 
+Analytical apps started with `startApp` can use object `get` with caller
+`compute` aliases and selected declared calculations. Both run through the same
+batch executor and are revalidated against ordinary dependency values before
+projection. For example,
+`Customer.get(id, { select: ['name', 'loginCount'], compute: { total: { sql: 'SELECT SUM(amount) FROM self.events' } } })`
+adds an exact JSON int64 total alongside the selected fields. `meta.computed`
+supplies result types in both evidence modes. Dependencies and computed input
+freshness remain explicit; no dataset synchronization is claimed. Query
+integration and the Postgres analytical connector remain in progress.
+
 ## How it fits
 
 - Depends on `relate`, `relate/compiler` and `relate/consumer`,

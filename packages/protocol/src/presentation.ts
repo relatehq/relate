@@ -15,6 +15,7 @@ import type {
 function routine(field: FieldEvidence): boolean {
   return (
     field.status === 'available' &&
+    field.source !== 'computed' &&
     field.freshness === 'fresh' &&
     field.retention === 'confirmed' &&
     field.ordering === 'confirmed' &&
@@ -37,6 +38,7 @@ function presentMeta(meta: FullReadMeta, mode: EvidenceMode): ReadMeta {
     completeness: own.completeness,
     degraded: own.degraded,
     definitionRevision: own.definitionRevision,
+    ...(own.computed ? { computed: own.computed } : {}),
     ...(Object.keys(fields).length ? { fields } : {}),
     ...(own.warnings.length ? { warnings: own.warnings } : {}),
   };

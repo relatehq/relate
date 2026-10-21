@@ -1,3 +1,9 @@
+import type {
+  AnalyticalExpression,
+  ComputedResultType,
+  ComputedUnavailableReason,
+} from './analytics.js';
+
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
 
@@ -16,7 +22,9 @@ export interface ReadControls {
 }
 
 /** Object reads have their own extension point, separate from traversal. */
-export interface ObjectReadRequest extends ReadControls {}
+export interface ObjectReadRequest extends ReadControls {
+  readonly compute?: Readonly<Record<string, AnalyticalExpression>>;
+}
 
 /** Existing public name retained for object reads. */
 export type ReadRequest = ObjectReadRequest;
@@ -53,7 +61,12 @@ export type Refresh =
  */
 export type FieldEvidence =
   | { status: 'forbidden' }
-  | { status: 'unavailable' }
+  | {
+      status: 'unavailable';
+      reason?: ComputedUnavailableReason;
+      retryable?: boolean;
+    }
+  | ComputedFieldEvidence
   | {
       status: 'available' | 'absent';
       freshness: 'fresh' | 'stale';
@@ -67,6 +80,22 @@ export type FieldEvidence =
       refresh: Refresh;
     };
 
+export interface ComputedFieldEvidence {
+  readonly status: 'available';
+  readonly source: 'computed';
+  readonly freshness: 'unverified';
+  readonly computedAt: string;
+  readonly inputs: readonly {
+    readonly associationId: string;
+    readonly datasetId: string;
+    readonly bindingRevision: string;
+    readonly readAt: string;
+    readonly modifiedAt?: string;
+  }[];
+  readonly coverage: 'complete';
+  readonly dependencies: Readonly<Record<string, FieldEvidence>>;
+}
+
 export type EvidenceWarning =
   'observation_not_retained' | 'retention_unconfirmed' | 'ordering_unconfirmed';
 
@@ -74,6 +103,7 @@ interface ReadSummary {
   completeness: 'complete' | 'partial';
   degraded: boolean;
   definitionRevision: string;
+  computed?: Readonly<Record<string, ComputedResultType>>;
 }
 
 export interface FullReadMeta extends ReadSummary {
@@ -175,6 +205,8 @@ export interface RequestIssue {
   readonly message: string;
   /** Names the reader may use instead, when that list is useful. */
   readonly accepted?: readonly string[];
+  readonly location?: { readonly line: number; readonly column: number };
+  readonly suggestion?: string;
 }
 
 export interface ReadErrorDetails {

@@ -49,6 +49,8 @@ export type ComputedField =
       readonly status: 'available';
       readonly value: AnalyticalScalar;
       readonly computedAt: string;
+      /** Private authorization footprint; never projected. */
+      readonly columns: readonly string[];
       readonly input: {
         readonly associationId: string;
         readonly datasetId: string;

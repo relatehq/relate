@@ -107,6 +107,7 @@ export function mergeBatch(input: {
         status: 'available',
         value,
         computedAt: input.computedAt,
+        columns: Object.freeze([...field.expression.columns]),
         input: Object.freeze({
           associationId: field.expression.association.id,
           datasetId: field.expression.association.datasetDefinitionId,

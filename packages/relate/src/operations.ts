@@ -6,6 +6,8 @@ import type {
   ReadMeta,
   ReadControls,
   ObjectReadRequest,
+  AnalyticalExpression,
+  ComputedResultType,
 } from '@relate/protocol';
 import type {
   ObjectData,
@@ -153,3 +155,33 @@ export type ObjectRecord<
 > = Omit<Extract<ObjectResult<O, K, E>, { status: 'ok' }>, 'status'>;
 
 export type { QueryResult } from '@relate/protocol';
+
+export type Expressions = Readonly<Record<string, AnalyticalExpression>>;
+
+export type ComputeOptions<
+  O extends ObjectDefinition,
+  C extends Expressions,
+> = {
+  readonly compute?: C &
+    Record<
+      Extract<
+        keyof C,
+        PropertyNames<O> | '__proto__' | 'constructor' | 'prototype'
+      >,
+      never
+    >;
+};
+
+export type WithComputed<R, C extends Expressions> = keyof C extends never
+  ? R
+  : R extends { readonly data: infer D; readonly meta: infer M }
+    ? Omit<R, 'data' | 'meta'> & {
+        readonly data: D & {
+          readonly [A in keyof C]?: string | number | boolean | null;
+        };
+        readonly meta: M & {
+          readonly computed: { readonly [A in keyof C]: ComputedResultType };
+          readonly fields?: { readonly [A in keyof C]?: FieldEvidence };
+        };
+      }
+    : R;

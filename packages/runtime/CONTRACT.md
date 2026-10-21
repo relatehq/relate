@@ -327,9 +327,8 @@ for validation, clock-domain semantics and migration requirements.
 ## Analytical statement admission
 
 `createStatementQueue` is the public composition factory for analytical
-statement admission. Node will supply one queue per configured connection to
-analytical execution; it does not yet attach analytical behavior to object
-reads.
+statement admission. Node supplies one queue per configured connection to
+analytical object reads.
 
 A **running statement** owns a connection slot until its task settles after
 resource cleanup. A **waiting statement** has no connection slot. By default,
@@ -421,18 +420,17 @@ flowchart LR
   Prepare --> Resolved[Typed aggregate and dependency indexes]
 ```
 
-The expression resolver and access view are implemented foundations. Consumer
-compute request handling, connector execution and analytical result projection
-are not yet enabled.
+Object `get` uses this resolver and access view for caller expressions and
+selected declarations. Query integration remains in progress.
 
 ### Analytical batch execution (internal)
 
 `analytics/computeFields` accepts a preparation handle and a finite set of
 already authorized objects with materialized ordinary dependencies. This is an
-internal execution foundation; consumer reads do not yet call it. It does not
-fetch dependencies, authorize membership, or perform final dependency
-revalidation. Its returned dependency snapshots are private execution state,
-including values, and must never be projected as consumer evidence.
+internal execution stage used by object `get`. It does not fetch dependencies,
+authorize membership, or perform final dependency revalidation. Its returned
+dependency snapshots are private execution state, including values, and must
+never be projected as consumer evidence.
 
 | Module       | Responsibility                                                                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -499,8 +497,9 @@ Preparation exposes only frozen dependency IDs and projected result metadata;
 private resolved expressions and parameter values live in a weak map. It clones
 the request/model inputs before asynchronous reads, rejects forged handles and
 consumes each handle once. Preparation timing is recorded on success and error.
-Public read normalization, computed filter/order validation, dependency
-materialization/revalidation and response projection remain integration work.
+Object `get` normalization, dependency materialization/revalidation and response
+projection live in the composition owner `analytical-read.ts`. Query integration
+and computed filter/order validation remain in progress.
 
 ```mermaid
 flowchart LR
@@ -512,4 +511,34 @@ flowchart LR
   DeclaredResolve --> Handle
   Handle --> Dependencies[Ordinary dependency IDs and result types]
   Handle --> Execution[Batch executor consumes private expressions]
+```
+
+### Analytical object get
+
+`analytical-read.ts` composes ordinary authorized reads with preparation and
+execution. It preserves ordinary reads when no calculation is requested. For an
+analytical read, it privately includes correlation/self dependencies, runs the
+batch, rereads ordinary values, rechecks object access, and compares every used
+value before projection. Changed values are withheld without recomputation.
+Hidden associations and denied columns withhold computed fields; denied
+correlation keys remain `correlation-unavailable`. A required-complete read
+reports omitted field names and safe reasons.
+
+Computed evidence is retained in compact mode because its input freshness is
+unverified. Healthy unverified analytical evidence alone does not degrade the
+read; stale or failed-refresh dependency evidence does. Metadata includes
+logical result types in both evidence modes. Dependency values, SQL, private
+column footprints and physical resource names are not projected. The host hashes
+connection identity, resource identity and column mapping for the public binding
+revision. Caller deadlines and host retirement cancel analytical work and wait
+for connector cleanup before the operation settles.
+
+```mermaid
+flowchart LR
+  Get[Object get selection and caller aliases] --> Prepare[Shared preparation]
+  Prepare --> Read[Ordinary authorized dependency read]
+  Read --> Execute[Shared batch executor]
+  Execute --> Reread[Reread and recheck object access]
+  Reread --> Compare[Compare dependency values and usability]
+  Compare --> Project[Project values, types and evidence]
 ```

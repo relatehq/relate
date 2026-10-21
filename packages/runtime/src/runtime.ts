@@ -1,3 +1,5 @@
+import { createAnalyticalRead } from './analytical-read.js';
+import type { AnalyticalReadOptions } from './analytical-read.js';
 import {
   createNativeOperations,
   nativeEvidence,
@@ -65,6 +67,7 @@ export interface RuntimeOptions {
   readonly actionTimeoutMs?: number;
   /** Operation capture configuration; the feed and provenance are always recorded. */
   readonly activity?: ActivityCaptureOptions;
+  readonly analytics?: AnalyticalReadOptions;
 }
 
 /** Trusted host operations without an explicit actor are attributed to this one. */
@@ -234,6 +237,20 @@ export function createRuntime(options: RuntimeOptions) {
     const object = manifest.objects.find((o) => o.id === objectDefinitionId);
     const policy = manifest.policies[objectDefinitionId];
 
+    if (transaction && request?.compute !== undefined)
+      rejectIssues(
+        operationName(manifest, principal, objectDefinitionId, 'get'),
+        'get',
+        [
+          {
+            path: ['compute'],
+            problem: 'not-supported',
+            message:
+              'Analytical reads are not supported in action transactions.',
+          },
+        ],
+      );
+
     if (transaction && object && allowsObject(principal, policy))
       rejectIssues(
         operationName(manifest, principal, objectDefinitionId, 'get'),
@@ -269,6 +286,13 @@ export function createRuntime(options: RuntimeOptions) {
       captureAuthorization,
     );
   }
+
+  const analyticalRead = createAnalyticalRead({
+    manifest,
+    read: readObject,
+    clock,
+    ...(options.analytics ? { analytics: options.analytics } : {}),
+  });
 
   const query = createGraphQuery({
     manifest,
@@ -415,7 +439,8 @@ export function createRuntime(options: RuntimeOptions) {
       return presenting(request, (r) =>
         capture.operation(
           attempt,
-          () => readObject(attempt, principal, objectDefinitionId, objectId, r),
+          () =>
+            analyticalRead(attempt, principal, objectDefinitionId, objectId, r),
           describe.get(objectDefinitionId, objectId),
         ),
       );

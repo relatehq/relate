@@ -70,12 +70,15 @@ it('discovers the generic read contract and each object’s concrete calls', asy
 
   const { sdk } = consumer.describe();
 
-  expect(Object.keys(sdk.options)).toEqual(operationContracts.query.options);
+  expect(Object.keys(sdk.options)).toEqual(
+    operationContracts.options.map((option) => option.name),
+  );
+  expect(sdk.options.compute?.operations).toEqual(['get']);
   expect(operationContracts.traverse.many.options).toEqual(
     operationContracts.query.options,
   );
   expect(operationContracts.traverse.one.options).toEqual(
-    operationContracts.get.options,
+    operationContracts.get.options.filter((option) => option !== 'compute'),
   );
 
   for (const option of operationContracts.options) {

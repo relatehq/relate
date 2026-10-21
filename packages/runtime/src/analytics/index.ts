@@ -38,3 +38,5 @@ export type {
   DeclaredCalculationRequest,
   PreparationLimits,
 } from './request.js';
+
+export { revalidateFields } from './revalidate.js';

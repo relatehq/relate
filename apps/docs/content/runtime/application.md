@@ -127,6 +127,33 @@ when no calculation references them.
 
 `createRuntime` remains synchronous for ordinary graphs. For analytical graphs,
 use `startApp(defineApp({ graph, setup }))`; no separate readiness call is
-needed. Binding and schema validation are implemented, while analytical object
-reads and built-in connector execution are still being developed. Selecting a
-calculation currently returns a `not-supported` request issue.
+needed. SQLite analytical execution and object `get` now support caller SQL and
+selected declared calculations:
+
+```ts
+const customer = await ana.objects.Customer.get(customerId, {
+  select: ['name', 'loginCount'],
+  compute: {
+    latestEvent: { sql: 'SELECT MAX(occurredAt) FROM self.events' },
+  },
+  evidence: 'full',
+});
+```
+
+This assumes `Customer` declares the `events` association and `loginCount`
+calculation. Aliases add fields independently of `select` and cannot collide
+with any property. Both forms share the eight-expression limit. Int64 values,
+including counts, are JSON strings; `meta.computed` describes each projected
+result in both evidence modes. Missing or forbidden values remain omitted.
+
+The runtime reads ordinary dependencies, executes against the dataset, then
+rechecks object access and dependency values. Changed or unusable inputs
+withhold the affected result; no automatic recomputation occurs. Full computed
+evidence contains dependency evidence, never unselected dependency values or
+SQL. Dataset freshness is `unverified`; freshness options and object policy
+evidence limits apply to ordinary dependencies. Caller timeout and runtime
+shutdown fail the whole read after analytical statement cleanup.
+
+Query integration, computed filtering/order, the Postgres analytical connector,
+and analytical discovery/MCP details remain in progress. Traversal and action
+transaction readers reject analytical requests.

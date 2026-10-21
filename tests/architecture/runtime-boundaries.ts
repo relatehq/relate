@@ -44,6 +44,7 @@ const roots: Record<string, string> = {
   'index.ts': 'public',
   'runtime.ts': 'composition',
   'analytics-startup.ts': 'composition',
+  'analytical-read.ts': 'composition',
   'storage.ts': 'storage',
   'activity-store.ts': 'storage',
   'memory.ts': 'memory',

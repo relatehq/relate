@@ -56,6 +56,8 @@ export const packagePolicies: Record<
     builtins: true,
   },
   'packages/node': {
+    // The host hashes physical binding identity before exposing its revision.
+    builtins: ['node:crypto'],
     imports: [
       'relate/model',
       'relate/analytics',

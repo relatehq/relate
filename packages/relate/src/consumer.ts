@@ -36,6 +36,9 @@ import type {
   CollectionReadOptions,
   QueryOptions,
   ReadOptions,
+  Expressions,
+  ComputeOptions,
+  WithComputed,
 } from './operations.js';
 
 export type {
@@ -287,17 +290,22 @@ export interface ObjectOperations<
   >(
     options?: QueryOptions<O, K, E>,
   ): QueryResult<ObjectRecord<O, K, E | 'compact'>>;
-  get<K extends PropertyNames<O> = PropertyNames<O>>(
+  get<
+    K extends PropertyNames<O> = PropertyNames<O>,
+    const C extends Expressions = {},
+  >(
     id: ObjectId<O['id']>,
-    options: ReadOptions<K, 'full'> & { readonly evidence: 'full' },
-  ): Promise<ObjectResult<O, K, 'full'>>;
+    options: Omit<ReadOptions<K, 'full'>, 'compute'> &
+      ComputeOptions<O, C> & { readonly evidence: 'full' },
+  ): Promise<WithComputed<ObjectResult<O, K, 'full'>, C>>;
   get<
     K extends PropertyNames<O> = PropertyNames<O>,
     E extends EvidenceMode = 'compact',
+    const C extends Expressions = {},
   >(
     id: ObjectId<O['id']>,
-    options?: ReadOptions<K, E>,
-  ): Promise<ObjectResult<O, K, E | 'compact'>>;
+    options?: Omit<ReadOptions<K, E>, 'compute'> & ComputeOptions<O, C>,
+  ): Promise<WithComputed<ObjectResult<O, K, E | 'compact'>, C>>;
 }
 
 export type ActionOperations<A extends ActionDefinition> = {
