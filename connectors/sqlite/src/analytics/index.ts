@@ -8,7 +8,7 @@ import type {
 } from 'relate/connectors';
 import { DatasetExecutionError } from 'relate/connectors';
 import { identifier } from '../contracts.js';
-import { render } from './plan.js';
+import { render, parameterBudget } from './plan.js';
 import type { SelectedDataset, SqlitePlan } from './plan.js';
 import { createProcessRunner } from './process.js';
 
@@ -42,12 +42,9 @@ export function createAnalytics(settings: {
       )) as PhysicalSchema;
     },
     parameterBudget(query) {
-      const fixed = render(query, resource(query.resource), []).values.length;
+      resource(query.resource);
 
-      return {
-        fixed,
-        perSlot: 1 + query.keys.length + query.aggregates.length,
-      };
+      return parameterBudget(query);
     },
     plan(query) {
       if (!query.slots.length)

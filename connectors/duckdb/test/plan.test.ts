@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, onTestFinished } from 'vitest';
 import { duckdb } from '@relate/connector-duckdb';
 import { render } from '../src/plan.js';
 import { aggregate, column, query } from './fixtures.js';
@@ -8,6 +8,8 @@ it('quotes every physical identifier, binds every value and reports the exact pa
     connectionId: 'pg',
     path: '/unused.duckdb',
   });
+
+  onTestFinished(() => connection.close());
   const resource = connection
     .table('odd";table', { schema: 'odd"schema' })
     .bindDataset({ columns: { customerId: 'odd"key', amount: 'amount' } });
@@ -48,10 +50,14 @@ it('enforces the 65535 parameter bound and connection-owned opaque handles befor
     connectionId: 'pg',
     path: '/unused.duckdb',
   });
+
+  onTestFinished(() => connection.close());
   const other = duckdb({
     connectionId: 'other',
     path: '/unused.duckdb',
   });
+
+  onTestFinished(() => other.close());
   const resource = connection
     .table('events')
     .bindDataset({ columns: { customerId: 'customer_id' } });
@@ -92,6 +98,8 @@ it('counts and binds generated timestamp formatting values in the fixed budget',
     connectionId: 'pg',
     path: '/unused.duckdb',
   });
+
+  onTestFinished(() => connection.close());
   const resource = connection
     .table('events')
     .bindDataset({ columns: { customerId: 'customer_id', at: 'at' } });

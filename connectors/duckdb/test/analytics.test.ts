@@ -12,7 +12,7 @@ import { afterEach, expect, it } from 'vitest';
 import { duckdb } from '@relate/connector-duckdb';
 import type { AnalyticalExecutionTiming } from 'relate/connectors';
 import { aggregate, column, options, query } from './fixtures.js';
-import { createProcessRunner } from '../src/process.js';
+import { createProcessRunner } from '../dist/process.js';
 import { encodeAnalyticalValue } from 'relate/analytics';
 
 const cleanups: (() => Promise<void>)[] = [];
@@ -42,6 +42,8 @@ async function fixture() {
       CREATE TABLE overflow AS SELECT 'acme' AS customer_id, 9223372036854775807::BIGINT AS amount UNION ALL SELECT 'acme',1;
       CREATE TABLE integer_keys(customer_id BIGINT, amount BIGINT);
       INSERT INTO integer_keys VALUES (9007199254740993,3),(9007199254740994,7);
+      CREATE TABLE wide_ms(customer_id VARCHAR, value TIMESTAMP_MS);
+      INSERT INTO wide_ms VALUES ('early','0001-01-01 00:00:00.123'),('late','2300-01-01 00:00:00.123'),('zero','0000-02-29 00:00:00.123');
       CREATE TABLE temporal(customer_id VARCHAR, precise_at TIMESTAMP);
       INSERT INTO temporal VALUES ('ancient','0000-02-29 00:00:00.123456'),('infinite','infinity');
       CREATE TABLE unsupported(decimal DECIMAL, narrow FLOAT, zoned TIMESTAMPTZ, nano TIMESTAMP_NS);
@@ -421,11 +423,25 @@ it('enforces read-only access even if internal SQL attempts a write', async () =
     runner.run(
       {
         kind: 'execute',
+        plan: {
+          sql: 'SELECT 0::INTEGER, COUNT(*) FROM events',
+          values: [],
+          slots: 1,
+          results: [{ type: 'int64', nullable: false }],
+        },
+      },
+      options(),
+    ),
+  ).resolves.toMatchObject({ rows: [{ slot: 0, values: [4n] }] });
+  await expect(
+    runner.run(
+      {
+        kind: 'execute',
         plan: { sql: 'DELETE FROM events', values: [], slots: 0, results: [] },
       },
       options(),
     ),
-  ).rejects.toMatchObject({ code: 'execution-failed' });
+  ).rejects.toMatchObject({ code: 'execution-failed', retryable: false });
   const result = await connection.analytics.execute(
     connection.analytics.plan(
       query(resource, [aggregate('count', '*', 'int64')], ['acme']),
@@ -458,4 +474,128 @@ it('joins startup cancellation and ignores failed timing observers', async () =>
   );
 
   expect(result.rows[0]!.values).toEqual([2n]);
+});
+
+it.each(['min', 'max'] as const)(
+  'formats TIMESTAMP_MS %s across the portable date range without fallback',
+  async (name) => {
+    const { connection } = await fixture();
+    const resource = connection
+      .table('wide_ms')
+      .bindDataset({ columns: { customerId: 'customer_id', value: 'value' } });
+    const result = await connection.analytics.execute(
+      connection.analytics.plan(
+        query(
+          resource,
+          [aggregate(name, column('value', 'timestamp', 3), 'timestamp', 3)],
+          ['early', 'late', 'zero'],
+        ),
+      ),
+      options(),
+    );
+
+    expect(result.rows.map((row) => row.values)).toEqual([
+      ['0001-01-01T00:00:00.123Z'],
+      ['2300-01-01T00:00:00.123Z'],
+      ['0000-02-29T00:00:00.123Z'],
+    ]);
+  },
+);
+
+it.each([2147423648, 2147483647])(
+  'accepts valid long statement timeout %s',
+  async (timeoutMs) => {
+    const { connection, resource } = await fixture();
+    const plan = connection.analytics.plan(
+      query(resource, [aggregate('count', '*', 'int64')], ['acme']),
+    );
+
+    await expect(
+      connection.analytics.execute(plan, { ...options(), timeoutMs }),
+    ).resolves.toMatchObject({ rows: [{ slot: 0, values: [2n] }] });
+    await expect(
+      connection.analytics.execute(plan, {
+        ...options(),
+        timeoutMs: 2147483648,
+      }),
+    ).rejects.toThrow('Invalid analytical statement timeout');
+  },
+);
+
+it('reports missing-table and locked-file diagnostics without exposing them in public errors', async () => {
+  const { path } = await fixture();
+  const diagnostics: { kind: string; message: string }[] = [];
+  const connection = duckdb({
+    connectionId: 'diagnostics',
+    path,
+    onDiagnostic(item) {
+      diagnostics.push(item);
+      throw new Error('observer');
+    },
+  });
+
+  cleanups.push(() => connection.close());
+  const resource = connection
+    .table('private_missing_table')
+    .bindDataset({ columns: {} });
+  const error = await connection.analytics
+    .describe(resource, options())
+    .catch((error) => error);
+
+  expect(error.cause.message).toContain('private_missing_table');
+  expect(error.message).toBe('Analytical execution failed');
+  expect(JSON.stringify(error)).not.toContain('private_missing_table');
+  expect(diagnostics[0]!.kind).toBe('database');
+  await connection.close();
+  const writer = await DuckDBInstance.create(path);
+
+  try {
+    const locked = duckdb({
+      connectionId: 'locked',
+      path,
+      onDiagnostic(item) {
+        diagnostics.push(item);
+      },
+    });
+
+    cleanups.push(() => locked.close());
+    await expect(
+      locked.analytics.describe(
+        locked.table('events').bindDataset({ columns: {} }),
+        options(),
+      ),
+    ).rejects.toMatchObject({
+      code: 'execution-failed',
+      cause: { message: expect.stringMatching(/lock/i) },
+    });
+    expect(diagnostics.at(-1)!.kind).toBe('startup');
+  } finally {
+    writer.closeSync();
+  }
+});
+
+it('reuses real native workers and releases idle read locks on close', async () => {
+  const { connection, resource, path } = await fixture();
+  const plan = connection.analytics.plan(
+    query(resource, [aggregate('count', '*', 'int64')], ['acme']),
+  );
+  const results = await Promise.all(
+    Array.from({ length: 4 }, () =>
+      connection.analytics.execute(plan, options()),
+    ),
+  );
+
+  for (const result of results) expect(result.rows[0]!.values).toEqual([2n]);
+
+  const stages: string[] = [];
+
+  await connection.analytics.execute(plan, {
+    ...options(),
+    onTiming: (timing) => stages.push(timing.stage),
+  });
+  expect(stages).toEqual(['execution']);
+  await connection.close();
+  const writer = await DuckDBInstance.create(path);
+
+  writer.closeSync();
 });

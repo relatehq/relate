@@ -6,15 +6,21 @@ import type {
 } from 'relate/connectors';
 import { DatasetExecutionError } from 'relate/connectors';
 import { identifier } from './identifiers.js';
-import { render } from './plan.js';
+import { render, parameterBudget } from './plan.js';
 import type { SelectedDataset, DuckDBPlan } from './plan.js';
 import { createProcessRunner } from './process.js';
+import type { DuckDBDiagnostic } from './process.js';
+
+export type { DuckDBDiagnostic } from './process.js';
+
 import type { PhysicalSchema, DatasetExecution } from 'relate/connectors';
 import { resolve } from 'node:path';
 
 export interface DuckDBOptions {
   readonly connectionId: string;
   readonly path: string;
+  /** Host-only driver diagnostics; may include private physical names and values. */
+  readonly onDiagnostic?: (diagnostic: DuckDBDiagnostic) => void;
   /** Bounded native module loading and database setup. Default 5 seconds. */
   readonly analyticalStartupTimeoutMs?: number;
 }
@@ -53,6 +59,7 @@ export function duckdb(options: DuckDBOptions): DuckDBConnection {
 
   const runner = createProcessRunner({
     path: resolve(options.path),
+    ...(options.onDiagnostic ? { onDiagnostic: options.onDiagnostic } : {}),
     startupTimeoutMs: milliseconds(options.analyticalStartupTimeoutMs, 5000),
   });
   const resources = new WeakMap<DatasetResource, SelectedDataset>();
@@ -84,10 +91,9 @@ export function duckdb(options: DuckDBOptions): DuckDBConnection {
       )) as PhysicalSchema;
     },
     parameterBudget(query) {
-      return {
-        fixed: render(query, selected(query.resource), []).values.length,
-        perSlot: 1 + query.keys.length + query.aggregates.length,
-      };
+      selected(query.resource);
+
+      return parameterBudget(query);
     },
     plan(query) {
       if (!query.slots.length)
@@ -113,7 +119,7 @@ export function duckdb(options: DuckDBOptions): DuckDBConnection {
       if (
         !Number.isSafeInteger(input.timeoutMs) ||
         input.timeoutMs < 1 ||
-        input.timeoutMs > 2147423647
+        input.timeoutMs > 2147483647
       )
         throw new Error('Invalid analytical statement timeout');
 

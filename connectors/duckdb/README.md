@@ -60,36 +60,49 @@ Date. String comparisons use binary collation.
 
 ## Execution and lifecycle
 
-Each describe or execute operation opens a fresh read-only database in an
-isolated child process. External file/network access, extension autoloading and
-extension installation are disabled, including for bound views. Generated SQL
-uses typed bound values and keeps object correlation outside caller predicates.
+A lazy pool of up to four read-only child processes reuses each native DuckDB
+instance across statements. Successful reads leave the worker ready for its next
+operation. External file/network access, extension autoloading and extension
+installation are disabled, including for bound views. Generated SQL uses typed
+bound values and keeps object correlation outside caller predicates.
 
 ```mermaid
 flowchart LR
-  Plan[Authorized opaque plan] --> Child[Read-only DuckDB child]
-  Child --> Execute[Execute and decode]
-  Execute --> Close[Close connection and database]
-  Close --> Exit[Await child exit]
-  Cancel[Abort, timeout or retirement] --> Kill[Terminate child]
-  Kill --> Exit
-  Exit --> Settle[Resolve or reject]
+  Plan[Authorized opaque plan] --> Pool[Acquire idle worker or start one]
+  Pool --> Execute[Execute and decode]
+  Execute --> Result[Clear statement timer and return result]
+  Result --> Idle[Retain worker for next statement]
+  Idle --> Pool
+  Cancel[Abort, timeout or retirement] --> Kill[Terminate affected worker]
+  Kill --> Exit[Await child exit before rejection]
 ```
 
-Timeouts, caller abort and `close()` terminate native work and wait for process
-cleanup before settling. Failed diagnostics cannot fail a read. Startup and
-execution timings include the corresponding cleanup. The startup timeout
-`analyticalStartupTimeoutMs` defaults to 5,000 ms (allowed: 1–60,000 ms).
-Statement execution uses the runtime-provided timeout. Schema inspection uses
-5,000 ms after startup. At most four operations run concurrently per connector;
-the runtime provides queued admission. Plans have a conservative 65,535 bound
-parameter limit.
+Timeouts and caller abort terminate the affected worker and wait for process
+cleanup before rejecting. A later statement starts a replacement. `close()`
+retires every worker, including idle workers, and joins all child exits. Each
+worker runs one statement at a time; the runtime provides queued admission.
+Statement timers stop when an outcome arrives. Process startup is charged only
+when a new worker is needed, with a separate execution timing per operation.
+Cancellation timings include cleanup. Failed diagnostic observers cannot fail a
+read.
 
-Process isolation adds startup cost per statement. This connector targets
-existing analytical files: close any writer before reading, and finish reads
-before opening a writer. It does not coordinate ingestion or concurrent writer
-processes. Parquet/S3 resources and extension-backed sources are outside this
-initial capability.
+`analyticalStartupTimeoutMs` defaults to 5,000 ms (allowed: 1–60,000 ms).
+Statement execution uses the runtime-provided timeout, up to 2,147,483,647 ms.
+Schema inspection uses 5,000 ms after startup. Plans have a conservative 65,535
+bound parameter limit, calculated without rendering SQL.
+
+Optional `onDiagnostic(diagnostic)` receives host-only database, startup,
+timeout, crash or protocol diagnostics. Database failures retain driver details
+in the internal error `cause`; native crash stderr is bounded to its last 4,096
+characters. These details can contain private physical names and values and must
+stay in trusted operator logging. Public error messages and consumer results
+remain sanitized. No driver details are logged by default.
+
+This connector targets existing analytical files. Close any writer before
+opening the connector, and call `await analytics.close()` before reopening a
+writer: idle workers retain read locks for the connection lifetime. It does not
+coordinate ingestion or concurrent writer processes. Parquet/S3 resources and
+extension-backed sources remain outside this capability.
 
 ## Validation
 

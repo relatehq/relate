@@ -6,7 +6,7 @@ import type {
 } from 'relate/connectors';
 import { DatasetExecutionError } from 'relate/connectors';
 import { identifier } from './identifiers.js';
-import { render } from './plan.js';
+import { render, parameterBudget } from './plan.js';
 import type { SelectedDataset, PostgresPlan } from './plan.js';
 import { createRunner } from './runner.js';
 import { describe } from './schema.js';
@@ -83,10 +83,9 @@ export function postgres(options: PostgresOptions): PostgresConnection {
       });
     },
     parameterBudget(query) {
-      return {
-        fixed: render(query, selected(query.resource), []).values.length,
-        perSlot: 1 + query.keys.length + query.aggregates.length,
-      };
+      selected(query.resource);
+
+      return parameterBudget(query);
     },
     plan(query) {
       if (!query.slots.length)
@@ -112,7 +111,7 @@ export function postgres(options: PostgresOptions): PostgresConnection {
       if (
         !Number.isSafeInteger(input.timeoutMs) ||
         input.timeoutMs < 1 ||
-        input.timeoutMs > 2147423647
+        input.timeoutMs > 2147483647
       )
         throw new Error('Invalid analytical statement timeout');
 

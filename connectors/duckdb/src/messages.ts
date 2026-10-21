@@ -14,4 +14,5 @@ export type ChildResponse =
       kind: 'failure';
       code: 'execution-failed' | 'invalid-result';
       retryable: boolean;
+      detail: string;
     };

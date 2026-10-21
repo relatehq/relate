@@ -38,19 +38,11 @@ async function execute(plan: DuckDBPlan): Promise<DatasetExecution> {
 }
 
 function finish(message: ChildResponse) {
-  try {
-    connection?.closeSync();
-    database?.closeSync();
-  } catch {
-    message = { kind: 'failure', code: 'execution-failed', retryable: false };
-  }
-
-  connection = undefined;
-  database = undefined;
-  process.send?.(message, () => {
-    if (process.connected) process.disconnect();
-  });
+  process.send?.(message);
 }
+
+// A parent crash must not leave an orphan worker holding a database lock.
+process.on('disconnect', () => process.exit(0));
 
 process.on('message', (request: ChildRequest) => {
   void (async () => {
@@ -81,6 +73,10 @@ process.on('message', (request: ChildRequest) => {
             ? 'invalid-result'
             : 'execution-failed',
         retryable: false,
+        detail:
+          error instanceof Error
+            ? error.message.slice(0, 4096)
+            : 'Unknown DuckDB failure',
       });
     }
   })();
