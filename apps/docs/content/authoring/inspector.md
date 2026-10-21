@@ -311,6 +311,42 @@ runtime restarted between two of your messages, the next message tells the agent
 that in-memory data was reset and earlier reads may be stale, and the
 conversation shows a note saying so.
 
+## Try Queries in the Playground
+
+The **Playground** page (the `</>` icon in the left rail) is an editor for
+reading the graph as a development principal. Write the body of an async
+function with `graph` injected, exactly as the MCP `execute` tool runs it, and
+press **Run** (or ⌘↵):
+
+```js
+const page = await graph.objects.Customer.query({
+  select: ['name', 'portfolio'],
+  limit: 20,
+});
+
+return page;
+```
+
+- **Results.** A page of records shows as a table with each property's type. A
+  field the principal cannot read shows as **forbidden** or **unavailable**, and
+  its record as **partial**; click any cell for its evidence. Other return
+  values show as JSON, and `console.log` output under **Console**. **Activity**
+  opens the run in the activity log.
+- **Principal.** The **as** selector in the header is the same one the Agent
+  page uses. Everything on the page follows it: the run, the object list and the
+  suggestions.
+- **Objects.** The left panel lists every object the principal can see. The
+  object the query at the cursor uses opens automatically; search filters
+  objects and fields, and clicking a field inserts its name.
+- **Suggestions and checks.** Press Ctrl+Space for suggestions: object names,
+  read options, property names and filter operators, all from the principal's
+  own discovery. Unknown objects, options, properties and filter operators are
+  underlined as you type, with a one-click fix when there is a likely
+  replacement. After a run, any problem the runtime reported is underlined on
+  the code that caused it.
+- **Tabs.** Each tab keeps its code in the browser across reloads. Closing a tab
+  discards it.
+
 ## The Activity Log
 
 The **Activity** page (the clock icon in the left rail) shows every `discover`

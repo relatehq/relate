@@ -7,3 +7,8 @@ packages:
   - dev/salesforce
 allowBuilds:
   esbuild: true
+# CodeMirror extensions must share one state/view/language instance.
+overrides:
+  '@codemirror/state': 6.7.6
+  '@codemirror/view': 6.43.13
+  '@codemirror/language': 6.12.4

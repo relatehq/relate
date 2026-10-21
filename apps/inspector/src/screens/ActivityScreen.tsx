@@ -270,7 +270,9 @@ function Request(props: {
         <span className="activity-source">
           {call?.source === 'inspector-agent'
             ? 'inspector agent'
-            : 'external client'}
+            : call?.source === 'inspector-playground'
+              ? 'playground'
+              : 'external client'}
         </span>
         {operations.length > 0 && (
           <span className="activity-count">

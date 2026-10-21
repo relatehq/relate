@@ -10,8 +10,8 @@ import { manifestSchema } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import type { ModelIssue, SourceSite } from 'relate/diagnostics';
 
-/** 3: runtime activity records on operation events. */
-export const PROTOCOL_VERSION = 3 as const;
+/** 4: playground runs are activity calls from `inspector-playground`. */
+export const PROTOCOL_VERSION = 4 as const;
 
 const text = z.string().min(1);
 const identifierList = z.array(text).readonly();
@@ -274,7 +274,7 @@ export const activityEventSchema = z.discriminatedUnion('kind', [
     requestId: text,
     /** Null when no runtime was running to bind the call to. */
     runtimeId: text.nullable(),
-    source: z.enum(['inspector-agent', 'external']),
+    source: z.enum(['inspector-agent', 'inspector-playground', 'external']),
     /** Null when no model declared a principal to resolve. */
     principal: text.nullable(),
     tool: z.enum(['discover', 'execute']),
@@ -511,6 +511,149 @@ export type AgentEvent = z.infer<typeof agentEventSchema>;
 export type AgentTurnRequest = z.infer<typeof agentTurnRequestSchema>;
 export type AgentTurnAccepted = z.infer<typeof agentTurnAcceptedSchema>;
 export type AgentResetAccepted = z.infer<typeof agentResetAcceptedSchema>;
+
+/**
+ * The playground, served under `/dev/playground/*`. A run is an async
+ * JavaScript function body with `graph` injected for one development
+ * principal, the MCP `execute` contract, recorded in Activity as a call from
+ * `inspector-playground`.
+ *
+ *   GET  /dev/playground/discovery?as=<principal> → PlaygroundDiscovery
+ *   POST /dev/playground/runs  PlaygroundRunRequest → PlaygroundRun
+ *
+ * Discovery is read loosely: the editor uses the fields below and passes the
+ * rest through, so fields the runtime adds later (datasets, computed
+ * properties) reach the editor without a protocol change.
+ */
+export const PLAYGROUND_CODE_LIMIT = 64 * 1024;
+
+const scalarSchemaSchema = z.looseObject({
+  type: z.string(),
+  optional: z.boolean().optional(),
+  nullable: z.boolean().optional(),
+  format: z.string().optional(),
+});
+
+export const playgroundPropertySchema = z.looseObject({
+  definitionId: text,
+  name: text,
+  description: z.string().optional(),
+  kind: z.string(),
+  schema: scalarSchemaSchema,
+  filterOperators: z.array(z.string()).readonly().optional(),
+});
+
+export const playgroundObjectSchema = z.looseObject({
+  definitionId: text,
+  apiName: text,
+  description: z.string().optional(),
+  properties: z.array(playgroundPropertySchema).readonly(),
+  traversals: z
+    .array(z.looseObject({ name: text, cardinality: z.string() }))
+    .readonly()
+    .optional(),
+});
+
+export const playgroundDiscoverySchema = z.strictObject({
+  principal: text,
+  runtimeId: text,
+  definitionRevision: text,
+  overview: z.looseObject({
+    definitionId: text,
+    definitionRevision: text,
+    objects: z.record(z.string(), z.looseObject({})),
+    sdk: z
+      .looseObject({
+        options: z
+          .record(
+            z.string(),
+            z.looseObject({
+              description: z.string(),
+              operations: z.array(z.string()).readonly(),
+            }),
+          )
+          .optional(),
+      })
+      .optional(),
+  }),
+  /** Object descriptions by API name, only those the principal may see. */
+  objects: z.record(z.string(), playgroundObjectSchema),
+});
+
+export const playgroundRunRequestSchema = z.strictObject({
+  principal: text,
+  code: z.string().trim().min(1).max(PLAYGROUND_CODE_LIMIT),
+});
+
+const requestIssueSchema = z.looseObject({
+  path: z.array(z.union([z.string(), z.number()])).readonly(),
+  problem: z.string(),
+  message: z.string(),
+  accepted: z.array(z.string()).readonly().optional(),
+});
+
+/** A graph operation that failed with `ReadError`, with its request issues. */
+export const playgroundOperationErrorSchema = z.strictObject({
+  operation: z.string(),
+  code: z.string(),
+  issues: z.array(requestIssueSchema).readonly(),
+});
+
+/** One object read the code made, in order: `Customer.query`. */
+export const playgroundReadSchema = z.strictObject({
+  object: z.string(),
+  operation: z.enum(['get', 'query', 'traverse']),
+});
+
+const runCommon = {
+  requestId: text,
+  principal: text,
+  logs: z
+    .array(
+      z.strictObject({
+        stream: z.enum(['stdout', 'stderr']),
+        text: z.string(),
+      }),
+    )
+    .readonly(),
+  ms: z.number().nonnegative(),
+  reads: z.array(playgroundReadSchema).readonly(),
+  errors: z.array(playgroundOperationErrorSchema).readonly(),
+};
+
+export const playgroundRunSchema = z.discriminatedUnion('status', [
+  z.strictObject({
+    status: z.literal('succeeded'),
+    ...runCommon,
+    result: z.unknown(),
+  }),
+  z.strictObject({
+    status: z.literal('failed'),
+    ...runCommon,
+    error: z.strictObject({
+      name: z.string(),
+      message: z.string(),
+      code: z.string().optional(),
+    }),
+  }),
+]);
+
+export const playgroundErrorSchema = z.strictObject({
+  error: z.string(),
+  retryable: z.boolean().optional(),
+});
+
+export type PlaygroundProperty = z.infer<typeof playgroundPropertySchema>;
+export type PlaygroundObject = z.infer<typeof playgroundObjectSchema>;
+export type PlaygroundDiscovery = z.infer<typeof playgroundDiscoverySchema>;
+export type PlaygroundRunRequest = z.infer<typeof playgroundRunRequestSchema>;
+
+export type PlaygroundOperationError = z.infer<
+  typeof playgroundOperationErrorSchema
+>;
+
+export type PlaygroundRead = z.infer<typeof playgroundReadSchema>;
+export type PlaygroundRun = z.infer<typeof playgroundRunSchema>;
 
 /** Bootstrap exchange: the terminal token becomes an opaque session cookie. */
 export const sessionRequestSchema = z.strictObject({ token: text });
