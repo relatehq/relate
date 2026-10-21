@@ -420,17 +420,18 @@ flowchart LR
   Prepare --> Resolved[Typed aggregate and dependency indexes]
 ```
 
-Object `get` uses this resolver and access view for caller expressions and
-selected declarations. Query integration remains in progress.
+Object `get` and membership-first `query` use this resolver and access view for
+caller expressions and selected declarations. Computed filtering/order remain in
+progress.
 
 ### Analytical batch execution (internal)
 
 `analytics/computeFields` accepts a preparation handle and a finite set of
 already authorized objects with materialized ordinary dependencies. This is an
-internal execution stage used by object `get`. It does not fetch dependencies,
-authorize membership, or perform final dependency revalidation. Its returned
-dependency snapshots are private execution state, including values, and must
-never be projected as consumer evidence.
+internal execution stage used by object `get` and `query`. It does not fetch
+dependencies, authorize membership, or perform final dependency revalidation.
+Its returned dependency snapshots are private execution state, including values,
+and must never be projected as consumer evidence.
 
 | Module       | Responsibility                                                                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -497,9 +498,9 @@ Preparation exposes only frozen dependency IDs and projected result metadata;
 private resolved expressions and parameter values live in a weak map. It clones
 the request/model inputs before asynchronous reads, rejects forged handles and
 consumes each handle once. Preparation timing is recorded on success and error.
-Object `get` normalization, dependency materialization/revalidation and response
-projection live in the composition owner `analytical-read.ts`. Query integration
-and computed filter/order validation remain in progress.
+Object `get`/`query` normalization, dependency materialization/revalidation and
+response projection live in the composition owner `analytical-read.ts`. Computed
+filter/order validation and scope-first execution remain in progress.
 
 ```mermaid
 flowchart LR
@@ -541,4 +542,41 @@ flowchart LR
   Execute --> Reread[Reread and recheck object access]
   Reread --> Compare[Compare dependency values and usability]
   Compare --> Project[Project values, types and evidence]
+```
+
+### Membership-first analytical query
+
+The same composition owner prepares a query before candidate reads, delegates
+ordinary authorization/filtering/paging to `queries`, computes one workload for
+the selected page, and revalidates ordinary values and filters before
+projection. It never computes one independent request per object.
+Correlation/self and ordinary filter fields remain private unless selected.
+Empty scopes still validate expressions but execute no statements. Page-wide
+statement/scalar failures use the batch executor's existing withdrawal rules.
+
+`queries` accepts a trusted `QueryContext` separately from the consumer request.
+It supplies additional cursor scope, candidate freshness controls and a
+cancellation signal. Candidate reads use the stricter dependency freshness
+budget while ordinary filters retain caller freshness semantics. Every admitted
+read is joined before a failure is returned, and cancellation stops later scan
+batches. Transaction readers never enter the analytical path.
+
+Cursor scope adds the caller compute map, original projection/completeness
+options, and every referenced dataset's binding revision. Definition revision,
+principal, source bindings and ordinary filters remain in the existing scope.
+The same authenticated encrypted cursor codec is used, with no second cursor
+layer. Parameter values and SQL are not exposed in the token or diagnostics.
+Changing evidence mode leaves continuation valid; changing analytical inputs
+invalidates it. Final checks may return an empty non-final page without exposing
+which object was withheld.
+
+```mermaid
+flowchart LR
+  Prepare[Prepare one analytical workload] --> Membership[Ordinary authorized page and filters]
+  Membership --> Batch[Compute the page in association batches]
+  Batch --> Recheck[Recheck access, dependencies and ordinary filters]
+  Recheck --> Page[Project the page with its opaque continuation]
+  Prepare --> Scope[Analytical inputs and binding revisions]
+  Scope --> Cursor[Existing encrypted cursor codec]
+  Cursor --> Membership
 ```

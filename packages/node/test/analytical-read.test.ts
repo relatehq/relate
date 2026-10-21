@@ -6,7 +6,11 @@ import { DatabaseSync } from 'node:sqlite';
 import { sqlite } from '@relate/connector-sqlite';
 import { bind, defineApp } from 'relate';
 import type { ObjectId } from 'relate';
-import type { AnalyticalConnector } from 'relate/connectors';
+import type {
+  AnalyticalConnector,
+  AuthorizedDatasetQuery,
+} from 'relate/connectors';
+import { DatasetExecutionError } from 'relate/connectors';
 import { compile } from 'relate/compiler';
 import { startApp } from '@relate/node';
 import { createMemoryStore } from '@relate/runtime';
@@ -21,7 +25,7 @@ afterEach(async () => {
   cleanup.length = 0;
 });
 
-async function app() {
+async function app(options: { connectionId?: string } = {}) {
   const { graph, Customer, Events } = createAnalyticalGraph();
   const directory = mkdtempSync(join(tmpdir(), 'relate-public-analytics-'));
 
@@ -33,8 +37,13 @@ async function app() {
     "CREATE TABLE events(customerId TEXT NOT NULL, amount INTEGER NOT NULL, secret TEXT NOT NULL); INSERT INTO events VALUES ('acme', 9007199254740993, 'secret-one'), ('acme', 2, 'secret-two')",
   );
   db.close();
-  const connection = sqlite({ connectionId: 'events', path });
-  const hooks: { execute?: AnalyticalConnector['execute'] } = {};
+  const connection = sqlite({
+    connectionId: options.connectionId ?? 'events',
+    path,
+  });
+  const hooks: Partial<
+    Pick<AnalyticalConnector, 'execute' | 'plan' | 'parameterBudget'>
+  > = {};
   const resource = connection.table('events');
   const selected = {
     ...resource,
@@ -42,6 +51,12 @@ async function app() {
       ...connection,
       analytics: {
         ...connection.analytics,
+        plan: (query: AuthorizedDatasetQuery) =>
+          hooks.plan ? hooks.plan(query) : connection.analytics.plan(query),
+        parameterBudget: (query: Omit<AuthorizedDatasetQuery, 'slots'>) =>
+          hooks.parameterBudget
+            ? hooks.parameterBudget(query)
+            : connection.analytics.parameterBudget(query),
         execute: (...args: Parameters<AnalyticalConnector['execute']>) =>
           hooks.execute
             ? hooks.execute(...args)
@@ -74,7 +89,11 @@ async function app() {
       setup({ onDispose }) {
         onDispose(() => connection.close());
 
-        return { store, bindings: [bind(Events, selected)] };
+        return {
+          store,
+          cursorKey: new Uint8Array(32).fill(9),
+          bindings: [bind(Events, selected)],
+        };
       },
     }),
   );
@@ -351,4 +370,311 @@ it('keeps malformed request errors structured when default selection contains a 
   await expect(
     runtime.operations(principal).get('customer', id, null as never),
   ).rejects.toMatchObject({ code: 'invalid-request' });
+});
+
+async function addQueryMembers(fixture: Awaited<ReturnType<typeof app>>) {
+  await fixture.store.native!.transaction(
+    fixture.scope,
+    async (transaction) => {
+      for (const [id, key] of [
+        ['two', 'acme'],
+        ['zero', 'empty'],
+      ])
+        await transaction.insert(
+          {
+            objectDefinitionId: 'customer',
+            objectId: id!,
+            createdAt: Date.now(),
+            values: { 'customer.external': key!, 'customer.label': 'Acme' },
+          },
+          testCreation(),
+        );
+    },
+  );
+}
+
+it('computes a membership page in one statement with duplicate correlation keys and empty input', async () => {
+  const fixture = await app();
+
+  await addQueryMembers(fixture);
+  const queries: AuthorizedDatasetQuery[] = [];
+
+  fixture.hooks.plan = (query) => {
+    queries.push(query);
+
+    return fixture.connection.analytics.plan(query);
+  };
+  const page = await fixture.runtime
+    .as(fixture.principal)
+    .objects.Customer.query({
+      select: ['label', 'count'],
+      compute: { sum: { sql: 'SELECT SUM(amount) FROM self.events' } },
+      evidence: 'full',
+      limit: 3,
+    });
+
+  expect(page.data.map((row) => row.data)).toEqual([
+    { label: 'Acme', count: '2', sum: '9007199254740995' },
+    { label: 'Acme', count: '2', sum: '9007199254740995' },
+    { label: 'Acme', count: '0', sum: null },
+  ]);
+  expect(queries).toHaveLength(1);
+  expect(queries[0]!.slots).toHaveLength(3);
+  expect(queries[0]!.aggregates).toHaveLength(2);
+  expect(page.data.every((row) => row.meta.computed.sum.type === 'int64')).toBe(
+    true,
+  );
+  expect(JSON.stringify(page)).not.toContain('customer.external');
+  expect(page.meta.exhausted).toBe(true);
+});
+
+it('supports default declared selection and typed iteration with caller aliases', async () => {
+  const fixture = await app();
+
+  await addQueryMembers(fixture);
+  const counts: (string | number | boolean | null | undefined)[] = [];
+
+  for await (const row of fixture.runtime
+    .as(fixture.principal)
+    .objects.Customer.query({
+      limit: 1,
+      compute: { n: { sql: 'SELECT COUNT(*) FROM self.events' } },
+    })) {
+    expect(row.data.count).toBe(row.data.n);
+    counts.push(row.data.n);
+  }
+
+  expect(counts).toEqual(['2', '2', '0']);
+});
+
+it.each(['scalar', 'statement'] as const)(
+  'withdraws %s failures across the whole returned page',
+  async (failure) => {
+    const fixture = await app();
+
+    await addQueryMembers(fixture);
+    fixture.hooks.parameterBudget = () => ({ fixed: 0, perSlot: 32766 });
+    let statements = 0;
+
+    fixture.hooks.execute = async (plan, options) => {
+      const index = statements++;
+      const result = await fixture.connection.analytics.execute(plan, options);
+
+      if (index !== 1) return result;
+
+      if (failure === 'statement')
+        throw new DatasetExecutionError('execution-failed', {
+          retryable: false,
+        });
+
+      return {
+        ...result,
+        rows: result.rows.map((row) => ({
+          ...row,
+          values: [NaN, row.values[1]!],
+        })),
+      };
+    };
+    const page = await fixture.runtime
+      .operations(fixture.principal)
+      .query('customer', {
+        select: ['count'],
+        compute: { sum: { sql: 'SELECT SUM(amount) FROM self.events' } },
+        limit: 3,
+      });
+
+    expect(statements).toBe(3);
+
+    for (const row of page.data) {
+      expect(row.data).not.toHaveProperty('sum');
+      expect(row.meta.fields?.sum).toMatchObject({
+        status: 'unavailable',
+        reason: failure === 'scalar' ? 'invalid-result' : 'execution-failed',
+      });
+
+      if (failure === 'scalar') expect(row.data).toHaveProperty('count');
+      else expect(row.data).not.toHaveProperty('count');
+    }
+  },
+);
+
+it('rechecks ordinary filters after computation and preserves an opaque continuation for a dropped page', async () => {
+  const fixture = await app();
+
+  await addQueryMembers(fixture);
+  let executed = false;
+
+  fixture.hooks.execute = async (...args) => {
+    const result = await fixture.connection.analytics.execute(...args);
+
+    executed = true;
+
+    return result;
+  };
+  const native = fixture.store.native!;
+  const original = native.load.bind(native);
+
+  native.load = async (...args) => {
+    const record = await original(...args);
+
+    return executed && record?.objectId === 'one'
+      ? { ...record, values: { ...record.values, 'customer.label': 'Changed' } }
+      : record;
+  };
+  const request = {
+    select: ['count'],
+    where: { label: 'Acme' },
+    limit: 1,
+  } as const;
+  const first = await fixture.runtime
+    .operations(fixture.principal)
+    .query('customer', request);
+
+  expect(first.data).toEqual([]);
+  expect(first.meta.exhausted).toBe(false);
+
+  if (first.meta.exhausted) return;
+
+  expect(first.meta.continuationCursor).not.toContain('one');
+  const next = await fixture.runtime
+    .operations(fixture.principal)
+    .query('customer', { ...request, cursor: first.meta.continuationCursor });
+
+  expect(next.data.map((row) => row.id)).toEqual(['two']);
+  expect(next.data[0]!.data).toEqual({ count: '2' });
+});
+
+it('binds analytical cursors to parameters, selected fields and dataset binding revisions while allowing evidence changes', async () => {
+  const fixture = await app();
+
+  await addQueryMembers(fixture);
+  const request = {
+    select: ['count'],
+    compute: {
+      n: {
+        sql: 'SELECT COUNT(*) FROM self.events WHERE amount >= $threshold',
+        parameters: { threshold: '1' },
+      },
+    },
+    limit: 1,
+  } as const;
+  const first = await fixture.runtime
+    .operations(fixture.principal)
+    .query('customer', request);
+
+  expect(first.meta.exhausted).toBe(false);
+
+  if (first.meta.exhausted) return;
+
+  const cursor = first.meta.continuationCursor;
+  const next = await fixture.runtime
+    .operations(fixture.principal)
+    .query('customer', { ...request, cursor, evidence: 'full' });
+
+  expect(next.data[0]!.id).toBe('two');
+
+  for (const changed of [
+    {
+      ...request,
+      compute: { n: { ...request.compute.n, parameters: { threshold: '2' } } },
+    },
+    { ...request, select: ['label'] },
+    { ...request, requireComplete: true },
+  ])
+    await expect(
+      fixture.runtime
+        .operations(fixture.principal)
+        .query('customer', { ...changed, cursor }),
+    ).rejects.toMatchObject({
+      code: 'invalid-request',
+      issues: [{ problem: 'invalid-cursor' }],
+    });
+
+  const other = await app({ connectionId: 'other-events' });
+
+  await expect(
+    other.runtime
+      .operations(other.principal)
+      .query('customer', { ...request, cursor }),
+  ).rejects.toMatchObject({
+    code: 'invalid-request',
+    issues: [{ problem: 'invalid-cursor' }],
+  });
+});
+
+it('validates compute before reading an empty membership page and performs no statement for no matches', async () => {
+  const fixture = await app();
+  let statements = 0;
+
+  fixture.hooks.execute = async (...args) => {
+    statements++;
+
+    return fixture.connection.analytics.execute(...args);
+  };
+  const operations = fixture.runtime.operations(fixture.principal);
+
+  await expect(
+    operations.query('customer', {
+      where: { label: 'missing' },
+      compute: { n: { sql: 'SELECT COUNT(missing) FROM self.events' } },
+    }),
+  ).rejects.toMatchObject({ code: 'invalid-request' });
+  const page = await operations.query('customer', {
+    where: { label: 'missing' },
+    compute: { n: { sql: 'SELECT COUNT(*) FROM self.events' } },
+  });
+
+  expect(page.data).toEqual([]);
+  expect(statements).toBe(0);
+});
+
+it('joins ordinary candidate reads on retirement before returning a failed query', async () => {
+  const fixture = await app();
+
+  await addQueryMembers(fixture);
+  const native = fixture.store.native!;
+  const original = native.load.bind(native);
+  const releases: (() => void)[] = [];
+  let entered!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+
+  native.load = async (...args) => {
+    await new Promise<void>((resolve) => {
+      releases.push(resolve);
+
+      if (releases.length === 3) entered();
+    });
+
+    return original(...args);
+  };
+  let settled = false;
+  const result = fixture.runtime
+    .operations(fixture.principal)
+    .query('customer', { select: ['count'], limit: 3 })
+    .then(
+      () => {
+        settled = true;
+
+        return undefined;
+      },
+      (error) => {
+        settled = true;
+
+        return error;
+      },
+    );
+
+  await ready;
+  const closing = fixture.runtime.close();
+
+  releases[0]!();
+  await Promise.resolve();
+  expect(settled).toBe(false);
+
+  for (const release of releases.slice(1)) release();
+
+  expect(await result).toMatchObject({ code: 'runtime-retired' });
+  await closing;
 });

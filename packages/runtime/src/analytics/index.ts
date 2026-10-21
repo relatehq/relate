@@ -30,7 +30,7 @@ export type {
   TimingCapture,
 } from './timings.js';
 
-export { prepareCompute } from './prepared.js';
+export { prepareCompute, preparedBindingRevisions } from './prepared.js';
 export type { PreparedCompute } from './prepared.js';
 
 export type {

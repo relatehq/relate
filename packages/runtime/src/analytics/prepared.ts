@@ -186,3 +186,27 @@ export function prepareCompute(input: {
     end();
   }
 }
+
+/** Cursor scope includes every referenced dataset, including withheld declarations. */
+export function preparedBindingRevisions(
+  handle: PreparedCompute,
+  revision: (datasetId: string) => string,
+): Readonly<Record<string, string>> {
+  const fields = handles.get(handle);
+
+  if (!fields) throw new Error('Unknown or consumed analytical preparation');
+
+  return Object.freeze(
+    Object.fromEntries(
+      [
+        ...new Set(
+          fields.map(
+            (field) => field.expression.association.datasetDefinitionId,
+          ),
+        ),
+      ]
+        .sort()
+        .map((id) => [id, revision(id)]),
+    ),
+  );
+}

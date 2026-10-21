@@ -39,8 +39,8 @@ const rules: readonly OptionRule[] = [
       'Additional named SQL aggregate expressions over authorized dataset associations.',
     type: '{ [alias]: { sql: string, parameters?: { [name]: scalar } } }',
     description:
-      'Adds calculated fields to an object get. Aliases cannot collide with declared properties. Int64 results are JSON strings; meta.computed describes result types. Declared calculations share the same limits. Dataset freshness is unverified; freshness controls apply to ordinary dependencies.',
-    operations: ['get'],
+      'Adds calculated fields to object get and query. Computed filtering and ordering are not yet supported. Aliases cannot collide with declared properties. Int64 results are JSON strings; meta.computed describes result types. Declared calculations share the same limits. Dataset freshness is unverified; freshness controls apply to ordinary dependencies.',
+    operations: ['get', 'query'],
     valid: (value) => isPlainObject(value),
   },
   {

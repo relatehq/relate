@@ -5,6 +5,7 @@ import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
   QueryRequest,
+  ReadControls,
   ReadRequest,
   FullReadResult as ReadResult,
   FullPageResult as PageResult,
@@ -37,6 +38,13 @@ import {
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
+/** Trusted composition controls; never accepted from a consumer request. */
+export interface QueryContext {
+  readonly cursorScope?: unknown;
+  readonly signal?: AbortSignal;
+  readonly candidateControls?: Pick<ReadControls, 'maxAgeMs' | 'stale'>;
+}
+
 /** Enumerate graph membership through the same authorized read path as get. */
 export function createGraphQuery(options: {
   manifest: Manifest;
@@ -68,12 +76,23 @@ export function createGraphQuery(options: {
     input: QueryRequest = {},
     transaction?: NativeTransaction,
     onRead?: (id: string, result: Available) => void,
+    context?: QueryContext,
   ): Promise<PageResult> => {
     const object = manifest.objects.find((o) => o.id === type);
     const policy = object && manifest.policies[object.id];
     const operation = operationName(manifest, principal, type, 'query');
     const issues = requestIssues(input, 'query');
     const predicates: Predicate[] = [];
+
+    context?.signal?.throwIfAborted();
+
+    if (input?.compute !== undefined)
+      issues.push({
+        path: ['compute'],
+        problem: 'not-supported',
+        message:
+          'Analytical requests require the analytical query path and are not supported in action transactions.',
+      });
 
     if (transaction && object && allowsObject(principal, policy)) {
       const calculated = calculatedReadIssues(
@@ -157,6 +176,9 @@ export function createGraphQuery(options: {
           principal,
           transaction: transaction ? transactions.get(transaction)! : null,
           query: { ...readRequest, where: predicates, limit },
+          ...(context?.cursorScope === undefined
+            ? {}
+            : { analytical: context.cursorScope }),
           bindings: manifest.objects
             .filter((o) => o.sourceDefinitionId)
             .map((o) => options.scopeFor(o.id, o.sourceDefinitionId!)),
@@ -177,6 +199,7 @@ export function createGraphQuery(options: {
 
     const filter = predicateMatcher(predicates, readRequest, clock);
     const readCandidate = async (id: string) => {
+      context?.signal?.throwIfAborted();
       let allowed = async () => false;
       const result = await options.read(
         attempt,
@@ -185,6 +208,7 @@ export function createGraphQuery(options: {
         id,
         {
           ...readRequest,
+          ...context?.candidateControls,
           ...(readRequest.select ? { select: needed } : {}),
           requireComplete: false,
         },
@@ -194,6 +218,8 @@ export function createGraphQuery(options: {
         },
         transaction,
       );
+
+      context?.signal?.throwIfAborted();
 
       return { result, allowed: () => allowed() };
     };
@@ -211,6 +237,7 @@ export function createGraphQuery(options: {
     // For source-backed objects, retain cached non-matches that require refresh:
     // they may become matches. Keep authorized reads and final predicate checks.
     while (more && scanned < 100 && pending.length < limit) {
+      context?.signal?.throwIfAborted();
       const batch = await scanBatch(
         (scan) =>
           object.sourceDefinitionId
@@ -252,12 +279,23 @@ export function createGraphQuery(options: {
       const evaluated: Awaited<ReturnType<typeof evaluate>>[] = [];
       const concurrency = transaction ? 1 : 8;
 
-      for (let i = 0; i < batch.ids.length; i += concurrency)
-        evaluated.push(
-          ...(await Promise.all(
-            batch.ids.slice(i, i + concurrency).map(evaluate),
-          )),
+      for (let i = 0; i < batch.ids.length; i += concurrency) {
+        context?.signal?.throwIfAborted();
+        // Join every admitted ordinary read before surfacing failure or cancellation.
+        const results = await Promise.allSettled(
+          batch.ids.slice(i, i + concurrency).map(evaluate),
         );
+        const failed = results.find((result) => result.status === 'rejected');
+
+        if (failed?.status === 'rejected') throw failed.reason;
+
+        context?.signal?.throwIfAborted();
+        evaluated.push(
+          ...results.map((result) =>
+            result.status === 'fulfilled' ? result.value : undefined,
+          ),
+        );
+      }
 
       for (const item of evaluated) {
         if (!item) continue;
@@ -271,6 +309,8 @@ export function createGraphQuery(options: {
     const data: ObjectRecord[] = [];
 
     for (const item of pending) {
+      context?.signal?.throwIfAborted();
+
       if (!(await item.allowed())) continue;
 
       const at = await filter.confirm(item, async () => {
@@ -287,6 +327,8 @@ export function createGraphQuery(options: {
       if (at !== undefined)
         data.push(project(item.id, item.result, selected, readRequest, at));
     }
+
+    context?.signal?.throwIfAborted();
 
     return {
       data,

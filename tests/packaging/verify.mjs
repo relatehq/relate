@@ -211,23 +211,35 @@ console.log('Installed SQLite connector reads records and executes exact aggrega
     `
 import assert from 'node:assert/strict';
 import { z } from 'zod';
-import { bind, computed, defineAccess, defineApp, defineDataset, defineGraph, defineObject, nativeMembership, objectId } from 'relate';
+import { bind, computed, defineAccess, defineApp, defineDataset, defineGraph, defineObject, defineSource, from, source, objectId } from 'relate';
 import { startApp } from '@relate/node';
 import { sqlite } from '@relate/connector-sqlite';
 const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
 const Events = defineDataset({ id: 'events', columns: { customerId: { id: 'events.customer', schema: z.string(), access: access.groups.ordinary } } });
-const Customer = defineObject({ id: 'customer', membership: nativeMembership(), properties: { id: objectId({ id: 'customer.id' }), count: computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.events' }) }, datasets: { events: { id: 'customer.events', dataset: Events, on: [{ column: 'customerId', property: 'id' }] } } });
+const customers = defineSource({ id: 'customers', idField: 'id', schema: z.object({ id: z.string(), name: z.string() }) });
+const Customer = defineObject({ id: 'customer', membership: source(customers), properties: { id: objectId({ id: 'customer.id' }), externalId: from(customers.fields.id, { id: 'customer.external' }), count: computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.events' }) }, datasets: { events: { id: 'customer.events', dataset: Events, on: [{ column: 'customerId', property: 'externalId' }] } } });
 const graph = defineGraph({ id: 'graph', access, objects: { Customer }, datasets: { Events }, policies: { Customer: { read: { gate: access.role('reader') }, datasets: { events: { gate: access.role('reader') } } }, Events: {} } });
 const setup = ({ onDispose }) => {
   const connection = sqlite({ connectionId: 'analytics', path: 'source.sqlite' });
   onDispose(() => connection.close());
-  return { bindings: [bind(Events, connection.table('events'), { columns: { customerId: 'customer_id' } })] };
+  return { bindings: [bind(customers, connection.table('customers', { idColumn: 'id', columns: ['name'] })), bind(Events, connection.table('events'), { columns: { customerId: 'customer_id' } })] };
 };
 const runtime = await startApp(defineApp({ graph, setup }));
-await runtime.close();
+try {
+  const id = await runtime.host.adopt(Customer, '1');
+  const consumer = runtime.as({ id: 'reader', roles: ['reader'], claims: {} }).objects.Customer;
+  const compute = { total: { sql: 'SELECT COUNT(*) FROM self.events' } };
+  const record = await consumer.get(id, { compute });
+  assert.equal(record.data.count, '2', JSON.stringify(record));
+  assert.equal(record.data.total, '2');
+  const page = await consumer.query({ compute, limit: 1 });
+  assert.equal(page.data.length, 1);
+  assert.equal(page.data[0].data.total, '2');
+  assert.equal(page.data[0].data.count, '2');
+} finally { await runtime.close(); }
 const invalid = { ...graph, objects: { Customer: { ...Customer, properties: { ...Customer.properties, count: computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.absent' }) } } } };
 await assert.rejects(startApp(defineApp({ graph: invalid })), error => error.name === 'CompileError' && error.issues[0].code === 'calculation.invalid-definition');
-console.log('Installed Node host initializes the parser, validates calculations and checks dataset schemas.');
+console.log('Installed Node host validates analytical startup and executes computed get and query reads.');
 `,
   );
   process.stdout.write(

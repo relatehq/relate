@@ -1,4 +1,4 @@
-import { createAnalyticalRead } from './analytical-read.js';
+import { createAnalyticalReads } from './analytical-read.js';
 import type { AnalyticalReadOptions } from './analytical-read.js';
 import {
   createNativeOperations,
@@ -287,13 +287,6 @@ export function createRuntime(options: RuntimeOptions) {
     );
   }
 
-  const analyticalRead = createAnalyticalRead({
-    manifest,
-    read: readObject,
-    clock,
-    ...(options.analytics ? { analytics: options.analytics } : {}),
-  });
-
   const query = createGraphQuery({
     manifest,
     scope: nativeScope,
@@ -303,6 +296,15 @@ export function createRuntime(options: RuntimeOptions) {
     scopeFor,
     read: readObject,
     ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+  });
+
+  const analyticalReads = createAnalyticalReads({
+    manifest,
+    read: readObject,
+    query: (attempt, principal, type, request, context) =>
+      query(attempt, principal, type, request, undefined, undefined, context),
+    clock,
+    ...(options.analytics ? { analytics: options.analytics } : {}),
   });
 
   const traverse = createTraversal({
@@ -422,7 +424,8 @@ export function createRuntime(options: RuntimeOptions) {
       return presenting(request, (r) =>
         capture.operation(
           attempt,
-          () => query(attempt, principal, objectDefinitionId, r),
+          () =>
+            analyticalReads.query(attempt, principal, objectDefinitionId, r),
           describe.query(objectDefinitionId),
         ),
       );
@@ -440,7 +443,13 @@ export function createRuntime(options: RuntimeOptions) {
         capture.operation(
           attempt,
           () =>
-            analyticalRead(attempt, principal, objectDefinitionId, objectId, r),
+            analyticalReads.get(
+              attempt,
+              principal,
+              objectDefinitionId,
+              objectId,
+              r,
+            ),
           describe.get(objectDefinitionId, objectId),
         ),
       );

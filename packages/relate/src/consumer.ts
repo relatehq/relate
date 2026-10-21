@@ -281,15 +281,20 @@ export interface ObjectOperations<
 > {
   describe(): ObjectDescription | undefined;
   readonly traverse: Traversals<R, O>;
-  query<K extends PropertyNames<O> = PropertyNames<O>>(
-    options: QueryOptions<O, K, 'full'> & { readonly evidence: 'full' },
-  ): QueryResult<ObjectRecord<O, K, 'full'>>;
+  query<
+    K extends PropertyNames<O> = PropertyNames<O>,
+    const C extends Expressions = {},
+  >(
+    options: Omit<QueryOptions<O, K, 'full'>, 'compute'> &
+      ComputeOptions<O, C> & { readonly evidence: 'full' },
+  ): QueryResult<WithComputed<ObjectRecord<O, K, 'full'>, C>>;
   query<
     K extends PropertyNames<O> = PropertyNames<O>,
     E extends EvidenceMode = 'compact',
+    const C extends Expressions = {},
   >(
-    options?: QueryOptions<O, K, E>,
-  ): QueryResult<ObjectRecord<O, K, E | 'compact'>>;
+    options?: Omit<QueryOptions<O, K, E>, 'compute'> & ComputeOptions<O, C>,
+  ): QueryResult<WithComputed<ObjectRecord<O, K, E | 'compact'>, C>>;
   get<
     K extends PropertyNames<O> = PropertyNames<O>,
     const C extends Expressions = {},

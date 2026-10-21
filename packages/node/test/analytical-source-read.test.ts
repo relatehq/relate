@@ -25,9 +25,15 @@ afterEach(async () => {
   for (const close of cleanup.splice(0)) await close();
 });
 
-it.each(['same', 'changed', 'unavailable'] as const)(
-  'revalidates source correlation when its policy evidence expires: %s',
-  async (change) => {
+it.each(
+  (['get', 'query'] as const).flatMap((mode) =>
+    (['same', 'changed', 'unavailable', 'advancing'] as const).map(
+      (change) => [mode, change] as const,
+    ),
+  ),
+)(
+  '%s revalidates source correlation when its policy evidence expires: %s',
+  async (mode, change) => {
     const { graph: base, Events } = createAnalyticalGraph();
     const access = base.access;
     const customers = defineSource({
@@ -112,6 +118,8 @@ it.each(['same', 'changed', 'unavailable'] as const)(
                   async fetch() {
                     fetches++;
 
+                    if (change === 'advancing') now++;
+
                     if (statements && change === 'unavailable')
                       throw new Error('offline');
 
@@ -137,14 +145,23 @@ it.each(['same', 'changed', 'unavailable'] as const)(
 
     cleanup.push(() => runtime.close());
     const id = await runtime.host.adopt(Customer, 'one');
-    const result = await runtime
-      .as({ id: 'ana', roles: ['reader', 'analyst'], claims: {} })
-      .objects.Customer.get(id, {
-        select: ['name', 'count'],
-        evidence: 'full',
-        maxAgeMs: 100000,
-        stale: 'omit',
-      });
+    const consumer = runtime.as({
+      id: 'ana',
+      roles: ['reader', 'analyst'],
+      claims: {},
+    }).objects.Customer;
+    const request = {
+      select: ['name', 'count'],
+      evidence: 'full',
+      maxAgeMs: 100000,
+      stale: 'omit',
+    } as const;
+    const page = mode === 'query' ? await consumer.query(request) : undefined;
+    const result = page
+      ? page.data[0]
+        ? { status: 'ok' as const, ...page.data[0] }
+        : { status: 'not-found' as const }
+      : await consumer.get(id, request);
 
     expect(result.status).toBe('ok');
 
@@ -155,7 +172,7 @@ it.each(['same', 'changed', 'unavailable'] as const)(
     expect(result.data.name).toBe('Acme');
     expect(result.data).not.toHaveProperty('externalId');
 
-    if (change === 'same') {
+    if (change === 'same' || change === 'advancing') {
       expect(result.data.count).toBe('7');
       expect(result.meta.fields.count).toMatchObject({
         dependencies: {

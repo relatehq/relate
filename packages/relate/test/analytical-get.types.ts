@@ -51,6 +51,37 @@ async function typed(
 
     void [mode, evidence];
   }
+
+  const page = await consumer.objects.Customer.query({
+    select: ['label'],
+    evidence: 'full',
+    compute: { n: { sql: 'SELECT COUNT(*) FROM self.events' } },
+  });
+
+  for (const row of page.data) {
+    const value: string | number | boolean | null | undefined = row.data.n;
+    const mode: 'full' = row.meta.evidence;
+    const evidence: FieldEvidence | undefined = row.meta.fields.n;
+    const nullable: boolean = row.meta.computed.n.nullable;
+
+    // @ts-expect-error Unselected ordinary properties remain absent.
+    row.data.externalId;
+    void [value, mode, evidence, nullable];
+  }
+
+  for await (const row of consumer.objects.Customer.query({
+    compute: { n: { sql: 'SELECT COUNT(*) FROM self.events' } },
+  })) {
+    const value: string | number | boolean | null | undefined = row.data.n;
+    const mode: 'compact' = row.meta.evidence;
+
+    void [value, mode];
+  }
+
+  await consumer.objects.Customer.query({
+    // @ts-expect-error Query aliases cannot collide with declared properties.
+    compute: { count: { sql: 'SELECT COUNT(*) FROM self.events' } },
+  });
 }
 
 void typed;

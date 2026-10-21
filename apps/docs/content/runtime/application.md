@@ -127,8 +127,8 @@ when no calculation references them.
 
 `createRuntime` remains synchronous for ordinary graphs. For analytical graphs,
 use `startApp(defineApp({ graph, setup }))`; no separate readiness call is
-needed. SQLite analytical execution and object `get` now support caller SQL and
-selected declared calculations:
+needed. SQLite analytical execution and object `get`/`query` support caller SQL
+and selected declared calculations:
 
 ```ts
 const customer = await ana.objects.Customer.get(customerId, {
@@ -154,6 +154,28 @@ SQL. Dataset freshness is `unverified`; freshness options and object policy
 evidence limits apply to ordinary dependencies. Caller timeout and runtime
 shutdown fail the whole read after analytical statement cleanup.
 
-Query integration, computed filtering/order, the Postgres analytical connector,
-and analytical discovery/MCP details remain in progress. Traversal and action
-transaction readers reject analytical requests.
+For a query, ordinary authorization and property filters select the page first.
+The runtime computes all page members together, with one statement per
+association and batch, then revalidates them before returning the page. An
+ordinary filter whose value changed is checked again. Failed analytical aliases
+are withheld across the whole evaluated page, including earlier successful
+batches. `requireComplete` fails the query if a returned record has omissions.
+
+```ts
+const page = await ana.objects.Customer.query({
+  select: ['name', 'loginCount'],
+  where: { status: 'active' }, // an ordinary property filter
+  compute: { latestEvent: { sql: 'SELECT MAX(occurredAt) FROM self.events' } },
+  limit: 25,
+});
+```
+
+Continuation cursors bind the compute map, parameter values, selected fields and
+dataset binding revisions alongside the ordinary query scope. Evidence mode may
+change between pages. A cursor from a different expression or binding is
+rejected. Empty pages may still have a continuation when final checks withhold
+their members. Typed page reads and iteration preserve the alias result types.
+
+Computed filtering/order, the Postgres analytical connector, and analytical
+discovery/MCP details remain in progress. Traversal and action transaction
+readers reject analytical requests.
