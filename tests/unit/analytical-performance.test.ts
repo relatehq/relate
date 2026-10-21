@@ -1,12 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   events,
   summarize,
+  summarizedEvents,
 } from '../performance/analytical-properties/seed.js';
-import { runWorkload } from '../performance/analytical-properties/run.js';
+import {
+  runWorkload,
+  measureScenario,
+  runProfile,
+  gitMetadata,
+} from '../performance/analytical-properties/run.js';
 import {
   markdown,
   percentile,
+  summarizeSamples,
 } from '../performance/analytical-properties/report.js';
 import { Trace } from '../performance/analytical-properties/timing.js';
 
@@ -53,7 +63,7 @@ describe('analytical performance harness', () => {
       'computed-finalization',
     ]);
     expect(result.summary.every((s) => s.p95Ms === null)).toBe(true);
-    expect(markdown(result.samples)).toContain('must not be compared');
+    expect(markdown([result])).toContain('must not be compared');
   });
 
   it('keeps nested spans as intervals and records failed operations', async () => {
@@ -78,5 +88,155 @@ describe('analytical performance harness', () => {
         0.95,
       ),
     ).toBe(95);
+  });
+  it('keeps failed warmups separate from the 30 measured repetitions', async () => {
+    const samples = await measureScenario(
+      'objects',
+      { warmups: 3, repetitions: 30 },
+      () => [],
+      async () => {
+        throw new Error('hybrid failed');
+      },
+    );
+    const hybrid = samples.filter((s) => s.mode === 'hybrid-mock');
+
+    expect(hybrid.filter((s) => s.phase === 'warm')).toHaveLength(30);
+    expect(hybrid.filter((s) => s.phase === 'warmup')).toHaveLength(3);
+    expect(hybrid.filter((s) => s.phase === 'first-of-scenario')).toHaveLength(
+      1,
+    );
+    expect(hybrid.every((s) => s.status === 'error')).toBe(true);
+    expect(summarizeSamples(samples)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          group: 'hybrid-mock/objects/warm',
+          samples: 30,
+          failures: 30,
+        }),
+        expect.objectContaining({
+          group: 'hybrid-mock/objects/warmup',
+          samples: 3,
+          failures: 3,
+        }),
+      ]),
+    );
+  });
+
+  it('never accepts a hybrid result when the SQLite oracle is unavailable', async () => {
+    const hybrid = vi.fn(async () => []);
+    const samples = await measureScenario(
+      'objects',
+      { warmups: 1, repetitions: 2 },
+      () => {
+        throw new Error('SQL failed');
+      },
+      hybrid,
+    );
+
+    expect(hybrid).not.toHaveBeenCalled();
+    expect(samples.every((s) => s.status === 'error')).toBe(true);
+    expect(
+      samples
+        .filter((s) => s.mode === 'hybrid-mock')
+        .every((s) => s.error?.includes('oracle unavailable')),
+    ).toBe(true);
+  });
+
+  it('detects hybrid mismatches against the SQLite oracle', async () => {
+    const samples = await measureScenario(
+      'objects',
+      { warmups: 0, repetitions: 1 },
+      () => [{ id: 'a', data: { name: 'expected' } }],
+      async () => [{ id: 'a', data: { name: 'wrong' } }],
+    );
+
+    expect(
+      samples
+        .filter((s) => s.mode === 'hybrid-mock')
+        .every((s) => s.status === 'error'),
+    ).toBe(true);
+  });
+
+  it('feeds summary and insertion from a single event stream', () => {
+    let generated = 0;
+
+    function* source() {
+      for (const event of events(10, 20, 42)) {
+        generated++;
+        yield event;
+      }
+    }
+
+    const values = new Map();
+    const inserted = [...summarizedEvents(source(), values)];
+
+    expect(generated).toBe(20);
+    expect(inserted).toHaveLength(20);
+    expect(values).toEqual(summarize(inserted));
+  });
+
+  it('checkpoints completed workloads and records a later setup failure', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'analytical-report-'));
+
+    try {
+      const config = {
+        customers: 10,
+        events: 20,
+        seed: 42,
+        warmups: 0,
+        repetitions: 1,
+      };
+      let calls = 0;
+      const result = await runProfile(
+        [config, config, config],
+        directory,
+        {},
+        async (input) => {
+          calls++;
+
+          if (calls === 2) {
+            const checkpoint = JSON.parse(
+              await readFile(join(directory, 'results.json'), 'utf8'),
+            );
+
+            expect(checkpoint.workloads).toHaveLength(1);
+            throw new Error('setup failed');
+          }
+
+          if (calls === 3) {
+            const checkpoint = JSON.parse(
+              await readFile(join(directory, 'results.json'), 'utf8'),
+            );
+
+            expect(checkpoint.workloads[1].error).toBe('setup failed');
+          }
+
+          return runWorkload(input);
+        },
+      );
+
+      expect(result.failed).toBe(true);
+      expect(result.workloads).toHaveLength(3);
+      const saved = JSON.parse(
+        await readFile(join(directory, 'results.json'), 'utf8'),
+      );
+
+      expect(saved.workloads[0].samples).toHaveLength(12);
+      expect(saved.workloads[1].error).toBe('setup failed');
+      expect(saved.workloads[2].samples).toHaveLength(12);
+      const report = await readFile(join(directory, 'report.md'), 'utf8');
+
+      expect(report.match(/^# Analytical benchmark harness$/gm)).toHaveLength(
+        1,
+      );
+      expect(report.match(/^## Workload:/gm)).toHaveLength(3);
+      expect(report).toContain('setup failed');
+      expect(gitMetadata(directory)).toEqual({ commit: null, dirty: null });
+      expect(
+        gitMetadata(directory, 'missing-benchmark-git-executable'),
+      ).toEqual({ commit: null, dirty: null });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 });

@@ -1,7 +1,7 @@
 import type { Customer, Event, Values } from './model.js';
 import { since, until } from './model.js';
 
-export const workloadVersion = 1;
+export const workloadVersion = 2;
 
 export function customers(count: number): Customer[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -36,9 +36,10 @@ export function* events(
   }
 }
 
-export function summarize(rows: Iterable<Event>): Map<string, Values> {
-  const result = new Map<string, Values>();
-
+export function summarize(
+  rows: Iterable<Event>,
+  result = new Map<string, Values>(),
+): Map<string, Values> {
   for (const row of rows) {
     if (row.type !== 'login' || row.at < since || row.at >= until) continue;
 
@@ -56,4 +57,15 @@ export function summarize(rows: Iterable<Event>): Map<string, Values> {
   }
 
   return result;
+}
+
+/** Feed insertion and the mock summary from one bounded-memory event stream. */
+export function* summarizedEvents(
+  rows: Iterable<Event>,
+  values: Map<string, Values>,
+): Generator<Event> {
+  for (const row of rows) {
+    summarize([row], values);
+    yield row;
+  }
 }

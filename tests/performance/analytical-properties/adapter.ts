@@ -27,9 +27,7 @@ export function createAdapter(
   return {
     async query(request: Request, trace: Trace): Promise<Row[]> {
       assert(
-        Object.values(scenarios).some(
-          (scenario) => JSON.stringify(scenario) === JSON.stringify(request),
-        ),
+        Object.values(scenarios).includes(request),
         'Adapter only supports the three declared benchmark requests',
       );
       const computes = 'compute' in request;

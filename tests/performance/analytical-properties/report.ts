@@ -4,7 +4,7 @@ import type { Scenario } from './scenarios.js';
 export interface Sample {
   scenario: Scenario;
   mode: 'hybrid-mock' | 'sqlite-reference';
-  phase: 'first-request' | 'warm';
+  phase: 'first-of-scenario' | 'warmup' | 'warm';
   durationMs: number;
   spans: Span[];
   counters: Record<string, number>;
@@ -41,22 +41,33 @@ export function summarizeSamples(samples: Sample[]) {
   });
 }
 
-export function markdown(samples: Sample[]): string {
-  const rows = summarizeSamples(samples).map(
-    (s) =>
-      `| ${s.group} | ${s.samples} | ${s.failures} | ${s.medianMs?.toFixed(3) ?? 'n/a'} | ${s.p95Ms?.toFixed(3) ?? 'n/a'} |`,
-  );
+export interface WorkloadReport {
+  config: { customers: number; events: number };
+  samples: Sample[];
+  error?: string;
+}
 
+export function markdown(workloads: WorkloadReport[]): string {
   return [
     '# Analytical benchmark harness',
     '',
     'Hybrid results include mocked analytics and synthetic source access. They are not Relate analytical performance measurements and must not be compared with the SQLite reference as overhead.',
     '',
-    'SQLite reference uses real in-process SQL against an in-memory database. First-request means the first query after setup; it is not a cold database/cache measurement. p95 is omitted below 20 successful samples.',
+    'SQLite reference uses real in-process SQL against an in-memory database. First-of-scenario means the first iteration of that mode/scenario on shared, potentially warmed resources, not a fresh runtime or cold database. Warmups are reported separately. p95 is omitted below 20 successful samples.',
     '',
-    '| Mode/scenario/phase | Samples | Failures | Median ms | p95 ms |',
-    '| --- | ---: | ---: | ---: | ---: |',
-    ...rows,
-    '',
+    ...workloads.flatMap((workload) => [
+      `## Workload: ${workload.config.customers} customers / ${workload.config.events} events`,
+      '',
+      ...(workload.error === undefined
+        ? []
+        : [`Workload failed: ${JSON.stringify(workload.error)}`, '']),
+      '| Mode/scenario/phase | Samples | Failures | Median ms | p95 ms |',
+      '| --- | ---: | ---: | ---: | ---: |',
+      ...summarizeSamples(workload.samples).map(
+        (s) =>
+          `| ${s.group} | ${s.samples} | ${s.failures} | ${s.medianMs?.toFixed(3) ?? 'n/a'} | ${s.p95Ms?.toFixed(3) ?? 'n/a'} |`,
+      ),
+      '',
+    ]),
   ].join('\n');
 }

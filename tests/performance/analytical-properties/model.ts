@@ -37,6 +37,11 @@ export interface Row {
 export const since = '2026-10-01T00:00:00.000Z';
 export const until = '2026-11-01T00:00:00.000Z';
 
+/** Benchmark-owned workload contract: deliberately separate from createCustomerGraph.
+ * That fixture includes finance/revenue and 30-second policy evidence. This one
+ * needs an explicit correlation key and day-long evidence so elapsed benchmark
+ * time cannot introduce source refreshes. Evolve it only with workloadVersion.
+ */
 export function createModel() {
   const access = defineAccess({
     roles: ['employee'],

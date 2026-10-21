@@ -23,9 +23,10 @@ pnpm bench:analytical --profile full --out benchmark-results/analytical-full
 
 Requires a repository-supported Node version (22.16+, 24 or 26). Uses Node's
 built-in SQLite driver and no external database or credentials. The driver may
-print its experimental warning. Each workload owns and closes its runtime and
-in-memory database. Data generation, adoption, index creation and `ANALYZE` are
-outside request timing. Large runs can take several minutes.
+print its experimental warning. The event stream is generated once and feeds
+both the mock summary and SQL insertion. Each workload owns and closes its
+runtime and in-memory database. Data generation, adoption, index creation and
+`ANALYZE` are outside request timing. Large runs can take several minutes.
 
 | Profile | Customer populations | Event volumes per population | Warmups | Measured warm repetitions |
 | ------- | -------------------- | ---------------------------- | ------- | ------------------------- |
@@ -46,6 +47,13 @@ Both login count (an integer string) and latest login (nullable timestamp) use
 | ranking    | Enumerate every authorized candidate | Count and latest login, then top 25 by count; ties by object ID |
 
 ## What is measured today
+
+The graph deliberately stays separate from `tests/support/customer-graph.ts`.
+That shared fixture includes finance/revenue fields and a 30-second policy
+evidence lifetime. This workload needs an explicit correlation key and day-long
+evidence to avoid time-dependent refreshes during large runs. Keeping it
+benchmark-owned prevents unrelated fixture changes from changing historical
+comparisons; changes to its contract require a workload-version bump.
 
 `model.ts` owns a real Relate graph, memory store and synthetic source
 connector. `adapter.ts` calls the current public `Customer.query` API. Ranking
@@ -70,14 +78,17 @@ order, counts, timestamps and nulls, outside request timing. Failures are
 retained in reports and cause a nonzero command exit. The SQL oracle does not
 prove Relate's future authorization or analytical implementation correct.
 
-Each mode/scenario records its first request separately, followed by unreported
-warmups and measured warm repetitions. First request is **not** cold database or
-process startup: setup and earlier scenarios may already have warmed resources.
-Runs are sequential with concurrency one. SQLite is synchronous and in-process;
-its span includes driver work and result materialization, not network or pool
-wait. Server-only execution time is unavailable, not zero. Throughput, queue
-pressure, cancellation, Postgres and generated-SQL comparisons await
-integration.
+Each mode/scenario labels its initial iteration `first-of-scenario`, followed by
+`warmup` iterations and `warm` measured repetitions. The runtime and database
+are shared across scenarios; initial iterations may already be warm and are not
+cold-start measurements. Warmups (including failures) remain in their own groups
+and never affect measured repetition counts. Only a successful SQLite reference
+can establish the expected result; if none succeeds, hybrid samples fail without
+executing or validating against themselves. Runs are sequential with concurrency
+one. SQLite is synchronous and in-process; its span includes driver work and
+result materialization, not network or pool wait. Server-only execution time is
+unavailable, not zero. Throughput, queue pressure, cancellation, Postgres and
+generated-SQL comparisons await integration.
 
 ```mermaid
 flowchart LR
@@ -92,21 +103,30 @@ flowchart LR
 ## Results and CI
 
 `results.json` contains versioned workload/configuration metadata, commit and
-dirty status, Node/SQLite versions, machine resources, raw samples, spans,
-observed counters and summaries. `report.md` is readable alongside it. Small
-samples omit p95; full runs report nearest-rank p95 after at least 20 successful
-samples. Failures are counted separately. Metadata sets
-`performanceComparisonEligible` to `false`; no mock/direct-SQL overhead ratio or
-regression comparison is produced. Uninstrumented stages are listed explicitly
-rather than filled with invented zero timings. Candidate counts mean admitted
-objects, not inspected/rejected ones.
+dirty status (both null if Git is unavailable), Node/SQLite versions, machine
+resources, raw samples, spans, observed counters and summaries. `report.md` is
+readable alongside it. Small samples omit p95; full runs report nearest-rank p95
+after at least 20 successful samples. Failures are counted separately. Metadata
+sets `performanceComparisonEligible` to `false`; no mock/direct-SQL overhead
+ratio or regression comparison is produced. Uninstrumented stages are listed
+explicitly rather than filled with invented zero timings. Candidate counts mean
+admitted objects, not inspected/rejected ones.
+
+Results are checkpointed after each workload, with each output file replaced
+atomically. A later setup failure is recorded and does not discard earlier
+results; remaining workloads are attempted and the command exits unsuccessfully.
+A hard process kill preserves completed checkpoints, although the in-progress
+workload cannot record its failure. JSON and Markdown are separate files, not a
+transactional pair. The Markdown report has one header and a section per
+workload.
 
 Default outputs live in ignored `benchmark-results/`. CI runs the small profile
-on Node 26 and uploads its JSON and Markdown even on scenario failures. Focused
-harness tests also run in the ordinary unit suite. Keep raw routine runs as CI
-artifacts; only commit a curated baseline with complete environment metadata
-when real measurements become comparable. Do not publish hybrid timings as
-product performance results.
+on Node 26 using `pnpm bench:analytical:run --profile small` (the preceding CI
+steps already built the repository) and uploads its JSON and Markdown even on
+scenario failures. Focused harness tests also run in the ordinary unit suite.
+Keep raw routine runs as CI artifacts; only commit a curated baseline with
+complete environment metadata when real measurements become comparable. Do not
+publish hybrid timings as product performance results.
 
 ## Integrating the analytical implementation
 
