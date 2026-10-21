@@ -46,9 +46,9 @@ created and what changes for someone using the product.
 
 ## Fixing review comments
 
-When fixing review comments, fix the nits too, not just the bugs. Skip a
-comment only when the owner says to, or when it is wrong; say which ones were
-skipped and why.
+When fixing review comments, fix the nits too, not just the bugs. Skip a comment
+only when the owner says to, or when it is wrong; say which ones were skipped
+and why.
 
 ## Worktrees
 
