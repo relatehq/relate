@@ -427,7 +427,7 @@ are not yet enabled.
 
 ### Analytical batch execution (internal)
 
-`analytics/computeFields` accepts resolved calculations and a finite set of
+`analytics/computeFields` accepts a preparation handle and a finite set of
 already authorized objects with materialized ordinary dependencies. This is an
 internal execution foundation; consumer reads do not yet call it. It does not
 fetch dependencies, authorize membership, or perform final dependency
@@ -474,4 +474,42 @@ flowchart LR
   Queue --> Timing[Host stage timing totals]
   Connector --> Timing
   Merge --> Timing
+```
+
+`prepareCompute` now supplies the batch executor's single-use opaque handle. The
+read owner passes selected/required declarations with stable IDs, projection
+flags and property access decisions, separately from the untrusted `compute`
+map. Caller aliases cannot collide with any property, including unselected or
+denied properties. Both forms count toward the same default eight-expression
+limit and obey SQL/parameter limits before candidate reads. Required caller
+aliases must exist in the caller map; required declarations retain their own
+identity and projection flag.
+
+Caller SQL resolves only against the actor's association view. Trusted declared
+SQL resolves against model declarations, then its referenced association,
+columns and ordinary dependencies are checked against the actor view. A hidden
+association withholds the declared value without exposing its name or SQL;
+caller references to a hidden association remain indistinguishable from unknown
+names. A denied correlation key retains `correlation-unavailable`; denied other
+inputs yield `forbidden`. Rejected declaration diagnostics name only the
+selected property. Startup continues to report authored SQL errors to the
+application owner.
+
+Preparation exposes only frozen dependency IDs and projected result metadata;
+private resolved expressions and parameter values live in a weak map. It clones
+the request/model inputs before asynchronous reads, rejects forged handles and
+consumes each handle once. Preparation timing is recorded on success and error.
+Public read normalization, computed filter/order validation, dependency
+materialization/revalidation and response projection remain integration work.
+
+```mermaid
+flowchart LR
+  Caller[Caller compute map] --> Rules[Alias and shared budget checks]
+  Declared[Normalized model declarations] --> Rules
+  Rules --> CallerResolve[Resolve caller SQL against actor view]
+  Rules --> DeclaredResolve[Resolve declared SQL and apply actor access]
+  CallerResolve --> Handle[Single-use preparation handle]
+  DeclaredResolve --> Handle
+  Handle --> Dependencies[Ordinary dependency IDs and result types]
+  Handle --> Execution[Batch executor consumes private expressions]
 ```

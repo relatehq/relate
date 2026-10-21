@@ -29,3 +29,12 @@ export type {
   AnalyticalTimings,
   TimingCapture,
 } from './timings.js';
+
+export { prepareCompute } from './prepared.js';
+export type { PreparedCompute } from './prepared.js';
+
+export type {
+  ComputeRequest,
+  DeclaredCalculationRequest,
+  PreparationLimits,
+} from './request.js';

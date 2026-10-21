@@ -55,6 +55,7 @@ export interface PreparationIssue {
   readonly problem: 'invalid-value' | 'unknown-property' | 'not-supported';
   readonly message: string;
   readonly at?: SourceSpan;
+  readonly path?: readonly string[];
 }
 
 export class AnalyticalPreparationError extends Error {
@@ -66,6 +67,7 @@ export class AnalyticalPreparationError extends Error {
       issues.map((issue) =>
         Object.freeze({
           ...issue,
+          ...(issue.path ? { path: Object.freeze([...issue.path]) } : {}),
           ...(issue.at ? { at: Object.freeze({ ...issue.at }) } : {}),
         }),
       ),

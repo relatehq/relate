@@ -12,9 +12,11 @@ import type {
 } from './execution-types.js';
 import type { TimingCapture } from './timings.js';
 import { beginTiming, recordTiming } from './timings.js';
+import { preparedFields } from './prepared.js';
+import type { PreparedCompute } from './prepared.js';
 
 /** Request-local execution over authorized, materialized ordinary dependencies. */
-export async function computeFields(input: {
+export async function executeResolvedFields(input: {
   readonly fields: readonly ResolvedCalculation[];
   readonly candidates: readonly AuthorizedCandidate[];
   readonly binding: (datasetId: string) => AnalyticalBinding;
@@ -186,4 +188,16 @@ export async function computeFields(input: {
   } finally {
     input.signal.removeEventListener('abort', abort);
   }
+}
+
+/** Execute one request-local preparation; callers cannot forge or reuse it. */
+export async function computeFields(
+  input: Omit<Parameters<typeof executeResolvedFields>[0], 'fields'> & {
+    readonly prepared: PreparedCompute;
+  },
+): Promise<ComputedScope> {
+  const { prepared, ...execution } = input;
+  const fields = preparedFields(prepared);
+
+  return executeResolvedFields({ ...execution, fields });
 }

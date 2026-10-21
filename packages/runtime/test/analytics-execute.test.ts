@@ -1,4 +1,5 @@
 import { expect, it, afterEach, vi } from 'vitest';
+import { executeResolvedFields as computeFields } from '../src/analytics/execute.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,7 +17,6 @@ import type {
 } from 'relate/connectors';
 import { DatasetExecutionError } from 'relate/connectors';
 import {
-  computeFields,
   prepareExpression,
   createStatementQueue,
   createAnalyticalTimings,
