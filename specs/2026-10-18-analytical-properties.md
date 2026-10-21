@@ -423,7 +423,7 @@ const Customer = defineObject({
     events: {
       id: 'business.customer.events',
       dataset: Events,
-      on: { customerId: 'externalId' }, // Events.customerId = Customer.externalId
+      on: [{ column: 'customerId', property: 'externalId' }],
     },
   },
 });
@@ -436,13 +436,27 @@ const graph = defineGraph({
 });
 ```
 
-- `on` maps dataset columns (keys) to properties of the containing object
-  (values). Both sides are checked at compile time and resolved to stable IDs.
+- `on` is a non-empty array of `{ column, property }` pairs, including for a
+  single match. `column` names a declared column of the associated dataset;
+  `property` names a property of the containing object. Each pair requires
+  equality, and all pairs must match (AND). Array order does not change meaning.
+  Both names are checked at compile time and resolved to stable IDs. Unknown
+  names, empty arrays and duplicate dataset-column mappings are compile errors.
+- These are logical names, not physical database column names. Physical names
+  are mapped separately by `bind(..., { columns: ... })` in application setup;
+  see [Binding](#binding-and-schema-checks).
 - The Relate object ID is not the CRM key, so the mapping goes through
   `externalId`. **Proposed:** `on` may also target the `objectId` property, for
   datasets that record Relate IDs, such as events about Relate-owned objects.
-- Composite keys use several entries. Outside the running example:
-  `on: { tenantId: 'tenantId', customerId: 'externalId' }`.
+- Composite keys use several pairs. Outside the running example:
+
+  ```ts
+  on: [
+    { column: 'tenantId', property: 'tenantId' },
+    { column: 'customerId', property: 'externalId' },
+  ],
+  ```
+
 - **Proposed:** both sides must have the same logical type (table below).
   `string = int64` is a compile error; there is no implicit cast.
 - **Proposed:** the target property need not be unique. Two customers sharing an
@@ -2179,6 +2193,11 @@ steps below. No production package imports the spike under `dev/`.
 
 The shared analytical path must also establish:
 
+- Association `on` accepts a non-empty array of `{ column, property }` pairs.
+  Single and composite matches use equality with AND semantics, independent of
+  pair order. Unknown names, empty arrays, duplicate column mappings and the old
+  object-map form are rejected. Physical column mappings remain in bindings.
+
 - Optional column descriptions survive compilation and authorized discovery/MCP
   unchanged; absent descriptions remain omitted. Hidden associations do not
   expose their column descriptions.
@@ -2289,7 +2308,7 @@ the running example:
 | Datasets are separate from objects: no adoption, no object IDs, no persisted values                                                              | Agreed   |
 | SQL is the expression language; Postgres grammar is the dialect ([why](#outcome))                                                                | Agreed   |
 | [Declared computed properties ship in v1 through the same analytical path](#declared-computed-properties)                                        | Agreed   |
-| `defineDataset`, object `datasets` associations with `on`, SQL `self.<association>`                                                              | Agreed   |
+| `defineDataset`, object `datasets` associations with `on: [{ column, property }]`, SQL `self.<association>`                                      | Agreed   |
 | `bind(definition, resource)`; setup returns `bindings`; `connectionId` lives on the connection                                                   | Agreed   |
 | `compute` on `get` and `query` means one value per object, never a collection total                                                              | Agreed   |
 | [`query` may filter/order by caller aliases and declared calculations](#filtering-and-ordering-by-computed-fields); both are required when used  | Agreed   |
@@ -2412,6 +2431,13 @@ scope limit is per query and host-configured, with no push-down before graph SQL
 Postgres (was 1, now a scope question).
 
 ## Revision notes
+
+### 2026-10-21: Explicit association pairs
+
+- Replaced the ambiguous `on` object map with a non-empty array of
+  `{ column, property }` pairs. Defined dataset/object ownership, composite AND
+  semantics and validation, and distinguished logical association names from
+  physical column mappings in bindings.
 
 ### 2026-10-21: Column descriptions
 
