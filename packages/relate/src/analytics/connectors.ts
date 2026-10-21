@@ -97,6 +97,12 @@ export interface DatasetExecution {
   readonly modifiedAt?: string;
 }
 
+/** Host-only connector timing; observer failures never affect execution. */
+export interface AnalyticalExecutionTiming {
+  readonly stage: 'connectionStartup' | 'execution';
+  readonly durationMs: number;
+}
+
 export interface AnalyticalConnector {
   readonly limits: { readonly maxParameters: number };
   describe(
@@ -113,7 +119,11 @@ export interface AnalyticalConnector {
   /** Settles only after statement resources are released, including on abort. */
   execute(
     plan: PreparedPlan,
-    options: { signal: AbortSignal; timeoutMs: number },
+    options: {
+      signal: AbortSignal;
+      timeoutMs: number;
+      onTiming?: (timing: AnalyticalExecutionTiming) => void;
+    },
   ): Promise<DatasetExecution>;
 }
 

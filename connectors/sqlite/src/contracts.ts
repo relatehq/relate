@@ -8,6 +8,8 @@ export interface SqliteOptions {
   readonly identity?: { readonly table: string; readonly column: string };
   /** Time to wait for a writer lock in the worker. Default: 150 ms. */
   readonly busyTimeoutMs?: number;
+  /** Bound on starting an analytical child process, before its statement deadline. Default: 5000 ms. */
+  readonly analyticalStartupTimeoutMs?: number;
 }
 
 export interface SqliteTableOptions {

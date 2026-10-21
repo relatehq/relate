@@ -17,8 +17,13 @@ export const packagePolicies: Record<
     builtins: true,
   },
   'connectors/sqlite': {
-    imports: ['relate/connectors'],
-    builtins: ['node:sqlite', 'node:worker_threads', 'node:path'],
+    imports: ['relate/connectors', 'relate/analytics'],
+    builtins: [
+      'node:sqlite',
+      'node:worker_threads',
+      'node:path',
+      'node:child_process',
+    ],
   },
   'examples/02-customer-workspace': {
     imports: [

@@ -113,8 +113,80 @@ await `database.close()` (or register it with `onDispose`): it rejects
 outstanding reads and waits for worker teardown. Closing is idempotent; calls
 after close fail.
 
-This package implements record reads, not enumeration, change feeds, provider
-writes, or Relate storage.
+This package implements keyed record reads and analytical aggregates. It does
+not implement object enumeration, change feeds, provider writes or Relate
+storage.
 
 See [customer workspace](../../examples/02-customer-workspace) for a runnable
 application.
+
+## Analytical datasets
+
+A selected table also supports `bindDataset`, so one connection can back both a
+keyed source and a dataset:
+
+```ts
+const database = sqlite({ connectionId: 'local', path: './data.sqlite' });
+context.onDispose(() => database.close());
+return {
+  bindings: [
+    bind(customers, database.table('customers')),
+    bind(Events, database.table('events'), {
+      columns: { customerId: 'customer_id', occurredAt: 'occurred_at' },
+    }),
+  ],
+};
+```
+
+`startApp` checks every declared column against `PRAGMA table_info`. INTEGER
+supports boolean, int32 and int64; TEXT supports strings and canonical UTC
+millisecond/microsecond timestamps; REAL supports float64. NUMERIC/DECIMAL and
+BLOB are unsupported. Non-null declarations require `NOT NULL` as reported by
+SQLite. Inspection checks affinity and nullability, without scanning rows, and
+uses a five-second statement deadline after process startup.
+
+The connection's `analytics` capability accepts opaque resources and authorized,
+typed query structures. It never accepts caller SQL text. Planning generates one
+statement with object slots, explicit correlations and per-aggregate masks.
+Identifiers are quoted; all values, including generated slots and defaults, are
+bound with explicit SQLite types. Parameter budgeting counts the exact generated
+placeholders against SQLite's 32,766 limit. Correlation and masks remain outside
+expression predicates; duplicate correlation keys remain separate object slots.
+String comparisons use binary collation. Timestamp comparisons normalize exact
+milliseconds to microseconds, without losing their precision in returned values.
+
+Each analytical statement uses a fresh read-only child process. At most four
+children run per configured connection; the runtime's shared statement queue
+owns normal admission. `analyticalStartupTimeoutMs` defaults to 5000 (range
+1–60000). After startup, `execute`'s `timeoutMs` bounds the statement. Timeout,
+abort and connection close terminate the child and await its exit before
+settling, so capacity is not released while native SQLite work continues.
+Analytical cancellation does not retire the keyed-read worker. Resource and plan
+handles cannot move between connections or be used after retirement.
+
+Integers are read as bigint to preserve int64; int32 and boolean driver values
+are decoded to portable scalars. SQL overflow fails the whole statement. BLOB or
+malformed row framing is `invalid-result`; logical scalar validation remains the
+runtime's per-alias responsibility. Error messages do not include SQL, values or
+driver details. A successful result contains one ordered row per input slot and
+`readAt` from the actual statement's start.
+
+Optional `execute` timing callbacks report `connectionStartup` and `execution`
+once per entered phase, including errors and cancellation. They use monotonic
+client elapsed time; execution includes process cleanup. Synchronous or
+asynchronous observer failures do not change results. These measurements are
+host diagnostics, separate from returned data and evidence.
+
+```mermaid
+flowchart LR
+  Resource[Selected table and column mapping] --> Plan[Quoted SQL and typed parameters]
+  Plan --> Start[Start read-only child]
+  Start --> Execute[Execute and decode rows]
+  Execute --> Cleanup[Close database and exit child]
+  Cleanup --> Result[Return portable rows]
+  Abort[Deadline or cancellation] --> Kill[Terminate child]
+  Kill --> Cleanup
+```
+
+Connector execution and public app schema validation are implemented. Analytical
+fields on object `get` and `query` are still being integrated in the runtime.

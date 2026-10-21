@@ -1,8 +1,11 @@
+import { createAnalytics } from './analytics/index.js';
 import { Worker } from 'node:worker_threads';
 import { resolve } from 'node:path';
 import { SourceAccessDenied } from 'relate/connectors';
 import type {
   SourceResource,
+  AnalyticalResource,
+  AnalyticalConnector,
   SourceConnector,
   ApplicationSourceConnector,
   AnySourceConnector,
@@ -24,9 +27,13 @@ export interface SqliteConnection<
   C extends AnySourceConnector = AnySourceConnector,
 > {
   readonly connectionId: string;
-  table(name: string): SourceResource<C>;
-  table(name: string, options: SqliteTableOptions): C & SourceResource<C>;
-  /** Reject outstanding reads and release the owned worker/connection. Idempotent. */
+  readonly analytics: AnalyticalConnector;
+  table(name: string): SourceResource<C> & AnalyticalResource;
+  table(
+    name: string,
+    options: SqliteTableOptions,
+  ): C & SourceResource<C> & AnalyticalResource;
+  /** Retire reads/statements and await owned worker/process cleanup. Idempotent. */
   close(): Promise<void>;
 }
 
@@ -37,7 +44,7 @@ interface Pending {
   cleanup(): void;
 }
 
-/** One read-only SQLite connection, opened lazily in an owned worker. */
+/** Configured SQLite file with a lazy keyed-read worker and isolated analytical processes. */
 export function sqlite(
   options: SqliteOptions & { identity: NonNullable<SqliteOptions['identity']> },
 ): SqliteConnection<SourceConnector>;
@@ -73,6 +80,22 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
     ...(options.identity ? { identity: { ...options.identity } } : {}),
     busyTimeoutMs,
   };
+  const startupTimeoutMs = options.analyticalStartupTimeoutMs ?? 5000;
+
+  if (
+    !Number.isSafeInteger(startupTimeoutMs) ||
+    startupTimeoutMs < 1 ||
+    startupTimeoutMs > 60000
+  )
+    throw new Error(
+      'SQLite analyticalStartupTimeoutMs must be between 1 and 60000',
+    );
+
+  const analytical = createAnalytics({
+    path: settings.path,
+    busyTimeoutMs,
+    startupTimeoutMs,
+  });
   let worker: Worker | undefined;
   let stopping: Promise<void> | undefined;
   let closed = false;
@@ -201,10 +224,12 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
 
   const connection = {
     connectionId: options.connectionId,
+    analytics: analytical.analytics,
     table(name: string, tableOptions?: SqliteTableOptions) {
-      const selected: SourceResource = {
+      const selected: SourceResource & AnalyticalResource = {
         connection,
         resourceId: name,
+        bindDataset: (selection) => analytical.bindDataset(name, selection),
         bindSource(selection) {
           return connection.table(name, {
             idColumn: selection.idField,
@@ -261,7 +286,7 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
         pending.reject(error);
       }
 
-      return retire();
+      return Promise.all([retire(), analytical.close()]).then(() => {});
     },
   };
 

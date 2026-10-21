@@ -96,6 +96,7 @@ export interface SourceResource<
 
 export type {
   AnalyticalConnection,
+  AnalyticalExecutionTiming,
   AnalyticalConnector,
   AnalyticalResource,
   AuthorizedDatasetQuery,

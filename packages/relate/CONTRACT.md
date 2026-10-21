@@ -832,3 +832,15 @@ A resource can implement both capabilities.
 Node `startApp` checks registrations, capabilities, connection identity and
 physical-schema compatibility before returning a runtime. These binding
 contracts do not yet enable analytical object reads.
+
+## Analytical connector timing
+
+`AnalyticalExecutionTiming` and `AnalyticalConnector.execute(..., { onTiming })`
+provide optional host-only measurement of `connectionStartup` and `execution`.
+Each entered phase reports once on success, failure, timeout or cancellation,
+using monotonic finite non-negative durations. Execution includes required
+resource cleanup. A phase never entered is omitted; failed startup does not
+invent execution time. Observers cannot fail the query or block cleanup. These
+callbacks contain only a stage and duration, never SQL, values, aliases or
+physical connection details. Runtime activity aggregation and Inspector display
+remain implementation work.

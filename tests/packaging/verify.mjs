@@ -176,7 +176,7 @@ const stripeResource = billing.resource('customers', { fields: ['name'] });
 assert.equal(await stripeResource.identify({ signal: new AbortController().signal }), 'acct_packed:test');
 assert.deepEqual(await stripeResource.fetch('cus_packed', { signal: new AbortController().signal }), { state: 'present', providerAccountId: 'acct_packed:test', record: { id: 'cus_packed', name: 'Ada' } });
 const db = new DatabaseSync('source.sqlite');
-db.exec("CREATE TABLE account (id TEXT); INSERT INTO account VALUES ('packed'); CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT); INSERT INTO customers VALUES ('1', 'Ada')");
+db.exec("CREATE TABLE account (id TEXT); INSERT INTO account VALUES ('packed'); CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT); INSERT INTO customers VALUES ('1', 'Ada'); CREATE TABLE events(customer_id TEXT NOT NULL, amount INTEGER NOT NULL); INSERT INTO events VALUES ('1', 9007199254740993), ('1', 2)");
 db.close();
 const connection = sqlite({ connectionId: 'sqlite', path: 'source.sqlite', identity: { table: 'account', column: 'id' } });
 const connector = connection.table('customers', { idColumn: 'id', columns: ['name'] });
@@ -190,8 +190,16 @@ try {
   assert.equal(table.identity, 'application');
   assert.equal(table.identify, undefined);
   assert.deepEqual(await table.fetch('1', { signal: new AbortController().signal }), { state: 'present', record: { id: '1', name: 'Ada' } });
+  const resource = local.table('events').bindDataset({ columns: { customerId: 'customer_id', amount: 'amount' } });
+  const schema = await local.analytics.describe(resource, { signal: new AbortController().signal });
+  assert.equal(schema.columns.customerId.nullable, false);
+  const query = { resource, keys: [{ type: { type: 'string' } }], correlation: [{ column: 'customerId', key: 0 }], slots: [{ values: [{ type: 'string', value: '1' }], valid: [true] }], aggregates: [{ aggregate: 'sum', argument: { kind: 'column', column: 'amount', type: { type: 'int64' } }, distinct: false, result: { type: 'int64', nullable: true } }] };
+  const timings = [];
+  const computed = await local.analytics.execute(local.analytics.plan(query), { signal: new AbortController().signal, timeoutMs: 2000, onTiming: timing => timings.push(timing.stage) });
+  assert.deepEqual(computed.rows, [{ slot: 0, values: [9007199254740995n] }]);
+  assert.deepEqual(timings, ['connectionStartup', 'execution']);
 } finally { await local.close(); }
-console.log('Installed SQLite connector reads both identity modes in plain Node ESM.');
+console.log('Installed SQLite connector reads records and executes exact aggregates in its packaged child process.');
 `,
   );
   process.stdout.write(
@@ -205,22 +213,17 @@ import assert from 'node:assert/strict';
 import { z } from 'zod';
 import { bind, computed, defineAccess, defineApp, defineDataset, defineGraph, defineObject, nativeMembership, objectId } from 'relate';
 import { startApp } from '@relate/node';
+import { sqlite } from '@relate/connector-sqlite';
 const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
 const Events = defineDataset({ id: 'events', columns: { customerId: { id: 'events.customer', schema: z.string(), access: access.groups.ordinary } } });
 const Customer = defineObject({ id: 'customer', membership: nativeMembership(), properties: { id: objectId({ id: 'customer.id' }), count: computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.events' }) }, datasets: { events: { id: 'customer.events', dataset: Events, on: [{ column: 'customerId', property: 'id' }] } } });
 const graph = defineGraph({ id: 'graph', access, objects: { Customer }, datasets: { Events }, policies: { Customer: { read: { gate: access.role('reader') }, datasets: { events: { gate: access.role('reader') } } }, Events: {} } });
-let described = 0;
-const connection = { connectionId: 'analytics', analytics: {
-  limits: { maxParameters: 100 },
-  async describe() { described++; return { columns: { customerId: { supportedTypes: [{ type: 'string' }], nullable: false, databaseType: 'TEXT' } } }; },
-  parameterBudget() { return { fixed: 0, perSlot: 1 }; },
-  plan() { throw new Error('Not an execution fixture'); },
-  async execute() { throw new Error('Not an execution fixture'); },
-} };
-const table = { connection, resourceId: 'events', bindDataset(selection) { assert.deepEqual(selection.columns, { customerId: 'customer_id' }); return Object.freeze({}); } };
-const setup = () => ({ bindings: [bind(Events, table, { columns: { customerId: 'customer_id' } })] });
+const setup = ({ onDispose }) => {
+  const connection = sqlite({ connectionId: 'analytics', path: 'source.sqlite' });
+  onDispose(() => connection.close());
+  return { bindings: [bind(Events, connection.table('events'), { columns: { customerId: 'customer_id' } })] };
+};
 const runtime = await startApp(defineApp({ graph, setup }));
-assert.equal(described, 1);
 await runtime.close();
 const invalid = { ...graph, objects: { Customer: { ...Customer, properties: { ...Customer.properties, count: computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.absent' }) } } } };
 await assert.rejects(startApp(defineApp({ graph: invalid })), error => error.name === 'CompileError' && error.issues[0].code === 'calculation.invalid-definition');
