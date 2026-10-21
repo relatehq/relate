@@ -52,6 +52,7 @@ export const packagePolicies: Record<
   },
   'packages/node': {
     imports: [
+      'relate/model',
       'relate/analytics',
       '@relate/sql-parser',
       'relate',

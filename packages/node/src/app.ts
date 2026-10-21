@@ -1,5 +1,5 @@
 import type { AppDefinition, GraphDefinition, ObjectRegistry } from 'relate';
-import { createRuntime } from './runtime.js';
+import { startRuntime } from './runtime.js';
 import type { Relate } from './types.js';
 import type { Principal } from '@relate/runtime';
 
@@ -56,7 +56,7 @@ export async function startApp<G extends Graph>(
       ? await (await import('@relate/sql-parser')).createSqlParser()
       : undefined;
 
-    runtime = createRuntime({
+    runtime = await startRuntime({
       ...bindings,
       graph: app.graph,
       ...(sqlParser ? { sqlParser } : {}),

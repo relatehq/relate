@@ -4,7 +4,7 @@
 function defineApp<G>(definition): AppDefinition<G>;
 ```
 
-Defined in: [packages/relate/src/app.ts:114](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L114)
+Defined in: [packages/relate/src/app.ts:213](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L213)
 
 ## Type Parameters
 

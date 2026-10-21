@@ -10,10 +10,14 @@ API. Private and unpublished while implementation is in progress.
 
 ## Responsibility
 
+- `startApp(app)` runs setup and validates analytical declarations and dataset
+  bindings, including asynchronous physical-schema checks, before returning the
+  runtime. It owns registered disposal callbacks and retires statement queues
+  before disposing connections. Analytical execution is still being implemented.
 - `createRuntime({ graph, bindings, actionImplementations?, store?, … })`
-  compiles the graph with `relate/compiler`, validates bindings against the
-  registered sources, binds action handlers, and starts a `@relate/runtime`
-  engine.
+  synchronously compiles an ordinary graph with `relate/compiler`, validates
+  bindings against the registered sources, binds action handlers, and starts a
+  `@relate/runtime` engine.
 - `relate.as(principal)` returns consumer operations whose names and types are
   inferred from the graph's object registry: `objects.Customer.get`,
   `objects.Customer.query`, `objects.Customer.traverse.invoices`,

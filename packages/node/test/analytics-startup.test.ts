@@ -1,16 +1,21 @@
+import {
+  createAnalyticalConnector,
+  analyticalGraphSchema,
+} from '../../../tests/support/analytical-connector.js';
 import { expect, it, vi } from 'vitest';
 import { createSqlParser } from '@relate/sql-parser';
 import { compile } from 'relate/compiler';
 import { CompileError } from 'relate/diagnostics';
-import { defineApp, computed } from 'relate';
+import { bind, defineApp, computed } from 'relate';
 import { createRuntime, startApp } from '@relate/node';
 import { validateDeclaredCalculations } from '@relate/runtime';
 import { createAnalyticalGraph } from '../../../tests/support/analytical-graph.js';
 
 it('starts an analytical app with the initialized parser and validates denied declarations', async () => {
-  const { graph } = createAnalyticalGraph(
+  const { graph, Events } = createAnalyticalGraph(
     'SELECT COALESCE(SUM(amount), 0) FROM self.events',
   );
+  const connector = createAnalyticalConnector(analyticalGraphSchema());
   const dispose = vi.fn();
   const runtime = await startApp(
     defineApp({
@@ -18,7 +23,7 @@ it('starts an analytical app with the initialized parser and validates denied de
       setup({ onDispose }) {
         onDispose(dispose);
 
-        return { bindings: [] };
+        return { bindings: [bind(Events, connector.table('events'))] };
       },
     }),
   );
@@ -100,10 +105,9 @@ it('reports every invalid declaration with its authored path', async () => {
       },
     },
   };
-  const parser = await createSqlParser();
 
   try {
-    createRuntime({ graph: input, bindings: [], sqlParser: parser });
+    await startApp(defineApp({ graph: input }));
     expect.fail('Expected startup failure');
   } catch (error) {
     expect(error).toBeInstanceOf(CompileError);
@@ -113,20 +117,15 @@ it('reports every invalid declaration with its authored path', async () => {
   }
 });
 
-it('requires initialized parser injection for synchronous analytical runtime construction', async () => {
-  const { graph } = createAnalyticalGraph();
+it('directs synchronous dataset construction to startApp before resource inspection', async () => {
+  const { graph, Events } = createAnalyticalGraph();
+  const connector = createAnalyticalConnector(analyticalGraphSchema());
 
-  expect(() => createRuntime({ graph, bindings: [] })).toThrow(
-    'initialized SQL parser',
-  );
-  const parser = await createSqlParser();
-  const parse = vi.fn(parser.parse);
-  const runtime = createRuntime({
-    graph,
-    bindings: [],
-    sqlParser: { ...parser, parse },
-  });
-
-  expect(parse).toHaveBeenCalledWith('SELECT COUNT(*) FROM self.events');
-  await runtime.close();
+  expect(() =>
+    createRuntime({
+      graph,
+      bindings: [bind(Events, connector.table('events'))],
+    }),
+  ).toThrow('Use startApp');
+  expect(connector.described).toEqual([]);
 });

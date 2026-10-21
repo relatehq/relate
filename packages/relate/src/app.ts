@@ -1,3 +1,4 @@
+import type { DatasetDefinition } from './datasets.js';
 import type { ActionDefinition, ActionImplementation } from './actions.js';
 import type {
   GraphDefinition,
@@ -9,22 +10,55 @@ import type {
   SourceResource,
   SourceConnector,
   ApplicationSourceConnector,
+  ResourceConnection,
+  AnalyticalConnection,
+  AnalyticalResource,
+  DatasetResource,
 } from './connectors.js';
 import type { ActivityCaptureOptions, ObservationStore } from './storage.js';
 
 type Graph = GraphDefinition & { readonly objects: ObjectRegistry };
 
-export type Binding = SourceBinding & { readonly source: SourceDefinition };
+export type SourceAppBinding = SourceBinding & {
+  readonly source: SourceDefinition;
+  /** Original connection identity, shared by every selected resource. */
+  readonly connection?: ResourceConnection;
+};
+
+export interface DatasetBinding {
+  readonly dataset: DatasetDefinition;
+  readonly connection: AnalyticalConnection;
+  readonly connectionId: string;
+  readonly resourceId: string;
+  readonly resource: DatasetResource;
+  readonly columns: Readonly<Record<string, string>>;
+}
+
+export type Binding = SourceAppBinding | DatasetBinding;
 
 type BindingOptions<T = SourceBinding> = T extends SourceBinding
-  ? Omit<T, 'authorization'> & { readonly authorization?: 'shared-service' }
+  ? Omit<T, 'authorization'> & {
+      readonly authorization?: 'shared-service';
+      readonly connection?: ResourceConnection;
+    }
   : never;
+
+/** Bind a dataset to a selected analytical resource; unspecified columns retain their names. */
+export function bind<const D extends DatasetDefinition>(
+  dataset: D,
+  resource: AnalyticalResource,
+  options?: {
+    readonly columns?: Partial<
+      Record<Extract<keyof NoInfer<D>['columns'], string>, string>
+    >;
+  },
+): DatasetBinding;
 
 /** Custom adapters may supply the explicit resource identity and keyed reader. */
 export function bind(
   source: SourceDefinition,
   resource: BindingOptions,
-): Binding;
+): SourceAppBinding;
 
 /** Bind a source contract to a selected resource without opening it. */
 export function bind(
@@ -34,7 +68,7 @@ export function bind(
     readonly authorization?: 'shared-service';
     readonly providerAccountId?: never;
   },
-): Binding;
+): SourceAppBinding;
 
 export function bind(
   source: SourceDefinition,
@@ -43,34 +77,99 @@ export function bind(
     readonly authorization?: 'shared-service';
     readonly providerAccountId: string;
   },
-): Binding;
+): SourceAppBinding;
 
 export function bind(
-  source: SourceDefinition,
-  resource: SourceResource | BindingOptions,
+  source: SourceDefinition | DatasetDefinition,
+  resource: SourceResource | AnalyticalResource | BindingOptions,
   options?: {
     readonly authorization?: 'shared-service';
     readonly providerAccountId?: string;
+    readonly columns?: Readonly<Record<string, string | undefined>>;
   },
 ): Binding {
+  if ('kind' in source) {
+    if (
+      !resource ||
+      typeof resource !== 'object' ||
+      !('bindDataset' in resource) ||
+      typeof resource.bindDataset !== 'function'
+    )
+      throw new Error('Dataset binding requires an analytical resource');
+
+    if (
+      options &&
+      (Object.keys(options).some((key) => key !== 'columns') ||
+        (options.columns !== undefined &&
+          (!options.columns ||
+            typeof options.columns !== 'object' ||
+            Array.isArray(options.columns))))
+    )
+      throw new Error('Dataset binding accepts only a column mapping');
+
+    const overrides = options?.columns ?? {};
+
+    if (
+      Object.keys(overrides).some(
+        (name) => !Object.hasOwn(source.columns, name),
+      )
+    )
+      throw new Error('Unknown declared dataset column in binding');
+
+    const columns = Object.freeze(
+      Object.fromEntries(
+        Object.keys(source.columns).map((name) => {
+          const physical = Object.hasOwn(overrides, name)
+            ? overrides[name]
+            : name;
+
+          if (
+            typeof physical !== 'string' ||
+            !physical.trim() ||
+            physical.includes('\0')
+          )
+            throw new Error(
+              'Dataset physical columns must be nonempty identifiers',
+            );
+
+          return [name, physical];
+        }),
+      ),
+    );
+
+    return Object.freeze({
+      dataset: source,
+      connection: resource.connection,
+      connectionId: resource.connection.connectionId,
+      resourceId: resource.resourceId,
+      columns,
+      resource: resource.bindDataset({ columns }),
+    });
+  }
+
+  if ('bindDataset' in resource && !('bindSource' in resource))
+    throw new Error('Source binding requires a keyed resource');
+
+  const keyed = resource as SourceResource | BindingOptions;
   const binding =
-    'bindSource' in resource
+    'bindSource' in keyed
       ? {
-          connectionId: resource.connection.connectionId,
-          resourceId: resource.resourceId,
-          connector: resource.bindSource({
+          connectionId: keyed.connection.connectionId,
+          connection: keyed.connection,
+          resourceId: keyed.resourceId,
+          connector: keyed.bindSource({
             idField: source.idField,
             fields: Object.keys(source.schema.shape),
           }),
           ...options,
         }
-      : resource;
+      : keyed;
 
   return Object.freeze({
     ...binding,
     source,
     authorization: binding.authorization ?? 'shared-service',
-  }) as Binding;
+  }) as SourceAppBinding;
 }
 
 export interface AppBindings<

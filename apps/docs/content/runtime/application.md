@@ -117,8 +117,16 @@ field access. Invalid SQL, unknown names, incompatible types, named parameters
 and references to other computed properties fail startup with a `CompileError`
 pointing to the authored property. Registered resources are disposed on failure.
 
-For direct `createRuntime` embedding, pass an initialized parser as
-`sqlParser: await createSqlParser()` from `@relate/sql-parser`. Ordinary graphs
-do not need the parser. Analytical object reads and dataset execution are still
-being implemented; selecting a calculation currently returns a `not-supported`
-request issue.
+Graphs containing datasets use `startApp` so it can inspect every physical table
+before returning a runtime. Each dataset needs a binding, such as
+`bind(Events, analytics.table('events'), { columns: { customerId: 'customer_id' } })`.
+Columns not listed in the mapping keep their declared names. Missing columns,
+incompatible logical types or timestamp precision, and nullable columns used for
+non-null declarations fail startup. All registered datasets are checked, even
+when no calculation references them.
+
+`createRuntime` remains synchronous for ordinary graphs. For analytical graphs,
+use `startApp(defineApp({ graph, setup }))`; no separate readiness call is
+needed. Binding and schema validation are implemented, while analytical object
+reads and built-in connector execution are still being developed. Selecting a
+calculation currently returns a `not-supported` request issue.

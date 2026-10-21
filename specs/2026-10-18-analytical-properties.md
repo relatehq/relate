@@ -6,11 +6,12 @@ design review, alongside the findings of the
 [spike (#37)](https://github.com/relatehq/relate/pull/37). Implementation is
 underway in [PR #38](https://github.com/relatehq/relate/pull/38); analytical
 execution is not yet implemented. Shared expression type/dependency resolution
-and Node startup validation of every declared calculation are implemented;
-consumer execution remains pending. [Decisions](#decisions) lists each decision
-with its status, [Open questions](#open-questions) lists what is still undecided
-and which step settles it, and [Revision notes](#revision-notes) record what
-each revision changed.
+and Node startup validation of every declared calculation are implemented.
+Dataset bindings, shared connection identity and startup physical-schema checks
+are implemented; consumer execution remains pending. [Decisions](#decisions)
+lists each decision with its status, [Open questions](#open-questions) lists
+what is still undecided and which step settles it, and
+[Revision notes](#revision-notes) record what each revision changed.
 
 **Reading guide.** Start with the example for caller behavior. [Model](#model),
 [Binding](#binding-and-schema-checks) and [Authorization](#authorization)
@@ -2428,9 +2429,10 @@ Each question names the delivery step that settles it.
    comparison and execution cases remain required before shipping.
 9. **Partly settled in implementation:** `@relate/sql-parser` is a Node package
    dependency, imported and initialized by `startApp` only for graphs with
-   datasets or computed properties. Synchronous `createRuntime` accepts an
-   initialized `sqlParser` for these graphs. The Postgres connector package
-   name remains to be settled during its implementation.
+   datasets or computed properties. Analytical graphs use asynchronous
+   `startApp` so schema inspection completes before the runtime is returned;
+   ordinary graphs retain synchronous `createRuntime`. The Postgres connector
+   package name remains to be settled during its implementation.
 10. **Settled in implementation:** keep `ReadRequest` and `QueryRequest` as
     aliases of `ObjectReadRequest` and `ObjectQueryRequest`. Traversal and
     transaction readers depend on the common controls, so extending object
@@ -2460,9 +2462,10 @@ Each question names the delivery step that settles it.
 
 16. **Settled in implementation:** `computed(...)` authoring types,
     `ComputedPropertyNames<O>` and startup diagnostics are implemented. Startup
-    reports `calculation.invalid-definition` with each authored property path. Preserve the agreed shared execution, scalar-union result typing, no
-    named parameters or computed dependencies, revision and selection rules
-    above. (Contracts, before building either form.)
+    reports `calculation.invalid-definition` with each authored property path.
+    Preserve the agreed shared execution, scalar-union result typing, no named
+    parameters or computed dependencies, revision and selection rules above.
+    (Contracts, before building either form.)
 
 Settled by the spike, from the previous list: the parser's load time and size
 are acceptable and no fallback parser is needed (was 7); identifier rules are

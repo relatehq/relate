@@ -635,6 +635,8 @@ export { bind, defineApp, isAppDefinition } from './app.js';
 
 export type {
   Binding,
+  SourceAppBinding,
+  DatasetBinding,
   AppBindings,
   AppDefinition,
   AppSetupContext,

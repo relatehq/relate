@@ -810,3 +810,25 @@ relationship references or native action write targets. Compilation rejects
 policy/correlation dependencies, and native writes validate only stored
 properties. Calculations are absent from adoption mappings and native stored
 values, so adding a declaration cannot persist an analytical result.
+
+## Dataset resource binding
+
+`bind(Dataset, resource, { columns? })` binds a dataset declaration to an
+`AnalyticalResource`. The optional mapping uses declared column names as keys;
+unspecified physical names default to their declared names. Unknown keys, empty
+or NUL-containing physical names and unsupported options are rejected.
+Identifier text otherwise passes unchanged to the connector, which owns quoting.
+Binding captures and freezes the mapping and does not inspect or execute the
+resource.
+
+`Binding` is the union of `SourceAppBinding` and `DatasetBinding`. A dataset
+binding retains the original definition and connection, connection/resource IDs,
+the opaque connector resource and the frozen mapping. A selected source binding
+also retains its original connection. Explicit custom source bindings can supply
+`connection` when several resource readers share the same configured connection.
+Dataset resources require `bindDataset`; source resources require `bindSource`.
+A resource can implement both capabilities.
+
+Node `startApp` checks registrations, capabilities, connection identity and
+physical-schema compatibility before returning a runtime. These binding
+contracts do not yet enable analytical object reads.

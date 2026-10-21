@@ -3,10 +3,43 @@
 ## Call Signature
 
 ```ts
-function bind(source, resource): Binding;
+function bind<D>(
+   dataset,
+   resource,
+   options?
+): DatasetBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:24](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L24)
+Defined in: [packages/relate/src/app.ts:47](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L47)
+
+Bind a dataset to a selected analytical resource; unspecified columns retain their names.
+
+### Type Parameters
+
+| Type Parameter |
+| ------ |
+| `D` *extends* `DatasetDefinition`\<`Readonly`\<`Record`\<`string`, `DatasetColumn`\<`ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>\>\>\>\> |
+
+### Parameters
+
+| Parameter | Type |
+| ------ | ------ |
+| `dataset` | `D` |
+| `resource` | `AnalyticalResource` |
+| `options?` | \{ `columns?`: `Partial`\<`Record`\<`Extract`\<keyof `NoInfer`\<`D`\>\[`"columns"`\], `string`\>, `string`\>\>; \} |
+| `options.columns?` | `Partial`\<`Record`\<`Extract`\<keyof `NoInfer`\<`D`\>\[`"columns"`\], `string`\>, `string`\>\> |
+
+### Returns
+
+`DatasetBinding`
+
+## Call Signature
+
+```ts
+function bind(source, resource): SourceAppBinding;
+```
+
+Defined in: [packages/relate/src/app.ts:58](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L58)
 
 Custom adapters may supply the explicit resource identity and keyed reader.
 
@@ -15,11 +48,11 @@ Custom adapters may supply the explicit resource identity and keyed reader.
 | Parameter | Type |
 | ------ | ------ |
 | `source` | `SourceDefinition` |
-| `resource` | \| `Omit`\<`BindingOptions` & \{ `connector`: `SourceConnector`; `providerAccountId`: `string`; \}, `"authorization"`\> & \{ `authorization?`: `"shared-service"`; \} \| `Omit`\<`BindingOptions` & \{ `connector`: `ApplicationSourceConnector`; `providerAccountId?`: `undefined`; \}, `"authorization"`\> & \{ `authorization?`: `"shared-service"`; \} |
+| `resource` | \| `Omit`\<`BindingOptions` & \{ `connector`: `SourceConnector`; `providerAccountId`: `string`; \}, `"authorization"`\> & \{ `authorization?`: `"shared-service"`; `connection?`: `ResourceConnection`; \} \| `Omit`\<`BindingOptions` & \{ `connector`: `ApplicationSourceConnector`; `providerAccountId?`: `undefined`; \}, `"authorization"`\> & \{ `authorization?`: `"shared-service"`; `connection?`: `ResourceConnection`; \} |
 
 ### Returns
 
-`Binding`
+`SourceAppBinding`
 
 ## Call Signature
 
@@ -28,10 +61,10 @@ function bind(
    source,
    resource,
    options?
-): Binding;
+): SourceAppBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:30](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L30)
+Defined in: [packages/relate/src/app.ts:64](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L64)
 
 Bind a source contract to a selected resource without opening it.
 
@@ -47,7 +80,7 @@ Bind a source contract to a selected resource without opening it.
 
 ### Returns
 
-`Binding`
+`SourceAppBinding`
 
 ## Call Signature
 
@@ -56,12 +89,12 @@ function bind(
    source,
    resource,
    options
-): Binding;
+): SourceAppBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:39](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L39)
+Defined in: [packages/relate/src/app.ts:73](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L73)
 
-Custom adapters may supply the explicit resource identity and keyed reader.
+Bind a dataset to a selected analytical resource; unspecified columns retain their names.
 
 ### Parameters
 
@@ -75,4 +108,4 @@ Custom adapters may supply the explicit resource identity and keyed reader.
 
 ### Returns
 
-`Binding`
+`SourceAppBinding`

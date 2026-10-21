@@ -62,21 +62,51 @@ read. Invalid SQL, names, scalar types, named parameters and computed
 dependencies fail with structured `CompileError` issues identifying the authored
 property. Startup failure runs the registered disposal callbacks.
 
-Direct synchronous embedding supplies an already initialized parser:
+Analytical graphs use `startApp` because physical-schema inspection is
+asynchronous. `createRuntime` remains synchronous for ordinary graphs and
+rejects analytical graphs with guidance to use `startApp`. The initialized
+parser is an internal startup dependency, not an application readiness handle.
 
-```ts
-import { createSqlParser } from '@relate/sql-parser';
+## Dataset bindings and physical schemas
 
-const runtime = createRuntime({
-  graph,
-  bindings: [],
-  sqlParser: await createSqlParser(),
-});
+`bind(Events, connection.table('events'), { columns: { customerId: 'customer_id' } })`
+retains the selected analytical resource and its original connection. Unmapped
+columns keep their declared names. Every registered dataset requires exactly one
+binding, using the registered definition instance. Unregistered bindings,
+unsupported capabilities, invalid identities and conflicting connection
+instances with the same `connectionId` fail startup before schema inspection.
+Selected source and dataset resources can share one connection object.
+
+Node creates one statement queue per analytical connection, shared by all its
+dataset bindings. Every startup inspects every bound dataset through the
+connector's `describe`, including unused datasets. Each declared column must be
+present and advertise its exact logical type and timestamp precision. A
+non-nullable declaration cannot use a nullable physical column; a nullable
+declaration can use a non-nullable physical column. Inspection does not scan
+rows. Driver failures retain their cause internally and expose a sanitized
+startup message. Schema mismatches identify the declared dataset and column.
+
+The runtime stays private until these asynchronous checks complete. Failure
+retires its queues and releases app resources; close retires queues before
+waiting for operations and before application disposal. Supplied connections
+remain owned by application setup, so multiple dataset bindings do not cause
+multiple connection closes. Explicit custom source bindings may supply
+`connection` to establish shared ownership; otherwise their keyed connector
+object is their identity for conflict detection.
+
+```mermaid
+flowchart LR
+  Setup[App setup and bind] --> Validate[Validate definitions and connection identities]
+  Validate --> Queues[One queue per analytical connection]
+  Queues --> Describe[Inspect every physical dataset schema]
+  Describe --> Runtime[Return fully started runtime]
+  Runtime --> Close[Retire queues and drain operations]
+  Close --> Dispose[Application disposes owned connections]
 ```
 
-This validates declarations; analytical object reads and dataset bindings are
-still being implemented. Selecting a readable calculation currently fails with
-`not-supported`, as described in the runtime contract.
+Binding and schema checks are implemented. Analytical object reads and built-in
+analytical connector execution remain in progress; selecting a calculation
+currently fails with `not-supported`.
 
 ## Actor-bound discovery
 
