@@ -15,9 +15,13 @@ Connectors do not own your business objects, property mappings, or policies.
 All three read known record IDs. Enumeration, synchronization, webhooks, and
 provider writes are not implemented. SQLite here is a source; the
 [Postgres store](../deployment/postgres.md) separately persists Relate's state.
-For analytical datasets, SQLite and the
-[PostgreSQL analytical connector](../../../../connectors/postgres/README.md)
-execute authorized aggregate plans. PostgreSQL dataset bindings use
+For analytical datasets, SQLite, the
+[PostgreSQL analytical connector](../../../../connectors/postgres/README.md),
+and the opt-in
+[DuckDB analytical connector](../../../../connectors/duckdb/README.md) execute
+authorized aggregate plans. DuckDB reads existing local database files; its
+native binary is installed only with `@relate/connector-duckdb`. PostgreSQL
+dataset bindings use
 `bind(Events, analytics.table('events', { schema: 'reporting' }))`; this
 connector does not implement keyed source reads.
 

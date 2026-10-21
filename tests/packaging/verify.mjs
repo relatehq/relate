@@ -18,6 +18,7 @@ const packages = [
   'packages/node',
   'connectors/sqlite',
   'connectors/postgres',
+  'connectors/duckdb',
   'connectors/stripe',
   'connectors/salesforce',
   'apps/inspector',
@@ -137,6 +138,9 @@ console.log('Portable app and connector contracts work without Node host or runt
 
   process.stdout.write(portableResult.stdout);
 
+  const duckdbPackage = dependencies['@relate/connector-duckdb'];
+
+  delete dependencies['@relate/connector-duckdb'];
   const consumer = join(temp, 'consumer');
 
   await mkdir(consumer);
@@ -153,6 +157,32 @@ console.log('Portable app and connector contracts work without Node host or runt
       '--no-audit',
       '--no-fund',
     ],
+    { cwd: consumer },
+  );
+  const lock = JSON.parse(
+    await readFile(join(consumer, 'package-lock.json'), 'utf8'),
+  );
+
+  assert.ok(
+    !Object.keys(lock.packages).some((name) => name.includes('@duckdb/')),
+  );
+  await execFile(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
+    import assert from 'node:assert/strict';
+    await import('@relate/node');
+    await assert.rejects(import('@duckdb/node-api'), { code: 'ERR_MODULE_NOT_FOUND' });
+  `,
+    ],
+    { cwd: consumer },
+  );
+  console.log('Installed Node host has no DuckDB dependency or binary.');
+  await execFile(
+    'npm',
+    ['install', '--ignore-scripts', '--no-audit', '--no-fund', duckdbPackage],
     { cwd: consumer },
   );
   await writeFile(
@@ -259,6 +289,35 @@ console.log('Installed Node host validates analytical startup and executes compu
         cwd: consumer,
       })
     ).stdout,
+  );
+  const duckdbSmoke = (
+    await readFile(join(consumer, 'analytics-startup-smoke.mjs'), 'utf8')
+  )
+    .replace(
+      "import { sqlite } from '@relate/connector-sqlite';",
+      `import { sqlite } from '@relate/connector-sqlite';
+import { duckdb } from '@relate/connector-duckdb';
+import { DuckDBInstance } from '@duckdb/node-api';
+const db = await DuckDBInstance.create('analytics.duckdb');
+const writer = await db.connect();
+await writer.run("CREATE TABLE events(customer_id VARCHAR NOT NULL); INSERT INTO events VALUES ('1'),('1')");
+writer.closeSync(); db.closeSync();`,
+    )
+    .replace(
+      '  onDispose(() => connection.close());',
+      `  onDispose(() => connection.close());
+  const analytical = duckdb({ connectionId: 'duckdb', path: 'analytics.duckdb' });
+  onDispose(() => analytical.close());`,
+    )
+    .replace(
+      "bind(Events, connection.table('events')",
+      "bind(Events, analytical.table('events')",
+    );
+
+  await writeFile(join(consumer, 'duckdb-smoke.mjs'), duckdbSmoke);
+  process.stdout.write(
+    (await execFile(process.execPath, ['duckdb-smoke.mjs'], { cwd: consumer }))
+      .stdout,
   );
   const program = `
 import assert from 'node:assert/strict';

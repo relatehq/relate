@@ -16,6 +16,10 @@ export const packagePolicies: Record<
     imports: ['@relate/connector-salesforce', 'zod'],
     builtins: true,
   },
+  'connectors/duckdb': {
+    imports: ['relate/connectors', 'relate/analytics', '@duckdb/node-api'],
+    builtins: ['node:path', 'node:child_process'],
+  },
   'connectors/postgres': {
     imports: ['relate/connectors', 'relate/analytics', 'pg'],
   },
