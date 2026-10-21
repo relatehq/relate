@@ -44,6 +44,12 @@ created and what changes for someone using the product.
   user-visible change, say so and explain the concrete maintenance or
   reliability reason without inventing a product benefit.
 
+## Fixing review comments
+
+When fixing review comments, fix the nits too, not just the bugs. Skip a
+comment only when the owner says to, or when it is wrong; say which ones were
+skipped and why.
+
 ## Worktrees
 
 When asked to do work in a new worktree, or to work on several features in
