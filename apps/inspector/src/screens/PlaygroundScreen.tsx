@@ -8,7 +8,7 @@
  * A run goes to `relate dev`, which executes the code exactly as the MCP
  * `execute` tool does and records it in Activity.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { inspectorBaseUrl } from '../connection/client.js';
 import { createPlaygroundClient } from '../connection/playground.js';
 import { effectivePrincipal } from '../connection/store.js';
@@ -21,7 +21,7 @@ import { checkCode, runDiagnostics } from '../playground/checks.js';
 import { Editor } from '../playground/Editor.js';
 import type { EditorHandle, FieldType } from '../playground/Editor.js';
 import { objectNames, objectOf } from '../playground/model.js';
-import { Results, recordsOf } from '../playground/Results.js';
+import { Results, recordsOf, resultObjectOf } from '../playground/Results.js';
 import type { RunState } from '../playground/Results.js';
 import { SchemaTree } from '../playground/SchemaTree.js';
 import { objectAt } from '../playground/source.js';
@@ -124,11 +124,15 @@ function Playground(props: {
     [props.graphId, firstObject],
   );
   const tab = tabs.tabs.find((t) => t.id === tabs.active)!;
-  const [cursor, setCursor] = useState(0);
+  // The object at the cursor; a cursor move re-renders only when it changes.
+  const [focus, setFocus] = useState<string | null>(null);
   const [run, setRun] = useState<RunState>({ state: 'idle' });
   const [ranCode, setRanCode] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const editor = useRef<EditorHandle | null>(null);
+
+  // Leaving the page ends a run still in flight, and its child process.
+  useEffect(() => () => abort.current?.abort(), []);
 
   // A run belongs to the tab it ran in.
   useEffect(() => {
@@ -165,12 +169,16 @@ function Playground(props: {
   }, [done]);
   const errors = problems.filter((p) => p.severity === 'error').length;
   const warnings = problems.length - errors;
-  const focus = objectAt(tab.code, cursor);
-  // Headers type the object the code read last.
-  const resultObject = objectOf(ready, done?.reads.at(-1)?.object ?? null);
+  const resultObject = objectOf(ready, done ? resultObjectOf(done) : null);
+  const cancel = useCallback(() => abort.current?.abort(), []);
+  const insert = useCallback(
+    (text: string) => editor.current?.insert(text),
+    [],
+  );
 
   const start = async () => {
-    if (run.state === 'running') return;
+    // The shortcut obeys the same rule as the Run button.
+    if (run.state === 'running' || discovery.state !== 'ready') return;
 
     const controller = new AbortController();
     const code = tab.code;
@@ -262,7 +270,7 @@ function Playground(props: {
                 : null
           }
           focus={focus}
-          onInsert={(text) => editor.current?.insert(text)}
+          onInsert={insert}
         />
         <div className="pg-main">
           <div className="pg-editor-pane">
@@ -273,7 +281,7 @@ function Playground(props: {
               problems={problems}
               fieldTypes={fieldTypes}
               onChange={(code) => actions.edit(tab.id, code)}
-              onCursor={setCursor}
+              onCursor={(code, pos) => setFocus(objectAt(code, pos))}
               onRun={() => void start()}
               handle={(handle) => {
                 editor.current = handle;
@@ -304,11 +312,7 @@ function Playground(props: {
               </span>
             </div>
           </div>
-          <Results
-            run={run}
-            object={resultObject}
-            onCancel={() => abort.current?.abort()}
-          />
+          <Results run={run} object={resultObject} onCancel={cancel} />
         </div>
       </div>
     </div>

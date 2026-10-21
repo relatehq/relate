@@ -98,14 +98,36 @@ function read(graphId: string, object: string | null): Tabs {
   return value;
 }
 
-function write(graphId: string, value: Tabs): void {
-  loaded.set(graphId, value);
+/** Typing updates tabs at once; storage is written after a pause, or on leaving. */
+const saveDelayMs = 400;
+const unsaved = new Map<string, ReturnType<typeof setTimeout>>();
+
+function save(graphId: string): void {
+  clearTimeout(unsaved.get(graphId));
+  unsaved.delete(graphId);
+
+  const value = loaded.get(graphId);
+
+  if (!value) return;
 
   try {
     globalThis.localStorage?.setItem(key(graphId), JSON.stringify(value));
   } catch {
     // Storage is a convenience; the tabs still work on this page.
   }
+}
+
+globalThis.addEventListener?.('pagehide', () => {
+  for (const graphId of [...unsaved.keys()]) save(graphId);
+});
+
+function write(graphId: string, value: Tabs): void {
+  loaded.set(graphId, value);
+  clearTimeout(unsaved.get(graphId));
+  unsaved.set(
+    graphId,
+    setTimeout(() => save(graphId), saveDelayMs),
+  );
 
   for (const listener of [...listeners]) listener();
 }

@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { checkCode, runDiagnostics } from '../src/playground/checks.js';
 import { describeSql, suggest } from '../src/playground/completion.js';
 import { datasetsOf } from '../src/playground/model.js';
+import { resultObjectOf } from '../src/playground/Results.js';
 import {
   callContext,
   graphCalls,
@@ -373,4 +374,110 @@ it('describes a column under the cursor in SQL', () => {
     detail: 'string?',
     note: 'Not readable as ana.',
   });
+});
+
+it('ignores graph calls in comments and strings', () => {
+  const discovery = createDiscovery();
+  const text = `// graph.objects.OldName.query({ limit: 5 })
+/* graph.objects.Gone.query({}) */
+const note = 'graph.objects.Nope.query({})';
+const sql = \`not code: sql: \\\`x\\\`\`;
+return graph.objects.Invoice.query({});`;
+
+  expect(graphCalls(text).map((call) => call.object)).toEqual(['Invoice']);
+  expect(checkCode(text, discovery)).toEqual([]);
+  expect(objectAt(text, 0)).toBe('Invoice');
+});
+
+it('places the object span on the name, even when it occurs inside "objects"', () => {
+  const text = 'graph.objects . s . query({})';
+  const [call] = graphCalls(text);
+
+  expect(text.slice(call!.objectSpan.from, call!.objectSpan.to)).toBe('s');
+  expect(call!.objectSpan.from).toBe(text.indexOf(' s ') + 1);
+});
+
+it('counts SQL locations in the source as written, escapes included', () => {
+  const text =
+    "graph.objects.Customer.query({ compute: { n: { sql: `SELECT COUNT(*) FROM self.events AS e WHERE e.note = 'a\\\\b' AND e.occuredAt > $since` } } })";
+  const template = sqlTemplates(text)[0]!;
+  const sql = text.slice(template.contentFrom, template.contentTo);
+
+  const [problem] = runDiagnostics(text, [
+    {
+      operation: 'Customer.query',
+      code: 'invalid-request',
+      issues: [
+        {
+          path: ['compute', 'n', 'sql'],
+          problem: 'unknown-property',
+          message: 'Unknown column',
+          location: {
+            start: sql.indexOf('occuredAt'),
+            end: sql.indexOf('occuredAt') + 9,
+          },
+        },
+      ],
+    },
+  ]);
+
+  expect(text.slice(problem!.from, problem!.to)).toBe('occuredAt');
+});
+
+it('neither accepts nor offers a property discovery lists no filter operators for', () => {
+  const discovery = createDiscovery();
+  const customer = discovery.objects.Customer!;
+  const withHidden = {
+    ...discovery,
+    objects: {
+      ...discovery.objects,
+      Customer: {
+        ...customer,
+        properties: [
+          ...customer.properties,
+          {
+            definitionId: 'customer.notes',
+            name: 'notes',
+            kind: 'value',
+            schema: { type: 'string', optional: false, nullable: false },
+            filterOperators: [],
+          },
+        ],
+      },
+    },
+  };
+  const text = `graph.objects.Customer.query({ where: { notes: 'x' } })`;
+  const keys = at(`graph.objects.Customer.query({ where: { | } })`);
+  const operators = at(
+    `graph.objects.Customer.query({ where: { notes: { | } } })`,
+  );
+
+  expect(checkCode(text, withHidden).map((p) => p.message)).toEqual([
+    'notes is not a filterable property of Customer for ana.',
+  ]);
+  expect(labels(suggest(keys.text, keys.pos, withHidden))).not.toContain(
+    'notes',
+  );
+  expect(labels(suggest(operators.text, operators.pos, withHidden))).toEqual(
+    [],
+  );
+});
+
+it('types result headers from the read that returned the records', () => {
+  const run = {
+    requestId: 'r1',
+    principal: 'ana',
+    status: 'succeeded' as const,
+    result: { data: [{ id: 'a-1', data: {}, meta: {} }], meta: {} },
+    logs: [],
+    ms: 1,
+    reads: [
+      { object: 'Customer', operation: 'query' as const, ids: ['a-1'] },
+      { object: 'Invoice', operation: 'query' as const, ids: ['i-1'] },
+    ],
+    errors: [],
+  };
+
+  expect(resultObjectOf(run)).toBe('Customer');
+  expect(resultObjectOf({ ...run, reads: run.reads.slice(1) })).toBeNull();
 });

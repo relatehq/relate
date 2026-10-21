@@ -72,6 +72,14 @@ export function acceptedOptions(
 export const isComputed = (property: PlaygroundProperty): boolean =>
   property.kind === 'computed' || property['computed'] === true;
 
+/**
+ * Whether `where` accepts the property: discovery lists its operators. Today
+ * every readable property is filterable; a declared computed property may be
+ * listed without operators and is filtered by its result type.
+ */
+export const isFilterable = (property: PlaygroundProperty): boolean =>
+  (property.filterOperators?.length ?? 0) > 0 || isComputed(property);
+
 /** A short type label for a property: `string`, `timestamp`, `number?`. */
 export function propertyType(property: PlaygroundProperty): string {
   const logical = property['type'];

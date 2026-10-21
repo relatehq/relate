@@ -39,8 +39,8 @@ import {
   truncate,
   type ActivityLog,
 } from './activity/index.js';
+import { bindingUnavailable } from './mcp.js';
 import type { RuntimeBinding } from './runtime-binding.js';
-import { RuntimeUnavailableError } from './runtime-controller.js';
 import type { Sessions } from './session.js';
 
 export interface PlaygroundOptions {
@@ -79,19 +79,50 @@ export class PlaygroundRequestError extends Error {
 /** Operations that read objects; failures of these carry request issues. */
 const reads = ['get', 'query', 'traverse'] as const;
 
+/** IDs kept per read, enough to recognize which read a returned page came from. */
+const readIdLimit = 200;
+
+/** The IDs of the records a read returned: a page, or one found object. */
+function returnedIds(value: unknown): string[] {
+  const result = value as { data?: unknown; status?: unknown; id?: unknown };
+
+  if (Array.isArray(result?.data))
+    return result.data
+      .slice(0, readIdLimit)
+      .flatMap((record: { id?: unknown }) =>
+        typeof record?.id === 'string' ? [record.id] : [],
+      );
+
+  return result?.status === 'ok' && typeof result.id === 'string'
+    ? [result.id]
+    : [];
+}
+
 /**
  * The same operations, recording each object read and each `ReadError` with
  * its issues. Errors are rethrown unchanged: the code sees what it would see
- * anywhere else.
+ * anywhere else. A read is recorded under the object its records belong to:
+ * the traversal's target for `traverse`.
  */
 function captureReads(
   operations: ConsumerOperations,
-  apiNames: ReadonlyMap<string, string>,
+  description: RuntimeBinding['description'],
   record: {
     readonly reads: PlaygroundRead[];
     readonly errors: PlaygroundOperationError[];
   },
 ): ConsumerOperations {
+  const routes = Object.entries(description.objects) as [
+    string,
+    {
+      readonly definitionId: string;
+      readonly traversals: Readonly<
+        Record<string, { readonly target: string }>
+      >;
+    },
+  ][];
+  const apiName = (definitionId: string) =>
+    routes.find(([, route]) => route.definitionId === definitionId)?.[0];
   const wrapped = { ...operations } as Record<string, unknown>;
 
   for (const operation of reads) {
@@ -100,16 +131,27 @@ function captureReads(
     ) => Promise<unknown>;
 
     wrapped[operation] = async (...args: unknown[]) => {
-      const object = apiNames.get(String(args[0])) ?? String(args[0]);
-
-      record.reads.push({ object, operation });
+      const source = apiName(String(args[0])) ?? String(args[0]);
+      const object =
+        operation === 'traverse'
+          ? routes.find(([name]) => name === source)?.[1].traversals[
+              String(args[2])
+            ]?.target
+          : source;
 
       try {
-        return await inner(...args);
+        const value = await inner(...args);
+
+        if (object)
+          record.reads.push({ object, operation, ids: returnedIds(value) });
+
+        return value;
       } catch (error) {
         if (error instanceof ReadError)
           record.errors.push({
-            operation: error.operation ?? `${object}.${operation}`,
+            operation:
+              error.operation ??
+              `${source}.${operation}${operation === 'traverse' ? `.${String(args[2])}` : ''}`,
             code: error.code,
             issues: error.issues.map((issue) => ({ ...issue })),
           });
@@ -152,17 +194,10 @@ export function createPlayground(options: PlaygroundOptions): Playground {
     try {
       return await options.runtime.binding(principal);
     } catch (error) {
-      if (error instanceof RuntimeUnavailableError)
-        throw new PlaygroundRequestError(503, error.message, error.retryable);
+      // The same public reasons /mcp gives; nothing else reaches the page.
+      const failure = bindingUnavailable(error);
 
-      if (error instanceof ReadError && error.code === 'runtime-retired')
-        throw new PlaygroundRequestError(
-          503,
-          'The runtime restarted while binding; retry',
-          true,
-        );
-
-      throw error;
+      throw new PlaygroundRequestError(503, failure.message, failure.retryable);
     }
   };
 
@@ -204,14 +239,20 @@ export function createPlayground(options: PlaygroundOptions): Playground {
         if (!(error instanceof PlaygroundRequestError) || error.status === 404)
           throw error;
 
-        options.activity.record({
-          kind: 'call',
+        const unbound = {
+          kind: 'call' as const,
           requestId,
           runtimeId: null,
-          source: 'inspector-playground',
+          source: 'inspector-playground' as const,
           principal,
-          tool: 'execute',
+          tool: 'execute' as const,
           at,
+        };
+
+        // The log opens an entry only on a start, so record one before the failure.
+        options.activity.record({ ...unbound, status: 'running' });
+        options.activity.record({
+          ...unbound,
           status: 'failed',
           ms: performance.now() - started,
           error: truncate(error.message, activityLimits.preview).text,
@@ -264,7 +305,11 @@ export function createPlayground(options: PlaygroundOptions): Playground {
           transport: 'embedded',
         },
         (context: OperationContext) =>
-          captureReads(binding.operationsFor(context), apiNames, captured),
+          captureReads(
+            binding.operationsFor(context),
+            binding.description,
+            captured,
+          ),
       );
 
       options.activity.record({ ...call, status: 'running' });

@@ -582,7 +582,11 @@ export const playgroundDiscoverySchema = z.strictObject({
 
 export const playgroundRunRequestSchema = z.strictObject({
   principal: text,
-  code: z.string().trim().min(1).max(PLAYGROUND_CODE_LIMIT),
+  // Validated, not trimmed: the code runs exactly as the editor shows it.
+  code: z
+    .string()
+    .max(PLAYGROUND_CODE_LIMIT)
+    .refine((code) => code.trim().length > 0, 'Write some code to run'),
 });
 
 const requestIssueSchema = z.looseObject({
@@ -599,10 +603,15 @@ export const playgroundOperationErrorSchema = z.strictObject({
   issues: z.array(requestIssueSchema).readonly(),
 });
 
-/** One object read the code made, in order: `Customer.query`. */
+/**
+ * One successful object read the code made, in order. `object` is the type of
+ * the records returned (a traversal's target), and `ids` the first returned
+ * record IDs, so the page can tell which read a returned result came from.
+ */
 export const playgroundReadSchema = z.strictObject({
   object: z.string(),
   operation: z.enum(['get', 'query', 'traverse']),
+  ids: z.array(z.string()).readonly(),
 });
 
 const runCommon = {

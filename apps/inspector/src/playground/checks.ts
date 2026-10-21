@@ -18,7 +18,7 @@ import type {
 } from '../protocol.js';
 import {
   acceptedOptions,
-  isComputed,
+  isFilterable,
   objectNames,
   objectOf,
   type ReadOperation,
@@ -188,9 +188,18 @@ function checkCall(call: GraphCall, discovery: PlaygroundDiscovery): Problem[] {
         continue;
       }
 
+      if (!isFilterable(property)) {
+        problems.push({
+          ...entry.keySpan,
+          severity: 'error',
+          message: `${entry.key} is not a filterable property of ${call.object} for ${discovery.principal}.`,
+        });
+        continue;
+      }
+
       const operators = property.filterOperators;
 
-      if (entry.value.kind === 'object' && operators && !isComputed(property))
+      if (entry.value.kind === 'object' && operators?.length)
         for (const operator of entry.value.entries)
           if (operator.key !== null && !operators.includes(operator.key))
             problems.push({
@@ -324,8 +333,11 @@ export function runDiagnostics(
       if (!target) continue;
 
       const { node } = target;
+      // Locations count characters of the SQL as written, escapes included.
       const location = sqlOffset(
-        node?.kind === 'string' ? node.value : '',
+        node?.kind === 'string'
+          ? text.slice(node.contentFrom, node.contentTo)
+          : '',
         (issue as Record<string, unknown>)['location'],
       );
 

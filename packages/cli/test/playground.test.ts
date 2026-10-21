@@ -11,7 +11,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAdaptorServer } from '@hono/node-server';
 import { afterEach, expect, it } from 'vitest';
+import { ReadError } from '@relate/protocol';
+import type { ConsumerOperations } from '@relate/protocol';
+import type { CodeExecutor } from '@relate/mcp';
 import {
+  PlaygroundRequestError,
   Supervisor,
   createActivityLog,
   createDevServer,
@@ -19,9 +23,10 @@ import {
   createRuntimeController,
   createSessions,
 } from '@relate/cli';
-import type { ActivityLog } from '@relate/cli';
+import type { ActivityLog, RuntimeBinding } from '@relate/cli';
 import {
   playgroundDiscoverySchema,
+  playgroundRunRequestSchema,
   playgroundRunSchema,
 } from '@relate/inspector/protocol';
 import type {
@@ -237,7 +242,7 @@ return page;`,
     principal: 'alice',
     result: { data: [], meta: { exhausted: true } },
     logs: [{ stream: 'stdout', text: 'notes 0\n' }],
-    reads: [{ object: 'Note', operation: 'query' }],
+    reads: [{ object: 'Note', operation: 'query', ids: [] }],
     errors: [],
   });
 
@@ -325,4 +330,156 @@ it('refuses runs that do not come from the inspector page', async () => {
   expect(unknown.status).toBe(404);
   expect(empty.status).toBe(400);
   expect(harness.activity.snapshot()).toEqual([]);
+});
+
+/**
+ * A binding with Account and Note, where `Account.notes` traverses to Note,
+ * over operations that answer from fixed records. No runtime host.
+ */
+function createFakeBinding(): RuntimeBinding {
+  const page = (ids: string[]) => ({
+    data: ids.map((id) => ({ id, data: {}, meta: {} })),
+    meta: { exhausted: true },
+  });
+  const operations = {
+    discovery: {
+      describe: () => ({ objects: {} }),
+      describeObject: () => undefined,
+      describeAction: () => undefined,
+    },
+    get: async () => ({ status: 'not-found' }),
+    query: async (definitionId: string) =>
+      definitionId === 'crm.account'
+        ? page(['account-1'])
+        : Promise.reject(
+            new ReadError('invalid-request', {
+              operation: 'Note.query',
+              issues: [
+                { path: ['bogus'], problem: 'unknown-option', message: 'x' },
+              ],
+            }),
+          ),
+    traverse: async () => page(['note-1', 'note-2']),
+    invoke: async () => {
+      throw new Error('not used');
+    },
+    getReceipt: async () => {
+      throw new Error('not used');
+    },
+  } as unknown as ConsumerOperations;
+
+  return {
+    runtimeId: 'runtime-1',
+    definitionRevision: 'sha256:1',
+    principal: 'alice',
+    description: {
+      objects: {
+        Account: {
+          definitionId: 'crm.account',
+          traversals: { notes: { cardinality: 'many', target: 'Note' } },
+        },
+        Note: { definitionId: 'crm.note', traversals: {} },
+      },
+      actions: {},
+    } as unknown as RuntimeBinding['description'],
+    operations,
+    operationsFor: () => operations,
+  };
+}
+
+/** Runs `script` against the injected operations instead of user code. */
+function scriptedExecutor(
+  script: (operations: ConsumerOperations, code: string) => Promise<unknown>,
+): CodeExecutor {
+  return {
+    async execute({ code, graph }) {
+      try {
+        return {
+          status: 'succeeded',
+          result: (await script(graph.operations, code)) as never,
+          logs: [],
+        };
+      } catch {
+        return {
+          status: 'failed',
+          error: { name: 'ReadError', message: 'failed' },
+          logs: [],
+        };
+      }
+    },
+  };
+}
+
+it('records a traversal under its target object, with the returned IDs', async () => {
+  const playground = createPlayground({
+    runtime: { binding: async () => createFakeBinding() },
+    principals: () => ({ names: ['alice'] }),
+    activity: createActivityLog(),
+    executor: scriptedExecutor(async (operations) => {
+      await operations.query('crm.account', {});
+      await operations.query('crm.note', {}).catch(() => {});
+
+      return operations.traverse('crm.account', 'account-1', 'notes', {});
+    }),
+  });
+
+  const run = await playground.run('alice', 'return 1;');
+
+  expect(run.reads).toEqual([
+    { object: 'Account', operation: 'query', ids: ['account-1'] },
+    { object: 'Note', operation: 'traverse', ids: ['note-1', 'note-2'] },
+  ]);
+  expect(run.errors).toEqual([
+    {
+      operation: 'Note.query',
+      code: 'invalid-request',
+      issues: [{ path: ['bogus'], problem: 'unknown-option', message: 'x' }],
+    },
+  ]);
+});
+
+it('runs the code exactly as written', async () => {
+  const code = '\n\n  return 1;\n';
+  const playground = createPlayground({
+    runtime: { binding: async () => createFakeBinding() },
+    principals: () => ({ names: ['alice'] }),
+    activity: createActivityLog(),
+    executor: scriptedExecutor(async (_operations, received) => received),
+  });
+
+  expect(() =>
+    playgroundRunRequestSchema.parse({ principal: 'alice', code: '  \n ' }),
+  ).toThrow();
+  expect(
+    playgroundRunRequestSchema.parse({ principal: 'alice', code }).code,
+  ).toBe(code);
+  expect(await playground.run('alice', code)).toMatchObject({ result: code });
+});
+
+it('reports any binding failure as unavailable, and records the run', async () => {
+  const activity = createActivityLog();
+  const playground = createPlayground({
+    runtime: {
+      binding: async () => {
+        throw new Error(
+          'The runtime host returned an invalid discovery snapshot',
+        );
+      },
+    },
+    principals: () => ({ names: ['alice'] }),
+    activity,
+  });
+
+  await expect(playground.discovery('alice')).rejects.toMatchObject({
+    constructor: PlaygroundRequestError,
+    status: 503,
+    message: expect.stringContaining('invalid discovery snapshot'),
+  });
+  expect(await playground.run('alice', 'return 1;')).toMatchObject({
+    status: 'failed',
+    error: { code: 'binding-unavailable' },
+  });
+  expect(activity.snapshot()).toMatchObject([
+    { kind: 'call', source: 'inspector-playground', status: 'failed' },
+  ]);
 });

@@ -3,7 +3,7 @@
  * field names. The object the cursor's query uses opens and is marked; any
  * object can be opened by hand. Clicking a field inserts its name.
  */
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { PlaygroundDiscovery } from '../protocol.js';
 import { Icon } from '../icons.js';
@@ -53,7 +53,7 @@ function Field(props: {
   );
 }
 
-export function SchemaTree(props: {
+export const SchemaTree = memo(function SchemaTree(props: {
   readonly discovery: PlaygroundDiscovery | null;
   readonly loading: string | null;
   /** The object of the query at the cursor. */
@@ -229,4 +229,4 @@ export function SchemaTree(props: {
       </div>
     </aside>
   );
-}
+});

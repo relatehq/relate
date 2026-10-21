@@ -17,6 +17,7 @@ import {
   columnType,
   datasetsOf,
   isComputed,
+  isFilterable,
   objectNames,
   objectOf,
   propertyType,
@@ -525,7 +526,7 @@ function sdkSuggestions(
     return {
       from,
       options: [
-        ...object.properties.map((p): Suggestion => ({
+        ...object.properties.filter(isFilterable).map((p): Suggestion => ({
           label: p.name,
           type: 'property',
           detail: propertyType(p),
@@ -542,14 +543,8 @@ function sdkSuggestions(
 
   if (path[0] === 'where' && path.length === 2) {
     const property = object.properties.find((p) => p.name === path[1]);
-    const operators = property?.filterOperators ?? [
-      'eq',
-      'in',
-      'gt',
-      'gte',
-      'lt',
-      'lte',
-    ];
+    // Only what discovery lists; never a guessed operator.
+    const operators = property?.filterOperators ?? [];
 
     return {
       from,

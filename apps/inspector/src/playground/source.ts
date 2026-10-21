@@ -67,6 +67,52 @@ export interface SqlTemplate {
 
 class Incomplete extends Error {}
 
+/**
+ * The text with comments and string literals blanked to spaces, newlines
+ * kept, so offsets still match. Calls and keys are found in this, never in
+ * commented-out code or inside a string.
+ */
+export function codeOnly(text: string): string {
+  let out = '';
+  let i = 0;
+  const blank = (from: number, to: number) =>
+    text.slice(from, to).replace(/[^\n]/g, ' ');
+
+  while (i < text.length) {
+    const c = text[i]!;
+    let end: number;
+
+    if (text.startsWith('//', i)) {
+      end = text.indexOf('\n', i);
+      end = end < 0 ? text.length : end;
+    } else if (text.startsWith('/*', i)) {
+      end = text.indexOf('*/', i + 2);
+      end = end < 0 ? text.length : end + 2;
+    } else if (c === "'" || c === '"' || c === '`') {
+      end = i + 1;
+
+      while (end < text.length && text[end] !== c) {
+        if (text[end] === '\\') end++;
+        // A plain string ends at the line; only templates span lines.
+        else if (c !== '`' && text[end] === '\n') break;
+
+        end++;
+      }
+
+      end = Math.min(end + 1, text.length);
+    } else {
+      out += c;
+      i++;
+      continue;
+    }
+
+    out += blank(i, end);
+    i = end;
+  }
+
+  return out;
+}
+
 /** Skip `${…}` starting at `i`; returns the offset after its closing brace. */
 function skipInterpolation(text: string, i: number): number {
   let depth = 0;
@@ -86,9 +132,13 @@ function skipInterpolation(text: string, i: number): number {
 export function sqlTemplates(text: string): SqlTemplate[] {
   const found: SqlTemplate[] = [];
   const pattern = /\bsql\s*:\s*`/g;
+  const code = codeOnly(text);
   let match: RegExpExecArray | null;
 
   while ((match = pattern.exec(text))) {
+    // An `sql:` key written in code, not inside a comment or another string.
+    if (code[match.index] !== 's') continue;
+
     const contentFrom = pattern.lastIndex;
     const interpolations: Span[] = [];
     let i = contentFrom;
@@ -393,10 +443,13 @@ const callPattern =
 export function graphCalls(text: string): GraphCall[] {
   const calls: GraphCall[] = [];
 
-  for (const match of text.matchAll(callPattern)) {
+  for (const match of codeOnly(text).matchAll(callPattern)) {
     const open = match.index + match[0].length;
+    // The name sits just before `.query(` or `.get(`; search back from there,
+    // since it can also occur inside the word `objects`.
+    const method = match[0].lastIndexOf(match[2]!);
     const objectFrom =
-      match.index + match[0].indexOf(match[1]!, 'graph'.length);
+      match.index + match[0].lastIndexOf(match[1]!, method - match[1]!.length);
     const operation = match[2] as 'get' | 'query';
     let args: LiteralNode[] | null;
 
@@ -474,7 +527,7 @@ export function objectAt(text: string, pos: number): string | null {
   let current: string | null = null;
   let first: string | null = null;
 
-  for (const match of text.matchAll(callPattern)) {
+  for (const match of codeOnly(text).matchAll(callPattern)) {
     first ??= match[1]!;
 
     if (match.index <= pos) current = match[1]!;
@@ -504,7 +557,7 @@ export interface CallContext {
 export function callContext(text: string, pos: number): CallContext | null {
   let call: CallContext['call'] | null = null;
 
-  for (const match of text.matchAll(callPattern)) {
+  for (const match of codeOnly(text).matchAll(callPattern)) {
     const open = match.index + match[0].length;
 
     if (open <= pos)

@@ -6,7 +6,7 @@
  * a table too; anything else as JSON. Logs and failures have their own views.
  */
 import { Link } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type { PlaygroundObject, PlaygroundRun } from '../protocol.js';
 import { Icon } from '../icons.js';
 import { Tag } from '../ui/tag.js';
@@ -46,6 +46,23 @@ export function recordsOf(result: unknown): RecordLike[] | null {
   if (value.status === 'ok' && isRecord(value)) return [value];
 
   return null;
+}
+
+/**
+ * The object type of the records a run returned: the latest read that returned
+ * the first of them. Null when no read did, so headers are untyped rather than
+ * typed from another object.
+ */
+export function resultObjectOf(run: PlaygroundRun): string | null {
+  const first =
+    run.status === 'succeeded' ? recordsOf(run.result)?.[0]?.id : undefined;
+
+  if (first === undefined) return null;
+
+  return (
+    [...run.reads].reverse().find((read) => read.ids.includes(first))?.object ??
+    null
+  );
 }
 
 const numeric = new Set(['int32', 'int64', 'float64', 'number']);
@@ -274,7 +291,7 @@ export type RunState =
   | { readonly state: 'done'; readonly run: PlaygroundRun }
   | { readonly state: 'refused'; readonly error: string };
 
-export function Results(props: {
+export const Results = memo(function Results(props: {
   readonly run: RunState;
   readonly object: PlaygroundObject | undefined;
   readonly onCancel: () => void;
@@ -476,4 +493,4 @@ export function Results(props: {
       </div>
     </section>
   );
-}
+});

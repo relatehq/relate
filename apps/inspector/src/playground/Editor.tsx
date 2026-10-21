@@ -357,7 +357,8 @@ export function Editor(props: {
   readonly problems: readonly Problem[];
   readonly fieldTypes: Readonly<Record<string, FieldType>>;
   readonly onChange: (code: string) => void;
-  readonly onCursor: (pos: number) => void;
+  /** The document and cursor position, after each edit or selection change. */
+  readonly onCursor: (code: string, pos: number) => void;
   readonly onRun: () => void;
   readonly handle?: (handle: EditorHandle | null) => void;
 }) {
@@ -466,14 +467,20 @@ export function Editor(props: {
               latest.current.onChange(update.state.doc.toString());
 
             if (update.docChanged || update.selectionSet)
-              latest.current.onCursor(update.state.selection.main.head);
+              latest.current.onCursor(
+                update.state.doc.toString(),
+                update.state.selection.main.head,
+              );
           }),
         ],
       }),
     });
 
     view.current = created;
-    latest.current.onCursor(created.state.selection.main.head);
+    latest.current.onCursor(
+      created.state.doc.toString(),
+      created.state.selection.main.head,
+    );
     latest.current.handle?.({
       insert(text) {
         const { from, to } = created.state.selection.main;
