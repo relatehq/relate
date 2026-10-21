@@ -6,9 +6,9 @@ project's object types and relationships, served by
 snapshots as local code changes.
 
 The [specification](../../specs/2026-10-07-inspector.md) records the agreed
-foundation; this package is its first implementation. One screen exists: the
-model graph, built with React Flow and ELK (`elkjs`) in a Web Worker, with a
-side panel for diagnostics and selection details.
+foundation; this package is its first implementation. Its screens are the model
+graph (React Flow and ELK in a Web Worker, with a side panel for diagnostics and
+selection details), the activity log, the built-in agent and the playground.
 
 ## Layout
 
@@ -20,7 +20,8 @@ apps/inspector/
   src/connection/                session bootstrap, SSE client, state reducer
   src/graph/                     Manifest -> nodes/edges, React Flow view
   src/layout/                    ELK adapter and worker engine
-  src/panel/, src/screens/       side panel, graph screen, shell
+  src/panel/, src/screens/       side panel, screens, shell
+  src/playground/                playground editor (CodeMirror), checks, completion, results
   src/theme/theme-*.css          generated Relate design-system tokens (twenty-ui, MIT); do not edit
   src/styles.css                 primitives and screens built on those tokens
 ```
@@ -59,6 +60,12 @@ Browser code never imports the compiler, runtime, connectors or user modules;
   diagnostic.
 - Type diagnostics (`typecheck` events) are accepted and rendered as warnings,
   but no checker emits them yet.
+- The playground reads `GET dev/playground/discovery?as=<principal>` and runs
+  code with `POST dev/playground/runs`; `relate dev` executes it like the MCP
+  `execute` tool and records it in Activity. Completion, the object tree and
+  live checks use that discovery only. Datasets and computed properties are read
+  in the shape the analytical-properties spec proposes
+  (`src/playground/model.ts`) and appear once the runtime reports them.
 
 Analytical operations in the Activity screen expose an expandable timing table
 with each entered stage's count, summed work duration and longest span. The

@@ -10,6 +10,7 @@ import { ActivityScreen } from './screens/ActivityScreen.js';
 import { AgentScreen } from './screens/AgentScreen.js';
 import { GraphScreen } from './screens/GraphScreen.js';
 import { InspectorShell } from './screens/InspectorShell.js';
+import { PlaygroundScreen } from './screens/PlaygroundScreen.js';
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -40,7 +41,18 @@ const agentRoute = createRoute({
   component: AgentScreen,
 });
 
-const builtPaths: ReadonlySet<string> = new Set(['/', '/activity', '/agent']);
+const playgroundRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/playground',
+  component: PlaygroundScreen,
+});
+
+const builtPaths: ReadonlySet<string> = new Set([
+  '/',
+  '/activity',
+  '/agent',
+  '/playground',
+]);
 
 // Rail pages without a screen yet render a placeholder so navigation is complete.
 const placeholderRoutes = inspectorPages
@@ -57,6 +69,7 @@ const routeTree = rootRoute.addChildren([
   graphRoute,
   activityRoute,
   agentRoute,
+  playgroundRoute,
   ...placeholderRoutes,
 ]);
 
