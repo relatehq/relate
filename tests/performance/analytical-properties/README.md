@@ -130,7 +130,7 @@ than a transactional pair. Default outputs are ignored under
 `benchmark-results`. CI runs the small profile on both backends and uploads
 reports even on failure.
 
-## Remaining integration
+## Retained measurements
 
 The
 [2026-10-21 exploratory measurements](measurements/candidate-path-2026-10-21.json)
@@ -140,17 +140,37 @@ admitted candidates and 100,000 events took median 9.85 s with SQLite and 5.65 s
 with PostgreSQL using cached memory storage and activity capture. With
 PostgreSQL object storage and forced synthetic 2 ms source refreshes, medians
 were 20.93 s and 17.16 s respectively. Each ranking scanned 12,500 members and
-executed 125 analytical statements through the current page path. Only three
+executed 125 analytical statements through the historical page path. Only three
 warm repetitions were collected per configuration. These results identify
 candidate and refresh costs; they do not validate full-scope limits or establish
 a performance baseline.
 
-1. Retain scope-first capacity and refresh measurements with the actual
-   single-operation candidate/batch counts. Historical page-path measurements
-   above remain separately labeled and are not substituted for these runs.
-2. Replay generated plans beside the independent SQL reference, preserving actor
+The [runtime scope-first measurements](measurements/scope-path-2026-10-21.json)
+retain all 120 samples from four configurations at commit `a4a8a43`, with zero
+failures. Each ranking admitted 10,000 candidates from 12,500 scanned members,
+executed 10 statements, captured one operation and returned 25 records.
+
+| Object storage and freshness              | SQLite warm median | PostgreSQL warm median | Source calls per ranking                |
+| ----------------------------------------- | ------------------ | ---------------------- | --------------------------------------- |
+| Memory, cached                            | 3.70 s             | 3.62 s                 | 62,575 identity checks                  |
+| PostgreSQL, forced synthetic 2 ms refresh | 14.66 s            | 14.61 s                | 62,575 identity checks + 12,500 fetches |
+
+These runs used 100,000 events, activity capture enabled and three warm
+repetitions on an Apple M2 Max with Node 26.9.0. Identity checks return a fixed
+synthetic identity without simulated latency; only source fetches receive the
+configured delay. The measurements exercise the default 10,000 admitted, 12,500
+scanned, 100,000 source-call and 60-second operation budgets for this workload.
+They do not establish those defaults as sufficient for arbitrary providers,
+policy shapes or deployment conditions. Runtime and benchmark code were
+unchanged during measurement; report provenance records the dirty state and a
+concurrent workflow-only commit.
+
+## Remaining integration
+
+1. Replay generated plans beside the independent SQL reference, preserving actor
    scope, integer/null semantics and ordering.
-3. Add controlled cold starts, concurrency, queue pressure and cancellation.
+2. Add controlled cold starts, concurrency, queue pressure and cancellation.
+3. Measure larger event populations through the actual scope-first path.
 4. Use consistent deployment conditions and sufficient repetitions before
    publishing baselines or enabling performance regression gates.
 
