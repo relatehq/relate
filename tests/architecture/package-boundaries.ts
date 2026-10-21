@@ -34,6 +34,7 @@ export const packagePolicies: Record<
   },
   'packages/relate': { imports: ['zod', '@relate/protocol'] },
   'packages/protocol': { imports: [] },
+  'packages/sql-parser': { imports: ['relate/analytics', 'libpg-query'] },
   'packages/runtime': {
     imports: [
       'relate/model',

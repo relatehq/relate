@@ -2206,7 +2206,7 @@ scope below. A checked foundation does not establish analytical execution.
       conformance corpus, including the open decisions below.
 - [ ] Compile datasets, explicit association pairs, policies and declared
       calculations, preserving stable IDs and descriptions.
-- [ ] Parse the complete restricted SQL subset through `@relate/sql-parser`.
+- [x] Parse the complete restricted SQL subset through `@relate/sql-parser`.
 - [ ] Execute authorized caller and declared calculations through object get and
       membership-first query on SQLite and Postgres, including cancellation,
       limits, failure granularity and dependency revalidation.

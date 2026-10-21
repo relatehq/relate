@@ -12,6 +12,7 @@ const temp = await mkdtemp(join(tmpdir(), 'relate-package-check-'));
 const packages = [
   'packages/protocol',
   'packages/relate',
+  'packages/sql-parser',
   'packages/runtime',
   'packages/postgres',
   'packages/node',
@@ -145,6 +146,11 @@ console.log('Portable app and connector contracts work without Node host or runt
     `
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
+import { createSqlParser } from '@relate/sql-parser';
+const sqlParser = await createSqlParser();
+assert.equal(sqlParser.parse('SELECT COUNT(*) FROM self.events').ok, true);
+assert.equal(sqlParser.parse("SELECT COUNT(*) FROM pg_read_file('/etc/passwd')").ok, false);
+console.log('Installed SQL parser initializes its WASM and rejects unsupported queries.');
 import { stripe } from '@relate/connector-stripe';
 import { salesforce } from '@relate/connector-salesforce';
 import { sqlite } from '@relate/connector-sqlite';
