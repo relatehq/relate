@@ -6,13 +6,16 @@ Relate storage adapters such as `@relate/postgres`.
 
 - [SQLite](sqlite): read records from an existing SQLite database. See the
   [customer workspace example](../examples/02-customer-workspace).
+- [PostgreSQL](postgres): execute read-only dataset aggregates with exact scalar
+  decoding and cancellable statement clients.
 - [Stripe](stripe): read selected billing resources with verified account and
   test/live identity. The README includes a complete binding example.
 - [Salesforce](salesforce): read Accounts with verified org identity. See its
   [connection and model guide](salesforce/README.md#connect).
 
-All connectors currently read known IDs; enumeration, sync, webhooks, and
-provider writes are not implemented. See the public
+SQLite, Stripe and Salesforce support keyed source reads. SQLite and PostgreSQL
+support analytical dataset bindings. Enumeration, sync, webhooks and provider
+writes are not implemented. See the public
 [Connecting Sources guide](../apps/docs/content/authoring/connections.md) for
 bindings, identity, custom connectors, and failure semantics.
 

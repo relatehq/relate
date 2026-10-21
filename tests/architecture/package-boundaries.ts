@@ -16,6 +16,9 @@ export const packagePolicies: Record<
     imports: ['@relate/connector-salesforce', 'zod'],
     builtins: true,
   },
+  'connectors/postgres': {
+    imports: ['relate/connectors', 'relate/analytics', 'pg'],
+  },
   'connectors/sqlite': {
     imports: ['relate/connectors', 'relate/analytics'],
     builtins: [

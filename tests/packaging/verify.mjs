@@ -17,6 +17,7 @@ const packages = [
   'packages/postgres',
   'packages/node',
   'connectors/sqlite',
+  'connectors/postgres',
   'connectors/stripe',
   'connectors/salesforce',
   'apps/inspector',
@@ -167,6 +168,14 @@ console.log('Installed SQL parser initializes its WASM and rejects unsupported q
 import { stripe } from '@relate/connector-stripe';
 import { salesforce } from '@relate/connector-salesforce';
 import { sqlite } from '@relate/connector-sqlite';
+import { postgres } from '@relate/connector-postgres';
+const analyticalPostgres = postgres({ connectionId: 'analytics', url: 'postgres://localhost/package-smoke' });
+const pgResource = analyticalPostgres.table('events', { schema: 'reporting' }).bindDataset({ columns: { customerId: 'customer_id' } });
+const pgQuery = { resource: pgResource, keys: [{ type: { type: 'string' } }], correlation: [{ column: 'customerId', key: 0 }], slots: [{ values: [{ type: 'string', value: 'one' }], valid: [true] }], aggregates: [{ aggregate: 'count', argument: '*', distinct: false, result: { type: 'int64', nullable: false } }] };
+assert.deepEqual(analyticalPostgres.analytics.parameterBudget(pgQuery), { fixed: 1, perSlot: 3 });
+assert.deepEqual(analyticalPostgres.analytics.plan(pgQuery), {});
+await analyticalPostgres.close();
+console.log('Installed PostgreSQL analytical connector prepares opaque, parameter-budgeted plans.');
 const salesforceResource = salesforce({ connectionId: 'salesforce', credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture-token' }, apiVersion: '67.0', fetch: async url => Response.json(String(url).endsWith('/userinfo') ? { organization_id: '00D000000000001EAA' } : { done: true, totalSize: 1, records: [{ attributes: { type: 'Account' }, Id: '001000000000001AAA', IsDeleted: false, Name: 'Ada' }] }) }).resource('Account', { fields: ['Name'] });
 assert.equal(await salesforceResource.identify({ signal: new AbortController().signal }), '00D000000000001EAA');
 assert.deepEqual(await salesforceResource.fetch('001000000000001AAA', { signal: new AbortController().signal }), { state: 'present', providerAccountId: '00D000000000001EAA', record: { Id: '001000000000001AAA', IsDeleted: false, Name: 'Ada' } });

@@ -176,6 +176,8 @@ change between pages. A cursor from a different expression or binding is
 rejected. Empty pages may still have a continuation when final checks withhold
 their members. Typed page reads and iteration preserve the alias result types.
 
-Computed filtering/order, the Postgres analytical connector, and analytical
-discovery/MCP details remain in progress. Traversal and action transaction
-readers reject analytical requests.
+Both SQLite and the
+[PostgreSQL analytical connector](../../../../connectors/postgres/README.md)
+execute these reads. Computed filtering/order and analytical discovery/MCP
+details remain in progress. Traversal and action transaction readers reject
+analytical requests.

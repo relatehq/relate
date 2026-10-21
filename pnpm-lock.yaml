@@ -180,6 +180,9 @@ importers:
       '@relate/cli':
         specifier: workspace:*
         version: link:packages/cli
+      '@relate/connector-postgres':
+        specifier: workspace:*
+        version: link:connectors/postgres
       '@relate/connector-salesforce':
         specifier: workspace:*
         version: link:connectors/salesforce
@@ -388,6 +391,15 @@ importers:
         version: 8.3.3(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
 
   apps/www: {}
+
+  connectors/postgres:
+    dependencies:
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
+      relate:
+        specifier: workspace:*
+        version: link:../../packages/relate
 
   connectors/salesforce:
     dependencies:

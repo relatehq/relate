@@ -57,8 +57,9 @@ before projection. For example,
 `Customer.get(id, { select: ['name', 'loginCount'], compute: { total: { sql: 'SELECT SUM(amount) FROM self.events' } } })`
 adds an exact JSON int64 total alongside the selected fields. `meta.computed`
 supplies result types in both evidence modes. Dependencies and computed input
-freshness remain explicit; no dataset synchronization is claimed. Query
-integration and the Postgres analytical connector remain in progress.
+freshness remain explicit; no dataset synchronization is claimed. SQLite and
+PostgreSQL analytical connectors execute these reads. Computed filtering/order
+and analytical discovery/MCP integration remain in progress.
 
 ## How it fits
 

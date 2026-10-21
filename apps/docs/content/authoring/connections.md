@@ -15,6 +15,12 @@ Connectors do not own your business objects, property mappings, or policies.
 All three read known record IDs. Enumeration, synchronization, webhooks, and
 provider writes are not implemented. SQLite here is a source; the
 [Postgres store](../deployment/postgres.md) separately persists Relate's state.
+For analytical datasets, SQLite and the
+[PostgreSQL analytical connector](../../../../connectors/postgres/README.md)
+execute authorized aggregate plans. PostgreSQL dataset bindings use
+`bind(Events, analytics.table('events', { schema: 'reporting' }))`; this
+connector does not implement keyed source reads.
+
 Packages are currently used from a repository checkout, not installed from npm.
 
 ## Systems, Resources, Sources, and Bindings

@@ -1,0 +1,29 @@
+{
+  "name": "@relate/connector-postgres",
+  "version": "0.0.0-dev.0",
+  "license": "Apache-2.0",
+  "private": false,
+  "type": "module",
+  "description": "Read-only PostgreSQL analytical dataset connector for Relate.",
+  "engines": {
+    "node": "^22.16.0 || ^24 || ^26"
+  },
+  "dependencies": {
+    "relate": "workspace:*",
+    "pg": "8.23.1"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
