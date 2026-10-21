@@ -91,7 +91,7 @@ it('requires a session for metadata, exchanges the token for an HttpOnly cookie 
 
   expect(identity).toEqual({
     instanceId: 'instance-1',
-    protocolVersion: 3,
+    protocolVersion: 4,
     ownerId: 'owner-1',
   });
   expect(JSON.stringify(identity)).not.toContain(sessions.token);

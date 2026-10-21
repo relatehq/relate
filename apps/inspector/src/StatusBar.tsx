@@ -6,6 +6,7 @@ import type { ModelSnapshot, RuntimeStatus } from './protocol.js';
 import { Icon } from './icons.js';
 import { useInspectorState } from './inspector-context.js';
 import { AgentHeaderControls } from './screens/AgentScreen.js';
+import { PlaygroundHeaderControls } from './screens/PlaygroundScreen.js';
 import { useActivePage } from './NavRail.js';
 import { useTheme } from './theme/theme.js';
 import { IconButton } from './ui/button.js';
@@ -154,6 +155,7 @@ export function StatusBar() {
       )}
       <span className="spacer" />
       {page?.path === '/agent' && <AgentHeaderControls />}
+      {page?.path === '/playground' && <PlaygroundHeaderControls />}
       {state.failure && origin === 'loader' && (
         <Tag color="orange" weight="medium">
           Loader failed

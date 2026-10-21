@@ -24,6 +24,7 @@ import { createRuntimeController } from './runtime-controller.js';
 import { summarizeDiff } from './diff.js';
 import { bindLoopback, ListenError } from './listener.js';
 import { createMcpEndpoint, mcpAddCommand, readMcpToken } from './mcp.js';
+import { createPlayground } from './playground.js';
 import { acquireLock, devDirectory } from './lock.js';
 import type { Lock, LockMetadata } from './lock.js';
 import { openBrowser } from './open.js';
@@ -308,6 +309,15 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       runtimeId: () =>
         runtime?.status?.state === 'running' ? runtime.status.runtimeId : null,
     });
+    const playground = createPlayground({
+      runtime,
+      principals: () => {
+        const model = supervisor.state.model;
+
+        return model ? { names: model.principals } : null;
+      },
+      activity,
+    });
     const server = createDevServer({
       supervisor,
       sessions,
@@ -315,6 +325,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       inspector,
       activity,
       agent,
+      playground,
       mcp: mcp.handle,
     });
 

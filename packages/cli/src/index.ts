@@ -26,6 +26,14 @@ export type { Sessions } from './dev/session.js';
 export { Supervisor } from './dev/supervisor.js';
 export type { SupervisorState } from './dev/supervisor.js';
 export { createDevServer } from './dev/server.js';
+
+export {
+  PlaygroundRequestError,
+  createPlayground,
+  mountPlaygroundRoutes,
+} from './dev/playground.js';
+
+export type { Playground, PlaygroundOptions } from './dev/playground.js';
 export { createBuilder, esbuildDiagnostics } from './dev/build.js';
 export { createWatcher } from './dev/watcher.js';
 export { createAttemptRunner, defaultWorkerPath } from './dev/attempts.js';

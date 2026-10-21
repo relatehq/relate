@@ -1,7 +1,7 @@
 /**
  * The stable HTTP surface of `relate dev`: the inspector shell and assets plus
  * `/dev/session`, `/dev/snapshot`, `/dev/events`, `/dev/activity`,
- * `/dev/agent/*`, `/dev/instance` and `/mcp`. Every response here is `no-store`; the inspector
+ * `/dev/agent/*`, `/dev/playground/*`, `/dev/instance` and `/mcp`. Every response here is `no-store`; the inspector
  * package owns asset caching.
  */
 import { Hono } from 'hono';
@@ -12,6 +12,8 @@ import { activityRoute, createActivityLog } from './activity/index.js';
 import type { ActivityLog } from './activity/index.js';
 import { mountAgentRoutes } from './agent.js';
 import type { Agent } from './agent.js';
+import { mountPlaygroundRoutes } from './playground.js';
+import type { Playground } from './playground.js';
 import type { Sessions } from './session.js';
 import { createSseStreams, streamJson } from './sse.js';
 import type { Supervisor } from './supervisor.js';
@@ -25,6 +27,8 @@ export interface DevServerOptions {
   readonly activity?: ActivityLog;
   /** The built-in agent behind `/dev/agent/*`; those routes are 404 without it. */
   readonly agent?: Agent;
+  /** The playground behind `/dev/playground/*`; those routes are 404 without it. */
+  readonly playground?: Playground;
   /** The `/mcp` handler; it does its own bearer authentication. */
   readonly mcp?: (request: Request) => Promise<Response>;
   /** Keep-alive comment interval for SSE connections. */
@@ -101,6 +105,12 @@ export function createDevServer(options: DevServerOptions): DevServer {
       sessions: options.sessions,
       streams,
       heartbeatMs,
+    });
+
+  if (options.playground)
+    mountPlaygroundRoutes(app, {
+      playground: options.playground,
+      sessions: options.sessions,
     });
 
   // Bearer-authenticated by the handler; the session cookie does not apply.

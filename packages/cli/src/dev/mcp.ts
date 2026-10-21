@@ -110,7 +110,7 @@ export function mcpAddCommand(url: string, token: string): string {
 }
 
 /** The runtime's own reason, as a public error; nothing else reaches the caller. */
-function unavailable(error: unknown): BindingUnavailableError {
+export function bindingUnavailable(error: unknown): BindingUnavailableError {
   if (error instanceof RuntimeUnavailableError)
     return new BindingUnavailableError(error.message, {
       retryable: error.retryable,
@@ -206,7 +206,7 @@ export function createMcpEndpoint(options: McpEndpointOptions): McpEndpoint {
             try {
               binding = await options.runtime.binding(principal);
             } catch (error) {
-              failure = unavailable(error);
+              failure = bindingUnavailable(error);
             }
 
           call.begin({
