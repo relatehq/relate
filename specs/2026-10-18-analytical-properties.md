@@ -257,6 +257,8 @@ const Events = defineDataset({
     },
     userId: {
       id: 'analytics.events.user-id',
+      description:
+        'Identifier of the user who performed the event; null for anonymous events.',
       schema: z.string().nullable(),
       access: identifying,
     },
@@ -267,9 +269,15 @@ const Events = defineDataset({
 - A dataset has typed columns, a description of what one row means, access and a
   binding. It has no key. Duplicate rows are meaningful: `COUNT(*)` counts them.
 - **Agreed:** `columns` is the single declaration of each column's `schema`,
-  stable `id` and `access` group. `defineDataset` derives the row Zod schema and
-  inferred TypeScript row type from these column schemas; there is no separate
-  top-level `schema` or second list of column names.
+  stable `id`, `access` group and optional `description: string`.
+  `defineDataset` derives the row Zod schema and inferred TypeScript row type
+  from these column schemas; there is no separate top-level `schema` or second
+  list of column names.
+- Column descriptions explain meaning, units, conventions and null semantics.
+  They are preserved in compiled metadata and exposed unchanged in authorized
+  discovery, including MCP descriptions. Omit the discovery `description` field
+  when none is supplied. Descriptions follow the same disclosure rules as the
+  column itself and do not change its type or access policy.
 - Every column has an explicit stable `id`, as object properties do. Renaming
   `userId` keeps its ID. Evidence, policy and errors use IDs internally and
   names at the API.
@@ -1836,7 +1844,12 @@ the SQL rules before writing SQL. Proposed shape for Ana:
         "customerId": { "type": "string" },
         "eventType": { "type": "string" },
         "occurredAt": { "type": "timestamp", "precision": 3 },
-        "userId": { "type": "string", "nullable": true, "readable": false }
+        "userId": {
+          "type": "string",
+          "nullable": true,
+          "readable": false,
+          "description": "Identifier of the user who performed the event; null for anonymous events."
+        }
       },
       "correlation": "customerId = self.externalId"
     }
@@ -2166,6 +2179,10 @@ steps below. No production package imports the spike under `dev/`.
 
 The shared analytical path must also establish:
 
+- Optional column descriptions survive compilation and authorized discovery/MCP
+  unchanged; absent descriptions remain omitted. Hidden associations do not
+  expose their column descriptions.
+
 - Dataset row schema and TypeScript inference derive from column-owned schemas,
   preserving nullability and timestamp precision. A separate top-level dataset
   schema is rejected; binding checks, discovery and authorization consume the
@@ -2395,6 +2412,11 @@ scope limit is per query and host-configured, with no push-down before graph SQL
 Postgres (was 1, now a scope question).
 
 ## Revision notes
+
+### 2026-10-21: Column descriptions
+
+- Added optional column descriptions to authoring, compiled metadata and
+  authorized discovery/MCP, with an example and acceptance criteria.
 
 ### 2026-10-21: Unified dataset column declarations
 
