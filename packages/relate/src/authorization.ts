@@ -1,3 +1,4 @@
+import type { PortableValue } from './schema.js';
 import type { z } from 'zod';
 import type { DatasetRegistry } from './datasets.js';
 import type {
@@ -153,8 +154,8 @@ export interface PrincipalDefinition<
 > {
   readonly roles: readonly Access['roles'][number][];
   readonly claims?: {
-    readonly [K in keyof Access['claims']]?: z.input<
-      Access['claims'][K]['schema']
+    readonly [K in keyof Access['claims']]?: PortableValue<
+      z.input<Access['claims'][K]['schema']>
     > &
       ClaimValue;
   };

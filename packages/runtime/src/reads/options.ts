@@ -324,6 +324,12 @@ export function schemaText(schema: ScalarSchema, references?: string): string {
   if (schema.format === 'local-datetime')
     return `local datetime without offset at ${schema.precision} precision${schema.nullable ? ' or null' : ''}`;
 
+  if (schema.format === 'int64')
+    return `canonical signed 64-bit decimal string${schema.nullable ? ' or null' : ''}`;
+
+  if (schema.format === 'int32')
+    return `signed 32-bit integer${schema.nullable ? ' or null' : ''}`;
+
   if (schema.format === 'timestamp')
     return `ISO timestamp with timezone, at most millisecond precision${schema.nullable ? ' or null' : ''}`;
 

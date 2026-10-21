@@ -1,3 +1,4 @@
+import type { PortableValue } from './schema.js';
 import { z } from 'zod';
 import type {
   DatasetAssociations,
@@ -525,7 +526,7 @@ export type PropertyValue<
   ? ObjectId<Target>
   : O['properties'][N] extends ObjectIdProperty
     ? ObjectId<O['id']>
-    : z.output<O['properties'][N]['schema']>;
+    : PortableValue<z.output<O['properties'][N]['schema']>>;
 
 /** Selected fields remain optional: selection never grants access or guarantees availability. */
 export type ObjectData<

@@ -1,3 +1,4 @@
+import { portable } from './portable-schema.js';
 import type { DatasetDefinition } from './datasets.js';
 import type { ActionDefinition, ActionImplementation } from './actions.js';
 import type {
@@ -160,6 +161,12 @@ export function bind(
           connector: keyed.bindSource({
             idField: source.idField,
             fields: Object.keys(source.schema.shape),
+            schemas: Object.fromEntries(
+              Object.entries(source.schema.shape).map(([name, schema]) => [
+                name,
+                portable(schema),
+              ]),
+            ),
           }),
           ...options,
         }

@@ -140,3 +140,8 @@ Parallel and nested spans overlap, so summed stage durations are not additive;
 `Operation.durationMs` remains total elapsed time. The summary contains no SQL,
 parameters, aliases, object values or physical identifiers and is absent from
 consumer results, field evidence, discovery and MCP responses.
+
+Ordinary integer discovery uses `ScalarSchema` formats: `int32` has JSON type
+`number`, while `int64` has JSON type `string`. The latter is a canonical signed
+64-bit decimal string on every ordinary read, action and filter boundary.
+JavaScript bigint values never enter protocol envelopes.

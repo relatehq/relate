@@ -14,7 +14,7 @@ function reference<O, Id>(target, options): ReferenceProperty<O["id"], O> & {
 };
 ```
 
-Defined in: [packages/relate/src/index.ts:206](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L206)
+Defined in: [packages/relate/src/index.ts:207](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L207)
 
 ### Type Parameters
 
@@ -58,7 +58,7 @@ function reference<O, Id>(target, options): ReferenceProperty<O["id"], O> & {
 };
 ```
 
-Defined in: [packages/relate/src/index.ts:222](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L222)
+Defined in: [packages/relate/src/index.ts:223](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L223)
 
 ### Type Parameters
 

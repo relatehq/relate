@@ -90,10 +90,16 @@ invalid values, and other database failures throw; they never imply deletion. An
 invalid singleton account identity becomes `SourceAccessDenied`. File-open
 errors (including missing or unreadable files) and other SQLite errors stay
 database failures: a generic CANTOPEN error is not evidence of provider
-authorization denial. TEXT, finite numbers and NULL are returned unchanged.
-Booleans remain 0/1 and JSON text remains text; describe those representations
-in your source schema. Selected BLOBs, nonfinite numbers and integers outside
-JavaScript's safe range are rejected. No source version is claimed because
+authorization denial. TEXT, finite numbers and NULL are returned unchanged. When
+`bind(source, connection.table(name))` sees a `z.int64()` source field, it reads
+that column as a 64-bit integer and returns an exact decimal string, including
+small values such as `"2"`. The explicit keyed table API accepts
+`int64Columns: ['total_minor']` for the same encoding; these must be selected,
+non-key columns. Declared int64 columns reject non-INTEGER storage classes
+except NULL. Ordinary numeric columns still return JSON numbers. Booleans remain
+0/1 and JSON text remains text; describe those representations in your source
+schema. Selected BLOBs, nonfinite numbers and integers outside JavaScript's safe
+range without int64 encoding are rejected. No source version is claimed because
 SQLite supplies no per-row version contract.
 
 The system connection can select multiple tables, each using the connection’s

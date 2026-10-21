@@ -69,6 +69,7 @@ function execute(request: Request): string | SourceResult {
 
     if (!statement) {
       statement = connection.prepare(sql);
+      statement.setReadBigInts(true);
       statements.set(sql, statement);
     }
 
@@ -110,7 +111,23 @@ function execute(request: Request): string | SourceResult {
 
     const entries: [string, string | number | null][] = [];
 
-    for (const [name, value] of Object.entries(row)) {
+    for (const [name, raw] of Object.entries(row)) {
+      let value = raw;
+
+      if (request.options.int64Columns?.includes(name)) {
+        if (typeof value === 'bigint') value = String(value);
+        else if (value !== null)
+          throw new Error(`SQLite column ${name} must contain INTEGER values`);
+      } else if (typeof value === 'bigint') {
+        if (
+          value < BigInt(Number.MIN_SAFE_INTEGER) ||
+          value > BigInt(Number.MAX_SAFE_INTEGER)
+        )
+          throw new Error(`SQLite column ${name} requires an int64 encoding`);
+
+        value = Number(value);
+      }
+
       if (
         value === null ||
         typeof value === 'string' ||

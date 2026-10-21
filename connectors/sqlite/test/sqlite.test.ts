@@ -454,3 +454,42 @@ test('defaults to application-owned identity without querying an account table',
     state: 'deleted',
   });
 });
+
+test('encodes declared int64 source columns exactly and rejects precision loss or incompatible values', async () => {
+  const { db, database } = fixture();
+
+  db.exec(`CREATE TABLE integers(id TEXT PRIMARY KEY, large INTEGER, small INTEGER, ordinary INTEGER);
+    INSERT INTO integers VALUES ('one', 9007199254740993, 2, 42), ('null', NULL, NULL, 0), ('bad', 1.5, 2, 0)`);
+  const connector = database.table('integers', {
+    idColumn: 'id',
+    columns: ['large', 'small', 'ordinary'],
+    int64Columns: ['large', 'small'],
+  });
+
+  expect(await connector.fetch('one', request())).toMatchObject({
+    record: { id: 'one', large: '9007199254740993', small: '2', ordinary: 42 },
+  });
+  expect(await connector.fetch('null', request())).toMatchObject({
+    record: { large: null, small: null, ordinary: 0 },
+  });
+  await expect(connector.fetch('bad', request())).rejects.toThrow(
+    'must contain INTEGER',
+  );
+  const untyped = database.table('integers', {
+    idColumn: 'id',
+    columns: ['large'],
+  });
+
+  await expect(untyped.fetch('one', request())).rejects.toThrow(
+    'requires an int64 encoding',
+  );
+
+  for (const int64Columns of [['id'], ['missing']])
+    expect(() =>
+      database.table('integers', {
+        idColumn: 'id',
+        columns: ['large'],
+        int64Columns,
+      }),
+    ).toThrow('selected non-key');
+});

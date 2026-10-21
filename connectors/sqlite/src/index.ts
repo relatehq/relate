@@ -234,6 +234,9 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
           return connection.table(name, {
             idColumn: selection.idField,
             columns: selection.fields,
+            int64Columns: Object.entries(selection.schemas ?? {})
+              .filter(([, schema]) => schema.format === 'int64')
+              .map(([name]) => name),
           }) as AnySourceConnector;
         },
       };
@@ -247,7 +250,23 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
 
       for (const column of columns) identifier(column);
 
-      const resource = { idColumn: tableOptions.idColumn, columns };
+      const int64Columns = [...new Set(tableOptions.int64Columns ?? [])];
+
+      if (
+        int64Columns.some(
+          (column) =>
+            column === tableOptions.idColumn || !columns.includes(column),
+        )
+      )
+        throw new Error(
+          'SQLite int64 columns must be selected non-key columns',
+        );
+
+      const resource = {
+        idColumn: tableOptions.idColumn,
+        columns,
+        int64Columns,
+      };
 
       const fetch = async (
         recordId: string,

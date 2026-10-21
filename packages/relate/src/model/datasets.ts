@@ -80,6 +80,12 @@ export function analyticalSchemaType(
 ): z.infer<typeof datasetTypeSchema> | undefined {
   if (schema.format === 'local-datetime') return undefined;
 
+  if (schema.format === 'int32' || schema.format === 'int64')
+    return {
+      type: schema.format,
+      nullable: schema.nullable || schema.optional,
+    };
+
   if (schema.format === 'timestamp')
     return {
       type: 'timestamp',

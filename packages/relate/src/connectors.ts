@@ -1,3 +1,4 @@
+import type { ScalarSchema } from '@relate/protocol';
 import type { Json } from '@relate/protocol';
 
 export interface SourceVersion {
@@ -83,6 +84,8 @@ export interface ResourceConnection {
 export interface SourceSelection {
   readonly idField: string;
   readonly fields: readonly string[];
+  /** Portable field encodings, when bound from an authored source definition. */
+  readonly schemas?: Readonly<Record<string, ScalarSchema>>;
 }
 
 /** A selected resource exposes only the capabilities its connection implements. */

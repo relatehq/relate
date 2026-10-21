@@ -8,7 +8,7 @@ function implementAction<G, A>(
 ): ActionImplementation<G, A>;
 ```
 
-Defined in: [packages/relate/src/actions.ts:191](https://github.com/relatehq/relate/blob/main/packages/relate/src/actions.ts#L191)
+Defined in: [packages/relate/src/actions.ts:193](https://github.com/relatehq/relate/blob/main/packages/relate/src/actions.ts#L193)
 
 ## Type Parameters
 
@@ -23,7 +23,7 @@ Defined in: [packages/relate/src/actions.ts:191](https://github.com/relatehq/rel
 | ------ | ------ |
 | `graph` | `G` |
 | `action` | `A` |
-| `execute` | (`context`) => `Promise`\<`input`\<`A`\[`"output"`\]\>\> |
+| `execute` | (`context`) => `Promise`\<`PortableValue`\<`input`\<`A`\[`"output"`\]\>\>\> |
 
 ## Returns
 

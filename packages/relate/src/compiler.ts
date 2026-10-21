@@ -20,7 +20,12 @@ import type {
   DevelopmentPrincipal,
   ObjectRule,
 } from './authorization.js';
-import { canonicalJson, deepFreeze, validateManifest } from './model.js';
+import {
+  accepts,
+  canonicalJson,
+  deepFreeze,
+  validateManifest,
+} from './model.js';
 import type { CompiledModel, ScalarSchema } from './model.js';
 import { CompileError, ManifestValidationError } from './diagnostics.js';
 import type { ModelIssue, ModelIssueCode } from './diagnostics.js';
@@ -198,22 +203,24 @@ function compilePrincipals(
           continue;
         }
 
-        const parsed = graph.access.claims[claim]!.schema.safeParse(value);
+        let valid = false;
 
-        if (!parsed.success || !isClaimValue(parsed.data)) {
+        try {
+          valid = accepts(portable(graph.access.claims[claim]!.schema), value);
+        } catch {
+          // Unsupported authoring schemas are reported by graph compilation.
+        }
+
+        if (!valid || !isClaimValue(value)) {
           issues.report(
             'principal.invalid-claim',
-            `Principal ${name} claim '${claim}' does not match its access schema${
-              parsed.success
-                ? ''
-                : `: ${parsed.error.issues.map((issue) => issue.message).join('; ')}`
-            }`,
+            `Principal ${name} claim '${claim}' does not match its access schema`,
             at('claims', claim),
           );
           continue;
         }
 
-        claims[claim] = parsed.data;
+        claims[claim] = value;
       }
 
       compiled[name] = {

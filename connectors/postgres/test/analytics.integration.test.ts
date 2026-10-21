@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
-import { bind, defineApp } from 'relate';
+import {
+  bind,
+  defineApp,
+  defineDataset,
+  defineGraph,
+  defineObject,
+  native,
+} from 'relate';
+import { z } from 'zod';
 import { compile } from 'relate/compiler';
 import { startApp } from '@relate/node';
 import { createMemoryStore } from '@relate/runtime';
@@ -545,3 +553,108 @@ it('uses the real server statement timeout when its cancellation control connect
     ).toBe('0'),
   );
 });
+
+it.each(['int32', 'int64'] as const)(
+  'correlates native %s properties and exact self operands through the Node host',
+  async (format) => {
+    const { schema, db, connection } = await fixture();
+    const key = format === 'int64' ? '9007199254740993' : '2147483647';
+    const type = format === 'int64' ? 'BIGINT' : 'INTEGER';
+
+    await db.query(`CREATE TABLE "${schema}".integer_events(customer_id ${type} NOT NULL, amount BIGINT NOT NULL, secret TEXT NOT NULL);
+    INSERT INTO "${schema}".integer_events VALUES (${key},9007199254740993,'private'),(${key},2,'private'),(${key} - 1,9999999999999999,'other')`);
+    const base = createAnalyticalGraph();
+    const integer = format === 'int64' ? z.int64() : z.int32();
+    const Events = defineDataset({
+      id: base.Events.id,
+      columns: {
+        ...base.Events.columns,
+        customerId: { ...base.Events.columns.customerId, schema: integer },
+      },
+    });
+    const Customer = defineObject({
+      ...base.Customer,
+      properties: {
+        ...base.Customer.properties,
+        externalId: native(integer, { id: 'customer.external' }),
+        threshold: native(z.int64(), { id: 'customer.threshold' }),
+      },
+      datasets: {
+        events: { ...base.Customer.datasets!.events, dataset: Events },
+      },
+    });
+    const graph = defineGraph({
+      ...base.graph,
+      objects: { Customer },
+      datasets: { Events },
+    });
+    const store = createMemoryStore();
+    const scope = {
+      graphId: graph.id,
+      definitionRevision: compile(graph).definitionRevision,
+    };
+
+    await store.install(scope.graphId, scope.definitionRevision);
+    await store.native!.transaction(scope, async (transaction) => {
+      await transaction.insert(
+        {
+          objectDefinitionId: Customer.id,
+          objectId: 'one',
+          createdAt: Date.now(),
+          values: {
+            'customer.external': format === 'int64' ? key : Number(key),
+            'customer.label': 'Acme',
+            'customer.threshold': '9007199254740992',
+          },
+        },
+        testCreation(),
+      );
+    });
+    const runtime = await startApp(
+      defineApp({
+        graph,
+        setup: () => ({
+          store,
+          bindings: [
+            bind(Events, connection.table('integer_events', { schema }), {
+              columns: { customerId: 'customer_id' },
+            }),
+          ],
+        }),
+      }),
+    );
+
+    cleanups.push(() => runtime.close());
+    const operations = runtime.operations({
+      id: 'reader',
+      roles: ['reader', 'analyst', 'private'],
+      claims: {},
+    });
+    const request = {
+      select: ['externalId', 'count'],
+      compute: {
+        above: {
+          sql: 'SELECT SUM(amount) FROM self.events WHERE amount > self.threshold',
+        },
+      },
+    };
+    const result = await operations.get('customer', 'one', request);
+
+    expect(result).toMatchObject({
+      status: 'ok',
+      data: {
+        externalId: format === 'int64' ? key : Number(key),
+        count: '2',
+        above: '9007199254740993',
+      },
+    });
+    expect(
+      (
+        await operations.query('customer', {
+          ...request,
+          where: { threshold: { gt: '20' } },
+        })
+      ).data[0]!.data,
+    ).toEqual(result.status === 'ok' ? result.data : undefined);
+  },
+);

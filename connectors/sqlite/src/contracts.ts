@@ -17,6 +17,8 @@ export interface SqliteTableOptions {
   readonly idColumn: string;
   /** Other columns to expose to Relate. Unlisted columns are never read or retained. */
   readonly columns: readonly string[];
+  /** INTEGER columns encoded as exact decimal strings, including small values. */
+  readonly int64Columns?: readonly string[];
 }
 
 export type Operation =

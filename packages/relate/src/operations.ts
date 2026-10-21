@@ -101,7 +101,10 @@ type PropertyFilter<P extends Property, V> =
       (P['origin']['kind'] extends 'computed'
         ? RangeOperators<V>
         : UnwrapSchema<P['schema']> extends
-              z.ZodNumber | z.iso.ZodISODateTime | LocalDateTimeSchema
+              | z.ZodNumber
+              | z.ZodBigInt
+              | z.iso.ZodISODateTime
+              | LocalDateTimeSchema
           ? RangeOperators<V>
           : unknown));
 

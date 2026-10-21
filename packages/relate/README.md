@@ -288,6 +288,40 @@ remains accessible separately. See the
 and
 [traversal guide](../../apps/docs/content/runtime/reading-data.md#many-to-many-traversal).
 
+## Integer properties
+
+Use `z.int32()` for signed 32-bit integers and `z.int64()` for signed 64-bit
+integers in source fields, native properties, action payloads and claims.
+Optional and nullable wrappers are supported; integer refinements and coercion
+are rejected. Other bigint schemas and `z.number().int()` are not supported.
+
+```ts
+const totalMinor = native(z.int64(), { id: 'invoice.total-minor' });
+// Typed reads, native writes, action payloads and filters all use JSON strings:
+const where = { totalMinor: { gt: '9007199254740992' } };
+```
+
+`int32` values are JSON numbers in `[-2147483648, 2147483647]`. `int64` values
+are canonical decimal strings in `[-9223372036854775808, 9223372036854775807]`,
+including small values such as `'2'`. Leading zeros, `'-0'`, fractions, numbers
+and JavaScript bigints are rejected at ordinary value boundaries. Use
+`BigInt(value)` explicitly for local arithmetic. Discovery reports
+`{ type: 'number', format: 'int32' }` or `{ type: 'string', format: 'int64' }`.
+Filters compare integers numerically without rounding, and keep their strings in
+encrypted cursor scope. Integer properties can supply matching dataset
+correlation keys and `self` operands in calculations.
+
+```mermaid
+flowchart LR
+  Declaration[Zod integer declaration] --> Manifest[Portable integer format]
+  Source[Source or native action] --> JSON[Exact JSON scalar]
+  Manifest --> Validation[Range and representation validation]
+  JSON --> Validation
+  Validation --> Storage[Memory or Postgres storage]
+  Storage --> Read[Typed read and numeric filter]
+  Read --> SQL[Typed correlation and self operands]
+```
+
 ## Timestamp properties and query predicates
 
 Declare timestamps with `z.iso.datetime({ offset: true, precision: 3 })` in a
@@ -312,10 +346,10 @@ const events = defineSource({
 
 Map `events.fields.occurredAt` using `from(...)` as usual. `QueryOptions` infers
 scalar equality and `eq`/`in` for every property, plus `gt`/`gte`/`lt`/`lte` for
-numbers and timestamps. References retain their object-ID brand inside `in`.
-Timestamp equality and ranges compare instants, so different offsets can match;
-returned property values preserve the supplied string. Ordinary strings have no
-range operators. See
+numbers, int64 values and timestamps. References retain their object-ID brand
+inside `in`. Timestamp equality and ranges compare instants, so different
+offsets can match; returned property values preserve the supplied string.
+Ordinary strings have no range operators. See
 [reading data](../../apps/docs/content/runtime/reading-data.md#querying-objects-query)
 for consumer examples and
 [the runtime contract](../runtime/CONTRACT.md#graph-queries) for validation,
