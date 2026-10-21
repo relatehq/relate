@@ -627,11 +627,13 @@ conversion of existing strings or source pushdown occurs.
 
 ## Analytical value boundary
 
-`relate/analytics` exports the portable SQL representation, parser interface,
-logical types and codecs. SQL source spans are zero-based UTF-16 offsets into
-the original expression. Numeric SQL literals retain their exact spelling until
-contextual type resolution; parsing must never round a wide integer through a
-JavaScript number. No parser-specific syntax tree crosses this boundary.
+`relate/analytics` exports `AnalyticalLimits` for the host-owned
+`AppBindings.analytics` operation deadline and source-call budget, alongside the
+portable SQL representation, parser interface, logical types and codecs. SQL
+source spans are zero-based UTF-16 offsets into the original expression. Numeric
+SQL literals retain their exact spelling until contextual type resolution;
+parsing must never round a wide integer through a JavaScript number. No
+parser-specific syntax tree crosses this boundary.
 
 Result encoding validates int32/int64 bounds, finite float64 values, exact
 boolean/string types and canonical UTC timestamp precision. Int64 JSON is always

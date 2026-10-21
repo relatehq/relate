@@ -1,4 +1,5 @@
 import { portable } from './portable-schema.js';
+import type { AnalyticalLimits } from './analytics/limits.js';
 import type { DatasetDefinition } from './datasets.js';
 import type { ActionDefinition, ActionImplementation } from './actions.js';
 import type {
@@ -195,6 +196,8 @@ export interface AppBindings<
   readonly store?: ObservationStore;
   readonly clock?: () => number;
   readonly actionTimeoutMs?: number;
+  /** Host-owned analytical operation budgets; callers may only tighten deadlines. */
+  readonly analytics?: AnalyticalLimits;
   readonly cursorKey?: Uint8Array;
   /** Operation capture; the feed and object provenance are always recorded. */
   readonly activity?: ActivityCaptureOptions;

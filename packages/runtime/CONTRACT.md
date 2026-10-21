@@ -594,3 +594,16 @@ flowchart LR
   Scope --> Cursor[Existing encrypted cursor codec]
   Cursor --> Membership
 ```
+
+### Source-call budgets during analytical reads
+
+The composition layer gives ordinary reads a trusted `ReadExecution` context,
+with an abort signal and `beforeSourceCall()` admission hook. Read resolution
+passes it through native and source authorization dependencies; provider
+identity checks and refresh fetches charge the same operation budget. It is
+separate from consumer JSON and optional activity capture. Budget exhaustion
+aborts the operation before another provider call is admitted, and refresh
+cannot convert that cancellation into stale fallback. A query joins its admitted
+candidate reads before returning the failure. The host deadline also reaches
+provider calls inside final revalidation. Connectors must cooperate with abort
+signals to stop their own work; storage calls are not interruptible.

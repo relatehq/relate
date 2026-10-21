@@ -12,10 +12,12 @@ export async function boundedFetch(
   sourceRecordId: string,
   timeoutMs: number,
   providerAccountId: string | null,
+  signal?: AbortSignal,
 ): Promise<SourceResult> {
   const result = await boundedSourceCall<SourceResult>(
     (signal) => connector.fetch(sourceRecordId, { signal }),
     timeoutMs,
+    signal,
   );
 
   // Provider mode requires account evidence; application mode must not claim it.
@@ -35,7 +37,10 @@ export async function verifyAccount(
   connector: AnySourceConnector,
   providerAccountId: string | null,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<void> {
+  signal?.throwIfAborted();
+
   if (connector.identity === 'application') {
     if (providerAccountId !== null) throw new SourceAccessDenied();
 
@@ -45,6 +50,7 @@ export async function verifyAccount(
   const actual = await boundedSourceCall(
     (signal) => connector.identify({ signal }),
     timeoutMs,
+    signal,
   );
 
   if (actual !== providerAccountId) throw new SourceAccessDenied();
@@ -53,14 +59,29 @@ export async function verifyAccount(
 async function boundedSourceCall<T>(
   operation: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<T> {
+  signal?.throwIfAborted();
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let abort: (() => void) | undefined;
 
   try {
     return await Promise.race([
-      Promise.resolve().then(() => operation(controller.signal)),
+      Promise.resolve().then(() => {
+        controller.signal.throwIfAborted();
+
+        return operation(controller.signal);
+      }),
       new Promise<never>((_, reject) => {
+        abort = () => {
+          controller.abort(signal!.reason);
+          reject(signal!.reason);
+        };
+        signal?.addEventListener('abort', abort, { once: true });
+
+        if (signal?.aborted) abort();
+
         timer = setTimeout(() => {
           controller.abort();
           reject(new Error('Source timeout'));
@@ -69,6 +90,8 @@ async function boundedSourceCall<T>(
     ]);
   } finally {
     clearTimeout(timer);
+
+    if (abort) signal?.removeEventListener('abort', abort);
   }
 }
 

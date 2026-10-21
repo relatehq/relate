@@ -255,6 +255,9 @@ function composeRuntime<
       ? {
           analytics: {
             parser: options.sqlParser,
+            ...(options.analytics === undefined
+              ? {}
+              : { limits: options.analytics }),
             signal: analyticalLifetime.signal,
             binding(datasetId: string) {
               const dataset = bindings.datasets.get(datasetId);

@@ -6,6 +6,7 @@ export type {
 } from '@relate/protocol';
 
 export type * from './analytics/sql.js';
+export type { AnalyticalLimits } from './analytics/limits.js';
 
 export {
   AnalyticalValueError,

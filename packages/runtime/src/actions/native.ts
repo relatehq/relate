@@ -1,3 +1,4 @@
+import type { ReadExecution } from '../reads/index.js';
 import type { OperationScope } from '../activity/index.js';
 import type { Manifest, Policy } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
@@ -62,6 +63,7 @@ export function createNativeOperations(options: {
     canonical: boolean,
     transaction?: NativeTransaction,
     request?: ReadControls,
+    execution?: ReadExecution,
   ): Promise<AuthorizationEvidence | undefined>;
 }) {
   const { manifest, scope, store, clock } = options;
@@ -70,6 +72,7 @@ export function createNativeOperations(options: {
     principal: Principal,
     transaction?: NativeTransaction,
     request?: ReadControls,
+    execution?: ReadExecution,
   ) =>
     createAuthorization({
       manifest,
@@ -84,6 +87,7 @@ export function createNativeOperations(options: {
           canonical,
           transaction,
           request,
+          execution,
         ),
     });
 
@@ -147,7 +151,9 @@ export function createNativeOperations(options: {
       request: ReadControls,
       transaction?: NativeTransaction,
       capture?: (check: () => Promise<boolean>) => void,
+      execution?: ReadExecution,
     ): Promise<ReadResult> {
+      execution?.signal.throwIfAborted();
       validateReadRequest(
         request,
         operationName(manifest, principal, objectDefinitionId, 'get'),
@@ -177,7 +183,13 @@ export function createNativeOperations(options: {
       if (!record) return { status: 'not-found' };
 
       const evidence = nativeEvidence(object, record);
-      const auth = authorization(attempt, principal, transaction, request);
+      const auth = authorization(
+        attempt,
+        principal,
+        transaction,
+        request,
+        execution,
+      );
 
       if (!(await auth.allows(object, evidence)))
         return { status: 'not-found' };

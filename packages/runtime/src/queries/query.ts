@@ -1,3 +1,4 @@
+import type { ReadExecution } from '../reads/index.js';
 import type { OperationScope } from '../activity/index.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { canonicalJson } from 'relate/model';
@@ -40,6 +41,7 @@ type Available = Extract<ReadResult, { status: 'ok' }>;
 
 /** Trusted composition controls; never accepted from a consumer request. */
 export interface QueryContext {
+  readonly execution?: ReadExecution;
   readonly cursorScope?: unknown;
   readonly signal?: AbortSignal;
   readonly beginDependencyRead?: () => () => void;
@@ -65,6 +67,7 @@ export function createGraphQuery(options: {
     requiredReference?: string,
     capture?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
+    execution?: ReadExecution,
   ): Promise<ReadResult>;
 }) {
   const { manifest, store, clock } = options;
@@ -223,6 +226,7 @@ export function createGraphQuery(options: {
             allowed = check;
           },
           transaction,
+          context?.execution,
         );
       } finally {
         endRead?.();

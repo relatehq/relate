@@ -1,3 +1,4 @@
+import type { ReadExecution } from './reads/index.js';
 import { createAnalyticalReads } from './analytical-read.js';
 import type { AnalyticalReadOptions } from './analytical-read.js';
 import {
@@ -171,7 +172,10 @@ export function createRuntime(options: RuntimeOptions) {
     canonical = false,
     transaction?: NativeTransaction,
     request: ReadRequest = {},
+    execution?: ReadExecution,
   ) {
+    execution?.signal.throwIfAborted();
+
     if (!target.sourceDefinitionId) {
       const record = transaction
         ? await transaction.load(target.id, key)
@@ -187,6 +191,7 @@ export function createRuntime(options: RuntimeOptions) {
       maxAgeMs,
       canonical,
       request,
+      execution,
     );
   }
 
@@ -233,7 +238,9 @@ export function createRuntime(options: RuntimeOptions) {
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
+    execution?: ReadExecution,
   ): Promise<ReadResult> {
+    execution?.signal.throwIfAborted();
     const object = manifest.objects.find((o) => o.id === objectDefinitionId);
     const policy = manifest.policies[objectDefinitionId];
 
@@ -274,6 +281,7 @@ export function createRuntime(options: RuntimeOptions) {
         requiredReference,
         captureAuthorization,
         transaction,
+        execution,
       );
 
     return native.read(
@@ -284,6 +292,7 @@ export function createRuntime(options: RuntimeOptions) {
       request,
       transaction,
       captureAuthorization,
+      execution,
     );
   }
 
@@ -300,7 +309,27 @@ export function createRuntime(options: RuntimeOptions) {
 
   const analyticalReads = createAnalyticalReads({
     manifest,
-    read: readObject,
+    read: (
+      attempt,
+      principal,
+      type,
+      id,
+      request,
+      reference,
+      capture,
+      execution,
+    ) =>
+      readObject(
+        attempt,
+        principal,
+        type,
+        id,
+        request,
+        reference,
+        capture,
+        undefined,
+        execution,
+      ),
     query: (attempt, principal, type, request, context) =>
       query(attempt, principal, type, request, undefined, undefined, context),
     clock,

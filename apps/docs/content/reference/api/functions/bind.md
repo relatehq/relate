@@ -10,7 +10,7 @@ function bind<D>(
 ): DatasetBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:48](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L48)
+Defined in: [packages/relate/src/app.ts:49](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L49)
 
 Bind a dataset to a selected analytical resource; unspecified columns retain their names.
 
@@ -39,7 +39,7 @@ Bind a dataset to a selected analytical resource; unspecified columns retain the
 function bind(source, resource): SourceAppBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:59](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L59)
+Defined in: [packages/relate/src/app.ts:60](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L60)
 
 Custom adapters may supply the explicit resource identity and keyed reader.
 
@@ -64,7 +64,7 @@ function bind(
 ): SourceAppBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:65](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L65)
+Defined in: [packages/relate/src/app.ts:66](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L66)
 
 Bind a source contract to a selected resource without opening it.
 
@@ -92,7 +92,7 @@ function bind(
 ): SourceAppBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:74](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L74)
+Defined in: [packages/relate/src/app.ts:75](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L75)
 
 Bind a dataset to a selected analytical resource; unspecified columns retain their names.
 

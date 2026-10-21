@@ -12,7 +12,8 @@ import type {
 import type { Manifest } from 'relate/model';
 import { analyticalSchemaType } from 'relate/model';
 import { parseAnalyticalValue } from 'relate/analytics';
-import type { SqlParser } from 'relate/analytics';
+import type { SqlParser, AnalyticalLimits } from 'relate/analytics';
+import type { ReadExecution } from './reads/index.js';
 import type { Principal } from './authorization/index.js';
 import {
   actorAssociations,
@@ -32,6 +33,7 @@ import {
   computeFields,
   revalidateFields,
   AnalyticalPreparationError,
+  operationLimits,
 } from './analytics/index.js';
 import type {
   AnalyticalBinding,
@@ -47,6 +49,7 @@ import {
 } from './reads/index.js';
 
 export interface AnalyticalReadOptions {
+  readonly limits?: AnalyticalLimits;
   readonly parser: SqlParser;
   readonly binding: (datasetId: string) => AnalyticalBinding;
   readonly signal: AbortSignal;
@@ -60,6 +63,7 @@ type OrdinaryRead = (
   request: ReadRequest,
   requiredReference?: string,
   capture?: (allowed: () => Promise<boolean>) => void,
+  execution?: ReadExecution,
 ) => Promise<FullObjectResult>;
 
 /** Composition owns ordinary reads and policy; analytics owns pure preparation/execution. */
@@ -76,6 +80,7 @@ export function createAnalyticalReads(options: {
   readonly analytics?: AnalyticalReadOptions;
   readonly clock: () => number;
 }) {
+  const limits = operationLimits(options.analytics?.limits);
   const run = async (
     kind: 'get' | 'query',
     attempt: OperationScope,
@@ -251,6 +256,32 @@ export function createAnalyticalReads(options: {
 
       endPreparation();
       const controller = new AbortController();
+      let sourceCalls = 0;
+      const execution: ReadExecution = {
+        signal: controller.signal,
+        beforeSourceCall() {
+          controller.signal.throwIfAborted();
+
+          if (sourceCalls >= limits.maxSourceCalls) {
+            controller.abort(
+              new ReadError('invalid-request', {
+                operation,
+                issues: [
+                  {
+                    path: [],
+                    problem: 'not-supported',
+                    message:
+                      'The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget.',
+                  },
+                ],
+              }),
+            );
+            controller.signal.throwIfAborted();
+          }
+
+          sourceCalls++;
+        },
+      };
       const retire = () => controller.abort(new ReadError('runtime-retired'));
 
       analytics.signal.addEventListener('abort', retire, { once: true });
@@ -258,20 +289,15 @@ export function createAnalyticalReads(options: {
       if (analytics.signal.aborted) retire();
 
       const remaining =
-        request.timeoutMs === undefined
-          ? undefined
-          : request.timeoutMs - (performance.now() - started);
+        Math.min(request.timeoutMs ?? Infinity, limits.operationTimeoutMs) -
+        (performance.now() - started);
 
-      if (remaining !== undefined && remaining <= 0)
-        controller.abort(new ReadError('unavailable'));
+      if (remaining <= 0) controller.abort(new ReadError('unavailable'));
 
-      const timer =
-        remaining === undefined
-          ? undefined
-          : setTimeout(
-              () => controller.abort(new ReadError('unavailable')),
-              Math.max(0, remaining),
-            );
+      const timer = setTimeout(
+        () => controller.abort(new ReadError('unavailable')),
+        Math.max(0, remaining),
+      );
       const materialize = (
         result: FullObjectRecord,
         at: number,
@@ -319,7 +345,16 @@ export function createAnalyticalReads(options: {
         if (kind === 'get') {
           const initial = await measure('candidates', () =>
             measure('dependencyReads', () =>
-              options.read(attempt, principal, type, id!, controls),
+              options.read(
+                attempt,
+                principal,
+                type,
+                id!,
+                controls,
+                undefined,
+                undefined,
+                execution,
+              ),
             ),
           );
 
@@ -345,6 +380,7 @@ export function createAnalyticalReads(options: {
               },
               {
                 signal: controller.signal,
+                execution,
                 beginDependencyRead: () =>
                   beginTiming(timings, 'dependencyReads'),
                 beginFinalization: () => beginTiming(timings, 'finalization'),
@@ -410,6 +446,7 @@ export function createAnalyticalReads(options: {
                 (check) => {
                   allowed = check;
                 },
+                execution,
               ),
             );
 

@@ -1,4 +1,5 @@
 export { validateReadRequest } from './request.js';
+export type { ReadExecution } from './execution.js';
 
 export {
   cursorIssue,

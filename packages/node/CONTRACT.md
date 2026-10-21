@@ -104,9 +104,59 @@ flowchart LR
   Close --> Dispose[Application disposes owned connections]
 ```
 
-Binding and schema checks are implemented. Analytical object reads and built-in
-analytical connector execution remain in progress; selecting a calculation
-currently fails with `not-supported`.
+Analytical `get` and ordinary query pages execute selected declared calculations
+and caller `compute` expressions through the bound connector. Computed filtering
+and ordering remain unimplemented.
+
+## Analytical operation limits
+
+Application setup may return host-owned limits alongside its bindings:
+
+```ts
+return {
+  bindings,
+  analytics: { operationTimeoutMs: 60_000, maxSourceCalls: 50_000 },
+};
+```
+
+These are the defaults when omitted. `operationTimeoutMs` must be a positive
+integer no larger than 2,147,483,647; `maxSourceCalls` must be a nonnegative
+safe integer. Invalid limits fail analytical startup and run registered disposal
+callbacks. Limits are copied at startup, so later mutation cannot change them.
+
+Every analytical get or query page has one deadline and source-call budget,
+shared by candidate reads, source-backed authorization dependencies, and final
+revalidation. Both provider identity checks and fetch attempts consume the
+budget. Cached application-identity reads consume none; zero permits those
+reads. Each concurrent operation has its own budget. A consumer `timeoutMs` can
+shorten the host deadline but cannot extend it. Consumers cannot set host limits
+through read options. Activity capture does not affect enforcement.
+
+Exceeding the source budget rejects with `invalid-request` / `not-supported`,
+with guidance to narrow ordinary filters or adjust host configuration. An
+expired deadline rejects with `unavailable`; runtime retirement rejects with
+`runtime-retired`. These failures cannot return stale fallback or partial
+analytical results. Cancellation reaches provider identity and fetch signals;
+providers must honor those signals to stop their own work. Storage and arbitrary
+provider JavaScript cannot be forcibly interrupted. Analytical connector
+cancellation retains its joined cleanup contract.
+
+The defaults are provisional safeguards informed by the retained
+[candidate-path measurements](../../tests/performance/analytical-properties/README.md).
+They are not evidence that every workload finishes within a minute. Full-scope
+computed filtering and ordering still need their own capacity validation.
+
+```mermaid
+flowchart LR
+  Host[Host limits] --> Operation[One analytical operation]
+  Operation --> Candidates[Candidate reads]
+  Operation --> SQL[Analytical statements]
+  Operation --> Final[Final revalidation]
+  Candidates --> Sources[Shared identity and fetch budget]
+  Final --> Sources
+  Sources --> Policy[Nested authorization reads]
+  Policy --> Sources
+```
 
 ## Actor-bound discovery
 
