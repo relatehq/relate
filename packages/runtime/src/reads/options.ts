@@ -285,9 +285,18 @@ const aliases: readonly {
   },
 ];
 
-// Every option that is not universal pages or filters a collection.
 const singleRecord =
   'this operation returns a single record and does not page or filter';
+
+function unsupportedHint(rule: OptionRule): string {
+  if (rule.name === 'compute')
+    return 'compute is supported only by object get and query';
+
+  if (rule.name === 'orderBy')
+    return 'orderBy is supported only by object query';
+
+  return singleRecord;
+}
 
 /** Why a name is not an option here, using only the generic option vocabulary. */
 function unknownOption(name: string, operation: ReadOperation): RequestIssue {
@@ -297,7 +306,7 @@ function unknownOption(name: string, operation: ReadOperation): RequestIssue {
     return {
       path: [name],
       problem: 'not-supported',
-      message: `not accepted here; ${singleRecord}.`,
+      message: `not accepted here; ${unsupportedHint(known)}.`,
     };
 
   const alias = aliases.find((entry) => entry.names.includes(name));
@@ -309,7 +318,7 @@ function unknownOption(name: string, operation: ReadOperation): RequestIssue {
     problem: 'unknown-option',
     message:
       meant && !meant.operations.includes(operation)
-        ? `unknown option; ${singleRecord}.`
+        ? `unknown option; ${unsupportedHint(meant)}.`
         : alias
           ? `unknown option; ${alias.hint}.`
           : 'unknown option.',
