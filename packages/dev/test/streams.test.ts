@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { LinePrefixer, streamPrefix } from '@relate/cli';
+import { LinePrefixer, streamPrefix } from '@relate/dev';
 
 function collect(
   options: { maxLineBytes?: number; saturated?: () => boolean } = {},

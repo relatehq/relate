@@ -8,7 +8,7 @@ import type { Writable } from 'node:stream';
 import type { Manifest } from 'relate/model';
 import { formatIssuePath } from 'relate/diagnostics';
 import type { Diagnostic, RuntimeStatus } from '@relate/inspector/protocol';
-import { describeManifest } from './diff.js';
+import { describeManifest } from '@relate/dev';
 
 export interface TerminalOptions {
   readonly stdout: Writable;

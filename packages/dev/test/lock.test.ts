@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { acquireLock, lockPath } from '@relate/cli';
-import type { Lock, LockMetadata } from '@relate/cli';
+import { acquireLock, lockPath } from '@relate/dev';
+import type { Lock, LockMetadata } from '@relate/dev';
 
 let root: string;
 

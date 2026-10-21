@@ -5,6 +5,7 @@
   "fixed": [
     [
       "@relate/cli",
+      "@relate/dev",
       "@relate/client",
       "create-relate",
       "@relate/http",

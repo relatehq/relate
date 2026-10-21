@@ -32,8 +32,8 @@ import {
   readMcpToken,
   createRuntimeController,
   createSessions,
-} from '@relate/cli';
-import type { ActivityLog, RuntimeController } from '@relate/cli';
+} from '@relate/dev';
+import type { ActivityLog, RuntimeController } from '@relate/dev';
 import { activityEventSchema } from '@relate/inspector/protocol';
 import type {
   ActivityEvent,
