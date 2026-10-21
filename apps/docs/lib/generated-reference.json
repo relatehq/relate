@@ -75,6 +75,18 @@
       "reference",
       "api",
       "functions",
+      "defineDataset"
+    ],
+    "name": "defineDataset",
+    "title": "Function: defineDataset()",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "functions",
       "defineGraph"
     ],
     "name": "defineGraph",
@@ -259,6 +271,18 @@
     ],
     "name": "ActionRequest",
     "title": "Type Alias: ActionRequest<A>",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "type-aliases",
+      "DatasetRow"
+    ],
+    "name": "DatasetRow",
+    "title": "Type Alias: DatasetRow<D>",
     "description": "API reference generated from Relate types and documentation comments.",
     "section": "API Reference"
   },

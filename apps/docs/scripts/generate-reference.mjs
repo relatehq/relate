@@ -10,6 +10,8 @@ const output = path.join(appDirectory, 'content/reference/api');
 // Runtime and consumer entry points have a separate handwritten API reference.
 const selected = [
   'defineSource',
+  'defineDataset',
+  'DatasetRow',
   'defineObject',
   'defineRelationship',
   'defineGraph',

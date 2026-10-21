@@ -4,7 +4,7 @@
 function referenceInput<O>(object, options?): ZodType<ObjectId<O["id"]>, ObjectId<O["id"]>>;
 ```
 
-Defined in: [packages/relate/src/index.ts:28](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L28)
+Defined in: [packages/relate/src/index.ts:34](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L34)
 
 A string on the wire and in memory; no wrapper, lookup, or access grant.
 Typed calls require an already branded ID. Use `.parse(unknown)` at external

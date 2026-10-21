@@ -99,7 +99,8 @@ try {
     join(portable, 'smoke.mjs'),
     `
 import assert from 'node:assert/strict';
-import { isAppDefinition } from 'relate';
+import { isAppDefinition, defineDataset, defineAccess } from 'relate';
+import { z } from 'zod';
 import { SourceAccessDenied, DatasetExecutionError } from 'relate/connectors';
 import { app } from './built/app.types.js';
 import { encodeAnalyticalValue, decodeAnalyticalValue } from 'relate/analytics';
@@ -107,6 +108,12 @@ assert.equal(encodeAnalyticalValue(9007199254740993n, { type: 'int64', nullable:
 assert.equal(decodeAnalyticalValue('9007199254740993', { type: 'int64', nullable: false }), 9007199254740993n);
 assert.equal(decodeAnalyticalValue('2026-01-01T00:00:00.123456Z', { type: 'timestamp', precision: 6, nullable: false }), '2026-01-01T00:00:00.123456Z');
 assert.ok(isAppDefinition(app));
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
+const Events = defineDataset({ id: 'events', columns: {
+  count: { id: 'events.count', schema: z.int64(), access: access.groups.ordinary },
+} });
+assert.equal(Events.schema.parse({ count: 9007199254740993n }).count, 9007199254740993n);
+assert.ok(Object.isFrozen(Events.columns));
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
 const failure = new DatasetExecutionError('execution-failed', { retryable: true, cause: new Error('private driver detail') });
 assert.equal(failure.code, 'execution-failed');

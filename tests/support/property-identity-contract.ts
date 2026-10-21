@@ -233,7 +233,7 @@ export function propertyIdentityContract(
       };
 
       try {
-        expect(model.manifest.formatVersion).toBe(6);
+        expect(model.manifest.formatVersion).toBe(7);
         expect(() => validateManifest(legacy)).toThrow();
         await backing.store.install(graphId, revision);
         const saved = await backing.store.accept(scope, {

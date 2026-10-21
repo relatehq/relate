@@ -6,7 +6,7 @@ function from<S, Id>(field, options): Property<S> & {
 };
 ```
 
-Defined in: [packages/relate/src/index.ts:164](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L164)
+Defined in: [packages/relate/src/index.ts:170](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L170)
 
 ## Type Parameters
 

@@ -8,6 +8,7 @@
 ## Type Aliases
 
 - [ActionRequest](type-aliases/ActionRequest.md)
+- [DatasetRow](type-aliases/DatasetRow.md)
 - [ObjectId](type-aliases/ObjectId.md)
 - [ObjectRecord](type-aliases/ObjectRecord.md)
 - [ObjectResult](type-aliases/ObjectResult.md)
@@ -23,6 +24,7 @@
 - [defineAccess](functions/defineAccess.md)
 - [defineAction](functions/defineAction.md)
 - [defineApp](functions/defineApp.md)
+- [defineDataset](functions/defineDataset.md)
 - [defineGraph](functions/defineGraph.md)
 - [defineObject](functions/defineObject.md)
 - [defineRelationship](functions/defineRelationship.md)

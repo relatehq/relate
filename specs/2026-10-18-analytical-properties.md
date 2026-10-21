@@ -2204,8 +2204,10 @@ scope below. A checked foundation does not establish analytical execution.
 - [x] Separate object read/query requests from traversal and transaction reads.
 - [ ] Finalize portable SQL, logical types, codecs, execution contracts and the
       conformance corpus, including the open decisions below.
-- [ ] Compile datasets, explicit association pairs, policies and declared
-      calculations, preserving stable IDs and descriptions.
+- [x] Add column-derived dataset authoring, compiled association pairs and
+      policy metadata, preserving stable IDs and descriptions.
+- [ ] Complete integer object-property support and declared-calculation
+      compilation and startup validation.
 - [x] Parse the complete restricted SQL subset through `@relate/sql-parser`.
 - [x] Define the opaque analytical connector boundary and implement bounded
       statement admission, cancellation and retirement; host wiring remains

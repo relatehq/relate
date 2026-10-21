@@ -347,3 +347,45 @@ results.
 and `execute(plan, { signal, timeoutMs })` returns portable values by object
 slot. Physical names and generated SQL remain connector-owned. See the
 [connector contract](./CONTRACT.md#analytical-connector-boundary).
+
+## Analytical dataset declarations
+
+`defineDataset` declares rows without an object identity. Each column owns its
+schema, stable ID, access group and optional description. `DatasetRow` infers
+the row type, and `dataset.schema` is derived from those same column schemas.
+Dataset and association compilation are implemented; binding and analytical
+object reads are still in progress.
+
+```ts
+import { z } from 'zod';
+import { defineAccess, defineDataset } from 'relate';
+import type { DatasetRow } from 'relate';
+
+const access = defineAccess({
+  roles: ['analyst'],
+  fieldGroups: ['ordinary'],
+  claims: {},
+});
+const Events = defineDataset({
+  id: 'analytics.events',
+  description:
+    'One row per recorded event. Duplicate events remain separate rows.',
+  columns: {
+    customerId: {
+      id: 'analytics.events.customer-id',
+      schema: z.string(),
+      access: access.groups.ordinary,
+    },
+  },
+});
+type Event = DatasetRow<typeof Events>; // { customerId: string }
+```
+
+Register datasets under `defineGraph({ datasets: { Events }, ... })`. An object
+associates itself through
+`datasets: { events: { id, dataset: Events, on: [{ column: 'customerId', property: 'externalId' }] } }`.
+The property belongs to the containing object; the column belongs to the
+selected dataset. Multiple pairs combine with AND. Policies declare both
+`Customer.datasets.events.gate` and the dataset's column `groups`; ordinary-only
+datasets use an empty policy. See the
+[dataset contract](./CONTRACT.md#dataset-and-association-compilation).

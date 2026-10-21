@@ -53,14 +53,16 @@ field classifications, and policy dependencies, then returns an immutable,
 serializable manifest. Property renames preserve their IDs and change the
 definition revision.
 
-The current manifest format is **6**. Source observations, native values,
+The current manifest format is **7**. Source observations, native values,
 authorization evidence and persisted value history use stable property IDs;
-consumer results retain property names. Formats 1 through 5 must be recompiled.
+consumer results retain property names. Formats 1 through 6 must be recompiled.
 Format 4 added portable scalar bounds and declared action failure schemas;
-format 5 added portable graph discovery descriptions; format 6 adds timestamp
-semantics to scalar schemas. Recompilation also changes the installed revision,
-preventing an existing name-keyed store from being read as ID-keyed data.
-Existing installations need an explicit data/revision migration; see the
+format 5 added portable graph discovery descriptions; format 6 added timestamp
+semantics to scalar schemas; format 7 adds analytical dataset and association
+metadata with column policies and correlation IDs. Recompilation also changes
+the installed revision, preventing an existing name-keyed store from being read
+as ID-keyed data. Existing installations need an explicit data/revision
+migration; see the
 [storage contract](../runtime/STORE_CONTRACT.md#property-identity).
 
 This slice supports a single membership source per object, scalar string/number/
@@ -696,3 +698,73 @@ is an observed backend timestamp, not a snapshot or ingestion guarantee.
 message contains no driver text. Consumers must never serialize that cause.
 Caller abort and retirement propagate through the operation signal, separately
 from retryable analytical failures.
+
+## Dataset and association compilation
+
+Glossary:
+
+- **Dataset**: an unbound row definition, such as `Events`. It has columns and
+  no row key; duplicate rows are meaningful.
+- **Association**: a named connection from one object to a dataset, such as
+  `Customer.datasets.events`. Its `on` pairs describe which rows belong to that
+  object using declared names, not physical column names.
+- **Column group**: the declared access classification of a column, such as
+  `ordinary` or `identifying`. Dataset policy assigns roles to restricted
+  groups.
+
+`defineDataset` accepts `id`, optional `description`, and `columns`. Every
+column declares its Zod `schema`, stable `id`, `access` group and optional
+`description`. A separate top-level input schema is rejected. The helper
+captures and freezes column descriptors and derives `dataset.schema` and the
+`DatasetRow<D>` TypeScript row type from them.
+
+The compiler accepts unrefined `z.boolean()`, `z.string()`, `z.int32()`,
+`z.int64()`, `z.number()` and
+`z.iso.datetime({ offset: true, precision: 3 | 6 })` column schemas, optionally
+wrapped in `.nullable()`. Optional values, coercions, transforms, defaults,
+enum/decimal types and additional refinements are rejected: physical schema
+checks cannot promise their row-level constraints. Int64 row schemas retain
+bigint; datasets do not persist their rows as object JSON.
+
+```mermaid
+flowchart LR
+  Columns[Column schemas, IDs and groups] --> Dataset[Derived row schema]
+  Columns --> Compile[Compile analytical model]
+  Pairs[Object association pairs] --> Compile
+  Policies[Association gates and dataset groups] --> Compile
+  Compile --> Manifest[Portable metadata with stable IDs]
+  Manifest --> Validate[Independent manifest validation]
+```
+
+A graph registers datasets separately from objects. API names are unique across
+those registries, and all stable IDs are unique across the graph. Dataset
+columns, object properties and each object's association names cannot collide
+after SQL case folding. Descriptions are preserved exactly; blank descriptions
+are invalid and omitted descriptions remain absent.
+
+Association `on` is a non-empty array of `{ column, property }`. Both names are
+checked against their owner and compiled to stable IDs. Dataset column mappings
+cannot repeat; multiple columns may match the same object property. Pair order
+is normalized so it does not change `definitionRevision`. A dataset reference
+must be the registered definition instance. Ordinary string, boolean and
+millisecond-instant properties (including nullable/optional properties and
+object IDs) can currently correlate with compatible columns. Timestamp precision
+may differ without losing the millisecond value. Reference properties, local
+wall-clock values, floating equality and incompatible types are rejected.
+Integer object-property schemas and declared calculations remain implementation
+work; dataset integer columns themselves are supported by the compiler.
+
+Every registered dataset requires a policy, including `{}` for ordinary-only
+columns. Every restricted column group requires a role gate. Dataset policies
+accept only `groups`; uncorrelated row policy is deferred. Every association
+requires its own object-policy gate, even if the object's read policy is deny.
+Unknown association policy names, unsupported gates and unknown roles/groups are
+compile errors. Association gates and dataset column groups are compiled
+independently; neither grants access to the object itself.
+
+Manifest format 7 includes dataset schemas and groups plus per-object
+associations, correlation IDs and gates. Validation of loaded JSON repeats ID,
+name, logical-type, correlation and policy checks independently of TypeScript
+and authoring helpers. Dataset or association renames retain explicit IDs but
+change the revision; description and policy changes also affect the revision.
+These contracts do not yet enable analytical reads in the Node runtime.

@@ -1,5 +1,13 @@
 import { z } from 'zod';
 import {
+  datasetSchema,
+  associationSchema,
+  validateDatasets,
+} from './model/datasets.js';
+
+export type { CompiledDataset, CompiledAssociation } from './model/datasets.js';
+
+import {
   localDateTimeValue,
   localDateTimePrecisions,
 } from './model/local-datetime.js';
@@ -95,7 +103,7 @@ const propertySchema = z.strictObject({
 });
 
 export const manifestSchema = z.strictObject({
-  formatVersion: z.literal(6),
+  formatVersion: z.literal(7),
   graphDefinitionId: text,
   description: prose.optional(),
   fieldGroups: z.array(text),
@@ -108,6 +116,7 @@ export const manifestSchema = z.strictObject({
       fields: z.record(text, scalarSchema),
     }),
   ),
+  datasets: z.array(datasetSchema).optional(),
   objects: z.array(
     z.strictObject({
       id: text,
@@ -117,6 +126,7 @@ export const manifestSchema = z.strictObject({
       description: prose.optional(),
       sourceDefinitionId: text.optional(),
       properties: z.array(propertySchema),
+      datasets: z.array(associationSchema).optional(),
     }),
   ),
   relationships: z
@@ -494,6 +504,7 @@ export function validateManifest(input: unknown): Manifest {
   };
 
   register(manifest.graphDefinitionId, ['graphDefinitionId']);
+  validateDatasets(manifest, issues, register);
 
   if (
     !manifest.fieldGroups.includes('ordinary') ||

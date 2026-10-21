@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import { compileDatasets } from './compiler/datasets.js';
+import type { Policy as AuthoredPolicy } from './authorization.js';
 import type { ConsumerDescription } from './consumer.js';
 import type { ConsumerRoutingDescription } from './consumer-description.js';
 import type { z } from 'zod';
@@ -661,10 +663,15 @@ export function compile<G extends GraphDefinition>(
       evidenceMaxAgeMs: rule.evidenceMaxAgeMs ?? 0,
     };
   };
+  const analytical = compileDatasets(graph, issues);
   const createPolicies: Record<string, unknown> = {};
   const policies: Record<string, unknown> = {};
 
-  for (const [name, policy] of Object.entries(graph.policies)) {
+  for (const [name, inputPolicy] of Object.entries(graph.policies)) {
+    if (graph.datasets && Object.hasOwn(graph.datasets, name)) continue;
+
+    const policy = inputPolicy as AuthoredPolicy;
+
     issues.unit(() => {
       if (!Object.hasOwn(graph.objects, name))
         issues.fail(
@@ -681,7 +688,7 @@ export function compile<G extends GraphDefinition>(
         !policy ||
         typeof policy !== 'object' ||
         Object.keys(policy).some(
-          (key) => !['read', 'create', 'groups'].includes(key),
+          (key) => !['read', 'create', 'groups', 'datasets'].includes(key),
         )
       )
         issues.fail(
@@ -953,7 +960,7 @@ export function compile<G extends GraphDefinition>(
 
   const relationships = relationshipEntries.map(([, r]) => r);
   const manifestInput = {
-    formatVersion: 6,
+    formatVersion: 7,
     graphDefinitionId: graph.id,
     ...described(graph.description),
     fieldGroups: [...graph.access.fieldGroups].sort(),
@@ -962,6 +969,7 @@ export function compile<G extends GraphDefinition>(
     sources: [...resources.values()].sort((a, b) =>
       a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
     ),
+    ...(analytical.datasets.length ? { datasets: analytical.datasets } : {}),
     objects: entries
       .map(([apiName, o]) => ({
         id: o.id,
@@ -969,6 +977,9 @@ export function compile<G extends GraphDefinition>(
         label: o.label ?? humanize(apiName),
         pluralLabel: o.pluralLabel ?? o.label ?? humanize(apiName),
         ...described(o.description),
+        ...(analytical.associations[o.id]?.length
+          ? { datasets: analytical.associations[o.id] }
+          : {}),
         ...('resource' in o.membership
           ? { sourceDefinitionId: o.membership.resource.id }
           : {}),
@@ -1091,6 +1102,12 @@ function translate(
       id: string;
       apiName: string;
       properties: readonly { id: string; name: string }[];
+      datasets?: readonly { id: string; name: string }[];
+    }[];
+    datasets?: readonly {
+      id: string;
+      apiName: string;
+      columns: readonly { id: string; name: string }[];
     }[];
     relationships?: readonly { id: string }[];
     actions?: readonly { id: string; apiName: string }[];
@@ -1117,6 +1134,47 @@ function translate(
     case 'roles':
     case 'claims':
       return authored(['access', head, ...issue.path.segments.slice(1)]);
+    case 'datasets': {
+      const dataset =
+        typeof second === 'number' ? manifest.datasets?.[second] : undefined;
+
+      if (
+        !dataset ||
+        !graph.datasets ||
+        !Object.hasOwn(graph.datasets, dataset.apiName)
+      )
+        return issue;
+
+      if (third === 'apiName') return authored(['datasets', dataset.apiName]);
+
+      if (third === 'groups')
+        return authored([
+          'policies',
+          dataset.apiName,
+          ...issue.path.segments.slice(2),
+        ]);
+
+      if (third === 'columns' && typeof fourth === 'number') {
+        const column = dataset.columns[fourth];
+
+        if (!column) return issue;
+
+        return authored([
+          'datasets',
+          dataset.apiName,
+          'columns',
+          column.name,
+          ...(fifth === undefined ? [] : [fifth]),
+          ...rest,
+        ]);
+      }
+
+      return authored([
+        'datasets',
+        dataset.apiName,
+        ...issue.path.segments.slice(2),
+      ]);
+    }
     case 'objects': {
       const object =
         typeof second === 'number' ? manifest.objects[second] : undefined;
@@ -1125,6 +1183,33 @@ function translate(
         return issue;
 
       if (third === 'apiName') return authored(['objects', object.apiName]);
+
+      if (third === 'datasets' && typeof fourth === 'number') {
+        const association = object.datasets?.[fourth];
+
+        if (!association) return issue;
+
+        if (fifth === 'gate')
+          return authored([
+            'policies',
+            object.apiName,
+            'datasets',
+            association.name,
+            'gate',
+          ]);
+
+        // Pair order is normalized by ID; do not claim an authored array index.
+        return authored([
+          'objects',
+          object.apiName,
+          'datasets',
+          association.name,
+          ...(fifth === undefined
+            ? []
+            : [fifth === 'datasetDefinitionId' ? 'dataset' : fifth]),
+          ...(fifth === 'on' ? [] : rest),
+        ]);
+      }
 
       if (third === 'properties' && typeof fourth === 'number') {
         const property = object.properties[fourth];

@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import type {
+  DatasetAssociations,
+  DatasetRegistry,
+  CheckedAssociations,
+} from './datasets.js';
 import { referenceSchemas } from './schema.js';
 import { CompileError } from './diagnostics.js';
 import { recordProvenance } from './provenance.js';
@@ -9,6 +14,7 @@ import type {
   FieldGroup,
   Policies,
   Policy,
+  DatasetPolicy,
   Principals,
 } from './authorization.js';
 
@@ -278,6 +284,7 @@ export interface ObjectDefinition {
   /** Explanatory text for people, documentation, and agents. */
   readonly description?: string;
   readonly membership: Membership;
+  readonly datasets?: DatasetAssociations;
   readonly properties: Readonly<Record<string, Property>>;
 }
 
@@ -290,13 +297,15 @@ export type DefinedObject<
   Id extends string,
   P extends Record<string, Property>,
   M extends Membership = Membership,
-> = Omit<ObjectDefinition, 'id' | 'properties' | 'membership'> & {
+  D extends DatasetAssociations = DatasetAssociations,
+> = Omit<ObjectDefinition, 'id' | 'properties' | 'membership' | 'datasets'> & {
   readonly id: Id;
   readonly membership: M;
+  readonly datasets?: D;
   readonly properties: {
     readonly [K in keyof P]: BoundProperty<
       Omit<P[K], 'owner'>,
-      DefinedObject<Id, P, M>
+      DefinedObject<Id, P, M, D>
     >;
   };
 };
@@ -305,13 +314,18 @@ export function defineObject<
   const Id extends string,
   const P extends Record<string, Property>,
   const M extends Membership,
+  const D extends DatasetAssociations = {},
 >(
-  definition: Omit<ObjectDefinition, 'id' | 'properties' | 'membership'> & {
+  definition: Omit<
+    ObjectDefinition,
+    'id' | 'properties' | 'membership' | 'datasets'
+  > & {
     id: Id;
     membership: M;
     properties: P;
+    datasets?: D & CheckedAssociations<NoInfer<P>, NoInfer<D>>;
   },
-): DefinedObject<Id, P, M> {
+): DefinedObject<Id, P, M, D> {
   const identities = Object.values(definition.properties).filter(
     (p) => p.origin.kind === 'object-id',
   ).length;
@@ -344,7 +358,12 @@ export function defineObject<
     ),
   );
 
-  return recordProvenance(Object.freeze(object)) as DefinedObject<Id, P, M>;
+  return recordProvenance(Object.freeze(object)) as unknown as DefinedObject<
+    Id,
+    P,
+    M,
+    D
+  >;
 }
 
 export interface Traversal {
@@ -520,10 +539,11 @@ export interface GraphDefinition {
   /** Explanatory text for people, documentation, and agents. */
   readonly description?: string;
   readonly objects: ObjectRegistry;
+  readonly datasets?: DatasetRegistry;
   readonly relationships?: RelationshipRegistry;
   readonly actions?: Readonly<Record<string, ActionDefinition>>;
   readonly access: AccessDefinition;
-  readonly policies: Readonly<Record<string, Policy>>;
+  readonly policies: Readonly<Record<string, Policy | DatasetPolicy>>;
   /**
    * Named development identities for `relate dev`. Validated against `access`
    * at compile time, returned outside the Manifest and never hashed into
@@ -534,10 +554,22 @@ export interface GraphDefinition {
 
 export function defineGraph<const G extends GraphDefinition>(
   graph: G & {
-    readonly policies: Policies<NoInfer<G['objects']>, NoInfer<G['access']>> &
+    readonly policies: Policies<
+      NoInfer<G['objects']>,
+      NoInfer<G['access']>,
+      G extends { readonly datasets: infer D extends DatasetRegistry }
+        ? NoInfer<D>
+        : {}
+    > &
       ExactPolicyInput<
         G['policies'],
-        Policies<NoInfer<G['objects']>, NoInfer<G['access']>>
+        Policies<
+          NoInfer<G['objects']>,
+          NoInfer<G['access']>,
+          G extends { readonly datasets: infer D extends DatasetRegistry }
+            ? NoInfer<D>
+            : {}
+        >
       >;
     readonly principals?: Principals<NoInfer<G['access']>>;
   },
@@ -555,6 +587,7 @@ export type {
   DevelopmentPrincipal,
   FieldGroup,
   Policy,
+  DatasetPolicy,
   Policies,
   PolicyWhere,
   PrincipalDefinition,
@@ -612,3 +645,15 @@ export type {
   LocalDateTimeSchema,
   LocalDateTimePrecision,
 } from './local-datetime.js';
+
+export { defineDataset } from './datasets.js';
+
+export type {
+  DatasetColumn,
+  DatasetColumns,
+  DatasetDefinition,
+  DatasetRow,
+  DatasetRegistry,
+  DatasetAssociation,
+  DatasetAssociations,
+} from './datasets.js';
