@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { sqlite } from '@relate/connector-sqlite';
 import { bind, defineApp } from 'relate';
+import { decodeComputed } from 'relate/consumer';
 import type { ObjectId } from 'relate';
 import type {
   AnalyticalConnector,
@@ -898,3 +899,51 @@ it('exposes analytical discovery through the public facade with the same princip
   ).toMatchObject({ readable: false });
   expect(JSON.stringify(description)).not.toContain('"sql"');
 });
+
+it.each(['compact', 'full'] as const)(
+  'decodes caller and declared values from public %s reads and query records',
+  async (evidence) => {
+    const { runtime, principal, id } = await app();
+    const customer = runtime.as(principal).objects.Customer;
+    const compute = {
+      total: { sql: 'SELECT SUM(amount) FROM self.events' },
+      empty: { sql: 'SELECT MIN(amount) FROM self.events WHERE amount < 0' },
+    };
+    const result = await customer.get(id, {
+      select: ['label', 'count'],
+      compute,
+      evidence,
+    });
+
+    expect(decodeComputed(result)).toEqual({
+      total: 9007199254740995n,
+      count: 2n,
+      empty: null,
+    });
+    expect(result).toMatchObject({
+      data: {
+        label: 'Acme',
+        total: '9007199254740995',
+        count: '2',
+        empty: null,
+      },
+    });
+    const page = await customer.query({
+      select: ['label', 'count'],
+      compute,
+      evidence,
+    });
+
+    expect(page.data.map((row) => decodeComputed(row))).toEqual([
+      { total: 9007199254740995n, count: 2n, empty: null },
+    ]);
+    const forbidden = await runtime
+      .as({ ...principal, roles: ['reader', 'private'] })
+      .objects.Customer.get(id, { select: ['count'], evidence });
+
+    expect(forbidden).toMatchObject({
+      meta: { fields: { count: { status: 'forbidden' } } },
+    });
+    expect(decodeComputed(forbidden)).toEqual({});
+  },
+);

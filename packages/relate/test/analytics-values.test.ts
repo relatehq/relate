@@ -150,6 +150,8 @@ it('decodes wire values exactly and rejects unknown result types', () => {
 });
 
 it.each([
+  null,
+  undefined,
   { type: 'unknown', nullable: true },
   { type: 'timestamp', precision: 9, nullable: true },
   { type: 'int64' },

@@ -641,6 +641,22 @@ same codecs own runtime result validation and consumer decoding. Null parameters
 are rejected; SQL null literals have their own restricted syntax. Invalid values
 raise a sanitized error that contains neither the value nor provider details.
 
+`relate/consumer` exports `decodeComputed(result)` and `DecodedComputed<R>`. The
+input is a get result or an individual query record carrying `data` and
+`meta.computed`. The output is a separate object containing only own, present
+computed fields, decoded with those logical types. It does not alter data,
+status, IDs or evidence in the input. Both compact and full metadata are
+supported. Missing/forbidden/unavailable values remain omitted; null remains
+null. A not-found result or absent computed metadata returns an empty object.
+Ordinary fields, including ordinary int64 strings, are not part of the decoded
+bag. Pages are decoded record by record.
+
+Malformed present scalars and their type metadata throw `AnalyticalValueError`;
+no partial bag is returned and no value is included in the error. Type entries
+for omitted fields are not decoded. Literal metadata narrows the decoded scalar
+type; authored SQL retains the scalar union, and all output fields are optional.
+The helper stays browser-safe and reaches only the shared portable value codecs.
+
 The analytical entry point and its transitive local imports stay inside the
 analytics subtree. Connector/storage contracts may reach that subtree but still
 cannot reach graph authoring, compilation or runtime code.

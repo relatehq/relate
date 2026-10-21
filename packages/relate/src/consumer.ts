@@ -1,4 +1,5 @@
 import { ActionError, ReadError } from '@relate/protocol';
+
 import { captureConsumerDescription } from './consumer-description.js';
 import type { ConsumerRoutingDescription } from './consumer-description.js';
 import type {
@@ -49,6 +50,9 @@ export type {
   QueryResult,
   ReadOptions,
 } from './operations.js';
+
+export { decodeComputed } from './consumer-computed.js';
+export type { DecodedComputed } from './consumer-computed.js';
 
 // Pagination
 

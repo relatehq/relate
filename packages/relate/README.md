@@ -357,9 +357,9 @@ evidence and pagination rules.
 
 ## Portable analytical contracts
 
-`relate/analytics` owns SQL representation types and shared scalar codecs. These
-are implementation foundations; analytical reads are still being implemented.
-The entry point has no compiler, SQL parser implementation or database driver.
+`relate/analytics` owns SQL representation types and shared scalar codecs. The
+Node host uses them for computed object get/query reads. The entry point has no
+compiler, SQL parser implementation or database driver.
 
 ```ts
 import { encodeAnalyticalValue, decodeAnalyticalValue } from 'relate/analytics';
@@ -375,6 +375,31 @@ Codecs reject overflow, nonfinite numbers, malformed timestamps and mismatched
 JSON values. `parseAnalyticalValue` resolves typed JSON parameters and
 normalizes instant offsets without rounding. Null is valid only for nullable
 results.
+
+`decodeComputed` from `relate/consumer` applies these codecs using a record's
+`meta.computed` entries:
+
+```ts
+import { decodeComputed } from 'relate/consumer';
+
+const record = await consumer.objects.Customer.get(customerId, {
+  compute: { logins: { sql: 'SELECT COUNT(*) FROM self.events' } },
+});
+const fields = decodeComputed(record);
+// fields.logins is 2n when the returned JSON value was "2".
+```
+
+The helper returns a separate bag of present computed fields, for both caller
+aliases and declared calculations. It accepts get results and individual query
+records in either evidence mode. Ordinary fields and the original evidence stay
+unchanged. Missing fields stay missing; SQL null stays null. Not-found results
+and records without computed metadata return `{}`. Decode pages with
+`page.data.map(record => decodeComputed(record))`.
+
+Malformed present values or their type metadata throw `AnalyticalValueError`
+from `relate/analytics`, without including the input value. Result fields remain
+optional in TypeScript; SQL result types are known at runtime. Keep the original
+record for JSON transport; the decoded bag is for local use.
 
 `relate/connectors` also defines the analytical connector boundary:
 `AnalyticalConnector.plan(authorizedQuery)` returns an opaque `PreparedPlan`,

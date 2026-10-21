@@ -1,4 +1,6 @@
 import type { Consumer } from 'relate/consumer';
+import { decodeComputed } from 'relate/consumer';
+import type { DecodedAnalyticalScalar } from 'relate/analytics';
 import type { ObjectId } from 'relate';
 import type { FieldEvidence } from '@relate/protocol';
 import type { createAnalyticalGraph } from '../../../tests/support/analytical-graph.js';
@@ -12,6 +14,15 @@ async function typed(
     evidence: 'full',
     compute: { n: { sql: 'SELECT COUNT(*) FROM self.events' } },
   });
+
+  const decodedFull = decodeComputed(full);
+  const decodedAlias: DecodedAnalyticalScalar | undefined = decodedFull.n;
+  // @ts-expect-error Runtime SQL types do not prove a bigint result statically.
+  const guessedDecoded: bigint = decodedFull.n;
+
+  // @ts-expect-error Unselected fields stay absent from the decoded type.
+  decodedFull.externalId;
+  void [decodedAlias, guessedDecoded];
 
   if (full.status === 'ok') {
     const label: string | undefined = full.data.label;
@@ -59,6 +70,9 @@ async function typed(
   });
 
   for (const row of page.data) {
+    const decoded: DecodedAnalyticalScalar | undefined = decodeComputed(row).n;
+
+    void decoded;
     const value: string | number | boolean | null | undefined = row.data.n;
     const mode: 'full' = row.meta.evidence;
     const evidence: FieldEvidence | undefined = row.meta.fields.n;

@@ -206,14 +206,14 @@ export function decodeAnalyticalValue(
   value: unknown,
   result: ComputedResultType,
 ): DecodedAnalyticalScalar {
+  const encoded = encodeAnalyticalValue(value, result);
+
   // Driver-only bigint input is not valid JSON, even for an int64 field.
   if (
     typeof value === 'bigint' ||
     (result.type === 'int64' && value !== null && typeof value !== 'string')
   )
     invalid();
-
-  const encoded = encodeAnalyticalValue(value, result);
 
   if (encoded === null) return null;
 

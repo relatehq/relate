@@ -70,6 +70,42 @@ model and actor. Ordinary embedded applications use `runtime.as(principal)`.
 Source:
 [consumer exports and interfaces](../../../../packages/relate/src/consumer.ts).
 
+## Decoding computed values
+
+`decodeComputed` from `relate/consumer` returns a separate bag of computed
+values using `record.meta.computed`. It works for get results and individual
+query records, with compact or full evidence:
+
+```ts
+import { decodeComputed } from 'relate/consumer';
+
+const record = await consumer.objects.Customer.get(customerId, {
+  compute: { logins: { sql: 'SELECT COUNT(*) FROM self.events' } },
+});
+const fields = decodeComputed(record);
+// fields.logins is 2n if the response returned "2".
+```
+
+| Logical type           | Decoded value                                   |
+| ---------------------- | ----------------------------------------------- |
+| int64                  | `bigint`                                        |
+| timestamp, precision 3 | `Date`                                          |
+| timestamp, precision 6 | Canonical UTC string, preserving all six digits |
+| int32, float64         | `number`                                        |
+| string, boolean        | Unchanged scalar                                |
+| SQL null               | `null`                                          |
+
+Caller aliases and declared calculations use the same path. Missing values stay
+missing; ordinary fields are excluded. The input record and evidence remain
+unchanged. A not-found result or absent computed metadata returns `{}`. For a
+page, use `page.data.map(record => decodeComputed(record))`.
+
+Fields remain optional in the `DecodedComputed<R>` return type. Literal metadata
+can narrow the value type; authored SQL needs runtime type checks, such as
+`typeof fields.logins === 'bigint'`. Invalid present values or their metadata
+throw `AnalyticalValueError` from `relate/analytics`, without disclosing values.
+The decoded bag is for local use; retain the original record for JSON transport.
+
 ## Trusted host APIs
 
 These APIs are available on `runtime.host`, outside consumer authorization. Do

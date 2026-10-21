@@ -182,3 +182,8 @@ execute these reads. [Discovery](./discovery.md#analytical-metadata) describes
 actor-visible associations and calculated properties through the same consumer,
 MCP and Inspector playground paths. Computed filtering/order remains in
 progress. Traversal and action transaction readers reject analytical requests.
+
+Use [`decodeComputed`](../reference/runtime-api.md#decoding-computed-values)
+from `relate/consumer` to decode present calculated values using
+`meta.computed`. It returns a separate bag, preserving missing fields and SQL
+nulls without changing the read's data or evidence.
