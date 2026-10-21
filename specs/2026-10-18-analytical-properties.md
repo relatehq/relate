@@ -1,7 +1,8 @@
 # 2026-10-18: Analytical datasets and computed fields
 
 **Status:** design agreed on 2026-10-18, revised the same day after review, and
-revised on 2026-10-21 with the findings of the
+revised on 2026-10-21 to include declared computed properties and the Cube
+design review, alongside the findings of the
 [spike (#37)](https://github.com/relatehq/relate/pull/37); not implemented.
 [Decisions](#decisions) lists each decision with its status,
 [Open questions](#open-questions) lists what is still undecided and which step
@@ -39,12 +40,14 @@ Why this shape:
 - **SQL is the expression language.** Agents already write SQL, and Relate will
   offer one uniform SQL interface: these per-object expressions now, and a
   graph-wide SQL API later
-  ([Future](#future-declared-computed-properties-graph-sql-sync-and-other-backends)).
-  One dialect, one parser, one set of rules. A structured expression shape may
-  be added later, but it would be a second surface, not a replacement.
-- **Caller expressions first, declared properties next.** Developer-declared
-  computed properties (`loginCount: computed(...)`) are a planned extension that
-  reuses every contract below. They are not in v1.
+  ([Future](#future-graph-sql-sync-and-performance-optimization)). One dialect,
+  one parser, one set of rules. A structured expression shape may be added
+  later, but it would be a second surface, not a replacement.
+- **Caller expressions and declared properties together.** Developer-declared
+  computed properties (`loginCount: computed(...)`) ship in v1 through the same
+  preparation, authorization, execution, typing and evidence contracts as caller
+  expressions. A reusable business calculation is defined once and selected,
+  filtered or ordered by name.
 - **Postgres and SQLite first.** Both are already in the stack and need no
   native build. DuckDB, Parquet and warehouses are later backends behind the
   same contract.
@@ -236,30 +239,121 @@ The [README status table](../README.md#status) stays unchanged until this ships.
 const Events = defineDataset({
   id: 'analytics.events',
   description: 'One row per recorded customer event.',
-  schema: z.object({
-    customerId: z.string(),
-    eventType: z.string(),
-    occurredAt: z.iso.datetime({ offset: true, precision: 3 }),
-    userId: z.string().nullable(),
-  }),
-  // Proposed: stable identities and access, like object properties.
   columns: {
-    customerId: { id: 'analytics.events.customer-id', access: ordinary },
-    eventType: { id: 'analytics.events.event-type', access: ordinary },
-    occurredAt: { id: 'analytics.events.occurred-at', access: ordinary },
-    userId: { id: 'analytics.events.user-id', access: identifying },
+    customerId: {
+      id: 'analytics.events.customer-id',
+      schema: z.string(),
+      access: ordinary,
+    },
+    eventType: {
+      id: 'analytics.events.event-type',
+      schema: z.string(),
+      access: ordinary,
+    },
+    occurredAt: {
+      id: 'analytics.events.occurred-at',
+      schema: z.iso.datetime({ offset: true, precision: 3 }),
+      access: ordinary,
+    },
+    userId: {
+      id: 'analytics.events.user-id',
+      schema: z.string().nullable(),
+      access: identifying,
+    },
   },
 });
 ```
 
 - A dataset has typed columns, a description of what one row means, access and a
   binding. It has no key. Duplicate rows are meaningful: `COUNT(*)` counts them.
-- **Proposed:** every column has an explicit stable `id`, as object properties
-  do. Renaming `userId` keeps its ID. Evidence, policy and errors use IDs
-  internally and names at the API.
+- **Agreed:** `columns` is the single declaration of each column's `schema`,
+  stable `id` and `access` group. `defineDataset` derives the row Zod schema and
+  inferred TypeScript row type from these column schemas; there is no separate
+  top-level `schema` or second list of column names.
+- Every column has an explicit stable `id`, as object properties do. Renaming
+  `userId` keeps its ID. Evidence, policy and errors use IDs internally and
+  names at the API.
 - A dataset exposes one existing resource. Filters, computed columns and
   aggregations that manufacture a "login events" dataset from `events` are
   views, and views are deferred. Callers filter `eventType = 'login'` in SQL.
+
+### Declared computed properties
+
+**Agreed scope:** declared computed properties ship with caller expressions in
+v1. This example extends the running Customer model; the earlier caller-only
+example remains valid without any declared computed property.
+
+```ts
+properties: {
+  loginCount: computed({
+    id: 'business.customer.login-count',
+    access: ordinary,
+    sql: `SELECT COUNT(*) FROM self.events AS e WHERE e.eventType = 'login'`,
+  }),
+}
+
+await ana.objects.Customer.query({
+  select: ['name', 'loginCount'],
+  where: { loginCount: { gte: '1' } },
+  orderBy: [{ field: 'loginCount', direction: 'desc' }],
+});
+// Acme: loginCount '3'; Globex: loginCount '1'. All-time counts.
+```
+
+A declared property is a named expression with a stable property ID and access
+group. Its values are computed on reads, never persisted, adopted, assigned or
+used as writable action targets. Its definition participates in the graph's
+`definitionRevision`; changing SQL changes the revision without changing the
+property ID. Cursors must reject a changed calculation definition.
+
+The following integration rules apply throughout this spec wherever execution
+sections refer to a computed field or alias:
+
+- Object `get` and `query` support both forms. A selected declared calculation
+  joins caller expressions in the same prepared workload. A declared calculation
+  referenced only in `where` or `orderBy` is evaluated and required, but is not
+  returned unless selected. Default selection follows existing property
+  selection rules, including declared calculations in the default property set.
+- The property access group supplements object visibility, association gates,
+  dataset column access and dependency checks. Naming a calculation never grants
+  access to its inputs. A denied property is forbidden under existing field
+  rules; hidden associations must not leak through discovery or diagnostics.
+- Declared SQL uses the same subset and type inference as caller SQL. In v1 it
+  has no unbound named parameters: use literals or ordinary `self` properties;
+  parameterized reusable definitions are deferred. Result types are inferred by
+  runtime preparation, not guessed from TypeScript string literals. Selected
+  declared calculations therefore use the same JSON scalar union and omission
+  semantics as caller aliases; ordinary properties retain their existing types.
+- Computed properties cannot depend on other computed properties, including
+  themselves. Correlation keys and `self` dependencies must be ordinary object
+  properties. Validate all declarations at startup using the injected parser and
+  model metadata, before serving requests; report definition errors even for
+  unused declarations. Runtime preparation still checks actor access.
+- Both forms use `meta.computed`, `decodeComputed`, computed evidence, limits,
+  dependency revalidation and statement failure rules. Metadata is included for
+  returned computed fields, not hidden filter/order dependencies. A
+  declaration's stable ID is available in model discovery; SQL and parameter
+  values remain excluded from evidence and activity.
+- Traversal and transaction-bound action readers reject requests that would
+  select, filter or order by declared calculations with `invalid-request` /
+  `not-supported`, before analytical I/O, including default selections. An
+  explicit selection of ordinary properties remains supported. This closes the
+  same boundary as rejecting caller `compute` on those surfaces.
+
+The public authoring helper and exact consumer generic implementation are
+settled in Contracts. The required behavior above is in scope, not an optional
+follow-up. The portable compiler stores definition metadata; Node supplies the
+parser for startup validation, preserving the existing package boundaries.
+
+```mermaid
+flowchart TD
+  Declared[Selected or filter/order declared properties] --> Prepare[Shared analytical preparation]
+  Caller[Caller compute expressions] --> Prepare
+  Prepare --> Authorize[Property access plus association and input authorization]
+  Authorize --> Execute[Shared batching and connector execution]
+  Execute --> Results[Shared types, evidence and failure handling]
+  Results --> Projection[Return selected properties and caller aliases]
+```
 
 ### Column types (Proposed)
 
@@ -523,7 +617,7 @@ interface AnalyticalReadOptions {
 interface AnalyticalQueryOptions extends AnalyticalReadOptions {
   /** Property filters as today, plus computed aliases. */
   readonly where?: Record<string, PropertyFilter | ComputedFilter>;
-  /** Computed aliases only in v1. */
+  /** Caller aliases and declared computed properties in v1. */
   readonly orderBy?: readonly { field: string; direction: 'asc' | 'desc' }[];
 }
 ```
@@ -589,7 +683,9 @@ export interface TraversalRequest extends ReadControls {
 `ReadRequest` and `QueryRequest` remain as names only if a consumer needs them;
 [open question 10](#open-questions).
 
-**Caller typing (spike-tested).** The compile-only probe
+**Caller typing (spike-tested for aliases; declared-property extension
+untested).** `ComputedPropertyNames<O>` below denotes only declared computed
+properties, not ordinary properties. The compile-only probe
 (`dev/analytical-properties/test/api.typecheck.ts` in #37) shows the shape works
 over the existing `ObjectResult`, `ReadOptions`, `QueryOptions` and
 `QueryResult` types:
@@ -610,7 +706,7 @@ query<K extends PropertyNames<O> = PropertyNames<O>, const C extends Expressions
         readonly [A in keyof NoInfer<C>]?: ComputedFilter;
       };
       readonly orderBy?: readonly {
-        field: Extract<keyof NoInfer<C>, string>;
+        field: Extract<keyof NoInfer<C> | ComputedPropertyNames<O>, string>;
         direction: 'asc' | 'desc';
       }[];
     },
@@ -655,7 +751,8 @@ const initech = await ana.objects.Customer.get(initechId, {
 - Two aliases with the same expression are evaluated independently. Aliases are
   not stable IDs and cannot reference each other.
 - `compute` adds result fields; it does not change what `select` means. Calls
-  without `compute` behave exactly as today.
+  without `compute` behave as today unless they select, filter or order by a
+  declared computed property.
 
 ### `self`
 
@@ -778,7 +875,8 @@ SELECT COUNT(*) FROM self.events AS e WHERE e."EventType" = 'login'  -- unknown-
 
 ### Filtering and ordering by computed fields
 
-A `query` may use a computed alias in `where` and in `orderBy`:
+A `query` may use a caller computed alias or declared computed property in
+`where` and in `orderBy`. Both have the same computed filter semantics:
 
 ```ts
 // Customers with no October logins, most recently active first.
@@ -799,28 +897,28 @@ const page = await ana.objects.Customer.query({
 - `null` never satisfies a comparison. To select "no last login", write the
   expression with `COALESCE` and compare with the fallback. `COUNT` is never
   null, so `eq: '0'` is the natural "none" test.
-- `orderBy` is new. In v1 its entries name computed aliases only; ordering by
-  declared properties stays deferred, and today's rule that query results have
-  no caller-defined order still holds for queries without `orderBy`. Nulls sort
-  last in both directions. Ties break on object ID ascending, so the order is
-  total and the continuation cursor can encode `(values, id)`. Int64 values
-  compare as integers, not strings (`'10' > '9'`).
+- `orderBy` is new. In v1 its entries name computed aliases or declared computed
+  properties; ordering by ordinary properties stays deferred, and today's rule
+  that query results have no caller-defined order still holds for queries
+  without `orderBy`. Nulls sort last in both directions. Ties break on object ID
+  ascending, so the order is total and the continuation cursor can encode
+  `(values, id)`. Int64 values compare as integers, not strings (`'10' > '9'`).
 - The continuation is the existing encrypted, authenticated, expiring
   `cursorCodec`. Its scope adds the compute map, parameter values, `orderBy` and
-  the binding revisions of every association used, next to today's principal,
-  query and source binding scope. A cursor from a different expression,
-  parameter set or binding is `invalid-cursor`. Parameter values may appear in
-  the encrypted cursor; they never appear in evidence or in any public
-  expression identity.
+  the definition revision of declared calculations and binding revisions of
+  every association used, next to today's principal, query and source binding
+  scope. A cursor from a different expression, parameter set or binding is
+  `invalid-cursor`. Parameter values may appear in the encrypted cursor; they
+  never appear in evidence or in any public expression identity.
 - An alias used in `where` or `orderBy` is **required**: if its evaluation fails
   for any object in scope, the query fails with `ReadError('incomplete')` naming
   the alias and reason, whatever `requireComplete` says. A filtered or ordered
   result built on missing values would be wrong, not partial.
-- The alias must still be declared in `compute`. It is returned like any other
-  computed field.
-- Property filters and policy still decide the candidate set; computed filters
-  narrow it. See [How a query executes](#how-a-query-executes) for the scope
-  limit this implies.
+- A caller alias must be declared in `compute` and is returned. A declared
+  computed property is resolved from the model and is returned only if selected.
+- Ordinary property filters and policy decide the candidate set; computed
+  filters narrow it. See [How a query executes](#how-a-query-executes) for the
+  scope limit this implies.
 
 ### Collection semantics
 
@@ -1018,8 +1116,7 @@ Ana's full-evidence read of `loginsOct` on Acme:
   present when the backend can report when the input last changed (a SQLite
   file's modification time; absent for Postgres, which does not track table
   modification without triggers). Synchronization will introduce verified
-  freshness
-  ([Future](#future-declared-computed-properties-graph-sql-sync-and-other-backends)).
+  freshness ([Future](#future-graph-sql-sync-and-performance-optimization)).
 - `coverage: 'complete'` means every row in the authorized scope was read. It
   does not mean the table holds every real-world login.
 - `evidenceMaxAgeMs`, `maxAgeMs`, `refresh` and `stale` apply to `dependencies`
@@ -1360,6 +1457,17 @@ that each can be tested without a database:
 | `order.ts`   | yes  | Computed filter, `(values, id)` sort, cursor boundary                                        |
 | `index.ts`   |      | Public module entry: `prepareCompute(...)` and `computeFields(...)`                          |
 
+Before preparation, the read/query owner expands selection and resolves declared
+calculation names from compiled metadata. It supplies one normalized
+`ComputeRequest` containing both caller expressions and selected or required
+declared calculations, their property access decisions, definition identities
+and projection flags. Normalization preserves caller aliases separately from
+stable property IDs; it does not turn declared properties into caller aliases or
+bypass collision checks. Preparation returns result metadata for both forms. All
+expression, SQL-size and operation budgets include both forms, so selecting many
+declared properties cannot bypass caller limits. Ordinary property filters alone
+participate in initial candidate enumeration.
+
 `analytics` does not import `queries`, `authorization`, `storage` or the source
 resolver. Preparation discovers dependencies before any candidates are read; the
 read/query owner then materializes them through the existing authorized read
@@ -1372,13 +1480,13 @@ connection queue and connector arrive as arguments:
 export function prepareCompute(input: {
   readonly parser: SqlParser;
   readonly associations: ActorAssociations; // actor-filtered: hidden ones are absent
-  readonly request: ComputeRequest; // compute, computed where, orderBy
+  readonly request: ComputeRequest; // normalized caller and declared calculations, where, orderBy
   readonly limits: AnalyticsLimits;
 }): PreparedCompute;
 
 export interface PreparedCompute {
   readonly dependencies: readonly string[]; // stable object property IDs
-  readonly results: Readonly<Record<string, ResultType>>; // by alias
+  readonly results: Readonly<Record<string, ResultType>>; // by caller alias or declared property name
   // Resolved expressions, required aliases and binding revisions remain opaque.
 }
 
@@ -1591,7 +1699,8 @@ own batch's `readAt`; a page does not claim a shared snapshot. Cursor pagination
 is stable while inputs are unchanged. Changed inputs can move objects across the
 cursor position. Snapshot-backed reads remain future work.
 
-**Action transactions.** For v1, a `compute` request made through a
+**Action transactions.** For v1, a `compute` request, or a request selecting,
+filtering or ordering by a declared computed property, made through a
 transaction-bound action reader is rejected with `invalid-request` /
 `not-supported` before analytical I/O. Dataset connections do not participate in
 the native action transaction. Ordinary transactional reads keep their existing
@@ -1711,8 +1820,11 @@ as the CRM tables, so a reader needs nothing beyond Node.
 
 ## Discovery, activity and Inspector
 
-**Discovery.** Agents must learn the association, its columns and the SQL rules
-before writing SQL. Proposed shape for Ana:
+**Discovery.** Declared computed properties appear with stable IDs, descriptions
+when provided, inferred logical result types and access information. Discovery
+uses the same property/association disclosure checks as execution and does not
+expose the underlying SQL. Agents must learn the association, its columns and
+the SQL rules before writing SQL. Proposed shape for Ana:
 
 ```json
 {
@@ -1734,7 +1846,7 @@ before writing SQL. Proposed shape for Ana:
     "aggregates": ["COUNT", "COUNT DISTINCT", "SUM", "AVG", "MIN", "MAX"],
     "encoding": "int64 results are JSON strings",
     "identifiers": "unquoted names match declared names case-insensitively; quoted names match exactly",
-    "filters": "where and orderBy accept computed aliases; null never matches",
+    "filters": "where and orderBy accept computed aliases and declared computed properties; null never matches",
     "freshness": "inputs are read live and not verified against the source system",
     "example": "SELECT COUNT(*) FROM self.events AS e WHERE e.eventType = 'login'"
   }
@@ -1745,10 +1857,11 @@ Fin's discovery has no `datasets.events`. Discovery is served by the existing
 describe methods; MCP includes it in the tool descriptions it already builds
 from discovery and does not re-read it per call.
 
-**Activity** ([2026-10-13 spec](./2026-10-13-activity.md)). A read with
-`compute` records the association and dataset IDs used, the number of
-expressions, whether computed filters or order were used, and the failure reason
-of each failed alias. It records no SQL, parameters or aliases.
+**Activity** ([2026-10-13 spec](./2026-10-13-activity.md)). A read using caller
+or declared calculations records the association and dataset IDs used, the
+number of expressions, whether computed filters or order were used, and the
+failure reason of each failed calculation. Declared calculations use their
+stable property IDs. It records no SQL, parameters or aliases.
 
 **Inspector.** Shows datasets as nodes with association edges to objects, and
 columns with their access groups. Exact presentation is left to the Inspector.
@@ -1794,30 +1907,60 @@ suite (resolution happens there), and each connector owns its generation suite.
 A parser or backend upgrade is a corpus run. Package tests consume the corpus
 from `tests/support`, never from `dev/`.
 
-## Future: declared computed properties, graph SQL, sync and other backends
+### Correctness across execution strategies
+
+**Agreed.** A different backend, batch size or future optimization must preserve
+result types, null behavior, meaningful duplicate rows, authorized scope and
+exactness for the same inputs. Rewrites must also preserve failure behavior and
+must not turn unavailable inputs into zero, null or a successful partial total.
+The conformance corpus tests Postgres/SQLite equivalence in v1; later execution
+strategies must pass equivalent cases before becoming eligible.
+
+**Grain** means what one row represents (for example, one recorded event). The
+dataset description declares that meaning; v1 does not add a required key or
+automatic deduplication. Identical rows still count separately.
+
+**Join multiplication** means a join repeats input rows: one customer with three
+events and two invoices produces six rows when both collections are joined.
+Counting events or summing invoice amounts over those rows gives wrong totals.
+V1 keeps one association per expression and no caller joins. Multiple computed
+fields over different associations are evaluated independently and attached by
+object slot, never by joining the raw row collections. Future graph SQL must
+model grain/cardinality and prove aggregate correctness; it cannot assume the
+primary-key deduplication Cube uses is valid for keyless Relate datasets.
+
+**Aggregate state** is the information needed to combine partial calculations.
+These are constraints for future partitioned execution and rollups (stored
+summaries), not new v1 connector methods:
+
+| Calculation               | State and valid combination over disjoint partitions                                            |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `COUNT(*)`, `COUNT(x)`    | Sum partial counts; preserve null exclusion for `COUNT(x)`                                      |
+| `SUM(x)`                  | Sum partial sums while preserving the all-null/empty result and overflow rules                  |
+| `MIN(x)`, `MAX(x)`        | Combine partial extrema, preserving null/empty semantics                                        |
+| `AVG(x)`                  | Retain sum and non-null count; divide only after combining, under the defined numeric semantics |
+| Exact `COUNT(DISTINCT x)` | Retain enough information to deduplicate across partitions; never sum partial distinct counts   |
+
+A valid combination must meet Relate's numeric contract, including float
+behavior; algebraic similarity alone does not prove equivalence. Approximate
+sketches cannot silently substitute for exact queries. Final scalar results in
+`DatasetExecution` stay unchanged until a strategy needs partial states.
+
+**Reuse eligibility.** Future caches and rollups must account for the expression
+or declared definition revision, parameters, every correlation and `self`
+dependency value and usability state, authorized scope, binding revision and
+snapshot/freshness requirements. A rollup must retain the dimensions necessary
+to enforce the actor's row scope before aggregation; a global count cannot serve
+a restricted actor if that scope cannot be recovered. An exact cache identity
+alone does not prove a rollup is eligible. Serving a summary must cite its input
+snapshot/watermark rather than presenting cache-read time as source freshness.
+V1 still has no cross-request cache, immutable snapshots, partial-state protocol
+or rollup builder. These constraints belong to this design now; implementation
+waits for an actual execution strategy that needs them.
+
+## Future: graph SQL, sync and performance optimization
 
 Not in v1; recorded so the v1 boundaries leave room for them.
-
-**Declared computed properties** reuse the dataset, association, policy, type
-and evidence contracts. The developer names the expression once, gives it a
-stable ID and access group, and callers select it like any property, without
-writing SQL:
-
-```ts
-properties: {
-  loginCount: computed({
-    id: 'business.customer.login-count',
-    access: ordinary,
-    sql: `SELECT COUNT(*) FROM self.events AS e WHERE e.eventType = 'login'`,
-  }),
-}
-// await ana.objects.Customer.get(acmeId, { select: ['name', 'loginCount'] })
-```
-
-Declared properties appear in discovery with their type, can carry their own
-policy, and may later be filtered and ordered like other properties. Nothing in
-v1 may prevent an alias-based expression from becoming a declared property with
-the same semantics.
 
 **Graph SQL** is the uniform interface this spec's dialect is chosen for:
 
@@ -1857,6 +2000,42 @@ DuckDB version is pinned because its parser output changes between releases.
 DuckDB also adds a native addon to a stack that is otherwise pure JavaScript
 plus built-in SQLite, which is why it is not first.
 
+### Deferred technology evaluation after API stability
+
+**Deferred by agreement.** First implement the feature and establish a stable
+public API across embedded and remote calls, including policy, result types,
+evidence and failures. Then profile representative workloads and evaluate the
+following during performance optimization. This is an evaluation list, not a
+commitment to adopt dependencies or replace the v1 parser. Correctness gates,
+cancellation tests and finite-budget benchmarks required for v1 still happen
+before shipping; they are not deferred performance work.
+
+| Technology                                                                                   | What we would evaluate                                                                                 | Evidence needed before adoption                                                                                              |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| [Apache DataFusion](https://datafusion.apache.org/library-user-guide/index.html)             | Extensible query planning/execution, custom sources and potential graph-wide or cross-source analytics | A workload needing these capabilities, preserved authorization/semantics, and justified Rust integration and deployment cost |
+| [egg](https://github.com/egraphs-good/egg)                                                   | Exploring equivalent expressions to choose an execution plan                                           | Multiple meaningful plan alternatives and a measured benefit over simple rules, with bounded optimization time               |
+| [sqlparser-rs](https://github.com/apache/datafusion-sqlparser-rs)                            | Rust SQL parsing if a Rust execution component is introduced                                           | Dialect, source-location and rejection-corpus parity; a reason to replace or supplement libpg_query WASM                     |
+| [Apache Arrow](https://arrow.apache.org/) and [arrow-rs](https://github.com/apache/arrow-rs) | Arrow's columnar representation and its Rust implementation for batch interchange and execution        | Measured data movement or batch-processing bottlenecks; preserved types/precision and benefits exceeding conversion cost     |
+| [Cube Store](https://github.com/cube-js/cube/tree/master/rust/cubestore)                     | Reference architecture, or possible reuse, for materialized analytical summaries                       | A demonstrated rollup need, operational fit, and the reuse/freshness guarantees above                                        |
+
+Apache Arrow and arrow-rs are listed together because arrow-rs implements Arrow
+in Rust; they are not two competing engines. Cube uses DataFusion, Arrow and
+egg, and its
+[SQL API manifest](https://github.com/cube-js/cube/blob/master/rust/cubesql/cubesql/Cargo.toml)
+references Cube forks of DataFusion, sqlparser-rs and egg. Evaluate upstream
+libraries independently; copying Cube's dependency set is not an adoption plan.
+Cube's
+[schema compiler](https://github.com/cube-js/cube/tree/master/packages/cubejs-schema-compiler)
+and
+[query orchestrator](https://github.com/cube-js/cube/tree/master/packages/cubejs-query-orchestrator)
+are also design references, not selected dependencies.
+
+The optimization review must report baseline and candidate measurements,
+conformance results, cancellation/resource bounds and operational costs. Keep
+engine-specific APIs behind parser/connector boundaries and preserve the stable
+consumer contract. Broader SQL syntax or graph-wide joins require an explicit
+capability design, even if a new engine happens to support them.
+
 ## Ownership
 
 Portable contracts sit below execution code. Runtime uses those contracts;
@@ -1877,20 +2056,20 @@ flowchart TD
   Relate --> Protocol
 ```
 
-| Area                                               | Owns                                                                                                                                                                                                                                                           |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/relate`                                  | `defineDataset`, `datasets` associations, `bind`, `RelateSqlQuery`, `SqlParser` and `AnalyticalConnector` contracts, `AuthorizedDatasetQuery`, logical-type JSON codecs, typed `compute`, `where` and `orderBy` options, `decodeComputed` in `relate/consumer` |
-| `packages/protocol`                                | `ReadControls` / `ObjectReadRequest` / `ObjectQueryRequest` split, `AnalyticalExpression`, `orderBy`, `meta.computed`, computed `FieldEvidence`, discovery and `RequestIssue` additions                                                                        |
-| `packages/runtime/src/analytics/` (new owner)      | Request validation, name/type resolution against authorized metadata, batching, execution, computed filtering/order and evidence                                                                                                                               |
-| `packages/runtime/src/queries/`                    | Choosing the query path, candidate enumeration through `readObject`, cursor scope, dependency revalidation and final projection                                                                                                                                |
-| `packages/runtime/src/authorization/`              | Shared association gates and column access decisions used by analytics preparation and discovery                                                                                                                                                               |
-| `packages/node`                                    | Parser injection, one queue per supplied connection, bindings and bind-time `describe`, operation draining and retirement                                                                                                                                      |
-| Application setup and `startApp`                   | Creating connections, registering their disposal, closing them after operations drain                                                                                                                                                                          |
-| `packages/sql-parser` (new; `@relate/sql-parser`)  | libpg_query WASM adapter, named-parameter rewrite, source map, lowering; the only place parser node types appear; parser suite                                                                                                                                 |
-| `connectors/postgres` (new), `connectors/sqlite`   | `AnalyticalConnector`: physical schema, SQL generation, execution, cancellation, generation suites                                                                                                                                                             |
-| `tests/support/sql-corpus/`                        | The shared conformance corpus                                                                                                                                                                                                                                  |
-| `packages/client`, `packages/http`, `packages/mcp` | Carry the contract; no SQL semantics of their own                                                                                                                                                                                                              |
-| `packages/postgres`                                | Existing persistence; observation scope key becomes connection plus resource. Not the analytical Postgres connector.                                                                                                                                           |
+| Area                                               | Owns                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/relate`                                  | `defineDataset`, `computed`, declared calculation metadata, `datasets` associations, `bind`, `RelateSqlQuery`, `SqlParser` and `AnalyticalConnector` contracts, `AuthorizedDatasetQuery`, logical-type JSON codecs, typed `compute`, `where` and `orderBy` options, `decodeComputed` in `relate/consumer` |
+| `packages/protocol`                                | `ReadControls` / `ObjectReadRequest` / `ObjectQueryRequest` split, `AnalyticalExpression`, `orderBy`, `meta.computed`, computed `FieldEvidence`, discovery and `RequestIssue` additions                                                                                                                   |
+| `packages/runtime/src/analytics/` (new owner)      | Preparation of declared and caller calculations, name/type resolution against authorized metadata, batching, execution, computed filtering/order and evidence                                                                                                                                             |
+| `packages/runtime/src/queries/`                    | Choosing the query path, candidate enumeration through `readObject`, cursor scope, dependency revalidation and final projection                                                                                                                                                                           |
+| `packages/runtime/src/authorization/`              | Shared association gates and column access decisions used by analytics preparation and discovery                                                                                                                                                                                                          |
+| `packages/node`                                    | Parser injection and startup validation of declared SQL, one queue per supplied connection, bindings and bind-time `describe`, operation draining and retirement                                                                                                                                          |
+| Application setup and `startApp`                   | Creating connections, registering their disposal, closing them after operations drain                                                                                                                                                                                                                     |
+| `packages/sql-parser` (new; `@relate/sql-parser`)  | libpg_query WASM adapter, named-parameter rewrite, source map, lowering; the only place parser node types appear; parser suite                                                                                                                                                                            |
+| `connectors/postgres` (new), `connectors/sqlite`   | `AnalyticalConnector`: physical schema, SQL generation, execution, cancellation, generation suites                                                                                                                                                                                                        |
+| `tests/support/sql-corpus/`                        | The shared conformance corpus                                                                                                                                                                                                                                                                             |
+| `packages/client`, `packages/http`, `packages/mcp` | Carry the contract; no SQL semantics of their own                                                                                                                                                                                                                                                         |
+| `packages/postgres`                                | Existing persistence; observation scope key becomes connection plus resource. Not the analytical Postgres connector.                                                                                                                                                                                      |
 
 `relate`, `relate/consumer` and `packages/protocol` stay free of parser, `pg`,
 `node:sqlite` and Node. `packages/runtime` imports neither the parser package
@@ -1905,8 +2084,8 @@ also preserve the compiler and runtime boundaries. Use these entry points:
 
 | Import                   | Owns                                                                               | May be used by                                                    |
 | ------------------------ | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `relate`                 | Dataset/association authoring and `bind`                                           | Applications                                                      |
-| `relate/model`           | Compiled dataset and association metadata                                          | Runtime and compiler consumers                                    |
+| `relate`                 | Dataset/association and computed-property authoring, `bind`                        | Applications                                                      |
+| `relate/model`           | Compiled dataset, association and computed-property metadata                       | Runtime and compiler consumers                                    |
 | `relate/analytics` (new) | `SqlParser`, portable SQL representation, logical types and codecs                 | Parser adapter, runtime, connector contracts and consumer decoder |
 | `relate/connectors`      | Dataset resources, analytical capability, authorized query and execution contracts | Connectors, runtime, Node and application setup                   |
 | `relate/consumer`        | Typed `compute` options and `decodeComputed`                                       | Embedded and remote callers                                       |
@@ -1930,19 +2109,19 @@ queue factory needed by Node; Node must not import an internal analytics file.
 
 These are planned changes, not files created by this spec revision.
 
-| Files                                                                              | Change   | Purpose                                                                      |
-| ---------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------- |
-| `packages/relate/src/analytics.ts`, `src/analytics/`                               | New      | Portable expression types and shared codecs                                  |
-| `packages/relate/src/connectors.ts`, authoring/compiler/model and consumer modules | Modified | Dataset declarations, compiled associations, bindings and public read typing |
-| `packages/protocol/src/index.ts`                                                   | Modified | Separate request types and add computed response/error contracts             |
-| `packages/runtime/src/analytics/`                                                  | New      | Keep preparation, batching, execution and computed result semantics together |
-| Runtime composition, queries, authorization and discovery modules                  | Modified | Integrate through module entries and reuse policy decisions                  |
-| `packages/sql-parser/`, `connectors/postgres/`                                     | New      | Parser adapter and analytical Postgres connector                             |
-| `connectors/sqlite/`                                                               | Modified | Analytical execution, schema checks and cancellation                         |
-| `packages/node/`                                                                   | Modified | Bind capabilities, initialize parser and manage operation/queue lifecycle    |
-| `packages/postgres/` migrations                                                    | Modified | Observation scope includes the resource                                      |
-| `tests/support/sql-corpus/`                                                        | New      | Shared parser and backend acceptance cases                                   |
-| `tests/architecture/package-boundaries.ts`, `runtime-boundaries.ts`                | Modified | Enforce the new entry points and dependency directions                       |
+| Files                                                                              | Change   | Purpose                                                                               |
+| ---------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------- |
+| `packages/relate/src/analytics.ts`, `src/analytics/`                               | New      | Portable expression types and shared codecs                                           |
+| `packages/relate/src/connectors.ts`, authoring/compiler/model and consumer modules | Modified | Dataset and computed declarations, compiled metadata, bindings and public read typing |
+| `packages/protocol/src/index.ts`                                                   | Modified | Separate request types and add computed response/error contracts                      |
+| `packages/runtime/src/analytics/`                                                  | New      | Keep preparation, batching, execution and computed result semantics together          |
+| Runtime composition, queries, authorization and discovery modules                  | Modified | Integrate through module entries and reuse policy decisions                           |
+| `packages/sql-parser/`, `connectors/postgres/`                                     | New      | Parser adapter and analytical Postgres connector                                      |
+| `connectors/sqlite/`                                                               | Modified | Analytical execution, schema checks and cancellation                                  |
+| `packages/node/`                                                                   | Modified | Bind capabilities, initialize parser and manage operation/queue lifecycle             |
+| `packages/postgres/` migrations                                                    | Modified | Observation scope includes the resource                                               |
+| `tests/support/sql-corpus/`                                                        | New      | Shared parser and backend acceptance cases                                            |
+| `tests/architecture/package-boundaries.ts`, `runtime-boundaries.ts`                | Modified | Enforce the new entry points and dependency directions                                |
 
 Transport, Inspector, documentation and example changes follow in the delivery
 steps below. No production package imports the spike under `dev/`.
@@ -1958,11 +2137,12 @@ steps below. No production package imports the spike under `dev/`.
 2. **Protocol split, as its own change:** `ReadControls`, `ObjectReadRequest`,
    `ObjectQueryRequest`; traversal stops sharing the query request type. No
    analytical behaviour.
-3. **Contracts:** settle open questions 1–8, 10, 14 and 15. Agree the
-   preparation and execution interfaces, dependency invalidation, connector
-   results/errors, parameter sizing, portable entry points and single-owner
-   connection disposal. Include policy syntax, column IDs, evidence, type tables
-   and the corpus format.
+3. **Contracts:** settle open questions 1–8, 10, 14–16. Agree the preparation
+   and execution interfaces, dependency invalidation, connector results/errors,
+   parameter sizing, portable entry points and single-owner connection disposal.
+   Include policy syntax, column IDs, evidence, type tables and the corpus
+   format. Include declared-property authoring/typing, startup validation,
+   revision identity, selection and policy integration.
 4. **Candidate enumeration:** settle open question 11 and benchmark the whole
    scope-first path, including dependency reads. Agree finite scan, refresh,
    admitted-candidate and whole-operation budgets before building computed
@@ -1971,16 +2151,46 @@ steps below. No production package imports the spike under `dev/`.
 5. **Build**, in this order, each through a real public path:
    1. Portable contracts and codecs in `packages/relate`; corpus.
    2. `packages/sql-parser`.
-   3. `runtime/src/analytics` and the membership-first path through `get` and
-      `query`, with the SQLite connector.
+   3. Declared-property authoring and startup validation;
+      `runtime/src/analytics` and the membership-first path through `get` and
+      `query` for both forms, with the SQLite connector.
    4. `connectors/postgres`.
-   5. The scope-first path: computed `where` and `orderBy`, encrypted cursors.
+   5. The scope-first path: declared properties and caller aliases in computed
+      `where` and `orderBy`, encrypted cursors including definition revisions.
    6. `decodeComputed`.
 6. **Ship:** discovery, MCP, Inspector, docs, and an example using a general
-   `events` table in the example's SQLite file with a caller-side login filter.
-   Update the README status table.
+   `events` table in the example's SQLite file with both a caller-side login
+   filter and a declared `loginCount` property. Update the README status table.
 
 ## Acceptance criteria
+
+The shared analytical path must also establish:
+
+- Dataset row schema and TypeScript inference derive from column-owned schemas,
+  preserving nullability and timestamp precision. A separate top-level dataset
+  schema is rejected; binding checks, discovery and authorization consume the
+  same column definitions.
+
+- In the extended model, selecting declared `loginCount` returns all-time counts
+  Acme `'3'`, Globex `'1'`, Initech `'0'`; an equivalent caller expression has
+  identical values, types, evidence semantics and failures on unchanged inputs.
+- Declared calculations filter/order through the scope-first path. Unselected
+  filter/order dependencies do not appear in data or `meta.computed`.
+- Default selection includes declared properties. Restricted read surfaces
+  reject analytical default selections before I/O; explicit ordinary selections
+  work.
+- A declared property's access never bypasses association or column checks;
+  revocation before projection withholds the value under the same shared rules.
+- Invalid declared SQL, named parameters and references to computed dependencies
+  (including self-reference) fail startup validation even when unselected.
+- Changed declared SQL changes `definitionRevision` and invalidates old cursors;
+  property renaming preserves its explicitly supplied stable ID.
+- Declared calculations appear in authorized discovery with inferred result
+  types, and use `decodeComputed`, compact/full metadata and omission semantics.
+- Every relevant case runs through both declared and caller forms on Postgres
+  and SQLite. Duplicate rows, empty/all-null input, exact distinct counts and
+  multiple associations are covered without raw-join multiplication. Performance
+  changes cannot weaken these checks.
 
 Every row of the tables in [Failures and errors](#failures-and-errors),
 [Column types](#column-types-proposed), [JSON encoding](#json-encoding-agreed)
@@ -2051,60 +2261,62 @@ the running example:
 - Traversal requests do not accept `compute`, at compile time and at runtime.
 - Parser and driver types never appear outside their packages, and
   `packages/runtime` imports neither (architecture checks). Calls without
-  `compute` behave as before.
+  `compute` or declared calculations behave as before.
 
 ## Decisions
 
-| Decision                                                                                                                                       | Status   |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Datasets are separate from objects: no adoption, no object IDs, no persisted values                                                            | Agreed   |
-| SQL is the expression language; Postgres grammar is the dialect ([why](#outcome))                                                              | Agreed   |
-| Declared computed properties are a planned extension, not v1 ([shape](#future-declared-computed-properties-graph-sql-sync-and-other-backends)) | Agreed   |
-| `defineDataset`, object `datasets` associations with `on`, SQL `self.<association>`                                                            | Agreed   |
-| `bind(definition, resource)`; setup returns `bindings`; `connectionId` lives on the connection                                                 | Agreed   |
-| `compute` on `get` and `query` means one value per object, never a collection total                                                            | Agreed   |
-| [`query` may filter and order by computed aliases](#filtering-and-ordering-by-computed-fields); such aliases are required                      | Agreed   |
-| [Aggregate-only SQL subset](#sql-subset)                                                                                                       | Agreed   |
-| [Postgres and SQLite are the first backends; DuckDB is deferred](#backends-in-v1)                                                              | Agreed   |
-| Analytical inputs are assumed fresh; no watermarks, sync or cached results in v1                                                               | Agreed   |
-| [Int64 values are JSON strings; `COUNT` is always a string; a decoder ships in v1](#decoding-computed-values-agreed-in-this-revision)          | Agreed   |
-| Failure omits the field and marks the read partial; never `0` or `null` in its place                                                           | Agreed   |
-| [Association policy separate from dataset policy; missing policy is a compile error](#authorization)                                           | Agreed   |
-| [Gates hide, groups refuse](#authorization)                                                                                                    | Agreed   |
-| Existing [host limit defaults](#host-limits-and-concurrency); scope, scan, refresh and whole-operation defaults await the full-path benchmark  | Agreed   |
-| [Vocabulary: expression, alias, computed field](#terms)                                                                                        | Agreed   |
-| Relate-defined views, top-level graph SQL, sync, traversal compute, ordering by properties                                                     | Deferred |
-| [Defer decimal columns and aggregates](#column-types-proposed); use int64 minor units in v1                                                    | Proposed |
-| [Explicit column IDs and access groups in `defineDataset`](#declaring-a-dataset)                                                               | Proposed |
-| [Column type tables and bind-time schema checks](#column-types-proposed)                                                                       | Proposed |
-| [Logical types of object properties](#logical-types-of-object-properties-proposed)                                                             | Proposed |
-| [Relate-owned result types for each aggregate](#result-type-of-each-expression-proposed)                                                       | Proposed |
-| [`meta.computed` carries types in every evidence mode](#types-in-every-response-proposed)                                                      | Proposed |
-| [Computed evidence with `freshness: 'unverified'`, `readAt` and `modifiedAt`](#evidence)                                                       | Proposed |
-| [libpg_query WASM as the parser](#contracts-proposed-after-spike), created once at startup, synchronous `parse`; no fallback parser            | Proposed |
-| [`bind`/`bindings` rename ships first, as its own change](#delivery)                                                                           | Proposed |
-| [Protocol split of read controls from object read and query requests, as its own change](#the-compute-option)                                  | Proposed |
-| [Failure granularity: per object, per alias, per statement](#failures-and-errors) (replaces "per page and per alias")                          | Proposed |
-| [No casts in v1; `COALESCE(<aggregate>, <literal>)` only](#sql-subset)                                                                         | Proposed |
-| [Folded identifier namespace; exact quoted names; fold collisions are compile errors](#identifiers-proposed-after-spike)                       | Proposed |
-| [Every generated value bound with an explicit backend type](#parameters-and-literals)                                                          | Proposed |
-| [Runtime `analytics` owner; parser, connectors and queue injected](#runtime-module-split-proposed-after-spike)                                 | Proposed |
-| [Connector plans are opaque; the runtime never sees SQL text or physical names](#contracts-proposed-after-spike)                               | Proposed |
-| [Batches group by object slot, with per-aggregate validity masks and a parameter budget](#how-a-query-executes)                                | Proposed |
-| [Membership-first and scope-first query paths](#how-a-query-executes)                                                                          | Proposed |
-| [Computed scope limit is per query, host-configured; no computed filter push-down in v1](#host-limits-and-concurrency)                         | Proposed |
-| [One statement queue per connection, shared across bindings and actors](#host-limits-and-concurrency)                                          | Proposed |
-| [SQLite statements in a killable read-only child process; Postgres cancel via control connection](#host-limits-and-concurrency)                | Proposed |
-| [Computed cursors use `cursorCodec`, scoped to compute, parameters and binding revisions](#filtering-and-ordering-by-computed-fields)          | Proposed |
-| [Conformance corpus in `tests/support/sql-corpus/`](#conformance-corpus)                                                                       | Proposed |
-| [Separate preparation from execution; preserve dependency values and evidence](#runtime-module-split-proposed-after-spike)                     | Proposed |
-| [Invalidate changed dependencies without automatic recomputation](#dependency-changes-and-consistency-proposed)                                | Proposed |
-| [Per-statement consistency; reject compute in action transactions](#dependency-changes-and-consistency-proposed)                               | Proposed |
-| [Connector-owned execution timestamps, portable results/errors and parameter sizing](#contracts-proposed-after-spike)                          | Proposed |
-| [Separate scan, refresh, admitted-candidate and whole-operation budgets](#candidate-enumeration-budget-proposed)                               | Proposed |
-| [Portable analytics entry point and narrowly permitted dependencies](#portable-entry-points-proposed)                                          | Proposed |
-| Application setup owns connections and disposal; Node owns queues and operation draining                                                       | Proposed |
-| No cross-object deduplication in v1; preserve every object's dependency values                                                                 | Proposed |
+| Decision                                                                                                                                         | Status   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| [Execution equivalence, grain, combination and reuse constraints](#correctness-across-execution-strategies)                                      | Agreed   |
+| [Evaluate DataFusion, egg, sqlparser-rs, Arrow/arrow-rs and Cube Store after API stability](#deferred-technology-evaluation-after-api-stability) | Deferred |
+| Datasets are separate from objects: no adoption, no object IDs, no persisted values                                                              | Agreed   |
+| SQL is the expression language; Postgres grammar is the dialect ([why](#outcome))                                                                | Agreed   |
+| [Declared computed properties ship in v1 through the same analytical path](#declared-computed-properties)                                        | Agreed   |
+| `defineDataset`, object `datasets` associations with `on`, SQL `self.<association>`                                                              | Agreed   |
+| `bind(definition, resource)`; setup returns `bindings`; `connectionId` lives on the connection                                                   | Agreed   |
+| `compute` on `get` and `query` means one value per object, never a collection total                                                              | Agreed   |
+| [`query` may filter/order by caller aliases and declared calculations](#filtering-and-ordering-by-computed-fields); both are required when used  | Agreed   |
+| [Aggregate-only SQL subset](#sql-subset)                                                                                                         | Agreed   |
+| [Postgres and SQLite are the first backends; DuckDB is deferred](#backends-in-v1)                                                                | Agreed   |
+| Analytical inputs are assumed fresh; no watermarks, sync or cached results in v1                                                                 | Agreed   |
+| [Int64 values are JSON strings; `COUNT` is always a string; a decoder ships in v1](#decoding-computed-values-agreed-in-this-revision)            | Agreed   |
+| Failure omits the field and marks the read partial; never `0` or `null` in its place                                                             | Agreed   |
+| [Association policy separate from dataset policy; missing policy is a compile error](#authorization)                                             | Agreed   |
+| [Gates hide, groups refuse](#authorization)                                                                                                      | Agreed   |
+| Existing [host limit defaults](#host-limits-and-concurrency); scope, scan, refresh and whole-operation defaults await the full-path benchmark    | Agreed   |
+| [Vocabulary: expression, alias, computed field](#terms)                                                                                          | Agreed   |
+| Relate-defined views, top-level graph SQL, sync, traversal compute, ordering by ordinary properties                                              | Deferred |
+| [Defer decimal columns and aggregates](#column-types-proposed); use int64 minor units in v1                                                      | Proposed |
+| [Column-owned schemas, stable IDs and access groups; derive the row schema/type](#declaring-a-dataset)                                           | Agreed   |
+| [Column type tables and bind-time schema checks](#column-types-proposed)                                                                         | Proposed |
+| [Logical types of object properties](#logical-types-of-object-properties-proposed)                                                               | Proposed |
+| [Relate-owned result types for each aggregate](#result-type-of-each-expression-proposed)                                                         | Proposed |
+| [`meta.computed` carries types in every evidence mode](#types-in-every-response-proposed)                                                        | Proposed |
+| [Computed evidence with `freshness: 'unverified'`, `readAt` and `modifiedAt`](#evidence)                                                         | Proposed |
+| [libpg_query WASM as the parser](#contracts-proposed-after-spike), created once at startup, synchronous `parse`; no fallback parser              | Proposed |
+| [`bind`/`bindings` rename ships first, as its own change](#delivery)                                                                             | Proposed |
+| [Protocol split of read controls from object read and query requests, as its own change](#the-compute-option)                                    | Proposed |
+| [Failure granularity: per object, per alias, per statement](#failures-and-errors) (replaces "per page and per alias")                            | Proposed |
+| [No casts in v1; `COALESCE(<aggregate>, <literal>)` only](#sql-subset)                                                                           | Proposed |
+| [Folded identifier namespace; exact quoted names; fold collisions are compile errors](#identifiers-proposed-after-spike)                         | Proposed |
+| [Every generated value bound with an explicit backend type](#parameters-and-literals)                                                            | Proposed |
+| [Runtime `analytics` owner; parser, connectors and queue injected](#runtime-module-split-proposed-after-spike)                                   | Proposed |
+| [Connector plans are opaque; the runtime never sees SQL text or physical names](#contracts-proposed-after-spike)                                 | Proposed |
+| [Batches group by object slot, with per-aggregate validity masks and a parameter budget](#how-a-query-executes)                                  | Proposed |
+| [Membership-first and scope-first query paths](#how-a-query-executes)                                                                            | Proposed |
+| [Computed scope limit is per query, host-configured; no computed filter push-down in v1](#host-limits-and-concurrency)                           | Proposed |
+| [One statement queue per connection, shared across bindings and actors](#host-limits-and-concurrency)                                            | Proposed |
+| [SQLite statements in a killable read-only child process; Postgres cancel via control connection](#host-limits-and-concurrency)                  | Proposed |
+| [Computed cursors use `cursorCodec`, scoped to compute, parameters and binding revisions](#filtering-and-ordering-by-computed-fields)            | Proposed |
+| [Conformance corpus in `tests/support/sql-corpus/`](#conformance-corpus)                                                                         | Proposed |
+| [Separate preparation from execution; preserve dependency values and evidence](#runtime-module-split-proposed-after-spike)                       | Proposed |
+| [Invalidate changed dependencies without automatic recomputation](#dependency-changes-and-consistency-proposed)                                  | Proposed |
+| [Per-statement consistency; reject compute in action transactions](#dependency-changes-and-consistency-proposed)                                 | Proposed |
+| [Connector-owned execution timestamps, portable results/errors and parameter sizing](#contracts-proposed-after-spike)                            | Proposed |
+| [Separate scan, refresh, admitted-candidate and whole-operation budgets](#candidate-enumeration-budget-proposed)                                 | Proposed |
+| [Portable analytics entry point and narrowly permitted dependencies](#portable-entry-points-proposed)                                            | Proposed |
+| Application setup owns connections and disposal; Node owns queues and operation draining                                                         | Proposed |
+| No cross-object deduplication in v1; preserve every object's dependency values                                                                   | Proposed |
 
 ## Open questions
 
@@ -2168,6 +2380,12 @@ Each question names the delivery step that settles it.
     recomputation, required aliases fail the read, and transaction-bound action
     readers reject `compute`. (Contracts, before either public read path.)
 
+16. **Declared-property API details.** Finalize `computed(...)` authoring types,
+    the `ComputedPropertyNames<O>` consumer generic and startup diagnostic
+    shape. Preserve the agreed shared execution, scalar-union result typing, no
+    named parameters or computed dependencies, revision and selection rules
+    above. (Contracts, before building either form.)
+
 Settled by the spike, from the previous list: the parser's load time and size
 are acceptable and no fallback parser is needed (was 7); identifier rules are
 proposed in [Identifiers](#identifiers-proposed-after-spike) and casts are
@@ -2177,6 +2395,25 @@ scope limit is per query and host-configured, with no push-down before graph SQL
 Postgres (was 1, now a scope question).
 
 ## Revision notes
+
+### 2026-10-21: Unified dataset column declarations
+
+- Each `columns` entry owns its Zod `schema`, stable `id` and `access` group.
+  Derive the row schema and TypeScript type from those entries, removing the
+  duplicate top-level schema declaration.
+
+### 2026-10-21: Cube design review and cohesive feature scope
+
+- Declared computed properties now ship with caller expressions through one
+  analytical path, including selection, filtering/order, authorization,
+  discovery, revisions, response typing and evidence.
+- Added execution equivalence, dataset grain and join-multiplication
+  constraints, aggregate combination rules and authorization/freshness
+  requirements for reuse.
+- Deferred Apache DataFusion, egg, sqlparser-rs, Apache Arrow/arrow-rs and Cube
+  Store evaluation until the feature API is stable and measured performance
+  needs justify it. No dependency adoption or rollup implementation in v1.
+- Updated ownership, delivery and acceptance to cover the expanded feature.
 
 ### 2026-10-21: architecture and readability review
 
