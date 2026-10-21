@@ -17,7 +17,7 @@ function defineRelationship<Via, Forward, Reverse>(definition): RelationshipDefi
 };
 ```
 
-Defined in: [packages/relate/src/index.ts:403](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L403)
+Defined in: [packages/relate/src/index.ts:404](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L404)
 
 ### Type Parameters
 
@@ -73,7 +73,7 @@ function defineRelationship<From, To, Forward, Reverse>(definition): Relationshi
 };
 ```
 
-Defined in: [packages/relate/src/index.ts:428](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L428)
+Defined in: [packages/relate/src/index.ts:429](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L429)
 
 ### Type Parameters
 

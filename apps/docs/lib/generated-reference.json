@@ -39,6 +39,18 @@
       "reference",
       "api",
       "functions",
+      "computed"
+    ],
+    "name": "computed",
+    "title": "Function: computed()",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "functions",
       "defineAccess"
     ],
     "name": "defineAccess",
@@ -271,6 +283,18 @@
     ],
     "name": "ActionRequest",
     "title": "Type Alias: ActionRequest<A>",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "type-aliases",
+      "ComputedPropertyNames"
+    ],
+    "name": "ComputedPropertyNames",
+    "title": "Type Alias: ComputedPropertyNames<O>",
     "description": "API reference generated from Relate types and documentation comments.",
     "section": "API Reference"
   },

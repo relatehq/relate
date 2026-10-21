@@ -99,7 +99,7 @@ try {
     join(portable, 'smoke.mjs'),
     `
 import assert from 'node:assert/strict';
-import { isAppDefinition, defineDataset, defineAccess } from 'relate';
+import { isAppDefinition, defineDataset, defineAccess, computed } from 'relate';
 import { z } from 'zod';
 import { SourceAccessDenied, DatasetExecutionError } from 'relate/connectors';
 import { app } from './built/app.types.js';
@@ -114,6 +114,9 @@ const Events = defineDataset({ id: 'events', columns: {
 } });
 assert.equal(Events.schema.parse({ count: 9007199254740993n }).count, 9007199254740993n);
 assert.ok(Object.isFrozen(Events.columns));
+const calculation = computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.events' });
+assert.equal(calculation.origin.kind, 'computed');
+assert.ok(Object.isFrozen(calculation.origin));
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
 const failure = new DatasetExecutionError('execution-failed', { retryable: true, cause: new Error('private driver detail') });
 assert.equal(failure.code, 'execution-failed');

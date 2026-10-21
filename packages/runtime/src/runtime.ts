@@ -23,7 +23,11 @@ import type {
 } from './activity/index.js';
 import type { SourceBinding } from 'relate/connectors';
 import { createMemoryStore } from './memory.js';
-import { presenting } from './reads/index.js';
+import {
+  presenting,
+  calculatedReadIssues,
+  rejectIssues,
+} from './reads/index.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
@@ -41,6 +45,11 @@ import type {
 } from '@relate/protocol';
 import type { ObservationStore } from './storage.js';
 import type { Principal } from './authorization/index.js';
+import {
+  allowsObject,
+  allowsField,
+  operationName,
+} from './authorization/index.js';
 import { createDiscovery } from './discovery.js';
 
 export interface RuntimeOptions {
@@ -223,6 +232,20 @@ export function createRuntime(options: RuntimeOptions) {
     transaction?: NativeTransaction,
   ): Promise<ReadResult> {
     const object = manifest.objects.find((o) => o.id === objectDefinitionId);
+    const policy = manifest.policies[objectDefinitionId];
+
+    if (transaction && object && allowsObject(principal, policy))
+      rejectIssues(
+        operationName(manifest, principal, objectDefinitionId, 'get'),
+        'get',
+        calculatedReadIssues(
+          request,
+          (object.calculations ?? []).map((property) => ({
+            name: property.name,
+            defaultSelected: allowsField(principal, policy!, property.access),
+          })),
+        ),
+      );
 
     if (object?.sourceDefinitionId)
       return source.read(

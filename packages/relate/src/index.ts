@@ -130,6 +130,7 @@ export interface Property<S extends z.ZodType = z.ZodType> {
       }
     | { readonly kind: 'native' }
     | { readonly kind: 'object-id' }
+    | { readonly kind: 'computed'; readonly sql: string }
     | {
         readonly kind: 'source';
         readonly sourceDefinitionId: string;
@@ -657,3 +658,6 @@ export type {
   DatasetAssociation,
   DatasetAssociations,
 } from './datasets.js';
+
+export { computed } from './computed.js';
+export type { ComputedProperty, ComputedPropertyNames } from './computed.js';

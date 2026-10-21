@@ -27,6 +27,7 @@ import type { Principal } from '../authorization/index.js';
 import {
   cursorCodec,
   compileWhere,
+  calculatedReadIssues,
   predicateMatcher,
   type Predicate,
   project,
@@ -73,6 +74,19 @@ export function createGraphQuery(options: {
     const operation = operationName(manifest, principal, type, 'query');
     const issues = requestIssues(input, 'query');
     const predicates: Predicate[] = [];
+
+    if (transaction && object && allowsObject(principal, policy)) {
+      const calculated = calculatedReadIssues(
+        input,
+        (object.calculations ?? []).map((property) => ({
+          name: property.name,
+          defaultSelected: allowsField(principal, policy!, property.access),
+        })),
+      );
+
+      if (calculated.length)
+        throwIssues(operation, 'query', [...issues, ...calculated]);
+    }
 
     if (!object)
       issues.push({

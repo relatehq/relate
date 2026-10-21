@@ -6,7 +6,7 @@ function objectId<Id>(options): ObjectIdProperty & {
 };
 ```
 
-Defined in: [packages/relate/src/index.ts:144](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L144)
+Defined in: [packages/relate/src/index.ts:145](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L145)
 
 ## Type Parameters
 

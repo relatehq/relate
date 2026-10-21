@@ -17,6 +17,8 @@ export type ModelIssueCode =
   | 'source.invalid-id-field'
   | 'source.invalid-field'
   | 'source.conflicting-definitions'
+  | 'calculation.invalid-definition'
+  | 'calculation.invalid-dependency'
   | 'dataset.invalid-shape'
   | 'dataset.invalid-name'
   | 'dataset.unknown'

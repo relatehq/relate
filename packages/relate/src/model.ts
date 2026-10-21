@@ -2,10 +2,15 @@ import { z } from 'zod';
 import {
   datasetSchema,
   associationSchema,
+  calculationSchema,
   validateDatasets,
 } from './model/datasets.js';
 
-export type { CompiledDataset, CompiledAssociation } from './model/datasets.js';
+export type {
+  CompiledDataset,
+  CompiledAssociation,
+  CompiledCalculation,
+} from './model/datasets.js';
 
 import {
   localDateTimeValue,
@@ -127,6 +132,7 @@ export const manifestSchema = z.strictObject({
       sourceDefinitionId: text.optional(),
       properties: z.array(propertySchema),
       datasets: z.array(associationSchema).optional(),
+      calculations: z.array(calculationSchema).optional(),
     }),
   ),
   relationships: z

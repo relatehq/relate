@@ -389,3 +389,24 @@ selected dataset. Multiple pairs combine with AND. Policies declare both
 `Customer.datasets.events.gate` and the dataset's column `groups`; ordinary-only
 datasets use an empty policy. See the
 [dataset contract](./CONTRACT.md#dataset-and-association-compilation).
+
+A named calculation is declared alongside ordinary properties:
+
+```ts
+import { computed } from 'relate';
+
+const loginCount = computed({
+  id: 'customer.login-count',
+  access: access.groups.ordinary,
+  sql: "SELECT COUNT(*) FROM self.events WHERE eventType = 'login'",
+});
+// Use in defineObject({ properties: { ...ordinaryProperties, loginCount }, ... }).
+```
+
+Compilation keeps calculation IDs, access, descriptions and SQL in the graph
+revision. Calculations cannot be native action write targets, row-policy inputs
+or correlation keys. Their TypeScript values are optional JSON scalars; SQL
+result types will be inferred by runtime preparation. Semantic startup
+validation and analytical reads remain in progress. Traversal and action-bound
+readers reject calculated selections, including defaults, while explicit
+ordinary-property selections remain supported.

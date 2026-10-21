@@ -26,3 +26,5 @@ export {
 } from './predicates.js';
 
 export type { FilterProperty, Predicate } from './predicates.js';
+
+export { calculatedReadIssues } from './calculations.js';

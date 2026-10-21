@@ -11,6 +11,8 @@ const output = path.join(appDirectory, 'content/reference/api');
 const selected = [
   'defineSource',
   'defineDataset',
+  'computed',
+  'ComputedPropertyNames',
   'DatasetRow',
   'defineObject',
   'defineRelationship',

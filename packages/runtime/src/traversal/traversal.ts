@@ -20,6 +20,7 @@ import {
 import type { Principal } from '../authorization/index.js';
 import {
   compileWhere,
+  calculatedReadIssues,
   cursorCodec,
   invalidValue,
   predicateMatcher,
@@ -93,6 +94,20 @@ export function createTraversal(options: TraversalOptions) {
     const kind =
       match.traversal.cardinality === 'one' ? 'traverse-one' : 'traverse-many';
     const issues = requestIssues(input, kind);
+    const calculated = calculatedReadIssues(
+      input,
+      (match.target.calculations ?? []).map((property) => ({
+        name: property.name,
+        defaultSelected: allowsField(
+          principal,
+          manifest.policies[match.target.id]!,
+          property.access,
+        ),
+      })),
+    );
+
+    if (calculated.length)
+      rejectIssues(operation, kind, [...issues, ...calculated]);
 
     if (typeof id !== 'string' || !id.trim())
       issues.unshift(

@@ -4,7 +4,7 @@
 type QueryOptions<O, K, E> = CollectionReadOptions<O, K, E> & ReadOptions<K, E>;
 ```
 
-Defined in: [packages/relate/src/operations.ts:141](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L141)
+Defined in: [packages/relate/src/operations.ts:143](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L143)
 
 Object queries have an independent extension point from related collections.
 

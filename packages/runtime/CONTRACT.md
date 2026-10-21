@@ -368,3 +368,20 @@ slot. Listeners and wait timers are removed when no longer needed.
 running work and waits for its cleanup. The connector must obey the bounded
 cancellation contract; the queue cannot free a slot while the backend still owns
 resources. Retirement never closes the application-owned connection itself.
+
+## Calculated fields on restricted read surfaces
+
+Traversal and transaction-bound action readers reject selections, filters or
+ordering that reference declared calculations. They report `invalid-request`
+with a `not-supported` issue before source reads or analytical execution. A
+default selection is rejected if it would include a readable calculation;
+calculations excluded by field-group access do not enter that default selection.
+Explicitly selecting ordinary fields retains the existing read behavior.
+
+The check uses compiled calculation metadata through `reads/calculations.ts`.
+Traversal applies it after resolving a visible traversal and before reading its
+origin or members. Action get/query apply it after the object type's gate and
+before resolving records or enumerating membership. This also rejects computed
+filters on empty populations. The guard does not disclose SQL or hidden object
+names. Native creation independently rejects supplied calculation values and
+stores only ordinary fields.

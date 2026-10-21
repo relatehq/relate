@@ -48,6 +48,16 @@ export const associationSchema = z.strictObject({
   gate,
 });
 
+export const calculationSchema = z.strictObject({
+  id: text,
+  name: text,
+  description: prose.optional(),
+  access: text,
+  sql: prose,
+});
+
+export type CompiledCalculation = z.infer<typeof calculationSchema>;
+
 export type CompiledDataset = z.infer<typeof datasetSchema>;
 export type CompiledAssociation = z.infer<typeof associationSchema>;
 
@@ -92,9 +102,11 @@ export function validateDatasets(
   const byId = new Map(datasets.map((dataset) => [dataset.id, dataset]));
   const apiNames = new Set(manifest.objects.map((object) => object.apiName));
 
-  function names(entries: readonly { name: string; id: string }[], path: Path) {
-    const folded = new Set<string>();
-
+  function names(
+    entries: readonly { name: string; id: string }[],
+    path: Path,
+    folded = new Set<string>(),
+  ) {
     entries.forEach((entry, index) => {
       if (!entry.name.trim() || unsafe.has(entry.name))
         issues.report(
@@ -114,6 +126,8 @@ export function validateDatasets(
 
       folded.add(entry.name.toLowerCase());
     });
+
+    return folded;
   }
 
   datasets.forEach((dataset, index) => {
@@ -177,7 +191,32 @@ export function validateDatasets(
     }
   });
   manifest.objects.forEach((object, index) => {
-    names(object.properties, ['objects', index, 'properties']);
+    const folded = names(object.properties, ['objects', index, 'properties']);
+
+    names(
+      object.calculations ?? [],
+      ['objects', index, 'calculations'],
+      folded,
+    );
+    (object.calculations ?? []).forEach((calculation, calculationIndex) => {
+      const at = (...rest: (string | number)[]) => [
+        'objects',
+        index,
+        'calculations',
+        calculationIndex,
+        ...rest,
+      ];
+
+      register(calculation.id, at('id'));
+
+      if (!manifest.fieldGroups.includes(calculation.access))
+        issues.report(
+          'property.unknown-field-group',
+          'Unknown calculated property field group',
+          at('access'),
+          calculation.id,
+        );
+    });
     const associations = object.datasets ?? [];
 
     names(associations, ['objects', index, 'datasets']);

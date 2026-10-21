@@ -96,10 +96,12 @@ type RangeOperators<V> = {
 type PropertyFilter<P extends Property, V> =
   | V
   | (EqualityOperators<V> &
-      (UnwrapSchema<P['schema']> extends
-        z.ZodNumber | z.iso.ZodISODateTime | LocalDateTimeSchema
+      (P['origin']['kind'] extends 'computed'
         ? RangeOperators<V>
-        : unknown));
+        : UnwrapSchema<P['schema']> extends
+              z.ZodNumber | z.iso.ZodISODateTime | LocalDateTimeSchema
+          ? RangeOperators<V>
+          : unknown));
 
 /**
  * Filter and page through objects already adopted into the graph, or through

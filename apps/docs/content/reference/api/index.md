@@ -8,6 +8,7 @@
 ## Type Aliases
 
 - [ActionRequest](type-aliases/ActionRequest.md)
+- [ComputedPropertyNames](type-aliases/ComputedPropertyNames.md)
 - [DatasetRow](type-aliases/DatasetRow.md)
 - [ObjectId](type-aliases/ObjectId.md)
 - [ObjectRecord](type-aliases/ObjectRecord.md)
@@ -21,6 +22,7 @@
 
 - [assertFields](functions/assertFields.md)
 - [bind](functions/bind.md)
+- [computed](functions/computed.md)
 - [defineAccess](functions/defineAccess.md)
 - [defineAction](functions/defineAction.md)
 - [defineApp](functions/defineApp.md)

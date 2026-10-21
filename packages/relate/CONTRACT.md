@@ -768,3 +768,43 @@ name, logical-type, correlation and policy checks independently of TypeScript
 and authoring helpers. Dataset or association renames retain explicit IDs but
 change the revision; description and policy changes also affect the revision.
 These contracts do not yet enable analytical reads in the Node runtime.
+
+## Declared calculation metadata
+
+`computed({ id, sql, access?, description? })` declares a read-only analytical
+property. Its default access group is `ordinary`, matching ordinary property
+helpers. The helper captures and freezes the declaration. It rejects blank or
+non-string SQL and unsupported authoring options, including parameters and a
+caller-supplied schema. The compiler deliberately does not parse SQL: Node's
+startup preparation will validate all declarations with the injected parser.
+That semantic validation remains implementation work.
+
+Manifest format 7 stores declarations in each object's `calculations` array,
+separate from its ordinary `properties`. Each entry retains `id`, `name`,
+`access`, `sql` and an optional unchanged `description`. Entries are sorted by
+stable ID and participate in `definitionRevision`. Changing SQL or renaming the
+property changes the revision without changing its explicit ID. Loaded JSON
+validates declaration shape, names, IDs and access groups; calculated and
+ordinary names share one namespace and cannot collide after SQL folding.
+
+```mermaid
+flowchart LR
+  Declaration[computed property declaration] --> Compile[Portable compiler]
+  Compile --> Metadata[Revisioned calculation metadata]
+  Compile --> Stored[Ordinary stored property metadata]
+  Metadata --> Prepare[Planned runtime type and dependency preparation]
+  Stored --> Persistence[Source observation and native write validation]
+```
+
+`ComputedPropertyNames<O>` denotes declared calculation names. The property
+schema in TypeScript represents the JSON output envelope only: string, number,
+boolean or null. It does not infer a result from the SQL string. Selected
+calculated values remain optional, and ordinary selected properties retain
+existing types. Declared filters accept scalar comparisons; runtime preparation
+will validate them against the inferred result type.
+
+Computed properties cannot be correlation keys, row-policy dependencies,
+relationship references or native action write targets. Compilation rejects
+policy/correlation dependencies, and native writes validate only stored
+properties. Calculations are absent from adoption mappings and native stored
+values, so adding a declaration cannot persist an analytical result.

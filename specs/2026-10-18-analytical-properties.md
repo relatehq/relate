@@ -2206,8 +2206,10 @@ scope below. A checked foundation does not establish analytical execution.
       conformance corpus, including the open decisions below.
 - [x] Add column-derived dataset authoring, compiled association pairs and
       policy metadata, preserving stable IDs and descriptions.
-- [ ] Complete integer object-property support and declared-calculation
-      compilation and startup validation.
+- [x] Compile declared-calculation identity, access and SQL into revisioned
+      metadata; reject calculated reads on traversal and action surfaces.
+- [ ] Complete integer object-property support and declared-calculation semantic
+      validation at startup.
 - [x] Parse the complete restricted SQL subset through `@relate/sql-parser`.
 - [x] Define the opaque analytical connector boundary and implement bounded
       statement admission, cancellation and retirement; host wiring remains

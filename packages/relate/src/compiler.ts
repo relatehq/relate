@@ -347,6 +347,21 @@ export function compile<G extends GraphDefinition>(
             object.id,
           );
 
+        if (property.origin.kind === 'computed') {
+          if (
+            typeof property.origin.sql !== 'string' ||
+            !property.origin.sql.trim()
+          )
+            issues.report(
+              'calculation.invalid-definition',
+              'Computed properties require nonblank SQL',
+              at('properties', propertyName, 'sql'),
+              property.id,
+            );
+
+          continue;
+        }
+
         const problem = schemaIssue(property.schema);
 
         if (problem)
@@ -502,6 +517,14 @@ export function compile<G extends GraphDefinition>(
           'policy.unknown-dependency',
           `Unknown policy dependency '${name}' on ${owner} in policy ${label}`,
           [...segments, name],
+        );
+
+      if (property.origin.kind === 'computed')
+        issues.fail(
+          'calculation.invalid-dependency',
+          'Policies cannot depend on computed properties',
+          [...segments, name],
+          property.id,
         );
 
       const next = [...path, property];
@@ -983,7 +1006,29 @@ export function compile<G extends GraphDefinition>(
         ...('resource' in o.membership
           ? { sourceDefinitionId: o.membership.resource.id }
           : {}),
+        ...(Object.values(o.properties).some(
+          (p) => p.origin.kind === 'computed',
+        )
+          ? {
+              calculations: Object.entries(o.properties)
+                .flatMap(([name, p]) =>
+                  p.origin.kind === 'computed'
+                    ? [
+                        {
+                          id: p.id,
+                          name,
+                          ...described(p.description),
+                          access: p.access?.name ?? 'ordinary',
+                          sql: p.origin.sql,
+                        },
+                      ]
+                    : [],
+                )
+                .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+            }
+          : {}),
         properties: Object.entries(o.properties)
+          .filter(([, p]) => p.origin.kind !== 'computed')
           .map(([name, p]) => ({
             id: p.id,
             name,
@@ -1103,6 +1148,7 @@ function translate(
       apiName: string;
       properties: readonly { id: string; name: string }[];
       datasets?: readonly { id: string; name: string }[];
+      calculations?: readonly { id: string; name: string }[];
     }[];
     datasets?: readonly {
       id: string;
@@ -1208,6 +1254,21 @@ function translate(
             ? []
             : [fifth === 'datasetDefinitionId' ? 'dataset' : fifth]),
           ...(fifth === 'on' ? [] : rest),
+        ]);
+      }
+
+      if (third === 'calculations' && typeof fourth === 'number') {
+        const calculation = object.calculations?.[fourth];
+
+        if (!calculation) return issue;
+
+        return authored([
+          'objects',
+          object.apiName,
+          'properties',
+          calculation.name,
+          ...(fifth === undefined ? [] : [fifth]),
+          ...rest,
         ]);
       }
 

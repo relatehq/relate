@@ -16,7 +16,7 @@ function defineAccess<R, G, C>(definition): Readonly<{
 }>;
 ```
 
-Defined in: [packages/relate/src/authorization.ts:171](https://github.com/relatehq/relate/blob/main/packages/relate/src/authorization.ts#L171)
+Defined in: [packages/relate/src/authorization.ts:173](https://github.com/relatehq/relate/blob/main/packages/relate/src/authorization.ts#L173)
 
 Declare the vocabulary once; hosts still supply authenticated principals.
 

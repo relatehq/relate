@@ -33,15 +33,17 @@ export type PolicyWhere<
 > = {
   readonly [
     K in keyof O['properties']
-  ]?: O['properties'][K] extends ReferenceProperty<infer Id>
-    ? PolicyWhere<Registry, Extract<Registry[keyof Registry], { id: Id }>>
-    : {
-        readonly eq:
-          | Claim<z.ZodType<z.output<O['properties'][K]['schema']>>>
-          | (z.output<O['properties'][K]['schema']> extends string
-              ? ActorField
-              : never);
-      };
+  ]?: O['properties'][K]['origin']['kind'] extends 'computed'
+    ? never
+    : O['properties'][K] extends ReferenceProperty<infer Id>
+      ? PolicyWhere<Registry, Extract<Registry[keyof Registry], { id: Id }>>
+      : {
+          readonly eq:
+            | Claim<z.ZodType<z.output<O['properties'][K]['schema']>>>
+            | (z.output<O['properties'][K]['schema']> extends string
+                ? ActorField
+                : never);
+        };
 };
 
 /** Reject surplus extracted keys as well as fresh literal typos. */
