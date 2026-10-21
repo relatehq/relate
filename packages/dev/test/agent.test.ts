@@ -29,13 +29,13 @@ import {
   createRuntimeController,
   createSessions,
   toAnthropicTools,
-} from '@relate/cli';
+} from '@relate/dev';
 import type {
   Agent,
   AgentModelClient,
   AgentStreamParams,
   ConnectAgentTools,
-} from '@relate/cli';
+} from '@relate/dev';
 import {
   agentEventSchema,
   agentResetAcceptedSchema,

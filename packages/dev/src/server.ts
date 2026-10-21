@@ -5,8 +5,8 @@
  * package owns asset caching.
  */
 import { Hono } from 'hono';
-import { PROTOCOL_VERSION, createInspectorApp } from '@relate/inspector/server';
-import type { DevEvent } from '@relate/inspector/protocol';
+import { createInspectorApp } from '@relate/inspector/server';
+import { PROTOCOL_VERSION, type DevEvent } from '@relate/inspector/protocol';
 import type { InspectorApp } from '@relate/inspector/server';
 import { activityRoute, createActivityLog } from './activity/index.js';
 import type { ActivityLog } from './activity/index.js';

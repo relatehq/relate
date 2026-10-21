@@ -22,6 +22,7 @@ const packages = [
   'connectors/salesforce',
   'apps/inspector',
   'packages/mcp',
+  'packages/dev',
   'packages/cli',
 ];
 
@@ -699,6 +700,8 @@ import { ManifestValidationError, validateManifest } from 'relate/model';
 import { defineApp, isAppDefinition } from 'relate';
 import { PROTOCOL_VERSION, parseDevEvent } from '@relate/inspector/protocol';
 import { createInspectorApp } from '@relate/inspector/server';
+import { startDev, defaultWorkerPath, defaultRuntimeHostPath } from '@relate/dev';
+import { access } from 'node:fs/promises';
 import { createInvoiceGraph } from './built/invoice-graph.js';
 const { graph } = createInvoiceGraph();
 try { validateManifest({ formatVersion: 2 }); assert.fail('expected failure'); }
@@ -707,6 +710,11 @@ assert.equal(new CompileError([{ code: 'policy.missing', message: 'x' }]).name, 
 assert.ok(isAppDefinition(defineApp({ graph })));
 assert.equal(parseDevEvent({ protocolVersion: PROTOCOL_VERSION, instanceId: 'i', sequence: 0, type: 'snapshot', model: null, failure: null, runtime: null }).type, 'snapshot');
 await createInspectorApp().verify();
+assert.equal(typeof startDev, 'function');
+await access(defaultWorkerPath());
+await access(defaultRuntimeHostPath());
+assert.equal('createDevServer' in await import('@relate/cli'), false);
+await assert.rejects(access(new URL('./dev/server.js', import.meta.resolve('@relate/cli'))), { code: 'ENOENT' });
 console.log('Installed inspector protocol and packaged assets load.');
 `,
   );
