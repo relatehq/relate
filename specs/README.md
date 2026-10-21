@@ -12,5 +12,8 @@ truth for implemented behavior.
 - [2026-10-07: Inspector architecture and design record](./2026-10-07-inspector.md)
 - [2026-10-13: Runtime activity backbone](./2026-10-13-activity.md)
 - [2026-10-18: Analytical datasets and computed fields](./2026-10-18-analytical-properties.md)
-  — direction, authoring API, backends and computed filter/order agreed; column
-  typing, evidence and parser proposed; not implemented.
+  — direction, authoring API, backends and computed filter/order agreed; revised
+  2026-10-21 with spike findings and architecture review (preparation/execution,
+  dependency revalidation, connector contracts, ownership and work budgets);
+  includes a reading guide and execution diagrams. Detailed contracts remain
+  proposed; not implemented.
