@@ -58,6 +58,14 @@ jobs:
           pnpm typecheck
           pnpm exec vitest run
           pnpm test:packaging
+      - if: matrix.node == '26'
+        run: pnpm bench:analytical --profile small
+      - if: always() && matrix.node == '26'
+        uses: actions/upload-artifact@v4
+        with:
+          name: analytical-benchmark-small
+          path: benchmark-results/analytical/
+          if-no-files-found: ignore
   mcp-windows:
     name: MCP (Windows, Node 22)
     runs-on: windows-latest

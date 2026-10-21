@@ -38,6 +38,7 @@
     "example:customer-workspace": "node scripts/examples/run.mjs customer-workspace",
     "test:onboarding": "node --test scripts/examples/process.test.mjs tests/onboarding/smoke.test.mjs",
     "salesforce:dev": "tsx dev/salesforce/cli.ts",
+    "bench:analytical": "pnpm build && node --import tsx tests/performance/analytical-properties/run.ts",
     "test:salesforce:live": "pnpm build && tsx tests/integration/salesforce.live.ts"
   },
   "devDependencies": {
