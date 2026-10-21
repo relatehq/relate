@@ -3,11 +3,12 @@
 **Status:** design agreed on 2026-10-18, revised the same day after review, and
 revised on 2026-10-21 to include declared computed properties and the Cube
 design review, alongside the findings of the
-[spike (#37)](https://github.com/relatehq/relate/pull/37); not implemented.
-[Decisions](#decisions) lists each decision with its status,
-[Open questions](#open-questions) lists what is still undecided and which step
-settles it, and [Revision notes](#revision-notes) record what each revision
-changed.
+[spike (#37)](https://github.com/relatehq/relate/pull/37). Implementation is
+underway in [PR #38](https://github.com/relatehq/relate/pull/38); analytical
+execution is not yet implemented. [Decisions](#decisions) lists each decision
+with its status, [Open questions](#open-questions) lists what is still undecided
+and which step settles it, and [Revision notes](#revision-notes) record what
+each revision changed.
 
 **Reading guide.** Start with the example for caller behavior. [Model](#model),
 [Binding](#binding-and-schema-checks) and [Authorization](#authorization)
@@ -2188,6 +2189,34 @@ steps below. No production package imports the spike under `dev/`.
 6. **Ship:** discovery, MCP, Inspector, docs, and an example using a general
    `events` table in the example's SQLite file with both a caller-side login
    filter and a declared `loginCount` property. Update the README status table.
+
+### Implementation progress
+
+[PR #38](https://github.com/relatehq/relate/pull/38) implements the complete v1
+scope below. A checked foundation does not establish analytical execution.
+
+- [x] Rename `connect`/`connections` to `bind`/`bindings` across source, docs,
+      examples and installed-package programs.
+- [x] Scope observations and cursors by connection plus resource; migrate
+      Postgres observations without inventing resource identity.
+- [x] Configure identity on SQLite, Stripe and Salesforce connections; bind
+      selected resources using the source definition's key and fields.
+- [ ] Separate object read/query requests from traversal and transaction reads.
+- [ ] Finalize portable SQL, logical types, codecs, execution contracts and the
+      conformance corpus, including the open decisions below.
+- [ ] Compile datasets, explicit association pairs, policies and declared
+      calculations, preserving stable IDs and descriptions.
+- [ ] Parse the complete restricted SQL subset through `@relate/sql-parser`.
+- [ ] Execute authorized caller and declared calculations through object get and
+      membership-first query on SQLite and Postgres, including cancellation,
+      limits, failure granularity and dependency revalidation.
+- [ ] Benchmark authorized candidate enumeration and set finite budgets.
+- [ ] Execute computed filtering/order through the scope-first path with opaque,
+      revision-bound cursors and full-scope revalidation.
+- [ ] Ship `decodeComputed`, authorized discovery, MCP, Inspector, documentation
+      and the events example with caller SQL and declared `loginCount`.
+- [ ] Verify every acceptance criterion on both backends, run repository and
+      installed-package checks, and mark the PR ready for review.
 
 ## Acceptance criteria
 

@@ -181,14 +181,12 @@ const relate = createRuntime({
       providerAccountId: 'spindle-ferry-crm',
       connector: crmApi,
     }),
-    bind(billing, {
-      connectionId: 'billing',
-      resourceId: 'records',
-      connector: sqlite({ path: './billing.sqlite' }).table('invoices', {
-        idColumn: 'id',
-        columns: ['crm_customer_id', 'status', 'total'],
-      }),
-    }),
+    bind(
+      billing,
+      sqlite({ connectionId: 'billing', path: './billing.sqlite' }).table(
+        'invoices',
+      ),
+    ),
   ],
 });
 

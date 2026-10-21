@@ -20,15 +20,13 @@ const customers = defineSource({
   }),
 });
 const billing = stripe({
+  connectionId: 'billing',
   apiKey: () => process.env.STRIPE_SECRET_KEY!,
   apiVersion: '2025-06-30.basil', // Pin the version your schema targets.
   mode: 'test',
 });
-const binding = bind(customers, {
-  connectionId: 'billing',
-  resourceId: 'records',
+const binding = bind(customers, billing.resource('customers'), {
   providerAccountId: 'acct_yourAccount:test',
-  connector: billing.resource('customers', { fields: ['name', 'email'] }),
 });
 // Return { graphId, bindings: [binding] } from defineApp.setup.
 // Define objects using source(customers) and from(customers.fields.name).

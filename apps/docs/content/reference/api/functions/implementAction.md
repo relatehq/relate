@@ -2,8 +2,8 @@
 
 ```ts
 function implementAction<G, A>(
-   graph, 
-   action, 
+   graph,
+   action,
    execute
 ): ActionImplementation<G, A>;
 ```

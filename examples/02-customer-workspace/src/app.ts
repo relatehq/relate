@@ -73,7 +73,7 @@ export function createWorkspaceApp(
       onDispose(() => crm.stop());
       await crm.update({ status: 'active' });
       options.onCrm?.(crm);
-      const billing = sqlite({ path });
+      const billing = sqlite({ connectionId: 'demo-billing', path });
 
       onDispose(() => billing.close());
 
@@ -87,14 +87,7 @@ export function createWorkspaceApp(
             providerAccountId: 'example-account',
             connector: crmConnector(crm.url),
           }),
-          bind(billingInvoices, {
-            connectionId: 'demo-billing',
-            resourceId: 'records',
-            connector: billing.table('invoices', {
-              idColumn: 'id',
-              columns: ['crm_customer_id', 'total_minor', 'currency', 'status'],
-            }),
-          }),
+          bind(billingInvoices, billing.table('invoices')),
         ],
       };
     },

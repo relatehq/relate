@@ -73,3 +73,23 @@ export type SourceBinding = BindingOptions &
         readonly providerAccountId?: never;
       }
   );
+
+/** One configured connection may supply several independently scoped resources. */
+export interface ResourceConnection {
+  readonly connectionId: string;
+}
+
+/** Source selection derives from the unbound definition when it is bound. */
+export interface SourceSelection {
+  readonly idField: string;
+  readonly fields: readonly string[];
+}
+
+/** A selected resource exposes only the capabilities its connection implements. */
+export interface SourceResource<
+  C extends AnySourceConnector = AnySourceConnector,
+> {
+  readonly connection: ResourceConnection;
+  readonly resourceId: string;
+  bindSource(selection: SourceSelection): C;
+}

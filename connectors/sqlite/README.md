@@ -9,25 +9,17 @@ and actions. Requires Node.js 22 (22.16+), 24 or 26; uses built-in
 import { sqlite } from '@relate/connector-sqlite';
 import { bind } from 'relate';
 
-const database = sqlite({
-  path: './crm.sqlite',
-});
-const binding = bind(customers, {
-  connectionId: 'local-crm',
-  resourceId: 'records',
-  connector: database.table('customers', {
-    idColumn: 'id',
-    columns: ['display_name', 'portfolio', 'stripe_customer_id'],
-  }),
-});
+const database = sqlite({ connectionId: 'local-crm', path: './crm.sqlite' });
+const binding = bind(customers, database.table('customers'));
 // In defineApp.setup: onDispose(() => database.close()).
 ```
 
-`customers` is your `defineSource(...)` definition. Its `idField` must match
-`idColumn`, which is automatically included in the result. `columns` explicitly
-selects the other fields to expose; unlisted columns are not read or retained in
-Relate. Selected columns must exist. Configured names become result keys, even
-when their casing differs from SQLite's declared identifiers.
+`customers` is your `defineSource(...)` definition. Its `idField` supplies the
+key column; its schema selects the fields to expose. Unlisted columns are not
+read or retained in Relate. Direct connector users can select a keyed reader
+with `database.table(name, { idColumn, columns })`. Selected columns must exist.
+Configured names become result keys, even when their casing differs from
+SQLite's declared identifiers.
 
 The resource needs unique TEXT IDs. Matching uses binary equality and TEXT
 storage class, so `abc` and `ABC` are distinct even on a NOCASE column, and
@@ -64,17 +56,12 @@ replacement under the same connection ID, configure verification explicitly:
 
 ```ts
 const database = sqlite({
+  connectionId: 'local-crm',
   path: './crm.sqlite',
   identity: { table: 'account', column: 'id' },
 });
-const binding = bind(customers, {
-  connectionId: 'local-crm',
-  resourceId: 'records',
+const binding = bind(customers, database.table('customers'), {
   providerAccountId: 'crm-production',
-  connector: database.table('customers', {
-    idColumn: 'id',
-    columns: ['display_name', 'portfolio', 'stripe_customer_id'],
-  }),
 });
 ```
 

@@ -2,6 +2,7 @@ import { Worker } from 'node:worker_threads';
 import { resolve } from 'node:path';
 import { SourceAccessDenied } from 'relate/connectors';
 import type {
+  SourceResource,
   SourceConnector,
   ApplicationSourceConnector,
   AnySourceConnector,
@@ -22,7 +23,9 @@ export type { SqliteOptions, SqliteTableOptions } from './contracts.js';
 export interface SqliteConnection<
   C extends AnySourceConnector = AnySourceConnector,
 > {
-  table(name: string, options: SqliteTableOptions): C;
+  readonly connectionId: string;
+  table(name: string): SourceResource<C>;
+  table(name: string, options: SqliteTableOptions): C & SourceResource<C>;
   /** Reject outstanding reads and release the owned worker/connection. Idempotent. */
   close(): Promise<void>;
 }
@@ -46,6 +49,9 @@ export function sqlite(
 export function sqlite(options: SqliteOptions): SqliteConnection;
 
 export function sqlite(options: SqliteOptions): SqliteConnection {
+  if (typeof options.connectionId !== 'string' || !options.connectionId.trim())
+    throw new Error('SQLite connectionId must be nonempty');
+
   if (options.identity) {
     identifier(options.identity.table);
     identifier(options.identity.column);
@@ -193,9 +199,24 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
     });
   }
 
-  return {
-    table(name, tableOptions) {
+  const connection = {
+    connectionId: options.connectionId,
+    table(name: string, tableOptions?: SqliteTableOptions) {
+      const selected: SourceResource = {
+        connection,
+        resourceId: name,
+        bindSource(selection) {
+          return connection.table(name, {
+            idColumn: selection.idField,
+            columns: selection.fields,
+          }) as AnySourceConnector;
+        },
+      };
+
       identifier(name);
+
+      if (!tableOptions) return selected;
+
       identifier(tableOptions.idColumn);
       const columns = [...new Set(tableOptions.columns)];
 
@@ -214,14 +235,16 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
 
       return settings.identity
         ? {
-            identity: 'provider',
+            ...selected,
+            identity: 'provider' as const,
             async identify({ signal }: { signal: AbortSignal }) {
               return (await call({ operation: 'identify' }, signal)) as string;
             },
             fetch: fetch as SourceConnector['fetch'],
           }
         : {
-            identity: 'application',
+            ...selected,
+            identity: 'application' as const,
             fetch: fetch as ApplicationSourceConnector['fetch'],
           };
     },
@@ -241,4 +264,6 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
       return retire();
     },
   };
+
+  return Object.freeze(connection) as SqliteConnection;
 }

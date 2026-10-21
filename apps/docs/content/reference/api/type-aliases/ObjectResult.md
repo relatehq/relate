@@ -1,7 +1,7 @@
 # Type Alias: ObjectResult\<O, K, E\>
 
 ```ts
-type ObjectResult<O, K, E> = 
+type ObjectResult<O, K, E> =
   | {
   status: "not-found";
 }

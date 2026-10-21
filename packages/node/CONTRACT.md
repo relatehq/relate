@@ -121,11 +121,12 @@ them. `assertFields` narrows fields actually present. Omitting `select` requests
 all authorized fields. Refresh, stale fallback and strict completeness options
 are the same as the underlying engine.
 
-`bind` binds the actual source definition to a connector and stable
-`connectionId`. Connections use shared service authorization by default (the
-only supported mode). Missing, duplicate or unregistered bindings fail at
-construction. Explicit provider denial must use `SourceAccessDenied` from
-`relate/connectors`; ordinary errors mean temporary unavailability.
+`bind` binds the actual source definition to a selected resource. Its connection
+supplies `connectionId`; its table or API resource supplies `resourceId`.
+Bindings use shared service authorization by default (the only supported mode).
+Missing, duplicate or unregistered bindings fail at construction. Explicit
+provider denial must use `SourceAccessDenied` from `relate/connectors`; ordinary
+errors mean temporary unavailability.
 
 Compilation belongs here; `@relate/runtime` still consumes portable compiled
 models. Named registries are supported by the compiler alongside existing array

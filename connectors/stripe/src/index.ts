@@ -1,5 +1,9 @@
 import { SourceAccessDenied } from 'relate/connectors';
-import type { SourceConnector, SourceRecord } from 'relate/connectors';
+import type {
+  SourceConnector,
+  SourceRecord,
+  SourceResource,
+} from 'relate/connectors';
 
 const resources = {
   customers: { object: 'customer' },
@@ -16,6 +20,7 @@ const ACCOUNT_ID = /^acct_[A-Za-z0-9]+$/;
 export type StripeResource = keyof typeof resources;
 
 export interface StripeOptions {
+  readonly connectionId: string;
   /** Secret/restricted account key; resolved once per operation, including identity verification. */
   apiKey:
     string | ((options: { signal: AbortSignal }) => string | Promise<string>);
@@ -33,10 +38,12 @@ export interface StripeOptions {
 }
 
 export interface StripeConnection {
+  readonly connectionId: string;
+  resource(name: StripeResource): SourceResource<SourceConnector>;
   resource(
     name: StripeResource,
     options: { fields: readonly string[] },
-  ): SourceConnector;
+  ): SourceConnector & SourceResource<SourceConnector>;
 }
 
 /** Sanitized diagnostics: no credentials, provider messages, or response bodies. */
@@ -92,6 +99,9 @@ function positive(value: number, name: string): number {
 
 /** Read-only API v1 resources. No ordering/version is inferred from created timestamps or request IDs. */
 export function stripe(options: StripeOptions): StripeConnection {
+  if (typeof options.connectionId !== 'string' || !options.connectionId.trim())
+    throw new Error('Stripe connectionId must be nonempty');
+
   const { apiKey, apiVersion, mode, account } = options;
   const transport = options.fetch ?? globalThis.fetch;
   const timeoutMs = positive(options.timeoutMs ?? 10_000, 'timeoutMs');
@@ -314,10 +324,26 @@ export function stripe(options: StripeOptions): StripeConnection {
     return [identityResult.value, recordResult.value];
   }
 
-  return {
-    resource(name, selection) {
+  const connection = {
+    connectionId: options.connectionId,
+    resource(name: StripeResource, selection?: { fields: readonly string[] }) {
+      const selected: SourceResource<SourceConnector> = {
+        connection,
+        resourceId: name,
+        bindSource(source) {
+          if (source.idField !== 'id')
+            throw new Error('Stripe source key must be id');
+
+          return connection.resource(name, {
+            fields: source.fields,
+          }) as SourceConnector;
+        },
+      };
+
       if (!Object.hasOwn(resources, name))
         throw new Error('Unsupported Stripe resource');
+
+      if (!selection) return selected;
 
       const resource = resources[name];
       const fields = [...new Set(['id', ...selection.fields])];
@@ -332,9 +358,11 @@ export function stripe(options: StripeOptions): StripeConnection {
       }
 
       return {
-        identity: 'provider',
-        identify: ({ signal }) => operation(signal, identify),
-        async fetch(id, { signal }) {
+        ...selected,
+        identity: 'provider' as const,
+        identify: ({ signal }: { signal: AbortSignal }) =>
+          operation(signal, identify),
+        async fetch(id: string, { signal }: { signal: AbortSignal }) {
           // Provider IDs are opaque: products/plans can have custom IDs, and
           // charge IDs are not limited to ch_. Keep them inside one URL segment.
           if (
@@ -395,4 +423,6 @@ export function stripe(options: StripeOptions): StripeConnection {
       };
     },
   };
+
+  return Object.freeze(connection) as StripeConnection;
 }

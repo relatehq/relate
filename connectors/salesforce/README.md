@@ -12,20 +12,18 @@ import { salesforce } from '@relate/connector-salesforce';
 import { bind } from 'relate';
 
 const crm = salesforce({
+  connectionId: 'salesforce-crm',
   // Resolve one matching pair from your server-side OAuth credential store.
   // Refresh expired tokens there. Never accept instanceUrl from a request body.
   credentials: async ({ signal }) => getSalesforceCredentials({ signal }),
   apiVersion: '67.0',
 });
 
-const accounts = crm.resource('Account', { fields: ['Name', 'Website'] });
+const accounts = crm.resource('Account');
 
 // In defineApp.setup():
-const connection = bind(accountSource, {
-  connectionId: 'salesforce-crm',
-  resourceId: 'records',
+const connection = bind(accountSource, accounts, {
   providerAccountId: expectedOrgId, // canonical 18-character Salesforce org ID
-  connector: accounts,
 });
 ```
 

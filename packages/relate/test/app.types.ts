@@ -119,3 +119,24 @@ const falseVerification: import('relate/connectors').ApplicationSourceConnector 
   };
 
 void falseVerification;
+
+const localResource: import('relate/connectors').SourceResource<
+  typeof applicationConnector
+> = {
+  connection: { connectionId: 'directory' },
+  resourceId: 'people',
+  bindSource: () => applicationConnector,
+};
+const verifiedResource: import('relate/connectors').SourceResource<SourceConnector> =
+  {
+    connection: { connectionId: 'directory' },
+    resourceId: 'people',
+    bindSource: () => connector,
+  };
+
+bind(people, localResource);
+bind(people, verifiedResource, { providerAccountId: 'fixture' });
+// @ts-expect-error provider resources require an expected authenticated account
+bind(people, verifiedResource);
+// @ts-expect-error application resources cannot assert a provider account
+bind(people, localResource, { providerAccountId: 'fake' });

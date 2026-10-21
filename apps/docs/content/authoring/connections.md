@@ -33,20 +33,11 @@ import { graph, customers } from './model.js';
 export default defineApp({
   graph,
   setup({ onDispose }) {
-    const database = sqlite({ path: './crm.sqlite' });
+    const database = sqlite({ connectionId: 'crm', path: './crm.sqlite' });
     onDispose(() => database.close());
 
     return {
-      bindings: [
-        bind(customers, {
-          connectionId: 'crm',
-          resourceId: 'records',
-          connector: database.table('customers', {
-            idColumn: 'id',
-            columns: ['name'],
-          }),
-        }),
-      ],
+      bindings: [bind(customers, database.table('customers'))],
     };
   },
 });

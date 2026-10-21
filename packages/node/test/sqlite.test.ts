@@ -28,21 +28,12 @@ test('executes typed authorized reads without an account table', async ({
     defineApp({
       graph: customerGraph,
       setup({ onDispose }) {
-        const database = sqlite({ path });
+        const database = sqlite({ connectionId: 'test-crm', path });
 
         onDispose(() => database.close());
 
         return {
-          bindings: [
-            bind(customers, {
-              connectionId: 'test-crm',
-              resourceId: 'records',
-              connector: database.table('customers', {
-                idColumn: 'id',
-                columns: ['display_name', 'portfolio', 'revenue'],
-              }),
-            }),
-          ],
+          bindings: [bind(customers, database.table('customers'))],
         };
       },
     }),

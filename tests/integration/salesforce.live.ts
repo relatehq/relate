@@ -11,6 +11,7 @@ try {
     const { orgId, accountIds } = await org.info();
     const credentials = await org.credentials();
     const connector = salesforce({
+      connectionId: 'salesforce',
       credentials,
       apiVersion: '67.0',
       timeoutMs: 30_000,
@@ -44,6 +45,7 @@ try {
       assert.equal(updated.data.name, 'Mothlight Updated');
       console.log('PASS upstream update appears on refresh');
       const denied = salesforce({
+        connectionId: 'salesforce',
         credentials: { ...credentials, accessToken: 'invalid-session-token' },
         apiVersion: '67.0',
       }).resource('Account', { fields: ['Name'] });

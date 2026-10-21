@@ -5,6 +5,7 @@ import type { StripeOptions } from '@relate/connector-stripe';
 export const signal = () => new AbortController().signal;
 
 export const options = {
+  connectionId: 'stripe',
   apiKey: 'sk_test_fixture',
   apiVersion: '2025-06-30.basil',
   mode: 'test',

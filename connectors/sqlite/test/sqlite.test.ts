@@ -29,6 +29,7 @@ function fixture() {
     "CREATE TABLE account (id TEXT PRIMARY KEY NOT NULL); INSERT INTO account VALUES ('demo-crm')",
   );
   const database = sqlite({
+    connectionId: 'sqlite',
     path,
     identity: { table: 'account', column: 'id' },
   });
@@ -91,6 +92,7 @@ test('binds IDs and quotes identifiers without executing input as SQL', async ()
     'CREATE TABLE "odd""table" ("key""column" TEXT PRIMARY KEY, value REAL); INSERT INTO "odd""table" VALUES (\'one\', 1.5)',
   );
   const connection = sqlite({
+    connectionId: 'sqlite',
     path,
     identity: { table: 'account', column: 'id' },
   });
@@ -328,6 +330,7 @@ test('close rejects active and queued reads and is safe to await twice', async (
 test('missing files reject on first use without claiming provider denial', async () => {
   const { path } = fixture();
   const database = sqlite({
+    connectionId: 'sqlite',
     path: `${path}.missing`,
     identity: { table: 'account', column: 'id' },
   });
@@ -433,7 +436,7 @@ test('defaults to application-owned identity without querying an account table',
   const { db, path } = fixture();
 
   db.exec('DROP TABLE account');
-  const database = sqlite({ path });
+  const database = sqlite({ connectionId: 'sqlite', path });
 
   cleanups.push(() => database.close());
   const connector = database.table('customers', {

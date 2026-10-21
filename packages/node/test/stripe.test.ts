@@ -64,17 +64,17 @@ test('Stripe executes authorized refreshes, denies revoked access/account change
         graphId: 'stripe-read-test',
         clock: () => now,
         bindings: [
-          bind(customers, {
-            connectionId: 'stripe',
-            resourceId: 'records',
-            providerAccountId: 'acct_one:test',
-            connector: stripe({
+          bind(
+            customers,
+            stripe({
+              connectionId: 'stripe',
               apiKey: 'sk_test_fixture',
               apiVersion: '2025-06-30.basil',
               mode: 'test',
               fetch: transport,
-            }).resource('customers', { fields: ['name'] }),
-          }),
+            }).resource('customers'),
+            { providerAccountId: 'acct_one:test' },
+          ),
         ],
       }),
     }),
@@ -146,11 +146,10 @@ test('a missing Stripe key reports the source unavailable, not the record missin
         graphId: 'stripe-misconfigured-test',
         clock: () => now,
         bindings: [
-          bind(customers, {
-            connectionId: 'stripe',
-            resourceId: 'records',
-            providerAccountId: 'acct_one:test',
-            connector: stripe({
+          bind(
+            customers,
+            stripe({
+              connectionId: 'stripe',
               apiKey: () => key!,
               apiVersion: '2025-06-30.basil',
               mode: 'test',
@@ -165,8 +164,9 @@ test('a missing Stripe key reports the source unavailable, not the record missin
                         name: 'Ada',
                       },
                 ),
-            }).resource('customers', { fields: ['name'] }),
-          }),
+            }).resource('customers'),
+            { providerAccountId: 'acct_one:test' },
+          ),
         ],
       }),
     }),

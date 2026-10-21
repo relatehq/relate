@@ -1,7 +1,7 @@
 # Type Alias: Receipt\<A\>
 
 ```ts
-type Receipt<A> = 
+type Receipt<A> =
   | SucceededReceipt<z.output<A["output"]>>
   | { [Code in keyof A["errors"] & string]: FailedReceipt<Code, z.output<A["errors"][Code]>> }[keyof A["errors"] & string];
 ```

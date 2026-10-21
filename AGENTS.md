@@ -89,9 +89,9 @@ concrete thing being talked about rather than describing it abstractly:
 
 Apply this to plans, design options, progress updates, final summaries, and
 written documents such as `specs/` alike. When weighing alternatives, show each
-option as code or a contract sketch, then give a recommendation. If something is still undecided, say so
-explicitly and show the open shape. Keep prose short; let the examples carry the
-explanation.
+option as code or a contract sketch, then give a recommendation. If something is
+still undecided, say so explicitly and show the open shape. Keep prose short;
+let the examples carry the explanation.
 
 ## Test ownership and setup
 

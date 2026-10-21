@@ -144,24 +144,24 @@ import { DatabaseSync } from 'node:sqlite';
 import { stripe } from '@relate/connector-stripe';
 import { salesforce } from '@relate/connector-salesforce';
 import { sqlite } from '@relate/connector-sqlite';
-const salesforceResource = salesforce({ credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture-token' }, apiVersion: '67.0', fetch: async url => Response.json(String(url).endsWith('/userinfo') ? { organization_id: '00D000000000001EAA' } : { done: true, totalSize: 1, records: [{ attributes: { type: 'Account' }, Id: '001000000000001AAA', IsDeleted: false, Name: 'Ada' }] }) }).resource('Account', { fields: ['Name'] });
+const salesforceResource = salesforce({ connectionId: 'salesforce', credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture-token' }, apiVersion: '67.0', fetch: async url => Response.json(String(url).endsWith('/userinfo') ? { organization_id: '00D000000000001EAA' } : { done: true, totalSize: 1, records: [{ attributes: { type: 'Account' }, Id: '001000000000001AAA', IsDeleted: false, Name: 'Ada' }] }) }).resource('Account', { fields: ['Name'] });
 assert.equal(await salesforceResource.identify({ signal: new AbortController().signal }), '00D000000000001EAA');
 assert.deepEqual(await salesforceResource.fetch('001000000000001AAA', { signal: new AbortController().signal }), { state: 'present', providerAccountId: '00D000000000001EAA', record: { Id: '001000000000001AAA', IsDeleted: false, Name: 'Ada' } });
 console.log('Installed Salesforce connector verifies org identity and reads Accounts in plain Node ESM.');
-const billing = stripe({ apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test', fetch: async url => Response.json(String(url).endsWith('/account') ? { id: 'acct_packed', object: 'account' } : { id: 'cus_packed', object: 'customer', livemode: false, name: 'Ada' }) });
+const billing = stripe({ connectionId: 'stripe', apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test', fetch: async url => Response.json(String(url).endsWith('/account') ? { id: 'acct_packed', object: 'account' } : { id: 'cus_packed', object: 'customer', livemode: false, name: 'Ada' }) });
 const stripeResource = billing.resource('customers', { fields: ['name'] });
 assert.equal(await stripeResource.identify({ signal: new AbortController().signal }), 'acct_packed:test');
 assert.deepEqual(await stripeResource.fetch('cus_packed', { signal: new AbortController().signal }), { state: 'present', providerAccountId: 'acct_packed:test', record: { id: 'cus_packed', name: 'Ada' } });
 const db = new DatabaseSync('source.sqlite');
 db.exec("CREATE TABLE account (id TEXT); INSERT INTO account VALUES ('packed'); CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT); INSERT INTO customers VALUES ('1', 'Ada')");
 db.close();
-const connection = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } });
+const connection = sqlite({ connectionId: 'sqlite', path: 'source.sqlite', identity: { table: 'account', column: 'id' } });
 const connector = connection.table('customers', { idColumn: 'id', columns: ['name'] });
 try {
   assert.equal(await connector.identify({ signal: new AbortController().signal }), 'packed');
   assert.equal((await connector.fetch('1', { signal: new AbortController().signal })).record.name, 'Ada');
 } finally { await connection.close(); }
-const local = sqlite({ path: 'source.sqlite' });
+const local = sqlite({ connectionId: 'sqlite', path: 'source.sqlite' });
 try {
   const table = local.table('customers', { idColumn: 'id', columns: ['name'] });
   assert.equal(table.identity, 'application');
@@ -275,18 +275,26 @@ import { salesforce } from '@relate/connector-salesforce';
 import { sqlite } from '@relate/connector-sqlite';
 import { bind } from 'relate';
 import type { SourceConnector, ApplicationSourceConnector } from 'relate/connectors';
-const salesforceResource: SourceConnector = salesforce({ credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture' }, apiVersion: '67.0' }).resource('Account', { fields: ['Name'] });
+const salesforceResource: SourceConnector = salesforce({ connectionId: 'salesforce', credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture' }, apiVersion: '67.0' }).resource('Account', { fields: ['Name'] });
 bind(crm, { connectionId: 'salesforce', resourceId: 'records', providerAccountId: '00D000000000001EAA', connector: salesforceResource });
-const stripeResource: SourceConnector = stripe({ apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test' }).resource('customers', { fields: ['name'] });
+const stripeResource: SourceConnector = stripe({ connectionId: 'stripe', apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test' }).resource('customers', { fields: ['name'] });
 bind(crm, { connectionId: 'stripe', resourceId: 'records', providerAccountId: 'acct_fixture:test', connector: stripeResource });
-const localResource: ApplicationSourceConnector = sqlite({ path: 'source.sqlite' }).table('customers', { idColumn: 'id', columns: ['name'] });
+const localResource: ApplicationSourceConnector = sqlite({ connectionId: 'sqlite', path: 'source.sqlite' }).table('customers', { idColumn: 'id', columns: ['name'] });
 bind(crm, { connectionId: 'local', resourceId: 'records', connector: localResource });
 // @ts-expect-error application identity cannot claim a provider account
 bind(crm, { connectionId: 'local', resourceId: 'records', providerAccountId: 'fake', connector: localResource });
-const resource: SourceConnector = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } }).table('customers', { idColumn: 'id', columns: ['name'] });
+const resource: SourceConnector = sqlite({ connectionId: 'sqlite', path: 'source.sqlite', identity: { table: 'account', column: 'id' } }).table('customers', { idColumn: 'id', columns: ['name'] });
 bind(crm, { connectionId: 'verified', resourceId: 'records', providerAccountId: 'account', connector: resource });
 // @ts-expect-error verified identity requires an expected account
 bind(crm, { connectionId: 'verified', resourceId: 'records', connector: resource });
+const selectedLocal = sqlite({ connectionId: 'crm', path: 'source.sqlite' }).table('customers');
+bind(crm, selectedLocal);
+// @ts-expect-error local resources cannot claim provider identity
+bind(crm, selectedLocal, { providerAccountId: 'fake' });
+const selectedProvider = stripe({ connectionId: 'billing', apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test' }).resource('customers');
+bind(crm, selectedProvider, { providerAccountId: 'acct_fixture:test' });
+// @ts-expect-error verified resources require an expected account
+bind(crm, selectedProvider);
 export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 `,
   );
@@ -637,7 +645,7 @@ const connector = {
 };
 export default defineApp({ graph, setup() {
   return { bindings: [customers, invoices].map((resource) => bind(resource, {
-    connectionId: resource.id, providerAccountId: 'packed-account', connector,
+    connectionId: resource.id, resourceId: 'records', providerAccountId: 'packed-account', connector,
   })) };
 } });
 export async function seed(relate: Relate<typeof graph>) {

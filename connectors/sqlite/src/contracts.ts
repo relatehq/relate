@@ -1,6 +1,7 @@
 import type { SourceResult } from 'relate/connectors';
 
 export interface SqliteOptions {
+  readonly connectionId: string;
   /** Existing database file. The connector never creates or writes it. */
   readonly path: string;
   /** Optional verification against a singleton table with a stable, nonempty TEXT account ID. */
@@ -28,7 +29,9 @@ export type Operation =
 export type Request = Operation & { id: number };
 
 /** Fully resolved settings passed by the connection owner to its worker. */
-export type WorkerSettings = SqliteOptions & { readonly busyTimeoutMs: number };
+export type WorkerSettings = Omit<SqliteOptions, 'connectionId'> & {
+  readonly busyTimeoutMs: number;
+};
 
 export type Response =
   | { id: number; ok: true; result: string | SourceResult }

@@ -4,27 +4,73 @@ import type {
   ObjectRegistry,
   SourceDefinition,
 } from './index.js';
-import type { SourceBinding } from './connectors.js';
+import type {
+  SourceBinding,
+  SourceResource,
+  SourceConnector,
+  ApplicationSourceConnector,
+} from './connectors.js';
 import type { ActivityCaptureOptions, ObservationStore } from './storage.js';
 
 type Graph = GraphDefinition & { readonly objects: ObjectRegistry };
 
 export type Binding = SourceBinding & { readonly source: SourceDefinition };
 
-type ConnectionOptions<T = SourceBinding> = T extends SourceBinding
+type BindingOptions<T = SourceBinding> = T extends SourceBinding
   ? Omit<T, 'authorization'> & { readonly authorization?: 'shared-service' }
   : never;
 
-/** This slice supports shared service credentials only. Credentials stay in the connector. */
+/** Custom adapters may supply the explicit resource identity and keyed reader. */
 export function bind(
   source: SourceDefinition,
-  binding: ConnectionOptions,
+  resource: BindingOptions,
+): Binding;
+
+/** Bind a source contract to a selected resource without opening it. */
+export function bind(
+  source: SourceDefinition,
+  resource: SourceResource<ApplicationSourceConnector>,
+  options?: {
+    readonly authorization?: 'shared-service';
+    readonly providerAccountId?: never;
+  },
+): Binding;
+
+export function bind(
+  source: SourceDefinition,
+  resource: SourceResource<SourceConnector>,
+  options: {
+    readonly authorization?: 'shared-service';
+    readonly providerAccountId: string;
+  },
+): Binding;
+
+export function bind(
+  source: SourceDefinition,
+  resource: SourceResource | BindingOptions,
+  options?: {
+    readonly authorization?: 'shared-service';
+    readonly providerAccountId?: string;
+  },
 ): Binding {
+  const binding =
+    'bindSource' in resource
+      ? {
+          connectionId: resource.connection.connectionId,
+          resourceId: resource.resourceId,
+          connector: resource.bindSource({
+            idField: source.idField,
+            fields: Object.keys(source.schema.shape),
+          }),
+          ...options,
+        }
+      : resource;
+
   return Object.freeze({
     ...binding,
     source,
     authorization: binding.authorization ?? 'shared-service',
-  });
+  }) as Binding;
 }
 
 export interface AppBindings<

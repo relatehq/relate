@@ -11,11 +11,16 @@ instances. Execution and registered cleanup belong to `startApp` in
 `@relate/node`.
 
 `relate/connectors` owns `SourceConnector`, `SourceRecord`, `SourceVersion`,
-`SourceBinding`, and `SourceAccessDenied`. This is the existing resource-read
-contract: account identification and fetching a known source record ID. It does
-not yet define system factories, resource discovery, synchronization, or
-external writes. Account evidence and denial/deletion semantics are unchanged;
-see the [runtime contract](../runtime/CONTRACT.md).
+`SourceBinding`, `SourceResource`, `ResourceConnection`, and
+`SourceAccessDenied`. A selected resource carries its connection identity and
+resource ID. `bind` derives its keyed selection from the source definition
+through `bindSource`. Provider resources require an expected account;
+application-owned resources cannot assert one. Custom adapters may supply an
+explicit `SourceBinding` configuration. The resource-read contract covers:
+account identification and fetching a known source record ID. It does not yet
+define system factories, resource discovery, synchronization, or external
+writes. Account evidence and denial/deletion semantics are unchanged; see the
+[runtime contract](../runtime/CONTRACT.md).
 
 `relate/storage` exports storage interface types needed by app setup and runtime
 implementations. `@relate/runtime/storage` continues to re-export those types

@@ -1,5 +1,9 @@
 import { SourceAccessDenied } from 'relate/connectors';
-import type { SourceConnector, SourceRecord } from 'relate/connectors';
+import type {
+  SourceConnector,
+  SourceRecord,
+  SourceResource,
+} from 'relate/connectors';
 
 export interface SalesforceCredentials {
   /** HTTPS origin returned by your OAuth flow. Never supply an untrusted request URL. */
@@ -8,6 +12,7 @@ export interface SalesforceCredentials {
 }
 
 export interface SalesforceOptions {
+  readonly connectionId: string;
   /** Resolve a fresh, matching origin/token pair once per operation. */
   credentials:
     | SalesforceCredentials
@@ -25,10 +30,12 @@ export interface SalesforceOptions {
 }
 
 export interface SalesforceConnection {
+  readonly connectionId: string;
+  resource(name: 'Account'): SourceResource<SourceConnector>;
   resource(
     name: 'Account',
     options: { fields: readonly string[] },
-  ): SourceConnector;
+  ): SourceConnector & SourceResource<SourceConnector>;
 }
 
 /** Sanitized diagnostics never contain credentials or provider response bodies. */
@@ -111,6 +118,9 @@ function validValue(value: unknown): void {
 
 /** Read-only Account access; no CLI, discovery, writes, or inferred source ordering. */
 export function salesforce(options: SalesforceOptions): SalesforceConnection {
+  if (typeof options.connectionId !== 'string' || !options.connectionId.trim())
+    throw new Error('Salesforce connectionId must be nonempty');
+
   if (!/^\d{2,3}\.0$/.test(options.apiVersion))
     throw new Error(
       'Salesforce apiVersion must be explicit (for example 67.0)',
@@ -303,10 +313,26 @@ export function salesforce(options: SalesforceOptions): SalesforceConnection {
     return canonicalId(identity.organization_id, '00D');
   }
 
-  return {
-    resource(name, selection) {
+  const connection = {
+    connectionId: options.connectionId,
+    resource(name: 'Account', selection?: { fields: readonly string[] }) {
+      const selected: SourceResource<SourceConnector> = {
+        connection,
+        resourceId: name,
+        bindSource(source) {
+          if (source.idField !== 'Id')
+            throw new Error('Salesforce source key must be Id');
+
+          return connection.resource(name, {
+            fields: source.fields,
+          }) as SourceConnector;
+        },
+      };
+
       if (name !== 'Account')
         throw new Error('Unsupported Salesforce resource');
+
+      if (!selection) return selected;
 
       // Salesforce field names are case-insensitive: keep the first spelling of each.
       const byKey = new Map<string, string>();
@@ -329,9 +355,11 @@ export function salesforce(options: SalesforceOptions): SalesforceConnection {
       const fields = [...byKey.values()];
 
       return {
-        identity: 'provider',
-        identify: ({ signal }) => operation(signal, identify),
-        async fetch(id, { signal }) {
+        ...selected,
+        identity: 'provider' as const,
+        identify: ({ signal }: { signal: AbortSignal }) =>
+          operation(signal, identify),
+        async fetch(id: string, { signal }: { signal: AbortSignal }) {
           const recordId = canonicalId(id, '001');
 
           return operation(signal, async (get) => {
@@ -395,4 +423,6 @@ export function salesforce(options: SalesforceOptions): SalesforceConnection {
       };
     },
   };
+
+  return Object.freeze(connection) as SalesforceConnection;
 }
