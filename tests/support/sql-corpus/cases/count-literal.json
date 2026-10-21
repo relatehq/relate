@@ -1,0 +1,31 @@
+{
+  "name": "count-literal",
+  "sql": "SELECT COUNT(1) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": {
+        "kind": "literal",
+        "literal": "number",
+        "value": "1"
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "5",
+      "acme_late": "5",
+      "empty": "0",
+      "nulls": "1",
+      "wide": "2"
+    }
+  }
+}

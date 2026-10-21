@@ -1,0 +1,8 @@
+{
+  "name": "reject-33-select-sum-from-self-events",
+  "sql": "SELECT SUM(*) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

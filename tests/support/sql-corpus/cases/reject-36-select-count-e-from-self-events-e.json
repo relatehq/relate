@@ -1,0 +1,8 @@
+{
+  "name": "reject-36-select-count-e-from-self-events-e",
+  "sql": "SELECT COUNT(e.*) FROM self.events e",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

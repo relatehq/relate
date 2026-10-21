@@ -1,0 +1,31 @@
+{
+  "name": "avg-int32",
+  "sql": "SELECT AVG(small) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "avg",
+      "argument": {
+        "kind": "column",
+        "name": "small",
+        "quoted": false
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 4,
+      "acme_late": 4,
+      "empty": null,
+      "nulls": null,
+      "wide": 8
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "reject-27-select-percentile-cont-0-5-within-group-order-by-value-from-self-events",
+  "sql": "SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY value) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

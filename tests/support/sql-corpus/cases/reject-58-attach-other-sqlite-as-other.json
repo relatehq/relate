@@ -1,0 +1,8 @@
+{
+  "name": "reject-58-attach-other-sqlite-as-other",
+  "sql": "ATTACH 'other.sqlite' AS other",
+  "expect": {
+    "phase": "parse",
+    "problem": "invalid-value"
+  }
+}

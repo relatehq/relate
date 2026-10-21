@@ -1,0 +1,8 @@
+{
+  "name": "reject-20-select-count-from-self-events-fetch-first-row-only",
+  "sql": "SELECT COUNT(*) FROM self.events FETCH FIRST ROW ONLY",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

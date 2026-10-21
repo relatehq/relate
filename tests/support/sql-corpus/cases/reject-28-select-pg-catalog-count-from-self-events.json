@@ -1,0 +1,8 @@
+{
+  "name": "reject-28-select-pg-catalog-count-from-self-events",
+  "sql": "SELECT pg_catalog.count(*) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

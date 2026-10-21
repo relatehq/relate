@@ -1,0 +1,8 @@
+{
+  "name": "reject-19-select-count-from-self-events-offset-1",
+  "sql": "SELECT COUNT(*) FROM self.events OFFSET 1",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

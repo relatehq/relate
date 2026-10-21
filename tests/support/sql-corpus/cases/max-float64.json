@@ -1,0 +1,31 @@
+{
+  "name": "max-float64",
+  "sql": "SELECT MAX(ratio) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "max",
+      "argument": {
+        "kind": "column",
+        "name": "ratio",
+        "quoted": false
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 3.25,
+      "acme_late": 3.25,
+      "empty": null,
+      "nulls": null,
+      "wide": 1.5
+    }
+  }
+}

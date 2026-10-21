@@ -1,0 +1,8 @@
+{
+  "name": "reject-16-select-count-from-self-events-having-count-0",
+  "sql": "SELECT COUNT(*) FROM self.events HAVING COUNT(*) > 0",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

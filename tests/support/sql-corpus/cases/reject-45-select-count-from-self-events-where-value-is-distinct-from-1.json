@@ -1,0 +1,8 @@
+{
+  "name": "reject-45-select-count-from-self-events-where-value-is-distinct-from-1",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE value IS DISTINCT FROM 1",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

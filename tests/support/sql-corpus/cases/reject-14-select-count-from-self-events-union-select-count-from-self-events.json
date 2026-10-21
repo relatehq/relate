@@ -1,0 +1,8 @@
+{
+  "name": "reject-14-select-count-from-self-events-union-select-count-from-self-events",
+  "sql": "SELECT COUNT(*) FROM self.events UNION SELECT COUNT(*) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

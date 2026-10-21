@@ -1,0 +1,8 @@
+{
+  "name": "reject-44-select-count-from-self-events-where-value-any-array-1",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE value = ANY(ARRAY[1])",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "reject-30-select-cast-count-as-bigint-from-self-events",
+  "sql": "SELECT CAST(COUNT(*) AS bigint) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

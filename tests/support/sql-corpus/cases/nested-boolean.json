@@ -1,0 +1,87 @@
+{
+  "name": "nested-boolean",
+  "sql": "SELECT COUNT(*) FROM self.events e WHERE NOT (e.value <> 1 OR e.value <= 0) AND e.value > -1",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "boolean",
+        "op": "and",
+        "args": [
+          {
+            "kind": "boolean",
+            "op": "not",
+            "args": [
+              {
+                "kind": "boolean",
+                "op": "or",
+                "args": [
+                  {
+                    "kind": "compare",
+                    "op": "<>",
+                    "left": {
+                      "kind": "column",
+                      "name": "value",
+                      "quoted": false
+                    },
+                    "right": {
+                      "kind": "literal",
+                      "literal": "number",
+                      "value": "1"
+                    }
+                  },
+                  {
+                    "kind": "compare",
+                    "op": "<=",
+                    "left": {
+                      "kind": "column",
+                      "name": "value",
+                      "quoted": false
+                    },
+                    "right": {
+                      "kind": "literal",
+                      "literal": "number",
+                      "value": "0"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "compare",
+            "op": ">",
+            "left": {
+              "kind": "column",
+              "name": "value",
+              "quoted": false
+            },
+            "right": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "-1"
+            }
+          }
+        ]
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "1",
+      "acme_late": "1",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "0"
+    }
+  }
+}

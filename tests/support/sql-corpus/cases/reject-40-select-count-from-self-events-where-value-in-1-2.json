@@ -1,0 +1,8 @@
+{
+  "name": "reject-40-select-count-from-self-events-where-value-in-1-2",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE value IN (1, 2)",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

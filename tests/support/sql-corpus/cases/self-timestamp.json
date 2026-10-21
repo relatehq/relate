@@ -1,0 +1,41 @@
+{
+  "name": "self-timestamp",
+  "sql": "SELECT COUNT(*) FROM self.events e WHERE e.occurredAt >= self.customerSince",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "compare",
+        "op": ">=",
+        "left": {
+          "kind": "column",
+          "name": "occurredat",
+          "quoted": false
+        },
+        "right": {
+          "kind": "self",
+          "name": "customersince",
+          "quoted": false
+        }
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "4",
+      "acme_late": "1",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "2"
+    }
+  }
+}

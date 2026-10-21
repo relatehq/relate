@@ -1,0 +1,8 @@
+{
+  "name": "reject-32-select-sum-distinct-value-from-self-events",
+  "sql": "SELECT SUM(DISTINCT value) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

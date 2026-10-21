@@ -1,0 +1,31 @@
+{
+  "name": "sum-int64",
+  "sql": "SELECT SUM(e.value) FROM self.events e",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "sum",
+      "argument": {
+        "kind": "column",
+        "name": "value",
+        "quoted": false
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": "8",
+      "acme_late": "8",
+      "empty": null,
+      "nulls": null,
+      "wide": "9007199254740995"
+    }
+  }
+}

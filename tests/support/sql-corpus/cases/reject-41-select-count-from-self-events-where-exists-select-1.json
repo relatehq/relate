@@ -1,0 +1,8 @@
+{
+  "name": "reject-41-select-count-from-self-events-where-exists-select-1",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE EXISTS(SELECT 1)",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

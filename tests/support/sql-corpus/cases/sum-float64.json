@@ -1,0 +1,31 @@
+{
+  "name": "sum-float64",
+  "sql": "SELECT SUM(ratio) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "sum",
+      "argument": {
+        "kind": "column",
+        "name": "ratio",
+        "quoted": false
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 10,
+      "acme_late": 10,
+      "empty": null,
+      "nulls": null,
+      "wide": 3
+    }
+  }
+}

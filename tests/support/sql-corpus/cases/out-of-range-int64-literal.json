@@ -1,0 +1,31 @@
+{
+  "name": "out-of-range-int64-literal",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE value = 1.234567890123456789e20",
+  "expect": {
+    "phase": "resolve",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "compare",
+        "op": "=",
+        "left": {
+          "kind": "column",
+          "name": "value",
+          "quoted": false
+        },
+        "right": {
+          "kind": "literal",
+          "literal": "number",
+          "value": "1.234567890123456789e20"
+        }
+      }
+    },
+    "problem": "invalid-value"
+  }
+}

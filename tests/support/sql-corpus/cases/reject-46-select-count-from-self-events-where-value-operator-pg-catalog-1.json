@@ -1,0 +1,8 @@
+{
+  "name": "reject-46-select-count-from-self-events-where-value-operator-pg-catalog-1",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE value OPERATOR(pg_catalog.=) 1",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}
