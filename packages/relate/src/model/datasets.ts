@@ -75,7 +75,7 @@ export interface DatasetIssueReporter {
 const unsafe = new Set(['__proto__', 'prototype', 'constructor']);
 
 /** Logical correlation type for existing ordinary portable scalar properties. */
-function propertyType(
+export function analyticalSchemaType(
   schema: ScalarSchema,
 ): z.infer<typeof datasetTypeSchema> | undefined {
   if (schema.format === 'local-datetime') return undefined;
@@ -264,7 +264,7 @@ export function validateDatasets(
         const type =
           property &&
           !['reference', 'native-reference'].includes(property.origin.kind)
-            ? propertyType(property.schema)
+            ? analyticalSchemaType(property.schema)
             : undefined;
 
         if (

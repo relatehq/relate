@@ -18,6 +18,7 @@ import {
 } from './model/local-datetime.js';
 
 export { localDateTimeValue } from './model/local-datetime.js';
+export { analyticalSchemaType } from './model/datasets.js';
 
 import type { ScalarSchema } from '@relate/protocol';
 import { ManifestValidationError } from './diagnostics.js';

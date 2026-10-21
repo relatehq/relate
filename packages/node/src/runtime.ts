@@ -22,9 +22,11 @@ import {
   createOperationScope,
   createRuntime as createEngine,
   hostActor,
+  validateDeclaredCalculations,
 } from '@relate/runtime';
 import type { OperationScope, Principal } from '@relate/runtime';
 import type { SourceBinding } from 'relate/connectors';
+import type { SqlParser } from 'relate/analytics';
 import type { ActionHandler } from '@relate/runtime';
 import type { Relate } from './types.js';
 
@@ -115,6 +117,8 @@ export interface AppOptions<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 > extends AppBindings<G> {
   readonly graph: G;
+  /** Initialized host parser for analytical graphs; startApp supplies it automatically. */
+  readonly sqlParser?: SqlParser;
 }
 
 /** Compile an authored graph and bind typed reads and native action handlers. */
@@ -122,6 +126,19 @@ export function createRuntime<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(options: AppOptions<G>): Relate<G> {
   const model = compile(options.graph);
+  const analytical = Boolean(
+    model.manifest.datasets?.length ||
+    model.manifest.objects.some((object) => object.calculations?.length),
+  );
+
+  if (analytical && !options.sqlParser)
+    throw new Error(
+      'Analytical graphs require an initialized SQL parser. Use startApp() or supply sqlParser.',
+    );
+
+  if (analytical)
+    validateDeclaredCalculations(model.manifest, options.sqlParser!);
+
   // Keep every later facade aligned with this compiled model. Definitions are
   // immutable, but the graph and its caller-owned registries need not be.
   const description = model.consumer;

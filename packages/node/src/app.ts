@@ -44,7 +44,23 @@ export async function startApp<G extends Graph>(
         })
       : { bindings: [] };
 
-    runtime = createRuntime({ ...bindings, graph: app.graph });
+    const analytical =
+      Object.keys(app.graph.datasets ?? {}).length > 0 ||
+      Object.values(app.graph.objects ?? {}).some((object) =>
+        Object.values(object?.properties ?? {}).some(
+          (property) => property?.origin?.kind === 'computed',
+        ),
+      );
+    // Ordinary apps do not import or initialize the parser implementation.
+    const sqlParser = analytical
+      ? await (await import('@relate/sql-parser')).createSqlParser()
+      : undefined;
+
+    runtime = createRuntime({
+      ...bindings,
+      graph: app.graph,
+      ...(sqlParser ? { sqlParser } : {}),
+    });
   } catch (error) {
     try {
       await dispose();

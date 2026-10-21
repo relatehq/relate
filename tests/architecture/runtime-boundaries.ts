@@ -11,6 +11,7 @@ const dependencies: Record<string, readonly string[]> = {
     'analytics',
   ],
   composition: [
+    'analytics',
     'actions',
     'authorization',
     'resolution',
@@ -42,6 +43,7 @@ const dependencies: Record<string, readonly string[]> = {
 const roots: Record<string, string> = {
   'index.ts': 'public',
   'runtime.ts': 'composition',
+  'analytics-startup.ts': 'composition',
   'storage.ts': 'storage',
   'activity-store.ts': 'storage',
   'memory.ts': 'memory',

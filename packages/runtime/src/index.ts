@@ -43,3 +43,5 @@ export type {
   StatementQueue,
   StatementQueueOptions,
 } from './analytics/index.js';
+
+export { validateDeclaredCalculations } from './analytics-startup.js';

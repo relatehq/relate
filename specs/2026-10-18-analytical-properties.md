@@ -5,7 +5,9 @@ revised on 2026-10-21 to include declared computed properties and the Cube
 design review, alongside the findings of the
 [spike (#37)](https://github.com/relatehq/relate/pull/37). Implementation is
 underway in [PR #38](https://github.com/relatehq/relate/pull/38); analytical
-execution is not yet implemented. [Decisions](#decisions) lists each decision
+execution is not yet implemented. Shared expression type/dependency resolution
+and Node startup validation of every declared calculation are implemented;
+consumer execution remains pending. [Decisions](#decisions) lists each decision
 with its status, [Open questions](#open-questions) lists what is still undecided
 and which step settles it, and [Revision notes](#revision-notes) record what
 each revision changed.
@@ -2409,10 +2411,9 @@ Each question names the delivery step that settles it.
 4. Exact protocol names: unavailable reasons (today's `unavailable` variant has
    no `reason`), `location` units and whether they are UTF-16 columns, the
    `meta.computed` key, expression identity. (Contracts.)
-5. **Quoted lowercase names.** Does `e."eventtype"` resolve to `eventType` (the
-   spike's behaviour) or is it `unknown-property` (strict Postgres)? Strict is
-   recommended so the future graph SQL behaves like Postgres. Also: may a
-   declared name be a reserved word (`order`), usable only quoted? (Contracts.)
+5. **Settled in implementation:** quoted names match exactly, while unquoted
+   names fold to lowercase. `e."eventtype"` does not resolve to `eventType`.
+   Quoting permits declared identifiers that the grammar reserves.
 6. **Settled in implementation:** `decodeComputed` returns plain `bigint` for
    int64. Shared scalar codecs enforce signed int64 bounds without number
    rounding.
@@ -2425,9 +2426,11 @@ Each question names the delivery step that settles it.
    millisecond values decode to `Date`. The scalar corpus covers offset
    normalization, pre-epoch instants and precision-loss rejection. Backend
    comparison and execution cases remain required before shipping.
-9. Package names: `@relate/sql-parser` is suggested; name of the Postgres
-   connector package. Whether `packages/node` depends on the parser always (1.7
-   MB WASM, loaded at startup) or only when a graph declares datasets. (Build.)
+9. **Partly settled in implementation:** `@relate/sql-parser` is a Node package
+   dependency, imported and initialized by `startApp` only for graphs with
+   datasets or computed properties. Synchronous `createRuntime` accepts an
+   initialized `sqlParser` for these graphs. The Postgres connector package
+   name remains to be settled during its implementation.
 10. **Settled in implementation:** keep `ReadRequest` and `QueryRequest` as
     aliases of `ObjectReadRequest` and `ObjectQueryRequest`. Traversal and
     transaction readers depend on the common controls, so extending object
@@ -2455,9 +2458,9 @@ Each question names the delivery step that settles it.
     recomputation, required aliases fail the read, and transaction-bound action
     readers reject `compute`. (Contracts, before either public read path.)
 
-16. **Declared-property API details.** Finalize `computed(...)` authoring types,
-    the `ComputedPropertyNames<O>` consumer generic and startup diagnostic
-    shape. Preserve the agreed shared execution, scalar-union result typing, no
+16. **Settled in implementation:** `computed(...)` authoring types,
+    `ComputedPropertyNames<O>` and startup diagnostics are implemented. Startup
+    reports `calculation.invalid-definition` with each authored property path. Preserve the agreed shared execution, scalar-union result typing, no
     named parameters or computed dependencies, revision and selection rules
     above. (Contracts, before building either form.)
 

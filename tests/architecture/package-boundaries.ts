@@ -37,6 +37,8 @@ export const packagePolicies: Record<
   'packages/sql-parser': { imports: ['relate/analytics', 'libpg-query'] },
   'packages/runtime': {
     imports: [
+      'relate/diagnostics',
+      'relate/analytics',
       'relate/model',
       'relate/connectors',
       'relate/storage',
@@ -50,6 +52,8 @@ export const packagePolicies: Record<
   },
   'packages/node': {
     imports: [
+      'relate/analytics',
+      '@relate/sql-parser',
       'relate',
       'relate/compiler',
       'relate/connectors',

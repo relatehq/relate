@@ -49,7 +49,9 @@ lifecycle tracking, authorization and argument validation.
 ## How it fits
 
 - Depends on `relate`, `relate/compiler` and `relate/consumer`,
-  `@relate/runtime` and `@relate/protocol`.
+  `@relate/runtime` and `@relate/protocol`. Analytical apps additionally
+  initialize `@relate/sql-parser` during `startApp` to validate declared
+  calculations.
 - The embedded entry point for applications today. Planned HTTP and MCP adapters
   serve `relate.operations(principal)`. The existing CLI inspects definitions
   without starting a runtime.

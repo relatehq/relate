@@ -52,6 +52,32 @@ the methods exposed by `as`; those methods stay aligned with the compiled model
 and its discovery. Registered definition identities are preserved for adoption
 and receipt lookup.
 
+## Analytical startup validation
+
+For a graph containing datasets or computed properties, `startApp` initializes
+`@relate/sql-parser` and injects its synchronous parser into the runtime.
+Ordinary apps do not import or initialize the parser. Every declared calculation
+is resolved at startup, including declarations that no actor has selected or can
+read. Invalid SQL, names, scalar types, named parameters and computed
+dependencies fail with structured `CompileError` issues identifying the authored
+property. Startup failure runs the registered disposal callbacks.
+
+Direct synchronous embedding supplies an already initialized parser:
+
+```ts
+import { createSqlParser } from '@relate/sql-parser';
+
+const runtime = createRuntime({
+  graph,
+  bindings: [],
+  sqlParser: await createSqlParser(),
+});
+```
+
+This validates declarations; analytical object reads and dataset bindings are
+still being implemented. Selecting a readable calculation currently fails with
+`not-supported`, as described in the runtime contract.
+
 ## Actor-bound discovery
 
 The consumer API exposes progressive, synchronous discovery:

@@ -14,3 +14,5 @@ export {
 } from './visible.js';
 
 export type { Principal, AuthorizationEvidence } from './policy.js';
+
+export { actorAssociations, analyticalDeclarations } from './analytics.js';

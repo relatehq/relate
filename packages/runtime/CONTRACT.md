@@ -385,3 +385,42 @@ before resolving records or enumerating membership. This also rejects computed
 filters on empty populations. The guard does not disclose SQL or hidden object
 names. Native creation independently rejects supplied calculation values and
 stores only ordinary fields.
+
+## Analytical expression preparation
+
+`analytics/prepare.ts` is the pure shared boundary for expression parsing and
+resolution. It accepts an injected parser and an actor's association view. It
+checks SQL and parameter sizes, resolves quoted names exactly and unquoted names
+by case folding, infers scalar and aggregate result types, binds exact literal
+and parameter values, and records column and ordinary property dependencies. No
+source or dataset reads occur during preparation. Unsupported property types,
+computed dependencies, missing/unused parameters and conflicting inferred
+parameter types fail with sanitized issues and original source spans.
+
+`authorization/analytics.ts` owns association and column access decisions.
+Hidden associations are absent and resolve like unknown names. Denied referenced
+columns and non-correlation `self` properties mark an expression forbidden. A
+denied correlation property is tracked separately for unavailable dependency
+handling. Neither decision grants permission to execute a dataset query.
+
+`validateDeclaredCalculations(manifest, parser)` composes a trusted declaration
+view with the same preparation code, validates every calculation, and returns a
+frozen stable-ID map of inferred result types. It aggregates preparation
+failures into `CompileError` issues with authored paths. Node invokes it before
+creating an engine. Portable compilation itself remains independent of a SQL
+parser.
+
+```mermaid
+flowchart LR
+  Node[Node startApp] --> Parser[Initialized parser]
+  Node --> Startup[Validate all declared calculations]
+  Startup --> Prepare[Shared expression preparation]
+  Parser --> Prepare
+  Authorization[Actor association and column gates] --> View[Actor association view]
+  View --> Prepare
+  Prepare --> Resolved[Typed aggregate and dependency indexes]
+```
+
+The expression resolver and access view are implemented foundations. Consumer
+compute request handling, connector execution and analytical result projection
+are not yet enabled.

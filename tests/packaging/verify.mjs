@@ -198,6 +198,31 @@ console.log('Installed SQLite connector reads both identity modes in plain Node 
     (await execFile(process.execPath, ['sqlite-smoke.mjs'], { cwd: consumer }))
       .stdout,
   );
+  await writeFile(
+    join(consumer, 'analytics-startup-smoke.mjs'),
+    `
+import assert from 'node:assert/strict';
+import { z } from 'zod';
+import { computed, defineAccess, defineApp, defineDataset, defineGraph, defineObject, nativeMembership, objectId } from 'relate';
+import { startApp } from '@relate/node';
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
+const Events = defineDataset({ id: 'events', columns: { customerId: { id: 'events.customer', schema: z.string(), access: access.groups.ordinary } } });
+const Customer = defineObject({ id: 'customer', membership: nativeMembership(), properties: { id: objectId({ id: 'customer.id' }), count: computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.events' }) }, datasets: { events: { id: 'customer.events', dataset: Events, on: [{ column: 'customerId', property: 'id' }] } } });
+const graph = defineGraph({ id: 'graph', access, objects: { Customer }, datasets: { Events }, policies: { Customer: { read: { gate: access.role('reader') }, datasets: { events: { gate: access.role('reader') } } }, Events: {} } });
+const runtime = await startApp(defineApp({ graph }));
+await runtime.close();
+const invalid = { ...graph, objects: { Customer: { ...Customer, properties: { ...Customer.properties, count: computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.absent' }) } } } };
+await assert.rejects(startApp(defineApp({ graph: invalid })), error => error.name === 'CompileError' && error.issues[0].code === 'calculation.invalid-definition');
+console.log('Installed Node host initializes the parser and validates every declared calculation.');
+`,
+  );
+  process.stdout.write(
+    (
+      await execFile(process.execPath, ['analytics-startup-smoke.mjs'], {
+        cwd: consumer,
+      })
+    ).stdout,
+  );
   const program = `
 import assert from 'node:assert/strict';
 import { z } from 'zod';

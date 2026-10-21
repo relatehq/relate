@@ -751,8 +751,8 @@ millisecond-instant properties (including nullable/optional properties and
 object IDs) can currently correlate with compatible columns. Timestamp precision
 may differ without losing the millisecond value. Reference properties, local
 wall-clock values, floating equality and incompatible types are rejected.
-Integer object-property schemas and declared calculations remain implementation
-work; dataset integer columns themselves are supported by the compiler.
+Integer object-property schemas remain implementation work; dataset integer
+columns and declared calculation metadata are supported by the compiler.
 
 Every registered dataset requires a policy, including `{}` for ordinary-only
 columns. Every restricted column group requires a role gate. Dataset policies
@@ -776,8 +776,10 @@ property. Its default access group is `ordinary`, matching ordinary property
 helpers. The helper captures and freezes the declaration. It rejects blank or
 non-string SQL and unsupported authoring options, including parameters and a
 caller-supplied schema. The compiler deliberately does not parse SQL: Node's
-startup preparation will validate all declarations with the injected parser.
-That semantic validation remains implementation work.
+startup preparation validates all declarations with the injected parser,
+including unselected or denied declarations. Unknown names, invalid types, named
+parameters and computed dependencies fail startup with authored-path
+diagnostics.
 
 Manifest format 7 stores declarations in each object's `calculations` array,
 separate from its ordinary `properties`. Each entry retains `id`, `name`,
@@ -792,7 +794,7 @@ flowchart LR
   Declaration[computed property declaration] --> Compile[Portable compiler]
   Compile --> Metadata[Revisioned calculation metadata]
   Compile --> Stored[Ordinary stored property metadata]
-  Metadata --> Prepare[Planned runtime type and dependency preparation]
+  Metadata --> Prepare[Runtime type and dependency preparation]
   Stored --> Persistence[Source observation and native write validation]
 ```
 

@@ -107,3 +107,18 @@ top-level side effects still executes during inspection.
 
 The [customer workspace](../../../../examples/02-customer-workspace/src/app.ts)
 shows a complete app with source bindings, action implementations, and cleanup.
+
+## Analytical declaration validation
+
+`startApp` initializes the SQL parser for graphs containing datasets or
+`computed(...)` properties. It validates every declared calculation before
+serving, including calculations that have not been selected or are restricted by
+field access. Invalid SQL, unknown names, incompatible types, named parameters
+and references to other computed properties fail startup with a `CompileError`
+pointing to the authored property. Registered resources are disposed on failure.
+
+For direct `createRuntime` embedding, pass an initialized parser as
+`sqlParser: await createSqlParser()` from `@relate/sql-parser`. Ordinary graphs
+do not need the parser. Analytical object reads and dataset execution are still
+being implemented; selecting a calculation currently returns a `not-supported`
+request issue.

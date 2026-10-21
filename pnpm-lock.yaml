@@ -530,6 +530,9 @@ importers:
       '@relate/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@relate/sql-parser':
+        specifier: workspace:*
+        version: link:../sql-parser
       relate:
         specifier: workspace:*
         version: link:../relate
