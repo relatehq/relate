@@ -8,6 +8,7 @@ const dependencies: Record<string, readonly string[]> = {
     'observations',
     'memory',
     'activity',
+    'analytics',
   ],
   composition: [
     'actions',
@@ -35,6 +36,8 @@ const dependencies: Record<string, readonly string[]> = {
   memory: ['storage', 'observations'],
   // Operation capture: scopes, lineage and the best-effort queue.
   activity: ['storage'],
+  // Analytical execution owns its admission queue; dependencies arrive as input.
+  analytics: [],
 };
 const roots: Record<string, string> = {
   'index.ts': 'public',
@@ -48,6 +51,7 @@ const roots: Record<string, string> = {
   'contracts.ts': 'discovery',
 };
 const folders = new Set([
+  'analytics',
   'activity',
   'actions',
   'authorization',

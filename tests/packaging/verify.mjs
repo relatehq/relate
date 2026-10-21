@@ -100,7 +100,7 @@ try {
     `
 import assert from 'node:assert/strict';
 import { isAppDefinition } from 'relate';
-import { SourceAccessDenied } from 'relate/connectors';
+import { SourceAccessDenied, DatasetExecutionError } from 'relate/connectors';
 import { app } from './built/app.types.js';
 import { encodeAnalyticalValue, decodeAnalyticalValue } from 'relate/analytics';
 assert.equal(encodeAnalyticalValue(9007199254740993n, { type: 'int64', nullable: false }), '9007199254740993');
@@ -108,6 +108,9 @@ assert.equal(decodeAnalyticalValue('9007199254740993', { type: 'int64', nullable
 assert.equal(decodeAnalyticalValue('2026-01-01T00:00:00.123456Z', { type: 'timestamp', precision: 6, nullable: false }), '2026-01-01T00:00:00.123456Z');
 assert.ok(isAppDefinition(app));
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
+const failure = new DatasetExecutionError('execution-failed', { retryable: true, cause: new Error('private driver detail') });
+assert.equal(failure.code, 'execution-failed');
+assert.ok(!JSON.stringify(failure).includes('private driver detail'));
 assert.deepEqual(Object.keys(await import('relate/storage')), []);
 const consumer = await import('relate/consumer');
 assert.equal(typeof consumer.createConsumer, 'function');
@@ -191,7 +194,7 @@ import { z } from 'zod';
 import { defineAccess, defineGraph, defineObject, defineSource, source, objectId, from } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime, createMemoryStore } from '@relate/runtime';
-import { SourceAccessDenied } from 'relate/connectors';
+import { SourceAccessDenied, DatasetExecutionError } from 'relate/connectors';
 import { createPostgresStore } from '@relate/postgres';
 import { assertFields } from 'relate';
 import { ReadError } from '@relate/protocol';
@@ -239,6 +242,9 @@ const store = createPostgresStore({ connectionString: 'postgresql://unused@127.0
 await store.close();
 assert.equal(new ReadError('incomplete').code, 'incomplete');
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
+const failure = new DatasetExecutionError('execution-failed', { retryable: true, cause: new Error('private driver detail') });
+assert.equal(failure.code, 'execution-failed');
+assert.ok(!JSON.stringify(failure).includes('private driver detail'));
 assert.equal((await import('relate/model')).validateManifest(model.manifest).graphDefinitionId, 'graph');
 assert.equal(typeof (await import('@relate/runtime/storage')).compareObservation, 'function');
 await assert.rejects(import('relate/dist/compiler.js'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });

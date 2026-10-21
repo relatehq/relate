@@ -36,3 +36,10 @@ export { operationContracts } from './contracts.js';
 export type { OperationContract, OperationContracts } from './contracts.js';
 
 export { ActionError } from '@relate/protocol';
+
+export { createStatementQueue } from './analytics/index.js';
+
+export type {
+  StatementQueue,
+  StatementQueueOptions,
+} from './analytics/index.js';

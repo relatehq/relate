@@ -93,3 +93,23 @@ export interface SourceResource<
   readonly resourceId: string;
   bindSource(selection: SourceSelection): C;
 }
+
+export type {
+  AnalyticalConnection,
+  AnalyticalConnector,
+  AnalyticalResource,
+  AuthorizedDatasetQuery,
+  DatasetExecution,
+  DatasetResource,
+  DatasetSelection,
+  PhysicalColumn,
+  PhysicalSchema,
+  PreparedPlan,
+  ResolvedAggregate,
+  ResolvedOperand,
+  ResolvedPredicate,
+  SlotRow,
+} from './analytics/connectors.js';
+
+export { DatasetExecutionError } from './analytics/connectors.js';
+export type { TypedValue } from './analytics/values.js';

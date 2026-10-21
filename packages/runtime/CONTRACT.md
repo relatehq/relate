@@ -323,3 +323,48 @@ declared precision; invalid stored calendar values fail filtering with
 `incomplete` rather than silently excluding a row. No source pushdown occurs.
 See the [owning scalar contract](../relate/CONTRACT.md#local-calendar-datetimes)
 for validation, clock-domain semantics and migration requirements.
+
+## Analytical statement admission
+
+`createStatementQueue` is the public composition factory for analytical
+statement admission. Node will supply one queue per configured connection to
+analytical execution; it does not yet attach analytical behavior to object
+reads.
+
+A **running statement** owns a connection slot until its task settles after
+resource cleanup. A **waiting statement** has no connection slot. By default,
+there are four running slots, at most 32 waiting statements and a two-second
+maximum wait. Waiting work starts in arrival order. Host options are
+`concurrency`, `maxQueued` and `maxWaitMs`; zero queue depth or wait disables
+waiting. Invalid limits fail before admission.
+
+```ts
+const queue = createStatementQueue();
+const result = await queue.run(
+  (signal) => connector.execute(plan, { signal, timeoutMs: 5000 }),
+  { signal: operationSignal },
+);
+await queue.retire(); // drain before application-owned connection disposal
+```
+
+```mermaid
+flowchart LR
+  Request[Statement] --> Admit{Capacity available?}
+  Admit -->|Yes| Running[Run with linked cancellation signal]
+  Admit -->|No| Wait[Bounded FIFO wait]
+  Wait -->|Slot released| Running
+  Wait -->|Full or deadline| Busy[Retryable busy failure]
+  Running --> Cleanup[Task settles after resource cleanup]
+  Cleanup --> Release[Release slot and admit next]
+```
+
+Queue full and wait expiry raise `AnalyticalBusyError` inside analytics with a
+retryable busy reason. Cancellation removes queued work immediately. For running
+work it aborts the linked signal, retains capacity until cleanup settles, and
+rejects any late successful result. A task's synchronous throw also releases its
+slot. Listeners and wait timers are removed when no longer needed.
+
+`retire()` is idempotent: it rejects new admission, cancels waiting work, aborts
+running work and waits for its cleanup. The connector must obey the bounded
+cancellation contract; the queue cannot free a slot while the backend still owns
+resources. Retirement never closes the application-owned connection itself.

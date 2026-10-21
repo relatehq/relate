@@ -341,3 +341,9 @@ Codecs reject overflow, nonfinite numbers, malformed timestamps and mismatched
 JSON values. `parseAnalyticalValue` resolves typed JSON parameters and
 normalizes instant offsets without rounding. Null is valid only for nullable
 results.
+
+`relate/connectors` also defines the analytical connector boundary:
+`AnalyticalConnector.plan(authorizedQuery)` returns an opaque `PreparedPlan`,
+and `execute(plan, { signal, timeoutMs })` returns portable values by object
+slot. Physical names and generated SQL remain connector-owned. See the
+[connector contract](./CONTRACT.md#analytical-connector-boundary).
