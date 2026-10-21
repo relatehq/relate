@@ -46,9 +46,12 @@ created and what changes for someone using the product.
 
 ## Fixing review comments
 
-When fixing review comments, fix the nits too, not just the bugs. Skip a comment
-only when the owner says to, or when it is wrong; say which ones were skipped
-and why.
+When fixing review comments, validate each one against the code before changing
+anything. Push back instead of applying a comment that is wrong, or one that
+would not make the code better; explain why with the concrete code or behavior.
+Fix the valid ones, nits included, not just the bugs. Skip a comment only when
+the owner says to, or when it fails this check; say which ones were skipped and
+why.
 
 ## Worktrees
 
