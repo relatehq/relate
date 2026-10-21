@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import type { ObjectFlowNode } from './ModelGraph.js';
+import type { ModelFlowNode } from './ModelGraph.js';
 import { Tag } from '../ui/tag.js';
 import type { TagColor } from '../ui/tag.js';
 
@@ -15,9 +15,9 @@ const sourceColors: readonly TagColor[] = [
   'pink',
 ];
 
-/** Compact object-type card: label, API name and ownership. Details live in the panel. */
-export const ObjectNode = memo(function ObjectNode(
-  props: NodeProps<ObjectFlowNode>,
+/** Compact object or dataset card: label, API name and ownership. Details live in the panel. */
+export const ModelNode = memo(function ModelNode(
+  props: NodeProps<ModelFlowNode>,
 ) {
   const { data, selected } = props;
 
@@ -34,7 +34,11 @@ export const ObjectNode = memo(function ObjectNode(
         <span className="object-node-label">{data.label}</span>
         <span className="object-node-api-name">{data.apiName}</span>
       </div>
-      {data.ownership.kind === 'source' ? (
+      {data.kind === 'dataset' ? (
+        <Tag color="gold" title="Analytical dataset">
+          Dataset
+        </Tag>
+      ) : data.ownership.kind === 'source' ? (
         <Tag
           color={sourceColors[data.ownership.tone % sourceColors.length]!}
           title={`Owned by source ${data.ownership.sourceId}`}

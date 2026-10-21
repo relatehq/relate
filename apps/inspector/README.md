@@ -1,7 +1,7 @@
 # Inspector
 
 Developer tooling for inspecting a Relate application: a live model graph of the
-project's object types and relationships, served by
+project's objects, datasets, relationships and dataset associations, served by
 [`relate dev`](../../packages/cli/README.md) and updated from compiled Manifest
 snapshots as local code changes.
 
@@ -57,9 +57,9 @@ Browser code never imports the compiler, runtime, connectors or user modules;
   (`worker.*`, presented as not your code), and connection loss (a dimmed stale
   graph, never a diagnostic). An unsupported `protocolVersion` or an invalidated
   session keeps the last graph as stale and offers one explicit reload.
-- Nodes use `object.id` and edges `relationship.id` as identity, so label edits
-  never recreate elements. Selection and the camera survive updates; the view
-  fits automatically only on the first non-empty model. Layout reruns only when
+- Nodes and edges use definition IDs as identity, so label edits never recreate
+  elements. Selection and the camera survive updates; the view fits
+  automatically only on the first non-empty model. Layout reruns only when
   topology changes; a failed layout keeps the previous placement with a visible
   diagnostic.
 - Type diagnostics (`typecheck` events) are accepted and rendered as warnings,
@@ -68,8 +68,7 @@ Browser code never imports the compiler, runtime, connectors or user modules;
   code with `POST dev/playground/runs`; `relate dev` executes it like the MCP
   `execute` tool and records it in Activity. Completion, the object tree and
   live checks use that discovery only. Datasets and computed properties are read
-  in the shape the analytical-properties spec proposes
-  (`src/playground/model.ts`) and appear once the runtime reports them.
+  from authorized runtime metadata (`src/playground/model.ts`).
 
 Analytical operations in the Activity screen expose an expandable timing table
 with each entered stage's count, summed work duration and longest span. The
@@ -92,5 +91,21 @@ properties from the runtime through `@relate/dev`. Its schema tree shows logical
 types and marks denied columns/calculations; hidden associations stay absent. An
 explicit empty `filterOperators` list disables property filter suggestions.
 Declaration SQL and physical binding details never enter this discovery view.
-The model graph's dataset nodes and detailed analytical panels remain separate
-integration work.
+The model graph reads the full local authoring manifest. Dataset nodes show
+logical column types (including timestamp precision), access groups and their
+required roles. Association edges show every correlation pair and the required
+association role. Object panels list declared computed properties and access
+groups separately from stored properties. These panels do not show declaration
+SQL or physical bindings. They describe the authored model; actor-specific read
+permissions belong to the playground discovery view.
+
+```mermaid
+flowchart LR
+  CLI[CLI command] --> Dev[Development service]
+  Dev -->|Compiled manifest snapshot| Map[Inspector graph mapper]
+  Map --> Nodes[Object and dataset nodes]
+  Map --> Edges[Relationship and association edges]
+  Nodes --> Panel[Selection details]
+  Edges --> Panel
+  Dev -->|Actor-authorized discovery| Playground[Playground schema tree]
+```

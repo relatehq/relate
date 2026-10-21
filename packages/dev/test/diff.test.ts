@@ -130,3 +130,51 @@ it('describes an accepted model for the ready line', () => {
     'invoice-read  2 objects · 2 sources · 1 relationship',
   );
 });
+
+it('summarizes analytical definitions without printing SQL or values', async () => {
+  const { createAnalyticalGraph } =
+    await import('../../../tests/support/analytical-graph.js');
+  const { graph } = createAnalyticalGraph();
+  const manifest = compile(graph).manifest;
+  const changed = {
+    ...manifest,
+    objects: manifest.objects.map((object) => ({
+      ...object,
+      calculations: object.calculations!.map((calculation) => ({
+        ...calculation,
+        sql: 'SELECT SUM(e.amount) FROM self.events e',
+      })),
+      datasets: object.datasets!.map((association) => ({
+        ...association,
+        gate: { role: 'private' },
+      })),
+    })),
+    datasets: manifest.datasets!.map((dataset) => ({
+      ...dataset,
+      description: 'Updated dataset description.',
+    })),
+  };
+
+  expect(summarizeDiff(manifest, changed)).toBe(
+    '~Customer.count ~association Customer.events ~dataset Events',
+  );
+  expect(summarizeDiff(null, manifest)).toBe('+Customer +dataset Events');
+  expect(describeManifest(manifest)).toContain('1 dataset');
+  const removed = {
+    ...manifest,
+    datasets: [],
+    objects: manifest.objects.map((object) => ({
+      ...object,
+      calculations: [],
+      datasets: [],
+    })),
+  };
+
+  expect(summarizeDiff(manifest, removed)).toBe(
+    '-Customer.count -association Customer.events -dataset Events',
+  );
+  expect(summarizeDiff(removed, manifest)).toBe(
+    '+Customer.count +association Customer.events +dataset Events',
+  );
+  expect(diffManifests(manifest, changed).otherChanged).toBe(true);
+});

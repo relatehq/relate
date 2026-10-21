@@ -1259,6 +1259,13 @@ a.icon-button.active {
   color: var(--t-font-color-tertiary);
 }
 
+.analytical-access {
+  display: block;
+  color: var(--t-font-color-secondary);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
 .relationship-card {
   display: flex;
   flex-direction: column;
