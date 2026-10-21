@@ -78,10 +78,18 @@ concrete thing being talked about rather than describing it abstractly:
   the dependency direction between them.
 - **Key files:** paths (`packages/<pkg>/src/...:line`) for the files that carry
   the change, so I can open them directly.
+- **Concepts:** write for a reader who has not been implementing the work. Put a
+  glossary near the top that defines every term in plain words with a tiny code
+  example, especially terms the document or conversation introduces. Never use
+  an undefined term or internal shorthand.
+- **Diagrams:** a Mermaid diagram (in files) for each flow, module split, or
+  dependency graph.
+- **Format:** bullets and tables over paragraphs; list the files that change
+  (new / modified / removed) with one line each on why.
 
-Apply this to plans, design options, progress updates, and final summaries
-alike. When weighing alternatives, show each option as code or a contract
-sketch, then give a recommendation. If something is still undecided, say so
+Apply this to plans, design options, progress updates, final summaries, and
+written documents such as `specs/` alike. When weighing alternatives, show each
+option as code or a contract sketch, then give a recommendation. If something is still undecided, say so
 explicitly and show the open shape. Keep prose short; let the examples carry the
 explanation.
 
