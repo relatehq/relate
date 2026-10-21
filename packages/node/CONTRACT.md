@@ -118,7 +118,7 @@ return {
   bindings,
   analytics: {
     operationTimeoutMs: 60_000,
-    maxSourceCalls: 50_000,
+    maxSourceCalls: 100_000,
     maxCandidatesScanned: 12_500,
     maxCandidatesAdmitted: 10_000,
   },

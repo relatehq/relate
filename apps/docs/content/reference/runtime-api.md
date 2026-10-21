@@ -23,7 +23,7 @@ typed `Relate<G>` runtime. See [Application Setup](../runtime/application.md)
 for resource ownership and [Persistence](../deployment/postgres.md) for stores.
 
 For analytical graphs, setup may also return
-`analytics: { operationTimeoutMs: 60_000, maxSourceCalls: 50_000, maxCandidatesScanned: 12_500, maxCandidatesAdmitted: 10_000 }`.
+`analytics: { operationTimeoutMs: 60_000, maxSourceCalls: 100_000, maxCandidatesScanned: 12_500, maxCandidatesAdmitted: 10_000 }`.
 These defaults bound each analytical get or query page, including ordinary
 source reads and nested authorization checks. Both provider identity checks and
 fetch attempts count; cached application-identity reads do not. A caller's

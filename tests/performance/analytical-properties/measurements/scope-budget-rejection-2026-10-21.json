@@ -1,0 +1,2915 @@
+{
+  "description": "First scope-first capacity run at commit 5afcbc1. All ten Relate ranking samples rejected at the provisional 50,000 provider-call budget during revalidation. Fetches were counted but identity checks were not yet instrumented. Retained as failed evidence; not a performance baseline. The only uncommitted file during the run was the separately preserved specification edit.",
+  "metadata": {
+    "schemaVersion": 3,
+    "workloadVersion": 3,
+    "startedAt": "2026-10-21T20:16:43.855Z",
+    "commit": "5afcbc1abca7093671e2fb2c4ccf8e6b75b6ee6a",
+    "dirty": true,
+    "node": "v26.9.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M2 Max",
+    "availableParallelism": 12,
+    "memoryBytes": 68719476736,
+    "profile": "capacity",
+    "concurrency": 1,
+    "objectStore": "memory",
+    "source": "synthetic connector with configured delay on refresh",
+    "sourceDelayMs": 0,
+    "analyticalAdapter": "public Node-host query pages with real dataset connector",
+    "ranking": "one runtime scope-first orderBy query with full-scope and selected-page revalidation",
+    "reference": "SQLite :memory:; index(customer,type,at); ANALYZE; synchronous driver; no network/pool",
+    "unavailableMeasurements": [
+      "database-server-execution",
+      "generated-sql-replay"
+    ],
+    "performanceComparisonEligible": false
+  },
+  "workloads": [
+    {
+      "config": {
+        "backend": "sqlite",
+        "objectStore": "memory",
+        "capture": "enabled",
+        "freshness": "cached",
+        "sourceDelayMs": 0,
+        "customers": 12500,
+        "events": 100000,
+        "seed": 42,
+        "repetitions": 3,
+        "warmups": 1
+      },
+      "setupMs": 983.758208,
+      "backendVersion": "3.53.4",
+      "sqliteVersion": "3.53.4",
+      "samples": [
+        {
+          "scenario": "objects",
+          "mode": "sqlite-reference",
+          "phase": "first-of-scenario",
+          "durationMs": 0.14574999999990723,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.021999999999934516,
+              "durationMs": 0.12625000000002728
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "sqlite-reference",
+          "phase": "warmup",
+          "durationMs": 0.03120800000010604,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0035410000000410946,
+              "durationMs": 0.030249999999796273
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.028665999999930136,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.002334000000018932,
+              "durationMs": 0.027665999999953783
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.02158299999996416,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0013329999999314168,
+              "durationMs": 0.021042000000079497
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.02095799999983683,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0011670000001231529,
+              "durationMs": 0.02045799999996234
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "relate",
+          "phase": "first-of-scenario",
+          "durationMs": 111.14991699999996,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.11866600000007566,
+              "durationMs": 110.96424999999999
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.0009580000000823929,
+              "durationMs": 111.14870799999994
+            }
+          ],
+          "counters": {
+            "membershipScans": 3,
+            "candidatesScanned": 32,
+            "objectLoads": 32,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 0,
+            "analyticalStatements": 0,
+            "computedSlots": 0,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "relate",
+          "phase": "warmup",
+          "durationMs": 103.13058299999989,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.02070800000001327,
+              "durationMs": 103.10675000000015
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.007749999999987267,
+              "durationMs": 103.12787500000013
+            }
+          ],
+          "counters": {
+            "membershipScans": 3,
+            "candidatesScanned": 32,
+            "objectLoads": 32,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 0,
+            "analyticalStatements": 0,
+            "computedSlots": 0,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 103.71158300000002,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.019416999999975815,
+              "durationMs": 103.68704200000002
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.010125000000016371,
+              "durationMs": 103.70662500000003
+            }
+          ],
+          "counters": {
+            "membershipScans": 3,
+            "candidatesScanned": 32,
+            "objectLoads": 32,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 0,
+            "analyticalStatements": 0,
+            "computedSlots": 0,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 104.71037499999989,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.037165999999842825,
+              "durationMs": 104.67370900000014
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.010540999999875567,
+              "durationMs": 104.70795900000007
+            }
+          ],
+          "counters": {
+            "membershipScans": 3,
+            "candidatesScanned": 32,
+            "objectLoads": 32,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 0,
+            "analyticalStatements": 0,
+            "computedSlots": 0,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 101.71450000000004,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.023624999999810825,
+              "durationMs": 101.6891250000001
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.011207999999896856,
+              "durationMs": 101.71058399999993
+            }
+          ],
+          "counters": {
+            "membershipScans": 3,
+            "candidatesScanned": 32,
+            "objectLoads": 32,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 0,
+            "analyticalStatements": 0,
+            "computedSlots": 0,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "sqlite-reference",
+          "phase": "first-of-scenario",
+          "durationMs": 0.27533299999981864,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0015000000000782165,
+              "durationMs": 0.2727500000000873
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "sqlite-reference",
+          "phase": "warmup",
+          "durationMs": 0.09400000000005093,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0018330000000332802,
+              "durationMs": 0.09362499999997453
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.08866600000010294,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0013329999999314168,
+              "durationMs": 0.08825000000001637
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.08283400000004804,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0009170000000722212,
+              "durationMs": 0.08249999999998181
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.07725000000004911,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0011660000000119908,
+              "durationMs": 0.07691700000009405
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "relate",
+          "phase": "first-of-scenario",
+          "durationMs": 170.4052079999999,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.010207999999920503,
+              "durationMs": 170.3771670000001
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.0005410000001120352,
+              "durationMs": 170.404
+            }
+          ],
+          "counters": {
+            "membershipScans": 3,
+            "candidatesScanned": 32,
+            "objectLoads": 57,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 1,
+            "analyticalStatements": 1,
+            "computedSlots": 25,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 6.010582999999997,
+              "maxMs": 6.010582999999997
+            },
+            "dependencyReads": {
+              "count": 57,
+              "totalMs": 28.411005000000614,
+              "maxMs": 1.2631249999999454
+            },
+            "finalization": {
+              "count": 4,
+              "totalMs": 1.1721679999998287,
+              "maxMs": 0.41020899999989524
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 104.49245800000017,
+              "maxMs": 104.49245800000017
+            },
+            "planning": {
+              "count": 2,
+              "totalMs": 1.3286249999998745,
+              "maxMs": 1.127666999999974
+            },
+            "queueWait": {
+              "count": 1,
+              "totalMs": 0.07825000000002547,
+              "maxMs": 0.07825000000002547
+            },
+            "connectionStartup": {
+              "count": 1,
+              "totalMs": 35.79362500000002,
+              "maxMs": 35.79362500000002
+            },
+            "execution": {
+              "count": 1,
+              "totalMs": 16.024000000000115,
+              "maxMs": 16.024000000000115
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 4.004790999999841,
+              "maxMs": 4.004790999999841
+            }
+          },
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "relate",
+          "phase": "warmup",
+          "durationMs": 159.2474169999998,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.011582999999973254,
+              "durationMs": 159.2270840000001
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.0049579999999878055,
+              "durationMs": 159.24616700000024
+            }
+          ],
+          "counters": {
+            "membershipScans": 3,
+            "candidatesScanned": 32,
+            "objectLoads": 57,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 1,
+            "analyticalStatements": 1,
+            "computedSlots": 25,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 1.0284580000000005,
+              "maxMs": 1.0284580000000005
+            },
+            "dependencyReads": {
+              "count": 57,
+              "totalMs": 26.561001999999917,
+              "maxMs": 1.0225000000000364
+            },
+            "finalization": {
+              "count": 4,
+              "totalMs": 0.5711660000006304,
+              "maxMs": 0.2956669999998667
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 100.92762500000003,
+              "maxMs": 100.92762500000003
+            },
+            "planning": {
+              "count": 2,
+              "totalMs": 0.3945420000000013,
+              "maxMs": 0.32091700000000856
+            },
+            "queueWait": {
+              "count": 1,
+              "totalMs": 0.007582999999613094,
+              "maxMs": 0.007582999999613094
+            },
+            "connectionStartup": {
+              "count": 1,
+              "totalMs": 36.46108299999969,
+              "maxMs": 36.46108299999969
+            },
+            "execution": {
+              "count": 1,
+              "totalMs": 15.812333000000308,
+              "maxMs": 15.812333000000308
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 3.5207080000000133,
+              "maxMs": 3.5207080000000133
+            }
+          },
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 152.62962499999958,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.012833999999656953,
+              "durationMs": 152.609958
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.006041999999979453,
+              "durationMs": 152.62837499999978
+            }
+          ],
+          "counters": {
+            "membershipScans": 3,
+            "candidatesScanned": 32,
+            "objectLoads": 57,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 1,
+            "analyticalStatements": 1,
+            "computedSlots": 25,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 1.0473749999996471,
+              "maxMs": 1.0473749999996471
+            },
+            "dependencyReads": {
+              "count": 57,
+              "totalMs": 25.667541000000256,
+              "maxMs": 0.9635830000001988
+            },
+            "finalization": {
+              "count": 4,
+              "totalMs": 0.529207999999926,
+              "maxMs": 0.2713340000000244
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 95.12945799999989,
+              "maxMs": 95.12945799999989
+            },
+            "planning": {
+              "count": 2,
+              "totalMs": 0.3510830000000169,
+              "maxMs": 0.28112499999997453
+            },
+            "queueWait": {
+              "count": 1,
+              "totalMs": 0.0071250000000873115,
+              "maxMs": 0.0071250000000873115
+            },
+            "connectionStartup": {
+              "count": 1,
+              "totalMs": 35.67162499999995,
+              "maxMs": 35.67162499999995
+            },
+            "execution": {
+              "count": 1,
+              "totalMs": 15.897249999999985,
+              "maxMs": 15.897249999999985
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 3.5162500000001273,
+              "maxMs": 3.5162500000001273
+            }
+          },
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 162.31941700000016,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.014208999999937078,
+              "durationMs": 162.29475000000002
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.005874999999832653,
+              "durationMs": 162.31804200000033
+            }
+          ],
+          "counters": {
+            "membershipScans": 3,
+            "candidatesScanned": 32,
+            "objectLoads": 57,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 1,
+            "analyticalStatements": 1,
+            "computedSlots": 25,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.8155000000001564,
+              "maxMs": 0.8155000000001564
+            },
+            "dependencyReads": {
+              "count": 57,
+              "totalMs": 29.263870999999654,
+              "maxMs": 1.0645840000001954
+            },
+            "finalization": {
+              "count": 4,
+              "totalMs": 0.5482490000003963,
+              "maxMs": 0.2849999999998545
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 101.80987499999992,
+              "maxMs": 101.80987499999992
+            },
+            "planning": {
+              "count": 2,
+              "totalMs": 0.41712400000051275,
+              "maxMs": 0.3324160000001939
+            },
+            "queueWait": {
+              "count": 1,
+              "totalMs": 0.005958000000191532,
+              "maxMs": 0.005958000000191532
+            },
+            "connectionStartup": {
+              "count": 1,
+              "totalMs": 38.83833399999958,
+              "maxMs": 38.83833399999958
+            },
+            "execution": {
+              "count": 1,
+              "totalMs": 15.631958000000395,
+              "maxMs": 15.631958000000395
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 3.6627500000004147,
+              "maxMs": 3.6627500000004147
+            }
+          },
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 160.58987500000012,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.01783400000022084,
+              "durationMs": 160.56241599999976
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.005791999999928521,
+              "durationMs": 160.588667
+            }
+          ],
+          "counters": {
+            "membershipScans": 3,
+            "candidatesScanned": 32,
+            "objectLoads": 57,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 1,
+            "analyticalStatements": 1,
+            "computedSlots": 25,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 1.0482499999998254,
+              "maxMs": 1.0482499999998254
+            },
+            "dependencyReads": {
+              "count": 57,
+              "totalMs": 26.647459999998773,
+              "maxMs": 1.0991249999997308
+            },
+            "finalization": {
+              "count": 4,
+              "totalMs": 0.5157500000000255,
+              "maxMs": 0.25900000000001455
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 99.33754100000033,
+              "maxMs": 99.33754100000033
+            },
+            "planning": {
+              "count": 2,
+              "totalMs": 0.35529200000019046,
+              "maxMs": 0.2956250000002001
+            },
+            "queueWait": {
+              "count": 1,
+              "totalMs": 0.006208000000242464,
+              "maxMs": 0.006208000000242464
+            },
+            "connectionStartup": {
+              "count": 1,
+              "totalMs": 38.79666700000007,
+              "maxMs": 38.79666700000007
+            },
+            "execution": {
+              "count": 1,
+              "totalMs": 16.207458999999744,
+              "maxMs": 16.207458999999744
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 3.8398749999996653,
+              "maxMs": 3.8398749999996653
+            }
+          },
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "sqlite-reference",
+          "phase": "first-of-scenario",
+          "durationMs": 33.02495799999997,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0014590000000680448,
+              "durationMs": 33.023375000000215
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "sqlite-reference",
+          "phase": "warmup",
+          "durationMs": 31.266041999999743,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.008667000000059488,
+              "durationMs": 31.264208000000053
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 30.982208999999784,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.009833000000071479,
+              "durationMs": 30.980375000000095
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 31.19991600000003,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.009291000000303029,
+              "durationMs": 31.198249999999916
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 30.12216699999999,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.008166999999957625,
+              "durationMs": 30.121000000000095
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "relate",
+          "phase": "first-of-scenario",
+          "durationMs": 4846.056584,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.032000000000152795,
+              "durationMs": 4846.017125
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.0014580000001842564,
+              "durationMs": 4846.0518329999995
+            }
+          ],
+          "counters": {
+            "membershipScans": 125,
+            "candidatesScanned": 12500,
+            "objectLoads": 18334,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 10,
+            "analyticalStatements": 10,
+            "computedSlots": 10000,
+            "capturedOperations": 1,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 1.1211670000002414,
+              "maxMs": 1.1211670000002414
+            },
+            "dependencyReads": {
+              "count": 18334,
+              "totalMs": 10534.87199499998,
+              "maxMs": 3.875290999999379
+            },
+            "finalization": {
+              "count": 136,
+              "totalMs": 82.57879800000501,
+              "maxMs": 3.599250000000211
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 3570.764875,
+              "maxMs": 3570.764875
+            },
+            "planning": {
+              "count": 11,
+              "totalMs": 73.02591700000085,
+              "maxMs": 65.37683299999935
+            },
+            "queueWait": {
+              "count": 10,
+              "totalMs": 0.09254099999998289,
+              "maxMs": 0.017875000000458385
+            },
+            "connectionStartup": {
+              "count": 10,
+              "totalMs": 528.4129169999978,
+              "maxMs": 62.65037500000017
+            },
+            "execution": {
+              "count": 10,
+              "totalMs": 630.3286679999974,
+              "maxMs": 74.44949999999972
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 836.706459,
+              "maxMs": 836.706459
+            }
+          },
+          "status": "error",
+          "error": "invalid-request in Customer.query:\n- request: The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget."
+        },
+        {
+          "scenario": "ranking",
+          "mode": "relate",
+          "phase": "warmup",
+          "durationMs": 5032.907417,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.01670800000010786,
+              "durationMs": 5032.889958
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.006624999999985448,
+              "durationMs": 5032.90325
+            }
+          ],
+          "counters": {
+            "membershipScans": 125,
+            "candidatesScanned": 12500,
+            "objectLoads": 18334,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 10,
+            "analyticalStatements": 10,
+            "computedSlots": 10000,
+            "capturedOperations": 1,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 1.1867910000000848,
+              "maxMs": 1.1867910000000848
+            },
+            "dependencyReads": {
+              "count": 18334,
+              "totalMs": 8729.977771000213,
+              "maxMs": 2.590250000001106
+            },
+            "finalization": {
+              "count": 136,
+              "totalMs": 86.75386500000059,
+              "maxMs": 3.7210830000003625
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 4017.9055420000004,
+              "maxMs": 4017.9055420000004
+            },
+            "planning": {
+              "count": 11,
+              "totalMs": 68.67796100000305,
+              "maxMs": 61.82850000000144
+            },
+            "queueWait": {
+              "count": 10,
+              "totalMs": 0.07783399999607354,
+              "maxMs": 0.025166999999783002
+            },
+            "connectionStartup": {
+              "count": 10,
+              "totalMs": 426.7995819999978,
+              "maxMs": 46.369291000000885
+            },
+            "execution": {
+              "count": 10,
+              "totalMs": 552.9210830000029,
+              "maxMs": 63.97516700000051
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 630.1414999999997,
+              "maxMs": 630.1414999999997
+            }
+          },
+          "status": "error",
+          "error": "invalid-request in Customer.query:\n- request: The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget."
+        },
+        {
+          "scenario": "ranking",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 3988.1804999999986,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.014374999998835847,
+              "durationMs": 3988.165832999999
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.005790999999589985,
+              "durationMs": 3988.1770419999993
+            }
+          ],
+          "counters": {
+            "membershipScans": 125,
+            "candidatesScanned": 12500,
+            "objectLoads": 18334,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 10,
+            "analyticalStatements": 10,
+            "computedSlots": 10000,
+            "capturedOperations": 1,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 1.3392920000005688,
+              "maxMs": 1.3392920000005688
+            },
+            "dependencyReads": {
+              "count": 18334,
+              "totalMs": 6740.226036000166,
+              "maxMs": 1.2275829999998678
+            },
+            "finalization": {
+              "count": 136,
+              "totalMs": 64.25671300000613,
+              "maxMs": 1.8202499999988504
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 3129.8064589999994,
+              "maxMs": 3129.8064589999994
+            },
+            "planning": {
+              "count": 11,
+              "totalMs": 61.58179100000234,
+              "maxMs": 52.953332999999475
+            },
+            "queueWait": {
+              "count": 10,
+              "totalMs": 0.04679300000316289,
+              "maxMs": 0.008041999999477412
+            },
+            "connectionStartup": {
+              "count": 10,
+              "totalMs": 368.9348310000005,
+              "maxMs": 39.679583000001
+            },
+            "execution": {
+              "count": 10,
+              "totalMs": 473.59320899999875,
+              "maxMs": 51.336833999999726
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 525.2000000000007,
+              "maxMs": 525.2000000000007
+            }
+          },
+          "status": "error",
+          "error": "invalid-request in Customer.query:\n- request: The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget."
+        },
+        {
+          "scenario": "ranking",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 3794.910708000003,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.01545800000167219,
+              "durationMs": 3794.8946670000005
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.0062499999985448085,
+              "durationMs": 3794.9072920000035
+            }
+          ],
+          "counters": {
+            "membershipScans": 125,
+            "candidatesScanned": 12500,
+            "objectLoads": 18334,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 10,
+            "analyticalStatements": 10,
+            "computedSlots": 10000,
+            "capturedOperations": 1,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.8232089999983145,
+              "maxMs": 0.8232089999983145
+            },
+            "dependencyReads": {
+              "count": 18334,
+              "totalMs": 6514.944810999914,
+              "maxMs": 1.2785000000003492
+            },
+            "finalization": {
+              "count": 136,
+              "totalMs": 61.689116999987164,
+              "maxMs": 1.9846660000002885
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 2966.836792000002,
+              "maxMs": 2966.836792000002
+            },
+            "planning": {
+              "count": 11,
+              "totalMs": 53.30633399999351,
+              "maxMs": 48.18037499999991
+            },
+            "queueWait": {
+              "count": 10,
+              "totalMs": 0.04829399999289308,
+              "maxMs": 0.011125000000902219
+            },
+            "connectionStartup": {
+              "count": 10,
+              "totalMs": 365.54420699999537,
+              "maxMs": 39.89758300000176
+            },
+            "execution": {
+              "count": 10,
+              "totalMs": 466.9590419999986,
+              "maxMs": 50.573457999998936
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 506.5345410000009,
+              "maxMs": 506.5345410000009
+            }
+          },
+          "status": "error",
+          "error": "invalid-request in Customer.query:\n- request: The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget."
+        },
+        {
+          "scenario": "ranking",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 3895.7371669999993,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.015167000001383713,
+              "durationMs": 3895.721375000001
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.006042000000888947,
+              "durationMs": 3895.733292000001
+            }
+          ],
+          "counters": {
+            "membershipScans": 125,
+            "candidatesScanned": 12500,
+            "objectLoads": 18334,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 10,
+            "analyticalStatements": 10,
+            "computedSlots": 10000,
+            "capturedOperations": 1,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.7953750000015134,
+              "maxMs": 0.7953750000015134
+            },
+            "dependencyReads": {
+              "count": 18334,
+              "totalMs": 6660.38572899994,
+              "maxMs": 1.6744160000016564
+            },
+            "finalization": {
+              "count": 136,
+              "totalMs": 66.43045200000779,
+              "maxMs": 2.508958000002167
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 3051.8265409999985,
+              "maxMs": 3051.8265409999985
+            },
+            "planning": {
+              "count": 11,
+              "totalMs": 57.08412599999792,
+              "maxMs": 48.59712500000023
+            },
+            "queueWait": {
+              "count": 10,
+              "totalMs": 0.06608399999822723,
+              "maxMs": 0.01241699999809498
+            },
+            "connectionStartup": {
+              "count": 10,
+              "totalMs": 375.20137700000123,
+              "maxMs": 41.955167000000074
+            },
+            "execution": {
+              "count": 10,
+              "totalMs": 474.1357510000089,
+              "maxMs": 56.67054199999984
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 515.1252920000006,
+              "maxMs": 515.1252920000006
+            }
+          },
+          "status": "error",
+          "error": "invalid-request in Customer.query:\n- request: The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget."
+        }
+      ],
+      "summary": [
+        {
+          "group": "sqlite-reference/objects/first-of-scenario",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 0.14574999999990723,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/objects/warmup",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 0.03120800000010604,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/objects/warm",
+          "samples": 3,
+          "failures": 0,
+          "medianMs": 0.02158299999996416,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/objects/first-of-scenario",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 111.14991699999996,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/objects/warmup",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 103.13058299999989,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/objects/warm",
+          "samples": 3,
+          "failures": 0,
+          "medianMs": 103.71158300000002,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/enrichment/first-of-scenario",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 0.27533299999981864,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/enrichment/warmup",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 0.09400000000005093,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/enrichment/warm",
+          "samples": 3,
+          "failures": 0,
+          "medianMs": 0.08283400000004804,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/enrichment/first-of-scenario",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 170.4052079999999,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/enrichment/warmup",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 159.2474169999998,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/enrichment/warm",
+          "samples": 3,
+          "failures": 0,
+          "medianMs": 160.58987500000012,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/ranking/first-of-scenario",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 33.02495799999997,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/ranking/warmup",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 31.266041999999743,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/ranking/warm",
+          "samples": 3,
+          "failures": 0,
+          "medianMs": 30.982208999999784,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/ranking/first-of-scenario",
+          "samples": 1,
+          "failures": 1,
+          "medianMs": null,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/ranking/warmup",
+          "samples": 1,
+          "failures": 1,
+          "medianMs": null,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/ranking/warm",
+          "samples": 3,
+          "failures": 3,
+          "medianMs": null,
+          "p95Ms": null
+        }
+      ]
+    },
+    {
+      "config": {
+        "backend": "postgres",
+        "objectStore": "memory",
+        "capture": "enabled",
+        "freshness": "cached",
+        "sourceDelayMs": 0,
+        "customers": 12500,
+        "events": 100000,
+        "seed": 42,
+        "repetitions": 3,
+        "warmups": 1
+      },
+      "setupMs": 1349.6684999999998,
+      "backendVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+      "sqliteVersion": "3.53.4",
+      "samples": [
+        {
+          "scenario": "objects",
+          "mode": "sqlite-reference",
+          "phase": "first-of-scenario",
+          "durationMs": 0.055584000001545064,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0025839999980235007,
+              "durationMs": 0.05387500000142609
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "sqlite-reference",
+          "phase": "warmup",
+          "durationMs": 0.025833000003331108,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0016250000007858034,
+              "durationMs": 0.02537500000107684
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.021541000001889188,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0009170000012090895,
+              "durationMs": 0.021249999997962732
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.023208000002341578,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0012500000011641532,
+              "durationMs": 0.022833999999420485
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.021957999997539446,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0006670000002486631,
+              "durationMs": 0.021667000000888947
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "relate",
+          "phase": "first-of-scenario",
+          "durationMs": 69.79483299999993,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.018000000000029104,
+              "durationMs": 69.76800000000003
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.0005410000012489036,
+              "durationMs": 69.79387499999939
+            }
+          ],
+          "counters": {
+            "membershipScans": 2,
+            "candidatesScanned": 26,
+            "objectLoads": 26,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 0,
+            "analyticalStatements": 0,
+            "computedSlots": 0,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "relate",
+          "phase": "warmup",
+          "durationMs": 66.90816700000141,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.012957999999343883,
+              "durationMs": 66.89220800000112
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.0054579999996349216,
+              "durationMs": 66.90712500000154
+            }
+          ],
+          "counters": {
+            "membershipScans": 2,
+            "candidatesScanned": 26,
+            "objectLoads": 26,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 0,
+            "analyticalStatements": 0,
+            "computedSlots": 0,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 68.38604199999827,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.014167000001179986,
+              "durationMs": 68.37024999999994
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.006250000002182787,
+              "durationMs": 68.38470899999811
+            }
+          ],
+          "counters": {
+            "membershipScans": 2,
+            "candidatesScanned": 26,
+            "objectLoads": 26,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 0,
+            "analyticalStatements": 0,
+            "computedSlots": 0,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 68.79937500000233,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.01508299999841256,
+              "durationMs": 68.78204199999891
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.006083000000216998,
+              "durationMs": 68.79820899999686
+            }
+          ],
+          "counters": {
+            "membershipScans": 2,
+            "candidatesScanned": 26,
+            "objectLoads": 26,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 0,
+            "analyticalStatements": 0,
+            "computedSlots": 0,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "objects",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 66.71012500000143,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.013291999999637483,
+              "durationMs": 66.69370800000252
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.005625000001600711,
+              "durationMs": 66.70891699999993
+            }
+          ],
+          "counters": {
+            "membershipScans": 2,
+            "candidatesScanned": 26,
+            "objectLoads": 26,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 0,
+            "analyticalStatements": 0,
+            "computedSlots": 0,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "sqlite-reference",
+          "phase": "first-of-scenario",
+          "durationMs": 0.20620899999994435,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0032089999986055773,
+              "durationMs": 0.20512500000040745
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "sqlite-reference",
+          "phase": "warmup",
+          "durationMs": 0.09829099999842583,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0015840000014577527,
+              "durationMs": 0.09791599999880418
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.08954200000152923,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0011669999985315371,
+              "durationMs": 0.08916700000190758
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.08862500000032014,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.000875000001542503,
+              "durationMs": 0.08833299999969313
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 0.08708299999852898,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0007919999989098869,
+              "durationMs": 0.08666699999957928
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "relate",
+          "phase": "first-of-scenario",
+          "durationMs": 95.06633299999885,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.010500000000320142,
+              "durationMs": 95.03420899999765
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.0007089999999152496,
+              "durationMs": 95.06533299999865
+            }
+          ],
+          "counters": {
+            "membershipScans": 2,
+            "candidatesScanned": 26,
+            "objectLoads": 51,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 1,
+            "analyticalStatements": 1,
+            "computedSlots": 25,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.8405000000020664,
+              "maxMs": 0.8405000000020664
+            },
+            "dependencyReads": {
+              "count": 51,
+              "totalMs": 18.603501999994478,
+              "maxMs": 0.9871249999996508
+            },
+            "finalization": {
+              "count": 4,
+              "totalMs": 0.39175000000250293,
+              "maxMs": 0.14737500000046566
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 68.07691700000214,
+              "maxMs": 68.07691700000214
+            },
+            "planning": {
+              "count": 2,
+              "totalMs": 0.7758749999993597,
+              "maxMs": 0.6086250000007567
+            },
+            "queueWait": {
+              "count": 1,
+              "totalMs": 0.004915999998047482,
+              "maxMs": 0.004915999998047482
+            },
+            "connectionStartup": {
+              "count": 1,
+              "totalMs": 9.84375,
+              "maxMs": 9.84375
+            },
+            "execution": {
+              "count": 1,
+              "totalMs": 12.002040999999736,
+              "maxMs": 12.002040999999736
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 2.506083000000217,
+              "maxMs": 2.506083000000217
+            }
+          },
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "relate",
+          "phase": "warmup",
+          "durationMs": 95.02066699999705,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.012166000000433996,
+              "durationMs": 95.00133399999686
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.005499999999301508,
+              "durationMs": 95.01958300000115
+            }
+          ],
+          "counters": {
+            "membershipScans": 2,
+            "candidatesScanned": 26,
+            "objectLoads": 51,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 1,
+            "analyticalStatements": 1,
+            "computedSlots": 25,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.8517500000016298,
+              "maxMs": 0.8517500000016298
+            },
+            "dependencyReads": {
+              "count": 51,
+              "totalMs": 18.209209000018745,
+              "maxMs": 0.8106659999975818
+            },
+            "finalization": {
+              "count": 4,
+              "totalMs": 0.4154169999965234,
+              "maxMs": 0.1697089999979653
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 66.69629200000054,
+              "maxMs": 66.69629200000054
+            },
+            "planning": {
+              "count": 2,
+              "totalMs": 0.32466699999713455,
+              "maxMs": 0.262708999998722
+            },
+            "queueWait": {
+              "count": 1,
+              "totalMs": 0.004541999998764368,
+              "maxMs": 0.004541999998764368
+            },
+            "connectionStartup": {
+              "count": 1,
+              "totalMs": 10.54662499999904,
+              "maxMs": 10.54662499999904
+            },
+            "execution": {
+              "count": 1,
+              "totalMs": 13.010083000001032,
+              "maxMs": 13.010083000001032
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 2.631874999999127,
+              "maxMs": 2.631874999999127
+            }
+          },
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 87.53041699999812,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.01341600000159815,
+              "durationMs": 87.51004199999807
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.005916000001889188,
+              "durationMs": 87.5291670000006
+            }
+          ],
+          "counters": {
+            "membershipScans": 2,
+            "candidatesScanned": 26,
+            "objectLoads": 51,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 1,
+            "analyticalStatements": 1,
+            "computedSlots": 25,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.810750000000553,
+              "maxMs": 0.810750000000553
+            },
+            "dependencyReads": {
+              "count": 51,
+              "totalMs": 14.24712800000998,
+              "maxMs": 0.6079590000008466
+            },
+            "finalization": {
+              "count": 4,
+              "totalMs": 0.37199900000632624,
+              "maxMs": 0.14812500000334694
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 66.95195800000147,
+              "maxMs": 66.95195800000147
+            },
+            "planning": {
+              "count": 2,
+              "totalMs": 0.3265419999988808,
+              "maxMs": 0.26066700000228593
+            },
+            "queueWait": {
+              "count": 1,
+              "totalMs": 0.004540999998425832,
+              "maxMs": 0.004540999998425832
+            },
+            "connectionStartup": {
+              "count": 1,
+              "totalMs": 7.225540999999794,
+              "maxMs": 7.225540999999794
+            },
+            "execution": {
+              "count": 1,
+              "totalMs": 8.853374999998778,
+              "maxMs": 8.853374999998778
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 2.5009999999965657,
+              "maxMs": 2.5009999999965657
+            }
+          },
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 86.75624999999854,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.016082999998616287,
+              "durationMs": 86.73541699999987
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.006707999997161096,
+              "durationMs": 86.75479199999972
+            }
+          ],
+          "counters": {
+            "membershipScans": 2,
+            "candidatesScanned": 26,
+            "objectLoads": 51,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 1,
+            "analyticalStatements": 1,
+            "computedSlots": 25,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.7947500000009313,
+              "maxMs": 0.7947500000009313
+            },
+            "dependencyReads": {
+              "count": 51,
+              "totalMs": 14.179378999993787,
+              "maxMs": 0.6117500000000291
+            },
+            "finalization": {
+              "count": 4,
+              "totalMs": 0.39795800000138115,
+              "maxMs": 0.21887499999866122
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 66.39537500000006,
+              "maxMs": 66.39537500000006
+            },
+            "planning": {
+              "count": 2,
+              "totalMs": 0.35558300000047893,
+              "maxMs": 0.28029199999946286
+            },
+            "queueWait": {
+              "count": 1,
+              "totalMs": 0.0043750000004365575,
+              "maxMs": 0.0043750000004365575
+            },
+            "connectionStartup": {
+              "count": 1,
+              "totalMs": 7.46979199999987,
+              "maxMs": 7.46979199999987
+            },
+            "execution": {
+              "count": 1,
+              "totalMs": 8.726458999997703,
+              "maxMs": 8.726458999997703
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 2.2489580000001297,
+              "maxMs": 2.2489580000001297
+            }
+          },
+          "status": "ok"
+        },
+        {
+          "scenario": "enrichment",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 92.10554200000115,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.023624999997991836,
+              "durationMs": 92.08020800000304
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.012040999998134794,
+              "durationMs": 92.10412500000166
+            }
+          ],
+          "counters": {
+            "membershipScans": 2,
+            "candidatesScanned": 26,
+            "objectLoads": 51,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 1,
+            "analyticalStatements": 1,
+            "computedSlots": 25,
+            "capturedOperations": 1,
+            "candidatesAdmitted": 25,
+            "objectsReturned": 25,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.9582080000000133,
+              "maxMs": 0.9582080000000133
+            },
+            "dependencyReads": {
+              "count": 51,
+              "totalMs": 13.237829000008787,
+              "maxMs": 0.548333000002458
+            },
+            "finalization": {
+              "count": 4,
+              "totalMs": 0.3658739999955287,
+              "maxMs": 0.1598329999978887
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 66.8146250000027,
+              "maxMs": 66.8146250000027
+            },
+            "planning": {
+              "count": 2,
+              "totalMs": 0.3289999999979045,
+              "maxMs": 0.2599159999990661
+            },
+            "queueWait": {
+              "count": 1,
+              "totalMs": 0.004624999997759005,
+              "maxMs": 0.004624999997759005
+            },
+            "connectionStartup": {
+              "count": 1,
+              "totalMs": 10.321375000003172,
+              "maxMs": 10.321375000003172
+            },
+            "execution": {
+              "count": 1,
+              "totalMs": 10.349083000000974,
+              "maxMs": 10.349083000000974
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 2.4755420000001322,
+              "maxMs": 2.4755420000001322
+            }
+          },
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "sqlite-reference",
+          "phase": "first-of-scenario",
+          "durationMs": 32.47641699999804,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.0015000000021245796,
+              "durationMs": 32.47491699999955
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "sqlite-reference",
+          "phase": "warmup",
+          "durationMs": 30.58716600000116,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.008165999999619089,
+              "durationMs": 30.585375000002387
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 29.162250000001222,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.008667000001878478,
+              "durationMs": 29.16033299999981
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 30.768041999999696,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.008958000002166955,
+              "durationMs": 30.766457999998238
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "sqlite-reference",
+          "phase": "warm",
+          "durationMs": 30.677999999999884,
+          "spans": [
+            {
+              "name": "sqlite-round-trip",
+              "kind": "real",
+              "startMs": 0.007958999998663785,
+              "durationMs": 30.676250000000437
+            }
+          ],
+          "counters": {
+            "statements": 1,
+            "objectsReturned": 25
+          },
+          "stages": {},
+          "status": "ok"
+        },
+        {
+          "scenario": "ranking",
+          "mode": "relate",
+          "phase": "first-of-scenario",
+          "durationMs": 3741.2210000000014,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.02195900000151596,
+              "durationMs": 3741.194374999999
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.0017499999994470272,
+              "durationMs": 3741.2180420000004
+            }
+          ],
+          "counters": {
+            "membershipScans": 125,
+            "candidatesScanned": 12500,
+            "objectLoads": 18334,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 10,
+            "analyticalStatements": 10,
+            "computedSlots": 10000,
+            "capturedOperations": 1,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.9642500000009022,
+              "maxMs": 0.9642500000009022
+            },
+            "dependencyReads": {
+              "count": 18334,
+              "totalMs": 6760.805399999837,
+              "maxMs": 1.9752090000001772
+            },
+            "finalization": {
+              "count": 136,
+              "totalMs": 69.65496099999655,
+              "maxMs": 4.297374999998283
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 3080.8697920000013,
+              "maxMs": 3080.8697920000013
+            },
+            "planning": {
+              "count": 11,
+              "totalMs": 52.12629000000743,
+              "maxMs": 45.64020800000071
+            },
+            "queueWait": {
+              "count": 10,
+              "totalMs": 0.05329099999653408,
+              "maxMs": 0.009500000000116415
+            },
+            "connectionStartup": {
+              "count": 10,
+              "totalMs": 126.36741500000426,
+              "maxMs": 16.38316599999962
+            },
+            "execution": {
+              "count": 10,
+              "totalMs": 321.2169580000009,
+              "maxMs": 38.2266660000023
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 457.0037080000002,
+              "maxMs": 457.0037080000002
+            }
+          },
+          "status": "error",
+          "error": "invalid-request in Customer.query:\n- request: The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget."
+        },
+        {
+          "scenario": "ranking",
+          "mode": "relate",
+          "phase": "warmup",
+          "durationMs": 3692.0083330000016,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.016874999997526174,
+              "durationMs": 3691.9900000000016
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.007083999997121282,
+              "durationMs": 3692.00475
+            }
+          ],
+          "counters": {
+            "membershipScans": 125,
+            "candidatesScanned": 12500,
+            "objectLoads": 18334,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 10,
+            "analyticalStatements": 10,
+            "computedSlots": 10000,
+            "capturedOperations": 1,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.6999160000013944,
+              "maxMs": 0.6999160000013944
+            },
+            "dependencyReads": {
+              "count": 18334,
+              "totalMs": 6511.922561999407,
+              "maxMs": 3.984458999999333
+            },
+            "finalization": {
+              "count": 136,
+              "totalMs": 66.61320600001272,
+              "maxMs": 3.0793330000014976
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 2972.6039159999964,
+              "maxMs": 2972.6039159999964
+            },
+            "planning": {
+              "count": 11,
+              "totalMs": 57.31500000000233,
+              "maxMs": 46.42450000000099
+            },
+            "queueWait": {
+              "count": 10,
+              "totalMs": 0.056249000001116656,
+              "maxMs": 0.012333999999100342
+            },
+            "connectionStartup": {
+              "count": 10,
+              "totalMs": 120.63512300000002,
+              "maxMs": 18.21941599999991
+            },
+            "execution": {
+              "count": 10,
+              "totalMs": 324.37287399998604,
+              "maxMs": 38.426957999996375
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 507.8722909999997,
+              "maxMs": 507.8722909999997
+            }
+          },
+          "status": "error",
+          "error": "invalid-request in Customer.query:\n- request: The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget."
+        },
+        {
+          "scenario": "ranking",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 3304.737417000004,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.017832999998063315,
+              "durationMs": 3304.720874999999
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.007499999999708962,
+              "durationMs": 3304.733874999998
+            }
+          ],
+          "counters": {
+            "membershipScans": 125,
+            "candidatesScanned": 12500,
+            "objectLoads": 18334,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 10,
+            "analyticalStatements": 10,
+            "computedSlots": 10000,
+            "capturedOperations": 1,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.8656660000051488,
+              "maxMs": 0.8656660000051488
+            },
+            "dependencyReads": {
+              "count": 18334,
+              "totalMs": 5734.378292000038,
+              "maxMs": 1.5289580000026035
+            },
+            "finalization": {
+              "count": 136,
+              "totalMs": 51.033080000051996,
+              "maxMs": 1.8160419999985606
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 2690.887917,
+              "maxMs": 2690.887917
+            },
+            "planning": {
+              "count": 11,
+              "totalMs": 54.15462299998762,
+              "maxMs": 43.46925000000192
+            },
+            "queueWait": {
+              "count": 10,
+              "totalMs": 0.03695800000423333,
+              "maxMs": 0.010874999999941792
+            },
+            "connectionStartup": {
+              "count": 10,
+              "totalMs": 115.30358399999386,
+              "maxMs": 14.648042000000714
+            },
+            "execution": {
+              "count": 10,
+              "totalMs": 318.33629000000656,
+              "maxMs": 43.246124999997846
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 416.0992499999993,
+              "maxMs": 416.0992499999993
+            }
+          },
+          "status": "error",
+          "error": "invalid-request in Customer.query:\n- request: The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget."
+        },
+        {
+          "scenario": "ranking",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 3267.1225829999967,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.012374999998428393,
+              "durationMs": 3267.107041999996
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.004291999997803941,
+              "durationMs": 3267.1192079999964
+            }
+          ],
+          "counters": {
+            "membershipScans": 125,
+            "candidatesScanned": 12500,
+            "objectLoads": 18334,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 10,
+            "analyticalStatements": 10,
+            "computedSlots": 10000,
+            "capturedOperations": 1,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.6780839999992168,
+              "maxMs": 0.6780839999992168
+            },
+            "dependencyReads": {
+              "count": 18334,
+              "totalMs": 5702.288010000018,
+              "maxMs": 1.1875
+            },
+            "finalization": {
+              "count": 136,
+              "totalMs": 48.36161899998842,
+              "maxMs": 1.744209000004048
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 2638.2750000000015,
+              "maxMs": 2638.2750000000015
+            },
+            "planning": {
+              "count": 11,
+              "totalMs": 46.65833399999974,
+              "maxMs": 38.88445800000045
+            },
+            "queueWait": {
+              "count": 10,
+              "totalMs": 0.05216700001619756,
+              "maxMs": 0.012125000001105946
+            },
+            "connectionStartup": {
+              "count": 10,
+              "totalMs": 106.99358299998858,
+              "maxMs": 13.805249999997613
+            },
+            "execution": {
+              "count": 10,
+              "totalMs": 310.89441599999554,
+              "maxMs": 43.32166600000346
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 443.87933400000475,
+              "maxMs": 443.87933400000475
+            }
+          },
+          "status": "error",
+          "error": "invalid-request in Customer.query:\n- request: The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget."
+        },
+        {
+          "scenario": "ranking",
+          "mode": "relate",
+          "phase": "warm",
+          "durationMs": 3293.5835000000006,
+          "spans": [
+            {
+              "name": "public-query",
+              "kind": "real",
+              "startMs": 0.01600000000325963,
+              "durationMs": 3293.5682919999963
+            },
+            {
+              "name": "request",
+              "kind": "real",
+              "startMs": 0.006874999999126885,
+              "durationMs": 3293.5801250000004
+            }
+          ],
+          "counters": {
+            "membershipScans": 125,
+            "candidatesScanned": 12500,
+            "objectLoads": 18334,
+            "sourceResolutions": 0,
+            "sourceFetches": 0,
+            "analyticalBatches": 10,
+            "analyticalStatements": 10,
+            "computedSlots": 10000,
+            "capturedOperations": 1,
+            "activityDrops": 0
+          },
+          "stages": {
+            "preparation": {
+              "count": 1,
+              "totalMs": 0.7178329999951529,
+              "maxMs": 0.7178329999951529
+            },
+            "dependencyReads": {
+              "count": 18334,
+              "totalMs": 5779.3548369996715,
+              "maxMs": 1.6242920000004233
+            },
+            "finalization": {
+              "count": 136,
+              "totalMs": 50.8276229999974,
+              "maxMs": 1.6236669999998412
+            },
+            "candidates": {
+              "count": 1,
+              "totalMs": 2684.925916,
+              "maxMs": 2684.925916
+            },
+            "planning": {
+              "count": 11,
+              "totalMs": 53.3177089999881,
+              "maxMs": 46.341332999996666
+            },
+            "queueWait": {
+              "count": 10,
+              "totalMs": 0.033789999994041864,
+              "maxMs": 0.006415999996534083
+            },
+            "connectionStartup": {
+              "count": 10,
+              "totalMs": 131.64408399997774,
+              "maxMs": 16.490416999993613
+            },
+            "execution": {
+              "count": 10,
+              "totalMs": 281.3667079999941,
+              "maxMs": 33.41112499999872
+            },
+            "revalidation": {
+              "count": 1,
+              "totalMs": 413.9334579999995,
+              "maxMs": 413.9334579999995
+            }
+          },
+          "status": "error",
+          "error": "invalid-request in Customer.query:\n- request: The analytical query exceeds the source-call budget. Use a narrower ordinary property filter or ask the host to raise the budget."
+        }
+      ],
+      "summary": [
+        {
+          "group": "sqlite-reference/objects/first-of-scenario",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 0.055584000001545064,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/objects/warmup",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 0.025833000003331108,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/objects/warm",
+          "samples": 3,
+          "failures": 0,
+          "medianMs": 0.021957999997539446,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/objects/first-of-scenario",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 69.79483299999993,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/objects/warmup",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 66.90816700000141,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/objects/warm",
+          "samples": 3,
+          "failures": 0,
+          "medianMs": 68.38604199999827,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/enrichment/first-of-scenario",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 0.20620899999994435,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/enrichment/warmup",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 0.09829099999842583,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/enrichment/warm",
+          "samples": 3,
+          "failures": 0,
+          "medianMs": 0.08862500000032014,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/enrichment/first-of-scenario",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 95.06633299999885,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/enrichment/warmup",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 95.02066699999705,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/enrichment/warm",
+          "samples": 3,
+          "failures": 0,
+          "medianMs": 87.53041699999812,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/ranking/first-of-scenario",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 32.47641699999804,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/ranking/warmup",
+          "samples": 1,
+          "failures": 0,
+          "medianMs": 30.58716600000116,
+          "p95Ms": null
+        },
+        {
+          "group": "sqlite-reference/ranking/warm",
+          "samples": 3,
+          "failures": 0,
+          "medianMs": 30.677999999999884,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/ranking/first-of-scenario",
+          "samples": 1,
+          "failures": 1,
+          "medianMs": null,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/ranking/warmup",
+          "samples": 1,
+          "failures": 1,
+          "medianMs": null,
+          "p95Ms": null
+        },
+        {
+          "group": "relate/ranking/warm",
+          "samples": 3,
+          "failures": 3,
+          "medianMs": null,
+          "p95Ms": null
+        }
+      ]
+    }
+  ]
+}

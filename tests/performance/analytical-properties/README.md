@@ -99,9 +99,10 @@ flowchart LR
 status, machine resources, Node/backend versions, raw samples and summaries.
 Each sample records request spans, runtime stage aggregates and actual counters:
 scanned/admitted candidates, storage scans/loads/resolutions, source fetches,
-planned batches, executed statements, computed slots, captured operations and
-activity drops. Storage counters count API calls, not inferred database round
-trips. Server-only execution time and generated-SQL replay remain unavailable.
+provider identity checks and their combined source-call count, planned batches,
+executed statements, computed slots, captured operations and activity drops.
+Storage counters count API calls, not inferred database round trips. Server-only
+execution time and generated-SQL replay remain unavailable.
 
 Activity capture follows the real host enablement path. Enabled samples collect
 stage summaries from the storage append boundary. After stopping the request
@@ -152,3 +153,10 @@ a performance baseline.
 3. Add controlled cold starts, concurrency, queue pressure and cancellation.
 4. Use consistent deployment conditions and sufficient repetitions before
    publishing baselines or enabling performance regression gates.
+
+The
+[first scope-first capacity run](measurements/scope-budget-rejection-2026-10-21.json)
+rejected all ten ranking samples during revalidation at the provisional 50,000
+source-call budget. Cached records still require provider identity checks. The
+harness now records those checks alongside fetches, and the default budget is
+100,000. The failed run is retained; it is not a successful capacity result.

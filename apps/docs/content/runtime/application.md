@@ -219,7 +219,7 @@ can move objects across that position.
 
 Host setup can bound this work with `analytics`: the default scan cap is 12,500
 members and the admission cap is 10,000 ordinary matches. Both reject before SQL
-when exceeded. A 50,000 source-call budget and 60,000 ms deadline cover the
+when exceeded. A 100,000 source-call budget and 60,000 ms deadline cover the
 whole operation, including final checks. These initial safeguards derive from
 candidate-path measurements and still require workload-specific capacity
 validation. See the

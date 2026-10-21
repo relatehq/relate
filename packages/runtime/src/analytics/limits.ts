@@ -22,7 +22,7 @@ export function operationLimits(input?: AnalyticalLimits) {
   const operationTimeoutMs =
     input?.operationTimeoutMs === undefined ? 60_000 : input.operationTimeoutMs;
   const maxSourceCalls =
-    input?.maxSourceCalls === undefined ? 50_000 : input.maxSourceCalls;
+    input?.maxSourceCalls === undefined ? 100_000 : input.maxSourceCalls;
 
   const maxCandidatesScanned =
     input?.maxCandidatesScanned === undefined

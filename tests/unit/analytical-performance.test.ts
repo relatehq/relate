@@ -59,6 +59,8 @@ describe('analytical performance harness', () => {
     expect(ranking.counters.computedSlots).toBe(112);
     expect(ranking.counters.candidatesScanned).toBe(140);
     expect(ranking.counters.sourceFetches).toBe(0);
+    expect(ranking.counters.sourceIdentifications).toBe(775);
+    expect(ranking.counters.sourceCalls).toBe(775);
     expect(ranking.counters.capturedOperations).toBe(1);
     expect(ranking.stages.execution?.count).toBe(1);
     expect(ranking.stages.preparation?.count).toBe(1);
