@@ -871,3 +871,30 @@ it('omits timing capture for ordinary reads and disabled activity', async () => 
     );
   }
 });
+
+it('exposes analytical discovery through the public facade with the same principal access as reads', async () => {
+  const { runtime, principal } = await app();
+  const description = runtime.as(principal).objects.Customer.describe()!;
+
+  expect(description.datasets?.events?.columns.amount).toMatchObject({
+    type: 'int64',
+    readable: true,
+  });
+  expect(description.properties).toContainEqual(
+    expect.objectContaining({
+      name: 'count',
+      kind: 'computed',
+      readable: true,
+      schema: { type: 'int64', nullable: false },
+    }),
+  );
+  const hidden = runtime
+    .as({ ...principal, roles: ['reader', 'private'] })
+    .objects.Customer.describe()!;
+
+  expect(hidden).not.toHaveProperty('datasets');
+  expect(
+    hidden.properties.find((property) => property.name === 'count'),
+  ).toMatchObject({ readable: false });
+  expect(JSON.stringify(description)).not.toContain('"sql"');
+});

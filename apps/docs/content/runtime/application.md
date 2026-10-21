@@ -178,6 +178,7 @@ their members. Typed page reads and iteration preserve the alias result types.
 
 Both SQLite and the
 [PostgreSQL analytical connector](../../../../connectors/postgres/README.md)
-execute these reads. Computed filtering/order and analytical discovery/MCP
-details remain in progress. Traversal and action transaction readers reject
-analytical requests.
+execute these reads. [Discovery](./discovery.md#analytical-metadata) describes
+actor-visible associations and calculated properties through the same consumer,
+MCP and Inspector playground paths. Computed filtering/order remains in
+progress. Traversal and action transaction readers reject analytical requests.

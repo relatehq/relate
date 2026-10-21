@@ -84,3 +84,13 @@ pnpm --filter @relate/inspector build     # dist/server + dist/client
 pnpm --filter @relate/inspector dev       # Vite HMR for inspector work
 pnpm relate dev                           # serves the prebuilt client
 ```
+
+### Analytical discovery
+
+The playground reads actor-visible dataset associations and declared computed
+properties from the runtime through `@relate/dev`. Its schema tree shows logical
+types and marks denied columns/calculations; hidden associations stay absent. An
+explicit empty `filterOperators` list disables property filter suggestions.
+Declaration SQL and physical binding details never enter this discovery view.
+The model graph's dataset nodes and detailed analytical panels remain separate
+integration work.

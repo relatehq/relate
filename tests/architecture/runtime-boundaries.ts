@@ -30,7 +30,7 @@ const dependencies: Record<string, readonly string[]> = {
   authorization: ['storage'],
   // Discovery reuses the enforcement gates rather than restating them, and
   // describes read options from the same table request validation uses.
-  discovery: ['authorization', 'actions', 'traversal', 'reads'],
+  discovery: ['authorization', 'actions', 'traversal', 'reads', 'analytics'],
   observations: ['storage'],
   reads: [],
   storage: ['observations'],
@@ -51,6 +51,7 @@ const roots: Record<string, string> = {
   'native-memory.ts': 'memory',
   'memory-activity.ts': 'memory',
   'discovery.ts': 'discovery',
+  'analytical-discovery.ts': 'discovery',
   'contracts.ts': 'discovery',
 };
 const folders = new Set([

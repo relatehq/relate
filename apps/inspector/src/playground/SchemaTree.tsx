@@ -133,7 +133,15 @@ export const SchemaTree = memo(function SchemaTree(props: {
                       key={property.name}
                       name={<Highlighted text={property.name} query={query} />}
                       type={`${propertyType(property)}${isComputed(property) ? ' · computed' : ''}`}
-                      title={property.description}
+                      title={[
+                        property.description,
+                        property['readable'] === false
+                          ? `Not readable as ${discovery!.principal}`
+                          : undefined,
+                      ]
+                        .filter(Boolean)
+                        .join('\n')}
+                      forbidden={property['readable'] === false}
                       onInsert={() => props.onInsert(property.name)}
                     />
                   ))}

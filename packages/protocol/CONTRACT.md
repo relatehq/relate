@@ -69,9 +69,20 @@ carry `SdkOptionDescription` (`description` and accepted `ReadOperation` kinds),
 so applicability is transport data, not inferred from prose. `sdk.errors`
 explains read failures and how to inspect request issues. Full read-contract
 types (`OperationContract`, `OperationContracts`) belong to `@relate/runtime`,
-not this transport. Every scalar in detail is reported as a `ScalarSchema`;
-`relate/model` validates compiled manifests against that same shape, so
-discovery never invents a constraint the compiler did not record.
+not this transport. Ordinary fields use `ScalarSchema`; `relate/model` validates
+compiled manifests against that same shape. Declared calculations use
+`ComputedPropertyDescription` with `kind: 'computed'`, an inferred logical
+`ComputedResultType` schema, and `readable` for static dependency access. Their
+SQL is never included. A property denied by its own field group is omitted.
+
+Optional `datasets` maps declared association names to `DatasetDescription`.
+Association gates determine presence; denied columns remain listed with
+`readable: false`. Descriptions, stable IDs, logical types, nullability and
+timestamp precision survive. Correlation text uses quoted declared names and is
+omitted if it would name a hidden object property. Physical resource identifiers
+and binding details never appear. Optional `compute` explains SQL syntax,
+encoding, freshness and the currently supported read modes. Computed
+`filterOperators` remains empty until computed filtering is implemented.
 
 `Discovery` is the actor-bound interface: `describe()`, `describeObject(id)` and
 `describeAction(id)`. It is a pure function of one actor snapshot and the

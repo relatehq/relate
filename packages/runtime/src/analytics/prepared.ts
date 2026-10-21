@@ -31,7 +31,7 @@ export function preparedFields(handle: PreparedCompute) {
 }
 
 /** Apply actor access to trusted declared SQL without exposing hidden names in errors. */
-function authorizeDeclaration(
+export function authorizeDeclaration(
   expression: ResolvedExpression,
   scope: ActorAssociations,
 ): ResolvedExpression {

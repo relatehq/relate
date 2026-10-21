@@ -400,7 +400,11 @@ export function createRuntime(options: RuntimeOptions) {
 
   return {
     discover: (principal: Principal) =>
-      createDiscovery({ manifest, definitionRevision: revision }, principal),
+      createDiscovery(
+        { manifest, definitionRevision: revision },
+        principal,
+        options.analytics?.parser,
+      ),
     /** Trusted host ingestion, attributed to the host actor or the scope's actor. */
     adopt(
       objectDefinitionId: string,

@@ -65,10 +65,58 @@ successful records report the same value in `meta.definitionRevision`.
 
 Object detail includes its stable definition ID, API name, display labels,
 description, authorized properties, and available traversal directions. Each
-property carries its scalar schema, reference target, authored description, and
-the value a `where` filter on it matches. Action detail includes its described
-input and output fields, declared failures, and readable object types it may
-create.
+ordinary property carries its scalar schema, reference target when applicable,
+authored description, and the value a `where` filter on it matches. Action
+detail includes its described input and output fields, declared failures, and
+readable object types it may create.
+
+## Analytical metadata
+
+An **association** connects an object to dataset rows, such as a customer's
+`events`. A **declared calculation** is a reusable property such as
+`loginCount`. The detail describes both without exposing authored SQL or
+physical tables:
+
+```ts
+const customer = consumer.objects.Customer.describe();
+customer?.datasets?.events?.columns.occurredAt;
+// { definitionId: 'events.occurred-at', type: 'timestamp', precision: 3,
+//   nullable: false, readable: true }
+customer?.properties.find((property) => property.kind === 'computed');
+// { definitionId: 'customer.login-count', name: 'loginCount', kind: 'computed',
+//   schema: { type: 'int64', nullable: false }, readable: true,
+//   filterOperators: [], filter: 'Computed filtering and ordering are not yet supported.' }
+customer?.compute?.syntax;
+// SELECT <aggregate> FROM self.<dataset> [AS alias] [WHERE predicate]
+```
+
+Association gates determine which datasets appear. A denied column remains
+listed with `readable: false`; its description and logical type still help
+explain why a calculation cannot use it. Properties denied by their own field
+group are omitted. An otherwise visible calculation reports `readable: false`
+when its association, columns or ordinary dependencies are statically denied.
+Record-level access and freshness are still checked during reads.
+
+Correlation text uses quoted declared names and is omitted if it would reveal a
+hidden object property. Unauthored descriptions are omitted. Calculation SQL,
+parameters, physical names and connection details are never included.
+
+The same metadata reaches MCP's `graph.objects.Customer.describe()` and the
+Inspector playground's schema tree. Computed properties are selectable on get
+and membership-first query pages; their filter-operator list is currently empty
+because computed filtering and ordering are still in progress.
+
+```mermaid
+flowchart LR
+  Model[Compiled model] --> View[Actor association and field checks]
+  Parser[Initialized SQL parser] --> Types[Declared result types]
+  View --> Detail[Object discovery]
+  Types --> Detail
+  Detail --> Consumer[Typed consumer]
+  Detail --> Service[Development service IPC]
+  Service --> Inspector[Inspector playground]
+  Detail --> MCP[MCP executor snapshot]
+```
 
 ## Learning the operations
 

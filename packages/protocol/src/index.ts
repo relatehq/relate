@@ -327,6 +327,10 @@ export type {
   TraversalOverview,
   OptionDescription,
   PropertyDescription,
+  ComputedPropertyDescription,
+  DatasetColumnDescription,
+  DatasetDescription,
+  ComputeDescription,
   ScalarSchema,
   TraversalDescription,
 } from './discovery.js';

@@ -30,7 +30,12 @@ export type {
   TimingCapture,
 } from './timings.js';
 
-export { prepareCompute, preparedBindingRevisions } from './prepared.js';
+export {
+  prepareCompute,
+  preparedBindingRevisions,
+  authorizeDeclaration,
+} from './prepared.js';
+
 export type { PreparedCompute } from './prepared.js';
 
 export type {

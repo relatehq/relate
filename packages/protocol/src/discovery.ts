@@ -1,4 +1,5 @@
 import type { Json } from './index.js';
+import type { ComputedResultType } from './analytics.js';
 
 /**
  * A portable scalar value constraint. `relate/model` validates manifests against
@@ -122,6 +123,45 @@ export interface PropertyDescription {
   readonly filterOperators: readonly string[];
 }
 
+/** A declared calculation, with logical result metadata but no authored SQL. */
+export interface ComputedPropertyDescription {
+  readonly definitionId: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly kind: 'computed';
+  readonly schema: ComputedResultType;
+  /** Static access to the calculation and all its analytical dependencies. */
+  readonly readable: boolean;
+  readonly filter: string;
+  readonly filterOperators: readonly string[];
+}
+
+export type DatasetColumnDescription = ComputedResultType & {
+  readonly definitionId: string;
+  readonly description?: string;
+  readonly readable: boolean;
+};
+
+/** An actor-visible association, keyed by its declared SQL name. */
+export interface DatasetDescription {
+  readonly definitionId: string;
+  readonly datasetDefinitionId: string;
+  readonly description?: string;
+  readonly columns: Readonly<Record<string, DatasetColumnDescription>>;
+  /** Omitted when it would disclose an unreadable object property. */
+  readonly correlation?: string;
+}
+
+export interface ComputeDescription {
+  readonly syntax: string;
+  readonly aggregates: readonly string[];
+  readonly encoding: string;
+  readonly identifiers: string;
+  readonly filters: string;
+  readonly freshness: string;
+  readonly example?: string;
+}
+
 export interface TraversalDescription {
   readonly relationshipDefinitionId: string;
   readonly name: string;
@@ -140,8 +180,12 @@ export interface ObjectDescription extends ObjectSummary {
       readonly collectionScope: 'graph-membership';
     };
   };
-  readonly properties: readonly PropertyDescription[];
+  readonly properties: readonly (
+    PropertyDescription | ComputedPropertyDescription
+  )[];
   readonly traversals: readonly TraversalDescription[];
+  readonly datasets?: Readonly<Record<string, DatasetDescription>>;
+  readonly compute?: ComputeDescription;
 }
 
 export interface ActionFieldDescription {
