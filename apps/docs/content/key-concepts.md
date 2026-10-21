@@ -17,15 +17,15 @@ A **source** describes a kind of record in an external system. `defineSource`
 declares its schema and the field containing its record key. For example, a
 customer source might describe CRM records with `id`, `name`, and `region`.
 
-A **connection** supplies the runtime binding for that source. `connect` pairs
-the definition with a connector that fetches records. Provider-verified
-connectors also identify the account; application-owned connectors explicitly
-rely on the host’s stable `connectionId`. The connector contains the API or
-database integration code and keeps credentials outside the graph definition.
+A **connection** supplies the runtime binding for that source. `bind` pairs the
+definition with a connector that fetches records. Provider-verified connectors
+also identify the account; application-owned connectors explicitly rely on the
+host’s stable `connectionId`. The connector contains the API or database
+integration code and keeps credentials outside the graph definition.
 
 ```ts
 // Excerpt: crmCustomers is a source definition; crmConnector reads the CRM.
-const crmConnection = connect(crmCustomers, {
+const crmConnection = bind(crmCustomers, {
   providerAccountId: 'crm-prod',
   connectionId: 'crm-main',
   connector: crmConnector,
@@ -217,7 +217,7 @@ const app = defineApp({
   setup() {
     return {
       graphId: 'business-prod',
-      connections: [crmConnection, billingConnection],
+      bindings: [crmConnection, billingConnection],
       actionImplementations: [addAccountReview],
     };
   },

@@ -113,13 +113,13 @@ it('validates action capabilities, registration and policy operands after serial
 });
 
 it('requires exactly one matching server implementation per registered action', () => {
-  expect(() => createRuntime({ graph, connections: [] })).toThrow(
+  expect(() => createRuntime({ graph, bindings: [] })).toThrow(
     'Missing action implementation',
   );
   expect(() =>
     createRuntime({
       graph,
-      connections: [],
+      bindings: [],
       actionImplementations: [addAccountReview, addAccountReview],
     }),
   ).toThrow('Duplicate action implementation');

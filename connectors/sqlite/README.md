@@ -7,12 +7,12 @@ and actions. Requires Node.js 22 (22.16+), 24 or 26; uses built-in
 
 ```ts
 import { sqlite } from '@relate/connector-sqlite';
-import { connect } from 'relate';
+import { bind } from 'relate';
 
 const database = sqlite({
   path: './crm.sqlite',
 });
-const binding = connect(customers, {
+const binding = bind(customers, {
   connectionId: 'local-crm',
   connector: database.table('customers', {
     idColumn: 'id',
@@ -66,7 +66,7 @@ const database = sqlite({
   path: './crm.sqlite',
   identity: { table: 'account', column: 'id' },
 });
-const binding = connect(customers, {
+const binding = bind(customers, {
   connectionId: 'local-crm',
   providerAccountId: 'crm-production',
   connector: database.table('customers', {

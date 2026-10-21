@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
-import { connect, implementAction } from 'relate';
+import { bind, implementAction } from 'relate';
 import { createRuntime } from '@relate/node';
 import { createMemoryStore, uuidv7 } from '@relate/runtime';
 import { NativeCommitUncertain, RetentionError } from '@relate/runtime/storage';
@@ -22,7 +22,7 @@ function reviewConnections(
   crm: { name?: () => string; portfolio?: () => string } = {},
 ) {
   return [
-    connect(customers, {
+    bind(customers, {
       providerAccountId: 'example-account',
       connectionId: 'crm',
       connector: {
@@ -38,7 +38,7 @@ function reviewConnections(
         }),
       },
     }),
-    connect(invoices, {
+    bind(invoices, {
       providerAccountId: 'example-account',
       connectionId: 'billing',
       connector: {
@@ -68,7 +68,7 @@ function reviewApp(
     store,
     ...(crm.now ? { clock: crm.now } : {}),
     actionImplementations: [addAccountReview],
-    connections: reviewConnections(crm),
+    bindings: reviewConnections(crm),
   });
 }
 
@@ -220,8 +220,8 @@ describe('memory activity', () => {
       const runtime = createRuntime({
         graph,
         graphId: randomUUID(),
-        connections: [
-          connect(customers, {
+        bindings: [
+          bind(customers, {
             providerAccountId: 'example-account',
             connectionId: 'crm',
             connector: {
@@ -238,7 +238,7 @@ describe('memory activity', () => {
               }),
             },
           }),
-          connect(invoices, {
+          bind(invoices, {
             providerAccountId: 'example-account',
             connectionId: 'billing',
             connector: {
@@ -616,7 +616,7 @@ describe('memory activity', () => {
       store: createMemoryStore(),
       activity: { maxObjects: 1 },
       actionImplementations: [addAccountReview],
-      connections: reviewConnections(),
+      bindings: reviewConnections(),
     });
 
     await runtime.host.adopt(Customer, 'one');
@@ -668,7 +668,7 @@ describe('memory activity', () => {
           return addAccountReview.implementation(context);
         }),
       ],
-      connections: reviewConnections(),
+      bindings: reviewConnections(),
     });
     const customer = await runtime.host.adopt(Customer, 'mothlight');
 

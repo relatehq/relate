@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { SourceAccessDenied } from 'relate/connectors';
 import type { SourceConnector } from 'relate/connectors';
 import type { Mock } from 'vitest';
@@ -43,8 +43,8 @@ export function traversalContract(
         graphId: randomUUID(),
         store: backing.store,
         clock: () => now,
-        connections: [
-          connect(customers, {
+        bindings: [
+          bind(customers, {
             providerAccountId: 'example-account',
             connectionId: 'crm',
             connector: {
@@ -65,7 +65,7 @@ export function traversalContract(
               },
             },
           }),
-          connect(invoices, {
+          bind(invoices, {
             providerAccountId: 'example-account',
             connectionId: 'billing',
             connector: {

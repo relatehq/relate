@@ -49,8 +49,8 @@ the model only: no runtime host starts, so `setup` never runs and no store is
 opened.
 
 A config that exports a bare graph (no `defineApp`) still gets a runtime host
-with the in-memory store. When its sources need connections that only `setup`
-can supply, the runtime reports a neutral `not-configured` state (printed once,
+with the in-memory store. When its sources need bindings that only `setup` can
+supply, the runtime reports a neutral `not-configured` state (printed once,
 shown as **No runtime**) instead of failing on every save.
 
 ### Seed the development runtime

@@ -35,7 +35,7 @@ operations bound to each request's principal.
 ```ts
 import { createRuntime } from '@relate/node';
 
-const relate = createRuntime({ graph, connections });
+const relate = createRuntime({ graph, bindings });
 
 // Planned: one adapter per runtime; the host resolves the principal per request.
 app.route(

@@ -6,7 +6,7 @@ Detailed behavior of the current slice. For an overview of the package, see
 Application composition for typed, authorized object reads. Private and
 unpublished while implementation is in progress.
 
-`defineApp` and `connect` are exported by `relate`. An app definition holds the
+`defineApp` and `bind` are exported by `relate`. An app definition holds the
 graph and deferred setup without executing it. `startApp` from `@relate/node`
 runs setup, compiles the graph, creates the runtime, and owns cleanup registered
 through `onDispose`. The inspector can compile `app.graph` without running
@@ -14,13 +14,13 @@ setup. Direct embedding can use `createRuntime` instead.
 
 ```ts
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { assertFields } from 'relate';
 
 const relate = createRuntime({
   graph, // defineGraph({ objects: { Customer }, access, policies, ... })
-  connections: [
-    connect(customers, {
+  bindings: [
+    bind(customers, {
       connectionId: 'crm-primary',
       providerAccountId: 'provider-account-123',
       connector,
@@ -120,9 +120,9 @@ them. `assertFields` narrows fields actually present. Omitting `select` requests
 all authorized fields. Refresh, stale fallback and strict completeness options
 are the same as the underlying engine.
 
-`connect` binds the actual source definition to a connector and stable
+`bind` binds the actual source definition to a connector and stable
 `connectionId`. Connections use shared service authorization by default (the
-only supported mode). Missing, duplicate or unregistered connections fail at
+only supported mode). Missing, duplicate or unregistered bindings fail at
 construction. Explicit provider denial must use `SourceAccessDenied` from
 `relate/connectors`; ordinary errors mean temporary unavailability.
 
@@ -193,7 +193,7 @@ Unknown membership evidence on an otherwise readable object rejects with
 `ReadError('incomplete')`. This is live enumeration, not a snapshot or a claim
 of complete provider coverage.
 
-Cursors hide the scan boundary and bind the caller, graph revision, connections,
+Cursors hide the scan boundary and bind the caller, graph revision, bindings,
 starting object, traversal and options. They expire after 15 minutes. The
 default key is private to each runtime; supply the same secret 32-byte
 `cursorKey` to trusted runtimes sharing storage if continuations must survive

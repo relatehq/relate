@@ -1,7 +1,7 @@
-# Function: connect()
+# Function: bind()
 
 ```ts
-function connect(source, binding): Connection;
+function bind(source, binding): Binding;
 ```
 
 Defined in: [packages/relate/src/app.ts:19](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L19)
@@ -17,4 +17,4 @@ This slice supports shared service credentials only. Credentials stay in the con
 
 ## Returns
 
-`Connection`
+`Binding`

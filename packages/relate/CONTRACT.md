@@ -2,11 +2,11 @@
 
 ## Portable application and extension contracts
 
-`connect`, `defineApp`, and their `Connection`, `AppBindings`, `AppDefinition`,
-and `AppSetupContext` types belong to `relate`. `connect` creates a frozen
-binding and defaults authorization to `shared-service`; it does not open a
-connection. `defineApp` preserves the exact graph type and stores deferred setup
-without invoking it. `isAppDefinition` recognizes the descriptor across module
+`bind`, `defineApp`, and their `Binding`, `AppBindings`, `AppDefinition`, and
+`AppSetupContext` types belong to `relate`. `bind` creates a frozen binding and
+defaults authorization to `shared-service`; it does not open a connection.
+`defineApp` preserves the exact graph type and stores deferred setup without
+invoking it. `isAppDefinition` recognizes the descriptor across module
 instances. Execution and registered cleanup belong to `startApp` in
 `@relate/node`.
 

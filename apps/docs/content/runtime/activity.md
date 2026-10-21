@@ -213,7 +213,7 @@ await runtime.host.adopt(Customer, 'crm_456', {
 ```ts
 const runtime = createRuntime({
   graph,
-  connections,
+  bindings,
   activity: {
     operations: 'enabled', // 'disabled' keeps the feed and provenance
     queueEntries: 1_000,

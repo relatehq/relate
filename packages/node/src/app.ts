@@ -42,7 +42,7 @@ export async function startApp<G extends Graph>(
             disposers.push(entry);
           },
         })
-      : { connections: [] };
+      : { bindings: [] };
 
     runtime = createRuntime({ ...bindings, graph: app.graph });
   } catch (error) {

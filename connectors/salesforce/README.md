@@ -9,7 +9,7 @@ no record discovery, continuous sync, webhooks, or provider writes.
 
 ```ts
 import { salesforce } from '@relate/connector-salesforce';
-import { connect } from 'relate';
+import { bind } from 'relate';
 
 const crm = salesforce({
   // Resolve one matching pair from your server-side OAuth credential store.
@@ -21,7 +21,7 @@ const crm = salesforce({
 const accounts = crm.resource('Account', { fields: ['Name', 'Website'] });
 
 // In defineApp.setup():
-const connection = connect(accountSource, {
+const connection = bind(accountSource, {
   connectionId: 'salesforce-crm',
   providerAccountId: expectedOrgId, // canonical 18-character Salesforce org ID
   connector: accounts,
@@ -108,7 +108,7 @@ const graph = defineGraph({
 const relate = await startApp(
   defineApp({
     graph,
-    setup: () => ({ connections: [connection] }),
+    setup: () => ({ bindings: [connection] }),
   }),
 );
 try {

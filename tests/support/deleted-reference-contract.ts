@@ -14,7 +14,7 @@ import {
 } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import type { ObservationStore } from '@relate/runtime/storage';
 import { createInvoiceGraph } from './invoice-graph.js';
 
@@ -93,8 +93,8 @@ export function deletedReferenceContract(
         graphId,
         store: backing.store,
         actionImplementations: [createTask],
-        connections: [
-          connect(customers, {
+        bindings: [
+          bind(customers, {
             providerAccountId: 'example-account',
             connectionId: 'crm',
             connector: {
@@ -111,7 +111,7 @@ export function deletedReferenceContract(
               }),
             },
           }),
-          connect(invoices, {
+          bind(invoices, {
             providerAccountId: 'example-account',
             connectionId: 'billing',
             connector: {

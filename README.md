@@ -174,13 +174,13 @@ Then connect the sources and read as an authenticated caller:
 ```ts
 const relate = createRuntime({
   graph,
-  connections: [
-    connect(crm, {
+  bindings: [
+    bind(crm, {
       connectionId: 'crm',
       providerAccountId: 'spindle-ferry-crm',
       connector: crmApi,
     }),
-    connect(billing, {
+    bind(billing, {
       connectionId: 'billing',
       connector: sqlite({ path: './billing.sqlite' }).table('invoices', {
         idColumn: 'id',

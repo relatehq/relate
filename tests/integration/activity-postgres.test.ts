@@ -3,7 +3,7 @@ import pg from 'pg';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
-  connect,
+  bind,
   defineAccess,
   defineAction,
   defineGraph,
@@ -80,8 +80,8 @@ describe('Postgres activity storage', () => {
       store,
       ...(crm.now ? { clock: crm.now } : {}),
       actionImplementations: [addAccountReview],
-      connections: [
-        connect(customers, {
+      bindings: [
+        bind(customers, {
           providerAccountId: 'example-account',
           connectionId: 'crm',
           connector: {
@@ -97,7 +97,7 @@ describe('Postgres activity storage', () => {
             }),
           },
         }),
-        connect(invoices, {
+        bind(invoices, {
           providerAccountId: 'example-account',
           connectionId: 'billing',
           connector: {
@@ -335,7 +335,7 @@ describe('Postgres activity storage', () => {
       graph: bulkGraph,
       graphId,
       store,
-      connections: [],
+      bindings: [],
       actionImplementations: [
         implementAction(bulkGraph, Add, async ({ objects }) => {
           for (let index = 0; index < 2_800; index++)

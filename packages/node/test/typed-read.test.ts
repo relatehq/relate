@@ -1,7 +1,7 @@
 import { assertFields, referenceInput } from 'relate';
 import { expect, it, vi } from 'vitest';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { createMemoryStore } from '@relate/runtime';
 import { SourceAccessDenied } from 'relate/connectors';
 import { graph, Customer, customers, ana, finance } from './model.js';
@@ -13,8 +13,8 @@ function fixture() {
   const relate = createRuntime({
     graph,
     clock: () => now,
-    connections: [
-      connect(customers, {
+    bindings: [
+      bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         connector: {
@@ -60,8 +60,8 @@ function fixture() {
 it('adopts once and reads selected fields through a principal-bound object', async () => {
   const relate = createRuntime({
     graph,
-    connections: [
-      connect(customers, {
+    bindings: [
+      bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm-primary',
         connector: {
@@ -277,7 +277,7 @@ it('binds an authenticated principal snapshot and keeps ingestion off the consum
 });
 
 it('validates registration before use instead of trusting structurally similar definitions', async () => {
-  expect(() => createRuntime({ graph, connections: [] })).toThrow(
+  expect(() => createRuntime({ graph, bindings: [] })).toThrow(
     'source binding',
   );
   const binding = {
@@ -291,13 +291,13 @@ it('validates registration before use instead of trusting structurally similar d
       }),
     },
   };
-  const connection = connect(customers, binding);
+  const connection = bind(customers, binding);
 
   expect(() =>
-    createRuntime({ graph, connections: [connection, connection] }),
+    createRuntime({ graph, bindings: [connection, connection] }),
   ).toThrow('Duplicate');
   expect(() =>
-    createRuntime({ graph, connections: [connect({ ...customers }, binding)] }),
+    createRuntime({ graph, bindings: [bind({ ...customers }, binding)] }),
   ).toThrow('Unregistered');
   const { relate } = fixture();
 
@@ -319,8 +319,8 @@ it('waits for an in-flight read at close and leaves borrowed storage usable', as
     release = resolve;
   });
   let block = false;
-  const connections = [
-    connect(customers, {
+  const bindings = [
+    bind(customers, {
       providerAccountId: 'example-account',
       connectionId: 'crm',
       connector: {
@@ -345,7 +345,7 @@ it('waits for an in-flight read at close and leaves borrowed storage usable', as
       },
     }),
   ];
-  const relate = createRuntime({ graph, connections, store });
+  const relate = createRuntime({ graph, bindings, store });
   const id = await relate.host.adopt(Customer, 'crm_456');
 
   block = true;
@@ -364,7 +364,7 @@ it('waits for an in-flight read at close and leaves borrowed storage usable', as
   expect(await pending).toMatchObject({ status: 'ok', id });
   await closing;
   expect(borrowedClose).not.toHaveBeenCalled();
-  const next = createRuntime({ graph, connections, store });
+  const next = createRuntime({ graph, bindings, store });
 
   expect(await next.as(ana).objects.Customer.get(id)).toMatchObject({
     status: 'ok',
@@ -376,8 +376,8 @@ it('waits for an in-flight read at close and leaves borrowed storage usable', as
 it('denies objects with no policy even when they have been adopted', async () => {
   const relate = createRuntime({
     graph: { ...graph, policies: { Customer: { read: 'deny' } } },
-    connections: [
-      connect(customers, {
+    bindings: [
+      bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm',
         connector: {

@@ -1,6 +1,6 @@
 # Application Setup & Lifecycle
 
-Use `defineApp` to keep the graph importable while deferring connections and
+Use `defineApp` to keep the graph importable while deferring bindings and
 storage until startup. `startApp` executes that setup and returns the typed
 runtime. The host owns its web server, authentication, and process signals.
 
@@ -12,7 +12,7 @@ and an implementation for every action registered in your graph.
 
 ```ts
 // app.ts
-import { connect, defineApp } from 'relate';
+import { bind, defineApp } from 'relate';
 import { graph, customers } from './model.js';
 
 export default defineApp({
@@ -24,8 +24,8 @@ export default defineApp({
 
     return {
       graphId: 'customer-directory',
-      connections: [
-        connect(customers, {
+      bindings: [
+        bind(customers, {
           connectionId: 'crm',
           connector: database.table('customers', {
             idColumn: 'id',
@@ -79,7 +79,7 @@ const store = createPostgresStore({
 });
 onDispose(() => store.close());
 await store.migrate();
-// Include store in the returned bindings, alongside connections and handlers.
+// Include store in the returned bindings, alongside bindings and handlers.
 ```
 
 The runtime borrows supplied stores and provider clients. `startApp` closes only

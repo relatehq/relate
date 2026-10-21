@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { expect, test } from 'vitest';
 import { startApp } from '@relate/node';
-import { connect, defineApp } from 'relate';
+import { bind, defineApp } from 'relate';
 import { sqlite } from '@relate/connector-sqlite';
 import { createCustomerGraph } from '../../../tests/support/customer-graph.js';
 
@@ -33,8 +33,8 @@ test('executes typed authorized reads without an account table', async ({
         onDispose(() => database.close());
 
         return {
-          connections: [
-            connect(customers, {
+          bindings: [
+            bind(customers, {
               connectionId: 'test-crm',
               connector: database.table('customers', {
                 idColumn: 'id',

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
-  connect,
+  bind,
   defineAccess,
   defineGraph,
   defineObject,
@@ -242,10 +242,10 @@ export function traversalFilterContract(
         graphId: randomUUID(),
         store: backing.store,
         clock: () => now,
-        connections: (
+        bindings: (
           ['people', 'transactions', 'groups', 'memberships'] as const
         ).map((type) =>
-          connect(model[type], {
+          bind(model[type], {
             providerAccountId: 'ledger',
             connectionId: type,
             connector: {

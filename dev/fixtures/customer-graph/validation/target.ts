@@ -495,12 +495,12 @@ type Complete<Ids extends string, T extends readonly Named[]> =
 
 // Connections
 
-export interface Connection {
+export interface Binding {
   readonly sourceId: string;
 }
 
 /** Binds a source to its provider. The connector is checked against the schema. */
-export declare function connect<S extends Record<string, z.ZodType>>(
+export declare function bind<S extends Record<string, z.ZodType>>(
   source: { readonly id: string; readonly schema: z.ZodObject<S> },
   binding: {
     connectionId: string;
@@ -514,7 +514,7 @@ export declare function connect<S extends Record<string, z.ZodType>>(
       >;
     };
   },
-): Connection;
+): Binding;
 
 // Results
 
@@ -740,7 +740,7 @@ export declare function createRuntime<
   actionImplementations: T &
     Complete<G['actions'][keyof G['actions']]['id'], T>;
   /** One per source the graph uses; a missing one fails at startup. */
-  connections: readonly Connection[];
+  bindings: readonly Binding[];
   /** Defaults to an isolated in-memory store. */
   store?: ObservationStore;
   /** The installed instance. Defaults to the graph's `id`. */

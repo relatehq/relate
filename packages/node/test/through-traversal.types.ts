@@ -3,7 +3,7 @@ import { defineObject, defineRelationship, referenceInput } from 'relate';
 import { createPlaylistGraph } from '../../../tests/support/playlist-graph.js';
 
 const { graph, Playlist, Song, Membership, reader } = createPlaylistGraph();
-const runtime = createRuntime({ graph, connections: [] });
+const runtime = createRuntime({ graph, bindings: [] });
 const objects = runtime.as(reader).objects;
 const playlist = referenceInput(Playlist).parse('playlist');
 const song = referenceInput(Song).parse('song');

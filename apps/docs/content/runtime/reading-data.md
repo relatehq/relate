@@ -16,7 +16,7 @@ where each field came from and how fresh it is.
 ```ts
 // runtime.ts
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { addAccountReview } from './actions/add-account-review.server.js';
 import { graph } from './graph.js';
 import { billingInvoices, crmCustomers } from './model.js';
@@ -26,13 +26,13 @@ export const relate = createRuntime({
   graph,
   // Every action registered in the graph needs an implementation.
   actionImplementations: [addAccountReview],
-  connections: [
-    connect(crmCustomers, {
+  bindings: [
+    bind(crmCustomers, {
       providerAccountId: 'crm-account',
       connectionId: 'crm-primary',
       connector: crmConnector,
     }),
-    connect(billingInvoices, {
+    bind(billingInvoices, {
       providerAccountId: 'billing-account',
       connectionId: 'billing-primary',
       connector: billingConnector,

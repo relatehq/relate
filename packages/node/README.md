@@ -4,14 +4,14 @@
 > Not ready for application use. APIs and behavior are incomplete and may change
 > without notice.
 
-Application composition for Node: compile an authored graph, bind connections
-and action implementations, and expose a typed, authorized consumer API. Private
-and unpublished while implementation is in progress.
+Application composition for Node: compile an authored graph, supply source
+bindings and action implementations, and expose a typed, authorized consumer
+API. Private and unpublished while implementation is in progress.
 
 ## Responsibility
 
-- `createRuntime({ graph, connections, actionImplementations?, store?, … })`
-  compiles the graph with `relate/compiler`, validates connections against the
+- `createRuntime({ graph, bindings, actionImplementations?, store?, … })`
+  compiles the graph with `relate/compiler`, validates bindings against the
   registered sources, binds action handlers, and starts a `@relate/runtime`
   engine.
 - `relate.as(principal)` returns consumer operations whose names and types are
@@ -34,8 +34,8 @@ and unpublished while implementation is in progress.
   trusted host APIs: the activity feed and operation history, who created or
   adopted an object, and a single call under a transport-assigned operation ID.
   None of them is exposed to consumers.
-- `connect` and `defineApp` are portable authoring helpers imported from
-  `relate`. This package executes their definitions.
+- `bind` and `defineApp` are portable authoring helpers imported from `relate`.
+  This package executes their definitions.
 
 Authorization, transactions and evidence belong to the engine. This package adds
 types, composition and lifecycle. Storage defaults to isolated memory; an
@@ -69,7 +69,7 @@ import {
   source,
 } from 'relate';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 
 const people = defineSource({
   id: 'example.people',
@@ -98,8 +98,8 @@ const graph = defineGraph({
 
 const relate = createRuntime({
   graph,
-  connections: [
-    connect(people, {
+  bindings: [
+    bind(people, {
       connectionId: 'directory',
       providerAccountId: 'example-account',
       connector: {

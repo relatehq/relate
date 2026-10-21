@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
-  connect,
+  bind,
   defineAccess,
   defineAction,
   defineGraph,
@@ -104,8 +104,8 @@ export function timestampQueryContract(
             return { count: page.data.length };
           }),
         ],
-        connections: [
-          connect(events, {
+        bindings: [
+          bind(events, {
             connectionId: 'events',
             connector: {
               identity: 'application',

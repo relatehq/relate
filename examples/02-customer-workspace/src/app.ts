@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { connect, defineApp, implementAction, type ObjectId } from 'relate';
+import { bind, defineApp, implementAction, type ObjectId } from 'relate';
 import { startApp } from '@relate/node';
 import { sqlite } from '@relate/connector-sqlite';
 import { startCrmSimulator } from '@relate/dev-crm-simulator';
@@ -80,13 +80,13 @@ export function createWorkspaceApp(
       return {
         graphId: 'customer-workspace',
         actionImplementations: [addAccountReview],
-        connections: [
-          connect(crmCustomers, {
+        bindings: [
+          bind(crmCustomers, {
             connectionId: 'demo-crm',
             providerAccountId: 'example-account',
             connector: crmConnector(crm.url),
           }),
-          connect(billingInvoices, {
+          bind(billingInvoices, {
             connectionId: 'demo-billing',
             connector: billing.table('invoices', {
               idColumn: 'id',

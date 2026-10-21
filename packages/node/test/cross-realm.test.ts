@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { runInNewContext } from 'node:vm';
 import { expect, it } from 'vitest';
-import { connect, implementAction } from 'relate';
+import { bind, implementAction } from 'relate';
 import { createRuntime } from '@relate/node';
 import { createMemoryStore } from '@relate/runtime';
 import {
@@ -36,8 +36,8 @@ function createSandboxRuntime(options: { sandboxRecords?: boolean } = {}) {
     actionImplementations: [
       implementAction(graph, AddAccountReview, addAccountReview.implementation),
     ],
-    connections: [
-      connect(customers, {
+    bindings: [
+      bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm',
         connector: {
@@ -49,7 +49,7 @@ function createSandboxRuntime(options: { sandboxRecords?: boolean } = {}) {
           }),
         },
       }),
-      connect(invoices, {
+      bind(invoices, {
         providerAccountId: 'example-account',
         connectionId: 'billing',
         connector: {

@@ -17,7 +17,7 @@ const selected = [
   'defineAction',
   'implementAction',
   'defineApp',
-  'connect',
+  'bind',
   'source',
   'nativeMembership',
   'objectId',

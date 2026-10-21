@@ -99,7 +99,7 @@ export function receiptRecoveryContract(
         graphId,
         store,
         actionTimeoutMs,
-        connections: [],
+        bindings: [],
         actionImplementations: [
           implementAction(graph, Create, async ({ objects, input }) =>
             objects.Secret.create({ ...input, optionalValue: undefined }),

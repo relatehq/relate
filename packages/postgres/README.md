@@ -47,7 +47,7 @@ const store = createPostgresStore({
 await store.migrate();
 
 // The store is borrowed: Relate neither migrates nor closes it.
-const relate = createRuntime({ graph, connections, store });
+const relate = createRuntime({ graph, bindings, store });
 
 try {
   const id = await relate.host.adopt(Customer, 'crm_456');

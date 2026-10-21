@@ -15,7 +15,7 @@ Private and unpublished while implementation is in progress.
   `defineAccess`, `defineAction` and `defineGraph`; the property constructors
   `objectId`, `from`, `native` and `reference`; `source` and `nativeMembership`;
   `implementAction`; and the boundary helpers `referenceInput` and
-  `assertFields`; `connect`, `defineApp`, and `isAppDefinition`.
+  `assertFields`; `bind`, `defineApp`, and `isAppDefinition`.
 - `relate/consumer`: the typed consumer facade shared by every surface:
   `createConsumer(description, operations)` builds `objects.Customer.get`,
   `objects.Customer.query`, `objects.Customer.traverse.invoices`,
@@ -66,10 +66,10 @@ An app author uses three steps:
 1. Define sources, objects, relationships, actions, and policies with `relate`.
    The graph describes the model; it contains no live provider clients.
 2. Wrap the graph in `defineApp({ graph, setup })` from `relate`. Inside setup,
-   open provider clients, bind each source with `connect`, and register cleanup.
-   `connect` only creates a binding; it performs no I/O.
+   open provider clients, bind each source with `bind`, and register cleanup.
+   `bind` only creates a binding; it performs no I/O.
 3. In a Node server entry point, call `startApp(app)` from `@relate/node`. The
-   host runs setup, compiles the graph, and supplies the connections to the
+   host runs setup, compiles the graph, and supplies the bindings to the
    runtime. It returns the typed consumer API and drains work before cleanup.
 
 ```ts
@@ -83,7 +83,7 @@ export default defineApp({
     const { openBindings } = await import('./bindings.js');
     const bindings = await openBindings();
     onDispose(() => bindings.close());
-    return { connections: bindings.connections };
+    return { bindings: bindings.bindings };
   },
 });
 ```

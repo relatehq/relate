@@ -6,7 +6,7 @@ import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
 
 const { graph, ana, Customer, Invoice } = createInvoiceGraph();
 
-const relate = createRuntime({ graph, connections: [] });
+const relate = createRuntime({ graph, bindings: [] });
 const objects = relate.as(ana).objects;
 const customerId = await relate.host.adopt(Customer, 'crm_1');
 const invoiceId = await relate.host.adopt(Invoice, 'billing_1');

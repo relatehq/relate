@@ -10,8 +10,8 @@ request/result types.
 ```ts
 import { createRuntime, startApp } from '@relate/node';
 
-// graph, connections and actionImplementations are your application bindings.
-const runtime = createRuntime({ graph, connections, actionImplementations });
+// graph, bindings and actionImplementations are your application bindings.
+const runtime = createRuntime({ graph, bindings, actionImplementations });
 // Alternatively, execute a defineApp descriptor's deferred setup:
 const started = await startApp(app);
 ```

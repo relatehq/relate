@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  connect,
+  bind,
   defineAccess,
   defineApp,
   defineGraph,
@@ -61,8 +61,8 @@ export const app = defineApp({
     onDispose('close');
 
     return {
-      connections: [
-        connect(people, {
+      bindings: [
+        bind(people, {
           connectionId: 'directory',
           providerAccountId: 'fixture',
           connector,
@@ -83,7 +83,7 @@ const missingAccount: SourceRecord = { state: 'deleted' };
 defineApp({ graph, setup: () => ({}) });
 
 export function withStore(store: ObservationStore): AppBindings<typeof graph> {
-  return { connections: [], store };
+  return { bindings: [], store };
 }
 
 void [person, missingAccount];
@@ -96,11 +96,11 @@ const applicationConnector: import('relate/connectors').ApplicationSourceConnect
     },
   };
 
-connect(people, { connectionId: 'local', connector: applicationConnector });
+bind(people, { connectionId: 'local', connector: applicationConnector });
 // @ts-expect-error provider verification requires an expected account
-connect(people, { connectionId: 'remote', connector });
+bind(people, { connectionId: 'remote', connector });
 // @ts-expect-error application identity must not claim a provider account
-connect(people, {
+bind(people, {
   connectionId: 'local',
   providerAccountId: 'fake',
   connector: applicationConnector,

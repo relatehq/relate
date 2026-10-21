@@ -27,10 +27,10 @@
       "reference",
       "api",
       "functions",
-      "connect"
+      "bind"
     ],
-    "name": "connect",
-    "title": "Function: connect()",
+    "name": "bind",
+    "title": "Function: bind()",
     "description": "API reference generated from Relate types and documentation comments.",
     "section": "API Reference"
   },

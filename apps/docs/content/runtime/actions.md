@@ -163,7 +163,7 @@ action has no implementation:
 export const relate = createRuntime({
   graph,
   actionImplementations: [addAccountReview],
-  connections: [/* … */],
+  bindings: [/* … */],
 });
 ```
 

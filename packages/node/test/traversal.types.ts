@@ -4,7 +4,7 @@ import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
 
 const { graph, ana, Customer, Invoice, invoices } = createInvoiceGraph();
 
-const relate = createRuntime({ graph, connections: [] });
+const relate = createRuntime({ graph, bindings: [] });
 const objects = relate.as(ana).objects;
 const customerId = referenceInput(Customer).parse('customer');
 const invoiceId = referenceInput(Invoice).parse('invoice');

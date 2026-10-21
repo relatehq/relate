@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { CompileError } from 'relate';
 import { createMemoryStore } from '@relate/runtime';
 import { createRuntime, startApp } from '@relate/node';
-import { connect, defineApp } from 'relate';
+import { bind, defineApp } from 'relate';
 import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
 
 const { Customer, ana, customers, graph, invoices } = createInvoiceGraph();
@@ -16,13 +16,13 @@ const connector = (record: Record<string, unknown>) => ({
   }),
 });
 
-const connections = () => [
-  connect(customers, {
+const bindings = () => [
+  bind(customers, {
     connectionId: 'crm',
     providerAccountId: 'example-account',
     connector: connector({ name: 'Mothlight', portfolio: 'north', revenue: 1 }),
   }),
-  connect(invoices, {
+  bind(invoices, {
     connectionId: 'billing',
     providerAccountId: 'example-account',
     connector: connector({
@@ -47,7 +47,7 @@ it('starts the runtime through setup once and disposes registered resources on c
         events.push('dispose:second');
       });
 
-      return { connections: connections(), store };
+      return { bindings: bindings(), store };
     },
   });
   const relate = await startApp(app);
@@ -93,7 +93,7 @@ it('releases resources registered before a setup or composition failure', async 
             events.push('dispose:bindings');
           });
 
-          return { connections: [] };
+          return { bindings: [] };
         },
       }),
     ),
@@ -128,7 +128,7 @@ it('preserves structured compilation failures through runtime construction', asy
   };
 
   try {
-    createRuntime({ graph: broken, connections: connections() });
+    createRuntime({ graph: broken, bindings: bindings() });
     throw new Error('expected failure');
   } catch (error) {
     expectIssues(error);
@@ -145,7 +145,7 @@ it('preserves structured compilation failures through runtime construction', asy
             events.push('dispose');
           });
 
-          return { connections: connections() };
+          return { bindings: bindings() };
         },
       }),
     );

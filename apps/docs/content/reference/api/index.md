@@ -19,7 +19,7 @@
 ## Functions
 
 - [assertFields](functions/assertFields.md)
-- [connect](functions/connect.md)
+- [bind](functions/bind.md)
 - [defineAccess](functions/defineAccess.md)
 - [defineAction](functions/defineAction.md)
 - [defineApp](functions/defineApp.md)

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  connect,
+  bind,
   defineAccess,
   defineApp,
   defineGraph,
@@ -51,8 +51,8 @@ export function customerApp(
   const app = defineApp({
     graph,
     setup: () => ({
-      connections: [
-        connect(accounts, {
+      bindings: [
+        bind(accounts, {
           connectionId: 'salesforce',
           providerAccountId,
           connector,

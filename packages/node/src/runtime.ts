@@ -136,7 +136,7 @@ export function createRuntime<
   );
   const sources: Record<string, SourceBinding> = {};
 
-  for (const connection of options.connections) {
+  for (const connection of options.bindings) {
     if (!resources.has(connection.source))
       throw new Error('Unregistered source connection');
 

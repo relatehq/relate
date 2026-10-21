@@ -16,7 +16,7 @@ import {
   source,
 } from 'relate';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
 
 const { access, ana, Customer, customers, graph, Invoice, invoices } =
@@ -61,8 +61,8 @@ it('enforces multiple predicates across two reference hops without exposing evid
         },
       },
     },
-    connections: [
-      connect(customers, {
+    bindings: [
+      bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm',
         connector: {
@@ -74,7 +74,7 @@ it('enforces multiple predicates across two reference hops without exposing evid
           }),
         },
       }),
-      connect(invoices, {
+      bind(invoices, {
         providerAccountId: 'example-account',
         connectionId: 'billing',
         connector: {
@@ -91,7 +91,7 @@ it('enforces multiple predicates across two reference hops without exposing evid
           }),
         },
       }),
-      connect(credits, {
+      bind(credits, {
         providerAccountId: 'example-account',
         connectionId: 'credits',
         connector: {

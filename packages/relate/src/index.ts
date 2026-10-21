@@ -597,10 +597,10 @@ export type {
   SourceSite,
 } from './diagnostics.js';
 
-export { connect, defineApp, isAppDefinition } from './app.js';
+export { bind, defineApp, isAppDefinition } from './app.js';
 
 export type {
-  Connection,
+  Binding,
   AppBindings,
   AppDefinition,
   AppSetupContext,

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 import {
-  connect,
+  bind,
   defineAccess,
   defineApp,
   defineGraph,
@@ -63,8 +63,8 @@ test('Stripe executes authorized refreshes, denies revoked access/account change
       setup: () => ({
         graphId: 'stripe-read-test',
         clock: () => now,
-        connections: [
-          connect(customers, {
+        bindings: [
+          bind(customers, {
             connectionId: 'stripe',
             providerAccountId: 'acct_one:test',
             connector: stripe({
@@ -144,8 +144,8 @@ test('a missing Stripe key reports the source unavailable, not the record missin
       setup: () => ({
         graphId: 'stripe-misconfigured-test',
         clock: () => now,
-        connections: [
-          connect(customers, {
+        bindings: [
+          bind(customers, {
             connectionId: 'stripe',
             providerAccountId: 'acct_one:test',
             connector: stripe({

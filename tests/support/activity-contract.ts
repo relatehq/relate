@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { connect, implementAction } from 'relate';
+import { bind, implementAction } from 'relate';
 import type { ActionContext } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/node';
@@ -84,7 +84,7 @@ export function activityContract(
     });
 
     function crmConnection() {
-      return connect(customers, {
+      return bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm',
         connector: {
@@ -120,7 +120,7 @@ export function activityContract(
         actionImplementations: [
           implementAction(domainGraph, Review, options.handler ?? review),
         ],
-        connections: [crmConnection()],
+        bindings: [crmConnection()],
       });
     }
 
@@ -975,8 +975,8 @@ export function lineageContract(
         graph: customerGraph,
         graphId: randomUUID(),
         store,
-        connections: [
-          connect(customers, {
+        bindings: [
+          bind(customers, {
             providerAccountId: 'example-account',
             connectionId: 'crm',
             connector: {

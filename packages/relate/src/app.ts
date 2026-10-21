@@ -9,17 +9,17 @@ import type { ActivityCaptureOptions, ObservationStore } from './storage.js';
 
 type Graph = GraphDefinition & { readonly objects: ObjectRegistry };
 
-export type Connection = SourceBinding & { readonly source: SourceDefinition };
+export type Binding = SourceBinding & { readonly source: SourceDefinition };
 
 type ConnectionOptions<T = SourceBinding> = T extends SourceBinding
   ? Omit<T, 'authorization'> & { readonly authorization?: 'shared-service' }
   : never;
 
 /** This slice supports shared service credentials only. Credentials stay in the connector. */
-export function connect(
+export function bind(
   source: SourceDefinition,
   binding: ConnectionOptions,
-): Connection {
+): Binding {
   return Object.freeze({
     ...binding,
     source,
@@ -37,7 +37,7 @@ export interface AppBindings<
   }
     ? { [K in keyof A]: ActionImplementation<G, A[K]> }[keyof A]
     : never)[];
-  readonly connections: readonly Connection[];
+  readonly bindings: readonly Binding[];
   readonly graphId?: string;
   /** Borrowed storage: the caller owns migrations and closing it. */
   readonly store?: ObservationStore;

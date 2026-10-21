@@ -1,7 +1,7 @@
 # Connecting Sources
 
 A source definition describes records. A connector reads them from an external
-system, and `connect(source, binding)` attaches that access to your graph.
+system, and `bind(source, binding)` attaches that access to your graph.
 Connectors do not own your business objects, property mappings, or policies.
 
 ## Choose a Connector
@@ -26,7 +26,7 @@ connects that source to the reader and supplies its stable identity.
 
 ```ts
 import { sqlite } from '@relate/connector-sqlite';
-import { connect, defineApp } from 'relate';
+import { bind, defineApp } from 'relate';
 import { graph, customers } from './model.js';
 
 // This example assumes graph's only source is customers.
@@ -37,8 +37,8 @@ export default defineApp({
     onDispose(() => database.close());
 
     return {
-      connections: [
-        connect(customers, {
+      bindings: [
+        bind(customers, {
           connectionId: 'crm',
           connector: database.table('customers', {
             idColumn: 'id',

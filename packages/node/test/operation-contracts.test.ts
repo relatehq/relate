@@ -1,6 +1,6 @@
 import { inspect } from 'node:util';
 import { expect, it } from 'vitest';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import type { SourceConnector } from 'relate/connectors';
 import { createRuntime } from '@relate/node';
 import { operationContracts } from '@relate/runtime';
@@ -33,13 +33,13 @@ function createInvoiceApp() {
   const relate = createRuntime({
     graph: model.graph,
     cursorKey: new Uint8Array(32).fill(3),
-    connections: [
-      connect(model.customers, {
+    bindings: [
+      bind(model.customers, {
         connectionId: 'crm',
         providerAccountId: 'account',
         connector: connector(rows.customers),
       }),
-      connect(model.invoices, {
+      bind(model.invoices, {
         connectionId: 'billing',
         providerAccountId: 'account',
         connector: connector(rows.invoices),
