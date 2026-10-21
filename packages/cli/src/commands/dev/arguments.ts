@@ -18,12 +18,15 @@ export interface DevArguments {
   readonly allowedOrigins: readonly string[];
 }
 
-import { DEFAULT_PORT_RANGE, DEFAULT_EVAL_TIMEOUT_MS } from '@relate/dev';
+import {
+  DEFAULT_PORT_RANGE,
+  DEFAULT_EVAL_TIMEOUT_MS,
+  MAX_TIMER_MS,
+  normalizeAllowedOrigin as normalizeServiceOrigin,
+  normalizeDevOptions,
+} from '@relate/dev';
 
 export { DEFAULT_PORT_RANGE, DEFAULT_EVAL_TIMEOUT_MS } from '@relate/dev';
-
-/** Node's timer limit. */
-const MAX_TIMER_MS = 2_147_483_647;
 
 export class UsageError extends Error {
   constructor(message: string) {
@@ -78,46 +81,15 @@ function integer(
   return parsed;
 }
 
-/** Exact origin: scheme and host, optional port normalized to the scheme default. */
+/** Preserve command usage errors while sharing the service's origin rules. */
 export function normalizeAllowedOrigin(value: string): string {
-  let url: URL;
-
   try {
-    url = new URL(value);
-  } catch {
+    return normalizeServiceOrigin(value);
+  } catch (error) {
     throw new UsageError(
-      `--allowed-origin must be an absolute origin; got ${value}`,
+      (error as Error).message.replace('allowedOrigins', '--allowed-origin'),
     );
   }
-
-  const loopback =
-    url.hostname === '127.0.0.1' ||
-    url.hostname === 'localhost' ||
-    url.hostname === '[::1]';
-
-  if (
-    (url.pathname !== '/' && url.pathname !== '') ||
-    url.search ||
-    url.hash ||
-    url.username ||
-    url.password ||
-    value.includes('*')
-  )
-    throw new UsageError(
-      `--allowed-origin accepts scheme and host only, no path, query, fragment, credentials or wildcard; got ${value}`,
-    );
-
-  if (url.protocol === 'http:' && !loopback)
-    throw new UsageError(
-      `--allowed-origin requires HTTPS for remote origins; got ${value}`,
-    );
-
-  if (url.protocol !== 'http:' && url.protocol !== 'https:')
-    throw new UsageError(
-      `--allowed-origin must use http or https; got ${value}`,
-    );
-
-  return url.origin;
 }
 
 export function parseDevArguments(
@@ -209,15 +181,20 @@ export function parseDevArguments(
   if (seed && !runtime)
     throw new UsageError('--seed cannot be combined with --no-runtime');
 
-  return Object.freeze({
-    config,
+  const normalized = normalizeDevOptions({
     port,
-    open,
-    quiet,
+    evalTimeoutMs,
+    allowedOrigins,
     runtime,
     seed,
     rotateMcpToken,
-    evalTimeoutMs,
-    allowedOrigins: Object.freeze([...new Set(allowedOrigins)]),
+  });
+
+  return Object.freeze({
+    ...normalized,
+    config,
+    open,
+    quiet,
+    allowedOrigins: Object.freeze(normalized.allowedOrigins),
   });
 }

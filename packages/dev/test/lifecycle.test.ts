@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, expect, it, vi } from 'vitest';
+import { build } from 'esbuild';
 import { createInspectorApp } from '@relate/inspector/server';
 import { startDev } from '../src/start.js';
 import type { DevServiceEvent } from '../src/start.js';
@@ -59,7 +60,19 @@ export default defineGraph({ id: 'demo', objects: {}, access: defineAccess({ rol
 
   await writeFile(config, source);
 
-  return { cwd, config, source };
+  // Build the worker from the same source tree as startDev, never stale dist.
+  const workerPath = join(cwd, 'worker.mjs');
+
+  await build({
+    entryPoints: [fileURLToPath(new URL('../src/worker.ts', import.meta.url))],
+    outfile: workerPath,
+    bundle: true,
+    packages: 'external',
+    platform: 'node',
+    format: 'esm',
+  });
+
+  return { cwd, config, source, workerPath };
 }
 
 it('keeps one service through builds and diagnostics, without owning process signals', async () => {
@@ -72,7 +85,7 @@ it('keeps one service through builds and diagnostics, without owning process sig
     runtime: false,
     env: {},
     onEvent: (event) => events.push(event),
-    workerPath: fileURLToPath(new URL('../dist/worker.js', import.meta.url)),
+    workerPath: app.workerPath,
   });
 
   cleanups.push(() => dev.close());
@@ -133,9 +146,44 @@ it('releases resources and the project lock after a startup failure', async () =
   await expect(readFile(lockPath(app.cwd))).rejects.toMatchObject({
     code: 'ENOENT',
   });
-  const dev = await startDev({ cwd: app.cwd, runtime: false, env: {} });
+  const dev = await startDev({
+    cwd: app.cwd,
+    runtime: false,
+    env: {},
+    workerPath: app.workerPath,
+  });
 
   cleanups.push(() => dev.close());
   expect(dev.kind).toBe('started');
   await dev.close({ immediate: true });
+});
+
+it('preserves the startup error when cleanup also fails and still releases the lock', async () => {
+  const app = await project();
+  const originalBind = vi.mocked(bindLoopback).getMockImplementation()!;
+  const cleanupError = new Error('listener cleanup failed');
+
+  vi.mocked(bindLoopback).mockImplementationOnce(async (...args) => {
+    const bound = await originalBind(...args);
+
+    vi.mocked(bound.server.close).mockImplementationOnce(() => {
+      throw cleanupError;
+    });
+
+    return bound;
+  });
+
+  await expect(
+    startDev({
+      cwd: app.cwd,
+      runtime: false,
+      env: {},
+      inspector: createInspectorApp({
+        assetsDirectory: join(app.cwd, 'missing-assets'),
+      }),
+    }),
+  ).rejects.toThrow('Inspector assets are missing');
+  await expect(readFile(lockPath(app.cwd))).rejects.toMatchObject({
+    code: 'ENOENT',
+  });
 });

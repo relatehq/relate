@@ -32,7 +32,14 @@ export type {
   DevServiceEvent,
 } from './start.js';
 
-export { DEFAULT_PORT_RANGE, DEFAULT_EVAL_TIMEOUT_MS } from './options.js';
+export {
+  DEFAULT_PORT_RANGE,
+  DEFAULT_EVAL_TIMEOUT_MS,
+  MAX_TIMER_MS,
+  DevOptionsError,
+  normalizeAllowedOrigin,
+  normalizeDevOptions,
+} from './options.js';
 
 export {
   DEFAULT_RUNTIME_DRAIN_TIMEOUT_MS,

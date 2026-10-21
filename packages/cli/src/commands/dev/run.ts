@@ -1,11 +1,6 @@
 /** Command adapter: flags, presentation, browser opening and process signals. */
 import type { Writable } from 'node:stream';
-import {
-  DevStartError,
-  ListenError,
-  ProjectError,
-  startDev,
-} from '@relate/dev';
+import { DevStartError, startDev } from '@relate/dev';
 import type { DevService, DevServiceEvent } from '@relate/dev';
 import { UsageError, devUsage, parseDevArguments } from './arguments.js';
 import { openBrowser } from './open.js';
@@ -102,24 +97,44 @@ export async function runDev(options: RunDevOptions): Promise<number> {
   let service: DevService | undefined;
   let signalCount = 0;
   let resolveStopped!: () => void;
-  let rejectStopped!: (error: unknown) => void;
-  const stopped = new Promise<void>((resolve, reject) => {
+  let shutdownError: unknown;
+  let result: number = exitCodes.ok;
+  const reported = new Set<unknown>();
+  const reportError = (error: unknown) => {
+    result = exitCodes.fatal;
+
+    if (reported.has(error)) return;
+
+    reported.add(error);
+    const message = error instanceof Error ? error.message : String(error);
+    const details =
+      error instanceof DevStartError && error.lock
+        ? `\n         Lock: ${error.lock.path}\n         If no relate dev is running for this project, remove that file and retry.`
+        : '';
+
+    options.stderr.write(
+      `  ${color ? '\u001b[31merror\u001b[39m' : 'error'}  ${message}${details}\n`,
+    );
+  };
+  // A signal can arrive while browser opening is pending. Always settle without
+  // rejecting; report failures once control returns to the command adapter.
+  const stopped = new Promise<void>((resolve) => {
     resolveStopped = resolve;
-    rejectStopped = reject;
   });
-  const shutdown = () => {
-    if (service)
-      void service
-        .close({ immediate: signalCount > 1 })
-        .then(resolveStopped, rejectStopped);
+  const shutdown = async () => {
+    try {
+      await service?.close({ immediate: signalCount > 1 });
+    } catch (error) {
+      shutdownError = error;
+    } finally {
+      resolveStopped();
+    }
   };
   const onSignal = () => {
     signalCount += 1;
-    shutdown();
+    void shutdown();
   };
   const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
-
-  for (const signal of signals) process.on(signal, onSignal);
 
   try {
     service = await startDev({
@@ -137,7 +152,8 @@ export async function runDev(options: RunDevOptions): Promise<number> {
         (options[stream].writableLength ?? 0) > 1_000_000,
     });
 
-    if (signalCount) shutdown();
+    // Preserve Node's default signal behavior until startup has completed.
+    for (const signal of signals) process.on(signal, onSignal);
 
     if (service.kind === 'existing') {
       options.stdout.write(
@@ -167,23 +183,18 @@ export async function runDev(options: RunDevOptions): Promise<number> {
 
     if (service.kind === 'started') await stopped;
 
-    return exitCodes.ok;
+    if (shutdownError !== undefined) reportError(shutdownError);
   } catch (error) {
-    if (!(
-      error instanceof DevStartError ||
-      error instanceof ProjectError ||
-      error instanceof ListenError
-    ))
-      throw error;
-
-    options.stderr.write(
-      `  ${color ? '\u001b[31merror\u001b[39m' : 'error'}  ${error.message}\n`,
-    );
-
-    return exitCodes.fatal;
+    reportError(error);
   } finally {
     for (const signal of signals) process.off(signal, onSignal);
 
-    await service?.close();
+    try {
+      await service?.close();
+    } catch (error) {
+      reportError(error);
+    }
   }
+
+  return result;
 }

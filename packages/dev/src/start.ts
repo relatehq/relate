@@ -33,7 +33,7 @@ import { createWatcher } from './watcher.js';
 
 import type { Manifest } from 'relate/model';
 import type { Diagnostic, RuntimeStatus } from '@relate/inspector/protocol';
-import { DEFAULT_EVAL_TIMEOUT_MS } from './options.js';
+import { normalizeDevOptions } from './options.js';
 
 /** Notifications from the service; the caller chooses how to present them. */
 export type DevServiceEvent =
@@ -102,7 +102,10 @@ export interface DevService extends DevServiceInfo {
 }
 
 export class DevStartError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly lock?: { readonly reason: string; readonly path: string },
+  ) {
     super(message);
     this.name = 'DevStartError';
   }
@@ -147,11 +150,7 @@ async function verifyOwner(metadata: LockMetadata): Promise<boolean> {
 export async function startDev(options: StartDevOptions): Promise<DevService> {
   const args = {
     ...options,
-    runtime: options.runtime ?? true,
-    seed: options.seed ?? false,
-    rotateMcpToken: options.rotateMcpToken ?? false,
-    evalTimeoutMs: options.evalTimeoutMs ?? DEFAULT_EVAL_TIMEOUT_MS,
-    allowedOrigins: options.allowedOrigins ?? [],
+    ...normalizeDevOptions(options),
   };
   const env = options.env ?? process.env;
   const emit = (event: DevServiceEvent) => options.onEvent?.(event);
@@ -214,9 +213,10 @@ export async function startDev(options: StartDevOptions): Promise<DevService> {
   }
 
   if (acquired.kind === 'unverifiable')
-    return fail(
-      `${acquired.reason}.\n         Lock: ${acquired.path}\n         If no relate dev is running for this project, remove that file and retry.`,
-    );
+    throw new DevStartError(acquired.reason, {
+      reason: acquired.reason,
+      path: acquired.path,
+    });
 
   const lock: Lock = acquired.lock;
   let app: Hono | null = null;
@@ -529,7 +529,8 @@ export async function startDev(options: StartDevOptions): Promise<DevService> {
 
     return { ...info, kind: 'started', close };
   } catch (error) {
-    await close();
+    // Cleanup attempts every disposer; its failure must not replace the startup error.
+    await close().catch(() => {});
     throw error;
   }
 }

@@ -42,11 +42,14 @@ export default defineApp({ graph: defineGraph({
   return { cwd, config, source };
 }
 
-async function session(dev: DevService) {
+async function session(dev: DevService, origin?: string) {
   const url = new URL(dev.inspectorUrl);
   const response = await fetch(`${url.origin}/dev/session`, {
     method: 'POST',
-    headers: { origin: url.origin, 'content-type': 'application/json' },
+    headers: {
+      origin: origin ?? url.origin,
+      'content-type': 'application/json',
+    },
     body: JSON.stringify({
       token: new URLSearchParams(url.hash.slice(1)).get('token'),
     }),
@@ -92,6 +95,7 @@ it('embeds the service without signal handlers and preserves its session across 
     cwd: app.cwd,
     port: 0,
     env: {},
+    allowedOrigins: ['HTTP://LOCALHOST:3000/'],
     onEvent: (event) => events.push(event),
   });
 
@@ -100,7 +104,7 @@ it('embeds the service without signal handlers and preserves its session across 
   expect(signals.map((signal) => process.listenerCount(signal))).toEqual(
     listeners,
   );
-  const { origin, cookie } = await session(dev);
+  const { origin, cookie } = await session(dev, 'http://localhost:3000');
   const first = await waitForSnapshot(
     origin,
     cookie,
@@ -185,3 +189,26 @@ it('releases the listener and project lock when startup fails after binding', as
   expect(dev.kind).toBe('started');
   await dev.close({ immediate: true });
 });
+
+it.each([
+  { port: -1 },
+  { port: 65_536 },
+  { port: 1.5 },
+  { port: NaN },
+  { evalTimeoutMs: 0 },
+  { evalTimeoutMs: -1 },
+  { evalTimeoutMs: 2_147_483_648 },
+  { evalTimeoutMs: Infinity },
+  { evalTimeoutMs: NaN },
+  { evalTimeoutMs: 1.5 },
+  { allowedOrigins: ['http://remote.example/'] },
+  { allowedOrigins: ['https://example.com/path'] },
+  { seed: true, runtime: false },
+])(
+  'rejects invalid public options before resolving a project: %j',
+  async (options) => {
+    await expect(
+      startDev({ cwd: '/missing-relate-project', ...options }),
+    ).rejects.toMatchObject({ name: 'DevOptionsError' });
+  },
+);

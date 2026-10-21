@@ -421,6 +421,21 @@ write to the terminal or open a browser. `env` defaults to `process.env`;
 when the same project/config/port/seed setting already has a verified owner.
 Both return `project`, `pid`, `inspectorUrl`, `mcpUrl` and an optional
 `mcpCommand`. `close()` is idempotent; on an `existing` handle it is a no-op.
+Options are validated before any project resources are acquired. `port` accepts
+integers from 0 through 65535 (`0` requests an available port); `evalTimeoutMs`
+accepts integers from 1 through 2147483647. `allowedOrigins` accepts exact
+HTTP(S) origins, normalizes trailing slashes and default ports, and requires
+HTTPS except on loopback. Invalid options throw `DevOptionsError`; `seed: true`
+requires the runtime. The CLI additionally requires an explicit port to be at
+least 1.
+
+Startup failures retain their original error even if cleanup also fails. An
+unverifiable owner throws `DevStartError` with `lock: { reason, path }` for the
+caller to present. Shutdown failures reject `close()` with an `AggregateError`
+after attempting every disposer. The CLI formats these errors and exits with
+code 1. During startup it retains Node's default signal behavior; after startup
+it closes the service on a signal.
+
 `close({ immediate: true })` also terminates a pending compile child without its
 grace period, including during an ongoing close.
 
