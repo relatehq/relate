@@ -52,7 +52,7 @@ async function session(dev: DevService) {
     }),
   });
 
-  expect(response.status).toBe(200);
+  expect(response.status).toBe(204);
 
   return {
     origin: url.origin,
