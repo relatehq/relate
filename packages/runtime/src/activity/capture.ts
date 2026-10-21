@@ -49,8 +49,10 @@ export function fieldLineage(
     unavailable: string[] = [];
 
   for (const [name, field] of Object.entries(fields)) {
-    // Unknown names have no stable identity to record.
-    const id = object?.properties.find((p) => p.name === name)?.id;
+    // Caller aliases and unknown names have no stable identity to record.
+    const id =
+      object?.properties.find((p) => p.name === name)?.id ??
+      object?.calculations?.find((p) => p.name === name)?.id;
 
     if (!id) continue;
 
