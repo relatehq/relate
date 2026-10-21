@@ -3,7 +3,7 @@
  * only on address-in-use, never probe-release-rebind.
  */
 import type { Server } from 'node:http';
-import { DEFAULT_PORT_RANGE } from './arguments.js';
+import { DEFAULT_PORT_RANGE } from './options.js';
 
 export const LOOPBACK_HOST = '127.0.0.1';
 

@@ -81,6 +81,15 @@ export const packagePolicies: Record<
   },
   'packages/cli': {
     imports: [
+      '@relate/dev',
+      '@relate/inspector/protocol',
+      'relate/model',
+      'relate/diagnostics',
+    ],
+    builtins: true,
+  },
+  'packages/dev': {
+    imports: [
       'relate',
       'relate/compiler',
       'relate/consumer',

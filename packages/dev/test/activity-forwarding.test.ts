@@ -6,7 +6,7 @@ import type {
   FeedEntry,
   Operation,
 } from '@relate/protocol';
-import { createActivityForwarder } from '../src/dev/activity/forwarding.js';
+import { createActivityForwarder } from '../src/activity/forwarding.js';
 
 const runtimeId = 'runtime-1';
 

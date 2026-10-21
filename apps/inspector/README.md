@@ -5,6 +5,10 @@ project's object types and relationships, served by
 [`relate dev`](../../packages/cli/README.md) and updated from compiled Manifest
 snapshots as local code changes.
 
+The [development service](../../packages/dev/README.md) owns the live API,
+reload supervision, MCP, playground execution and agent. This package owns the
+UI, browser-safe wire schemas and static asset mount.
+
 The [specification](../../specs/2026-10-07-inspector.md) records the agreed
 foundation; this package is its first implementation. Its screens are the model
 graph (React Flow and ELK in a Web Worker, with a side panel for diagnostics and

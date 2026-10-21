@@ -41,6 +41,44 @@ const compiler = {
     "import 'node:crypto'; export function compile() {}",
 };
 
+it.each(['hono', 'relate/compiler', '@relate/node', '@anthropic-ai/sdk'])(
+  'keeps development backend dependency %s out of CLI implementation',
+  async (dependency) => {
+    await expect(
+      check({
+        'packages/cli/package.json': JSON.stringify({ name: '@relate/cli' }),
+        'packages/cli/src/backend.ts': `import '${dependency}';`,
+      }),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining('Forbidden dependency'),
+    });
+  },
+);
+
+it('prevents the development service from depending on CLI commands', async () => {
+  await expect(
+    check({
+      'packages/dev/package.json': JSON.stringify({ name: '@relate/dev' }),
+      'packages/dev/src/start.ts': "import '@relate/cli';",
+    }),
+  ).rejects.toMatchObject({
+    stderr: expect.stringContaining('Forbidden dependency'),
+  });
+});
+
+it('keeps the Node development service out of the Inspector browser', async () => {
+  await expect(
+    check({
+      'apps/inspector/package.json': JSON.stringify({
+        name: '@relate/inspector',
+      }),
+      'apps/inspector/src/browser.ts': "import '@relate/dev';",
+    }),
+  ).rejects.toMatchObject({
+    stderr: expect.stringContaining('Forbidden dependency'),
+  });
+});
+
 it.each(['connectors', 'storage'])(
   'keeps %s contracts independent of graph authoring, including type imports',
   async (entry) => {

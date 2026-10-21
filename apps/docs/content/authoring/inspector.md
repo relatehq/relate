@@ -434,3 +434,7 @@ Without `--port`, the command picks the first free port from **4318–4327** on
 For all flags and process behavior, see the
 [CLI reference](../../../../packages/cli/README.md). For authoring the model,
 see [Graph Modeling](./graph.md).
+
+The CLI delegates the development lifecycle to `@relate/dev`. For embedding the
+same service without command-line parsing or process signal handlers, see the
+[development service API](../../../../packages/dev/README.md#programmatic-api).

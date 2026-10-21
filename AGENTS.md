@@ -46,9 +46,9 @@ created and what changes for someone using the product.
 
 ## Fixing review comments
 
-When fixing review comments, fix the nits too, not just the bugs. Skip a
-comment only when the owner says to, or when it is wrong; say which ones were
-skipped and why.
+When fixing review comments, fix the nits too, not just the bugs. Skip a comment
+only when the owner says to, or when it is wrong; say which ones were skipped
+and why.
 
 ## Worktrees
 
@@ -157,7 +157,7 @@ does not grant permission to import it.
 | `packages/node`                                    | Node composition, lifecycle, source bindings, action implementations, and binding the engine to `ConsumerOperations` per principal (`as` returns the `relate/consumer` facade over it).                                                                            |
 | `packages/postgres`                                | Postgres persistence and migrations behind runtime storage contracts.                                                                                                                                                                                              |
 | `packages/client`, `packages/http`, `packages/mcp` | Remote client or transport surfaces over the protocol `ConsumerOperations` contract; their presence does not imply that a planned interface is complete.                                                                                                           |
-| `packages/cli`, `apps/inspector`                   | Local development workflow and Inspector UI/server integration.                                                                                                                                                                                                    |
+| `packages/cli`, `packages/dev`, `apps/inspector`   | CLI command adapters; development service lifecycle and backend; Inspector UI, wire protocol and static assets, respectively.                                                                                                                                      |
 | `connectors/*`                                     | Provider-specific system/resource access through `relate/connectors`; connectors do not own application graphs or policies.                                                                                                                                        |
 | `examples/*`                                       | Runnable, user-facing learning applications built only from public APIs.                                                                                                                                                                                           |
 | `tests/support`                                    | Shared test-owned models and acceptance-contract factories for package and persistence implementations.                                                                                                                                                            |

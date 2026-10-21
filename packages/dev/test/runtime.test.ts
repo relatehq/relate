@@ -14,8 +14,8 @@ import {
   createRuntimeController,
   defaultRuntimeHostPath,
   encodeRuntimeHostArguments,
-} from '@relate/cli';
-import type { ActivityLog, RuntimeController } from '@relate/cli';
+} from '@relate/dev';
+import type { ActivityLog, RuntimeController } from '@relate/dev';
 import type { RuntimeStatus } from '@relate/inspector/protocol';
 import { startApp } from '@relate/node';
 import { ActionError, ReadError } from '@relate/protocol';

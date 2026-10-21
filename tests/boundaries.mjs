@@ -34,6 +34,7 @@ const inspectorBrowserForbidden = new Set([
   '@relate/runtime/storage',
   '@relate/postgres',
   '@relate/cli',
+  '@relate/dev',
   '@relate/protocol',
 ]);
 const graph = new Map();
@@ -129,7 +130,7 @@ for (const workspace of workspaces) {
         (ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
         (ts.isExportDeclaration(node) && node.isTypeOnly);
 
-      // The CLI's application children (compile worker and runtime host)
+      // The development service's application children (compile worker and runtime host)
       // import the user's bundle and project packages by computed path.
       if (
         ts.isCallExpression(node) &&
@@ -138,11 +139,10 @@ for (const workspace of workspaces) {
             node.expression.text === 'require')) &&
         (!literal || !ts.isStringLiteral(literal)) &&
         !(
-          owner === 'packages/cli' &&
-          [
-            `src${sep}dev${sep}worker.ts`,
-            `src${sep}dev${sep}runtime-host.ts`,
-          ].includes(relative(directory, file)) &&
+          owner === 'packages/dev' &&
+          [`src${sep}worker.ts`, `src${sep}runtime-host.ts`].includes(
+            relative(directory, file),
+          ) &&
           node.expression.kind === ts.SyntaxKind.ImportKeyword
         )
       )
