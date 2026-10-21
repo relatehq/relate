@@ -1,0 +1,4027 @@
+{
+  "description": "Exploratory pagewise ranking measurements. Only warm Relate ranking samples retained; scope-first ordering, generated SQL replay and concurrency remain unmeasured. Not a performance baseline or validation of host limits.",
+  "runs": [
+    {
+      "metadata": {
+        "schemaVersion": 3,
+        "workloadVersion": 3,
+        "startedAt": "2026-10-21T19:14:16.608Z",
+        "commit": "3698131222ff0c989953f265419fbb773f7ad331",
+        "dirty": true,
+        "node": "v26.9.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "cpu": "Apple M2 Max",
+        "availableParallelism": 12,
+        "memoryBytes": 68719476736,
+        "profile": "capacity",
+        "concurrency": 1,
+        "objectStore": "memory",
+        "source": "synthetic connector with configured delay on refresh",
+        "sourceDelayMs": 0,
+        "analyticalAdapter": "public Node-host query pages with real dataset connector",
+        "ranking": "real computed pages followed by benchmark-local sort; not runtime orderBy",
+        "reference": "SQLite :memory:; index(customer,type,at); ANALYZE; synchronous driver; no network/pool",
+        "unavailableMeasurements": [
+          "database-server-execution",
+          "generated-sql-replay",
+          "runtime-computed-order",
+          "single-operation-full-scope"
+        ],
+        "performanceComparisonEligible": false
+      },
+      "totalSamples": 480,
+      "failures": 0,
+      "workloads": [
+        {
+          "config": {
+            "backend": "sqlite",
+            "objectStore": "memory",
+            "capture": "disabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 1250,
+            "events": 100000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "3.53.4",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 817.6592910000004,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.00874999999996362,
+                  "durationMs": 816.5927499999998
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 816.809917,
+                  "durationMs": 0.8517499999998108
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.0039999999999054126,
+                  "durationMs": 817.6583339999997
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 806.8845000000001,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.00966599999992468,
+                  "durationMs": 805.8439590000003
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 805.9798750000004,
+                  "durationMs": 0.9072909999995318
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004625000000032742,
+                  "durationMs": 806.8834159999997
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 807.317333,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.009917000000314147,
+                  "durationMs": 806.2685000000001
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 806.4307920000001,
+                  "durationMs": 0.8882499999999709
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004208000000289758,
+                  "durationMs": 807.3162920000004
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "sqlite",
+            "objectStore": "memory",
+            "capture": "enabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 1250,
+            "events": 100000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "3.53.4",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 805.9565839999996,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.00837500000034197,
+                  "durationMs": 805.0379170000006
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 805.2267919999995,
+                  "durationMs": 0.7317080000011629
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.003416999999899417,
+                  "durationMs": 805.9556250000005
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 6.718626000001677,
+                  "maxMs": 0.5572919999995065
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 214.1899990000038,
+                  "maxMs": 0.8614159999997355
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 7.306384999990769,
+                  "maxMs": 0.2662499999996726
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 48.019915999998375,
+                  "maxMs": 5.172583999999915
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 5.7481650000027,
+                  "maxMs": 0.3970420000005106
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.04274800000075629,
+                  "maxMs": 0.003917000000001281
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 403.85562599999867,
+                  "maxMs": 33.75274999999965
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 285.67091699999673,
+                  "maxMs": 24.355082999999468
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 37.87658199999805,
+                  "maxMs": 3.344374999998763
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 802.2293339999997,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.008874999999534339,
+                  "durationMs": 801.1687500000007
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 801.3969579999994,
+                  "durationMs": 0.8344170000000304
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.003832999998849118,
+                  "durationMs": 802.2283340000013
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 6.504042999997182,
+                  "maxMs": 0.5347079999992275
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 206.57520999996086,
+                  "maxMs": 0.7617919999993319
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 6.7845069999730185,
+                  "maxMs": 0.2822089999990567
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 45.43016500000158,
+                  "maxMs": 5.120082999999795
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 5.415370000000621,
+                  "maxMs": 0.40079100000002654
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.04125200000271434,
+                  "maxMs": 0.0041250000012951205
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 403.18112499999916,
+                  "maxMs": 32.40983299999971
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 287.90579300000354,
+                  "maxMs": 24.10333300000093
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 36.0463749999999,
+                  "maxMs": 3.068042000000787
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 806.3208750000013,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.008459000000584638,
+                  "durationMs": 805.2179579999993
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 805.4067090000008,
+                  "durationMs": 0.9160410000004049
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.003625000001193257,
+                  "durationMs": 806.3198339999999
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 6.971207999995386,
+                  "maxMs": 0.6361249999990832
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 190.48271199997544,
+                  "maxMs": 0.21612500000082946
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 7.989092999989225,
+                  "maxMs": 0.8062079999999696
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 45.68600100000003,
+                  "maxMs": 4.954458000000159
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 6.223000999998476,
+                  "maxMs": 0.43412499999976717
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.04062500000327418,
+                  "maxMs": 0.005708000000595348
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 402.5337070000005,
+                  "maxMs": 32.19737499999974
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 289.1202500000036,
+                  "maxMs": 24.92633299999943
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 37.491375000001426,
+                  "maxMs": 3.3897909999996045
+                }
+              },
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "postgres",
+            "objectStore": "memory",
+            "capture": "disabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 1250,
+            "events": 100000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 314.61612500000047,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.010499999998501153,
+                  "durationMs": 313.5
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 313.70916699999907,
+                  "durationMs": 0.9087920000001759
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.0036249999993742676,
+                  "durationMs": 314.61516699999993
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 296.3103749999991,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.009208000001308392,
+                  "durationMs": 295.4604589999999
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 295.64608299999963,
+                  "durationMs": 0.6669590000001335
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004000000000814907,
+                  "durationMs": 296.30966699999954
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 300.4683330000007,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.010291999999026302,
+                  "durationMs": 299.39537500000006
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 299.54245900000024,
+                  "durationMs": 0.9290409999994154
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.005541999998968095,
+                  "durationMs": 300.4669580000009
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "postgres",
+            "objectStore": "memory",
+            "capture": "enabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 1250,
+            "events": 100000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 301.5637079999997,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.006499999999505235,
+                  "durationMs": 300.7287500000002
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 300.8840419999997,
+                  "durationMs": 0.6802079999997659
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.0023339999988820637,
+                  "durationMs": 301.56254100000115
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 7.139332999993712,
+                  "maxMs": 0.8185410000005504
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 213.60828299995774,
+                  "maxMs": 0.2839169999988371
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 7.531871999974101,
+                  "maxMs": 0.2498749999995198
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 48.133624999998574,
+                  "maxMs": 4.735375000000204
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 5.6881239999984246,
+                  "maxMs": 0.42508300000008603
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.040334000001166714,
+                  "maxMs": 0.004583000001730397
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 70.37191699999676,
+                  "maxMs": 6.140290999999706
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 113.73454000000129,
+                  "maxMs": 9.676625000000058
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 39.10457999999926,
+                  "maxMs": 3.5326249999998254
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 297.0528340000001,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.007666999999855761,
+                  "durationMs": 296.2295410000006
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 296.40579199999956,
+                  "durationMs": 0.6489579999997659
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.003416999999899417,
+                  "durationMs": 297.05191600000035
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 6.309251000000586,
+                  "maxMs": 0.5483750000003056
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 207.92383199999495,
+                  "maxMs": 0.20104199999877892
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 7.379398999983096,
+                  "maxMs": 0.25954099999944447
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 47.288666000002195,
+                  "maxMs": 4.571916000000783
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 5.729793999997128,
+                  "maxMs": 0.5012090000000171
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.03925099999833037,
+                  "maxMs": 0.0037089999987074407
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 68.32708499999899,
+                  "maxMs": 6.4742499999993015
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 113.74641599999995,
+                  "maxMs": 9.908666999999696
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 38.35187399999995,
+                  "maxMs": 3.4574999999986176
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 302.0504579999997,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.010041999999884865,
+                  "durationMs": 301.2562080000007
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 301.39287500000137,
+                  "durationMs": 0.6616670000003069
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.005667000001267297,
+                  "durationMs": 302.04949999999917
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 6.505665000006047,
+                  "maxMs": 0.5784579999999551
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 208.64703799999006,
+                  "maxMs": 0.8625000000010914
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 7.536880999981804,
+                  "maxMs": 0.25541700000030687
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 47.01454199999898,
+                  "maxMs": 5.152125000000524
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 5.527210999998715,
+                  "maxMs": 0.3842919999988226
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.03979100000105973,
+                  "maxMs": 0.003875000000334694
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 70.4366670000054,
+                  "maxMs": 6.379249999999956
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 117.42353999999796,
+                  "maxMs": 11.306666000000405
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 37.50304100000176,
+                  "maxMs": 3.537124999998923
+                }
+              },
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "sqlite",
+            "objectStore": "memory",
+            "capture": "disabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 1250,
+            "events": 1000000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "3.53.4",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 3133.5459590000028,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.009207999999489402,
+                  "durationMs": 3132.545083000001
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 3132.6837080000005,
+                  "durationMs": 0.8651669999999285
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004625000001396984,
+                  "durationMs": 3133.5449999999983
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 3064.961542000001,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.009500000000116415,
+                  "durationMs": 3064.090833000002
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 3064.2610419999983,
+                  "durationMs": 0.7030000000013388
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.00466700000106357,
+                  "durationMs": 3064.9604160000017
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 3059.4329169999983,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.010750000001280569,
+                  "durationMs": 3058.304167000002
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 3058.508667000002,
+                  "durationMs": 0.9268329999977141
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.005458999999973457,
+                  "durationMs": 3059.431958000001
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "sqlite",
+            "objectStore": "memory",
+            "capture": "enabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 1250,
+            "events": 1000000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "3.53.4",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 3087.6168749999997,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.01033300000563031,
+                  "durationMs": 3086.5210420000003
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 3086.711417000006,
+                  "durationMs": 0.9086249999963911
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004832999999052845,
+                  "durationMs": 3087.615875000003
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 6.915833999992174,
+                  "maxMs": 0.6144999999960419
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 171.9289130001198,
+                  "maxMs": 0.8125839999993332
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 8.932961999926192,
+                  "maxMs": 0.8722500000003492
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 43.47366599999805,
+                  "maxMs": 4.61883300000045
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 6.361835000003339,
+                  "maxMs": 0.4453339999963646
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.0504170000058366,
+                  "maxMs": 0.0065420000028098
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 414.84670799998275,
+                  "maxMs": 34.31158399999549
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 2561.120250000007,
+                  "maxMs": 215.520583000005
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 36.14337500000693,
+                  "maxMs": 3.4985840000008466
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 3064.721792000004,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.010833000000275206,
+                  "durationMs": 3063.663416999996
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 3063.861374999993,
+                  "durationMs": 0.8642500000059954
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.005291999994369689,
+                  "durationMs": 3064.7209580000053
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 6.851916000014171,
+                  "maxMs": 0.6467909999992116
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 164.45241700011684,
+                  "maxMs": 0.6279999999969732
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 7.708777999861923,
+                  "maxMs": 0.2587500000008731
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 42.24304299998039,
+                  "maxMs": 4.612791999999899
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 6.180581999993592,
+                  "maxMs": 0.4517500000001746
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.041666999997687526,
+                  "maxMs": 0.004332999997131992
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 413.83854200000496,
+                  "maxMs": 33.195708999999624
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 2542.499290999993,
+                  "maxMs": 209.32345799999894
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 34.83174799999688,
+                  "maxMs": 3.073792000002868
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 3077.9972079999934,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.009124999996856786,
+                  "durationMs": 3076.9873330000046
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 3077.1057079999955,
+                  "durationMs": 0.893792000002577
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004165999998804182,
+                  "durationMs": 3077.9961669999975
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 6.829962000003434,
+                  "maxMs": 0.5814590000009048
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 165.25772400000278,
+                  "maxMs": 0.6794999999983702
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 7.903547000067192,
+                  "maxMs": 0.25649999999586726
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 41.78008400001272,
+                  "maxMs": 4.1145830000023125
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 6.174916000003577,
+                  "maxMs": 0.44141700000182027
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.04525199999625329,
+                  "maxMs": 0.00391700000182027
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 417.00541499999235,
+                  "maxMs": 34.59674999999697
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 2551.8280390000073,
+                  "maxMs": 210.9924170000013
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 36.06133699998463,
+                  "maxMs": 3.4667500000068685
+                }
+              },
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "postgres",
+            "objectStore": "memory",
+            "capture": "disabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 1250,
+            "events": 1000000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 1179.0089589999989,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.024374999993597157,
+                  "durationMs": 1176.4443339999998
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 1176.8976669999975,
+                  "durationMs": 2.118417000005138
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.010916999992332421,
+                  "durationMs": 1179.0071670000034
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 1212.4734999999928,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.02612500000395812,
+                  "durationMs": 1210.4787919999944
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 1210.8341669999936,
+                  "durationMs": 1.6479580000013812
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.011916999996174127,
+                  "durationMs": 1212.4716250000056
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 1146.67958299999,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.02329099999042228,
+                  "durationMs": 1144.0161670000089
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 1144.5578749999986,
+                  "durationMs": 2.1287909999955446
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.010874999992665835,
+                  "durationMs": 1146.6779999999999
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "postgres",
+            "objectStore": "memory",
+            "capture": "enabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 1250,
+            "events": 1000000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 1097.1779999999999,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.010250000006635673,
+                  "durationMs": 1095.0717080000031
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 1095.3923750000104,
+                  "durationMs": 1.7863749999960419
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004249999998137355,
+                  "durationMs": 1097.176250000004
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 14.137624999973923,
+                  "maxMs": 1.9558749999996508
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 469.62687400028517,
+                  "maxMs": 2.2150839999958407
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 20.45229699961783,
+                  "maxMs": 1.0801659999997355
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 100.90645899999072,
+                  "maxMs": 11.755541000005906
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 11.563290000005509,
+                  "maxMs": 1.2262079999927664
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.11904200000572018,
+                  "maxMs": 0.03991700000187848
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 87.51062499996624,
+                  "maxMs": 8.51837499999965
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 725.26112499999,
+                  "maxMs": 62.116582999995444
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 112.68145799999184,
+                  "maxMs": 14.345749999993131
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 978.4277920000022,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.023417000003973953,
+                  "durationMs": 977.3074579999957
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 977.5304170000018,
+                  "durationMs": 0.9076670000067679
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.012333999999100342,
+                  "durationMs": 978.4264160000021
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 8.182583999980125,
+                  "maxMs": 1.47795899999619
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 279.68850499982364,
+                  "maxMs": 0.8367919999873266
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 10.873371000314364,
+                  "maxMs": 1.0357910000020638
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 68.48466699998244,
+                  "maxMs": 15.079083000004175
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 7.996750999998767,
+                  "maxMs": 1.0955419999954756
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.06220600004598964,
+                  "maxMs": 0.00920899999618996
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 96.959915000014,
+                  "maxMs": 12.421916999999667
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 727.535790000009,
+                  "maxMs": 57.62675000001036
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 47.06004300000495,
+                  "maxMs": 8.860000000000582
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 930.8148750000109,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.009208000003127381,
+                  "durationMs": 930.0215420000022
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 930.1664170000004,
+                  "durationMs": 0.6492080000025453
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.003041999996639788,
+                  "durationMs": 930.8134580000042
+                }
+              ],
+              "counters": {
+                "membershipScans": 13,
+                "candidatesScanned": 1250,
+                "objectLoads": 2250,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 13,
+                "analyticalStatements": 13,
+                "computedSlots": 1000,
+                "capturedOperations": 13,
+                "candidatesAdmitted": 1000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 13,
+                  "totalMs": 6.682542000009562,
+                  "maxMs": 0.5713340000074822
+                },
+                "dependencyReads": {
+                  "count": 2250,
+                  "totalMs": 206.57971699978225,
+                  "maxMs": 0.7946669999946607
+                },
+                "finalization": {
+                  "count": 1039,
+                  "totalMs": 8.243616000123438,
+                  "maxMs": 0.30779200000688434
+                },
+                "candidates": {
+                  "count": 13,
+                  "totalMs": 48.896624000000884,
+                  "maxMs": 5.593249999990803
+                },
+                "planning": {
+                  "count": 26,
+                  "totalMs": 6.488043000004836,
+                  "maxMs": 0.5265000000072177
+                },
+                "queueWait": {
+                  "count": 13,
+                  "totalMs": 0.048418999984278344,
+                  "maxMs": 0.005791999996290542
+                },
+                "connectionStartup": {
+                  "count": 13,
+                  "totalMs": 86.2450409999874,
+                  "maxMs": 8.81737499999872
+                },
+                "execution": {
+                  "count": 13,
+                  "totalMs": 723.7297090000211,
+                  "maxMs": 58.77600000001257
+                },
+                "revalidation": {
+                  "count": 13,
+                  "totalMs": 39.96474899999157,
+                  "maxMs": 3.7521249999990687
+                }
+              },
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "sqlite",
+            "objectStore": "memory",
+            "capture": "disabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 12500,
+            "events": 100000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "3.53.4",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 9917.280417000002,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.013874999989639036,
+                  "durationMs": 9909.045458000008
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 9910.290792,
+                  "durationMs": 6.993000000002212
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.005957999994279817,
+                  "durationMs": 9917.279458999998
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 11411.700583999991,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.012166999993496574,
+                  "durationMs": 11403.639291
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 11404.934041999993,
+                  "durationMs": 6.769207999997889
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.005374999993364327,
+                  "durationMs": 11411.699375000011
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 10200.928040999992,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.010332999998354353,
+                  "durationMs": 10193.720792000007
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 10194.944917,
+                  "durationMs": 5.98475000000326
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004042000000481494,
+                  "durationMs": 10200.926957999996
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "sqlite",
+            "objectStore": "memory",
+            "capture": "enabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 12500,
+            "events": 100000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "3.53.4",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 9815.45754199999,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.009874999988824129,
+                  "durationMs": 9807.659667
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 9809.032624999993,
+                  "durationMs": 6.427666999981739
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004625000001396984,
+                  "durationMs": 9815.456624999992
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 62.75253399988287,
+                  "maxMs": 0.5962079999735579
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 5919.515313998854,
+                  "maxMs": 1.0542090000235476
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 72.05774800121435,
+                  "maxMs": 0.39841700001852587
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2647.762249000167,
+                  "maxMs": 34.94075000000885
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 60.463125999987824,
+                  "maxMs": 0.6325000000069849
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.5181220002123155,
+                  "maxMs": 0.009374999994179234
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 3982.518750999996,
+                  "maxMs": 42.02487499997369
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 2105.929577999981,
+                  "maxMs": 18.77066599999671
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 781.7777580000111,
+                  "maxMs": 7.357917000015732
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 9847.454582999984,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.013916999974753708,
+                  "durationMs": 9839.384875000018
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 9840.671124999993,
+                  "durationMs": 6.789124999981141
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.008999999990919605,
+                  "durationMs": 9847.453584000003
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 63.12571299992851,
+                  "maxMs": 0.6126249999797437
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 5974.072567000345,
+                  "maxMs": 1.0877920000057202
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 71.98864499956835,
+                  "maxMs": 0.3302499999990687
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2661.356416999857,
+                  "maxMs": 35.426957999996375
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 62.30817699988256,
+                  "maxMs": 0.4986250000074506
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.49374500004341826,
+                  "maxMs": 0.009916000009980053
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 3988.347291000042,
+                  "maxMs": 36.54391700000269
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 2111.684244000062,
+                  "maxMs": 22.530666000006022
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 786.1411609999486,
+                  "maxMs": 7.447749999992084
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 9922.125916000019,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.011916999996174127,
+                  "durationMs": 9914.710458000016
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 9916.068834000005,
+                  "durationMs": 6.06045799999265
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.005166999995708466,
+                  "durationMs": 9922.124917000008
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 62.60071399997105,
+                  "maxMs": 0.6284169999998994
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 6124.800775999,
+                  "maxMs": 12.768207999994047
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 80.48559499933617,
+                  "maxMs": 7.31287500000326
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2686.2186249999213,
+                  "maxMs": 37.81604099998367
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 60.959428000001935,
+                  "maxMs": 0.6064170000026934
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.5116730000881944,
+                  "maxMs": 0.013917000003857538
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 4014.219005000021,
+                  "maxMs": 45.634167000011075
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 2128.189788000105,
+                  "maxMs": 19.5305829999852
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 794.6945799998939,
+                  "maxMs": 7.737332999997307
+                }
+              },
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "postgres",
+            "objectStore": "memory",
+            "capture": "disabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 12500,
+            "events": 100000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 5637.994875000004,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.014125000016065314,
+                  "durationMs": 5630.573249999987
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 5631.8838340000075,
+                  "durationMs": 6.115125000011176
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.006334000005153939,
+                  "durationMs": 5637.993583000003
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 5513.518417000014,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.010833000007551163,
+                  "durationMs": 5506.05799999999
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 5507.298792000016,
+                  "durationMs": 6.221916000009514
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004417000018293038,
+                  "durationMs": 5513.5174579999875
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 5535.794875000021,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.012541000003693625,
+                  "durationMs": 5527.896875000006
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 5529.106291000004,
+                  "durationMs": 6.689792000019224
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004458000010345131,
+                  "durationMs": 5535.793833000003
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "postgres",
+            "objectStore": "memory",
+            "capture": "enabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 12500,
+            "events": 100000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 5815.2750839999935,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.007332999986829236,
+                  "durationMs": 5807.77337499999
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 5809.203041999979,
+                  "durationMs": 6.072750000021188
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.002666999993380159,
+                  "durationMs": 5815.273916000006
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 60.97933399974136,
+                  "maxMs": 1.9867499999818392
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 6091.472116999503,
+                  "maxMs": 2.0466660000092816
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 73.29023099830374,
+                  "maxMs": 0.8891670000157319
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2740.109586000035,
+                  "maxMs": 59.88575000001583
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 59.373255999962566,
+                  "maxMs": 0.5357910000020638
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.4950439997774083,
+                  "maxMs": 0.009290999994846061
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 893.4025739999197,
+                  "maxMs": 22.041958999994677
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 1103.6098330000532,
+                  "maxMs": 39.836667000025045
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 786.7958349999972,
+                  "maxMs": 14.951375000004191
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 5652.508291000006,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.009374999994179234,
+                  "durationMs": 5645.013540999993
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 5646.406874999986,
+                  "durationMs": 6.1024580000084825
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004165999998804182,
+                  "durationMs": 5652.506874999992
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 59.52362600015476,
+                  "maxMs": 0.6039590000000317
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 6025.295474997634,
+                  "maxMs": 1.3966660000151023
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 72.53145499716629,
+                  "maxMs": 0.4400420000019949
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2696.959165999986,
+                  "maxMs": 38.79441600001883
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 62.132253000105266,
+                  "maxMs": 0.5051669999957085
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.5485399998142384,
+                  "maxMs": 0.026249999995343387
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 846.8540809999395,
+                  "maxMs": 28.428584000008414
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 1034.328955999983,
+                  "maxMs": 15.255875000002561
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 781.0127109999594,
+                  "maxMs": 7.876125000009779
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 5606.281749999995,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.009250000002793968,
+                  "durationMs": 5598.6192919999885
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 5600.0456669999985,
+                  "durationMs": 6.238207999995211
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.004249999998137355,
+                  "durationMs": 5606.280834000005
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 60.492169000179274,
+                  "maxMs": 0.5824160000192933
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 5945.8306640000665,
+                  "maxMs": 1.0698749999864958
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 71.08000200116658,
+                  "maxMs": 0.3823749999864958
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2668.2238310000394,
+                  "maxMs": 35.7445000000007
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 61.707149000052596,
+                  "maxMs": 0.4974579999980051
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.4978260001807939,
+                  "maxMs": 0.009124999982304871
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 819.5155470001919,
+                  "maxMs": 21.79775000002701
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 1049.6808320001874,
+                  "maxMs": 15.227875000011409
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 776.6915460000455,
+                  "maxMs": 7.297625000006519
+                }
+              },
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "sqlite",
+            "objectStore": "memory",
+            "capture": "disabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 12500,
+            "events": 1000000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "3.53.4",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 24877.725167000026,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.01362500002142042,
+                  "durationMs": 24868.614040999964
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 24869.761583000014,
+                  "durationMs": 7.967457999999169
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.00620800000615418,
+                  "durationMs": 24877.72416699998
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 24946.34804199997,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.014333999948576093,
+                  "durationMs": 24936.76216600003
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 24937.923708999995,
+                  "durationMs": 8.429374999948777
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.007124999945517629,
+                  "durationMs": 24946.34720900003
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 25538.73645799997,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.013291000039316714,
+                  "durationMs": 25529.764916999964
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 25530.891999999993,
+                  "durationMs": 7.849000000045635
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.006500000017695129,
+                  "durationMs": 25538.735540999973
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "sqlite",
+            "objectStore": "memory",
+            "capture": "enabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 12500,
+            "events": 1000000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "3.53.4",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 24926.945708999992,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.014709000010043383,
+                  "durationMs": 24917.55349999998
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 24918.834834000038,
+                  "durationMs": 8.114499999966938
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.00604200002271682,
+                  "durationMs": 24926.944833000016
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 63.02703100006329,
+                  "maxMs": 0.892374999995809
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 6234.182360998006,
+                  "maxMs": 3.140917000011541
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 82.46824100305093,
+                  "maxMs": 2.790915999969002
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2763.7653310002643,
+                  "maxMs": 75.35162499995204
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 65.21446399972774,
+                  "maxMs": 0.890084000013303
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.5612529998761602,
+                  "maxMs": 0.01462500001071021
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 4126.782540999935,
+                  "maxMs": 64.62279200000921
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 16897.698751000105,
+                  "maxMs": 224.14483299996937
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 823.3632119999384,
+                  "maxMs": 16.615999999979977
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 25005.438416999998,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.023249999969266355,
+                  "durationMs": 24995.952792000026
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 24997.170250000025,
+                  "durationMs": 8.276541999948677
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.01187499996740371,
+                  "durationMs": 25005.437167000026
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 63.11004199995659,
+                  "maxMs": 0.7780829999828711
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 6173.64136699622,
+                  "maxMs": 19.573167000024114
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 78.04220600228291,
+                  "maxMs": 0.4014160000369884
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2731.6123730001273,
+                  "maxMs": 43.48479199997382
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 64.37196699983906,
+                  "maxMs": 0.5456250000279397
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.530259000195656,
+                  "maxMs": 0.009374999965075403
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 4120.273959999904,
+                  "maxMs": 60.51241600001231
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 16968.178834999795,
+                  "maxMs": 197.01129199995194
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 873.0700820002239,
+                  "maxMs": 71.77204199996777
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 24628.815417000034,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.013084000034723431,
+                  "durationMs": 24619.05016599997
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 24620.268750000047,
+                  "durationMs": 8.550041999958921
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.005792000039946288,
+                  "durationMs": 24628.81449999998
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 62.80525099969236,
+                  "maxMs": 1.2104160000453703
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 6019.604891001305,
+                  "maxMs": 2.2224999999743886
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 77.33136699884199,
+                  "maxMs": 0.9537920000148006
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2713.8896180003067,
+                  "maxMs": 36.535791000002064
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 63.381834999891,
+                  "maxMs": 0.5007079999777488
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.5107899997965433,
+                  "maxMs": 0.014167000015731901
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 4025.6657509998186,
+                  "maxMs": 35.89516700000968
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 16766.773546000302,
+                  "maxMs": 181.3128329999745
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 812.7636199995177,
+                  "maxMs": 15.788375000003725
+                }
+              },
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "postgres",
+            "objectStore": "memory",
+            "capture": "disabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 12500,
+            "events": 1000000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 11259.112124999985,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.014750000089406967,
+                  "durationMs": 11248.882166999974
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 11250.234417000087,
+                  "durationMs": 8.881667000008747
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.006667000008746982,
+                  "durationMs": 11259.111083000083
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 10733.789417000022,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.013125000055879354,
+                  "durationMs": 10716.848708000034
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 10719.296291000093,
+                  "durationMs": 14.495708999922499
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.006416000076569617,
+                  "durationMs": 10733.788333999924
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 10437.080584000098,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.018749999930150807,
+                  "durationMs": 10426.134749999968
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 10427.564458000008,
+                  "durationMs": 9.520332999993116
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.007249999907799065,
+                  "durationMs": 10437.079416000051
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 0,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {},
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "postgres",
+            "objectStore": "memory",
+            "capture": "enabled",
+            "freshness": "cached",
+            "sourceDelayMs": 0,
+            "customers": 12500,
+            "events": 1000000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 10466.421207999927,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.011832999996840954,
+                  "durationMs": 10456.674666999956
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 10457.982375000021,
+                  "durationMs": 8.440291999955662
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.0054579999996349216,
+                  "durationMs": 10466.418999999994
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 64.544503999874,
+                  "maxMs": 0.8462920000310987
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 6316.327820001519,
+                  "maxMs": 1.5949580000014976
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 76.46113099472132,
+                  "maxMs": 0.5362080000340939
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2789.645917000249,
+                  "maxMs": 44.0552500000922
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 64.22154300042894,
+                  "maxMs": 0.6190829999977723
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.466535999905318,
+                  "maxMs": 0.013125000055879354
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 744.9895729994169,
+                  "maxMs": 16.2615409999853
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 5775.106921999599,
+                  "maxMs": 52.65949999995064
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 842.3115400002571,
+                  "maxMs": 15.845499999937601
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 10375.143999999971,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.01670799998100847,
+                  "durationMs": 10364.168334000045
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 10365.634208000032,
+                  "durationMs": 9.511541999992914
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.005375000066123903,
+                  "durationMs": 10375.142874999903
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 63.663418999291025,
+                  "maxMs": 0.6855830000713468
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 6417.35223899188,
+                  "maxMs": 1.8744169999845326
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 79.50570800004061,
+                  "maxMs": 0.543125000083819
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2777.967377999914,
+                  "maxMs": 36.79608400003053
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 66.40824700053781,
+                  "maxMs": 0.7490840000100434
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.4658740002196282,
+                  "maxMs": 0.010833999956957996
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 773.4307050000643,
+                  "maxMs": 16.345166999963112
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 5642.90262500057,
+                  "maxMs": 55.29558300005738
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 863.4805430002743,
+                  "maxMs": 15.192792000016198
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 10063.783999999985,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.015374999959021807,
+                  "durationMs": 10053.353624999989
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 10054.749041999923,
+                  "durationMs": 9.037416000035591
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.006457999930717051,
+                  "durationMs": 10063.78283400007
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 0,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 64.27350400027353,
+                  "maxMs": 0.7392499999841675
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 6247.354353002505,
+                  "maxMs": 1.5194579999661073
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 77.80638500221539,
+                  "maxMs": 0.5316250000614673
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 2778.75187699846,
+                  "maxMs": 46.87945899995975
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 64.26643500011414,
+                  "maxMs": 0.5537089999997988
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.4620379999978468,
+                  "maxMs": 0.009333000052720308
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 753.6354079992743,
+                  "maxMs": 24.697999999974854
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 5357.912125999923,
+                  "maxMs": 50.046041999943554
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 856.9810819996055,
+                  "maxMs": 13.74641700007487
+                }
+              },
+              "status": "ok"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "metadata": {
+        "schemaVersion": 3,
+        "workloadVersion": 3,
+        "startedAt": "2026-10-21T19:25:26.468Z",
+        "commit": "3698131222ff0c989953f265419fbb773f7ad331",
+        "dirty": true,
+        "node": "v26.9.0",
+        "platform": "darwin",
+        "arch": "arm64",
+        "cpu": "Apple M2 Max",
+        "availableParallelism": 12,
+        "memoryBytes": 68719476736,
+        "profile": "capacity",
+        "concurrency": 1,
+        "objectStore": "postgres",
+        "source": "synthetic connector with configured delay on refresh",
+        "sourceDelayMs": 2,
+        "analyticalAdapter": "public Node-host query pages with real dataset connector",
+        "ranking": "real computed pages followed by benchmark-local sort; not runtime orderBy",
+        "reference": "SQLite :memory:; index(customer,type,at); ANALYZE; synchronous driver; no network/pool",
+        "unavailableMeasurements": [
+          "database-server-execution",
+          "generated-sql-replay",
+          "runtime-computed-order",
+          "single-operation-full-scope"
+        ],
+        "performanceComparisonEligible": false
+      },
+      "totalSamples": 60,
+      "failures": 0,
+      "workloads": [
+        {
+          "config": {
+            "backend": "sqlite",
+            "objectStore": "postgres",
+            "capture": "enabled",
+            "freshness": "refresh",
+            "sourceDelayMs": 2,
+            "customers": 12500,
+            "events": 100000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "3.53.4",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 20934.263042000006,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.015249999996740371,
+                  "durationMs": 20926.929042000003
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 20928.074833000006,
+                  "durationMs": 6.19258400000399
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.006875000006402843,
+                  "durationMs": 20934.261958000003
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 12500,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 68.95266899994749,
+                  "maxMs": 0.7489169999898877
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 72275.81925099803,
+                  "maxMs": 26.96074999999837
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 94.3037480012863,
+                  "maxMs": 0.4000419999938458
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 11329.071459999992,
+                  "maxMs": 127.8772089999984
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 65.94307600005413,
+                  "maxMs": 0.5404580000031274
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.40449700005410705,
+                  "maxMs": 0.00662499999452848
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 4005.207465000014,
+                  "maxMs": 35.57058400000096
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 2124.2175040000293,
+                  "maxMs": 29.628458000006503
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 3152.1269550000434,
+                  "maxMs": 51.053458000009414
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 20917.777125000008,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.013915999996243045,
+                  "durationMs": 20910.217000000004
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 20911.523625,
+                  "durationMs": 6.256374999997206
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.006083000000216998,
+                  "durationMs": 20917.775792
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 12500,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 68.39071199992031,
+                  "maxMs": 0.8562499999970896
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 72037.1435910002,
+                  "maxMs": 58.139165999993565
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 94.39971500005049,
+                  "maxMs": 0.923624999995809
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 11286.136864999891,
+                  "maxMs": 152.11849999999686
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 65.85092600002827,
+                  "maxMs": 0.67683300000499
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.43107900003087707,
+                  "maxMs": 0.008166999992681667
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 4044.0789570000343,
+                  "maxMs": 42.68579200000386
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 2124.781366999974,
+                  "maxMs": 20.30291600000055
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 3139.3716240000213,
+                  "maxMs": 31.020084000003408
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 21386.577374999993,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.01691600000776816,
+                  "durationMs": 21379.10895899999
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 21380.278749999998,
+                  "durationMs": 6.306582999997772
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.009875000003376044,
+                  "durationMs": 21386.57637499999
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 12500,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 69.61466799989284,
+                  "maxMs": 0.7434580000117421
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 73296.07809099837,
+                  "maxMs": 41.70950000001176
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 98.14719900088676,
+                  "maxMs": 0.4220000000059372
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 11501.426329000155,
+                  "maxMs": 135.00091699999757
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 66.3671259998082,
+                  "maxMs": 0.531583000003593
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.44704199994157534,
+                  "maxMs": 0.01495900000736583
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 4101.686374000172,
+                  "maxMs": 37.16241699999955
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 2175.992880000078,
+                  "maxMs": 19.86854099998891
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 3280.0406230000954,
+                  "maxMs": 88.0566669999971
+                }
+              },
+              "status": "ok"
+            }
+          ]
+        },
+        {
+          "config": {
+            "backend": "postgres",
+            "objectStore": "postgres",
+            "capture": "enabled",
+            "freshness": "refresh",
+            "sourceDelayMs": 2,
+            "customers": 12500,
+            "events": 100000,
+            "seed": 42,
+            "repetitions": 3,
+            "warmups": 1
+          },
+          "backendVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+          "samples": [
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 17758.597833000007,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.011208999989321455,
+                  "durationMs": 17750.473750000005
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 17751.765083999984,
+                  "durationMs": 6.835458000015933
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.005374999978812411,
+                  "durationMs": 17758.596709000005
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 12500,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 89.8986689998419,
+                  "maxMs": 2.322916000004625
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 78506.53001199826,
+                  "maxMs": 92.00750000000698
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 120.64781900096568,
+                  "maxMs": 1.0395420000131708
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 12354.482539999823,
+                  "maxMs": 291.5956249999872
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 79.31246099981945,
+                  "maxMs": 2.1106670000008307
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.43908500007819384,
+                  "maxMs": 0.010667000024113804
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 686.6943399999873,
+                  "maxMs": 22.981666999985464
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 929.550132999866,
+                  "maxMs": 18.63795800000662
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 3377.9381739998353,
+                  "maxMs": 102.67862500000047
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 17155.164667000005,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.015333999996073544,
+                  "durationMs": 17146.17287499999
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 17147.421333999984,
+                  "durationMs": 7.746416000009049
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.0069589999911841005,
+                  "durationMs": 17155.163415999996
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 12500,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 80.18216500006383,
+                  "maxMs": 2.0406249999941792
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 77255.08980299975,
+                  "maxMs": 38.03500000000349
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 104.09240499950829,
+                  "maxMs": 0.9837090000219177
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 12184.067876999994,
+                  "maxMs": 287.22320800001035
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 69.17551000017556,
+                  "maxMs": 1.2931659999885596
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.42370299986214377,
+                  "maxMs": 0.008625000016763806
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 634.3185380000214,
+                  "maxMs": 10.402000000001863
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 896.4652960000385,
+                  "maxMs": 9.354667000006884
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 3075.950664999953,
+                  "maxMs": 94.87420900000143
+                }
+              },
+              "status": "ok"
+            },
+            {
+              "scenario": "ranking",
+              "mode": "relate",
+              "phase": "warm",
+              "durationMs": 16547.388875000004,
+              "spans": [
+                {
+                  "name": "public-query-pages",
+                  "kind": "real",
+                  "startMs": 0.01829200002248399,
+                  "durationMs": 16537.952250000002
+                },
+                {
+                  "name": "benchmark-local-sort",
+                  "kind": "real",
+                  "startMs": 16539.185959000024,
+                  "durationMs": 8.20733299999847
+                },
+                {
+                  "name": "request",
+                  "kind": "real",
+                  "startMs": 0.008250000013504177,
+                  "durationMs": 16547.387167000008
+                }
+              ],
+              "counters": {
+                "membershipScans": 125,
+                "candidatesScanned": 12500,
+                "objectLoads": 22500,
+                "sourceResolutions": 0,
+                "sourceFetches": 12500,
+                "analyticalBatches": 125,
+                "analyticalStatements": 125,
+                "computedSlots": 10000,
+                "capturedOperations": 125,
+                "candidatesAdmitted": 10000,
+                "objectsReturned": 25,
+                "activityDrops": 0
+              },
+              "stages": {
+                "preparation": {
+                  "count": 125,
+                  "totalMs": 102.96578899977612,
+                  "maxMs": 1.6936250000144355
+                },
+                "dependencyReads": {
+                  "count": 22500,
+                  "totalMs": 73039.82943799929,
+                  "maxMs": 20.803041999985
+                },
+                "finalization": {
+                  "count": 10375,
+                  "totalMs": 120.28885100065963,
+                  "maxMs": 1.1187919999938458
+                },
+                "candidates": {
+                  "count": 125,
+                  "totalMs": 11458.622912999912,
+                  "maxMs": 127.94087500000023
+                },
+                "planning": {
+                  "count": 250,
+                  "totalMs": 71.65750500015565,
+                  "maxMs": 1.2899580000084825
+                },
+                "queueWait": {
+                  "count": 125,
+                  "totalMs": 0.42524999994202517,
+                  "maxMs": 0.00958300000638701
+                },
+                "connectionStartup": {
+                  "count": 125,
+                  "totalMs": 609.2310000001453,
+                  "maxMs": 12.411999999982072
+                },
+                "execution": {
+                  "count": 125,
+                  "totalMs": 900.3023720000056,
+                  "maxMs": 13.664582999976119
+                },
+                "revalidation": {
+                  "count": 125,
+                  "totalMs": 3141.638004000066,
+                  "maxMs": 34.89895899998373
+                }
+              },
+              "status": "ok"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

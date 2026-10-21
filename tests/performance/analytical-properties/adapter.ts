@@ -1,49 +1,37 @@
 import assert from 'node:assert/strict';
-import type { openObjects, Row, Values } from './model.js';
+import type { openObjects, Row } from './model.js';
 import { scenarios } from './scenarios.js';
 import type { Request } from './scenarios.js';
 import type { Trace } from './timing.js';
 
-export const mockedStages = [
-  'analytical-preparation',
-  'analytical-execution',
-  'computed-finalization',
-] as const;
-
 export const unavailableMeasurements = [
-  'candidates-scanned',
-  'object-storage-round-trip',
-  'analytical-queue-wait',
-  'connection-acquisition',
   'database-server-execution',
-  'generated-sql',
+  'generated-sql-replay',
+  'runtime-computed-order',
+  'single-operation-full-scope',
 ];
 
-/** Replace this adapter with Customer.query(request) and real stage instrumentation when available. */
+/** Real public reads. Ranking remains an explicitly labeled benchmark-side sort. */
 export function createAdapter(
   objects: Awaited<ReturnType<typeof openObjects>>,
-  values: Map<string, Values>,
 ) {
   return {
     async query(request: Request, trace: Trace): Promise<Row[]> {
       assert(
         Object.values(scenarios).includes(request),
-        'Adapter only supports the three declared benchmark requests',
+        'Only the three benchmark requests are supported',
       );
+      objects.begin(trace);
       const computes = 'compute' in request;
       const ranks = 'orderBy' in request;
-
-      if (computes)
-        await trace.measure('analytical-preparation', 'mock', () => undefined);
-
-      const before = objects.sourceFetches();
       const candidates = await trace.measure(
-        'object-query',
+        'public-query-pages',
         'real',
         async () => {
           const query = objects.customer.query({
             select: ['name', 'key'],
             where: { portfolio: 'north' },
+            ...(computes ? { compute: request.compute } : {}),
             limit: ranks ? 100 : request.limit,
           });
           const rows = [];
@@ -56,50 +44,52 @@ export function createAdapter(
         },
       );
 
-      trace.counters.sourceFetches = objects.sourceFetches() - before;
       trace.counters.candidatesAdmitted = candidates.length;
-      trace.counters.analyticalStatements = 0;
       let rows: Row[] = candidates.map((row) => {
-        assert.equal(typeof row.data.name, 'string');
+        const data: Readonly<Record<string, unknown>> = row.data;
 
-        return { id: row.id, data: { name: row.data.name! } };
+        assert.equal(typeof data.name, 'string');
+
+        if (computes) {
+          assert.equal(
+            typeof data.loginCount,
+            'string',
+            'Computed count was withheld',
+          );
+          assert(
+            data.lastLogin === null || typeof data.lastLogin === 'string',
+            'Computed timestamp was withheld',
+          );
+
+          return {
+            id: row.id,
+            data: {
+              name: data.name as string,
+              loginCount: data.loginCount as string,
+              lastLogin: data.lastLogin as string | null,
+            },
+          };
+        }
+
+        return { id: row.id, data: { name: data.name as string } };
       });
 
-      if (computes)
-        rows = await trace.measure('analytical-execution', 'mock', () =>
-          candidates.map((row) => {
-            assert.equal(typeof row.data.key, 'string');
+      if (ranks)
+        rows = await trace.measure('benchmark-local-sort', 'real', () => {
+          rows.sort((a, b) => {
+            const difference =
+              BigInt(b.data.loginCount!) - BigInt(a.data.loginCount!);
 
-            return {
-              id: row.id,
-              data: {
-                name: row.data.name!,
-                ...(values.get(row.data.key!) ?? {
-                  loginCount: '0',
-                  lastLogin: null,
-                }),
-              },
-            };
-          }),
-        );
-
-      if (computes)
-        rows = await trace.measure('computed-finalization', 'mock', () => {
-          if (ranks)
-            rows.sort((a, b) => {
-              const difference =
-                BigInt(b.data.loginCount!) - BigInt(a.data.loginCount!);
-
-              return difference === 0n
-                ? a.id < b.id
-                  ? -1
-                  : a.id > b.id
-                    ? 1
-                    : 0
-                : difference > 0n
+            return difference === 0n
+              ? a.id < b.id
+                ? -1
+                : a.id > b.id
                   ? 1
-                  : -1;
-            });
+                  : 0
+              : difference > 0n
+                ? 1
+                : -1;
+          });
 
           return rows.slice(0, request.limit);
         });

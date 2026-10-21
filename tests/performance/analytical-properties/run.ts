@@ -6,18 +6,11 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { openObjects } from './model.js';
-import type { Row, Values } from './model.js';
-import {
-  customers,
-  events,
-  summarizedEvents,
-  workloadVersion,
-} from './seed.js';
-import {
-  createAdapter,
-  mockedStages,
-  unavailableMeasurements,
-} from './adapter.js';
+import type { Row } from './model.js';
+import { randomUUID } from 'node:crypto';
+import { openBackend, openStore } from './backend.js';
+import { customers, events, workloadVersion } from './seed.js';
+import { createAdapter, unavailableMeasurements } from './adapter.js';
 import { openReference } from './reference.js';
 import { scenarios } from './scenarios.js';
 import type { Scenario } from './scenarios.js';
@@ -31,12 +24,26 @@ export interface Config {
   seed: number;
   repetitions: number;
   warmups: number;
+  backend?: 'sqlite' | 'postgres';
+  objectStore?: 'memory' | 'postgres';
+  capture?: 'enabled' | 'disabled';
+  freshness?: 'cached' | 'refresh';
+  sourceDelayMs?: number;
 }
 
-export const profiles: Record<'small' | 'full', Config[]> = {
+export const profiles: Record<'small' | 'capacity' | 'full', Config[]> = {
   small: [
     { customers: 100, events: 1000, seed: 42, repetitions: 3, warmups: 1 },
   ],
+  capacity: [1250, 12500].flatMap((count) =>
+    [100000, 1000000].map((eventCount) => ({
+      customers: count,
+      events: eventCount,
+      seed: 42,
+      repetitions: 3,
+      warmups: 1,
+    })),
+  ),
   full: [100, 1000, 10000].flatMap((count) =>
     [100000, 1000000].map((eventCount) => ({
       customers: count,
@@ -53,12 +60,12 @@ export async function measureScenario(
   scenario: Scenario,
   config: Pick<Config, 'warmups' | 'repetitions'>,
   referenceQuery: () => Row[] | Promise<Row[]>,
-  hybridQuery: (trace: Trace) => Promise<Row[]>,
+  relateQuery: (trace: Trace) => Promise<Row[]>,
 ): Promise<Sample[]> {
   const samples: Sample[] = [];
   let expected: Row[] | undefined;
 
-  for (const mode of ['sqlite-reference', 'hybrid-mock'] as const) {
+  for (const mode of ['sqlite-reference', 'relate'] as const) {
     const execute = async (phase: Sample['phase']) => {
       const trace = new Trace();
       const start = performance.now();
@@ -66,14 +73,14 @@ export async function measureScenario(
       let durationMs: number | undefined;
 
       try {
-        if (mode === 'hybrid-mock' && expected === undefined)
+        if (mode === 'relate' && expected === undefined)
           throw new Error(
-            'SQLite oracle unavailable; hybrid result cannot be validated',
+            'SQLite oracle unavailable; Relate result cannot be validated',
           );
 
         const rows =
-          mode === 'hybrid-mock'
-            ? await trace.measure('request', 'real', () => hybridQuery(trace))
+          mode === 'relate'
+            ? await trace.measure('request', 'real', () => relateQuery(trace))
             : await trace.measure('sqlite-round-trip', 'real', referenceQuery);
 
         durationMs = performance.now() - start;
@@ -91,6 +98,13 @@ export async function measureScenario(
         error = cause instanceof Error ? cause.message : String(cause);
       }
 
+      // Record delivery and result checking do not inflate request latency.
+      try {
+        await trace.settle();
+      } catch (cause) {
+        error = cause instanceof Error ? cause.message : String(cause);
+      }
+
       samples.push({
         scenario,
         mode,
@@ -98,6 +112,7 @@ export async function measureScenario(
         durationMs,
         spans: trace.spans,
         counters: trace.counters,
+        stages: trace.stages,
         status: error === undefined ? 'ok' : 'error',
         ...(error === undefined ? {} : { error }),
       });
@@ -113,30 +128,59 @@ export async function measureScenario(
   return samples;
 }
 
-export async function runWorkload(config: Config) {
-  for (const [key, value] of Object.entries(config))
+export async function runWorkload(input: Config) {
+  const config = {
+    backend: 'sqlite' as const,
+    objectStore: 'memory' as const,
+    capture: 'enabled' as const,
+    freshness: 'cached' as const,
+    sourceDelayMs: 0,
+    ...input,
+  };
+
+  for (const key of [
+    'customers',
+    'events',
+    'seed',
+    'repetitions',
+    'warmups',
+    'sourceDelayMs',
+  ] as const) {
+    const value = config[key];
+
     assert(
       Number.isSafeInteger(value) &&
-        value >= (key === 'warmups' || key === 'seed' ? 0 : 1),
+        value >= (['warmups', 'seed', 'sourceDelayMs'].includes(key) ? 0 : 1),
       `Invalid ${key}`,
     );
+  }
 
   const started = performance.now();
   const records = customers(config.customers);
-  const values = new Map<string, Values>();
-  const objects = await openObjects(records);
+  const backend = await openBackend(
+    config.backend,
+    events(config.customers, config.events, config.seed),
+  );
+  let backing: Awaited<ReturnType<typeof openStore>> | undefined;
+  let objects: Awaited<ReturnType<typeof openObjects>> | undefined;
   let reference: ReturnType<typeof openReference> | undefined;
 
   try {
+    const graphId = `analytical-benchmark-${randomUUID()}`;
+
+    backing = await openStore(config.objectStore, graphId);
+    objects = await openObjects(records, {
+      ...config,
+      graphId,
+      store: backing.store,
+      resource: backend.resource,
+    });
     reference = openReference(
       records,
       objects.ids,
-      summarizedEvents(
-        events(config.customers, config.events, config.seed),
-        values,
-      ),
+      events(config.customers, config.events, config.seed),
     );
-    const adapter = createAdapter(objects, values);
+    const adapter = createAdapter(objects);
     const setupMs = performance.now() - started;
     const samples: Sample[] = [];
 
@@ -153,6 +197,7 @@ export async function runWorkload(config: Config) {
     return {
       config,
       setupMs,
+      backendVersion: backend.version,
       sqliteVersion: reference.version,
       samples,
       summary: summarizeSamples(samples),
@@ -161,7 +206,15 @@ export async function runWorkload(config: Config) {
     try {
       reference?.close();
     } finally {
-      await objects.app.close();
+      try {
+        await objects?.app.close();
+      } finally {
+        try {
+          await backing?.close();
+        } finally {
+          await backend.close();
+        }
+      }
     }
   }
 }
@@ -213,7 +266,7 @@ export async function runProfile(
 
   for (const config of configs) {
     console.log(
-      `Running ${config.customers} customers / ${config.events} events`,
+      `Running ${config.customers} customers / ${config.events} events (${config.backend ?? 'sqlite'}, ${config.objectStore ?? 'memory'}, capture ${config.capture ?? 'enabled'}, ${config.freshness ?? 'cached'})`,
     );
 
     try {
@@ -242,16 +295,41 @@ async function main() {
     options: {
       profile: { type: 'string', default: 'small' },
       out: { type: 'string', default: 'benchmark-results/analytical' },
+      backend: { type: 'string', default: 'sqlite' },
+      store: { type: 'string', default: 'memory' },
+      capture: { type: 'string', default: 'both' },
+      freshness: { type: 'string', default: 'cached' },
+      'source-delay-ms': { type: 'string', default: '0' },
+      customers: { type: 'string' },
+      events: { type: 'string' },
     },
   });
 
   assert(
-    values.profile === 'small' || values.profile === 'full',
-    'profile must be small or full',
+    values.profile === 'small' ||
+      values.profile === 'capacity' ||
+      values.profile === 'full',
+    'profile must be small, capacity or full',
+  );
+  assert(
+    ['sqlite', 'postgres', 'both'].includes(values.backend),
+    'backend must be sqlite, postgres or both',
+  );
+  assert(
+    ['memory', 'postgres'].includes(values.store),
+    'store must be memory or postgres',
+  );
+  assert(
+    ['enabled', 'disabled', 'both'].includes(values.capture),
+    'capture must be enabled, disabled or both',
+  );
+  assert(
+    ['cached', 'refresh'].includes(values.freshness),
+    'freshness must be cached or refresh',
   );
   const output = resolve(values.out);
   const metadata = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     workloadVersion,
     startedAt: new Date().toISOString(),
     ...gitMetadata(),
@@ -263,16 +341,50 @@ async function main() {
     memoryBytes: totalmem(),
     profile: values.profile,
     concurrency: 1,
-    objectStore: 'Relate memory store',
-    source: 'synthetic mock connector',
-    analyticalAdapter: 'mock precomputed values',
+    objectStore: values.store,
+    source: 'synthetic connector with configured delay on refresh',
+    sourceDelayMs: Number(values['source-delay-ms']),
+    analyticalAdapter:
+      'public Node-host query pages with real dataset connector',
+    ranking:
+      'real computed pages followed by benchmark-local sort; not runtime orderBy',
     reference:
       'SQLite :memory:; index(customer,type,at); ANALYZE; synchronous driver; no network/pool',
-    mockedStages,
     unavailableMeasurements,
     performanceComparisonEligible: false,
   };
-  const result = await runProfile(profiles[values.profile], output, metadata);
+  const backends =
+    values.backend === 'both'
+      ? (['sqlite', 'postgres'] as const)
+      : [values.backend as 'sqlite' | 'postgres'];
+  const captures =
+    values.capture === 'both'
+      ? (['disabled', 'enabled'] as const)
+      : [values.capture as 'enabled' | 'disabled'];
+  const selected = profiles[values.profile].filter(
+    (config) =>
+      (values.customers === undefined ||
+        config.customers === Number(values.customers)) &&
+      (values.events === undefined || config.events === Number(values.events)),
+  );
+
+  assert(
+    selected.length > 0,
+    'No profile workloads match the customer/event filters',
+  );
+  const configs = selected.flatMap((config) =>
+    backends.flatMap((backend) =>
+      captures.map((capture): Config => ({
+        ...config,
+        backend,
+        capture,
+        objectStore: values.store as 'memory' | 'postgres',
+        freshness: values.freshness as 'cached' | 'refresh',
+        sourceDelayMs: Number(values['source-delay-ms']),
+      })),
+    ),
+  );
+  const result = await runProfile(configs, output, metadata);
 
   console.log(`Results: ${output}`);
 
