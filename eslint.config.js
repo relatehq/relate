@@ -25,6 +25,7 @@ export default [
       '**/.source-internal/**',
       '**/next-env.d.ts',
       '**/coverage/**',
+      '**/.local/**',
       '**/playwright-report/**',
       '**/test-results/**',
     ],
