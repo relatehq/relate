@@ -59,7 +59,7 @@ jobs:
           pnpm exec vitest run
           pnpm test:packaging
       - if: matrix.node == '26'
-        run: pnpm bench:analytical:run --profile small
+        run: pnpm bench:analytical:run --profile small --backend both
       - if: always() && matrix.node == '26'
         uses: actions/upload-artifact@v4
         with:

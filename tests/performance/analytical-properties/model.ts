@@ -1,16 +1,21 @@
+import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import {
   bind,
   defineAccess,
   defineGraph,
+  defineDataset,
+  defineApp,
   defineObject,
   defineSource,
   from,
   objectId,
   source,
 } from 'relate';
-import { createRuntime } from '@relate/node';
-import { createMemoryStore } from '@relate/runtime';
+import { startApp } from '@relate/node';
+import type { AnalyticalResource } from 'relate/connectors';
+import type { ObservationStore } from 'relate/storage';
+import type { Trace } from './timing.js';
 
 export interface Customer {
   key: string;
@@ -57,9 +62,36 @@ export function createModel() {
       portfolio: z.string(),
     }),
   });
+  const Events = defineDataset({
+    id: 'benchmark.events',
+    columns: {
+      customer: {
+        id: 'benchmark.event.customer',
+        schema: z.string(),
+        access: access.groups.ordinary,
+      },
+      eventType: {
+        id: 'benchmark.event.type',
+        schema: z.string(),
+        access: access.groups.ordinary,
+      },
+      occurredAt: {
+        id: 'benchmark.event.at',
+        schema: z.iso.datetime({ offset: true, precision: 3 }),
+        access: access.groups.ordinary,
+      },
+    },
+  });
   const Customer = defineObject({
     id: 'benchmark.customer',
     membership: source(customers),
+    datasets: {
+      events: {
+        id: 'benchmark.customer.events',
+        dataset: Events,
+        on: [{ column: 'customer', property: 'key' }],
+      },
+    },
     properties: {
       id: objectId({ id: 'benchmark.customer.id' }),
       key: from(customers.fields.key, { id: 'benchmark.customer.key' }),
@@ -72,9 +104,12 @@ export function createModel() {
   const graph = defineGraph({
     id: 'benchmark.graph',
     objects: { Customer },
+    datasets: { Events },
     access,
     policies: {
+      Events: {},
       Customer: {
+        datasets: { events: { gate: access.role('employee') } },
         read: {
           gate: access.role('employee'),
           evidenceMaxAgeMs: 86400000,
@@ -84,45 +119,136 @@ export function createModel() {
     },
   });
 
-  return { Customer, customers, graph };
+  return { Customer, customers, Events, graph };
 }
 
-export async function openObjects(records: Customer[]) {
+export interface ObjectOptions {
+  graphId: string;
+  store: ObservationStore;
+  resource: AnalyticalResource;
+  capture: 'enabled' | 'disabled';
+  freshness: 'cached' | 'refresh';
+  sourceDelayMs: number;
+}
+
+export async function openObjects(records: Customer[], options: ObjectOptions) {
   const model = createModel();
   const byKey = new Map(records.map((row) => [row.key, row]));
-  let sourceFetches = 0;
-  const app = createRuntime({
-    graph: model.graph,
-    graphId: 'analytical-benchmark',
-    store: createMemoryStore(),
-    bindings: [
-      bind(model.customers, {
-        connectionId: 'benchmark',
-        resourceId: 'customers',
-        providerAccountId: 'synthetic',
-        connector: {
-          identify: async () => 'synthetic',
-          fetch: async (key) => {
-            sourceFetches++;
-            const record = byKey.get(key);
+  let active: Trace | undefined;
+  let now = Date.now();
+  const count = (name: string, amount = 1) => {
+    if (active) active.counters[name] = (active.counters[name] ?? 0) + amount;
+  };
+  const underlying = options.store;
+  const store: ObservationStore = {
+    ...underlying,
+    async scan(...args) {
+      count('membershipScans');
+      const result = await underlying.scan(...args);
 
-            if (!record) throw new Error(`Missing benchmark customer ${key}`);
+      count('candidatesScanned', result.objects.length);
 
-            return {
-              state: 'present',
-              providerAccountId: 'synthetic',
-              record: { ...record },
-            };
+      return result;
+    },
+    async load(...args) {
+      count('objectLoads');
+
+      return underlying.load(...args);
+    },
+    async resolve(...args) {
+      count('sourceResolutions');
+
+      return underlying.resolve(...args);
+    },
+    ...(underlying.activity
+      ? {
+          activity: {
+            ...underlying.activity,
+            async appendOperations(graphId, drafts) {
+              for (const draft of drafts)
+                if (draft.kind === 'query') {
+                  count('capturedOperations');
+
+                  if (draft.details.analytical)
+                    active?.addTimings(draft.details.analytical);
+                }
+
+              return underlying.activity!.appendOperations(graphId, drafts);
+            },
           },
+        }
+      : {}),
+  };
+  const analytics = options.resource.connection.analytics;
+  const resource: AnalyticalResource = {
+    ...options.resource,
+    connection: {
+      ...options.resource.connection,
+      analytics: {
+        ...analytics,
+        plan(query) {
+          count('analyticalBatches');
+          count('computedSlots', query.slots.length);
+
+          return analytics.plan(query);
         },
+        execute(plan, request) {
+          count('analyticalStatements');
+
+          return analytics.execute(plan, request);
+        },
+      },
+    },
+  };
+  const app = await startApp(
+    defineApp({
+      graph: model.graph,
+      setup: () => ({
+        graphId: options.graphId,
+        store,
+        clock: () => now,
+        activity: { operations: options.capture },
+        bindings: [
+          bind(model.Events, resource, {
+            columns: { eventType: 'type', occurredAt: 'at' },
+          }),
+          bind(model.customers, {
+            connectionId: 'benchmark',
+            resourceId: 'customers',
+            providerAccountId: 'synthetic',
+            connector: {
+              identify: async () => 'synthetic',
+              fetch: async (key, { signal }) => {
+                count('sourceFetches');
+
+                if (active && options.sourceDelayMs)
+                  await delay(options.sourceDelayMs, undefined, { signal });
+
+                const record = byKey.get(key);
+
+                if (!record)
+                  throw new Error(`Missing benchmark customer ${key}`);
+
+                return {
+                  state: 'present',
+                  providerAccountId: 'synthetic',
+                  record: { ...record },
+                };
+              },
+            },
+          }),
+        ],
       }),
-    ],
-  });
+    }),
+  );
   const ids = new Map<string, string>();
 
   try {
     for (const row of records)
       ids.set(row.key, await app.host.adopt(model.Customer, row.key));
+
+    if ((await app.host.flushActivity()) !== 'flushed')
+      throw new Error('Setup activity did not drain');
   } catch (error) {
     await app.close();
     throw error;
@@ -131,7 +257,50 @@ export async function openObjects(records: Customer[]) {
   return {
     app,
     ids,
-    sourceFetches: () => sourceFetches,
+    begin(trace: Trace) {
+      if (active)
+        throw new Error('Benchmark requests must be sequential and settled');
+
+      active = trace;
+
+      for (const name of [
+        'membershipScans',
+        'candidatesScanned',
+        'objectLoads',
+        'sourceResolutions',
+        'sourceFetches',
+        'analyticalBatches',
+        'analyticalStatements',
+        'computedSlots',
+        'capturedOperations',
+      ])
+        trace.counters[name] = 0;
+
+      if (options.freshness === 'refresh') now += 2 * 86400000;
+
+      const dropped = Object.values(app.host.activityCounters().dropped).reduce(
+        (a, b) => a + b,
+        0,
+      );
+
+      trace.settle = async () => {
+        try {
+          if ((await app.host.flushActivity()) !== 'flushed')
+            throw new Error('Benchmark activity did not drain');
+
+          const after = Object.values(
+            app.host.activityCounters().dropped,
+          ).reduce((a, b) => a + b, 0);
+
+          trace.counters.activityDrops = after - dropped;
+
+          if (after !== dropped)
+            throw new Error('Benchmark activity capture dropped operations');
+        } finally {
+          active = undefined;
+        }
+      };
+    },
     customer: app.as({
       id: 'benchmark-reader',
       roles: ['employee'],
