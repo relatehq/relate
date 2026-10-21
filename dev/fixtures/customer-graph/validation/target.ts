@@ -504,6 +504,7 @@ export declare function bind<S extends Record<string, z.ZodType>>(
   source: { readonly id: string; readonly schema: z.ZodObject<S> },
   binding: {
     connectionId: string;
+    resourceId: string;
     connector: {
       fetch(
         sourceRecordId: string,

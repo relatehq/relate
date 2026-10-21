@@ -40,6 +40,7 @@ export default defineApp({
       bindings: [
         bind(customers, {
           connectionId: 'crm',
+          resourceId: 'records',
           connector: database.table('customers', {
             idColumn: 'id',
             columns: ['name'],

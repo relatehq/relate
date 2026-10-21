@@ -36,6 +36,7 @@ test('executes typed authorized reads without an account table', async ({
           bindings: [
             bind(customers, {
               connectionId: 'test-crm',
+              resourceId: 'records',
               connector: database.table('customers', {
                 idColumn: 'id',
                 columns: ['display_name', 'portfolio', 'revenue'],

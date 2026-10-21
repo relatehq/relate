@@ -100,6 +100,7 @@ export function localDateTimeContract(
         bindings: [
           bind(calendars, {
             connectionId: 'calendars',
+            resourceId: 'records',
             connector: {
               identity: 'application',
               fetch: async (id) => ({ state: 'present', record: { id } }),
@@ -107,6 +108,7 @@ export function localDateTimeContract(
           }),
           bind(appointments, {
             connectionId: 'schedule',
+            resourceId: 'records',
             connector: {
               identity: 'application',
               fetch: async (id) => {

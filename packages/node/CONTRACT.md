@@ -22,6 +22,7 @@ const relate = createRuntime({
   bindings: [
     bind(customers, {
       connectionId: 'crm-primary',
+      resourceId: 'records',
       providerAccountId: 'provider-account-123',
       connector,
     }),

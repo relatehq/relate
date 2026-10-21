@@ -54,6 +54,7 @@ it.each(['capability', 'policy'])(
         [customers.id]: {
           providerAccountId: 'example-account',
           connectionId: 'crm',
+          resourceId: 'records',
           authorization: 'shared-service',
           connector: {
             identify: async () => 'example-account',
@@ -69,6 +70,7 @@ it.each(['capability', 'policy'])(
         [invoices.id]: {
           providerAccountId: 'example-account',
           connectionId: 'billing',
+          resourceId: 'records',
           authorization: 'shared-service',
           connector: {
             identify: async () => 'example-account',

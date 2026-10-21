@@ -82,6 +82,7 @@ const runtime = createRuntime({
   sources: {
     'crm.customers': {
       connectionId: 'crm-primary',
+      resourceId: 'records',
       providerAccountId: 'provider-account-123',
       authorization: 'shared-service',
       connector: crm,

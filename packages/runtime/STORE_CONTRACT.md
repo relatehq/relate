@@ -289,3 +289,10 @@ never skip entries silently.
 
 `tests/support/activity-contract.ts` verifies these guarantees on memory and
 Postgres.
+
+### Resource identity
+
+Source scopes include both `connectionId` and `resourceId`. Rebinding a source
+to another table or API resource on the same connection cannot reuse its
+previous membership, observation, provenance or continuation cursor. Memory and
+Postgres stores enforce the same scope on load, resolve, scan and acceptance.

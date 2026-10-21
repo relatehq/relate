@@ -66,6 +66,7 @@ test('Stripe executes authorized refreshes, denies revoked access/account change
         bindings: [
           bind(customers, {
             connectionId: 'stripe',
+            resourceId: 'records',
             providerAccountId: 'acct_one:test',
             connector: stripe({
               apiKey: 'sk_test_fixture',
@@ -147,6 +148,7 @@ test('a missing Stripe key reports the source unavailable, not the record missin
         bindings: [
           bind(customers, {
             connectionId: 'stripe',
+            resourceId: 'records',
             providerAccountId: 'acct_one:test',
             connector: stripe({
               apiKey: () => key!,

@@ -190,6 +190,7 @@ const relate = createRuntime({
     bind(customerSource, {
       providerAccountId: 'crm-prod',
       connectionId: 'crm-main',
+      resourceId: 'records',
       connector: {
         identify: async () => 'crm-prod',
         async fetch(sourceRecordId) {

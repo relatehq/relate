@@ -28,6 +28,7 @@ integration code and keeps credentials outside the graph definition.
 const crmConnection = bind(crmCustomers, {
   providerAccountId: 'crm-prod',
   connectionId: 'crm-main',
+  resourceId: 'records',
   connector: crmConnector,
 });
 ```

@@ -54,6 +54,7 @@ export function customerApp(
       bindings: [
         bind(accounts, {
           connectionId: 'salesforce',
+          resourceId: 'records',
           providerAccountId,
           connector,
         }),

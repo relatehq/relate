@@ -64,6 +64,7 @@ export const app = defineApp({
       bindings: [
         bind(people, {
           connectionId: 'directory',
+          resourceId: 'records',
           providerAccountId: 'fixture',
           connector,
         }),
@@ -96,12 +97,17 @@ const applicationConnector: import('relate/connectors').ApplicationSourceConnect
     },
   };
 
-bind(people, { connectionId: 'local', connector: applicationConnector });
+bind(people, {
+  connectionId: 'local',
+  resourceId: 'records',
+  connector: applicationConnector,
+});
 // @ts-expect-error provider verification requires an expected account
-bind(people, { connectionId: 'remote', connector });
+bind(people, { connectionId: 'remote', resourceId: 'records', connector });
 // @ts-expect-error application identity must not claim a provider account
 bind(people, {
   connectionId: 'local',
+  resourceId: 'records',
   providerAccountId: 'fake',
   connector: applicationConnector,
 });

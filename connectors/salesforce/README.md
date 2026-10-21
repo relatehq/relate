@@ -23,6 +23,7 @@ const accounts = crm.resource('Account', { fields: ['Name', 'Website'] });
 // In defineApp.setup():
 const connection = bind(accountSource, {
   connectionId: 'salesforce-crm',
+  resourceId: 'records',
   providerAccountId: expectedOrgId, // canonical 18-character Salesforce org ID
   connector: accounts,
 });

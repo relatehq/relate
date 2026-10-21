@@ -26,6 +26,7 @@ const billing = stripe({
 });
 const binding = bind(customers, {
   connectionId: 'billing',
+  resourceId: 'records',
   providerAccountId: 'acct_yourAccount:test',
   connector: billing.resource('customers', { fields: ['name', 'email'] }),
 });

@@ -26,6 +26,7 @@ function bindings(name: () => Promise<string>) {
   return [
     bind(customers, {
       connectionId: 'crm',
+      resourceId: 'records',
       connector: {
         identity: 'application',
         async fetch(id) {
@@ -38,6 +39,7 @@ function bindings(name: () => Promise<string>) {
     }),
     bind(invoices, {
       connectionId: 'billing',
+      resourceId: 'records',
       connector: {
         identity: 'application',
         fetch: async (id) => ({ state: 'present', record: { id } }),

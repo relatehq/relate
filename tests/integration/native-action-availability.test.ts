@@ -65,6 +65,7 @@ function app(
       [customers.id]: {
         providerAccountId: 'example-account',
         connectionId: 'crm',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: {
           identify: async () => 'example-account',
@@ -80,6 +81,7 @@ function app(
       [invoices.id]: {
         providerAccountId: 'example-account',
         connectionId: 'billing',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: {
           identify: async () => 'example-account',

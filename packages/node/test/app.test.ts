@@ -19,11 +19,13 @@ const connector = (record: Record<string, unknown>) => ({
 const bindings = () => [
   bind(customers, {
     connectionId: 'crm',
+    resourceId: 'records',
     providerAccountId: 'example-account',
     connector: connector({ name: 'Mothlight', portfolio: 'north', revenue: 1 }),
   }),
   bind(invoices, {
     connectionId: 'billing',
+    resourceId: 'records',
     providerAccountId: 'example-account',
     connector: connector({
       customer_id: 'crm_1',

@@ -20,10 +20,12 @@ export const createFixtureApp = () =>
   createApp([
     bind(crmCustomers, {
       connectionId: 'crm-primary',
+      resourceId: 'records',
       connector: lookup(customers),
     }),
     bind(billingInvoices, {
       connectionId: 'billing-primary',
+      resourceId: 'records',
       connector: lookup(invoices),
     }),
   ]);

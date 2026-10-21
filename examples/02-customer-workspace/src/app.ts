@@ -83,11 +83,13 @@ export function createWorkspaceApp(
         bindings: [
           bind(crmCustomers, {
             connectionId: 'demo-crm',
+            resourceId: 'records',
             providerAccountId: 'example-account',
             connector: crmConnector(crm.url),
           }),
           bind(billingInvoices, {
             connectionId: 'demo-billing',
+            resourceId: 'records',
             connector: billing.table('invoices', {
               idColumn: 'id',
               columns: ['crm_customer_id', 'total_minor', 'currency', 'status'],

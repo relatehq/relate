@@ -73,6 +73,7 @@ export function invoiceReadContract(
           bind(customers, {
             providerAccountId: 'example-account',
             connectionId: 'crm',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               fetch: fetchCustomer,
@@ -81,6 +82,7 @@ export function invoiceReadContract(
           bind(invoices, {
             providerAccountId: 'example-account',
             connectionId: 'billing',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               async fetch(id) {

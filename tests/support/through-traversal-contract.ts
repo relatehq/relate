@@ -88,16 +88,19 @@ export function throughTraversalContract(
           bind(model.playlists, {
             providerAccountId: 'music',
             connectionId: 'playlists',
+            resourceId: 'records',
             connector: connector('playlists'),
           }),
           bind(model.songs, {
             providerAccountId: 'music',
             connectionId: 'songs',
+            resourceId: 'records',
             connector: connector('songs'),
           }),
           bind(model.memberships, {
             providerAccountId: 'music',
             connectionId: 'memberships',
+            resourceId: 'records',
             connector: connector('memberships'),
           }),
         ],

@@ -37,11 +37,13 @@ function createInvoiceApp() {
     bindings: [
       bind(model.customers, {
         connectionId: 'crm',
+        resourceId: 'records',
         providerAccountId: 'account',
         connector: connector(rows.customers),
       }),
       bind(model.invoices, {
         connectionId: 'billing',
+        resourceId: 'records',
         providerAccountId: 'account',
         connector: connector(rows.invoices),
       }),
@@ -226,6 +228,7 @@ it('keeps registered actions and receipts when the caller changes the graph or o
     bindings: [
       bind(base.objects.Customer.membership.resource, {
         connectionId: 'crm',
+        resourceId: 'records',
         connector: {
           identity: 'application' as const,
           fetch: async () => ({ state: 'deleted' as const }),

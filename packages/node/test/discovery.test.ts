@@ -26,11 +26,13 @@ it('exposes progressive discovery on the typed consumer handle', async () => {
     bindings: [
       bind(customers, {
         connectionId: 'crm',
+        resourceId: 'records',
         providerAccountId: 'test-account',
         connector: connector(),
       }),
       bind(invoices, {
         connectionId: 'billing',
+        resourceId: 'records',
         providerAccountId: 'test-account',
         connector: connector(),
       }),

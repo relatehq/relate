@@ -17,6 +17,7 @@ function fixture() {
       bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm-primary',
+        resourceId: 'records',
         connector: {
           identify: async () => 'example-account',
           async fetch(id) {
@@ -64,6 +65,7 @@ it('adopts once and reads selected fields through a principal-bound object', asy
       bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm-primary',
+        resourceId: 'records',
         connector: {
           identify: async () => 'example-account',
           async fetch(id) {
@@ -283,6 +285,7 @@ it('validates registration before use instead of trusting structurally similar d
   const binding = {
     providerAccountId: 'example-account',
     connectionId: 'crm',
+    resourceId: 'records',
     connector: {
       identify: async () => 'example-account',
       fetch: async () => ({
@@ -323,6 +326,7 @@ it('waits for an in-flight read at close and leaves borrowed storage usable', as
     bind(customers, {
       providerAccountId: 'example-account',
       connectionId: 'crm',
+      resourceId: 'records',
       connector: {
         identify: async () => 'example-account',
         async fetch(id) {
@@ -380,6 +384,7 @@ it('denies objects with no policy even when they have been adopted', async () =>
       bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm',
+        resourceId: 'records',
         connector: {
           identify: async () => 'example-account',
           async fetch(id) {

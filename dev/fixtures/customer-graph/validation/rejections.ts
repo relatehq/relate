@@ -449,6 +449,7 @@ defineRelationship({
 });
 bind(crmCustomers, {
   connectionId: 'crm',
+  resourceId: 'records',
   connector: {
     // @ts-expect-error provider records must follow the source schema
     async fetch() {

@@ -107,6 +107,8 @@ export function createRuntime(options: RuntimeOptions) {
     if (
       !binding ||
       !binding.connectionId.trim() ||
+      typeof binding.resourceId !== 'string' ||
+      !binding.resourceId.trim() ||
       (binding.connector.identity === 'application'
         ? binding.providerAccountId !== undefined ||
           binding.connector.identify !== undefined
@@ -139,6 +141,7 @@ export function createRuntime(options: RuntimeOptions) {
     objectDefinitionId,
     sourceDefinitionId,
     connectionId: sources[sourceDefinitionId]!.connectionId,
+    resourceId: sources[sourceDefinitionId]!.resourceId,
     providerAccountId: sources[sourceDefinitionId]!.providerAccountId ?? null,
     partition: 'shared-service',
   });

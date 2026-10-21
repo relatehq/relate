@@ -65,6 +65,7 @@ it('enforces multiple predicates across two reference hops without exposing evid
       bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm',
+        resourceId: 'records',
         connector: {
           identify: async () => 'example-account',
           fetch: async (id) => ({
@@ -77,6 +78,7 @@ it('enforces multiple predicates across two reference hops without exposing evid
       bind(invoices, {
         providerAccountId: 'example-account',
         connectionId: 'billing',
+        resourceId: 'records',
         connector: {
           identify: async () => 'example-account',
           fetch: async (id) => ({
@@ -94,6 +96,7 @@ it('enforces multiple predicates across two reference hops without exposing evid
       bind(credits, {
         providerAccountId: 'example-account',
         connectionId: 'credits',
+        resourceId: 'records',
         connector: {
           identify: async () => 'example-account',
           fetch: async (id) => ({

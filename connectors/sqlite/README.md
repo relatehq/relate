@@ -14,6 +14,7 @@ const database = sqlite({
 });
 const binding = bind(customers, {
   connectionId: 'local-crm',
+  resourceId: 'records',
   connector: database.table('customers', {
     idColumn: 'id',
     columns: ['display_name', 'portfolio', 'stripe_customer_id'],
@@ -68,6 +69,7 @@ const database = sqlite({
 });
 const binding = bind(customers, {
   connectionId: 'local-crm',
+  resourceId: 'records',
   providerAccountId: 'crm-production',
   connector: database.table('customers', {
     idColumn: 'id',

@@ -211,7 +211,7 @@ assert.equal(model.manifest.objects[0].id, 'customer');
 assert.equal(typeof createRuntime, 'function');
 assert.equal(createMemoryStore().durability, 'volatile');
 const memoryModel = compile(defineGraph({ id: 'graph', objects: { Customer }, access, policies: { Customer: { read: { gate: access.role('reader') } } } }));
-const runtime = createRuntime({ model: memoryModel, graphId: 'smoke', sources: { crm: { connectionId: 'fixture', providerAccountId: 'example-account', authorization: 'shared-service', connector: { identify: async () => 'example-account', async fetch(id) { return { providerAccountId: 'example-account', state: 'present', record: { id, name: 'Ada' } }; } } } } });
+const runtime = createRuntime({ model: memoryModel, graphId: 'smoke', sources: { crm: { connectionId: 'fixture', resourceId: 'records', providerAccountId: 'example-account', authorization: 'shared-service', connector: { identify: async () => 'example-account', async fetch(id) { return { providerAccountId: 'example-account', state: 'present', record: { id, name: 'Ada' } }; } } } } });
 const objectIdValue = await runtime.adopt('customer', '1');
 const read = await runtime.read({ id: 'reader', roles: ['reader'], claims: {} }, 'customer', objectIdValue);
 assertFields(read, ['name']);
@@ -276,17 +276,17 @@ import { sqlite } from '@relate/connector-sqlite';
 import { bind } from 'relate';
 import type { SourceConnector, ApplicationSourceConnector } from 'relate/connectors';
 const salesforceResource: SourceConnector = salesforce({ credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture' }, apiVersion: '67.0' }).resource('Account', { fields: ['Name'] });
-bind(crm, { connectionId: 'salesforce', providerAccountId: '00D000000000001EAA', connector: salesforceResource });
+bind(crm, { connectionId: 'salesforce', resourceId: 'records', providerAccountId: '00D000000000001EAA', connector: salesforceResource });
 const stripeResource: SourceConnector = stripe({ apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test' }).resource('customers', { fields: ['name'] });
-bind(crm, { connectionId: 'stripe', providerAccountId: 'acct_fixture:test', connector: stripeResource });
+bind(crm, { connectionId: 'stripe', resourceId: 'records', providerAccountId: 'acct_fixture:test', connector: stripeResource });
 const localResource: ApplicationSourceConnector = sqlite({ path: 'source.sqlite' }).table('customers', { idColumn: 'id', columns: ['name'] });
-bind(crm, { connectionId: 'local', connector: localResource });
+bind(crm, { connectionId: 'local', resourceId: 'records', connector: localResource });
 // @ts-expect-error application identity cannot claim a provider account
-bind(crm, { connectionId: 'local', providerAccountId: 'fake', connector: localResource });
+bind(crm, { connectionId: 'local', resourceId: 'records', providerAccountId: 'fake', connector: localResource });
 const resource: SourceConnector = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } }).table('customers', { idColumn: 'id', columns: ['name'] });
-bind(crm, { connectionId: 'verified', providerAccountId: 'account', connector: resource });
+bind(crm, { connectionId: 'verified', resourceId: 'records', providerAccountId: 'account', connector: resource });
 // @ts-expect-error verified identity requires an expected account
-bind(crm, { connectionId: 'verified', connector: resource });
+bind(crm, { connectionId: 'verified', resourceId: 'records', connector: resource });
 export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 `,
   );
@@ -363,8 +363,8 @@ const definition = defineApp({ graph, setup({ onDispose }) {
   setupCalls++;
   onDispose(() => { disposed = true; });
   return { bindings: [
-  bind(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Mothlight', portfolio: 'north', revenue: 100 } }) } }),
-  bind(invoices, { connectionId: 'billing', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, customer_id: 'crm_1', status: 'open', total_minor: 12500 } }) } }),
+  bind(customers, { connectionId: 'crm', resourceId: 'records', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Mothlight', portfolio: 'north', revenue: 100 } }) } }),
+  bind(invoices, { connectionId: 'billing', resourceId: 'records', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, customer_id: 'crm_1', status: 'open', total_minor: 12500 } }) } }),
 ] }; } });
 assert.equal(setupCalls, 0);
 const relate = await startApp(definition);
@@ -433,8 +433,8 @@ import { createConsumer } from 'relate/consumer';
 import { compile } from 'relate/compiler';
 import { graph, AddAccountReview, addAccountReview, ana, Customer, customers, invoices } from './built/native-action-model.js';
 const app = createRuntime({ graph, actionImplementations: [addAccountReview], bindings: [
-  bind(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Mothlight', portfolio: 'north' } }) } }),
-  bind(invoices, { connectionId: 'billing', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id } }) } }),
+  bind(customers, { connectionId: 'crm', resourceId: 'records', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Mothlight', portfolio: 'north' } }) } }),
+  bind(invoices, { connectionId: 'billing', resourceId: 'records', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id } }) } }),
 ] });
 try {
   const customer = await app.host.adopt(Customer, 'mothlight');
@@ -503,7 +503,7 @@ const relate = await startApp(
       bindings: [
         bind(people, {
           providerAccountId: 'smoke-account',
-          connectionId: 'smoke',
+          connectionId: 'smoke', resourceId: 'records',
           connector: {
             identify: async () => 'smoke-account',
             fetch: async (id: string) =>

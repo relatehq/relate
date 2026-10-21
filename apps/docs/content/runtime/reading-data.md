@@ -30,11 +30,13 @@ export const relate = createRuntime({
     bind(crmCustomers, {
       providerAccountId: 'crm-account',
       connectionId: 'crm-primary',
+      resourceId: 'records',
       connector: crmConnector,
     }),
     bind(billingInvoices, {
       providerAccountId: 'billing-account',
       connectionId: 'billing-primary',
+      resourceId: 'records',
       connector: billingConnector,
     }),
   ],

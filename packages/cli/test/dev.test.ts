@@ -721,7 +721,7 @@ export default defineApp({
   setup() {
     return {
       bindings: [bind(Customer.membership.resource, {
-        connectionId: 'crm', providerAccountId: 'test-account',
+        connectionId: 'crm', resourceId: 'records', providerAccountId: 'test-account',
         connector: {
           identify: async () => 'test-account',
           fetch: async (id) => ({

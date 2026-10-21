@@ -25,6 +25,7 @@ function reviewConnections(
     bind(customers, {
       providerAccountId: 'example-account',
       connectionId: 'crm',
+      resourceId: 'records',
       connector: {
         identify: async () => 'example-account',
         fetch: async (id) => ({
@@ -41,6 +42,7 @@ function reviewConnections(
     bind(invoices, {
       providerAccountId: 'example-account',
       connectionId: 'billing',
+      resourceId: 'records',
       connector: {
         identify: async () => 'example-account',
         fetch: async (id) => ({
@@ -224,6 +226,7 @@ describe('memory activity', () => {
           bind(customers, {
             providerAccountId: 'example-account',
             connectionId: 'crm',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               fetch: async (id) => ({
@@ -241,6 +244,7 @@ describe('memory activity', () => {
           bind(invoices, {
             providerAccountId: 'example-account',
             connectionId: 'billing',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               fetch: async (id) => ({

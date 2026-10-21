@@ -87,6 +87,7 @@ export function activityContract(
       return bind(customers, {
         providerAccountId: 'example-account',
         connectionId: 'crm',
+        resourceId: 'records',
         connector: {
           identify: async () => 'example-account',
           async fetch(id) {
@@ -979,6 +980,7 @@ export function lineageContract(
           bind(customers, {
             providerAccountId: 'example-account',
             connectionId: 'crm',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               fetch: async (id) => ({

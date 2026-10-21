@@ -101,6 +101,7 @@ export function nativeActionContract(
           bind(customers, {
             providerAccountId: 'example-account',
             connectionId: 'crm',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               async fetch(id) {
@@ -121,6 +122,7 @@ export function nativeActionContract(
           bind(invoices, {
             providerAccountId: 'example-account',
             connectionId: 'billing',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               async fetch(id) {

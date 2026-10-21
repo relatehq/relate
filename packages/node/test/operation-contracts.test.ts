@@ -36,11 +36,13 @@ function createInvoiceApp() {
     bindings: [
       bind(model.customers, {
         connectionId: 'crm',
+        resourceId: 'records',
         providerAccountId: 'account',
         connector: connector(rows.customers),
       }),
       bind(model.invoices, {
         connectionId: 'billing',
+        resourceId: 'records',
         providerAccountId: 'account',
         connector: connector(rows.invoices),
       }),

@@ -74,6 +74,7 @@ export function queryContract(
         bindings: [
           bind(model.customers, {
             connectionId: 'crm',
+            resourceId: 'records',
             providerAccountId: 'account',
             connector: {
               identify: async () => account,
@@ -90,6 +91,7 @@ export function queryContract(
           }),
           bind(model.invoices, {
             connectionId: 'billing',
+            resourceId: 'records',
             providerAccountId: 'account',
             connector: {
               identify: async () => account,
@@ -896,6 +898,7 @@ export function queryContract(
         bindings: [
           bind(wide, {
             connectionId: 'wide',
+            resourceId: 'records',
             providerAccountId: 'account',
             connector: {
               identify: async () => 'account',

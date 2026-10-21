@@ -107,6 +107,7 @@ export function timestampQueryContract(
         bindings: [
           bind(events, {
             connectionId: 'events',
+            resourceId: 'records',
             connector: {
               identity: 'application',
               fetch: async (id) => {

@@ -248,6 +248,7 @@ export function traversalFilterContract(
           bind(model[type], {
             providerAccountId: 'ledger',
             connectionId: type,
+            resourceId: type,
             connector: {
               identify: async () => 'ledger',
               fetch: fetches[type],

@@ -101,6 +101,7 @@ const relate = createRuntime({
   bindings: [
     bind(people, {
       connectionId: 'directory',
+      resourceId: 'records',
       providerAccountId: 'example-account',
       connector: {
         // This in-memory fixture is its own provider. Real adapters authenticate.

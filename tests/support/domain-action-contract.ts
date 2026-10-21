@@ -109,6 +109,7 @@ export function domainActionContract(
           bind(customers, {
             providerAccountId: 'test',
             connectionId: 'crm',
+            resourceId: 'records',
             connector: {
               identify: async () => 'test',
               fetch: async (id) => ({

@@ -56,6 +56,8 @@ export class SourceAccessDenied extends Error {
 
 interface BindingOptions {
   readonly connectionId: string;
+  /** Stable identity of the selected table or API resource within the connection. */
+  readonly resourceId: string;
   readonly authorization: 'shared-service';
 }
 

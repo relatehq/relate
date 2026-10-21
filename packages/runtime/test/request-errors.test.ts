@@ -40,6 +40,7 @@ function createRestrictedRuntime() {
   const binding = {
     providerAccountId: 'account',
     connectionId: 'test',
+    resourceId: 'records',
     authorization: 'shared-service' as const,
     connector: {
       identify: async () => 'account',

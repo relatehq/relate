@@ -25,6 +25,7 @@ import {
   receiptRecoveryMigration,
   applicationIdentityMigration,
   activityMigration,
+  resourceIdentityMigration,
 } from './migrations.js';
 
 export interface PostgresOptions {
@@ -64,6 +65,9 @@ export function createPostgresStore(
   // Idle client failures are handled by pg; callers receive operation failures.
   pool.on('error', () => {});
   const scopeValues = (scope: StorageScope) => {
+    if (typeof scope.resourceId !== 'string' || !scope.resourceId.trim())
+      throw new Error('Invalid source resource scope');
+
     // Empty text is only the physical encoding for an explicitly null application
     // identity. Never interpret missing or blank account evidence as that mode.
     if (
@@ -80,6 +84,7 @@ export function createPostgresStore(
       scope.connectionId,
       scope.partition,
       scope.providerAccountId === null ? '' : scope.providerAccountId,
+      scope.resourceId,
     ];
   };
   const rowObject = (row: {
@@ -115,6 +120,7 @@ export function createPostgresStore(
           receiptRecoveryMigration,
           applicationIdentityMigration,
           activityMigration,
+          resourceIdentityMigration,
         ];
         const existing = await client.query<{
           version: number;
@@ -186,7 +192,7 @@ export function createPostgresStore(
       const result = await pool.query(
         `SELECT o.object_key,o.provider_key,o.observation FROM relate.objects o
         JOIN relate.graphs g USING (graph_id)
-        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND o.object_key=$7 AND g.definition_revision=$8`,
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.resource_id=$7 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND o.object_key=$8 AND g.definition_revision=$9`,
         [...scopeValues(scope), objectId, scope.definitionRevision],
       );
 
@@ -196,7 +202,7 @@ export function createPostgresStore(
       const result = await pool.query(
         `SELECT o.adopted_by_kind,o.adopted_by_id,o.adopted_at FROM relate.objects o
         JOIN relate.graphs g USING (graph_id)
-        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND o.object_key=$7 AND g.definition_revision=$8`,
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.resource_id=$7 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND o.object_key=$8 AND g.definition_revision=$9`,
         [...scopeValues(scope), objectId, scope.definitionRevision],
       );
       const row = result.rows[0];
@@ -216,7 +222,7 @@ export function createPostgresStore(
       const result = await pool.query(
         `SELECT o.object_key,o.provider_key,o.observation FROM relate.objects o
         JOIN relate.graphs g USING (graph_id)
-        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND o.provider_key=$7 AND g.definition_revision=$8`,
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.resource_id=$7 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND o.provider_key=$8 AND g.definition_revision=$9`,
         [...scopeValues(scope), sourceRecordId, scope.definitionRevision],
       );
 
@@ -229,9 +235,9 @@ export function createPostgresStore(
       const result = await pool.query(
         `SELECT o.object_key,o.provider_key,o.observation FROM relate.objects o
         JOIN relate.graphs g USING (graph_id)
-        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END
-          AND g.definition_revision=$7 AND ($8::text IS NULL OR o.object_key COLLATE "C" > $8 COLLATE "C")
-        ORDER BY o.object_key COLLATE "C" LIMIT $9`,
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.resource_id=$7 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END
+          AND g.definition_revision=$8 AND ($9::text IS NULL OR o.object_key COLLATE "C" > $9 COLLATE "C")
+        ORDER BY o.object_key COLLATE "C" LIMIT $10`,
         [
           ...scopeValues(scope),
           scope.definitionRevision,
@@ -267,7 +273,7 @@ export function createPostgresStore(
         );
         const result = await client.query(
           `SELECT object_key,provider_key,observation FROM relate.objects
-          WHERE graph_id=$1 AND object_type=$2 AND source_id=$3 AND connection_id=$4 AND partition=$5 AND provider_account_id=$6 AND identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND provider_key=$7 FOR UPDATE`,
+          WHERE graph_id=$1 AND object_type=$2 AND source_id=$3 AND connection_id=$4 AND resource_id=$7 AND partition=$5 AND provider_account_id=$6 AND identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND provider_key=$8 FOR UPDATE`,
           [...scopeValues(scope), input.sourceRecordId],
         );
         const previous = result.rows[0] ? rowObject(result.rows[0]) : undefined;
@@ -296,8 +302,8 @@ export function createPostgresStore(
 
           // First membership writes adoption provenance with the identity.
           await client.query(
-            `INSERT INTO relate.objects(graph_id,object_type,source_id,connection_id,partition,provider_account_id,identity_kind,object_key,provider_key,observation,adopted_by_kind,adopted_by_id,adopted_at)
-            VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $6='' THEN 'application' ELSE 'provider' END,$7,$8,$9::jsonb,$10,$11,$12)
+            `INSERT INTO relate.objects(graph_id,object_type,source_id,connection_id,partition,provider_account_id,resource_id,identity_kind,object_key,provider_key,observation,adopted_by_kind,adopted_by_id,adopted_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $6='' THEN 'application' ELSE 'provider' END,$8,$9,$10::jsonb,$11,$12,$13)
             ON CONFLICT (graph_id,object_type,object_key) DO UPDATE SET observation=EXCLUDED.observation`,
             [
               ...scopeValues(scope),
