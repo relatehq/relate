@@ -2406,16 +2406,18 @@ Each question names the delivery step that settles it.
    spike's behaviour) or is it `unknown-property` (strict Postgres)? Strict is
    recommended so the future graph SQL behaves like Postgres. Also: may a
    declared name be a reserved word (`order`), usable only quoted? (Contracts.)
-6. `decodeComputed`: name, and whether int64 values come back as plain `bigint`
-   or wrapped with `toNumber()`. (Contracts.)
+6. **Settled in implementation:** `decodeComputed` returns plain `bigint` for
+   int64. Shared scalar codecs enforce signed int64 bounds without number
+   rounding.
 7. **Statement-level failure.** Is it acceptable that one alias's database error
    fails every alias in its statement? The alternative is a bounded retry of the
    remaining aliases without the failed one, which costs extra statements
    against the queue and time budget. (Contracts.)
-8. **Microsecond timestamps.** The spike tested milliseconds only, and a
-   JavaScript `Date` cannot hold microseconds. Keep µs columns in v1 (and decide
-   what `decodeComputed` returns for them), or accept ms only and defer µs?
-   (Contracts.)
+8. **Settled in implementation:** keep microsecond columns in v1. Decoding
+   returns their canonical UTC string, preserving all six fractional digits;
+   millisecond values decode to `Date`. The scalar corpus covers offset
+   normalization, pre-epoch instants and precision-loss rejection. Backend
+   comparison and execution cases remain required before shipping.
 9. Package names: `@relate/sql-parser` is suggested; name of the Postgres
    connector package. Whether `packages/node` depends on the parser always (1.7
    MB WASM, loaded at startup) or only when a graph declares datasets. (Build.)

@@ -320,3 +320,24 @@ range operators. See
 for consumer examples and
 [the runtime contract](../runtime/CONTRACT.md#graph-queries) for validation,
 evidence and pagination rules.
+
+## Portable analytical contracts
+
+`relate/analytics` owns SQL representation types and shared scalar codecs. These
+are implementation foundations; analytical reads are still being implemented.
+The entry point has no compiler, SQL parser implementation or database driver.
+
+```ts
+import { encodeAnalyticalValue, decodeAnalyticalValue } from 'relate/analytics';
+
+const type = { type: 'int64', nullable: false } as const;
+encodeAnalyticalValue(9007199254740993n, type); // '9007199254740993'
+decodeAnalyticalValue('9007199254740993', type); // 9007199254740993n
+```
+
+Int64 values always encode as decimal strings. Millisecond instants decode to
+`Date`; microsecond instants remain canonical UTC strings so no digits are lost.
+Codecs reject overflow, nonfinite numbers, malformed timestamps and mismatched
+JSON values. `parseAnalyticalValue` resolves typed JSON parameters and
+normalizes instant offsets without rounding. Null is valid only for nullable
+results.

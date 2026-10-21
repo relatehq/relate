@@ -191,6 +191,7 @@ export function assertRelateEntryPoints(
     'src/model.ts',
     'src/connectors.ts',
     'src/storage.ts',
+    'src/analytics.ts',
   ]) {
     const visited = new Set<string>();
     const visit = (file: string, path: readonly string[]): void => {
@@ -200,11 +201,15 @@ export function assertRelateEntryPoints(
       const compiler =
         file === 'src/compiler.ts' || file.startsWith('src/compiler/');
       const model = file === 'src/model.ts' || file.startsWith('src/model/');
+      const analytics =
+        file === 'src/analytics.ts' || file.startsWith('src/analytics/');
 
       if (
         compiler ||
         (['src/connectors.ts', 'src/storage.ts'].includes(entry) &&
-          !['src/connectors.ts', 'src/storage.ts'].includes(file)) ||
+          !['src/connectors.ts', 'src/storage.ts'].includes(file) &&
+          !analytics) ||
+        (entry === 'src/analytics.ts' && !analytics) ||
         (entry === 'src/model.ts' && !model && file !== 'src/diagnostics.ts')
       )
         throw new Error(

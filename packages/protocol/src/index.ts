@@ -330,3 +330,11 @@ export type {
   RejectedOutcome,
   UncertainOutcome,
 } from './activity.js';
+
+export type {
+  LogicalType,
+  ComputedResultType,
+  AnalyticalExpression,
+  OrderEntry,
+  ComputedUnavailableReason,
+} from './analytics.js';

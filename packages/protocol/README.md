@@ -34,7 +34,10 @@ Relate consumer surface. Private and unpublished.
   engine implements it, the planned `@relate/http` serves it, and the planned
   `@relate/client` implements it over a transport, and `relate/consumer` types
   it.
-- `Json`.
+- `Json` and analytical wire contracts (`AnalyticalExpression`, `LogicalType`,
+  `ComputedResultType`, `OrderEntry`, `ComputedUnavailableReason`). Analytical
+  execution is still being implemented; declaring these types does not add
+  analytical options to current operations.
 
 These are types, two error classes and pure evidence presentation helpers. The
 package has no runtime, database, provider or schema-library dependency and

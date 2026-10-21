@@ -622,3 +622,23 @@ chronology. Plain strings and existing timestamps keep their contracts. Adoption
 changes the portable schema and definition revision, invalidating old cursors;
 recompile consumers and readopt/reacquire into the new revision. No silent
 conversion of existing strings or source pushdown occurs.
+
+## Analytical value boundary
+
+`relate/analytics` exports the portable SQL representation, parser interface,
+logical types and codecs. SQL source spans are zero-based UTF-16 offsets into
+the original expression. Numeric SQL literals retain their exact spelling until
+contextual type resolution; parsing must never round a wide integer through a
+JavaScript number. No parser-specific syntax tree crosses this boundary.
+
+Result encoding validates int32/int64 bounds, finite float64 values, exact
+boolean/string types and canonical UTC timestamp precision. Int64 JSON is always
+a decimal string; scalar decoding returns bigint. Millisecond timestamp decoding
+returns Date, while microsecond decoding preserves the canonical string. The
+same codecs own runtime result validation and consumer decoding. Null parameters
+are rejected; SQL null literals have their own restricted syntax. Invalid values
+raise a sanitized error that contains neither the value nor provider details.
+
+The analytical entry point and its transitive local imports stay inside the
+analytics subtree. Connector/storage contracts may reach that subtree but still
+cannot reach graph authoring, compilation or runtime code.
