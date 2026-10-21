@@ -14,6 +14,8 @@ import type { TimingCapture } from './timings.js';
 import { beginTiming, recordTiming } from './timings.js';
 import { preparedFields } from './prepared.js';
 import type { PreparedCompute } from './prepared.js';
+import { captureCalculations } from './activity.js';
+import type { CalculationCapture } from './activity.js';
 
 /** Request-local execution over authorized, materialized ordinary dependencies. */
 export async function executeResolvedFields(input: {
@@ -26,6 +28,7 @@ export async function executeResolvedFields(input: {
   readonly maxConcurrentStatements?: number;
   readonly requireComplete?: boolean;
   readonly timings?: TimingCapture;
+  readonly activity?: CalculationCapture;
   readonly clock?: () => number;
 }): Promise<ComputedScope> {
   input.signal.throwIfAborted();
@@ -190,6 +193,12 @@ export async function executeResolvedFields(input: {
 
     return result;
   } finally {
+    if (input.activity)
+      for (const row of rows)
+        captureCalculations(input.activity, (activity) =>
+          activity.results(row.fields, undefined, controller.signal.aborted),
+        );
+
     input.signal.removeEventListener('abort', abort);
   }
 }

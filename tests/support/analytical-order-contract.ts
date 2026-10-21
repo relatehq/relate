@@ -538,6 +538,23 @@ export function analyticalOrderContract(
           issues: [{ path: [field], message: 'execution-failed' }],
         });
         expect(fixture.counters.statements).toBeGreaterThanOrEqual(2);
+        await fixture.runtime.host.flushActivity();
+        const failed = (
+          await fixture.runtime.host.activity.operations.list()
+        ).entries.find((row) => row.kind === 'query')!;
+
+        expect(failed.details.analytical?.summary).toMatchObject({
+          expressionCount: 1,
+          computedFilter: true,
+          computedOrder: true,
+          calculations: [
+            {
+              associationId: 'customer.events',
+              datasetId: 'events',
+              failures: { 'execution-failed': 5 },
+            },
+          ],
+        });
         delete fixture.hooks.failAt;
         const recovered = await fixture.query(request);
 
@@ -624,6 +641,57 @@ export function analyticalOrderContract(
         },
       );
       expect(fixture.counters.statements).toBe(statements);
+    });
+
+    it('never restores an invalidated optional value or counts the final page recheck twice', async () => {
+      const fixture = await app();
+      const original = fixture.store.native!.load.bind(fixture.store.native!);
+      let checked = 0;
+
+      fixture.store.native!.load = async (...args) => {
+        const record = await original(...args);
+
+        if (
+          fixture.counters.statements &&
+          record?.objectId === 'c' &&
+          ++checked === 1
+        )
+          return {
+            ...record,
+            values: { ...record.values, 'customer.label': 'changed' },
+          };
+
+        return record;
+      };
+      const page = await fixture.consumer.query({
+        ...ordered,
+        select: [],
+        limit: 1,
+        evidence: 'full',
+        compute: {
+          ...compute,
+          optional: {
+            sql: 'SELECT COUNT(*) FROM self.events WHERE customerId = self.label',
+          },
+        },
+      });
+
+      expect(checked).toBe(2);
+      expect(page.data[0]!.data).toEqual({ total: '9007199254740993' });
+      expect(page.data[0]!.meta.fields.optional).toMatchObject({
+        status: 'unavailable',
+        reason: 'correlation-unavailable',
+      });
+      await fixture.runtime.host.flushActivity();
+      const row = (
+        await fixture.runtime.host.activity.operations.list()
+      ).entries.find((entry) => entry.kind === 'query')!;
+
+      expect(
+        row.details.analytical?.summary?.calculations.map(
+          (entry) => entry.failures,
+        ),
+      ).toEqual([{}, { 'correlation-unavailable': 1 }]);
     });
 
     it('invalidates a cursor when declared SQL changes on the same physical binding', async () => {

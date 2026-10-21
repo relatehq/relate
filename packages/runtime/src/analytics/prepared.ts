@@ -7,6 +7,8 @@ import type { ActorAssociations, ResolvedExpression } from './types.js';
 import { AnalyticalPreparationError } from './types.js';
 import { beginTiming } from './timings.js';
 import type { TimingCapture } from './timings.js';
+import { captureCalculations } from './activity.js';
+import type { CalculationCapture } from './activity.js';
 
 declare const prepared: unique symbol;
 
@@ -69,6 +71,7 @@ export function prepareCompute(input: {
   readonly request: ComputeRequest;
   readonly limits?: PreparationLimits;
   readonly timings?: TimingCapture;
+  readonly activity?: CalculationCapture;
 }): PreparedCompute {
   const end = beginTiming(input.timings, 'preparation');
 
@@ -154,6 +157,10 @@ export function prepareCompute(input: {
 
     // Detach the request, model, and parser output before any asynchronous read.
     const snapshot = structuredClone(fields);
+
+    captureCalculations(input.activity, (activity) =>
+      activity.prepared(snapshot),
+    );
     const handle = Object.freeze({
       dependencies: Object.freeze([
         ...new Set(

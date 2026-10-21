@@ -23,6 +23,7 @@ export type {
 } from './execution-types.js';
 
 export { createAnalyticalTimings, beginTiming } from './timings.js';
+export { createCalculationSummary, captureCalculations } from './activity.js';
 
 export type {
   AnalyticalTimingStage,

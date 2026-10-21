@@ -167,6 +167,19 @@ attempt: `get`, `query`, `traverse`, `invoke`, `receipt`, `adopt` or `refresh`),
 references only, never property values, filter values, action inputs/outputs or
 raw errors.
 
+Analytical `get` and `query` operations may include `details.analytical`: fixed
+stage timings plus a `summary` after successful expression preparation. The
+summary reports expression count, computed-filter/order flags, and one entry per
+prepared expression with association/dataset IDs, an optional declared property
+ID, and failed-object-result counts by reason. Caller expressions have no
+recorded name. Revalidation updates counts without counting a result twice;
+`interrupted` means a pending calculation had no settled result when execution
+was aborted. No SQL, parameters, aliases, values or physical identifiers occur
+in this summary. At most 32 entries are retained, with each identifier bounded
+to 256 UTF-8 bytes. Oversized entries are omitted whole and counted in
+`omittedCalculations`; stable IDs are never shortened. These diagnostics are
+absent from consumer read results and MCP results.
+
 Each union constrains its variant: only `invoke` has `replayed`, a terminal
 invocation outcome always has an `invocationId`, only `refresh` has a refresh
 result, and only `query` and `traverse` successes have `hasMore`. `Change.kind`

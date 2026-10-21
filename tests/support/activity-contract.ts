@@ -88,6 +88,24 @@ export function activityContract(
       await backing.store.install(graphId, definitionRevision);
       const id = uuidv7();
       const analytical = {
+        summary: {
+          expressionCount: 2,
+          computedFilter: true,
+          computedOrder: true,
+          calculations: [
+            {
+              associationId: 'customer.events',
+              datasetId: 'events',
+              propertyId: 'customer.count',
+              failures: {},
+            },
+            {
+              associationId: 'customer.events',
+              datasetId: 'events',
+              failures: { 'execution-failed': 3 },
+            },
+          ],
+        },
         stages: {
           dependencyReads: { count: 2, totalMs: 15, maxMs: 9 },
           execution: { count: 1, totalMs: 4, maxMs: 4 },

@@ -74,7 +74,13 @@ Analytical operations in the Activity screen expose an expandable timing table
 with each entered stage's count, summed work duration and longest span. The
 operation duration remains elapsed time; overlapping stages are not presented as
 additive parts of a total. Timings come from host activity, including failed
-operations after cleanup, and contain only fixed stage names and numbers.
+operations after cleanup, and contain only fixed stage names and numbers. An
+adjacent **Analytical calculations** table shows expression counts, computed
+filter/order flags, logical association/dataset IDs and declared property IDs.
+Failure counts cover observed object results across the evaluated scope, with
+repeated checks counted once. Caller aliases and SQL are never shown. Truncated
+diagnostic entries are reported explicitly. Inspector protocol version 5 adds
+this bounded summary to the activity payload.
 
 ## Development
 

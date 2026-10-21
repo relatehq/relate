@@ -2569,6 +2569,12 @@ a.icon-button.active {
   padding-right: 12px;
 }
 
+.activity-calculations td {
+  vertical-align: top;
+  max-width: 280px;
+  overflow-wrap: anywhere;
+}
+
 /* Playground */
 .pg-screen {
   --pg-syntax-keyword: var(--t-color-purple11);

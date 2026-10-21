@@ -470,15 +470,31 @@ cleanup. Disabled capture does not create a timing accumulator. Inspector shows
 count, summed work and longest span beside the operation's elapsed duration;
 nested and parallel spans overlap, so these values are not additive.
 
+`analytics/activity.ts` adds `details.analytical.summary` after successful
+preparation: expression count, computed-filter/order flags, and bounded
+association/dataset identities with declared property IDs where available.
+Failures count observed object results by fixed reason, across the evaluated
+scope. Executor cleanup records initial outcomes, including pending results as
+`interrupted` on abort; revalidation records transitions without counting the
+same result twice. Once a value is invalidated, a later page check cannot
+restore it. The accumulator retains no object IDs, SQL, parameters or values;
+caller aliases remain private lookup keys and never enter its snapshot. It keeps
+at most 32 entries with 256-byte UTF-8 identifiers, reporting omitted entries
+rather than shortening IDs. Invalid preparation has no summary, and disabled
+capture allocates no accumulator. Diagnostic observer failures cannot fail a
+read. Inspector shows identities and failures separately from timings.
+
 ```mermaid
 flowchart LR
   Capture[Enabled operation capture] --> Scope[Private scope diagnostic provider]
   Read[Analytical get or query] --> Stages[Monotonic runtime stage spans]
+  Read --> Calculations[Bounded calculation identities and failure counts]
+  Calculations --> Scope
   Connector[Connector startup and execution] --> Stages
   Stages --> Scope
   Scope --> Settled[Read and cleanup settle]
   Settled --> Activity[Bounded operation details]
-  Activity --> Inspector[Inspector timing table]
+  Activity --> Inspector[Inspector calculation and timing tables]
 ```
 
 ```mermaid

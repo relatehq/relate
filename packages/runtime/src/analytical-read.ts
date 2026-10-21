@@ -27,6 +27,8 @@ import type { OperationScope } from './activity/index.js';
 import { operationDiagnostics } from './activity/index.js';
 import {
   createAnalyticalTimings,
+  createCalculationSummary,
+  captureCalculations,
   beginTiming,
   prepareCompute,
   preparedBindingRevisions,
@@ -141,8 +143,17 @@ export function createAnalyticalReads(options: {
 
     const diagnostics = operationDiagnostics(attempt);
     const timings = diagnostics ? createAnalyticalTimings() : undefined;
+    let summary: ReturnType<typeof createCalculationSummary> | undefined;
 
-    if (diagnostics && timings) diagnostics.analytical = timings.snapshot;
+    if (diagnostics && timings)
+      diagnostics.analytical = () => {
+        const captured = summary?.snapshot();
+
+        return {
+          ...timings.snapshot(),
+          ...(captured ? { summary: captured } : {}),
+        };
+      };
 
     const measure = async <T>(
       stage: Parameters<typeof beginTiming>[1],
@@ -241,8 +252,15 @@ export function createAnalyticalReads(options: {
       let prepared;
       let ordering;
 
+      if (diagnostics)
+        summary = createCalculationSummary({
+          computedFilter: Object.keys(computedWhere).length > 0,
+          computedOrder: orderedNames.length > 0,
+        });
+
       try {
         prepared = prepareCompute({
+          ...(summary ? { activity: summary } : {}),
           parser: analytics.parser,
           limits,
           associations,
@@ -574,6 +592,7 @@ export function createAnalyticalReads(options: {
           );
         });
         const computed = await computeFields({
+          ...(summary ? { activity: summary } : {}),
           prepared,
           maxSlots: limits.maxKeysPerStatement,
           statementTimeoutMs: limits.statementTimeoutMs,
@@ -596,6 +615,7 @@ export function createAnalyticalReads(options: {
 
         const revalidate = async (
           record: FullObjectRecord,
+          previous = computed.rows.get(record.id)!,
         ): Promise<Validated | undefined> => {
           controller.signal.throwIfAborted();
           let allowed = async () => false;
@@ -627,9 +647,13 @@ export function createAnalyticalReads(options: {
           const at = options.clock();
           const fresh = project(record.id, current, selection, controls, at);
           const fields = revalidateFields(
-            computed.rows.get(record.id)!,
+            previous,
             materialize(fresh, at),
             actorAssociations(options.manifest, principal, object),
+          );
+
+          captureCalculations(summary, (capture) =>
+            capture.results(fields, previous),
           );
           const failures = Object.fromEntries(
             [
@@ -768,7 +792,10 @@ export function createAnalyticalReads(options: {
 
           await measure('revalidation', async () => {
             for (const entry of chosen) {
-              const current = await revalidate(entry.row.record);
+              const current = await revalidate(
+                entry.row.record,
+                entry.row.fields,
+              );
 
               if (current)
                 data.push(

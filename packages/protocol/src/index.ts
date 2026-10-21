@@ -340,11 +340,20 @@ export type {
 
 export type { ConsumerOperations } from './consumer.js';
 
-export { ActivityError, analyticalTimingStages } from './activity.js';
+export {
+  ActivityError,
+  analyticalTimingStages,
+  analyticalFailureReasons,
+  analyticalSummaryLimits,
+} from './activity.js';
 
 export type {
   AnalyticalTimingStage,
   AnalyticalTimings,
+  AnalyticalActivity,
+  AnalyticalSummary,
+  AnalyticalCalculationSummary,
+  AnalyticalFailureReason,
   StageTiming,
   ActivityActor,
   ActivityFilter,

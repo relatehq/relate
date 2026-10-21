@@ -424,5 +424,35 @@ it('attributes returned, forbidden and unavailable declared calculations by stab
     forbidden: [],
     unavailable: ['customer.count', 'customer.private-count'],
   });
+  const identity = { associationId: 'customer.events', datasetId: 'events' };
+
+  expect(returned.details.analytical?.summary).toEqual({
+    expressionCount: 3,
+    computedFilter: false,
+    computedOrder: false,
+    calculations: [
+      { ...identity, failures: {} },
+      { ...identity, propertyId: 'customer.count', failures: {} },
+      { ...identity, propertyId: 'customer.private-count', failures: {} },
+    ],
+  });
+  expect(forbidden.details.analytical?.summary?.calculations).toEqual([
+    { ...identity, failures: { forbidden: 3 } },
+    { ...identity, propertyId: 'customer.count', failures: {} },
+    {
+      ...identity,
+      propertyId: 'customer.private-count',
+      failures: { forbidden: 3 },
+    },
+  ]);
+  expect(
+    unavailable.details.analytical?.summary?.calculations.map(
+      (entry) => entry.failures,
+    ),
+  ).toEqual([
+    { 'execution-failed': 1 },
+    { 'execution-failed': 1 },
+    { 'execution-failed': 1 },
+  ]);
   expect(JSON.stringify(rows)).not.toContain('privateCaller');
 });

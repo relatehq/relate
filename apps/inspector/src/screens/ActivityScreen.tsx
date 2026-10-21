@@ -247,6 +247,70 @@ export function AnalyticalTimings({
   );
 }
 
+export function AnalyticalSummary({
+  operation,
+}: {
+  readonly operation: OperationEvent;
+}) {
+  const summary = operation.runtime?.analytical?.summary;
+
+  if (!summary) return null;
+
+  return (
+    <details className="activity-timings activity-calculations">
+      <summary>Analytical calculations</summary>
+      <p>
+        {summary.expressionCount} expression
+        {summary.expressionCount === 1 ? '' : 's'} ·{' '}
+        {summary.computedFilter ? 'Computed filter' : 'No computed filter'} ·{' '}
+        {summary.computedOrder ? 'Computed order' : 'No computed order'}
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Calculation</th>
+            <th>Inputs</th>
+            <th>Failures</th>
+          </tr>
+        </thead>
+        <tbody>
+          {summary.calculations.map((calculation, index) => (
+            <tr key={index}>
+              <td>{calculation.propertyId ?? 'Caller expression'}</td>
+              <td>
+                <div>Association: {calculation.associationId}</div>
+                <div>Dataset: {calculation.datasetId}</div>
+              </td>
+              <td>
+                {Object.entries(calculation.failures).length
+                  ? Object.entries(calculation.failures).map(
+                      ([reason, count]) => (
+                        <div key={reason}>
+                          {reason}: {count}
+                        </div>
+                      ),
+                    )
+                  : 'None observed'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p>
+        Failure counts cover object results across the evaluated scope. Repeated
+        checks count once.
+      </p>
+      {summary.omittedCalculations ? (
+        <p>
+          {summary.omittedCalculations} expression{' '}
+          {summary.omittedCalculations === 1 ? 'entry' : 'entries'} omitted from
+          diagnostics.
+        </p>
+      ) : null}
+    </details>
+  );
+}
+
 function Operations(props: {
   readonly operations: readonly OperationEvent[];
   readonly labels: ReadonlyMap<string, string>;
@@ -280,6 +344,7 @@ function Operations(props: {
             <td className="activity-request">{requestSummary(operation)}</td>
             <td className="activity-outcome">
               {outcomeSummary(operation)}
+              <AnalyticalSummary operation={operation} />
               <AnalyticalTimings operation={operation} />
             </td>
             <td className="activity-ms">{duration(operation.ms)}</td>

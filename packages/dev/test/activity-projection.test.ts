@@ -280,6 +280,19 @@ it('preserves bounded host analytical timings in Inspector activity without addi
 
   openRequest(log);
   const analytical = {
+    summary: {
+      expressionCount: 1,
+      computedFilter: true,
+      computedOrder: false,
+      calculations: [
+        {
+          associationId: 'note.events',
+          datasetId: 'events',
+          propertyId: 'note.count',
+          failures: { forbidden: 2 },
+        },
+      ],
+    },
     stages: { execution: { count: 2, totalMs: 17, maxMs: 12 } },
   };
 

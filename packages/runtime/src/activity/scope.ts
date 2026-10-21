@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type {
-  AnalyticalTimings,
+  AnalyticalActivity,
   OperationActor,
   OperationContext,
 } from '@relate/protocol';
@@ -75,7 +75,7 @@ export function nestedScope(parent: OperationScope): OperationScope {
 
 /** Private, per-attempt diagnostic providers exist only while enabled capture runs. */
 interface OperationDiagnostics {
-  analytical?: () => AnalyticalTimings;
+  analytical?: () => AnalyticalActivity;
 }
 
 const diagnostics = new WeakMap<OperationScope, OperationDiagnostics>();

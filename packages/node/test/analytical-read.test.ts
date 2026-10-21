@@ -758,6 +758,7 @@ it('records failed preparation without inventing candidate or execution timings'
 
   expect(row.outcome).toEqual({ status: 'rejected', code: 'invalid-request' });
   expect(Object.keys(row.details.analytical!.stages)).toEqual(['preparation']);
+  expect(row.details.analytical).not.toHaveProperty('summary');
 });
 
 it('records connector startup failure without an execution span', async () => {
@@ -787,6 +788,14 @@ it('records connector startup failure without an execution span', async () => {
     maxMs: 7,
   });
   expect(row.details.analytical!.stages).not.toHaveProperty('execution');
+  expect(row.details.analytical!.summary?.calculations).toEqual([
+    {
+      associationId: 'customer.events',
+      datasetId: 'events',
+      propertyId: 'customer.count',
+      failures: { 'execution-failed': 1 },
+    },
+  ]);
 });
 
 it('records cancellation timing only after connector cleanup completes', async () => {
@@ -851,6 +860,14 @@ it('records cancellation timing only after connector cleanup completes', async (
     maxMs: 17,
   });
   expect(row.details.analytical!.stages).not.toHaveProperty('revalidation');
+  expect(row.details.analytical!.summary).toMatchObject({
+    expressionCount: 1,
+    computedFilter: false,
+    computedOrder: false,
+    calculations: [
+      { propertyId: 'customer.count', failures: { interrupted: 1 } },
+    ],
+  });
 });
 
 it('omits timing capture for ordinary reads and disabled activity', async () => {
