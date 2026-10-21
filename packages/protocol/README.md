@@ -130,3 +130,13 @@ Discovery describes local calendar fields as `format: 'local-datetime'` with
 on the wire. See the
 [owning scalar contract](../relate/CONTRACT.md#local-calendar-datetimes) for
 validation, clock-domain semantics and migration requirements.
+
+## Host analytical timings
+
+Host operation activity can include `details.analytical: AnalyticalTimings` for
+analytical `get` and membership-first `query`. Its fixed `stages` map contains
+`{ count, totalMs, maxMs }` for each entered stage, including failed work.
+Parallel and nested spans overlap, so summed stage durations are not additive;
+`Operation.durationMs` remains total elapsed time. The summary contains no SQL,
+parameters, aliases, object values or physical identifiers and is absent from
+consumer results, field evidence, discovery and MCP responses.

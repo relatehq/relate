@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { OperationActor, OperationContext } from '@relate/protocol';
+import type {
+  AnalyticalTimings,
+  OperationActor,
+  OperationContext,
+} from '@relate/protocol';
 import { isUuidv7, uuidv7 } from './ids.js';
 
 /**
@@ -66,5 +70,37 @@ export function nestedScope(parent: OperationScope): OperationScope {
     actor: parent.actor,
     context: parent.context,
     parent: { id: parent.id, actor: parent.actor },
+  };
+}
+
+/** Private, per-attempt diagnostic providers exist only while enabled capture runs. */
+interface OperationDiagnostics {
+  analytical?: () => AnalyticalTimings;
+}
+
+const diagnostics = new WeakMap<OperationScope, OperationDiagnostics>();
+
+export function operationDiagnostics(
+  scope: OperationScope,
+): OperationDiagnostics | undefined {
+  return diagnostics.get(scope);
+}
+
+export function beginOperationDiagnostics(scope: OperationScope) {
+  const providers: OperationDiagnostics = {};
+
+  diagnostics.set(scope, providers);
+
+  return {
+    analytical() {
+      try {
+        return providers.analytical?.();
+      } catch {
+        return undefined;
+      }
+    },
+    close() {
+      diagnostics.delete(scope);
+    },
   };
 }

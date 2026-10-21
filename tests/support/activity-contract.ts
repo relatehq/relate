@@ -4,6 +4,7 @@ import { bind, implementAction } from 'relate';
 import type { ActionContext } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/node';
+import { uuidv7 } from '@relate/runtime';
 import { ActivityError } from '@relate/protocol';
 import type {
   Change,
@@ -81,6 +82,54 @@ export function activityContract(
     afterEach(async () => {
       release?.();
       await backing.close();
+    });
+
+    it('persists bounded analytical timings without changing elapsed duration', async () => {
+      await backing.store.install(graphId, definitionRevision);
+      const id = uuidv7();
+      const analytical = {
+        stages: {
+          dependencyReads: { count: 2, totalMs: 15, maxMs: 9 },
+          execution: { count: 1, totalMs: 4, maxMs: 4 },
+        },
+      };
+
+      await backing.store.activity!.appendOperations(graphId, [
+        {
+          schemaVersion: 1,
+          id,
+          graphId,
+          definitionRevision,
+          actor: { kind: 'principal', id: 'ana' },
+          context: { requestId: id, transport: 'embedded' },
+          startedAt: new Date(0).toISOString(),
+          completedAt: new Date(10).toISOString(),
+          durationMs: 10,
+          objects: [],
+          kind: 'query',
+          definitionId: Customer.id,
+          outcome: { status: 'ok' },
+          details: { analytical, hasMore: false },
+        },
+      ]);
+      const row = (await backing.store.activity!.operations.list(graphId))
+        .entries[0]!;
+
+      expect(row.durationMs).toBe(10);
+      expect(row.details.analytical).toEqual(analytical);
+
+      if (backing.reopen) {
+        const reopened = await backing.reopen();
+
+        try {
+          expect(
+            (await reopened.activity!.operations.list(graphId)).entries[0]!
+              .details.analytical,
+          ).toEqual(analytical);
+        } finally {
+          await reopened.close();
+        }
+      }
     });
 
     function crmConnection() {

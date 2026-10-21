@@ -11,6 +11,7 @@ import type {
 import type { OperationDraft } from '../storage.js';
 import type { OperationRecorder } from './recorder.js';
 import type { OperationScope } from './scope.js';
+import { beginOperationDiagnostics } from './scope.js';
 
 type ObjectType = Manifest['objects'][number];
 
@@ -155,6 +156,9 @@ export function createCapture(options: {
     ): Promise<T> {
       const started = { at: Date.now(), monotonic: performance.now() };
       let settled: Settled<T>;
+      const diagnostics = recorder.enabled
+        ? beginOperationDiagnostics(scope)
+        : undefined;
 
       try {
         settled = { ok: true, value: await run() };
@@ -166,10 +170,22 @@ export function createCapture(options: {
         try {
           const body = describe(settled);
 
-          if (body) record(scope, started, body);
+          if (body) {
+            const analytical = diagnostics?.analytical();
+
+            record(scope, started, {
+              ...body,
+              details: {
+                ...body.details,
+                ...(analytical ? { analytical } : {}),
+              },
+            } as OperationBody);
+          }
         } catch {
           // A description bug must not change the caller's result.
         }
+
+      diagnostics?.close();
 
       if (!settled.ok) throw settled.error;
 

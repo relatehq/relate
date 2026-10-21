@@ -2537,3 +2537,27 @@ a.icon-button.active {
     --agent-ease: 0s linear;
   }
 }
+
+.activity-timings {
+  margin-top: 6px;
+  color: var(--t-font-color-secondary);
+}
+.activity-timings summary {
+  cursor: pointer;
+}
+.activity-timings p {
+  max-width: 460px;
+  margin: 6px 0;
+}
+.activity-timings table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.activity-timings th {
+  text-align: left;
+  padding: 4px 12px 4px 0;
+  font-weight: var(--t-font-weight-medium);
+}
+.activity-timings td {
+  padding-right: 12px;
+}

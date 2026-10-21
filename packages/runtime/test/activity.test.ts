@@ -12,6 +12,11 @@ import type {
 import { createMemoryStore } from '@relate/runtime';
 import { createOperationRecorder } from '../src/activity/recorder.js';
 import { uuidv7 } from '../src/activity/ids.js';
+import { createCapture } from '../src/activity/capture.js';
+import {
+  createOperationScope,
+  operationDiagnostics,
+} from '../src/activity/scope.js';
 
 function observation(
   values: Record<string, string>,
@@ -142,6 +147,36 @@ describe('activity draft validation', () => {
         }),
       ),
     ).toThrow(/hasMore/);
+  });
+
+  it('accepts only bounded fixed-stage analytical summaries on get and query', () => {
+    const timing = { count: 2, totalMs: 12, maxMs: 7 };
+    const analytical = { stages: { execution: timing } };
+
+    expect(() =>
+      validateOperationDraft(operation({ details: { analytical } })),
+    ).not.toThrow();
+
+    for (const invalid of [
+      { stages: { sql: timing } },
+      { stages: { execution: { ...timing, count: 0 } } },
+      { stages: { execution: { ...timing, count: Infinity } } },
+      { stages: { execution: { ...timing, totalMs: NaN } } },
+      { stages: { execution: { ...timing, totalMs: Infinity } } },
+      { stages: { execution: { ...timing, maxMs: -1 } } },
+      { stages: { execution: { ...timing, maxMs: 13 } } },
+      { stages: { execution: { ...timing, alias: 'private' } } },
+      { stages: {}, parameters: {} },
+    ])
+      expect(() =>
+        validateOperationDraft(operation({ details: { analytical: invalid } })),
+      ).toThrow();
+
+    expect(() =>
+      validateOperationDraft(
+        operation({ kind: 'receipt', details: { analytical } }),
+      ),
+    ).toThrow(/analytical/);
   });
 
   it('enforces source and trigger attribution on changes', () => {
@@ -382,4 +417,64 @@ describe('uuidv7', () => {
     expect([...ids].sort()).toEqual(ids);
     expect(ids[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab]/);
   });
+});
+
+it('isolates diagnostic providers by operation and ignores provider failures', async () => {
+  const store = createMemoryStore();
+  const recorder = createOperationRecorder({
+    store: store.activity!,
+    graphId: 'graph',
+  });
+  const capture = createCapture({
+    graphId: 'graph',
+    definitionRevision: 'revision',
+    recorder,
+  });
+  const scopes = [1, 2, 3].map(() =>
+    createOperationScope({ kind: 'principal', id: 'ana' }),
+  );
+  const answers = await Promise.all(
+    scopes.map((scope, index) =>
+      capture.operation(
+        scope,
+        async () => {
+          const diagnostics = operationDiagnostics(scope)!;
+
+          diagnostics.analytical = () => {
+            if (index === 2) throw new Error('observer failed');
+
+            return {
+              stages: {
+                execution: { count: 1, totalMs: index + 1, maxMs: index + 1 },
+              },
+            };
+          };
+          await Promise.resolve();
+
+          return index;
+        },
+        () => ({
+          kind: 'query',
+          definitionId: 'customer',
+          objects: [],
+          outcome: { status: 'ok' },
+          details: {},
+        }),
+      ),
+    ),
+  );
+
+  expect(answers).toEqual([0, 1, 2]);
+  await recorder.drain(1000);
+  const rows = (await store.activity!.operations.list('graph')).entries;
+
+  expect(rows).toHaveLength(3);
+
+  for (const [index, scope] of scopes.entries()) {
+    expect(operationDiagnostics(scope)).toBeUndefined();
+    expect(
+      rows.find((row) => row.id === scope.id)!.details.analytical?.stages
+        .execution?.totalMs,
+    ).toBe(index === 2 ? undefined : index + 1);
+  }
 });

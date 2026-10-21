@@ -21,7 +21,7 @@ export type {
   ComputedScope,
 } from './execution-types.js';
 
-export { createAnalyticalTimings } from './timings.js';
+export { createAnalyticalTimings, beginTiming } from './timings.js';
 
 export type {
   AnalyticalTimingStage,

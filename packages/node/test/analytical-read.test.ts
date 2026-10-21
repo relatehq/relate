@@ -25,7 +25,9 @@ afterEach(async () => {
   cleanup.length = 0;
 });
 
-async function app(options: { connectionId?: string } = {}) {
+async function app(
+  options: { connectionId?: string; activity?: 'enabled' | 'disabled' } = {},
+) {
   const { graph, Customer, Events } = createAnalyticalGraph();
   const directory = mkdtempSync(join(tmpdir(), 'relate-public-analytics-'));
 
@@ -91,6 +93,9 @@ async function app(options: { connectionId?: string } = {}) {
 
         return {
           store,
+          ...(options.activity
+            ? { activity: { operations: options.activity } }
+            : {}),
           cursorKey: new Uint8Array(32).fill(9),
           bindings: [bind(Events, selected)],
         };
@@ -677,4 +682,192 @@ it('joins ordinary candidate reads on retirement before returning a failed query
 
   expect(await result).toMatchObject({ code: 'runtime-retired' });
   await closing;
+});
+
+it.each(['get', 'query'] as const)(
+  'records bounded host timings for %s without leaking them into consumer results',
+  async (mode) => {
+    const fixture = await app();
+    const consumer = fixture.runtime.as(fixture.principal).objects.Customer;
+    const request = {
+      select: ['count'],
+      compute: {
+        privateAlias: {
+          sql: 'SELECT COUNT(*) FROM self.events WHERE secret = $secret',
+          parameters: { secret: 'private-parameter' },
+        },
+      },
+    } as const;
+    const result =
+      mode === 'get'
+        ? await consumer.get(fixture.id, request)
+        : await consumer.query(request);
+
+    await fixture.runtime.host.flushActivity();
+    const rows = (await fixture.runtime.host.activity.operations.list())
+      .entries;
+    const row = rows.find((row) => row.kind === mode)!;
+    const stages = row.details.analytical!.stages;
+
+    expect(stages.preparation?.count).toBe(1);
+    expect(stages.candidates?.count).toBe(1);
+    expect(stages.dependencyReads?.count).toBe(2);
+    expect(stages.revalidation?.count).toBe(1);
+    expect(stages.planning?.count).toBe(2);
+    expect(stages.queueWait?.count).toBe(1);
+    expect(stages.connectionStartup?.count).toBe(1);
+    expect(stages.execution?.count).toBe(1);
+    expect(stages.finalization!.count).toBeGreaterThanOrEqual(2);
+
+    for (const stage of Object.values(stages)) {
+      expect(Object.keys(stage).sort()).toEqual(['count', 'maxMs', 'totalMs']);
+      expect(Number.isFinite(stage.totalMs)).toBe(true);
+      expect(stage.totalMs).toBeGreaterThanOrEqual(stage.maxMs);
+      expect(stage.maxMs).toBeGreaterThanOrEqual(0);
+    }
+
+    const recorded = JSON.stringify(row);
+
+    for (const secret of [
+      'privateAlias',
+      'private-parameter',
+      'SELECT',
+      'events.sqlite',
+      'secret-one',
+    ])
+      expect(recorded).not.toContain(secret);
+
+    expect(JSON.stringify(result)).not.toContain('totalMs');
+    expect(JSON.stringify(result)).not.toContain('dependencyReads');
+  },
+);
+
+it('records failed preparation without inventing candidate or execution timings', async () => {
+  const fixture = await app();
+
+  await expect(
+    fixture.runtime.as(fixture.principal).objects.Customer.query({
+      compute: { bad: { sql: 'SELECT COUNT(*) FROM self.absent' } },
+    }),
+  ).rejects.toMatchObject({ code: 'invalid-request' });
+  await fixture.runtime.host.flushActivity();
+  const row = (
+    await fixture.runtime.host.activity.operations.list()
+  ).entries.find((row) => row.kind === 'query')!;
+
+  expect(row.outcome).toEqual({ status: 'rejected', code: 'invalid-request' });
+  expect(Object.keys(row.details.analytical!.stages)).toEqual(['preparation']);
+});
+
+it('records connector startup failure without an execution span', async () => {
+  const fixture = await app();
+
+  fixture.hooks.execute = async (_plan, options) => {
+    options.onTiming?.({ stage: 'connectionStartup', durationMs: 7 });
+    throw new DatasetExecutionError('execution-failed', { retryable: true });
+  };
+  const result = await fixture.runtime
+    .as(fixture.principal)
+    .objects.Customer.get(fixture.id);
+
+  expect(result.status).toBe('ok');
+
+  if (result.status !== 'ok') return;
+
+  expect(result.meta.fields?.count).toMatchObject({ status: 'unavailable' });
+  await fixture.runtime.host.flushActivity();
+  const row = (
+    await fixture.runtime.host.activity.operations.list()
+  ).entries.find((row) => row.kind === 'get')!;
+
+  expect(row.details.analytical!.stages.connectionStartup).toEqual({
+    count: 1,
+    totalMs: 7,
+    maxMs: 7,
+  });
+  expect(row.details.analytical!.stages).not.toHaveProperty('execution');
+});
+
+it('records cancellation timing only after connector cleanup completes', async () => {
+  const fixture = await app();
+  let started!: () => void, aborted!: () => void, release!: () => void;
+  const admitted = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const cancelled = new Promise<void>((resolve) => {
+    aborted = resolve;
+  });
+  const cleanupGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  fixture.hooks.execute = async (_plan, options) => {
+    options.onTiming?.({ stage: 'connectionStartup', durationMs: 3 });
+    started();
+    await new Promise<void>((resolve) =>
+      options.signal.addEventListener(
+        'abort',
+        () => {
+          aborted();
+          resolve();
+        },
+        { once: true },
+      ),
+    );
+    await cleanupGate;
+    options.onTiming?.({ stage: 'execution', durationMs: 17 });
+    options.signal.throwIfAborted();
+    throw new Error('unreachable');
+  };
+  const pending = fixture.runtime
+    .as(fixture.principal)
+    .objects.Customer.query();
+  const result = Promise.resolve(pending).catch((error) => error);
+
+  await admitted;
+  const closing = fixture.runtime.close();
+
+  await cancelled;
+
+  try {
+    expect(
+      (await fixture.store.activity!.operations.list(fixture.scope.graphId))
+        .entries,
+    ).toEqual([]);
+  } finally {
+    release();
+  }
+
+  expect(await result).toMatchObject({ code: 'runtime-retired' });
+  await closing;
+  const row = (
+    await fixture.store.activity!.operations.list(fixture.scope.graphId)
+  ).entries.find((row) => row.kind === 'query')!;
+
+  expect(row.details.analytical!.stages.execution).toEqual({
+    count: 1,
+    totalMs: 17,
+    maxMs: 17,
+  });
+  expect(row.details.analytical!.stages).not.toHaveProperty('revalidation');
+});
+
+it('omits timing capture for ordinary reads and disabled activity', async () => {
+  for (const activity of ['enabled', 'disabled'] as const) {
+    const fixture = await app({ activity });
+    const consumer = fixture.runtime.as(fixture.principal).objects.Customer;
+
+    await consumer.get(fixture.id, { select: ['label'] });
+
+    if (activity === 'disabled') await consumer.query();
+
+    await fixture.runtime.host.flushActivity();
+    const rows = (await fixture.runtime.host.activity.operations.list())
+      .entries;
+
+    expect(rows).toHaveLength(activity === 'enabled' ? 1 : 0);
+    expect(rows.every((row) => row.details.analytical === undefined)).toBe(
+      true,
+    );
+  }
 });

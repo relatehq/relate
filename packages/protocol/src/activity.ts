@@ -81,7 +81,35 @@ interface OperationEnvelope {
   readonly objects: readonly OperationObject[];
 }
 
+/** Fixed host diagnostics; never consumer result metadata. */
+export const analyticalTimingStages = [
+  'preparation',
+  'candidates',
+  'dependencyReads',
+  'planning',
+  'queueWait',
+  'connectionStartup',
+  'execution',
+  'revalidation',
+  'finalization',
+] as const;
+
+export type AnalyticalTimingStage = (typeof analyticalTimingStages)[number];
+
+export interface StageTiming {
+  readonly count: number;
+  readonly totalMs: number;
+  readonly maxMs: number;
+}
+
+export interface AnalyticalTimings {
+  /** Summed work durations can overlap and are not additive elapsed time. */
+  readonly stages: Partial<Record<AnalyticalTimingStage, StageTiming>>;
+}
+
 export interface OperationDetails {
+  /** Host-only analytical work summary, present only for analytical get/query. */
+  readonly analytical?: AnalyticalTimings;
   /** Present when `objects` exceeded the configured limit and was cut. */
   readonly truncated?: { readonly omittedObjects: number };
 }

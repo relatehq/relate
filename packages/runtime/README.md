@@ -190,6 +190,14 @@ scope type. Native execution still stages feed drafts inside its transaction,
 and storage adapters retain responsibility for atomic publication and
 source-change classification.
 
+Analytical `get` and membership-first `query` operations add
+`details.analytical.stages` to enabled activity capture. Each entered stage has
+`{ count, totalMs, maxMs }`, measured monotonically and closed on success or
+failure, including connector cancellation cleanup. These are summed work
+durations that can overlap; use the operation's `durationMs` for elapsed time.
+Only fixed stage names and numbers are retained. Consumer metadata, evidence,
+discovery and MCP results do not contain these diagnostics.
+
 Capture limits default to 1,000 queued operations, 8 MiB queued, 100 per append,
 1,000 lineage entries and 256 KiB per operation. See
 [Activity & Provenance](../../apps/docs/content/runtime/activity.md) and the

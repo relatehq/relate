@@ -221,8 +221,31 @@ const activityActorSchema = z.strictObject({
  * feed entry, committed with the state it describes. Metadata only: IDs,
  * actors and outcomes, never values.
  */
+const stageTimingSchema = z
+  .strictObject({
+    count: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    totalMs: z.number().nonnegative(),
+    maxMs: z.number().nonnegative(),
+  })
+  .refine((value) => value.maxMs <= value.totalMs);
+
+export const analyticalTimingsSchema = z.strictObject({
+  stages: z.strictObject({
+    preparation: stageTimingSchema.optional(),
+    candidates: stageTimingSchema.optional(),
+    dependencyReads: stageTimingSchema.optional(),
+    planning: stageTimingSchema.optional(),
+    queueWait: stageTimingSchema.optional(),
+    connectionStartup: stageTimingSchema.optional(),
+    execution: stageTimingSchema.optional(),
+    revalidation: stageTimingSchema.optional(),
+    finalization: stageTimingSchema.optional(),
+  }),
+});
+
 export const runtimeRecordSchema = z.strictObject({
   record: z.enum(['attempt', 'committed']),
+  analytical: analyticalTimingsSchema.optional(),
   actor: activityActorSchema,
   /** A source change: the actor whose operation triggered the refresh. */
   triggeredBy: activityActorSchema.optional(),

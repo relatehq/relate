@@ -459,8 +459,22 @@ queue retains capacity until each connector promise settles. Queue admission
 observers report one wait duration, including rejection/cancellation; observer
 errors cannot alter execution. Timing summaries contain only fixed stage names
 and numeric aggregates, with no SQL, parameters, object identifiers or physical
-binding details. Persisting these summaries in operation activity and displaying
-them in Inspector remain separate integration work.
+binding details. Enabled operation capture persists them as
+`details.analytical.stages` after the operation settles, including cancellation
+cleanup. Disabled capture does not create a timing accumulator. Inspector shows
+count, summed work and longest span beside the operation's elapsed duration;
+nested and parallel spans overlap, so these values are not additive.
+
+```mermaid
+flowchart LR
+  Capture[Enabled operation capture] --> Scope[Private scope diagnostic provider]
+  Read[Analytical get or query] --> Stages[Monotonic runtime stage spans]
+  Connector[Connector startup and execution] --> Stages
+  Stages --> Scope
+  Scope --> Settled[Read and cleanup settle]
+  Settled --> Activity[Bounded operation details]
+  Activity --> Inspector[Inspector timing table]
+```
 
 ```mermaid
 flowchart LR

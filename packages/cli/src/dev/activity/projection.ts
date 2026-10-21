@@ -72,6 +72,7 @@ function attempt(row: Operation, runtimeId: string): OperationEvent {
   const forbidden = ids(row.objects.flatMap((o) => o.forbidden));
   const runtime: RuntimeRecord = {
     record: 'attempt',
+    ...(row.details.analytical ? { analytical: row.details.analytical } : {}),
     actor: actor(row.actor),
     outcome: row.outcome.status,
     ...('code' in row.outcome ? { code: text(row.outcome.code) } : {}),

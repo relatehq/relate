@@ -42,6 +42,8 @@ type Available = Extract<ReadResult, { status: 'ok' }>;
 export interface QueryContext {
   readonly cursorScope?: unknown;
   readonly signal?: AbortSignal;
+  readonly beginDependencyRead?: () => () => void;
+  readonly beginFinalization?: () => () => void;
   readonly candidateControls?: Pick<ReadControls, 'maxAgeMs' | 'stale'>;
 }
 
@@ -201,23 +203,30 @@ export function createGraphQuery(options: {
     const readCandidate = async (id: string) => {
       context?.signal?.throwIfAborted();
       let allowed = async () => false;
-      const result = await options.read(
-        attempt,
-        principal,
-        type,
-        id,
-        {
-          ...readRequest,
-          ...context?.candidateControls,
-          ...(readRequest.select ? { select: needed } : {}),
-          requireComplete: false,
-        },
-        undefined,
-        (check) => {
-          allowed = check;
-        },
-        transaction,
-      );
+      const endRead = context?.beginDependencyRead?.();
+      let result;
+
+      try {
+        result = await options.read(
+          attempt,
+          principal,
+          type,
+          id,
+          {
+            ...readRequest,
+            ...context?.candidateControls,
+            ...(readRequest.select ? { select: needed } : {}),
+            requireComplete: false,
+          },
+          undefined,
+          (check) => {
+            allowed = check;
+          },
+          transaction,
+        );
+      } finally {
+        endRead?.();
+      }
 
       context?.signal?.throwIfAborted();
 
@@ -306,38 +315,48 @@ export function createGraphQuery(options: {
       }
     }
 
-    const data: ObjectRecord[] = [];
+    const endFinalization = context?.beginFinalization?.();
 
-    for (const item of pending) {
+    try {
+      const data: ObjectRecord[] = [];
+
+      for (const item of pending) {
+        context?.signal?.throwIfAborted();
+
+        if (!(await item.allowed())) continue;
+
+        const at = await filter.confirm(item, async () => {
+          const reread = await readCandidate(item.id);
+
+          if (reread.result.status !== 'ok' || !(await reread.allowed()))
+            return undefined;
+
+          onRead?.(item.id, reread.result);
+
+          return reread.result;
+        });
+
+        if (at !== undefined)
+          data.push(project(item.id, item.result, selected, readRequest, at));
+      }
+
       context?.signal?.throwIfAborted();
 
-      if (!(await item.allowed())) continue;
-
-      const at = await filter.confirm(item, async () => {
-        const reread = await readCandidate(item.id);
-
-        if (reread.result.status !== 'ok' || !(await reread.allowed()))
-          return undefined;
-
-        onRead?.(item.id, reread.result);
-
-        return reread.result;
-      });
-
-      if (at !== undefined)
-        data.push(project(item.id, item.result, selected, readRequest, at));
+      return {
+        data,
+        meta: more
+          ? {
+              exhausted: false,
+              continuationCursor: codec.encode(
+                scope,
+                after!,
+                clock() + 900_000,
+              ),
+            }
+          : { exhausted: true },
+      };
+    } finally {
+      endFinalization?.();
     }
-
-    context?.signal?.throwIfAborted();
-
-    return {
-      data,
-      meta: more
-        ? {
-            exhausted: false,
-            continuationCursor: codec.encode(scope, after!, clock() + 900_000),
-          }
-        : { exhausted: true },
-    };
   };
 }

@@ -1,41 +1,20 @@
-/** Fixed host-only stages; never attach this summary to consumer metadata. */
-export type AnalyticalTimingStage =
-  | 'preparation'
-  | 'candidates'
-  | 'dependencyReads'
-  | 'planning'
-  | 'queueWait'
-  | 'connectionStartup'
-  | 'execution'
-  | 'revalidation'
-  | 'finalization';
+import { analyticalTimingStages as stages } from '@relate/protocol';
+import type {
+  AnalyticalTimingStage,
+  AnalyticalTimings,
+  StageTiming,
+} from '@relate/protocol';
 
-export interface StageTiming {
-  readonly count: number;
-  readonly totalMs: number;
-  readonly maxMs: number;
-}
-
-export interface AnalyticalTimings {
-  readonly stages: Partial<Record<AnalyticalTimingStage, StageTiming>>;
-}
+export type {
+  AnalyticalTimingStage,
+  AnalyticalTimings,
+  StageTiming,
+} from '@relate/protocol';
 
 export interface TimingCapture {
   begin(stage: AnalyticalTimingStage): () => void;
   record(stage: AnalyticalTimingStage, durationMs: number): void;
 }
-
-const stages: readonly AnalyticalTimingStage[] = [
-  'preparation',
-  'candidates',
-  'dependencyReads',
-  'planning',
-  'queueWait',
-  'connectionStartup',
-  'execution',
-  'revalidation',
-  'finalization',
-];
 
 /** Constant-size aggregation. A bad clock or diagnostic observer cannot fail a read. */
 export function createAnalyticalTimings(

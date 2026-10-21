@@ -60,6 +60,12 @@ Browser code never imports the compiler, runtime, connectors or user modules;
 - Type diagnostics (`typecheck` events) are accepted and rendered as warnings,
   but no checker emits them yet.
 
+Analytical operations in the Activity screen expose an expandable timing table
+with each entered stage's count, summed work duration and longest span. The
+operation duration remains elapsed time; overlapping stages are not presented as
+additive parts of a total. Timings come from host activity, including failed
+operations after cleanup, and contain only fixed stage names and numbers.
+
 ## Development
 
 ```sh

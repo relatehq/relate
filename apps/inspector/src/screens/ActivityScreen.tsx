@@ -191,6 +191,62 @@ function Execution(props: { readonly execution: ExecutionEvent }) {
   );
 }
 
+const stageLabels = {
+  preparation: 'Preparation',
+  candidates: 'Candidate reads',
+  dependencyReads: 'Dependency reads',
+  planning: 'Statement planning',
+  queueWait: 'Queue wait',
+  connectionStartup: 'Connection startup',
+  execution: 'Database execution',
+  revalidation: 'Revalidation',
+  finalization: 'Result finalization',
+};
+
+export function AnalyticalTimings({
+  operation,
+}: {
+  readonly operation: OperationEvent;
+}) {
+  const timings = operation.runtime?.analytical;
+
+  if (!timings || !Object.keys(timings.stages).length) return null;
+
+  return (
+    <details className="activity-timings">
+      <summary>Analytical timings</summary>
+      <p>
+        Elapsed: {duration(operation.ms)}. Summed work durations overlap and do
+        not add up to elapsed time.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Stage</th>
+            <th>Count</th>
+            <th>Summed work</th>
+            <th>Longest</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(stageLabels).map(([stage, label]) => {
+            const value = timings.stages[stage as keyof typeof stageLabels];
+
+            return value ? (
+              <tr key={stage}>
+                <td>{label}</td>
+                <td>{value.count}</td>
+                <td>{value.totalMs.toFixed(2)} ms</td>
+                <td>{value.maxMs.toFixed(2)} ms</td>
+              </tr>
+            ) : null;
+          })}
+        </tbody>
+      </table>
+    </details>
+  );
+}
+
 function Operations(props: {
   readonly operations: readonly OperationEvent[];
   readonly labels: ReadonlyMap<string, string>;
@@ -222,7 +278,10 @@ function Operations(props: {
                 operation.definitionId}
             </td>
             <td className="activity-request">{requestSummary(operation)}</td>
-            <td className="activity-outcome">{outcomeSummary(operation)}</td>
+            <td className="activity-outcome">
+              {outcomeSummary(operation)}
+              <AnalyticalTimings operation={operation} />
+            </td>
             <td className="activity-ms">{duration(operation.ms)}</td>
           </tr>
         ))}

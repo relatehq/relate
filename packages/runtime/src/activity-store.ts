@@ -1,4 +1,4 @@
-import { ActivityError } from '@relate/protocol';
+import { ActivityError, analyticalTimingStages } from '@relate/protocol';
 import type {
   ActivityActor,
   ActivityFilter,
@@ -379,6 +379,42 @@ export function validateOperationDraft(input: unknown): OperationDraft {
     allowOnly(truncated, ['omittedObjects'], 'truncation');
   }
 
+  if (details.analytical !== undefined) {
+    const analytical = details.analytical;
+
+    if (
+      !['get', 'query'].includes(draft.kind as string) ||
+      !isRecord(analytical) ||
+      !isRecord(analytical.stages)
+    )
+      throw new InvalidDraft('analytical timings');
+
+    allowOnly(analytical, ['stages'], 'analytical timings');
+    allowOnly(analytical.stages, analyticalTimingStages, 'analytical stages');
+
+    for (const timing of Object.values(analytical.stages)) {
+      if (
+        !isRecord(timing) ||
+        !Number.isSafeInteger(timing.count) ||
+        (timing.count as number) < 1 ||
+        typeof timing.totalMs !== 'number' ||
+        !Number.isFinite(timing.totalMs) ||
+        timing.totalMs < 0 ||
+        typeof timing.maxMs !== 'number' ||
+        !Number.isFinite(timing.maxMs) ||
+        timing.maxMs < 0 ||
+        timing.maxMs > timing.totalMs
+      )
+        throw new InvalidDraft('analytical stage timing');
+
+      allowOnly(
+        timing,
+        ['count', 'totalMs', 'maxMs'],
+        'analytical stage timing',
+      );
+    }
+  }
+
   const common = [
     'schemaVersion',
     'id',
@@ -409,13 +445,13 @@ export function validateOperationDraft(input: unknown): OperationDraft {
       allowOnly(draft, [...common, 'target'], kind);
       objectRef(draft.target, kind);
       outcome(draft.outcome, ['ok', 'not-found', 'rejected']);
-      allowOnly(details, ['truncated'], 'details');
+      allowOnly(details, ['truncated', 'analytical'], 'details');
       break;
     }
     case 'query': {
       allowOnly(draft, common, kind);
       hasMore(outcome(draft.outcome, ['ok', 'rejected']));
-      allowOnly(details, ['truncated', 'hasMore'], 'details');
+      allowOnly(details, ['truncated', 'hasMore', 'analytical'], 'details');
       break;
     }
     case 'traverse': {

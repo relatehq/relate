@@ -254,6 +254,26 @@ const { entries } = await runtime.host.activity.operations.list({ limit: 1 });
 
 ---
 
+Analytical object reads and membership-first queries include a bounded timing
+summary when operation capture is enabled:
+
+```ts
+const { entries } = await runtime.host.activity.operations.list({ limit: 1 });
+const stages = entries[0]?.details.analytical?.stages;
+// stages.execution: { count: 2, totalMs: 19.4, maxMs: 11 }
+```
+
+Inspector shows this summary under **Analytical timings** for each operation.
+The stages distinguish request preparation, candidate and dependency reads,
+statement planning, queue waits, connection startup, database execution,
+revalidation and result finalization. Unentered stages are omitted. Failed
+operations retain measurements through cancellation cleanup.
+
+The table shows summed work durations; concurrent and nested work overlaps and
+does not add up to the operation's elapsed time. Timings contain only stage
+names, counts and durations. They follow activity enablement and retention and
+are absent from consumer results, evidence, discovery and MCP responses.
+
 ## 5. Storage and Retention
 
 | Store    | Feed and operations                                                                    | Provenance |

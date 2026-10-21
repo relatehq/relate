@@ -333,9 +333,12 @@ export type {
 
 export type { ConsumerOperations } from './consumer.js';
 
-export { ActivityError } from './activity.js';
+export { ActivityError, analyticalTimingStages } from './activity.js';
 
 export type {
+  AnalyticalTimingStage,
+  AnalyticalTimings,
+  StageTiming,
   ActivityActor,
   ActivityFilter,
   ActivityObjectRef,
