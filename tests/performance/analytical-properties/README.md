@@ -165,13 +165,39 @@ policy shapes or deployment conditions. Runtime and benchmark code were
 unchanged during measurement; report provenance records the dirty state and a
 concurrent workflow-only commit.
 
-## Remaining integration
+The
+[current instrumentation report](measurements/instrumentation-scope-2026-10-21.md)
+and its [raw samples](measurements/instrumentation-scope-2026-10-21.json) retain
+240 successful samples from eight configurations at `c214daf`. Each backend runs
+100,000 and 1,000,000 events with activity capture enabled and disabled, using
+cached memory object storage. Every ranking admits 10,000 of 12,500 scanned
+customers, executes 10 statements, returns 25 records and makes 62,575 synthetic
+identity checks without source fetches. Enabled rankings capture one operation
+with all nine entered timing stages; disabled rankings capture none. No activity
+records were dropped. All results match the independent SQL oracle.
+
+| Backend    |    Events | Capture disabled median | Capture enabled median | Observed difference |
+| ---------- | --------: | ----------------------: | ---------------------: | ------------------: |
+| SQLite     |   100,000 |             3,587.50 ms |            3,573.09 ms |           -14.41 ms |
+| PostgreSQL |   100,000 |             3,528.88 ms |            3,495.76 ms |           -33.12 ms |
+| SQLite     | 1,000,000 |             4,348.25 ms |            4,403.82 ms |           +55.57 ms |
+| PostgreSQL | 1,000,000 |             4,062.86 ms |            4,089.90 ms |           +27.04 ms |
+
+These are three warm repetitions per configuration on an Apple M2 Max with Node
+26.9.0. They exercise the finite default budgets and report the observed cost of
+enabling activity, including calculation summaries. Sequential runs and small
+samples cannot isolate instrumentation overhead from noise; negative differences
+are retained, and no p95 or causal overhead estimate is claimed. Runtime and
+benchmark code remained unchanged throughout the run. The dirty working tree
+contained specification edits, with documentation edits made while the benchmark
+ran; no tests or builds ran concurrently.
+
+## Future performance comparisons
 
 1. Replay generated plans beside the independent SQL reference, preserving actor
    scope, integer/null semantics and ordering.
 2. Add controlled cold starts, concurrency, queue pressure and cancellation.
-3. Measure larger event populations through the actual scope-first path.
-4. Use consistent deployment conditions and sufficient repetitions before
+3. Use consistent deployment conditions and sufficient repetitions before
    publishing baselines or enabling performance regression gates.
 
 The

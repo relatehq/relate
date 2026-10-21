@@ -279,7 +279,8 @@ for a complete example.
 | ---------------------------------------------------------------------- | --------------------------------------------- |
 | TypeScript authoring, compiler and diagnostics                         | Direct source queries and sync from sources   |
 | Objects backed by one source; references across sources                | One object enriched from several sources      |
-| Graph queries and to-many traversals with scalar and timestamp filters | Sorting, aggregates and indexed filters       |
+| Graph queries and to-many traversals with scalar and timestamp filters | Ordinary-property sorting and indexed filters |
+| Dataset calculations, computed filters/order and exact result types    | Graph-wide aggregates                         |
 | Two-way relationship traversal                                         | Standalone HTTP consumer API                  |
 | Role gates, claim filters, field-level access                          | Writing back to source systems                |
 | Per-field evidence and freshness bounds                                | Migrating between model revisions             |

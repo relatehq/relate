@@ -602,8 +602,11 @@ preserves the bounds; loading the manifest validates their shape and scalar
 type. Runtime validation uses this portable metadata, so an application cannot
 bypass a native property limit by supplying a valid action input and
 constructing an invalid value inside the handler. Unsupported checks (including
-regex, arbitrary refinements, formats, integer checks, transforms, defaults and
-coercion) still reject compilation.
+regex, arbitrary refinements, unrecognized formats, `z.int()`, transforms,
+defaults and coercion) still reject compilation. Unrefined `z.int32()` and
+`z.int64()` have explicit portable formats: signed 32-bit JSON numbers and
+canonical signed 64-bit decimal strings, respectively. Optional/nullable
+wrappers are supported; additional integer bounds or refinements are rejected.
 
 Actions may declare `errors: { inactive: z.object({}) }`. Their implementation
 can call `fail('inactive', {})`; callers receive a typed failed receipt after
@@ -677,8 +680,8 @@ Glossary:
   It belongs to its resource and binding generation; it is never caller SQL.
 
 `relate/connectors` exports `AnalyticalConnector`, `AnalyticalResource`,
-`AnalyticalConnection`, and their execution types. These are contracts for the
-analytical implementation in progress, not an enabled object-read feature.
+`AnalyticalConnection`, and their execution types. The SQLite and PostgreSQL
+connectors implement this boundary for the runtime's analytical object reads.
 
 ```mermaid
 flowchart LR
@@ -764,13 +767,12 @@ Association `on` is a non-empty array of `{ column, property }`. Both names are
 checked against their owner and compiled to stable IDs. Dataset column mappings
 cannot repeat; multiple columns may match the same object property. Pair order
 is normalized so it does not change `definitionRevision`. A dataset reference
-must be the registered definition instance. Ordinary string, boolean and
-millisecond-instant properties (including nullable/optional properties and
-object IDs) can currently correlate with compatible columns. Timestamp precision
-may differ without losing the millisecond value. Reference properties, local
-wall-clock values, floating equality and incompatible types are rejected.
-Integer object-property schemas remain implementation work; dataset integer
-columns and declared calculation metadata are supported by the compiler.
+must be the registered definition instance. Ordinary string, boolean, int32,
+int64 and millisecond-instant properties (including nullable/optional properties
+and object IDs) can correlate with compatible columns. Integer formats must
+match exactly. Timestamp precision may differ without losing the millisecond
+value. Reference properties, local wall-clock values, floating equality and
+incompatible types are rejected.
 
 Every registered dataset requires a policy, including `{}` for ordinary-only
 columns. Every restricted column group requires a role gate. Dataset policies
@@ -785,7 +787,11 @@ associations, correlation IDs and gates. Validation of loaded JSON repeats ID,
 name, logical-type, correlation and policy checks independently of TypeScript
 and authoring helpers. Dataset or association renames retain explicit IDs but
 change the revision; description and policy changes also affect the revision.
-These contracts do not yet enable analytical reads in the Node runtime.
+Node `startApp` combines these declarations with physical bindings and the SQL
+parser. The runtime executes caller expressions and declared calculations
+through object `get` and `query`, including computed filtering and ordering on
+both SQLite and PostgreSQL. See the
+[runtime analytical contract](../runtime/CONTRACT.md#analytical-object-get).
 
 ## Declared calculation metadata
 
@@ -848,8 +854,10 @@ Dataset resources require `bindDataset`; source resources require `bindSource`.
 A resource can implement both capabilities.
 
 Node `startApp` checks registrations, capabilities, connection identity and
-physical-schema compatibility before returning a runtime. These binding
-contracts do not yet enable analytical object reads.
+physical-schema compatibility before returning a runtime. The resulting bindings
+supply the opaque resources and shared connection queues used by analytical
+object reads. Source and dataset resources may share a connection without
+sharing object identity or membership.
 
 ## Analytical connector timing
 
