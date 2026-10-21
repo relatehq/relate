@@ -54,6 +54,7 @@ import {
   operationName,
 } from './authorization/index.js';
 import { createDiscovery } from './discovery.js';
+import { resolveAnalyticalLimits } from './analytics/index.js';
 
 export interface RuntimeOptions {
   readonly model: CompiledModel;
@@ -81,6 +82,12 @@ const nonblank = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
 
 export function createRuntime(options: RuntimeOptions) {
+  const analytics = options.analytics
+    ? {
+        ...options.analytics,
+        limits: resolveAnalyticalLimits(options.analytics.limits),
+      }
+    : undefined;
   const actionTimeoutMs = options.actionTimeoutMs ?? 60_000;
 
   if (
@@ -341,7 +348,7 @@ export function createRuntime(options: RuntimeOptions) {
     query: (attempt, principal, type, request, context) =>
       query(attempt, principal, type, request, undefined, undefined, context),
     clock,
-    ...(options.analytics ? { analytics: options.analytics } : {}),
+    ...(analytics ? { analytics } : {}),
   });
 
   const traverse = createTraversal({
@@ -440,7 +447,8 @@ export function createRuntime(options: RuntimeOptions) {
       createDiscovery(
         { manifest, definitionRevision: revision },
         principal,
-        options.analytics?.parser,
+        analytics?.parser,
+        analytics?.limits,
       ),
     /** Trusted host ingestion, attributed to the host actor or the scope's actor. */
     adopt(

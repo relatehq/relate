@@ -23,6 +23,7 @@ export async function executeResolvedFields(input: {
   readonly signal: AbortSignal;
   readonly maxSlots?: number;
   readonly statementTimeoutMs?: number;
+  readonly maxConcurrentStatements?: number;
   readonly requireComplete?: boolean;
   readonly timings?: TimingCapture;
   readonly clock?: () => number;
@@ -36,8 +37,11 @@ export async function executeResolvedFields(input: {
     throw new Error('Duplicate analytical field');
 
   const timeoutMs = input.statementTimeoutMs ?? 5000;
+  const concurrency = input.maxConcurrentStatements ?? 4;
 
   if (
+    !Number.isSafeInteger(concurrency) ||
+    concurrency < 1 ||
     !Number.isSafeInteger(timeoutMs) ||
     timeoutMs < 1 ||
     timeoutMs > 2147483647
@@ -154,7 +158,7 @@ export async function executeResolvedFields(input: {
     for (const group of connections.values()) {
       let cursor = 0;
 
-      for (let i = 0; i < Math.min(4, group.length); i++)
+      for (let i = 0; i < Math.min(concurrency, group.length); i++)
         workers.push(
           (async () => {
             try {

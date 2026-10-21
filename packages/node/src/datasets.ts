@@ -7,7 +7,7 @@ import type {
   SourceBinding,
 } from 'relate/connectors';
 import { createStatementQueue } from '@relate/runtime';
-import type { StatementQueue } from '@relate/runtime';
+import type { StatementQueue, StatementQueueOptions } from '@relate/runtime';
 
 export interface BoundDataset {
   readonly binding: DatasetBinding;
@@ -73,6 +73,7 @@ export function bindHostResources(
   graph: GraphDefinition,
   model: CompiledModel,
   bindings: readonly Binding[],
+  queueOptions: StatementQueueOptions = {},
 ): HostBindings {
   const sources: Record<string, SourceBinding> = {};
   const datasets = new Map<string, BoundDataset>();
@@ -146,7 +147,7 @@ export function bindHostResources(
       let queue = queues.get(connection);
 
       if (!queue) {
-        queue = createStatementQueue();
+        queue = createStatementQueue(queueOptions);
         queues.set(connection, queue);
       }
 

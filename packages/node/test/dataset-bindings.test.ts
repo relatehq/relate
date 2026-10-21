@@ -225,12 +225,35 @@ it('shares one queue for datasets on one connection and rejects conflicting inst
   const connector = createAnalyticalConnector(analyticalGraphSchema());
   const first = bind(Events, connector.table('events'));
   const second = bind(Second, connector.table('other'));
-  const host = bindHostResources(input, compile(input), [first, second]);
+  const host = bindHostResources(input, compile(input), [first, second], {
+    concurrency: 1,
+    maxQueued: 0,
+  });
 
   expect(host.datasets.get(Events.id)!.queue).toBe(
     host.datasets.get(Second.id)!.queue,
   );
   const task = vi.fn(async () => 1);
+  let release!: () => void;
+  const running = host.datasets.get(Events.id)!.queue.run(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    { signal: new AbortController().signal },
+  );
+
+  try {
+    await expect(
+      host.datasets
+        .get(Second.id)!
+        .queue.run(task, { signal: new AbortController().signal }),
+    ).rejects.toThrow('busy');
+    expect(task).not.toHaveBeenCalled();
+  } finally {
+    release();
+    await running;
+  }
 
   await host.retire();
   await expect(

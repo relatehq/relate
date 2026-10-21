@@ -328,7 +328,12 @@ for validation, clock-domain semantics and migration requirements.
 
 `createStatementQueue` is the public composition factory for analytical
 statement admission. Node supplies one queue per configured connection to
-analytical object reads.
+analytical object reads. `resolveAnalyticalLimits(input)` validates and freezes
+the host's complete settings. Node uses that snapshot for parser setup,
+declaration validation, discovery, request preparation, batching, execution and
+queue construction. Its `maxConcurrentStatements`, `maxQueuedStatements` and
+`queueTimeoutMs` map to the queue's `concurrency`, `maxQueued` and `maxWaitMs`.
+Connection startup and cleanup bounds remain connector configuration.
 
 A **running statement** owns a connection slot until its task settles after
 resource cleanup. A **waiting statement** has no connection slot. By default,
@@ -402,12 +407,12 @@ columns and non-correlation `self` properties mark an expression forbidden. A
 denied correlation property is tracked separately for unavailable dependency
 handling. Neither decision grants permission to execute a dataset query.
 
-`validateDeclaredCalculations(manifest, parser)` composes a trusted declaration
-view with the same preparation code, validates every calculation, and returns a
-frozen stable-ID map of inferred result types. It aggregates preparation
-failures into `CompileError` issues with authored paths. Node invokes it before
-creating an engine. Portable compilation itself remains independent of a SQL
-parser.
+`validateDeclaredCalculations(manifest, parser, limits?)` composes a trusted
+declaration view with the same preparation code, validates every calculation,
+and returns a frozen stable-ID map of inferred result types. It aggregates
+preparation failures into `CompileError` issues with authored paths. Node
+invokes it before creating an engine. Portable compilation itself remains
+independent of a SQL parser.
 
 ```mermaid
 flowchart LR

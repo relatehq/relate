@@ -478,3 +478,14 @@ it('rejects an oversized continuation instead of returning a cursor that cannot 
     issues: [{ path: ['cursor'], problem: 'not-supported' }],
   });
 });
+
+it('uses the configured batch size for real full-scope SQLite ordering', async () => {
+  const { consumer, counters } = await app({
+    limits: { maxKeysPerStatement: 2, maxConcurrentStatements: 1 },
+  });
+  const page = await consumer.query({ ...ordered, limit: 5 });
+
+  expect(page.data.map((row) => row.id)).toEqual(['c', 'b', 'a', 'e', 'd']);
+  expect(counters.slots).toBe(5);
+  expect(counters.statements).toBe(3);
+});

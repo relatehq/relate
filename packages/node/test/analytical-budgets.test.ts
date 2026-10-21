@@ -412,7 +412,7 @@ it.each([
         disposed = true;
       },
     }),
-  ).rejects.toThrow('Invalid analytical operation limits');
+  ).rejects.toThrow('Invalid analytical limits');
   expect(disposed).toBe(true);
 });
 

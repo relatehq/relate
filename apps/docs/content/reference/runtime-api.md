@@ -28,7 +28,11 @@ These defaults bound each analytical get or query page, including ordinary
 source reads and nested authorization checks. Both provider identity checks and
 fetch attempts count; cached application-identity reads do not. A caller's
 `timeoutMs` can only shorten the operation deadline. Exhausting the source-call
-budget rejects the request rather than returning stale fallback. See the
+budget rejects the request rather than returning stale fallback. The same
+`analytics` configuration controls SQL bytes, parsed nodes, named parameter
+count/value size, expression count, keys per batch, statement execution time,
+and per-connection running/queued statement capacity. These settings are
+snapshotted at startup and shared by declared and caller expressions. See the
 [Node contract](../../../../packages/node/CONTRACT.md#analytical-operation-limits)
 for configuration, cancellation and validation limits.
 

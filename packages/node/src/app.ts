@@ -2,6 +2,7 @@ import type { AppDefinition, GraphDefinition, ObjectRegistry } from 'relate';
 import { startRuntime } from './runtime.js';
 import type { Relate } from './types.js';
 import type { Principal } from '@relate/runtime';
+import { resolveAnalyticalLimits } from '@relate/runtime';
 
 type Graph = GraphDefinition & { readonly objects: ObjectRegistry };
 
@@ -51,13 +52,22 @@ export async function startApp<G extends Graph>(
           (property) => property?.origin?.kind === 'computed',
         ),
       );
+    const analytics = resolveAnalyticalLimits(bindings.analytics);
+
     // Ordinary apps do not import or initialize the parser implementation.
     const sqlParser = analytical
-      ? await (await import('@relate/sql-parser')).createSqlParser()
+      ? await (
+          await import('@relate/sql-parser')
+        ).createSqlParser({
+          maxSqlBytes: analytics.maxSqlBytes,
+          maxNodes: analytics.maxParsedNodes,
+          maxParameters: analytics.maxParameters,
+        })
       : undefined;
 
     runtime = await startRuntime({
       ...bindings,
+      analytics,
       graph: app.graph,
       ...(sqlParser ? { sqlParser } : {}),
     });

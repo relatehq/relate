@@ -1,5 +1,5 @@
 export { createStatementQueue, AnalyticalBusyError } from './queue.js';
-export { operationLimits } from './limits.js';
+export { resolveAnalyticalLimits } from './limits.js';
 export type { StatementQueue, StatementQueueOptions } from './queue.js';
 
 export { prepareExpression } from './prepare.js';

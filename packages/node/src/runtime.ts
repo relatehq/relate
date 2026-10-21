@@ -27,6 +27,7 @@ import {
   createRuntime as createEngine,
   hostActor,
   validateDeclaredCalculations,
+  resolveAnalyticalLimits,
 } from '@relate/runtime';
 import type { OperationScope, Principal } from '@relate/runtime';
 import type { SqlParser } from 'relate/analytics';
@@ -130,6 +131,7 @@ type StartupOptions<
 function prepareHost<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(options: StartupOptions<G>) {
+  const limits = resolveAnalyticalLimits(options.analytics);
   const model = compile(options.graph);
   const analytical = Boolean(
     model.manifest.datasets?.length ||
@@ -142,11 +144,16 @@ function prepareHost<
     );
 
   if (analytical)
-    validateDeclaredCalculations(model.manifest, options.sqlParser!);
+    validateDeclaredCalculations(model.manifest, options.sqlParser!, limits);
 
   return {
     model,
-    bindings: bindHostResources(options.graph, model, options.bindings),
+    limits,
+    bindings: bindHostResources(options.graph, model, options.bindings, {
+      concurrency: limits.maxConcurrentStatements,
+      maxQueued: limits.maxQueuedStatements,
+      maxWaitMs: limits.queueTimeoutMs,
+    }),
   };
 }
 
@@ -154,27 +161,31 @@ function prepareHost<
 export function createRuntime<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(options: AppOptions<G>): Relate<G> {
-  const { model, bindings } = prepareHost(options);
+  const { model, bindings, limits } = prepareHost(options);
 
   if (bindings.datasets.size)
     throw new Error(
       'Analytical dataset bindings require asynchronous startup. Use startApp().',
     );
 
-  return composeRuntime(options, model, bindings);
+  return composeRuntime({ ...options, analytics: limits }, model, bindings);
 }
 
 /** Internal asynchronous composition used by startApp; no readiness surface escapes. */
 export async function startRuntime<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(options: StartupOptions<G>): Promise<Relate<G>> {
-  const { model, bindings } = prepareHost(options);
+  const { model, bindings, limits } = prepareHost(options);
   let runtime: Relate<G> | undefined;
 
   try {
     // Capture all registries and validate ordinary bindings before asynchronous inspection.
     // The runtime remains private until every physical schema passes.
-    runtime = composeRuntime(options, model, bindings);
+    runtime = composeRuntime(
+      { ...options, analytics: limits },
+      model,
+      bindings,
+    );
     await bindings.describe();
 
     return runtime;

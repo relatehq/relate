@@ -33,7 +33,7 @@ import {
   computeFields,
   revalidateFields,
   AnalyticalPreparationError,
-  operationLimits,
+  resolveAnalyticalLimits,
   prepareComputedOrder,
   AnalyticalIncompleteError,
 } from './analytics/index.js';
@@ -86,7 +86,7 @@ export function createAnalyticalReads(options: {
   readonly analytics?: AnalyticalReadOptions;
   readonly clock: () => number;
 }) {
-  const limits = operationLimits(options.analytics?.limits);
+  const limits = resolveAnalyticalLimits(options.analytics?.limits);
   const run = async (
     kind: 'get' | 'query',
     attempt: OperationScope,
@@ -244,6 +244,7 @@ export function createAnalyticalReads(options: {
       try {
         prepared = prepareCompute({
           parser: analytics.parser,
+          limits,
           associations,
           declarations: analyticalDeclarations(options.manifest, object),
           request: {
@@ -574,6 +575,9 @@ export function createAnalyticalReads(options: {
         });
         const computed = await computeFields({
           prepared,
+          maxSlots: limits.maxKeysPerStatement,
+          statementTimeoutMs: limits.statementTimeoutMs,
+          maxConcurrentStatements: limits.maxConcurrentStatements,
           candidates,
           binding: analytics.binding,
           signal: controller.signal,

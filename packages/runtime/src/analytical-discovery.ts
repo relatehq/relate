@@ -4,7 +4,7 @@ import type {
   DatasetDescription,
 } from '@relate/protocol';
 import type { Manifest } from 'relate/model';
-import type { SqlParser } from 'relate/analytics';
+import type { SqlParser, AnalyticalLimits } from 'relate/analytics';
 import {
   actorAssociations,
   analyticalDeclarations,
@@ -24,6 +24,7 @@ export function analyticalDiscovery(
   principal: Principal,
   object: Manifest['objects'][number],
   parser?: SqlParser,
+  limits: AnalyticalLimits = {},
 ) {
   const scope = actorAssociations(manifest, principal, object);
   const datasets: Record<string, DatasetDescription> = Object.fromEntries(
@@ -86,6 +87,7 @@ export function analyticalDiscovery(
 
     const expression = authorizeDeclaration(
       prepareExpression({
+        ...limits,
         parser,
         scope: declarations,
         expression: { sql: property.sql },

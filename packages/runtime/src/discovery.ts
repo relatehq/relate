@@ -17,7 +17,7 @@ import { actionAllowed } from './actions/index.js';
 import { availableTraversals } from './traversal/index.js';
 import { sdkDescription } from './contracts.js';
 import { schemaText, filterOperators } from './reads/index.js';
-import type { SqlParser } from 'relate/analytics';
+import type { SqlParser, AnalyticalLimits } from 'relate/analytics';
 import { analyticalDiscovery } from './analytical-discovery.js';
 
 type ManifestObject = Manifest['objects'][number];
@@ -62,6 +62,7 @@ export function createDiscovery(
   { manifest, definitionRevision }: CompiledModel,
   principal: Principal,
   parser?: SqlParser,
+  limits?: AnalyticalLimits,
 ): Discovery {
   const readable = (id: string | undefined) =>
     readableObject(manifest, principal, id);
@@ -102,6 +103,7 @@ export function createDiscovery(
         principal,
         object,
         parser,
+        limits,
       );
 
       const properties = readableProperties(manifest, principal, object).map(

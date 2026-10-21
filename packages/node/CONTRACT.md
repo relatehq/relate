@@ -125,11 +125,38 @@ return {
 };
 ```
 
-These are the defaults when omitted. `operationTimeoutMs` must be a positive
-integer no larger than 2,147,483,647; the three count limits must be nonnegative
-safe integers. Invalid limits fail analytical startup and run registered
-disposal callbacks. Limits are copied at startup, so later mutation cannot
-change them.
+These are the operation defaults. The same `analytics` object also accepts:
+
+| Setting                   | Default | Scope                                                            |
+| ------------------------- | ------- | ---------------------------------------------------------------- |
+| `maxSqlBytes`             | 4,096   | UTF-8 SQL bytes per expression                                   |
+| `maxParsedNodes`          | 256     | Parsed syntax nodes per expression                               |
+| `maxParameters`           | 16      | Distinct named parameters per expression                         |
+| `maxParameterBytes`       | 1,024   | UTF-8 bytes in each parameter's JSON encoding                    |
+| `maxExpressions`          | 8       | Caller expressions plus selected or required declarations        |
+| `maxKeysPerStatement`     | 1,000   | Authorized object slots, reduced by connector parameter capacity |
+| `statementTimeoutMs`      | 5,000   | Statement execution, excluding queue wait and connection startup |
+| `maxConcurrentStatements` | 4       | Running statements per configured connection                     |
+| `maxQueuedStatements`     | 32      | Waiting statements per configured connection                     |
+| `queueTimeoutMs`          | 2,000   | Maximum time waiting for a statement slot                        |
+
+All values must be safe integers. Source, scan, admission and queue-depth limits
+may be zero. `queueTimeoutMs: 0` rejects work that would have to wait; zero
+queue depth rejects when all running slots are occupied. Other values must be
+positive. All three timer limits must be at most 2,147,483,647 ms. Unknown keys
+and invalid values fail startup and run registered disposal callbacks, including
+for ordinary apps that supply analytical settings. Limits are copied before
+parser initialization or resource inspection; later mutation cannot change them.
+
+The same SQL and parameter limits govern declaration startup validation,
+authorized discovery and request preparation. Selected declarations and caller
+expressions share the expression budget. Invalid expressions fail before
+candidate reads, including an empty query scope. Batching cannot exceed the
+connector's physical parameter limit. Queues are shared by all dataset bindings
+and actors on a configured connection; binding another dataset does not create
+additional capacity. Statement slots remain occupied until connector cleanup
+settles. Connector startup and cancellation bounds are configured on the
+connection itself, separately from `statementTimeoutMs`.
 
 Computed filter/order queries count every scanned member, including rejected
 objects, against `maxCandidatesScanned`. Objects passing ordinary policy and
@@ -154,10 +181,11 @@ providers must honor those signals to stop their own work. Storage and arbitrary
 provider JavaScript cannot be forcibly interrupted. Analytical connector
 cancellation retains its joined cleanup contract.
 
-The defaults are provisional safeguards informed by the retained
-[candidate-path measurements](../../tests/performance/analytical-properties/README.md).
-They are not evidence that every workload finishes within a minute. Full-scope
-computed filtering and ordering still need their own capacity validation.
+The defaults are safeguards exercised by the retained
+[scope-first capacity and refresh measurements](../../tests/performance/analytical-properties/README.md#retained-measurements).
+Those runs cover 10,000 admitted candidates and 100,000 events with synthetic
+source behavior. They are not evidence that every provider or policy shape
+finishes within a minute; deployments still need their own capacity validation.
 
 ```mermaid
 flowchart LR

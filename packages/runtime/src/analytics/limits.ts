@@ -1,54 +1,68 @@
 import type { AnalyticalLimits } from 'relate/analytics';
 
-/** Snapshot host configuration once, before the runtime becomes available. */
-export function operationLimits(input?: AnalyticalLimits) {
+const defaults: Required<AnalyticalLimits> = Object.freeze({
+  operationTimeoutMs: 60_000,
+  maxSourceCalls: 100_000,
+  maxCandidatesScanned: 12_500,
+  maxCandidatesAdmitted: 10_000,
+  maxSqlBytes: 4096,
+  maxParsedNodes: 256,
+  maxParameters: 16,
+  maxParameterBytes: 1024,
+  maxExpressions: 8,
+  maxKeysPerStatement: 1000,
+  statementTimeoutMs: 5000,
+  maxConcurrentStatements: 4,
+  maxQueuedStatements: 32,
+  queueTimeoutMs: 2000,
+});
+const zeroAllowed = new Set<keyof AnalyticalLimits>([
+  'maxSourceCalls',
+  'maxCandidatesScanned',
+  'maxCandidatesAdmitted',
+  'maxQueuedStatements',
+  'queueTimeoutMs',
+]);
+const timers = new Set<keyof AnalyticalLimits>([
+  'operationTimeoutMs',
+  'statementTimeoutMs',
+  'queueTimeoutMs',
+]);
+
+/** Validate and detach host configuration before parsing, binding or serving. */
+export function resolveAnalyticalLimits(
+  input?: AnalyticalLimits,
+): Readonly<Required<AnalyticalLimits>> {
+  const fail = (): never => {
+    throw new Error('Invalid analytical limits');
+  };
+
   if (
     input !== undefined &&
     (!input ||
       typeof input !== 'object' ||
       Array.isArray(input) ||
-      Object.keys(input).some(
-        (key) =>
-          ![
-            'operationTimeoutMs',
-            'maxSourceCalls',
-            'maxCandidatesScanned',
-            'maxCandidatesAdmitted',
-          ].includes(key),
+      Reflect.ownKeys(input).some(
+        (key) => typeof key !== 'string' || !Object.hasOwn(defaults, key),
       ))
   )
-    throw new Error('Invalid analytical operation limits');
+    fail();
 
-  const operationTimeoutMs =
-    input?.operationTimeoutMs === undefined ? 60_000 : input.operationTimeoutMs;
-  const maxSourceCalls =
-    input?.maxSourceCalls === undefined ? 100_000 : input.maxSourceCalls;
+  const result = { ...defaults };
 
-  const maxCandidatesScanned =
-    input?.maxCandidatesScanned === undefined
-      ? 12_500
-      : input.maxCandidatesScanned;
-  const maxCandidatesAdmitted =
-    input?.maxCandidatesAdmitted === undefined
-      ? 10_000
-      : input.maxCandidatesAdmitted;
+  for (const key of Object.keys(defaults) as (keyof AnalyticalLimits)[]) {
+    const supplied = input?.[key];
+    const value = supplied === undefined ? defaults[key] : supplied;
 
-  if (
-    [maxCandidatesScanned, maxCandidatesAdmitted].some(
-      (value) => !Number.isSafeInteger(value) || value < 0,
-    ) ||
-    !Number.isSafeInteger(operationTimeoutMs) ||
-    operationTimeoutMs < 1 ||
-    operationTimeoutMs > 2_147_483_647 ||
-    !Number.isSafeInteger(maxSourceCalls) ||
-    maxSourceCalls < 0
-  )
-    throw new Error('Invalid analytical operation limits');
+    if (
+      !Number.isSafeInteger(value) ||
+      value < (zeroAllowed.has(key) ? 0 : 1) ||
+      (timers.has(key) && value > 2_147_483_647)
+    )
+      fail();
 
-  return Object.freeze({
-    operationTimeoutMs,
-    maxSourceCalls,
-    maxCandidatesScanned,
-    maxCandidatesAdmitted,
-  });
+    result[key] = value;
+  }
+
+  return Object.freeze(result);
 }
