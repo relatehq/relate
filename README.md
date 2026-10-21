@@ -35,7 +35,8 @@ pnpm example:customer-workspace
 ```
 
 For the smallest terminal app, run `pnpm example:todo-notes` to create and list
-owner-only todos with notes. The [three examples](examples/README.md) explain
+owner-only todos with notes. Run `pnpm example:customer-events` to filter and
+rank customers using event datasets. The [examples](examples/README.md) explain
 what each application teaches.
 
 Preparation runs quietly; add `--verbose` to see build logs. Build failures and

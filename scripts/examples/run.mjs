@@ -11,6 +11,10 @@ const examples = {
     projects: ['packages/cli', 'connectors/sqlite'],
     client: true,
   },
+  'customer-events': {
+    directory: '04-customer-events',
+    projects: ['packages/node', 'connectors/sqlite'],
+  },
   postgres: {
     directory: '03-postgres-persistence',
     projects: ['packages/postgres'],
@@ -23,7 +27,7 @@ const forwarded = args.filter((arg) => arg !== '--verbose' && arg !== '--');
 
 if (!example || forwarded.some((arg) => arg !== '--no-open')) {
   console.error(
-    'Usage: node scripts/examples/run.mjs <todo-notes|customer-workspace|postgres> [--verbose] [--no-open]',
+    'Usage: node scripts/examples/run.mjs <todo-notes|customer-workspace|postgres|customer-events> [--verbose] [--no-open]',
   );
   process.exitCode = 1;
 } else {

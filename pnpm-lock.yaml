@@ -491,6 +491,21 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
 
+  examples/04-customer-events:
+    dependencies:
+      '@relate/connector-sqlite':
+        specifier: workspace:*
+        version: link:../../connectors/sqlite
+      '@relate/node':
+        specifier: workspace:*
+        version: link:../../packages/node
+      relate:
+        specifier: workspace:*
+        version: link:../../packages/relate
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
   packages/cli:
     dependencies:
       '@relate/dev':

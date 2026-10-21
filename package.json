@@ -40,7 +40,8 @@
     "salesforce:dev": "tsx dev/salesforce/cli.ts",
     "bench:analytical": "pnpm build && pnpm bench:analytical:run",
     "bench:analytical:run": "node --import tsx tests/performance/analytical-properties/run.ts",
-    "test:salesforce:live": "pnpm build && tsx tests/integration/salesforce.live.ts"
+    "test:salesforce:live": "pnpm build && tsx tests/integration/salesforce.live.ts",
+    "example:customer-events": "node scripts/examples/run.mjs customer-events"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

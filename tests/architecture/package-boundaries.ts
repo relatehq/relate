@@ -200,6 +200,17 @@ export const packagePolicies: Record<
     imports: ['hono', '@hono/node-server'],
     builtins: ['node:events', 'node:http'],
   },
+  'examples/04-customer-events': {
+    imports: [
+      'relate',
+      'relate/consumer',
+      'relate/compiler',
+      '@relate/node',
+      '@relate/connector-sqlite',
+      'zod',
+    ],
+    builtins: true,
+  },
   'examples/03-postgres-persistence': {
     imports: [
       'relate',
