@@ -9,3 +9,23 @@ export type {
   AnalyticalAssociation,
   ResolvedExpression,
 } from './types.js';
+
+export { computeFields } from './execute.js';
+export { AnalyticalIncompleteError } from './execution-types.js';
+
+export type {
+  ResolvedCalculation,
+  AuthorizedCandidate,
+  AnalyticalBinding,
+  ComputedField,
+  ComputedScope,
+} from './execution-types.js';
+
+export { createAnalyticalTimings } from './timings.js';
+
+export type {
+  AnalyticalTimingStage,
+  StageTiming,
+  AnalyticalTimings,
+  TimingCapture,
+} from './timings.js';

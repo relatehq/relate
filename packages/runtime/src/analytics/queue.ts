@@ -2,7 +2,7 @@
 export interface StatementQueue {
   run<T>(
     task: (signal: AbortSignal) => Promise<T>,
-    options: { signal: AbortSignal },
+    options: { signal: AbortSignal; onWait?: (durationMs: number) => void },
   ): Promise<T>;
   /** Stop admission, abort queued/running work, and wait for running resource cleanup. */
   retire(): Promise<void>;
@@ -66,17 +66,46 @@ export function createStatementQueue(
   return Object.freeze({
     run<T>(
       task: (signal: AbortSignal) => Promise<T>,
-      { signal }: { signal: AbortSignal },
+      {
+        signal,
+        onWait,
+      }: { signal: AbortSignal; onWait?: (durationMs: number) => void },
     ): Promise<T> {
       if (signal.aborted) return Promise.reject(signal.reason);
 
-      if (retired) return Promise.reject(retiredReason);
+      const started = onWait ? performance.now() : 0;
+      let reported = false;
+      const reportWait = () => {
+        if (reported || !onWait) return;
 
-      if (active.size >= concurrency && pending.length >= maxQueued)
+        reported = true;
+
+        try {
+          void Promise.resolve(
+            onWait(Math.max(0, performance.now() - started)),
+          ).catch(() => {});
+        } catch {
+          /* Diagnostics never affect admission. */
+        }
+      };
+
+      if (retired) {
+        reportWait();
+
+        return Promise.reject(retiredReason);
+      }
+
+      if (active.size >= concurrency && pending.length >= maxQueued) {
+        reportWait();
+
         return Promise.reject(new AnalyticalBusyError('queue-full'));
+      }
 
-      if (active.size >= concurrency && maxWaitMs === 0)
+      if (active.size >= concurrency && maxWaitMs === 0) {
+        reportWait();
+
         return Promise.reject(new AnalyticalBusyError('queue-timeout'));
+      }
 
       return new Promise<T>((resolve, reject) => {
         const controller = new AbortController();
@@ -108,6 +137,7 @@ export function createStatementQueue(
             state = 'running';
             stopWaiting();
             active.add(entry);
+            reportWait();
             // Capture synchronous throws and cancellation before task startup too.
             void Promise.resolve()
               .then(() => {
@@ -131,6 +161,7 @@ export function createStatementQueue(
             }
 
             state = 'settled';
+            reportWait();
             detach();
             const index = pending.indexOf(entry);
 

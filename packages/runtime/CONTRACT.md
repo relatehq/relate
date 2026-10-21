@@ -424,3 +424,54 @@ flowchart LR
 The expression resolver and access view are implemented foundations. Consumer
 compute request handling, connector execution and analytical result projection
 are not yet enabled.
+
+### Analytical batch execution (internal)
+
+`analytics/computeFields` accepts resolved calculations and a finite set of
+already authorized objects with materialized ordinary dependencies. This is an
+internal execution foundation; consumer reads do not yet call it. It does not
+fetch dependencies, authorize membership, or perform final dependency
+revalidation. Its returned dependency snapshots are private execution state,
+including values, and must never be projected as consumer evidence.
+
+| Module       | Responsibility                                                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `batch.ts`   | Snapshot usable dependencies, group by association, remap shared keys, assign one slot per object, mask each aggregate, and size every batch before execution |
+| `execute.ts` | Execute through the shared connection queue; cancel and await every active statement before returning or rejecting                                            |
+| `merge.ts`   | Validate result framing and scalar types, withdraw failed aliases across the full scope, and enforce required fields                                          |
+| `timings.ts` | Aggregate fixed host-only stages into bounded count, total and maximum durations                                                                              |
+
+A missing `self.since` masks only calculations that use it. A valid `COUNT(*)`
+can still be supplied for that object. Objects with matching correlation values
+retain distinct slots. A parameter budget that cannot fit one slot rejects the
+request before any connector statement is planned or executed.
+
+Malformed row framing invalidates every alias carried by that statement across
+the full scope. A scalar that violates one alias's result type invalidates that
+alias across earlier and later batches while leaving unrelated aliases intact.
+Provider failures are sanitized. A required filter/order field or a projected
+field under `requireComplete` causes `AnalyticalIncompleteError` when any object
+cannot supply it. Filter/order-only declarations are omitted from projection
+metadata.
+
+Cancellation never becomes a partial successful scope. Request-local workers
+stop admitting further batches and wait for active connector cleanup. The shared
+queue retains capacity until each connector promise settles. Queue admission
+observers report one wait duration, including rejection/cancellation; observer
+errors cannot alter execution. Timing summaries contain only fixed stage names
+and numeric aggregates, with no SQL, parameters, object identifiers or physical
+binding details. Persisting these summaries in operation activity and displaying
+them in Inspector remain separate integration work.
+
+```mermaid
+flowchart LR
+  Inputs[Authorized objects and ordinary dependency values] --> Batch[Batch by association and parameter budget]
+  Batch --> Queue[Shared connection queue]
+  Queue --> Connector[Connector plan and execution]
+  Connector --> Merge[Validate and merge the full scope]
+  Merge --> Required[Enforce required fields]
+  Required --> Result[Private values and dependency snapshots]
+  Queue --> Timing[Host stage timing totals]
+  Connector --> Timing
+  Merge --> Timing
+```
