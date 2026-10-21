@@ -4,7 +4,8 @@ import type {
   EvidenceMode,
   FieldEvidence,
   ReadMeta,
-  ReadRequest,
+  ReadControls,
+  ObjectReadRequest,
 } from '@relate/protocol';
 import type {
   ObjectData,
@@ -29,15 +30,21 @@ import type {
  * });
  * ```
  */
-export type ReadOptions<
+export type ReadControlOptions<
   K extends string,
   E extends EvidenceMode = EvidenceMode,
-> = Omit<ReadRequest, 'select' | 'evidence'> & {
+> = Omit<ReadControls, 'select' | 'evidence'> & {
   /** Property names to read from the object. */
   readonly select?: readonly K[];
   /** Evidence presentation; defaults to compact. */
   readonly evidence?: E;
 };
+
+/** Object reads may extend common controls without widening traversal. */
+export type ReadOptions<
+  K extends string,
+  E extends EvidenceMode = EvidenceMode,
+> = ReadControlOptions<K, E> & Omit<ObjectReadRequest, keyof ReadControls>;
 
 type TypedMeta<M, K extends string> = M extends { fields: unknown }
   ? Omit<M, 'fields'> & {
@@ -64,7 +71,7 @@ export type ObjectResult<
 export type PageOptions<
   K extends string,
   E extends EvidenceMode = EvidenceMode,
-> = ReadOptions<K, E> & {
+> = ReadControlOptions<K, E> & {
   readonly limit?: number;
   readonly cursor?: string;
 };
@@ -116,7 +123,7 @@ type PropertyFilter<P extends Property, V> =
  * });
  * ```
  */
-export type QueryOptions<
+export type CollectionReadOptions<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,
   E extends EvidenceMode = EvidenceMode,
@@ -129,6 +136,13 @@ export type QueryOptions<
     >;
   };
 };
+
+/** Object queries have an independent extension point from related collections. */
+export type QueryOptions<
+  O extends ObjectDefinition,
+  K extends PropertyNames<O> = PropertyNames<O>,
+  E extends EvidenceMode = EvidenceMode,
+> = CollectionReadOptions<O, K, E> & ReadOptions<K, E>;
 
 export type ObjectRecord<
   O extends ObjectDefinition,

@@ -1,6 +1,6 @@
 import type { Manifest } from 'relate/model';
 import type {
-  ReadRequest,
+  ReadControls,
   FullReadResult as ReadResult,
   Refresh,
 } from '@relate/protocol';
@@ -38,7 +38,7 @@ export async function refreshObservation(options: {
   resource: Manifest['sources'][number];
   connector: AnySourceConnector;
   clock: () => number;
-  request: ReadRequest;
+  request: ReadControls;
   needsSource: boolean;
   sourcePermission: boolean;
   evidenceMaxAgeMs: number;

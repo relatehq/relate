@@ -2201,7 +2201,7 @@ scope below. A checked foundation does not establish analytical execution.
       Postgres observations without inventing resource identity.
 - [x] Configure identity on SQLite, Stripe and Salesforce connections; bind
       selected resources using the source definition's key and fields.
-- [ ] Separate object read/query requests from traversal and transaction reads.
+- [x] Separate object read/query requests from traversal and transaction reads.
 - [ ] Finalize portable SQL, logical types, codecs, execution contracts and the
       conformance corpus, including the open decisions below.
 - [ ] Compile datasets, explicit association pairs, policies and declared
@@ -2419,9 +2419,10 @@ Each question names the delivery step that settles it.
 9. Package names: `@relate/sql-parser` is suggested; name of the Postgres
    connector package. Whether `packages/node` depends on the parser always (1.7
    MB WASM, loaded at startup) or only when a graph declares datasets. (Build.)
-10. After the protocol split, do `ReadRequest` and `QueryRequest` remain as
-    exported names (aliases of the new types) or are they removed? (Protocol
-    split.)
+10. **Settled in implementation:** keep `ReadRequest` and `QueryRequest` as
+    aliases of `ObjectReadRequest` and `ObjectQueryRequest`. Traversal and
+    transaction readers depend on the common controls, so extending object
+    requests does not extend those restricted surfaces.
 11. **Candidate enumeration budgets.** Benchmark actual authorized reads and
     source refreshes, then set finite scan, refresh, admitted-candidate and
     whole-operation limits. Confirm that honoring existing freshness options

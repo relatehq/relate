@@ -9,8 +9,11 @@ Relate consumer surface. Private and unpublished.
 
 ## Responsibility
 
-- Requests: `ReadRequest` (`evidence`, `select`, `maxAgeMs`, `refresh`, `stale`,
-  `requireComplete`, `timeoutMs`) and `TraversalRequest` (`limit`, `cursor`).
+- Requests: `ReadControls` owns `evidence`, `select`, `maxAgeMs`, `refresh`,
+  `stale`, `requireComplete` and `timeoutMs`. `CollectionReadControls` adds
+  `limit`, `cursor` and `where`. `ObjectReadRequest` and `ObjectQueryRequest`
+  extend object reads independently of `TraversalRequest`. `ReadRequest` and
+  `QueryRequest` remain aliases of those object-specific types.
 - Results: `ObjectResult` and `ObjectRecord` (`ok` with the canonical `id`,
   partial `data` and `meta`, or `not-found`), `Page<T>` with `PageMeta`, and the
   engine-level `ReadResult`.

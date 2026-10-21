@@ -3,7 +3,8 @@ export type Json =
 
 export type EvidenceMode = 'compact' | 'full';
 
-export interface ReadRequest {
+/** Shared controls, including restricted traversal and transaction reads. */
+export interface ReadControls {
   /** Evidence presentation only; defaults to compact. */
   readonly evidence?: EvidenceMode;
   readonly select?: readonly string[];
@@ -13,6 +14,12 @@ export interface ReadRequest {
   readonly requireComplete?: boolean;
   readonly timeoutMs?: number;
 }
+
+/** Object reads have their own extension point, separate from traversal. */
+export interface ObjectReadRequest extends ReadControls {}
+
+/** Existing public name retained for object reads. */
+export type ReadRequest = ObjectReadRequest;
 
 /** Exhaustion and continuation are mutually exclusive, including on the wire. */
 export type PageMeta =
@@ -135,14 +142,21 @@ export interface FilterOperators {
  * properties; schema-specific operators are validated by the runtime. A to-one
  * traversal accepts neither paging nor filters.
  */
-export interface TraversalRequest extends ReadRequest {
+export interface CollectionReadControls extends ReadControls {
   readonly limit?: number;
   readonly cursor?: string;
   readonly where?: Readonly<Record<string, FilterScalar | FilterOperators>>;
 }
 
+/** Traversal never inherits object-only analytical options. */
+export interface TraversalRequest extends CollectionReadControls {}
+
 /** A query pages and filters graph members of one object type. */
-export type QueryRequest = TraversalRequest;
+export interface ObjectQueryRequest
+  extends ObjectReadRequest, CollectionReadControls {}
+
+/** Existing public name retained for object queries. */
+export type QueryRequest = ObjectQueryRequest;
 
 /**
  * One problem with a caller's read request. Paths name request options, filter

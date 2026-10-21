@@ -2,7 +2,7 @@ import type { OperationScope } from '../activity/index.js';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
-  ReadRequest,
+  ReadControls,
   FullReadResult as ReadResult,
   TraversalRequest,
   FullObjectRecord as ObjectRecord,
@@ -49,7 +49,7 @@ export interface TraversalOptions {
     principal: Principal,
     typeId: string,
     id: string,
-    request?: ReadRequest,
+    request?: ReadControls,
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
   ): Promise<ReadResult>;
@@ -195,7 +195,7 @@ export function createTraversal(options: TraversalOptions) {
 
     if (root.status !== 'ok') return unavailable();
 
-    const linkRequest = (refresh = request.refresh): ReadRequest => ({
+    const linkRequest = (refresh = request.refresh): ReadControls => ({
       ...readRequest,
       select: [via.name],
       requireComplete: false,

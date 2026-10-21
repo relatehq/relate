@@ -1,4 +1,4 @@
-import type { ReadRequest } from '@relate/protocol';
+import type { ReadControls } from '@relate/protocol';
 import { rejectIssues, requestIssues, type ReadOperation } from './options.js';
 
 /**
@@ -6,7 +6,7 @@ import { rejectIssues, requestIssues, type ReadOperation } from './options.js';
  * is reported at once, before any membership, record or source is consulted.
  */
 export function validateReadRequest(
-  request: ReadRequest,
+  request: ReadControls,
   operation = 'read',
   kind: ReadOperation = 'get',
 ) {

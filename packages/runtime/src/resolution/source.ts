@@ -1,7 +1,7 @@
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
-  ReadRequest,
+  ReadControls,
   FullObjectResult as ReadResult,
   FieldEvidence,
   Json,
@@ -84,13 +84,13 @@ export function createSourceOperations(options: {
     maxAgeMs: number,
     canonical: boolean,
     transaction?: NativeTransaction,
-    request?: ReadRequest,
+    request?: ReadControls,
   ): Promise<AuthorizationEvidence | undefined>;
 }) {
   const { manifest, revision, store, sources, clock, install, scopeFor } =
     options;
 
-  async function accountAllowed(sourceId: string, request: ReadRequest = {}) {
+  async function accountAllowed(sourceId: string, request: ReadControls = {}) {
     const binding = sources[sourceId]!;
 
     try {
@@ -114,7 +114,7 @@ export function createSourceOperations(options: {
     key: string,
     maxAgeMs: number,
     canonical = false,
-    request: ReadRequest = {},
+    request: ReadControls = {},
   ) {
     if (!target.sourceDefinitionId)
       throw new Error(
@@ -163,7 +163,7 @@ export function createSourceOperations(options: {
     principal: Principal,
     objectDefinitionId: string,
     objectId: string,
-    request: ReadRequest = {},
+    request: ReadControls = {},
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,

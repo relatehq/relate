@@ -4,7 +4,7 @@ import type {
   ConsumerOperations,
   OperationActor,
   OperationContext,
-  QueryRequest,
+  CollectionReadControls,
 } from '@relate/protocol';
 import { compile } from 'relate/compiler';
 import type {
@@ -177,7 +177,7 @@ export function createRuntime<
           objects.map(([name, object]) => [
             name,
             Object.freeze({
-              query: (request: QueryRequest = {}) =>
+              query: (request: CollectionReadControls = {}) =>
                 createPagedQuery(`${name}.query`, request, (page) =>
                   context.query(object.id, page),
                 ),

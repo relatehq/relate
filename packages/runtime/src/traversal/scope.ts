@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { canonicalJson } from 'relate/model';
-import type { ReadRequest } from '@relate/protocol';
+import type { ReadControls } from '@relate/protocol';
 import type { Principal } from '../authorization/index.js';
 import type { Predicate } from '../reads/index.js';
 import type { TraversalOptions } from './traversal.js';
@@ -14,7 +14,7 @@ export function traversalScope(
     id: string;
     relationship: string;
     forward: boolean;
-    query: ReadRequest & { limit: number; where: readonly Predicate[] };
+    query: ReadControls & { limit: number; where: readonly Predicate[] };
   },
 ): string {
   return createHash('sha256')

@@ -3,7 +3,7 @@ import type { Manifest } from 'relate/model';
 import type {
   FullPageResult,
   FullReadResult,
-  ReadRequest,
+  ReadControls,
   TraversalRequest,
 } from '@relate/protocol';
 import { allowsField } from '../authorization/index.js';
@@ -119,7 +119,7 @@ export function createThroughTraversal(options: TraversalOptions) {
     if (!traversalAllowed(manifest, principal, { relationship, forward }))
       return empty();
 
-    const rootRequest: ReadRequest = {
+    const rootRequest: ReadControls = {
       ...readRequest,
       select: [],
       requireComplete: false,
@@ -130,7 +130,7 @@ export function createThroughTraversal(options: TraversalOptions) {
     )
       return empty();
 
-    const linkRequest: ReadRequest = {
+    const linkRequest: ReadControls = {
       ...readRequest,
       select: [from.name, to.name],
       requireComplete: false,
@@ -178,7 +178,7 @@ export function createThroughTraversal(options: TraversalOptions) {
     }
 
     const filter = predicateMatcher(predicates, readRequest, clock);
-    const filterRequest: ReadRequest = {
+    const filterRequest: ReadControls = {
       ...readRequest,
       select: filter.names,
       requireComplete: false,
@@ -273,7 +273,7 @@ export function createThroughTraversal(options: TraversalOptions) {
             .map((p) => p.name),
       ),
     ];
-    const targetRequest: ReadRequest = {
+    const targetRequest: ReadControls = {
       ...readRequest,
       select: [...new Set([...selected, ...filter.names])],
       requireComplete: false,

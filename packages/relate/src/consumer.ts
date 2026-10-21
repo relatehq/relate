@@ -32,6 +32,8 @@ import type {
   ObjectRecord,
   ObjectResult,
   PageOptions,
+  ReadControlOptions,
+  CollectionReadOptions,
   QueryOptions,
   ReadOptions,
 } from './operations.js';
@@ -251,8 +253,8 @@ type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
     <K extends PropertyNames<E['target']> = PropertyNames<E['target']>>(
       id: ObjectId<O['id']>,
       options: (E['traversal']['cardinality'] extends 'many'
-        ? QueryOptions<E['target'], K, 'full'>
-        : ReadOptions<K, 'full'>) & { readonly evidence: 'full' },
+        ? CollectionReadOptions<E['target'], K, 'full'>
+        : ReadControlOptions<K, 'full'>) & { readonly evidence: 'full' },
     ): E['traversal']['cardinality'] extends 'many'
       ? QueryResult<ObjectRecord<E['target'], K, 'full'>>
       : Promise<ObjectResult<E['target'], K, 'full'>>;
@@ -262,8 +264,8 @@ type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
     >(
       id: ObjectId<O['id']>,
       options?: E['traversal']['cardinality'] extends 'many'
-        ? QueryOptions<E['target'], K, M>
-        : ReadOptions<K, M>,
+        ? CollectionReadOptions<E['target'], K, M>
+        : ReadControlOptions<K, M>,
     ): E['traversal']['cardinality'] extends 'many'
       ? QueryResult<ObjectRecord<E['target'], K, M | 'compact'>>
       : Promise<ObjectResult<E['target'], K, M | 'compact'>>;

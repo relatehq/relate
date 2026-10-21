@@ -2,7 +2,7 @@ import type { OperationScope } from '../activity/index.js';
 import type { Manifest, Policy } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
-  ReadRequest,
+  ReadControls,
   FullObjectResult as ReadResult,
   Json,
   FieldEvidence,
@@ -61,7 +61,7 @@ export function createNativeOperations(options: {
     age: number,
     canonical: boolean,
     transaction?: NativeTransaction,
-    request?: ReadRequest,
+    request?: ReadControls,
   ): Promise<AuthorizationEvidence | undefined>;
 }) {
   const { manifest, scope, store, clock } = options;
@@ -69,7 +69,7 @@ export function createNativeOperations(options: {
     attempt: OperationScope,
     principal: Principal,
     transaction?: NativeTransaction,
-    request?: ReadRequest,
+    request?: ReadControls,
   ) =>
     createAuthorization({
       manifest,
@@ -144,7 +144,7 @@ export function createNativeOperations(options: {
       principal: Principal,
       objectDefinitionId: string,
       id: string,
-      request: ReadRequest,
+      request: ReadControls,
       transaction?: NativeTransaction,
       capture?: (check: () => Promise<boolean>) => void,
     ): Promise<ReadResult> {

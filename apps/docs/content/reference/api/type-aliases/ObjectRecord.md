@@ -6,7 +6,7 @@ type ObjectRecord<O, K, E> = Omit<Extract<ObjectResult<O, K, E>, {
 }>, "status">;
 ```
 
-Defined in: [packages/relate/src/operations.ts:133](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L133)
+Defined in: [packages/relate/src/operations.ts:147](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L147)
 
 ## Type Parameters
 

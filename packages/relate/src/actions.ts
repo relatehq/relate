@@ -15,8 +15,8 @@ import type {
 import type { RoleGate } from './authorization.js';
 import type {
   ObjectResult,
-  ReadOptions,
-  QueryOptions,
+  ReadControlOptions,
+  CollectionReadOptions,
   QueryResult,
   ObjectRecord,
 } from './operations.js';
@@ -138,7 +138,7 @@ export interface ActionContext<
           G['objects'][K]
         >,
       >(
-        options: QueryOptions<G['objects'][K], N, 'full'> & {
+        options: CollectionReadOptions<G['objects'][K], N, 'full'> & {
           readonly evidence: 'full';
         },
       ): QueryResult<ObjectRecord<G['objects'][K], N, 'full'>>;
@@ -148,7 +148,7 @@ export interface ActionContext<
         >,
         E extends EvidenceMode = 'compact',
       >(
-        options?: QueryOptions<G['objects'][K], N, E>,
+        options?: CollectionReadOptions<G['objects'][K], N, E>,
       ): QueryResult<ObjectRecord<G['objects'][K], N, E | 'compact'>>;
       get<
         N extends PropertyNames<G['objects'][K]> = PropertyNames<
@@ -156,7 +156,7 @@ export interface ActionContext<
         >,
       >(
         id: ObjectId<G['objects'][K]['id']>,
-        options: ReadOptions<N, 'full'> & { readonly evidence: 'full' },
+        options: ReadControlOptions<N, 'full'> & { readonly evidence: 'full' },
       ): Promise<ObjectResult<G['objects'][K], N, 'full'>>;
       get<
         N extends PropertyNames<G['objects'][K]> = PropertyNames<
@@ -165,7 +165,7 @@ export interface ActionContext<
         E extends EvidenceMode = 'compact',
       >(
         id: ObjectId<G['objects'][K]['id']>,
-        options?: ReadOptions<N, E>,
+        options?: ReadControlOptions<N, E>,
       ): Promise<ObjectResult<G['objects'][K], N, E | 'compact'>>;
     } & (G['objects'][K] extends A['creates'][number]
       ? {
