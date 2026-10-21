@@ -1,6 +1,6 @@
 /**
  * `/dev/playground/*`: discovery and runs over real HTTP against the dev
- * server, backed by a real runtime host started from the built CLI. Each test
+ * server, backed by a real runtime host started from the built development package. Each test
  * writes its own application module.
  */
 import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
@@ -22,8 +22,8 @@ import {
   createPlayground,
   createRuntimeController,
   createSessions,
-} from '@relate/cli';
-import type { ActivityLog, RuntimeBinding } from '@relate/cli';
+} from '@relate/dev';
+import type { ActivityLog, RuntimeBinding } from '@relate/dev';
 import {
   playgroundDiscoverySchema,
   playgroundRunRequestSchema,

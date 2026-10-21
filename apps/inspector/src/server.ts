@@ -1,6 +1,6 @@
 /**
  * Server-only entry: serves the prebuilt inspector shell and content-hashed
- * assets from a base-path-aware Hono app. The host (the CLI today) owns
+ * assets from a base-path-aware Hono app. The host (@relate/dev) owns
  * sessions, dev endpoints and the listener; this module owns asset routing and
  * the response headers that make upgrades and caching safe.
  */

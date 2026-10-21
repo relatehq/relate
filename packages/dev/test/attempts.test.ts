@@ -2,8 +2,8 @@ import { mkdtemp, mkdir, access, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { expect, it } from 'vitest';
-import { createAttemptRunner } from '@relate/cli';
-import type { BuildResult } from '../src/dev/build.js';
+import { createAttemptRunner } from '@relate/dev';
+import type { BuildResult } from '../src/build.js';
 
 it('discards a successful bundle when shutdown cancels its in-flight build', async () => {
   const root = await mkdtemp(join(tmpdir(), 'relate-attempt-cancel-'));

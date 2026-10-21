@@ -18,8 +18,9 @@ export interface DevArguments {
   readonly allowedOrigins: readonly string[];
 }
 
-export const DEFAULT_PORT_RANGE = Object.freeze({ from: 4318, to: 4327 });
-export const DEFAULT_EVAL_TIMEOUT_MS = 30_000;
+import { DEFAULT_PORT_RANGE, DEFAULT_EVAL_TIMEOUT_MS } from '@relate/dev';
+
+export { DEFAULT_PORT_RANGE, DEFAULT_EVAL_TIMEOUT_MS } from '@relate/dev';
 
 /** Node's timer limit. */
 const MAX_TIMER_MS = 2_147_483_647;

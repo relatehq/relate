@@ -1,20 +1,17 @@
 /**
  * `relate dev`: resolve the project, take its lock, bind the loopback
- * listener, print the URL, then load definitions in replaceable children and
- * publish accepted models to the terminal and the inspector.
+ * listener, then load definitions in replaceable children and publish accepted
+ * models to the inspector and the caller. No terminal or process signal ownership.
  */
 import { randomUUID } from 'node:crypto';
 import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Writable } from 'node:stream';
 import type { Server } from 'node:http';
 import { createAdaptorServer } from '@hono/node-server';
 import type { Hono } from 'hono';
 import { instanceIdentitySchema } from '@relate/inspector/protocol';
 import { createInspectorApp } from '@relate/inspector/server';
 import type { InspectorApp } from '@relate/inspector/server';
-import { UsageError, devUsage, parseDevArguments } from './arguments.js';
-import type { DevArguments } from './arguments.js';
 import { createActivityLog } from './activity/index.js';
 import { agentSetup, connectLoopbackMcp, createAgent } from './agent.js';
 import { createAttemptRunner } from './attempts.js';
@@ -22,33 +19,94 @@ import type { AttemptOutcome } from './attempts.js';
 import { createBuilder } from './build.js';
 import { createRuntimeController } from './runtime-controller.js';
 import { summarizeDiff } from './diff.js';
-import { bindLoopback, ListenError } from './listener.js';
+import { bindLoopback } from './listener.js';
 import { createMcpEndpoint, mcpAddCommand, readMcpToken } from './mcp.js';
 import { createPlayground } from './playground.js';
 import { acquireLock, devDirectory } from './lock.js';
 import type { Lock, LockMetadata } from './lock.js';
-import { openBrowser } from './open.js';
-import { ProjectError, resolveProject } from './project.js';
+import { resolveProject } from './project.js';
+import type { Project } from './project.js';
 import { createDevServer } from './server.js';
 import { createSessions } from './session.js';
 import { Supervisor } from './supervisor.js';
-import { createTerminal, shouldColor } from './terminal.js';
 import { createWatcher } from './watcher.js';
 
-export interface RunDevOptions {
-  readonly argv: readonly string[];
+import type { Manifest } from 'relate/model';
+import type { Diagnostic, RuntimeStatus } from '@relate/inspector/protocol';
+import { DEFAULT_EVAL_TIMEOUT_MS } from './options.js';
+
+/** Notifications from the service; the caller chooses how to present them. */
+export type DevServiceEvent =
+  | { readonly type: 'project'; readonly project: Project }
+  | { readonly type: 'listening'; readonly info: DevServiceInfo }
+  | { readonly type: 'notice' | 'warning'; readonly message: string }
+  | { readonly type: 'loading'; readonly attempt: number }
+  | {
+      readonly type: 'ready';
+      readonly generation: number;
+      readonly manifest: Manifest;
+      readonly durationMs: number;
+    }
+  | {
+      readonly type: 'update';
+      readonly files: readonly string[];
+      readonly generation: number;
+      readonly summary: string;
+      readonly durationMs: number;
+    }
+  | {
+      readonly type: 'diagnostics';
+      readonly files: readonly string[];
+      readonly attempt: number;
+      readonly diagnostics: readonly Diagnostic[];
+      readonly keptGeneration: number | null;
+    }
+  | { readonly type: 'runtime'; readonly status: RuntimeStatus }
+  | {
+      readonly type: 'output';
+      readonly stream: 'stdout' | 'stderr';
+      readonly line: string;
+    };
+
+export interface StartDevOptions {
   readonly cwd: string;
-  readonly env: NodeJS.ProcessEnv;
-  readonly stdout: Writable & { isTTY?: boolean; writableLength?: number };
-  readonly stderr: Writable & { isTTY?: boolean; writableLength?: number };
-  /** Resolves to request a graceful shutdown; a second signal forces it. */
-  readonly signals?: AsyncIterable<string> | undefined;
+  readonly config?: string | undefined;
+  readonly port?: number | undefined;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly runtime?: boolean;
+  readonly seed?: boolean;
+  readonly rotateMcpToken?: boolean;
+  readonly evalTimeoutMs?: number;
+  readonly allowedOrigins?: readonly string[];
+  readonly onEvent?: (event: DevServiceEvent) => void;
+  /** Drop child output while a caller's output sink is saturated. */
+  readonly isOutputSaturated?: (stream: 'stdout' | 'stderr') => boolean;
   readonly inspector?: InspectorApp;
   readonly workerPath?: string;
   readonly runtimeHostPath?: string;
 }
 
-export const exitCodes = Object.freeze({ ok: 0, fatal: 1, usage: 2 });
+export interface DevServiceInfo {
+  readonly project: Project;
+  readonly inspectorUrl: string;
+  readonly mcpUrl: string;
+  readonly mcpCommand?: string;
+  readonly pid: number;
+}
+
+export interface DevService extends DevServiceInfo {
+  /** An existing owner is reused; close() never stops another owner's service. */
+  readonly kind: 'started' | 'existing';
+  /** Idempotent cleanup. Immediate stops a pending compile child without grace. */
+  close(options?: { readonly immediate?: boolean }): Promise<void>;
+}
+
+export class DevStartError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DevStartError';
+  }
+}
 
 const tokenFile = (projectRoot: string) =>
   join(devDirectory(projectRoot), 'token');
@@ -85,57 +143,24 @@ async function verifyOwner(metadata: LockMetadata): Promise<boolean> {
   }
 }
 
-export async function runDev(options: RunDevOptions): Promise<number> {
-  const write = (stream: Writable, text: string) => {
-    stream.write(text);
+/** Start once; accepted application builds replace children, never this service. */
+export async function startDev(options: StartDevOptions): Promise<DevService> {
+  const args = {
+    ...options,
+    runtime: options.runtime ?? true,
+    seed: options.seed ?? false,
+    rotateMcpToken: options.rotateMcpToken ?? false,
+    evalTimeoutMs: options.evalTimeoutMs ?? DEFAULT_EVAL_TIMEOUT_MS,
+    allowedOrigins: options.allowedOrigins ?? [],
   };
-  let args: DevArguments | 'help';
+  const env = options.env ?? process.env;
+  const emit = (event: DevServiceEvent) => options.onEvent?.(event);
+  const project = await resolveProject(options.cwd, args.config);
 
-  try {
-    args = parseDevArguments(options.argv);
-  } catch (error) {
-    if (error instanceof UsageError) {
-      write(options.stderr, `${error.message}\n\n${devUsage}`);
-
-      return exitCodes.usage;
-    }
-
-    throw error;
-  }
-
-  if (args === 'help') {
-    write(options.stdout, devUsage);
-
-    return exitCodes.ok;
-  }
-
-  const color = shouldColor(options.stderr, options.env);
-  const fail = (message: string) => {
-    write(
-      options.stderr,
-      `  ${color ? '\u001b[31merror\u001b[39m' : 'error'}  ${message}\n`,
-    );
-
-    return exitCodes.fatal;
+  emit({ type: 'project', project });
+  const fail = (message: string): never => {
+    throw new DevStartError(message);
   };
-  let project;
-
-  try {
-    project = await resolveProject(options.cwd, args.config);
-  } catch (error) {
-    if (error instanceof ProjectError) return fail(error.message);
-
-    throw error;
-  }
-
-  const terminal = createTerminal({
-    stdout: options.stdout,
-    stderr: options.stderr,
-    cwd: options.cwd,
-    projectRoot: project.root,
-    color,
-    quiet: args.quiet,
-  });
   const instanceId = randomUUID();
   const acquired = await acquireLock({
     projectRoot: project.root,
@@ -175,34 +200,17 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       ? `${metadata.url}/#token=${token}`
       : `${metadata.url}/`;
 
-    write(
-      options.stdout,
-      [
-        `Relate dev is already running for ${project.root}`,
-        `Inspector  ${inspectorUrl}`,
-        ...(mcpToken && metadata.url
-          ? [`MCP        ${mcpAddCommand(`${metadata.url}/mcp`, mcpToken)}`]
-          : []),
-        ...(args.quiet
-          ? []
-          : [
-              `Config     ${metadata.configPath}`,
-              `PID        ${metadata.pid}`,
-              'Use the existing server; stop it with Ctrl+C in its owning terminal to restart.',
-            ]),
-        '',
-      ].join('\n'),
-    );
-
-    if (args.open && metadata.url) {
-      try {
-        await openBrowser(inspectorUrl);
-      } catch (error) {
-        terminal.warn(`Could not open a browser: ${(error as Error).message}`);
-      }
-    }
-
-    return exitCodes.ok;
+    return {
+      kind: 'existing',
+      project,
+      inspectorUrl,
+      mcpUrl: `${metadata.url}/mcp`,
+      ...(mcpToken
+        ? { mcpCommand: mcpAddCommand(`${metadata.url}/mcp`, mcpToken) }
+        : {}),
+      pid: metadata.pid,
+      async close() {},
+    };
   }
 
   if (acquired.kind === 'unverifiable')
@@ -217,8 +225,67 @@ export async function runDev(options: RunDevOptions): Promise<number> {
     await lock.release();
   };
 
+  let stopping = false;
+  let closing: Promise<void> | undefined;
+  const resources: Partial<{
+    bound: Awaited<ReturnType<typeof bindLoopback>>;
+    sessions: ReturnType<typeof createSessions>;
+    agent: ReturnType<typeof createAgent>;
+    runtime: ReturnType<typeof createRuntimeController>;
+    server: ReturnType<typeof createDevServer>;
+    builder: Awaited<ReturnType<typeof createBuilder>>;
+    runner: ReturnType<typeof createAttemptRunner>;
+    watcher: ReturnType<typeof createWatcher>;
+  }> = {};
+  const close = (closeOptions?: {
+    readonly immediate?: boolean;
+  }): Promise<void> => {
+    stopping = true;
+    const immediate = closeOptions?.immediate
+      ? resources.runner?.stop({ immediate: true })
+      : undefined;
+
+    closing ??= (async () => {
+      const errors: unknown[] = [];
+
+      // Keep MCP reachable until agent turns stop. Always release the lock,
+      // including when startup failed after opening some resources.
+      for (const dispose of [
+        () => resources.watcher?.close(),
+        () => resources.agent?.stop(),
+        () => resources.server?.closeStreams(),
+        () => resources.sessions?.clear(),
+        () => resources.runner?.stop(),
+        () => resources.runtime?.stop(),
+        () => resources.builder?.dispose(),
+        () =>
+          resources.bound &&
+          new Promise<void>((done) =>
+            resources.bound!.server.close(() => done()),
+          ),
+        release,
+      ]) {
+        try {
+          await dispose();
+        } catch (error) {
+          errors.push(error);
+        }
+      }
+
+      if (errors.length)
+        throw new AggregateError(
+          errors,
+          'Could not fully close the development service',
+        );
+    })();
+
+    return immediate
+      ? Promise.all([closing, immediate]).then(() => {})
+      : closing;
+  };
+
   try {
-    const bound = await bindLoopback(
+    const bound = (resources.bound = await bindLoopback(
       () =>
         createAdaptorServer({
           fetch: (request) =>
@@ -227,53 +294,51 @@ export async function runDev(options: RunDevOptions): Promise<number> {
               : new Response('Starting', { status: 503 }),
         }) as Server,
       args.port,
-    );
-    const sessions = createSessions({
+    ));
+    const sessions = (resources.sessions = createSessions({
       instanceId,
       allowedOrigins: [bound.url, ...args.allowedOrigins],
-    });
+    }));
     const supervisor = new Supervisor(instanceId);
     const inspector = options.inspector ?? createInspectorApp();
 
     try {
       await inspector.verify();
     } catch (error) {
-      bound.server.close();
-      await release();
-
-      return fail((error as Error).message);
+      throw new DevStartError((error as Error).message);
     }
 
-    let stopping = false;
     const isStdoutSaturated = () =>
-      (options.stdout.writableLength ?? 0) > 1_000_000;
+      options.isOutputSaturated?.('stdout') ?? false;
     const isStderrSaturated = () =>
-      (options.stderr.writableLength ?? 0) > 1_000_000;
+      options.isOutputSaturated?.('stderr') ?? false;
     // Created before `/mcp` can answer, so a request during startup sees the
     // runtime starting rather than a runtime that is off.
     // `--no-runtime`: inspect the model only; accepted bundles are released.
     const activity = createActivityLog();
     const runtime = args.runtime
-      ? createRuntimeController({
+      ? (resources.runtime = createRuntimeController({
           activity,
           seed: args.seed,
           projectRoot: project.root,
           configPath: project.configPath,
-          env: options.env,
+          env,
           onStatus: (status) => {
             if (stopping) return;
 
             supervisor.acceptRuntime(status);
-            terminal.runtime(status);
+            emit({ type: 'runtime', status });
           },
-          writeStdout: (line) => terminal.childStdout(line),
-          writeStderr: (line) => terminal.childStderr(line),
+          writeStdout: (line) =>
+            emit({ type: 'output', stream: 'stdout', line }),
+          writeStderr: (line) =>
+            emit({ type: 'output', stream: 'stderr', line }),
           isStdoutSaturated,
           isStderrSaturated,
           ...(options.runtimeHostPath
             ? { hostPath: options.runtimeHostPath }
             : {}),
-        })
+        }))
       : null;
     const { token: mcpToken } = await readMcpToken(devDirectory(project.root), {
       rotate: args.rotateMcpToken,
@@ -295,8 +360,8 @@ export async function runDev(options: RunDevOptions): Promise<number> {
     });
     // The agent reads ANTHROPIC_API_KEY here, in the dev server, and reaches
     // the graph through its own /mcp with the in-process agent token.
-    const agent = createAgent({
-      env: options.env,
+    const agent = (resources.agent = createAgent({
+      env,
       principals: () => {
         const model = supervisor.state.model;
 
@@ -308,7 +373,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       }),
       runtimeId: () =>
         runtime?.status?.state === 'running' ? runtime.status.runtimeId : null,
-    });
+    }));
     const playground = createPlayground({
       runtime,
       principals: () => {
@@ -318,7 +383,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       },
       activity,
     });
-    const server = createDevServer({
+    const server = (resources.server = createDevServer({
       supervisor,
       sessions,
       ownerId: lock.metadata.ownerId,
@@ -327,7 +392,7 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       agent,
       playground,
       mcp: mcp.handle,
-    });
+    }));
 
     app = server.app;
     await writeFile(tokenFile(project.root), sessions.token, { mode: 0o600 });
@@ -335,56 +400,57 @@ export async function runDev(options: RunDevOptions): Promise<number> {
     const inspectorUrl = `${bound.url}/#token=${sessions.token}`;
 
     // The URL is usable before any definition loads, so a first failure still has an inspector.
-    terminal.banner({
-      project: project.root,
-      config: project.configPath,
+    const info: DevServiceInfo = {
+      project,
       inspectorUrl,
       mcpUrl: `${bound.url}/mcp`,
       mcpCommand: mcpAddCommand(`${bound.url}/mcp`, mcp.token),
-    });
+      pid: process.pid,
+    };
 
-    if (bound.notice) terminal.notice(bound.notice);
+    emit({ type: 'listening', info });
+
+    if (bound.notice) emit({ type: 'notice', message: bound.notice });
 
     if (!args.runtime)
-      terminal.notice(
-        'Runtime    off (--no-runtime); the application is not started',
-      );
+      emit({
+        type: 'notice',
+        message:
+          'Runtime    off (--no-runtime); the application is not started',
+      });
 
     if (!agent.availability.available)
-      terminal.notice(`Agent      off: no ANTHROPIC_API_KEY. ${agentSetup}`);
+      emit({
+        type: 'notice',
+        message: `Agent      off: no ANTHROPIC_API_KEY. ${agentSetup}`,
+      });
 
-    if (args.open)
-      try {
-        await openBrowser(inspectorUrl);
-      } catch (error) {
-        terminal.warn(`Could not open a browser: ${(error as Error).message}`);
-      }
-
-    const builder = await createBuilder({
+    const builder = (resources.builder = await createBuilder({
       projectRoot: project.root,
       configPath: project.configPath,
-    });
-    const runner = createAttemptRunner({
+    }));
+    const runner = (resources.runner = createAttemptRunner({
       builder,
       projectRoot: project.root,
       configPath: project.configPath,
       evalTimeoutMs: args.evalTimeoutMs,
-      env: options.env,
-      writeStdout: (line) => terminal.childStdout(line),
-      writeStderr: (line) => terminal.childStderr(line),
+      env,
+      writeStdout: (line) => emit({ type: 'output', stream: 'stdout', line }),
+      writeStderr: (line) => emit({ type: 'output', stream: 'stderr', line }),
       isStdoutSaturated,
       isStderrSaturated,
       ...(options.workerPath ? { workerPath: options.workerPath } : {}),
-    });
+    }));
 
     let lastGoodInputs: readonly string[] = [project.configPath];
-    const watcher = createWatcher({
+    const watcher = (resources.watcher = createWatcher({
       projectRoot: project.root,
       onChange: (files) => {
         if (!stopping) void attempt(files);
       },
-      onError: (error) => terminal.warn(`Watcher error: ${error.message}`),
-    });
+      onError: (error) =>
+        emit({ type: 'warning', message: `Watcher error: ${error.message}` }),
+    }));
     const handle = (changed: readonly string[], outcome: AttemptOutcome) => {
       if (outcome.kind === 'cancelled') return;
 
@@ -417,18 +483,20 @@ export async function runDev(options: RunDevOptions): Promise<number> {
         else void outcome.bundle.release();
 
         if (event.fromGeneration === null)
-          terminal.ready(
-            event.model.generation,
-            event.model.manifest,
-            outcome.durationMs,
-          );
+          emit({
+            type: 'ready',
+            generation: event.model.generation,
+            manifest: event.model.manifest,
+            durationMs: outcome.durationMs,
+          });
         else
-          terminal.update(
+          emit({
+            type: 'update',
             files,
-            event.model.generation,
-            summarizeDiff(previous, event.model.manifest, event.diff),
-            outcome.durationMs,
-          );
+            generation: event.model.generation,
+            summary: summarizeDiff(previous, event.model.manifest, event.diff),
+            durationMs: outcome.durationMs,
+          });
 
         return;
       }
@@ -436,74 +504,32 @@ export async function runDev(options: RunDevOptions): Promise<number> {
       // A failed build keeps the last good watch set so a fix can recover.
       watcher.update([...new Set([...lastGoodInputs, ...outcome.inputs])]);
       supervisor.acceptFailure(outcome.attempt, outcome.diagnostics);
-      terminal.error(
+      emit({
+        type: 'diagnostics',
         files,
-        outcome.attempt,
-        outcome.diagnostics,
-        supervisor.state.model?.generation ?? null,
-      );
+        attempt: outcome.attempt,
+        diagnostics: outcome.diagnostics,
+        keptGeneration: supervisor.state.model?.generation ?? null,
+      });
     };
     const attempt = async (files: readonly string[]) => {
       try {
         handle(files, await runner.start());
       } catch (error) {
-        terminal.warn(
-          `Attempt failed unexpectedly: ${(error as Error).message}`,
-        );
+        emit({
+          type: 'warning',
+          message: `Attempt failed unexpectedly: ${(error as Error).message}`,
+        });
       }
     };
 
     watcher.update(lastGoodInputs);
-    terminal.loading(1);
+    emit({ type: 'loading', attempt: 1 });
     void attempt([]);
 
-    const exitCode = await new Promise<number>((resolve) => {
-      let forced = false;
-      const onSignal = () => void shutdown();
-      const shutdown = async () => {
-        if (stopping) {
-          if (!forced) {
-            forced = true;
-            await runner.stop({ immediate: true });
-          }
-
-          return;
-        }
-
-        stopping = true;
-        watcher.close();
-        // Turns call /mcp, so they end before the listener closes.
-        await agent.stop();
-        server.closeStreams();
-        sessions.clear();
-        await runner.stop();
-        await runtime?.stop();
-        await builder.dispose();
-        await new Promise<void>((done) => bound.server.close(() => done()));
-        await release();
-        process.off('SIGINT', onSignal);
-        process.off('SIGTERM', onSignal);
-        process.off('SIGHUP', onSignal);
-        resolve(exitCodes.ok);
-      };
-
-      if (options.signals)
-        void (async () => {
-          for await (const _signal of options.signals!) void shutdown();
-        })();
-      else {
-        process.on('SIGINT', onSignal);
-        process.on('SIGTERM', onSignal);
-        process.on('SIGHUP', onSignal);
-      }
-    });
-
-    return exitCode;
+    return { ...info, kind: 'started', close };
   } catch (error) {
-    await release();
-
-    if (error instanceof ListenError) return fail(error.message);
-
+    await close();
     throw error;
   }
 }

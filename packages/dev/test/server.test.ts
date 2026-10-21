@@ -7,7 +7,7 @@ import {
   bindLoopback,
   createDevServer,
   createSessions,
-} from '@relate/cli';
+} from '@relate/dev';
 import { createInspectorApp } from '@relate/inspector/server';
 import { parseDevEvent } from '@relate/inspector/protocol';
 import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';

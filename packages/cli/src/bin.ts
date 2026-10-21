@@ -1,5 +1,5 @@
-import { runDev } from './dev/run.js';
-import { exitCodes } from './dev/run.js';
+import { runDev } from './commands/dev/run.js';
+import { exitCodes } from './commands/dev/run.js';
 
 const usage = `Usage: relate <command> [options]
 

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { compile } from 'relate/compiler';
 import type { Manifest } from 'relate/model';
-import { describeManifest, diffManifests, summarizeDiff } from '@relate/cli';
+import { describeManifest, diffManifests, summarizeDiff } from '@relate/dev';
 import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
 
 const { Customer, CustomerInvoices, Invoice, graph } = createInvoiceGraph();
