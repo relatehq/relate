@@ -35,13 +35,21 @@ const unsafe = ['__proto__', 'constructor', 'prototype'];
 const rules: readonly OptionRule[] = [
   {
     name: 'compute',
-    summary:
-      'Additional named SQL aggregate expressions over authorized dataset associations.',
+    summary: 'Named SQL aggregates over authorized dataset associations.',
     type: '{ [alias]: { sql: string, parameters?: { [name]: scalar } } }',
     description:
-      'Adds calculated fields to object get and query. Computed filtering and ordering are not yet supported. Aliases cannot collide with declared properties. Int64 results are JSON strings; meta.computed describes result types. Declared calculations share the same limits. Dataset freshness is unverified; freshness controls apply to ordinary dependencies.',
+      'Adds calculated fields to object get and query. Queries may filter and order by computed aliases and declared calculations; computed null never matches a filter. Aliases cannot collide with declared properties. Int64 results are JSON strings; meta.computed describes result types. Declared calculations share the same limits. Dataset freshness is unverified; freshness controls apply to ordinary dependencies.',
     operations: ['get', 'query'],
     valid: (value) => isPlainObject(value),
+  },
+  {
+    name: 'orderBy',
+    summary: 'Computed fields only; nulls last; ties use object ID.',
+    type: '{ field: string, direction: "asc" | "desc" }[] (at most 8)',
+    description:
+      'Computed fields only. The entire authorized ordinary-filter scope is evaluated before choosing a page. Missing filter/order values fail the query. Nulls sort last in either direction; ties use object ID ascending.',
+    operations: ['query'],
+    valid: (value) => Array.isArray(value) && value.length <= 8,
   },
   {
     name: 'where',
@@ -49,7 +57,7 @@ const rules: readonly OptionRule[] = [
       '{ property: value } or { property: { eq, in, gt, gte, lt, lte } }. Conditions combine with AND. Ranges require numbers, timestamps or declared local datetimes.',
     type: '{ [property]: scalar | { eq?, in?, gt?, gte?, lt?, lte? } } (at most 100 properties)',
     description:
-      "Scalar equality or operator objects on property names of the returned object, combined with AND (a traversal also requires the relationship). eq/in work on every scalar; gt/gte/lt/lte require numbers, timestamps or declared local datetimes. Operator entries also combine with AND. in accepts at most 100 values; [] matches nothing. Range operands are not limited by a number property's value bounds. Timestamp operands accept any timezone-qualified ISO instant with at most millisecond precision (for example 2026-10-01T00:00:00Z); comparison uses the instant. Use in, not a bare array, to match several values. null matches only explicit null; absence does not match. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
+      "Scalar equality or operator objects on property names of the returned object, combined with AND (a traversal also requires the relationship). eq/in work on every scalar; gt/gte/lt/lte require numbers, timestamps or declared local datetimes. Operator entries also combine with AND. in accepts at most 100 values; [] matches nothing. Range operands are not limited by a number property's value bounds. Timestamp operands accept any timezone-qualified ISO instant with at most millisecond precision (for example 2026-10-01T00:00:00Z); comparison uses the instant. Use in, not a bare array, to match several values. For ordinary properties, null matches only explicit null; absence does not match. For computed fields, null never matches; int64 bounds must be canonical decimal strings. A reference property matches a Relate object ID (a record's `id`, or another record's reference value), not a source-system ID; an ID that is not in the graph matches nothing.",
     operations: paged,
     valid: (value) => isPlainObject(value) && Object.keys(value).length <= 100,
   },
@@ -271,8 +279,9 @@ const aliases: readonly {
     hint: 'use "select" with an array of property names',
   },
   {
-    names: ['sort', 'sortBy', 'sort_by', 'orderBy', 'order_by', 'order'],
-    hint: 'sorting is not supported; sort the returned records',
+    names: ['sort', 'sortBy', 'sort_by', 'order_by', 'order'],
+    option: 'orderBy',
+    hint: 'use orderBy for computed fields; ordinary property sorting is not supported',
   },
 ];
 
@@ -375,6 +384,7 @@ export function invalidValue(
 export function requestIssues(
   input: unknown,
   operation: ReadOperation,
+  expandedSelection = false,
 ): RequestIssue[] {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     return [invalidValue([], 'an options object', input)];
@@ -390,7 +400,15 @@ export function requestIssues(
     );
 
     if (!rule) issues.push(unknownOption(name, operation));
-    else if (!rule.valid(value))
+    else if (
+      !(expandedSelection && name === 'select'
+        ? Array.isArray(value) &&
+          value.every(
+            (property) =>
+              typeof property === 'string' && !unsafe.includes(property),
+          )
+        : rule.valid(value))
+    )
       issues.push(invalidValue([name], rule.type, value));
   }
 

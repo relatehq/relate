@@ -46,3 +46,6 @@ export type {
 } from './request.js';
 
 export { revalidateFields } from './revalidate.js';
+
+export { prepareComputedOrder, computedFilterOperators } from './order.js';
+export type { ComputedPosition } from './order.js';

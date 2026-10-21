@@ -180,10 +180,47 @@ Both SQLite and the
 [PostgreSQL analytical connector](../../../../connectors/postgres/README.md)
 execute these reads. [Discovery](./discovery.md#analytical-metadata) describes
 actor-visible associations and calculated properties through the same consumer,
-MCP and Inspector playground paths. Computed filtering/order remains in
-progress. Traversal and action transaction readers reject analytical requests.
+MCP and Inspector playground paths. Traversal and action transaction readers
+reject analytical requests.
 
 Use [`decodeComputed`](../reference/runtime-api.md#decoding-computed-values)
 from `relate/consumer` to decode present calculated values using
 `meta.computed`. It returns a separate bag, preserving missing fields and SQL
 nulls without changing the read's data or evidence.
+
+### Filtering and ordering by calculations
+
+```ts
+const page = await ana.objects.Customer.query({
+  select: ['name'],
+  where: { loginCount: { gte: '1' } },
+  orderBy: [{ field: 'loginCount', direction: 'desc' }],
+  limit: 25,
+});
+```
+
+Here `loginCount` is a declared calculation. It is used to choose the page but
+is returned only if selected. Caller aliases declared in `compute` can also be
+used in `where` and `orderBy`, and are always returned. TypeScript rejects
+undeclared aliases and ordinary property ordering.
+
+These queries evaluate the whole authorized ordinary-filter scope before
+choosing a page. Every filter/order calculation must succeed across that scope,
+including objects outside the final page. Missing or changed dependencies fail
+with `incomplete`; there is no automatic recomputation. Objects that are no
+longer visible are withheld. Dependencies are checked across the scope and again
+for the selected page.
+
+Computed null never matches a filter and sorts last in both directions. Ties use
+object ID ascending. Int64 bounds are decimal strings and comparisons remain
+exact. Each page repeats enumeration and computation; the encrypted cursor
+resumes after the previous ordering values and ID. Changing data between pages
+can move objects across that position.
+
+Host setup can bound this work with `analytics`: the default scan cap is 12,500
+members and the admission cap is 10,000 ordinary matches. Both reject before SQL
+when exceeded. A 50,000 source-call budget and 60,000 ms deadline cover the
+whole operation, including final checks. These initial safeguards derive from
+candidate-path measurements and still require workload-specific capacity
+validation. See the
+[Node contract](../../../../packages/node/CONTRACT.md#analytical-operation-limits).

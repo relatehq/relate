@@ -8,6 +8,8 @@ import type {
   ObjectReadRequest,
   AnalyticalExpression,
   ComputedResultType,
+  FilterScalar,
+  FilterOperators,
 } from '@relate/protocol';
 import type {
   ObjectData,
@@ -16,6 +18,7 @@ import type {
   PropertyNames,
   Property,
   PropertyValue,
+  ComputedPropertyNames,
 } from './index.js';
 
 /**
@@ -149,7 +152,33 @@ export type QueryOptions<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,
   E extends EvidenceMode = EvidenceMode,
-> = CollectionReadOptions<O, K, E> & ReadOptions<K, E>;
+> = CollectionReadOptions<O, K, E> &
+  ReadOptions<K, E> & {
+    readonly orderBy?: readonly {
+      readonly field: ComputedPropertyNames<O>;
+      readonly direction: 'asc' | 'desc';
+    }[];
+  };
+
+/** SQL result types are inferred at runtime; aliases cannot be inferred from misspelled filters. */
+export type ComputedQueryOptions<
+  O extends ObjectDefinition,
+  K extends PropertyNames<O>,
+  E extends EvidenceMode,
+  C extends Expressions,
+> = Omit<QueryOptions<O, K, E>, 'where' | 'orderBy' | 'compute'> &
+  ComputeOptions<O, C> & {
+    readonly where?: CollectionReadOptions<O, K, E>['where'] & {
+      readonly [A in keyof NoInfer<C>]?: FilterScalar | FilterOperators;
+    };
+    readonly orderBy?: readonly {
+      readonly field: Extract<
+        keyof NoInfer<C> | ComputedPropertyNames<O>,
+        string
+      >;
+      readonly direction: 'asc' | 'desc';
+    }[];
+  };
 
 export type ObjectRecord<
   O extends ObjectDefinition,

@@ -11,7 +11,7 @@ const compute = {
   },
 };
 
-// Benchmark-owned subset of the planned consumer API, not a public declaration shim.
+// Fixed requests executed through the public typed consumer API.
 export const scenarios = {
   objects: { select: ['name'], where: { portfolio: 'north' }, limit: 25 },
   enrichment: {

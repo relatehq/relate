@@ -85,7 +85,7 @@ customer?.datasets?.events?.columns.occurredAt;
 customer?.properties.find((property) => property.kind === 'computed');
 // { definitionId: 'customer.login-count', name: 'loginCount', kind: 'computed',
 //   schema: { type: 'int64', nullable: false }, readable: true,
-//   filterOperators: [], filter: 'Computed filtering and ordering are not yet supported.' }
+//   filterOperators: ['eq', 'in', 'gt', 'gte', 'lt', 'lte'], ... }
 customer?.compute?.syntax;
 // SELECT <aggregate> FROM self.<dataset> [AS alias] [WHERE predicate]
 ```
@@ -103,8 +103,9 @@ parameters, physical names and connection details are never included.
 
 The same metadata reaches MCP's `graph.objects.Customer.describe()` and the
 Inspector playground's schema tree. Computed properties are selectable on get
-and membership-first query pages; their filter-operator list is currently empty
-because computed filtering and ordering are still in progress.
+and query pages. Readable computed properties advertise comparison operators for
+their logical type; computed null never matches. Query `orderBy` accepts
+computed aliases and declared calculations, with nulls last in either direction.
 
 ```mermaid
 flowchart LR

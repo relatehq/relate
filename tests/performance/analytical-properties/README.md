@@ -6,9 +6,10 @@ handwritten SQLite SQL. No latency threshold is a CI gate.
 
 - **Candidate scanned:** a member returned by an actual storage scan, including
   objects subsequently rejected by policy or ordinary filters.
-- **Candidate admitted:** an authorized, matching row emitted by the query path.
-  This fixed workload has complete dependencies and no concurrent changes, so no
-  candidates disappear during revalidation.
+- **Candidate admitted:** an authorized ordinary match. For analytical scenarios
+  this is the actual planned slot count: the fixed workload uses one
+  association, one slot per object, complete dependencies and no concurrent
+  changes. Ordinary queries count returned rows.
 - **Batch:** an actual connector plan; **statement:** an actual execute call.
   These counters are independent of timing span counts.
 - **Stage:** a runtime-owned activity timing aggregate. Stages can nest or
@@ -59,11 +60,11 @@ the run's graph rows. The harness never resets the database's `relate` schema.
 
 ## What runs
 
-| Scenario   | Public query work                                  | Additional benchmark work                         |
-| ---------- | -------------------------------------------------- | ------------------------------------------------- |
-| objects    | First authorized page of 25                        | None                                              |
-| enrichment | First page with count and latest-login expressions | None                                              |
-| ranking    | Iterate all authorized pages with both expressions | Sort by count descending, then object ID; take 25 |
+| Scenario   | Public query work                                         | Additional benchmark work |
+| ---------- | --------------------------------------------------------- | ------------------------- |
+| objects    | First authorized page of 25                               | None                      |
+| enrichment | First page with count and latest-login expressions        | None                      |
+| ranking    | One full-scope computed order query with both expressions | None                      |
 
 Every analytical page includes parsing/authorization, candidate and dependency
 reads, generated SQL, connector lifecycle, result merging and revalidation.
@@ -71,28 +72,11 @@ reads, generated SQL, connector lifecycle, result merging and revalidation.
 connector supplies synthetic customer records; `--source-delay-ms` applies only
 to measured fetches, not adoption. It is not a production provider model.
 
-The current public query path scans at most 100 members per page. Ranking
-therefore measures several real page operations and a separately labeled
-`benchmark-local-sort`. It is **not** runtime computed ordering or one
-scope-first operation. Do not use its page count as the eventual full-scope
-batch count. It exposes candidate and refresh costs before implementing that
-path; remeasure the actual scope-first path before treating its limits as
-validated.
-
-The benchmark selects `name` and the correlation `key` in all scenarios to keep
-ordinary projection work consistent. Its result projection returns only `name`
-and requested analytical values. Complete IDs, order, counts, timestamps and
-nulls must match the SQL oracle. A missing or withheld calculation fails the
-sample. The oracle must succeed before Relate results can be checked; the
-benchmark cannot validate against itself.
-
-Cached runs keep a controlled host clock and one-day policy evidence valid.
-Refresh runs advance the host clock by two days before each measured request,
-forcing initial candidate source refreshes while retaining normal runtime
-freshness enforcement. This includes source calls for denied candidates.
-Monotonic request and stage clocks continue to run normally. Concurrent changes,
-refreshes expiring midway through a request and cancellation pressure are not
-modeled by these scenarios.
+Ranking now uses the runtime's scope-first `orderBy` path. It enumerates all
+authorized ordinary matches, computes association batches, revalidates the whole
+scope, sorts, then rechecks the selected 25 records. It is one public operation;
+there is no benchmark-side sort. Ordinary page reads retain their 100-member
+scan bound. The independent SQL oracle remains unchanged.
 
 ```mermaid
 flowchart LR
@@ -100,7 +84,7 @@ flowchart LR
   Seed --> DB[SQLite or PostgreSQL events]
   Host --> DB
   DB --> Checks[Runtime merge and revalidation]
-  Checks --> Sort[Optional benchmark local sort]
+  Checks --> Sort[Runtime full-scope ordering and final page check]
   Seed --> Oracle[Independent SQLite SQL]
   Sort --> Verify[Compare complete results]
   Oracle --> Verify
@@ -136,8 +120,7 @@ at least 20 successful samples; capacity runs report medians only. Failures are
 counted separately. SQL reference latency excludes authorization, evidence,
 process/network startup and object storage, so it is not an equivalent-work
 baseline for a Relate overhead ratio. `performanceComparisonEligible` remains
-false while scope-first ordering, controlled concurrency and generated-SQL
-replay are absent.
+false while controlled concurrency and generated-SQL replay are absent.
 
 Reports checkpoint completed workloads atomically per output file. Setup and
 sample failures remain visible, subsequent workloads run, and any failure makes
@@ -161,9 +144,9 @@ warm repetitions were collected per configuration. These results identify
 candidate and refresh costs; they do not validate full-scope limits or establish
 a performance baseline.
 
-1. Replace local ranking with the actual scope-first filter/order path and
-   retain the independent oracle. Record its single-operation candidate/batch
-   counts.
+1. Retain scope-first capacity and refresh measurements with the actual
+   single-operation candidate/batch counts. Historical page-path measurements
+   above remain separately labeled and are not substituted for these runs.
 2. Replay generated plans beside the independent SQL reference, preserving actor
    scope, integer/null semantics and ordering.
 3. Add controlled cold starts, concurrency, queue pressure and cancellation.

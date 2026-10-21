@@ -1,4 +1,4 @@
-import type { QueryContext } from './queries/index.js';
+import type { QueryContext, QueryCursors } from './queries/index.js';
 import { ReadError } from '@relate/protocol';
 import type {
   ReadRequest,
@@ -34,10 +34,14 @@ import {
   revalidateFields,
   AnalyticalPreparationError,
   operationLimits,
+  prepareComputedOrder,
+  AnalyticalIncompleteError,
 } from './analytics/index.js';
 import type {
   AnalyticalBinding,
   AuthorizedCandidate,
+  ComputedField,
+  ComputedPosition,
 } from './analytics/index.js';
 import {
   project,
@@ -46,6 +50,7 @@ import {
   summarize,
   compileWhere,
   predicateMatcher,
+  cursorIssue,
 } from './reads/index.js';
 
 export interface AnalyticalReadOptions {
@@ -69,6 +74,7 @@ type OrdinaryRead = (
 /** Composition owns ordinary reads and policy; analytics owns pure preparation/execution. */
 export function createAnalyticalReads(options: {
   readonly manifest: Manifest;
+  readonly cursors: QueryCursors;
   readonly read: OrdinaryRead;
   readonly query: (
     attempt: OperationScope,
@@ -107,13 +113,28 @@ export function createAnalyticalReads(options: {
             )
             .map((property) => property.name)
         : []);
+    const orderedNames = Array.isArray(input.orderBy)
+      ? input.orderBy.flatMap((entry) =>
+          typeof entry?.field === 'string' ? [entry.field] : [],
+        )
+      : [];
+    const requestedFilters =
+      kind === 'query' && input.where && typeof input.where === 'object'
+        ? Object.keys(input.where)
+        : [];
     const calculated =
       object?.calculations?.filter(
         (property) =>
-          Array.isArray(selected) && selected.includes(property.name),
+          (Array.isArray(selected) && selected.includes(property.name)) ||
+          requestedFilters.includes(property.name) ||
+          orderedNames.includes(property.name),
       ) ?? [];
 
-    if (input?.compute === undefined && !calculated.length)
+    if (
+      input.compute === undefined &&
+      !calculated.length &&
+      input.orderBy === undefined
+    )
       return kind === 'get'
         ? options.read(attempt, principal, type, id!, input)
         : options.query(attempt, principal, type, input);
@@ -139,9 +160,16 @@ export function createAnalyticalReads(options: {
 
     try {
       const operation = operationName(options.manifest, principal, type, kind);
-      const { compute, ...ordinary } = input;
+      const { compute, orderBy, ...ordinary } = input;
 
-      rejectIssues(operation, kind, requestIssues(ordinary, kind));
+      rejectIssues(
+        operation,
+        kind,
+        requestIssues(
+          { ...ordinary, ...(orderBy === undefined ? {} : { orderBy }) },
+          kind,
+        ),
+      );
 
       if (!object || !allowsObject(principal, policy))
         return kind === 'get'
@@ -163,7 +191,35 @@ export function createAnalyticalReads(options: {
           ],
         });
 
-      const { limit, cursor, where, ...request } = structuredClone(ordinary);
+      const {
+        limit,
+        cursor,
+        where: allWhere,
+        ...request
+      } = structuredClone(ordinary);
+      const computedNames = new Set([
+        ...Object.keys(compute ?? {}),
+        ...(object.calculations ?? []).map((property) => property.name),
+      ]);
+      const where = Object.fromEntries(
+        Object.entries(allWhere ?? {}).filter(
+          ([name]) => !computedNames.has(name),
+        ),
+      );
+      const computedWhere = Object.fromEntries(
+        Object.entries(allWhere ?? {}).filter(([name]) =>
+          computedNames.has(name),
+        ),
+      );
+      const required = [
+        ...new Set([
+          ...Object.keys(computedWhere),
+          ...orderedNames.filter((name) => computedNames.has(name)),
+        ]),
+      ];
+      const scopeFirst =
+        kind === 'query' &&
+        (required.length > 0 || (Array.isArray(orderBy) && orderBy.length > 0));
       const filterIssues: RequestIssue[] = [];
       const predicates =
         kind === 'query'
@@ -183,6 +239,7 @@ export function createAnalyticalReads(options: {
         object,
       );
       let prepared;
+      let ordering;
 
       try {
         prepared = prepareCompute({
@@ -191,15 +248,23 @@ export function createAnalyticalReads(options: {
           declarations: analyticalDeclarations(options.manifest, object),
           request: {
             compute,
+            requiredAliases: required.filter(
+              (name) => compute && Object.hasOwn(compute, name),
+            ),
             declarations: calculated.map((property) => ({
               name: property.name,
               definitionId: property.id,
               sql: property.sql,
               readable: allowsField(principal, policy, property.access),
-              project: true,
-              required: false,
+              project: selected.includes(property.name),
+              required: required.includes(property.name),
             })),
           },
+        });
+        ordering = prepareComputedOrder({
+          where: computedWhere,
+          orderBy,
+          types: prepared.types,
         });
       } catch (error) {
         if (!(error instanceof AnalyticalPreparationError)) throw error;
@@ -237,6 +302,19 @@ export function createAnalyticalReads(options: {
       const selectedOrdinary = selected.filter(
         (name) => !calculated.some((property) => property.name === name),
       );
+
+      if (
+        request.select &&
+        new Set([...selectedOrdinary, ...filter.names]).size > 100
+      )
+        rejectIssues(operation, kind, [
+          {
+            path: ['select'],
+            problem: 'invalid-value',
+            message: 'select and where together name more than 100 properties.',
+          },
+        ]);
+
       const dependencyNames = prepared.dependencies.map(
         (id) => object.properties.find((property) => property.id === id)!.name,
       );
@@ -254,10 +332,43 @@ export function createAnalyticalReads(options: {
         maxAgeMs: Math.min(request.maxAgeMs ?? 60_000, policyMaxAgeMs),
       };
 
+      const computeSnapshot = structuredClone(compute ?? {});
+      const bindingRevisions = preparedBindingRevisions(
+        prepared,
+        (id) => analytics.binding(id).bindingRevision,
+      );
+      const { evidence: _evidence, ...cursorRequest } = request;
+      const scopeCursor = options.cursors(
+        type,
+        principal,
+        { ...cursorRequest, where: allWhere ?? {}, limit: limit ?? 25 },
+        {
+          path: 'computed-scope',
+          compute: computeSnapshot,
+          orderBy: orderBy ?? [],
+          bindings: bindingRevisions,
+        },
+      );
+      let position: ComputedPosition | undefined;
+
+      if (scopeFirst && cursor !== undefined) {
+        try {
+          position = ordering.parsePosition(
+            scopeCursor.decode(cursor, operation),
+          );
+        } catch {
+          throw new ReadError('invalid-request', {
+            operation,
+            issues: [cursorIssue()],
+          });
+        }
+      }
+
       endPreparation();
       const controller = new AbortController();
       let sourceCalls = 0;
       const execution: ReadExecution = {
+        expandedSelection: true,
         signal: controller.signal,
         beforeSourceCall() {
           controller.signal.throwIfAborted();
@@ -364,7 +475,51 @@ export function createAnalyticalReads(options: {
 
           page = { data: [initial], meta: { exhausted: true } };
         } else {
-          page = await measure('candidates', () =>
+          let scanned = 0,
+            admitted = 0;
+          const exceeded = (budget: string): never => {
+            const error = new ReadError('invalid-request', {
+              operation,
+              issues: [
+                {
+                  path: [],
+                  problem: 'not-supported',
+                  message: `The analytical query exceeds the ${budget} budget. Use a narrower ordinary property filter or ask the host to raise the budget.`,
+                },
+              ],
+            });
+
+            controller.abort(error);
+            throw error;
+          };
+          const context: QueryContext = {
+            signal: controller.signal,
+            execution,
+            beginDependencyRead: () => beginTiming(timings, 'dependencyReads'),
+            beginFinalization: () => beginTiming(timings, 'finalization'),
+            candidateControls: { maxAgeMs: controls.maxAgeMs!, stale: 'allow' },
+            cursorScope: {
+              compute: computeSnapshot,
+              select: request.select ?? null,
+              requireComplete: request.requireComplete ?? false,
+              bindings: bindingRevisions,
+            },
+            ...(scopeFirst
+              ? {
+                  scanCandidates(count: number) {
+                    scanned += count;
+
+                    if (scanned > limits.maxCandidatesScanned)
+                      exceeded('candidate scan');
+                  },
+                  admitCandidate() {
+                    if (++admitted > limits.maxCandidatesAdmitted)
+                      exceeded('admitted candidate');
+                  },
+                }
+              : {}),
+          };
+          const readPage = (next?: string) =>
             options.query(
               attempt,
               principal,
@@ -374,32 +529,32 @@ export function createAnalyticalReads(options: {
                 ...(request.select === undefined ? {} : { select: selection }),
                 requireComplete: false,
                 evidence: 'full',
-                ...(limit === undefined ? {} : { limit }),
-                ...(cursor === undefined ? {} : { cursor }),
-                ...(where === undefined ? {} : { where }),
+                limit: scopeFirst ? 100 : (limit ?? 25),
+                ...(next === undefined ? {} : { cursor: next }),
+                where,
               },
-              {
-                signal: controller.signal,
-                execution,
-                beginDependencyRead: () =>
-                  beginTiming(timings, 'dependencyReads'),
-                beginFinalization: () => beginTiming(timings, 'finalization'),
-                candidateControls: {
-                  maxAgeMs: controls.maxAgeMs!,
-                  stale: 'allow',
-                },
-                cursorScope: {
-                  compute: compute ?? {},
-                  select: request.select ?? null,
-                  requireComplete: request.requireComplete ?? false,
-                  bindings: preparedBindingRevisions(
-                    prepared,
-                    (id) => analytics.binding(id).bindingRevision,
-                  ),
-                },
-              },
-            ),
-          );
+              context,
+            );
+
+          page = await measure('candidates', async () => {
+            if (!scopeFirst) return readPage(cursor);
+
+            const data: FullObjectRecord[] = [];
+            let next: string | undefined;
+
+            do {
+              controller.signal.throwIfAborted();
+              const batch = await readPage(next);
+
+              data.push(...batch.data);
+
+              if (batch.meta.exhausted) break;
+
+              next = batch.meta.continuationCursor;
+            } while (next);
+
+            return { data, meta: { exhausted: true } };
+          });
         }
 
         controller.signal.throwIfAborted();
@@ -423,132 +578,206 @@ export function createAnalyticalReads(options: {
           binding: analytics.binding,
           signal: controller.signal,
           clock: options.clock,
+          ...(scopeFirst
+            ? { requireComplete: request.requireComplete ?? false }
+            : {}),
           ...(timings ? { timings } : {}),
         });
-        const data: FullObjectRecord[] = [];
 
-        const endRevalidation = beginTiming(timings, 'revalidation');
+        type Validated = {
+          record: FullObjectRecord;
+          fields: Readonly<Record<string, ComputedField>>;
+          at: number;
+        };
 
-        try {
-          for (const record of page.data) {
-            const id = record.id;
+        const revalidate = async (
+          record: FullObjectRecord,
+        ): Promise<Validated | undefined> => {
+          controller.signal.throwIfAborted();
+          let allowed = async () => false;
+          const current = await measure('dependencyReads', () =>
+            options.read(
+              attempt,
+              principal,
+              type,
+              record.id,
+              { ...controls, refresh: false, stale: 'allow' },
+              undefined,
+              (check) => {
+                allowed = check;
+              },
+              execution,
+            ),
+          );
 
-            controller.signal.throwIfAborted();
-            let allowed = async () => false;
-            const current = await measure('dependencyReads', () =>
-              options.read(
-                attempt,
-                principal,
-                type,
-                id,
-                { ...controls, refresh: false, stale: 'allow' },
-                undefined,
-                (check) => {
-                  allowed = check;
-                },
-                execution,
-              ),
-            );
+          controller.signal.throwIfAborted();
 
-            controller.signal.throwIfAborted();
+          if (current.status !== 'ok') return undefined;
 
-            if (current.status !== 'ok') continue;
+          const visible = await allowed();
 
-            const visible = await allowed();
+          controller.signal.throwIfAborted();
 
-            controller.signal.throwIfAborted();
+          if (!visible) return undefined;
 
-            if (!visible) continue;
+          const at = options.clock();
+          const fresh = project(record.id, current, selection, controls, at);
+          const fields = revalidateFields(
+            computed.rows.get(record.id)!,
+            materialize(fresh, at),
+            actorAssociations(options.manifest, principal, object),
+          );
+          const failures = Object.fromEntries(
+            [
+              ...new Set([
+                ...required,
+                ...(scopeFirst && request.requireComplete
+                  ? Object.keys(computed.results)
+                  : []),
+              ]),
+            ].flatMap((name) => {
+              const field = fields[name]!;
 
-            controller.signal.throwIfAborted();
-            const finalizedAt = options.clock();
+              return field.status === 'available' ? [] : [[name, field]];
+            }),
+          );
 
-            if (!filter.matches(id, current, finalizedAt)) continue;
+          if (Object.keys(failures).length)
+            throw new AnalyticalIncompleteError(failures);
 
-            const fresh = {
-              status: 'ok' as const,
-              ...project(id, current, selection, controls, finalizedAt),
-            };
-            const checked = revalidateFields(
-              computed.rows.get(id)!,
-              materialize(fresh, finalizedAt),
-              actorAssociations(options.manifest, principal, object),
-            );
-            const endFinalization = beginTiming(timings, 'finalization');
+          if (!filter.matches(record.id, current, at)) return undefined;
 
-            try {
-              const output = project(
-                id,
-                current,
-                selectedOrdinary,
-                { ...request, requireComplete: false },
-                finalizedAt,
-              );
+          return { record: current, fields, at };
+        };
+        const projectRecord = ({
+          record,
+          fields,
+          at,
+        }: Validated): FullObjectRecord => {
+          const output = project(
+            record.id,
+            { status: 'ok', ...record },
+            selectedOrdinary,
+            { ...request, requireComplete: false },
+            at,
+          );
 
-              for (const [name, field] of Object.entries(checked)) {
-                if (field.status !== 'available') {
-                  output.meta.fields[name] = field;
-                  continue;
-                }
+          for (const [name, field] of Object.entries(fields)) {
+            if (!Object.hasOwn(computed.results, name)) continue;
 
-                output.data[name] = field.value;
-                output.meta.fields[name] = {
-                  status: 'available',
-                  source: 'computed',
-                  freshness: 'unverified',
-                  computedAt: field.computedAt,
-                  inputs: [field.input],
-                  coverage: 'complete',
-                  dependencies: Object.fromEntries(
-                    Object.entries(field.dependencies).map(
-                      ([propertyId, dependency]) => [
-                        object.properties.find(
-                          (property) => property.id === propertyId,
-                        )!.name,
-                        dependency.evidence,
-                      ],
-                    ),
-                  ),
-                } satisfies FieldEvidence;
-              }
-
-              Object.assign(
-                output.meta,
-                summarize(output.meta.fields, output.meta.warnings),
-                { computed: computed.results },
-              );
-
-              if (
-                request.requireComplete &&
-                output.meta.completeness === 'partial'
-              )
-                throw new ReadError('incomplete', {
-                  operation,
-                  issues: Object.entries(output.meta.fields)
-                    .filter(
-                      ([, field]) =>
-                        field.status === 'forbidden' ||
-                        field.status === 'unavailable',
-                    )
-                    .map(([name, field]) => ({
-                      path: [name],
-                      problem: 'invalid-value',
-                      message:
-                        field.status === 'unavailable' && field.reason
-                          ? field.reason
-                          : field.status,
-                    })),
-                });
-
-              controller.signal.throwIfAborted();
-
-              data.push(output);
-            } finally {
-              endFinalization();
+            if (field.status !== 'available') {
+              output.meta.fields[name] = field;
+              continue;
             }
+
+            output.data[name] = field.value;
+            output.meta.fields[name] = {
+              status: 'available',
+              source: 'computed',
+              freshness: 'unverified',
+              computedAt: field.computedAt,
+              inputs: [field.input],
+              coverage: 'complete',
+              dependencies: Object.fromEntries(
+                Object.entries(field.dependencies).map(
+                  ([propertyId, dependency]) => [
+                    object.properties.find(
+                      (property) => property.id === propertyId,
+                    )!.name,
+                    dependency.evidence,
+                  ],
+                ),
+              ),
+            } satisfies FieldEvidence;
           }
-        } finally {
-          endRevalidation();
+
+          Object.assign(
+            output.meta,
+            summarize(output.meta.fields, output.meta.warnings),
+            { computed: computed.results },
+          );
+
+          if (request.requireComplete && output.meta.completeness === 'partial')
+            throw new ReadError('incomplete', {
+              operation,
+              issues: Object.entries(output.meta.fields)
+                .filter(
+                  ([, field]) =>
+                    field.status === 'forbidden' ||
+                    field.status === 'unavailable',
+                )
+                .map(([name, field]) => ({
+                  path: [name],
+                  problem: 'invalid-value',
+                  message:
+                    field.status === 'unavailable' && field.reason
+                      ? field.reason
+                      : field.status,
+                })),
+            });
+
+          controller.signal.throwIfAborted();
+
+          return output;
+        };
+        const validated = await measure('revalidation', async () => {
+          const rows: Validated[] = [];
+
+          for (const record of page.data) {
+            const row = await revalidate(record);
+
+            if (row) rows.push(row);
+          }
+
+          return rows;
+        });
+        const data: FullObjectRecord[] = [];
+        let meta = page.meta;
+
+        if (scopeFirst) {
+          const chosen = await measure('finalization', async () => {
+            const eligible = validated
+              .filter((row) => ordering.matches(row.fields))
+              .map((row) => ({
+                row,
+                position: ordering.position(row.record.id, row.fields),
+              }))
+              .sort((a, b) => ordering.compare(a.position, b.position))
+              .filter(
+                (entry) =>
+                  !position || ordering.compare(entry.position, position) > 0,
+              );
+            const selected = eligible.slice(0, limit ?? 25);
+
+            meta =
+              eligible.length > selected.length
+                ? {
+                    exhausted: false,
+                    continuationCursor: scopeCursor.encode(
+                      JSON.stringify(selected.at(-1)!.position),
+                    ),
+                  }
+                : { exhausted: true };
+
+            return selected;
+          });
+
+          await measure('revalidation', async () => {
+            for (const entry of chosen) {
+              const current = await revalidate(entry.row.record);
+
+              if (current)
+                data.push(
+                  await measure('finalization', async () =>
+                    projectRecord(current),
+                  ),
+                );
+            }
+          });
+        } else {
+          await measure('finalization', async () => {
+            for (const row of validated) data.push(projectRecord(row));
+          });
         }
 
         controller.signal.throwIfAborted();
@@ -557,12 +786,25 @@ export function createAnalyticalReads(options: {
           ? data[0]
             ? { status: 'ok', ...data[0] }
             : { status: 'not-found' }
-          : { data, meta: page.meta };
+          : { data, meta };
       } finally {
         if (timer !== undefined) clearTimeout(timer);
 
         analytics.signal.removeEventListener('abort', retire);
       }
+    } catch (error) {
+      if (error instanceof AnalyticalIncompleteError)
+        throw new ReadError('incomplete', {
+          operation: operationName(options.manifest, principal, type, kind),
+          issues: Object.entries(error.fields).map(([name, field]) => ({
+            path: [name],
+            problem: 'invalid-value',
+            message:
+              field.status === 'unavailable' ? field.reason : field.status,
+          })),
+        });
+
+      throw error;
     } finally {
       endPreparation();
     }

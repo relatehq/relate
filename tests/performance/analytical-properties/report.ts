@@ -117,7 +117,7 @@ export function markdown(workloads: WorkloadReport[]): string {
   return [
     '# Analytical benchmark harness',
     '',
-    'Relate samples execute real public query pages, analytical statements and revalidation. Ranking enumerates every authorized page and sorts locally in the benchmark; it does not measure runtime computed order or a single full-scope operation.',
+    'Relate samples execute real public query pages, analytical statements and revalidation. Ranking executes one runtime scope-first query, including all-candidate authorization, computation and revalidation before ordering and a final page check.',
     '',
     'SQLite reference is independent handwritten in-memory SQL. Its latency must not be compared as equivalent work: it excludes graph authorization, evidence and connector lifecycle. First-of-scenario uses shared, potentially warmed resources; it is not a cold start. Warmups are separate. p95 is omitted below 20 successful samples.',
     '',

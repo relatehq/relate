@@ -2,6 +2,7 @@ import type {
   AnalyticalExpression,
   ComputedResultType,
   ComputedUnavailableReason,
+  OrderEntry,
 } from './analytics.js';
 
 export type Json =
@@ -183,7 +184,9 @@ export interface TraversalRequest extends CollectionReadControls {}
 
 /** A query pages and filters graph members of one object type. */
 export interface ObjectQueryRequest
-  extends ObjectReadRequest, CollectionReadControls {}
+  extends ObjectReadRequest, CollectionReadControls {
+  readonly orderBy?: readonly OrderEntry[];
+}
 
 /** Existing public name retained for object queries. */
 export type QueryRequest = ObjectQueryRequest;

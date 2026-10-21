@@ -135,7 +135,7 @@ it('describes authorized associations, exact logical types and computed properti
       kind: 'computed',
       readable: true,
       schema: { type: 'int64', nullable: false },
-      filterOperators: [],
+      filterOperators: ['eq', 'in', 'gt', 'gte', 'lt', 'lte'],
     }),
   );
   expect(object.properties).toContainEqual(

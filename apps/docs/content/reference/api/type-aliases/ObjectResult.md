@@ -15,7 +15,7 @@ type ObjectResult<O, K, E> =
 };
 ```
 
-Defined in: [packages/relate/src/operations.ts:60](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L60)
+Defined in: [packages/relate/src/operations.ts:63](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L63)
 
 Read methods guarantee full only for a required full evidence option.
 

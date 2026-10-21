@@ -75,7 +75,9 @@ it('discovers the generic read contract and each object’s concrete calls', asy
   );
   expect(sdk.options.compute?.operations).toEqual(['get', 'query']);
   expect(operationContracts.traverse.many.options).toEqual(
-    operationContracts.query.options.filter((option) => option !== 'compute'),
+    operationContracts.query.options.filter(
+      (option) => !['compute', 'orderBy'].includes(option),
+    ),
   );
   expect(operationContracts.traverse.one.options).toEqual(
     operationContracts.get.options.filter((option) => option !== 'compute'),
@@ -175,7 +177,7 @@ it('prints operations as call signatures instead of implementation source', asyn
     'objects.Invoice.traverse.customer(id: ObjectId<Invoice>, options?: { select?, evidence?, stale?, maxAgeMs?, refresh?, requireComplete?, timeoutMs? }): Promise<ObjectResult<Customer>>',
   );
   expect(String(Customer.query)).toMatch(
-    /^objects\.Customer\.query\(options\?: \{ compute\?, where\?, select\?, limit\?, cursor\?/,
+    /^objects\.Customer\.query\(options\?: \{ compute\?, orderBy\?, where\?, select\?, limit\?, cursor\?/,
   );
   expect(String(Customer.get)).toMatch(
     /^objects\.Customer\.get\(id: ObjectId<Customer>/,
@@ -206,7 +208,7 @@ it('names unknown paging options and the accepted generic options', async () => 
       'invalid-request in Customer.query:',
       '- pageSize: unknown option; use "limit" (integer 1–100).',
       '- pageIndex: unknown option; there is no offset or page-number paging; pass page.meta.continuationCursor from the previous page as "cursor", or iterate with for await.',
-      'Accepted options: compute, where, select, limit, cursor, evidence, stale, maxAgeMs, refresh, requireComplete, timeoutMs.',
+      'Accepted options: compute, orderBy, where, select, limit, cursor, evidence, stale, maxAgeMs, refresh, requireComplete, timeoutMs.',
     ].join('\n'),
   );
 

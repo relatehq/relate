@@ -1,7 +1,7 @@
 import type { ReadExecution } from '../reads/index.js';
 import type { OperationScope } from '../activity/index.js';
-import { createHash, randomUUID } from 'node:crypto';
-import { canonicalJson } from 'relate/model';
+import { randomUUID } from 'node:crypto';
+import type { QueryCursors } from './cursors.js';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
@@ -27,7 +27,6 @@ import {
 } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import {
-  cursorCodec,
   compileWhere,
   calculatedReadIssues,
   predicateMatcher,
@@ -42,6 +41,8 @@ type Available = Extract<ReadResult, { status: 'ok' }>;
 /** Trusted composition controls; never accepted from a consumer request. */
 export interface QueryContext {
   readonly execution?: ReadExecution;
+  readonly scanCandidates?: (count: number) => void;
+  readonly admitCandidate?: () => void;
   readonly cursorScope?: unknown;
   readonly signal?: AbortSignal;
   readonly beginDependencyRead?: () => () => void;
@@ -56,7 +57,7 @@ export function createGraphQuery(options: {
   store: ObservationStore;
   clock(): number;
   install(): Promise<void>;
-  cursorKey?: Uint8Array;
+  cursors: QueryCursors;
   scopeFor(type: string, source: string): StorageScope;
   read(
     attempt: OperationScope,
@@ -71,7 +72,6 @@ export function createGraphQuery(options: {
   ): Promise<ReadResult>;
 }) {
   const { manifest, store, clock } = options;
-  const codec = cursorCodec(options.cursorKey);
   const transactions = new WeakMap<NativeTransaction, string>();
 
   return async (
@@ -86,14 +86,18 @@ export function createGraphQuery(options: {
     const object = manifest.objects.find((o) => o.id === type);
     const policy = object && manifest.policies[object.id];
     const operation = operationName(manifest, principal, type, 'query');
-    const issues = requestIssues(input, 'query');
+    const issues = requestIssues(
+      input,
+      'query',
+      context?.execution?.expandedSelection,
+    );
     const predicates: Predicate[] = [];
 
     context?.signal?.throwIfAborted();
 
-    if (input?.compute !== undefined)
+    if (input?.compute !== undefined || input?.orderBy !== undefined)
       issues.push({
-        path: ['compute'],
+        path: [input.compute !== undefined ? 'compute' : 'orderBy'],
         problem: 'not-supported',
         message:
           'Analytical requests require the analytical query path and are not supported in action transactions.',
@@ -161,7 +165,11 @@ export function createGraphQuery(options: {
 
     // An omitted selection already covers every readable filter field, so it keeps
     // get's unbounded default; only an explicit selection/filter union is capped.
-    if (readRequest.select && needed.length > 100)
+    if (
+      readRequest.select &&
+      needed.length > 100 &&
+      !context?.execution?.expandedSelection
+    )
       throwIssues(operation, 'query', [
         {
           path: ['select'],
@@ -173,26 +181,14 @@ export function createGraphQuery(options: {
     if (transaction && !transactions.has(transaction))
       transactions.set(transaction, randomUUID());
 
-    const scope = createHash('sha256')
-      .update(
-        canonicalJson({
-          ...options.scope,
-          type,
-          principal,
-          transaction: transaction ? transactions.get(transaction)! : null,
-          query: { ...readRequest, where: predicates, limit },
-          ...(context?.cursorScope === undefined
-            ? {}
-            : { analytical: context.cursorScope }),
-          bindings: manifest.objects
-            .filter((o) => o.sourceDefinitionId)
-            .map((o) => options.scopeFor(o.id, o.sourceDefinitionId!)),
-        }),
-      )
-      .digest('hex');
-    let after = cursor
-      ? codec.decode(cursor, scope, clock(), operation)
-      : undefined;
+    const cursorScope = options.cursors(
+      type,
+      principal,
+      { ...readRequest, where: predicates, limit },
+      context?.cursorScope,
+      transaction ? transactions.get(transaction)! : undefined,
+    );
+    let after = cursor ? cursorScope.decode(cursor, operation) : undefined;
 
     if (!allowsObject(principal, policy))
       return { data: [], meta: { exhausted: true } };
@@ -271,6 +267,7 @@ export function createGraphQuery(options: {
 
       after = batch.ids.at(-1);
       scanned += batch.ids.length;
+      context?.scanCandidates?.(batch.ids.length);
 
       // Transactions share one connection; independent reads can overlap. Each
       // candidate is evaluated as soon as its read settles, while evidence is fresh.
@@ -340,8 +337,10 @@ export function createGraphQuery(options: {
           return reread.result;
         });
 
-        if (at !== undefined)
+        if (at !== undefined) {
+          context?.admitCandidate?.();
           data.push(project(item.id, item.result, selected, readRequest, at));
+        }
       }
 
       context?.signal?.throwIfAborted();
@@ -351,11 +350,7 @@ export function createGraphQuery(options: {
         meta: more
           ? {
               exhausted: false,
-              continuationCursor: codec.encode(
-                scope,
-                after!,
-                clock() + 900_000,
-              ),
+              continuationCursor: cursorScope.encode(after!, operation),
             }
           : { exhausted: true },
       };

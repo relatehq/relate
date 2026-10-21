@@ -10,7 +10,11 @@ import {
   analyticalDeclarations,
 } from './authorization/index.js';
 import type { Principal } from './authorization/index.js';
-import { authorizeDeclaration, prepareExpression } from './analytics/index.js';
+import {
+  authorizeDeclaration,
+  prepareExpression,
+  computedFilterOperators,
+} from './analytics/index.js';
 
 const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
@@ -100,8 +104,12 @@ export function analyticalDiscovery(
         kind: 'computed',
         schema: { ...expression.aggregate.result },
         readable: !expression.forbidden && !expression.correlationForbidden,
-        filter: 'Computed filtering and ordering are not yet supported.',
-        filterOperators: [],
+        filter:
+          'Computed comparisons use the logical result type; null never matches. Ordering places nulls last and breaks ties by object ID.',
+        filterOperators:
+          expression.forbidden || expression.correlationForbidden
+            ? []
+            : computedFilterOperators(expression.aggregate.result),
       },
     ];
   });
@@ -115,7 +123,7 @@ export function analyticalDiscovery(
     identifiers:
       'Unquoted names match declared names case-insensitively; quoted names match exactly.',
     filters:
-      'Compute is supported on object get and membership-first query pages. Computed filtering and ordering are not yet supported; traversal and action transactions do not accept calculations.',
+      'Object queries accept computed aliases and declared calculations in where and orderBy. These fields are required across the full authorized ordinary-filter scope; null never matches. Traversal and action transactions do not accept calculations.',
     freshness:
       'Dataset inputs are read live, but their source freshness is unverified. Ordinary dependencies follow read freshness controls.',
     ...(first

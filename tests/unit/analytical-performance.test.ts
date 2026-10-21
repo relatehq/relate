@@ -54,15 +54,18 @@ describe('analytical performance harness', () => {
 
     expect(ranking.counters.candidatesAdmitted).toBe(112);
     expect(ranking.counters.objectsReturned).toBe(25);
-    expect(ranking.counters.analyticalStatements).toBe(2);
-    expect(ranking.counters.analyticalBatches).toBe(2);
+    expect(ranking.counters.analyticalStatements).toBe(1);
+    expect(ranking.counters.analyticalBatches).toBe(1);
     expect(ranking.counters.computedSlots).toBe(112);
     expect(ranking.counters.candidatesScanned).toBe(140);
     expect(ranking.counters.sourceFetches).toBe(0);
-    expect(ranking.counters.capturedOperations).toBe(2);
-    expect(ranking.stages.execution?.count).toBe(2);
-    expect(ranking.stages.preparation?.count).toBe(2);
-    expect(ranking.spans.map((s) => s.name)).toContain('benchmark-local-sort');
+    expect(ranking.counters.capturedOperations).toBe(1);
+    expect(ranking.stages.execution?.count).toBe(1);
+    expect(ranking.stages.preparation?.count).toBe(1);
+    expect(ranking.spans.map((s) => s.name)).toContain('public-query');
+    expect(ranking.spans.map((s) => s.name)).not.toContain(
+      'benchmark-local-sort',
+    );
     expect(result.summary.every((s) => s.p95Ms === null)).toBe(true);
     expect(markdown([result])).toContain('must not be compared');
   });

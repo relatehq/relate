@@ -15,6 +15,8 @@ export interface PreparedCompute {
   readonly [prepared]: true;
   readonly dependencies: readonly string[];
   readonly results: Readonly<Record<string, ResultType>>;
+  /** All inferred types, including filter/order-only declarations. Never projected. */
+  readonly types: Readonly<Record<string, ResultType>>;
 }
 
 const handles = new WeakMap<PreparedCompute, readonly ResolvedCalculation[]>();
@@ -167,6 +169,14 @@ export function prepareCompute(input: {
             ),
         ),
       ]),
+      types: Object.freeze(
+        Object.fromEntries(
+          snapshot.map((field) => [
+            field.name,
+            Object.freeze({ ...field.expression.aggregate.result }),
+          ]),
+        ),
+      ),
       results: Object.freeze(
         Object.fromEntries(
           snapshot

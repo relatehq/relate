@@ -8,7 +8,7 @@ import {
 } from './actions/index.js';
 import type { ActionHandler } from './actions/index.js';
 import type { NativeTransaction, StorageScope } from './storage.js';
-import { createGraphQuery } from './queries/index.js';
+import { createGraphQuery, createQueryCursors } from './queries/index.js';
 import { createTraversal, traversalsFrom } from './traversal/index.js';
 import {
   createSourceOperations,
@@ -296,6 +296,13 @@ export function createRuntime(options: RuntimeOptions) {
     );
   }
 
+  const queryCursors = createQueryCursors({
+    manifest,
+    scope: nativeScope,
+    clock,
+    scopeFor,
+    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+  });
   const query = createGraphQuery({
     manifest,
     scope: nativeScope,
@@ -304,11 +311,12 @@ export function createRuntime(options: RuntimeOptions) {
     install,
     scopeFor,
     read: readObject,
-    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+    cursors: queryCursors,
   });
 
   const analyticalReads = createAnalyticalReads({
     manifest,
+    cursors: queryCursors,
     read: (
       attempt,
       principal,

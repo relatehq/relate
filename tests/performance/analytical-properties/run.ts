@@ -347,7 +347,7 @@ async function main() {
     analyticalAdapter:
       'public Node-host query pages with real dataset connector',
     ranking:
-      'real computed pages followed by benchmark-local sort; not runtime orderBy',
+      'one runtime scope-first orderBy query with full-scope and selected-page revalidation',
     reference:
       'SQLite :memory:; index(customer,type,at); ANALYZE; synchronous driver; no network/pool',
     unavailableMeasurements,

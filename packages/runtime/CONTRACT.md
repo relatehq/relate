@@ -421,8 +421,8 @@ flowchart LR
 ```
 
 Object `get` and membership-first `query` use this resolver and access view for
-caller expressions and selected declarations. Computed filtering/order remain in
-progress.
+caller expressions and selected declarations. Computed filters and ordering use
+the same preparation with required aliases and filter/order-only declarations.
 
 ### Analytical batch execution (internal)
 
@@ -508,13 +508,15 @@ inputs yield `forbidden`. Rejected declaration diagnostics name only the
 selected property. Startup continues to report authored SQL errors to the
 application owner.
 
-Preparation exposes only frozen dependency IDs and projected result metadata;
-private resolved expressions and parameter values live in a weak map. It clones
-the request/model inputs before asynchronous reads, rejects forged handles and
-consumes each handle once. Preparation timing is recorded on success and error.
-Object `get`/`query` normalization, dependency materialization/revalidation and
-response projection live in the composition owner `analytical-read.ts`. Computed
-filter/order validation and scope-first execution remain in progress.
+Preparation exposes frozen dependency IDs, all result types for validation, and
+separate projected result metadata; private resolved expressions and parameter
+values live in a weak map. It clones the request/model inputs before
+asynchronous reads, rejects forged handles and consumes each handle once.
+Preparation timing is recorded on success and error. Object `get`/`query`
+normalization, dependency materialization/revalidation and response projection
+live in the composition owner `analytical-read.ts`. `analytics/order.ts` owns
+typed computed comparisons and position ordering; `queries/cursors.ts` binds
+both query paths to the same cursor codec and scopes.
 
 ```mermaid
 flowchart LR
@@ -607,3 +609,46 @@ cannot convert that cancellation into stale fallback. A query joins its admitted
 candidate reads before returning the failure. The host deadline also reaches
 provider calls inside final revalidation. Connectors must cooperate with abort
 signals to stop their own work; storage calls are not interruptible.
+
+### Scope-first computed filtering and ordering
+
+A query with a computed `where` field or nonempty `orderBy` enumerates the
+entire authorized ordinary-filter scope through ordinary reads before running
+SQL. Finite host scan and admission caps reject oversized scopes before SQL.
+Each calculation runs in association batches over that scope. Every visible
+candidate is revalidated before computed filters, ordering and cursor position
+are used; selected page members are revalidated again before projection. Changed
+correlation/self values invalidate the calculation without recomputation.
+
+Filter/order fields are required across the scope regardless of
+`requireComplete`. Missing or invalidated required values throw `incomplete`
+with alias and safe reason, including on objects that would not make the page.
+Objects that lose visibility are withheld. Caller aliases are projected;
+declared calculations referenced only by filter/order are excluded from data,
+field evidence and computed metadata. `requireComplete` also requires projected
+calculations across a scope-first query.
+
+Computed scalar equality, `eq` and `in` work on logical scalar types; numeric
+and timestamp types also accept ranges. Int64 bounds must be canonical decimal
+strings and compare exactly. Timestamp bounds are normalized to declared
+precision. Null never matches a computed predicate. All predicates combine with
+AND; `in: []` matches nothing. Ordering accepts only computed fields, places
+null last in either direction, and breaks ties by object ID ascending.
+
+Each page recomputes the scope. Its encrypted cursor records ordering values and
+ID, bound to the original query, caller expressions/parameters, order,
+principal, definition revision and source/dataset binding identities. Evidence
+mode is excluded. Final page withholding can produce an empty nonfinal page; the
+cursor advances past the selected position, without exposing withheld IDs.
+Changes between pages can move objects across the position: there is no
+snapshot.
+
+```mermaid
+flowchart LR
+  Enumerate[Bounded ordinary candidate reads] --> Compute[Compute full scope]
+  Compute --> Revalidate[Revalidate every candidate]
+  Revalidate --> Select[Filter and order after cursor position]
+  Select --> Page[Choose page]
+  Page --> Check[Recheck selected dependencies and access]
+  Check --> Project[Project data and encrypted continuation]
+```

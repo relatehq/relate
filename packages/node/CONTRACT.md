@@ -105,8 +105,9 @@ flowchart LR
 ```
 
 Analytical `get` and ordinary query pages execute selected declared calculations
-and caller `compute` expressions through the bound connector. Computed filtering
-and ordering remain unimplemented.
+and caller `compute` expressions through the bound connector. Queries with
+computed filters or ordering evaluate the full authorized ordinary-filter scope
+before selecting a page, then recheck that page before returning it.
 
 ## Analytical operation limits
 
@@ -115,14 +116,26 @@ Application setup may return host-owned limits alongside its bindings:
 ```ts
 return {
   bindings,
-  analytics: { operationTimeoutMs: 60_000, maxSourceCalls: 50_000 },
+  analytics: {
+    operationTimeoutMs: 60_000,
+    maxSourceCalls: 50_000,
+    maxCandidatesScanned: 12_500,
+    maxCandidatesAdmitted: 10_000,
+  },
 };
 ```
 
 These are the defaults when omitted. `operationTimeoutMs` must be a positive
-integer no larger than 2,147,483,647; `maxSourceCalls` must be a nonnegative
-safe integer. Invalid limits fail analytical startup and run registered disposal
-callbacks. Limits are copied at startup, so later mutation cannot change them.
+integer no larger than 2,147,483,647; the three count limits must be nonnegative
+safe integers. Invalid limits fail analytical startup and run registered
+disposal callbacks. Limits are copied at startup, so later mutation cannot
+change them.
+
+Computed filter/order queries count every scanned member, including rejected
+objects, against `maxCandidatesScanned`. Objects passing ordinary policy and
+filters count against `maxCandidatesAdmitted`; exceeding either cap rejects
+before analytical SQL. Ordinary page-first queries retain their 100-member scan
+bound. These caps never return a truncated computed order.
 
 Every analytical get or query page has one deadline and source-call budget,
 shared by candidate reads, source-backed authorization dependencies, and final

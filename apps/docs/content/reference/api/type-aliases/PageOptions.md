@@ -7,7 +7,7 @@ type PageOptions<K, E> = ReadControlOptions<K, E> & {
 };
 ```
 
-Defined in: [packages/relate/src/operations.ts:73](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L73)
+Defined in: [packages/relate/src/operations.ts:76](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L76)
 
 ## Type Declaration
 

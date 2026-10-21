@@ -191,6 +191,8 @@ export function createSourceOperations(options: {
     validateReadRequest(
       request,
       operationName(manifest, principal, objectDefinitionId, 'get'),
+      'get',
+      execution?.expandedSelection,
     );
     const maxAge = request.maxAgeMs ?? 60_000;
 

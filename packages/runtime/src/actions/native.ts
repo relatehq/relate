@@ -157,6 +157,8 @@ export function createNativeOperations(options: {
       validateReadRequest(
         request,
         operationName(manifest, principal, objectDefinitionId, 'get'),
+        'get',
+        execution?.expandedSelection,
       );
       const object = manifest.objects.find((o) => o.id === objectDefinitionId);
       const policy = Object.hasOwn(manifest.policies, objectDefinitionId)

@@ -8,7 +8,13 @@ export function operationLimits(input?: AnalyticalLimits) {
       typeof input !== 'object' ||
       Array.isArray(input) ||
       Object.keys(input).some(
-        (key) => !['operationTimeoutMs', 'maxSourceCalls'].includes(key),
+        (key) =>
+          ![
+            'operationTimeoutMs',
+            'maxSourceCalls',
+            'maxCandidatesScanned',
+            'maxCandidatesAdmitted',
+          ].includes(key),
       ))
   )
     throw new Error('Invalid analytical operation limits');
@@ -18,7 +24,19 @@ export function operationLimits(input?: AnalyticalLimits) {
   const maxSourceCalls =
     input?.maxSourceCalls === undefined ? 50_000 : input.maxSourceCalls;
 
+  const maxCandidatesScanned =
+    input?.maxCandidatesScanned === undefined
+      ? 12_500
+      : input.maxCandidatesScanned;
+  const maxCandidatesAdmitted =
+    input?.maxCandidatesAdmitted === undefined
+      ? 10_000
+      : input.maxCandidatesAdmitted;
+
   if (
+    [maxCandidatesScanned, maxCandidatesAdmitted].some(
+      (value) => !Number.isSafeInteger(value) || value < 0,
+    ) ||
     !Number.isSafeInteger(operationTimeoutMs) ||
     operationTimeoutMs < 1 ||
     operationTimeoutMs > 2_147_483_647 ||
@@ -27,5 +45,10 @@ export function operationLimits(input?: AnalyticalLimits) {
   )
     throw new Error('Invalid analytical operation limits');
 
-  return Object.freeze({ operationTimeoutMs, maxSourceCalls });
+  return Object.freeze({
+    operationTimeoutMs,
+    maxSourceCalls,
+    maxCandidatesScanned,
+    maxCandidatesAdmitted,
+  });
 }
