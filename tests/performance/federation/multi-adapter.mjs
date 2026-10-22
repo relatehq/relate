@@ -223,12 +223,16 @@ export async function openMultiRelate(
         ? datafusionResource(original, transport, table)
         : original;
   const byKey = new Map(fixture.records.map((row) => [row.key, row]));
+  // Match the original harness: immutable fixtures and cached evidence must not
+  // become stale merely because the full comparison takes several minutes.
+  const now = Date.now();
   const app = await startApp(
     defineApp({
       graph,
       setup: () => ({
         graphId: 'federation-multi-public-benchmark',
         store,
+        clock: () => now,
         activity: { operations: 'disabled' },
         bindings: [
           bind(FileEvents, resource(fixture.fileResource, 'file_events'), {
