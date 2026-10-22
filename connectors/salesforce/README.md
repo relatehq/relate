@@ -125,8 +125,9 @@ try {
 `knownAccountId` is an existing Salesforce Account ID; `employee` is a
 host-authenticated principal with the `employee` role. The mapping is
 application code, not a model supplied by the connector. See the
-[customer workspace](../../examples/02-customer-workspace/README.md) for a full
-business application using the same composition concepts with HTTP and SQLite.
+[connected sources example](../../examples/02-connected-sources/README.md) for a
+full business application using the same composition concepts with HTTP and
+SQLite.
 
 ## Failure and access contract
 

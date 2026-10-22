@@ -1,21 +1,22 @@
 # Learn Relate by running it
 
-These examples have distinct jobs: the smallest application, a fuller business
-application, persistent deployment, and analytical datasets. Future examples
-should teach a new concept or deployment method rather than repeat these
-applications.
+Each example is named after the Relate concept it teaches: native objects,
+connected sources, persistence, and datasets. The business scenario inside
+(todos, a customer workspace, an ad network) only illustrates that concept.
+Future examples should teach a new concept or deployment method rather than
+repeat these applications.
 
 Run from a repository checkout with Node 22 (22.16+), 24, or 26 and pnpm 12.9.1
 (`npm install --global pnpm@12.9.1`). Run `pnpm install` at the repository root;
 each command below builds its dependencies before starting. No published Relate
 packages are required.
 
-| Order | Example                                         | Key concepts                                                                                                                                                          | Run from the repository root      |
-| ----- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| 01    | [Todo notes](01-todo-notes)                     | One native object, an action, owner-only access, typed reads and queries. Seeded in-memory app with no external services.                                             | `pnpm example:todo-notes`         |
-| 02    | [Customer workspace](02-customer-workspace)     | A business graph across an HTTP CRM, SQLite invoices and native reviews; relationships, role and field policies, receipts, refresh and model inspection in a browser. | `pnpm example:customer-workspace` |
-| 03    | [Postgres persistence](03-postgres-persistence) | Persistent storage, explicit migrations, restart recovery, freshness, stale fallback and provider denial. Requires Postgres.                                          | `pnpm example:postgres`           |
-| 04    | [Datasets](04-datasets)                         | Salesforce advertisers, SQLite campaigns and a DuckDB impression log; caller SQL, declared calculations, computed filters/order and column access. Only Node needed.  | `pnpm example:datasets`           |
+| Order | Example                                   | Key concepts                                                                                                                                                          | Run from the repository root     |
+| ----- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| 01    | [Native objects](01-native-objects)       | One native object, an action, owner-only access, typed reads and queries. Seeded in-memory app with no external services.                                             | `pnpm example:native-objects`    |
+| 02    | [Connected sources](02-connected-sources) | A business graph across an HTTP CRM, SQLite invoices and native reviews; relationships, role and field policies, receipts, refresh and model inspection in a browser. | `pnpm example:connected-sources` |
+| 03    | [Persistence](03-persistence)             | Persistent storage, explicit migrations, restart recovery, freshness, stale fallback and provider denial. Requires Postgres.                                          | `pnpm example:persistence`       |
+| 04    | [Datasets](04-datasets)                   | Salesforce advertisers, SQLite campaigns and a DuckDB impression log; caller SQL, declared calculations, computed filters/order and column access. Only Node needed.  | `pnpm example:datasets`          |
 
 Every default command builds its dependencies, starts a seeded Inspector, and
 opens your browser. Use `--no-open` to print the Inspector link without opening
@@ -25,9 +26,9 @@ config.
 
 The scripted SDK walkthroughs remain available separately:
 
-- `pnpm example:todo-notes:walkthrough`
-- `pnpm example:customer-workspace:walkthrough`
-- `pnpm example:postgres:walkthrough`
+- `pnpm example:native-objects:walkthrough`
+- `pnpm example:connected-sources:walkthrough`
+- `pnpm example:persistence:walkthrough`
 
 These print results and exit. Each walkthrough starts its own runtime separate
 from any running Inspector.

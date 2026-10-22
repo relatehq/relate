@@ -40,8 +40,8 @@ Provider connectors live under `connectors/<provider>`. SQLite, Stripe and
 Salesforce are current read-only connectors; each owns its provider-specific
 transport, identity, resource-selection, and error behavior. Application object
 models, mappings and policies belong to applications; connectors provide
-resource access. The learning apps are `examples/01-todo-notes`,
-`examples/02-customer-workspace`, `examples/03-postgres-persistence`, and
+resource access. The learning apps are `examples/01-native-objects`,
+`examples/02-connected-sources`, `examples/03-persistence`, and
 `examples/04-datasets`. The business example demonstrates HTTP and SQLite
 composition; provider-specific binding guidance lives in the connector READMEs.
 SQLite source access is separate from Relate's own persistence adapters.

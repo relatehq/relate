@@ -241,8 +241,8 @@ queries, automatic synchronization, servers and workers.
   semantics in detail.
 - [NATIVE_ACTIONS.md](./NATIVE_ACTIONS.md): the account-review action path end
   to end.
-- [Todo notes](../../examples/01-todo-notes/README.md) and
-  [Postgres persistence](../../examples/03-postgres-persistence/README.md).
+- [Native objects](../../examples/01-native-objects/README.md) and
+  [Persistence](../../examples/03-persistence/README.md).
 
 ## Graph queries
 

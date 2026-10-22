@@ -8,7 +8,7 @@ Connectors do not own your business objects, property mappings, or policies.
 
 | Connector                                                 | Resource selection                            | Identity                                                     | Example or setup guide                                                                                |
 | --------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| [SQLite](../../../../connectors/sqlite/README.md)         | `database.table(name, { idColumn, columns })` | Application-owned by default; optional database verification | [Customer workspace](../../../../examples/02-customer-workspace/README.md)                            |
+| [SQLite](../../../../connectors/sqlite/README.md)         | `database.table(name, { idColumn, columns })` | Application-owned by default; optional database verification | [Connected sources](../../../../examples/02-connected-sources/README.md)                              |
 | [Stripe](../../../../connectors/stripe/README.md)         | `stripeConnection.resource(name, { fields })` | Verified account plus test/live namespace                    | Binding example in the connector README                                                               |
 | [Salesforce](../../../../connectors/salesforce/README.md) | `crm.resource('Account', { fields })`         | Verified Salesforce org                                      | Connector README; simulated org in the [datasets example](../../../../examples/04-datasets/README.md) |
 

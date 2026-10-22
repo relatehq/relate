@@ -97,5 +97,5 @@ revisions.
   and native transaction semantics.
 - [STORE_CONTRACT.md](../runtime/STORE_CONTRACT.md): the adapter contract this
   package implements.
-- [Postgres persistence example](../../examples/03-postgres-persistence/README.md):
-  adoption, refresh, restart and durable fallback against a real database.
+- [Persistence example](../../examples/03-persistence/README.md): adoption,
+  refresh, restart and durable fallback against a real database.

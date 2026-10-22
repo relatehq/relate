@@ -10,7 +10,7 @@ permission to see every portfolio.
 
 The first read slice is now executable through `@relate/node`: named object
 registries, `connect`, `host.adopt` and principal-bound typed `get`. See
-[todo notes](../../../examples/01-todo-notes/README.md) and
+[native objects example](../../../examples/01-native-objects/README.md) and
 [`typed-read.test.ts`](../../../packages/node/test/typed-read.test.ts). The full
 fixture still uses declarations for its broader native/query/action surface. The
 [native account-review slice](../../../packages/node/NATIVE_ACTIONS.md) now

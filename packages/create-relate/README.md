@@ -27,5 +27,5 @@ and prompts, not behavior.
   is a separate planned capability.
 
 Templates and prompts are not designed yet. The
-[todo/notes example](../../examples/01-todo-notes/README.md) is the current
-smallest working project and the likely starting shape.
+[native objects example](../../examples/01-native-objects/README.md) is the
+current smallest working project and the likely starting shape.

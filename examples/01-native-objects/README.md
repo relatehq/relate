@@ -1,12 +1,12 @@
-# 01 · Todo notes
+# 01 · Native objects
 
-The smallest application: add a todo with a note, read it, and list your own
-todos. Relate owns the data in memory. No connector, database server, or
+The smallest application: Relate owns the data. Add a todo with a note, read it,
+and list your own todos, all held in memory. No connector, database server, or
 credentials are needed.
 
 ```sh
 pnpm install
-pnpm example:todo-notes
+pnpm example:native-objects
 ```
 
 The command opens a seeded Inspector with Ada as the demo principal. Explore
@@ -14,7 +14,7 @@ Todo and run `addTodo`; state disappears when you stop with Ctrl+C. Use
 `--no-open` to print the link without opening a browser.
 
 For the scripted create/read/query walkthrough, run
-`pnpm example:todo-notes:walkthrough`. It prints the following and exits:
+`pnpm example:native-objects:walkthrough`. It prints the following and exits:
 
 ```json
 [{ "title": "Try Relate", "note": "Create a todo, then read my notes." }]
@@ -47,7 +47,7 @@ This is an add-and-read example. Native update/delete are not implemented, so
 editing, completing, and deleting todos are not included. Omitting `store` uses
 an isolated memory store: todos and receipts disappear on shutdown.
 
-Next, the [customer workspace](../02-customer-workspace/README.md) adds external
+Next, the [connected sources](../02-connected-sources/README.md) adds external
 sources, relationships, role and field policies, and a browser interface.
-[Postgres persistence](../03-postgres-persistence/README.md) covers durable
-storage and restart recovery. See the [four examples](../README.md).
+[Persistence](../03-persistence/README.md) covers durable storage and restart
+recovery. See the [four examples](../README.md).

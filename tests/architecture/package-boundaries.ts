@@ -33,7 +33,7 @@ export const packagePolicies: Record<
       'node:child_process',
     ],
   },
-  'examples/02-customer-workspace': {
+  'examples/02-connected-sources': {
     imports: [
       'relate',
       'relate/connectors',
@@ -196,7 +196,7 @@ export const packagePolicies: Record<
       '@fontsource/dm-mono/500.css',
     ],
   },
-  'examples/01-todo-notes': {
+  'examples/01-native-objects': {
     imports: ['relate', '@relate/node', 'zod'],
     builtins: true,
   },
@@ -216,7 +216,7 @@ export const packagePolicies: Record<
     ],
     builtins: true,
   },
-  'examples/03-postgres-persistence': {
+  'examples/03-persistence': {
     imports: [
       'relate',
       'relate/compiler',

@@ -123,8 +123,8 @@ This package implements keyed record reads and analytical aggregates. It does
 not implement object enumeration, change feeds, provider writes or Relate
 storage.
 
-See [customer workspace](../../examples/02-customer-workspace) for a runnable
-application.
+See [connected sources example](../../examples/02-connected-sources) for a
+runnable application.
 
 ## Analytical datasets
 

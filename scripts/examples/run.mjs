@@ -5,10 +5,17 @@ import { runCommand } from './process.mjs';
 const require = createRequire(import.meta.url);
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const examples = {
-  'todo-notes': { directory: '01-todo-notes', projects: ['packages/node'] },
-  'customer-workspace': {
-    directory: '02-customer-workspace',
+  'native-objects': {
+    directory: '01-native-objects',
+    projects: ['packages/node'],
+  },
+  'connected-sources': {
+    directory: '02-connected-sources',
     projects: ['packages/node', 'connectors/sqlite'],
+  },
+  persistence: {
+    directory: '03-persistence',
+    projects: ['packages/postgres'],
   },
   datasets: {
     directory: '04-datasets',
@@ -19,10 +26,6 @@ const examples = {
       'connectors/salesforce',
     ],
     walkthrough: false,
-  },
-  postgres: {
-    directory: '03-postgres-persistence',
-    projects: ['packages/postgres'],
   },
 };
 const [name, ...args] = process.argv.slice(2);
@@ -40,7 +43,7 @@ if (
   forwarded.some((arg) => arg !== '--no-open')
 ) {
   console.error(
-    'Usage: node scripts/examples/run.mjs <todo-notes|customer-workspace|postgres|datasets> [--walkthrough] [--verbose] [--no-open]',
+    'Usage: node scripts/examples/run.mjs <native-objects|connected-sources|persistence|datasets> [--walkthrough] [--verbose] [--no-open]',
   );
   process.exitCode = 1;
 } else {

@@ -1,14 +1,11 @@
 {
-  "name": "@relate/example-postgres-persistence",
+  "name": "@relate/example-native-objects",
   "version": "0.0.0-dev.0",
   "private": true,
   "type": "module",
   "dependencies": {
     "relate": "workspace:*",
-    "@relate/runtime": "workspace:*",
     "zod": "4.6.5",
-    "@relate/postgres": "workspace:*",
-    "@relate/dev-crm-simulator": "workspace:*",
     "@relate/node": "workspace:*"
   }
 }

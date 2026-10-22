@@ -148,11 +148,10 @@ it; they never fall back to `DATABASE_URL`. They do not check what the URL
 points to, so never point it at a database you want to keep.
 
 To see adoption, refresh, restart, and durable fallback against a real database,
-run the
-[Postgres persistence example](../../../../examples/03-postgres-persistence/README.md):
+run the [persistence example](../../../../examples/03-persistence/README.md):
 
 ```sh
-pnpm example:postgres:walkthrough
+pnpm example:persistence:walkthrough
 ```
 
 The store's schema ownership, locking, and transaction semantics are documented

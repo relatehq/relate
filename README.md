@@ -31,11 +31,11 @@ database, Docker or credentials.
 ```sh
 git clone https://github.com/relatehq/relate && cd relate
 pnpm install
-pnpm example:customer-workspace
+pnpm example:connected-sources
 ```
 
 Each default example command opens a seeded Inspector. Run
-`pnpm example:todo-notes` for owner-only todos with notes, or
+`pnpm example:native-objects` for owner-only todos with notes, or
 `pnpm example:datasets` for ad campaigns with impression analytics. Add
 `:walkthrough` to the todo command for the scripted terminal demo. The
 [examples](examples/README.md) explain what each application teaches.
@@ -51,7 +51,7 @@ The Inspector opens with a seeded customer from an HTTP CRM, invoices from a
 SQLite database and Relate-owned account reviews. Explore the graph and use the
 Playground as Ana or Fin.
 
-Run `pnpm example:customer-workspace:walkthrough` for a scripted SDK example of
+Run `pnpm example:connected-sources:walkthrough` for a scripted SDK example of
 role-based reads, review creation and receipt replay.
 
 ## Why

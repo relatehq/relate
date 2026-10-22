@@ -1,15 +1,16 @@
-# 03 · Postgres persistence
+# 03 · Persistence
 
-Shows how to supply a persistent store, refresh source data and recover retained
-values after recreating the runtime and database connection. Start with
-[Todo notes](../01-todo-notes/README.md) for the minimal in-memory example.
+Shows how to supply a persistent Postgres store, refresh source data and recover
+retained values after recreating the runtime and database connection. Start with
+[native objects](../01-native-objects/README.md) for the minimal in-memory
+example.
 
 Run from the repository root:
 
 ```sh
 pnpm install
 # On first setup, copy .env.example to .env and configure existing databases.
-pnpm example:postgres
+pnpm example:persistence
 ```
 
 The command loads the repository's `.env` using Node's optional env-file
@@ -26,7 +27,7 @@ Use `--no-open` to print the link without opening a browser.
 For the scripted refresh, denial and restart demonstration, run:
 
 ```sh
-pnpm example:postgres:walkthrough
+pnpm example:persistence:walkthrough
 ```
 
 The walkthrough starts an in-process Hono CRM simulator with a real HTTP

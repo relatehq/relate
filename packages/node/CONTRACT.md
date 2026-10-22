@@ -306,7 +306,8 @@ successful receipts and actor-bound lookup/replay; see
 Graph queries execute for source and native members; see the
 [query contract](../runtime/CONTRACT.md#graph-queries). Provider-wide queries,
 automatic synchronization, servers and workers remain unimplemented. See the
-complete runnable [todo/notes example](../../examples/01-todo-notes/README.md).
+complete runnable
+[native objects example](../../examples/01-native-objects/README.md).
 
 Source-backed references and nested read policies support Invoice reads:
 

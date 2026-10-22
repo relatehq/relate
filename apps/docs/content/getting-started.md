@@ -21,22 +21,22 @@ npm install --global pnpm@12.9.1
 git clone https://github.com/relatehq/relate
 cd relate
 pnpm install
-pnpm example:todo-notes
+pnpm example:native-objects
 ```
 
-The [todo/notes app](../../../examples/01-todo-notes) opens a seeded Inspector.
-Use `pnpm example:todo-notes:walkthrough` to create, read and query a todo in
-the terminal. It introduces native objects, actions, owner-only policies, and
-typed queries without external services.
+The [native objects example](../../../examples/01-native-objects) opens a seeded
+Inspector. Use `pnpm example:native-objects:walkthrough` to create, read and
+query a todo in the terminal. It introduces native objects, actions, owner-only
+policies, and typed queries without external services.
 
-Then run `pnpm example:customer-workspace` for the
-[business example](../../../examples/02-customer-workspace): explore a CRM
+Then run `pnpm example:connected-sources` for the
+[business example](../../../examples/02-connected-sources): explore a CRM
 customer and SQLite invoices in the Inspector, switch roles, and add a review.
-Use `pnpm example:customer-workspace:walkthrough` for scripted SDK calls.
-Neither app requires credentials or a database server.
+Use `pnpm example:connected-sources:walkthrough` for scripted SDK calls. Neither
+app requires credentials or a database server.
 
-The third example, `pnpm example:postgres`, demonstrates persistent storage and
-a seeded Inspector with a configured Postgres database. Its `:walkthrough`
+The third example, `pnpm example:persistence`, demonstrates persistent storage
+and a seeded Inspector with a configured Postgres database. Its `:walkthrough`
 command demonstrates restart recovery. The fourth, `pnpm example:datasets`,
 ranks ad campaigns by impressions and clicks computed from a DuckDB delivery
 log. All four default commands open the Inspector; `--no-open` prints the link
@@ -255,8 +255,9 @@ pnpm exec tsx tutorial/index.ts
 
 It prints Spindle Ferry's name and status, followed by `undefined` for routine
 compact field evidence. No credentials or database server are required. The
-[customer workspace](../../../examples/02-customer-workspace/README.md) is a
-maintained source-backed application if you prefer to start from existing files.
+[connected sources example](../../../examples/02-connected-sources/README.md) is
+a maintained source-backed application if you prefer to start from existing
+files.
 
 ---
 

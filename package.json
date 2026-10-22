@@ -14,8 +14,8 @@
     "docs:dev": "pnpm --filter @relate/docs dev",
     "docs:build": "pnpm --filter @relate/docs build",
     "docs:check": "pnpm exec vitest run --project unit apps/docs/test/validation.test.ts && pnpm docs:build && node --import tsx apps/docs/scripts/check.ts",
-    "example:todo-notes": "node scripts/examples/run.mjs todo-notes",
-    "example:postgres": "node scripts/examples/run.mjs postgres",
+    "example:native-objects": "node scripts/examples/run.mjs native-objects",
+    "example:persistence": "node scripts/examples/run.mjs persistence",
     "check": "pnpm check:development && pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && pnpm test:packaging",
     "typecheck": "pnpm build && tsc --noEmit -p tsconfig.tests.json",
     "check:boundaries": "node --import tsx tests/boundaries.mjs",
@@ -35,7 +35,7 @@
     "worktree:list": "tsx scripts/worktrees/list.ts",
     "worktree:delete": "tsx scripts/worktrees/delete.ts",
     "check:development": "node scripts/releases/check-development.mjs",
-    "example:customer-workspace": "node scripts/examples/run.mjs customer-workspace",
+    "example:connected-sources": "node scripts/examples/run.mjs connected-sources",
     "test:onboarding": "node --test scripts/examples/process.test.mjs tests/onboarding/smoke.test.mjs",
     "salesforce:dev": "tsx dev/salesforce/cli.ts",
     "bench:analytical": "pnpm build && pnpm bench:analytical:run",
@@ -44,9 +44,9 @@
     "example:datasets": "node scripts/examples/run.mjs datasets",
     "bench:overhead": "pnpm build && pnpm bench:overhead:run",
     "bench:overhead:run": "node --import tsx tests/performance/analytical-properties/overhead/run.ts",
-    "example:todo-notes:walkthrough": "node scripts/examples/run.mjs todo-notes --walkthrough",
-    "example:postgres:walkthrough": "node scripts/examples/run.mjs postgres --walkthrough",
-    "example:customer-workspace:walkthrough": "node scripts/examples/run.mjs customer-workspace --walkthrough"
+    "example:native-objects:walkthrough": "node scripts/examples/run.mjs native-objects --walkthrough",
+    "example:persistence:walkthrough": "node scripts/examples/run.mjs persistence --walkthrough",
+    "example:connected-sources:walkthrough": "node scripts/examples/run.mjs connected-sources --walkthrough"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

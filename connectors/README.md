@@ -5,7 +5,7 @@ implement resource adapter contracts from `relate/connectors`, separately from
 Relate storage adapters such as `@relate/postgres`.
 
 - [SQLite](sqlite): read records from an existing SQLite database. See the
-  [customer workspace example](../examples/02-customer-workspace).
+  [connected sources example](../examples/02-connected-sources).
 - [PostgreSQL](postgres): execute read-only dataset aggregates with exact scalar
   decoding and cancellable statement clients.
 - [Stripe](stripe): read selected billing resources with verified account and

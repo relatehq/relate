@@ -7,7 +7,7 @@ the detailed transaction, authorization, validation, and recovery guarantees.
 The test-owned [application model](../../tests/support/native-action-model.ts)
 and [acceptance suite](../../tests/support/native-action-contract.ts) exercise
 the contract on memory and Postgres. For a runnable learning application, use
-the [customer workspace](../../examples/02-customer-workspace/README.md).
+the [connected sources example](../../examples/02-connected-sources/README.md).
 
 ## Authorization and transaction contract
 

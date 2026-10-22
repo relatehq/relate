@@ -105,7 +105,8 @@ dependencies but never calls `setup`. Keep database opening, credential loading,
 server startup, and queries inside setup or the host entry point. An import with
 top-level side effects still executes during inspection.
 
-The [customer workspace](../../../../examples/02-customer-workspace/src/app.ts)
+The
+[connected sources example](../../../../examples/02-connected-sources/src/app.ts)
 shows a complete app with source bindings, action implementations, and cleanup.
 
 ## Analytical declaration validation

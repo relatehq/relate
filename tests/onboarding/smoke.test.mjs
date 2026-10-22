@@ -15,7 +15,7 @@ test(
   async () => {
     const { stdout, stderr } = await execute(process.execPath, [
       launcher,
-      'todo-notes',
+      'native-objects',
       '--walkthrough',
     ]);
 
@@ -23,7 +23,7 @@ test(
       JSON.parse(stdout).map((todo) => todo.title),
       ['Try Relate'],
     );
-    assert.match(stderr, /Preparing todo notes/);
+    assert.match(stderr, /Preparing native objects/);
     assert.doesNotMatch(stderr, /vite|transforming|built in/);
   },
 );
@@ -34,7 +34,7 @@ test(
   async () => {
     const { stdout } = await execute(process.execPath, [
       launcher,
-      'customer-workspace',
+      'connected-sources',
       '--walkthrough',
     ]);
 
@@ -64,7 +64,7 @@ test(
       await database.query('DROP SCHEMA IF EXISTS relate CASCADE');
       const { stdout } = await execute(
         process.execPath,
-        [launcher, 'postgres', '--walkthrough'],
+        [launcher, 'persistence', '--walkthrough'],
         {
           env: {
             ...process.env,
@@ -85,23 +85,23 @@ test(
 );
 
 for (const [name, principal, object, field, expected] of [
-  ['todo-notes', 'ada', 'Todo', 'title', ['Try Relate']],
-  ['customer-workspace', 'ana', 'Customer', 'name', ['Mothlight']],
+  ['native-objects', 'ada', 'Todo', 'title', ['Try Relate']],
+  ['connected-sources', 'ana', 'Customer', 'name', ['Mothlight']],
   ['datasets', 'ana', 'Campaign', 'clicks', ['0', '1', '4', '6']],
-  ['postgres', 'ana', 'Customer', 'name', ['Mothlight']],
+  ['persistence', 'ana', 'Customer', 'name', ['Mothlight']],
 ]) {
   test(
     `${name} starts a seeded Inspector and shuts down`,
     {
       timeout: 120000,
-      skip: name === 'postgres' && !process.env.RELATE_TEST_DATABASE_URL,
+      skip: name === 'persistence' && !process.env.RELATE_TEST_DATABASE_URL,
     },
     async () => {
       const child = spawn(process.execPath, [launcher, name, '--no-open'], {
         stdio: ['ignore', 'pipe', 'pipe'],
         env: {
           ...process.env,
-          ...(name === 'postgres'
+          ...(name === 'persistence'
             ? { DATABASE_URL: process.env.RELATE_TEST_DATABASE_URL }
             : {}),
         },

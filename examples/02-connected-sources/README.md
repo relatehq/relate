@@ -1,13 +1,14 @@
-# 02 · Customer workspace
+# 02 · Connected sources
 
-Explore one account across an HTTP CRM, SQLite invoices, and Relate-owned
-account reviews in the Inspector.
+Combine existing systems into one graph. A customer workspace explores one
+account across an HTTP CRM, SQLite invoices, and Relate-owned account reviews in
+the Inspector.
 
 From the repository root:
 
 ```sh
 pnpm install
-pnpm example:customer-workspace
+pnpm example:connected-sources
 ```
 
 The command builds dependencies, starts a CRM simulator and temporary SQLite
@@ -58,7 +59,7 @@ The development principals are local demo identities, not authentication.
 ## SDK walkthrough
 
 ```sh
-pnpm example:customer-workspace:walkthrough
+pnpm example:connected-sources:walkthrough
 ```
 
 This starts a fresh runtime, prints customer and invoice reads as Ana and Fin,
@@ -81,5 +82,5 @@ reviews and receipts. Billing references the CRM record ID directly. This is not
 a source scan, cross-source key-matching or enrichment example.
 
 For provider changes, refresh, denial and restart recovery, continue to the
-[Postgres persistence walkthrough](../03-postgres-persistence/README.md). See
-the [ordered examples](../README.md) for the full learning path.
+[persistence walkthrough](../03-persistence/README.md). See the
+[ordered examples](../README.md) for the full learning path.

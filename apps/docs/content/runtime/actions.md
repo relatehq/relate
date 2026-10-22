@@ -233,9 +233,10 @@ When a call reuses an idempotency key for the same action:
 Before returning a recorded receipt, Relate checks the caller's current access
 again, so a principal who has since lost access cannot read it.
 
-The [customer workspace](../../../../examples/02-customer-workspace/README.md)
+The
+[connected sources example](../../../../examples/02-connected-sources/README.md)
 is a runnable review-creation example with receipt replay. Its
-[handler](../../../../examples/02-customer-workspace/src/app.ts) demonstrates
+[handler](../../../../examples/02-connected-sources/src/app.ts) demonstrates
 successful creation; the declared `customerInactive` failure above extends that
 example to show an additional business outcome.
 
