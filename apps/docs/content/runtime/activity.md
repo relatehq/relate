@@ -263,16 +263,19 @@ const stages = entries[0]?.details.analytical?.stages;
 // stages.execution: { count: 2, totalMs: 19.4, maxMs: 11 }
 ```
 
-Inspector shows this summary under **Analytical timings** for each operation.
-The stages distinguish request preparation, candidate and dependency reads,
-statement planning, queue waits, connection startup, database execution,
-revalidation and result finalization. Unentered stages are omitted. Failed
-operations retain measurements through cancellation cleanup.
+In Inspector's Activity screen, open a request and choose **Timeline**:
+selecting an analytical operation in its waterfall shows this summary under
+**Analytical timings**, one bar of summed work per stage with a tick at the
+longest single span. The stages distinguish request preparation, candidate and
+dependency reads, statement planning, queue waits, connection startup, database
+execution, revalidation and result finalization. Unentered stages are omitted.
+Failed operations retain measurements through cancellation cleanup.
 
-The table shows summed work durations; concurrent and nested work overlaps and
-does not add up to the operation's elapsed time. Timings contain only stage
-names, counts and durations. They follow activity enablement and retention and
-are absent from consumer results, evidence, discovery and MCP responses.
+The bars and table show summed work durations; concurrent and nested work
+overlaps and does not add up to the operation's elapsed time. Timings contain
+only stage names, counts and durations. They follow activity enablement and
+retention and are absent from consumer results, evidence, discovery and MCP
+responses.
 
 After successful expression preparation, `details.analytical.summary` also
 records the expression count, whether computed filtering/ordering was used, and
