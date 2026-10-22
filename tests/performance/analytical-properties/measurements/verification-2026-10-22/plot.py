@@ -13,8 +13,8 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
 import numpy as np
+from matplotlib.colors import LogNorm
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "figures"
@@ -83,7 +83,7 @@ for ax, run, population, events, labels in [
     (axes[0], "full", 10000, 1000000, ["Read page", "Enrich page", "Rank full scope"]),
     (axes[1], "capacity", 12500, 100000, ["Cached memory", "Postgres + refresh"]),
 ]:
-    for j, backend in enumerate(COLORS):
+    for j, (backend, color) in enumerate(COLORS.items()):
         ws = (
             [workload(run, backend, population, events)] * 3
             if run == "full"
@@ -105,7 +105,7 @@ for ax, run, population, events, labels in [
             np.arange(len(labels)) + (j - 0.5) * 0.34,
             vals,
             height=0.31,
-            color=COLORS[backend],
+            color=color,
             label={"sqlite": "SQLite", "postgres": "PostgreSQL"}[backend],
         )
         ax.bar_label(
@@ -147,7 +147,7 @@ fig.suptitle(
     fontsize=16,
 )
 for ax, events in zip(axes, [100000, 1000000]):
-    for backend in COLORS:
+    for backend, color in COLORS.items():
         ws = [workload("full", backend, n, events) for n in [100, 1000, 10000]]
         y = [latency(w) for w in ws]
         high = [latency(w, fraction=0.95) for w in ws]
@@ -156,10 +156,10 @@ for ax, events in zip(axes, [100000, 1000000]):
             y,
             marker="o",
             linewidth=2,
-            color=COLORS[backend],
+            color=color,
             label={"sqlite": "SQLite", "postgres": "PostgreSQL"}[backend],
         )
-        ax.plot([80, 800, 8000], high, linestyle=":", alpha=0.7, color=COLORS[backend])
+        ax.plot([80, 800, 8000], high, linestyle=":", alpha=0.7, color=color)
     ax.set_xscale("log")
     ax.set_xticks([80, 800, 8000], ["80", "800", "8,000"])
     ax.set_ylim(0, 5.7)
