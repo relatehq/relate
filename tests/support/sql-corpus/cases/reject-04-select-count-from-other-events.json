@@ -1,0 +1,8 @@
+{
+  "name": "reject-04-select-count-from-other-events",
+  "sql": "SELECT COUNT(*) FROM other.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

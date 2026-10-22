@@ -9,22 +9,21 @@ no record discovery, continuous sync, webhooks, or provider writes.
 
 ```ts
 import { salesforce } from '@relate/connector-salesforce';
-import { connect } from 'relate';
+import { bind } from 'relate';
 
 const crm = salesforce({
+  connectionId: 'salesforce-crm',
   // Resolve one matching pair from your server-side OAuth credential store.
   // Refresh expired tokens there. Never accept instanceUrl from a request body.
   credentials: async ({ signal }) => getSalesforceCredentials({ signal }),
   apiVersion: '67.0',
 });
 
-const accounts = crm.resource('Account', { fields: ['Name', 'Website'] });
+const accounts = crm.resource('Account');
 
 // In defineApp.setup():
-const connection = connect(accountSource, {
-  connectionId: 'salesforce-crm',
+const connection = bind(accountSource, accounts, {
   providerAccountId: expectedOrgId, // canonical 18-character Salesforce org ID
-  connector: accounts,
 });
 ```
 
@@ -108,7 +107,7 @@ const graph = defineGraph({
 const relate = await startApp(
   defineApp({
     graph,
-    setup: () => ({ connections: [connection] }),
+    setup: () => ({ bindings: [connection] }),
   }),
 );
 try {

@@ -78,6 +78,7 @@ it('preserves legacy receipt/key evidence without inventing an actor or allowing
           source.id,
           {
             connectionId: source.id,
+            resourceId: 'records',
             providerAccountId: 'account',
             authorization: 'shared-service' as const,
             connector: {

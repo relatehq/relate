@@ -20,6 +20,7 @@ it('queries with a where filter built in another realm', async () => {
       [customers.id]: {
         providerAccountId: 'example-account',
         connectionId: 'crm',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: {
           identify: async () => 'example-account',
@@ -33,6 +34,7 @@ it('queries with a where filter built in another realm', async () => {
       [invoices.id]: {
         providerAccountId: 'example-account',
         connectionId: 'billing',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: {
           identify: async () => 'example-account',

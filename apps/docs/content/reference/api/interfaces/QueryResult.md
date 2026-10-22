@@ -1,6 +1,6 @@
 # Interface: QueryResult\<T\>
 
-Defined in: [packages/protocol/src/index.ts:29](https://github.com/relatehq/relate/blob/main/packages/protocol/src/index.ts#L29)
+Defined in: [packages/protocol/src/index.ts:45](https://github.com/relatehq/relate/blob/main/packages/protocol/src/index.ts#L45)
 
 Await one page, or iterate records across pages.
 

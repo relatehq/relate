@@ -4,7 +4,12 @@ import type {
   EvidenceMode,
   FieldEvidence,
   ReadMeta,
-  ReadRequest,
+  ReadControls,
+  ObjectReadRequest,
+  AnalyticalExpression,
+  ComputedResultType,
+  FilterScalar,
+  FilterOperators,
 } from '@relate/protocol';
 import type {
   ObjectData,
@@ -13,6 +18,7 @@ import type {
   PropertyNames,
   Property,
   PropertyValue,
+  ComputedPropertyNames,
 } from './index.js';
 
 /**
@@ -29,15 +35,21 @@ import type {
  * });
  * ```
  */
-export type ReadOptions<
+export type ReadControlOptions<
   K extends string,
   E extends EvidenceMode = EvidenceMode,
-> = Omit<ReadRequest, 'select' | 'evidence'> & {
+> = Omit<ReadControls, 'select' | 'evidence'> & {
   /** Property names to read from the object. */
   readonly select?: readonly K[];
   /** Evidence presentation; defaults to compact. */
   readonly evidence?: E;
 };
+
+/** Object reads may extend common controls without widening traversal. */
+export type ReadOptions<
+  K extends string,
+  E extends EvidenceMode = EvidenceMode,
+> = ReadControlOptions<K, E> & Omit<ObjectReadRequest, keyof ReadControls>;
 
 type TypedMeta<M, K extends string> = M extends { fields: unknown }
   ? Omit<M, 'fields'> & {
@@ -46,6 +58,12 @@ type TypedMeta<M, K extends string> = M extends { fields: unknown }
   : Omit<M, 'fields'> & {
       readonly fields?: { readonly [N in K]?: FieldEvidence };
     };
+
+type DeclaredComputedMeta<M, K extends string> = M extends unknown
+  ? Omit<M, 'computed'> & {
+      readonly computed?: { readonly [N in K]: ComputedResultType };
+    }
+  : never;
 
 /** Read methods guarantee full only for a required full evidence option. */
 export type ObjectResult<
@@ -58,13 +76,16 @@ export type ObjectResult<
       readonly status: 'ok';
       readonly id: ObjectId<O['id']>;
       readonly data: ObjectData<O, K>;
-      readonly meta: TypedMeta<Extract<ReadMeta, { evidence: E }>, K>;
+      readonly meta: DeclaredComputedMeta<
+        TypedMeta<Extract<ReadMeta, { evidence: E }>, K>,
+        Extract<K, ComputedPropertyNames<O>>
+      >;
     };
 
 export type PageOptions<
   K extends string,
   E extends EvidenceMode = EvidenceMode,
-> = ReadOptions<K, E> & {
+> = ReadControlOptions<K, E> & {
   readonly limit?: number;
   readonly cursor?: string;
 };
@@ -89,10 +110,15 @@ type RangeOperators<V> = {
 type PropertyFilter<P extends Property, V> =
   | V
   | (EqualityOperators<V> &
-      (UnwrapSchema<P['schema']> extends
-        z.ZodNumber | z.iso.ZodISODateTime | LocalDateTimeSchema
+      (P['origin']['kind'] extends 'computed'
         ? RangeOperators<V>
-        : unknown));
+        : UnwrapSchema<P['schema']> extends
+              | z.ZodNumber
+              | z.ZodBigInt
+              | z.iso.ZodISODateTime
+              | LocalDateTimeSchema
+          ? RangeOperators<V>
+          : unknown));
 
 /**
  * Filter and page through objects already adopted into the graph, or through
@@ -116,7 +142,7 @@ type PropertyFilter<P extends Property, V> =
  * });
  * ```
  */
-export type QueryOptions<
+export type CollectionReadOptions<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,
   E extends EvidenceMode = EvidenceMode,
@@ -130,6 +156,39 @@ export type QueryOptions<
   };
 };
 
+/** Object queries have an independent extension point from related collections. */
+export type QueryOptions<
+  O extends ObjectDefinition,
+  K extends PropertyNames<O> = PropertyNames<O>,
+  E extends EvidenceMode = EvidenceMode,
+> = CollectionReadOptions<O, K, E> &
+  ReadOptions<K, E> & {
+    readonly orderBy?: readonly {
+      readonly field: ComputedPropertyNames<O>;
+      readonly direction: 'asc' | 'desc';
+    }[];
+  };
+
+/** SQL result types are inferred at runtime; aliases cannot be inferred from misspelled filters. */
+export type ComputedQueryOptions<
+  O extends ObjectDefinition,
+  K extends PropertyNames<O>,
+  E extends EvidenceMode,
+  C extends Expressions,
+> = Omit<QueryOptions<O, K, E>, 'where' | 'orderBy' | 'compute'> &
+  ComputeOptions<O, C> & {
+    readonly where?: CollectionReadOptions<O, K, E>['where'] & {
+      readonly [A in keyof NoInfer<C>]?: FilterScalar | FilterOperators;
+    };
+    readonly orderBy?: readonly {
+      readonly field: Extract<
+        keyof NoInfer<C> | ComputedPropertyNames<O>,
+        string
+      >;
+      readonly direction: 'asc' | 'desc';
+    }[];
+  };
+
 export type ObjectRecord<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,
@@ -137,3 +196,39 @@ export type ObjectRecord<
 > = Omit<Extract<ObjectResult<O, K, E>, { status: 'ok' }>, 'status'>;
 
 export type { QueryResult } from '@relate/protocol';
+
+export type Expressions = Readonly<Record<string, AnalyticalExpression>>;
+
+export type ComputeOptions<
+  O extends ObjectDefinition,
+  C extends Expressions,
+> = {
+  readonly compute?: C &
+    Record<
+      Extract<
+        keyof C,
+        PropertyNames<O> | '__proto__' | 'constructor' | 'prototype'
+      >,
+      never
+    >;
+};
+
+type CallerComputedMeta<M, C extends Expressions> = M extends unknown
+  ? Omit<M, 'computed'> & {
+      readonly computed: (M extends { readonly computed?: infer D }
+        ? NonNullable<D>
+        : {}) & { readonly [A in keyof C]: ComputedResultType };
+      readonly fields?: { readonly [A in keyof C]?: FieldEvidence };
+    }
+  : never;
+
+export type WithComputed<R, C extends Expressions> = keyof C extends never
+  ? R
+  : R extends { readonly data: infer D; readonly meta: infer M }
+    ? Omit<R, 'data' | 'meta'> & {
+        readonly data: D & {
+          readonly [A in keyof C]?: string | number | boolean | null;
+        };
+        readonly meta: CallerComputedMeta<M, C>;
+      }
+    : R;

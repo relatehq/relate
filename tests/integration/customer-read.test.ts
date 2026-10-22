@@ -55,6 +55,7 @@ async function createCustomerReadFixture() {
         'crm.customers': {
           providerAccountId: 'example-account',
           connectionId: 'crm-primary',
+          resourceId: 'records',
           authorization: 'shared-service',
           connector,
         },
@@ -471,6 +472,7 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
       'crm.customers': {
         providerAccountId: 'example-account',
         connectionId: 'another-account',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
       },
@@ -489,6 +491,7 @@ it('does not leak hidden fields or adopt records from a read and scopes fallback
       'crm.customers': {
         providerAccountId: 'example-account',
         connectionId: 'crm-primary',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
       },
@@ -770,6 +773,7 @@ it('distinguishes absent optional values, legitimate null, and unavailable selec
       [resource.id]: {
         providerAccountId: 'example-account',
         connectionId: 'optional-account',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: {
           identify: async () => 'example-account',
@@ -853,6 +857,7 @@ it('denies absent policies and rejects compiled model drift against an installed
       'crm.customers': {
         providerAccountId: 'example-account',
         connectionId: 'crm-primary',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
       },
@@ -872,6 +877,7 @@ it('denies absent policies and rejects compiled model drift against an installed
       'crm.customers': {
         providerAccountId: 'example-account',
         connectionId: 'crm-primary',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: crmConnector(crm.url),
       },

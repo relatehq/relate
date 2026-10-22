@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { connect, defineAction, defineGraph, implementAction } from 'relate';
+import { bind, defineAction, defineGraph, implementAction } from 'relate';
 import { z } from 'zod';
 import type { SourceConnector } from 'relate/connectors';
 import { createRuntime } from '@relate/node';
@@ -34,14 +34,16 @@ function createInvoiceApp() {
   });
   const relate = createRuntime({
     graph: model.graph,
-    connections: [
-      connect(model.customers, {
+    bindings: [
+      bind(model.customers, {
         connectionId: 'crm',
+        resourceId: 'records',
         providerAccountId: 'account',
         connector: connector(rows.customers),
       }),
-      connect(model.invoices, {
+      bind(model.invoices, {
         connectionId: 'billing',
+        resourceId: 'records',
         providerAccountId: 'account',
         connector: connector(rows.invoices),
       }),
@@ -223,9 +225,10 @@ it('keeps registered actions and receipts when the caller changes the graph or o
   });
   const options = {
     graph,
-    connections: [
-      connect(base.objects.Customer.membership.resource, {
+    bindings: [
+      bind(base.objects.Customer.membership.resource, {
         connectionId: 'crm',
+        resourceId: 'records',
         connector: {
           identity: 'application' as const,
           fetch: async () => ({ state: 'deleted' as const }),

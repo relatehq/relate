@@ -11,7 +11,7 @@ it('defines an inert descriptor that exposes the graph without calling setup', (
     setup() {
       calls += 1;
 
-      return { connections: [] };
+      return { bindings: [] };
     },
   });
 

@@ -1,13 +1,13 @@
 # Type Alias: PageOptions\<K, E\>
 
 ```ts
-type PageOptions<K, E> = ReadOptions<K, E> & {
+type PageOptions<K, E> = ReadControlOptions<K, E> & {
   cursor?: string;
   limit?: number;
 };
 ```
 
-Defined in: [packages/relate/src/operations.ts:64](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L64)
+Defined in: [packages/relate/src/operations.ts:85](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L85)
 
 ## Type Declaration
 

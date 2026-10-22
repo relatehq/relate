@@ -1,7 +1,11 @@
+import { createAnalytics } from './analytics/index.js';
 import { Worker } from 'node:worker_threads';
 import { resolve } from 'node:path';
 import { SourceAccessDenied } from 'relate/connectors';
 import type {
+  SourceResource,
+  AnalyticalResource,
+  AnalyticalConnector,
   SourceConnector,
   ApplicationSourceConnector,
   AnySourceConnector,
@@ -22,8 +26,14 @@ export type { SqliteOptions, SqliteTableOptions } from './contracts.js';
 export interface SqliteConnection<
   C extends AnySourceConnector = AnySourceConnector,
 > {
-  table(name: string, options: SqliteTableOptions): C;
-  /** Reject outstanding reads and release the owned worker/connection. Idempotent. */
+  readonly connectionId: string;
+  readonly analytics: AnalyticalConnector;
+  table(name: string): SourceResource<C> & AnalyticalResource;
+  table(
+    name: string,
+    options: SqliteTableOptions,
+  ): C & SourceResource<C> & AnalyticalResource;
+  /** Retire reads/statements and await owned worker/process cleanup. Idempotent. */
   close(): Promise<void>;
 }
 
@@ -34,7 +44,7 @@ interface Pending {
   cleanup(): void;
 }
 
-/** One read-only SQLite connection, opened lazily in an owned worker. */
+/** Configured SQLite file with a lazy keyed-read worker and isolated analytical processes. */
 export function sqlite(
   options: SqliteOptions & { identity: NonNullable<SqliteOptions['identity']> },
 ): SqliteConnection<SourceConnector>;
@@ -46,6 +56,9 @@ export function sqlite(
 export function sqlite(options: SqliteOptions): SqliteConnection;
 
 export function sqlite(options: SqliteOptions): SqliteConnection {
+  if (typeof options.connectionId !== 'string' || !options.connectionId.trim())
+    throw new Error('SQLite connectionId must be nonempty');
+
   if (options.identity) {
     identifier(options.identity.table);
     identifier(options.identity.column);
@@ -67,6 +80,22 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
     ...(options.identity ? { identity: { ...options.identity } } : {}),
     busyTimeoutMs,
   };
+  const startupTimeoutMs = options.analyticalStartupTimeoutMs ?? 5000;
+
+  if (
+    !Number.isSafeInteger(startupTimeoutMs) ||
+    startupTimeoutMs < 1 ||
+    startupTimeoutMs > 60000
+  )
+    throw new Error(
+      'SQLite analyticalStartupTimeoutMs must be between 1 and 60000',
+    );
+
+  const analytical = createAnalytics({
+    path: settings.path,
+    busyTimeoutMs,
+    startupTimeoutMs,
+  });
   let worker: Worker | undefined;
   let stopping: Promise<void> | undefined;
   let closed = false;
@@ -193,15 +222,51 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
     });
   }
 
-  return {
-    table(name, tableOptions) {
+  const connection = {
+    connectionId: options.connectionId,
+    analytics: analytical.analytics,
+    table(name: string, tableOptions?: SqliteTableOptions) {
+      const selected: SourceResource & AnalyticalResource = {
+        connection,
+        resourceId: name,
+        bindDataset: (selection) => analytical.bindDataset(name, selection),
+        bindSource(selection) {
+          return connection.table(name, {
+            idColumn: selection.idField,
+            columns: selection.fields,
+            int64Columns: Object.entries(selection.schemas ?? {})
+              .filter(([, schema]) => schema.format === 'int64')
+              .map(([name]) => name),
+          }) as AnySourceConnector;
+        },
+      };
+
       identifier(name);
+
+      if (!tableOptions) return selected;
+
       identifier(tableOptions.idColumn);
       const columns = [...new Set(tableOptions.columns)];
 
       for (const column of columns) identifier(column);
 
-      const resource = { idColumn: tableOptions.idColumn, columns };
+      const int64Columns = [...new Set(tableOptions.int64Columns ?? [])];
+
+      if (
+        int64Columns.some(
+          (column) =>
+            column === tableOptions.idColumn || !columns.includes(column),
+        )
+      )
+        throw new Error(
+          'SQLite int64 columns must be selected non-key columns',
+        );
+
+      const resource = {
+        idColumn: tableOptions.idColumn,
+        columns,
+        int64Columns,
+      };
 
       const fetch = async (
         recordId: string,
@@ -214,14 +279,16 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
 
       return settings.identity
         ? {
-            identity: 'provider',
+            ...selected,
+            identity: 'provider' as const,
             async identify({ signal }: { signal: AbortSignal }) {
               return (await call({ operation: 'identify' }, signal)) as string;
             },
             fetch: fetch as SourceConnector['fetch'],
           }
         : {
-            identity: 'application',
+            ...selected,
+            identity: 'application' as const,
             fetch: fetch as ApplicationSourceConnector['fetch'],
           };
     },
@@ -238,7 +305,9 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
         pending.reject(error);
       }
 
-      return retire();
+      return Promise.all([retire(), analytical.close()]).then(() => {});
     },
   };
+
+  return Object.freeze(connection) as SqliteConnection;
 }

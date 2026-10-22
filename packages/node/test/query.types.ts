@@ -6,7 +6,7 @@ import type { QueryResult, ObjectRecord } from 'relate';
 import { createQueryModel } from '../../../tests/support/query-model.js';
 
 const { graph, Customer, Invoice, Run } = createQueryModel();
-const app = createRuntime({ graph, connections: [] });
+const app = createRuntime({ graph, bindings: [] });
 const customer = referenceInput(Customer).parse('customer');
 const invoice = referenceInput(Invoice).parse('invoice');
 const objects = app.as({ id: 'ana', roles: [], claims: {} }).objects;

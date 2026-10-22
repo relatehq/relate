@@ -27,10 +27,22 @@
       "reference",
       "api",
       "functions",
-      "connect"
+      "bind"
     ],
-    "name": "connect",
-    "title": "Function: connect()",
+    "name": "bind",
+    "title": "Function: bind()",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "functions",
+      "computed"
+    ],
+    "name": "computed",
+    "title": "Function: computed()",
     "description": "API reference generated from Relate types and documentation comments.",
     "section": "API Reference"
   },
@@ -67,6 +79,18 @@
     ],
     "name": "defineApp",
     "title": "Function: defineApp()",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "functions",
+      "defineDataset"
+    ],
+    "name": "defineDataset",
+    "title": "Function: defineDataset()",
     "description": "API reference generated from Relate types and documentation comments.",
     "section": "API Reference"
   },
@@ -259,6 +283,30 @@
     ],
     "name": "ActionRequest",
     "title": "Type Alias: ActionRequest<A>",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "type-aliases",
+      "ComputedPropertyNames"
+    ],
+    "name": "ComputedPropertyNames",
+    "title": "Type Alias: ComputedPropertyNames<O>",
+    "description": "API reference generated from Relate types and documentation comments.",
+    "section": "API Reference"
+  },
+  {
+    "slug": [
+      "reference",
+      "api",
+      "type-aliases",
+      "DatasetRow"
+    ],
+    "name": "DatasetRow",
+    "title": "Type Alias: DatasetRow<D>",
     "description": "API reference generated from Relate types and documentation comments.",
     "section": "API Reference"
   },

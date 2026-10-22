@@ -21,6 +21,7 @@ it('defaults to isolated memory and supports sharing an explicit store', async (
       'crm.customers': {
         providerAccountId: 'example-account',
         connectionId: 'test',
+        resourceId: 'records',
         authorization: 'shared-service' as const,
         connector: {
           identify: async () => 'example-account',
@@ -84,6 +85,7 @@ it('enforces authorization, refresh and expired permission during memory fallbac
       'crm.customers': {
         providerAccountId: 'example-account',
         connectionId: 'test',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: {
           identify: async () => 'example-account',

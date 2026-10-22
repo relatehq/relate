@@ -81,7 +81,74 @@ interface OperationEnvelope {
   readonly objects: readonly OperationObject[];
 }
 
+/** Fixed host diagnostics; never consumer result metadata. */
+export const analyticalTimingStages = [
+  'preparation',
+  'candidates',
+  'dependencyReads',
+  'planning',
+  'queueWait',
+  'connectionStartup',
+  'execution',
+  'revalidation',
+  'finalization',
+] as const;
+
+export type AnalyticalTimingStage = (typeof analyticalTimingStages)[number];
+
+export interface StageTiming {
+  readonly count: number;
+  readonly totalMs: number;
+  readonly maxMs: number;
+}
+
+export interface AnalyticalTimings {
+  /** Summed work durations can overlap and are not additive elapsed time. */
+  readonly stages: Partial<Record<AnalyticalTimingStage, StageTiming>>;
+}
+
+export const analyticalFailureReasons = [
+  'forbidden',
+  'correlation-unavailable',
+  'execution-failed',
+  'invalid-result',
+  'busy',
+  'interrupted',
+] as const;
+
+export type AnalyticalFailureReason = (typeof analyticalFailureReasons)[number];
+
+export const analyticalSummaryLimits = {
+  maxCalculations: 32,
+  maxIdentifierBytes: 256,
+} as const;
+
+export interface AnalyticalCalculationSummary {
+  readonly associationId: string;
+  readonly datasetId: string;
+  /** Declared calculations only; caller aliases are never recorded. */
+  readonly propertyId?: string;
+  /** Failed object results observed across the evaluated scope, not repeated checks. */
+  readonly failures: Partial<Record<AnalyticalFailureReason, number>>;
+}
+
+export interface AnalyticalSummary {
+  readonly expressionCount: number;
+  readonly computedFilter: boolean;
+  readonly computedOrder: boolean;
+  readonly calculations: readonly AnalyticalCalculationSummary[];
+  /** Entries omitted for count or identifier-size bounds. IDs are never shortened. */
+  readonly omittedCalculations?: number;
+}
+
+export interface AnalyticalActivity extends AnalyticalTimings {
+  /** Present after successful expression preparation; no SQL, values or aliases. */
+  readonly summary?: AnalyticalSummary;
+}
+
 export interface OperationDetails {
+  /** Host-only analytical work summary, present only for analytical get/query. */
+  readonly analytical?: AnalyticalActivity;
   /** Present when `objects` exceeded the configured limit and was cut. */
   readonly truncated?: { readonly omittedObjects: number };
 }

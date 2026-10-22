@@ -3,11 +3,15 @@
 **Status:** design agreed on 2026-10-18, revised the same day after review, and
 revised on 2026-10-21 to include declared computed properties and the Cube
 design review, alongside the findings of the
-[spike (#37)](https://github.com/relatehq/relate/pull/37); not implemented.
-[Decisions](#decisions) lists each decision with its status,
-[Open questions](#open-questions) lists what is still undecided and which step
-settles it, and [Revision notes](#revision-notes) record what each revision
-changed.
+[spike (#37)](https://github.com/relatehq/relate/pull/37). Implementation is
+underway in [PR #38](https://github.com/relatehq/relate/pull/38); analytical
+execution is not yet implemented. Shared expression type/dependency resolution
+and Node startup validation of every declared calculation are implemented.
+Dataset bindings, shared connection identity and startup physical-schema checks
+are implemented; consumer execution remains pending. [Decisions](#decisions)
+lists each decision with its status, [Open questions](#open-questions) lists
+what is still undecided and which step settles it, and
+[Revision notes](#revision-notes) record what each revision changed.
 
 **Reading guide.** Start with the example for caller behavior. [Model](#model),
 [Binding](#binding-and-schema-checks) and [Authorization](#authorization)
@@ -1398,8 +1402,18 @@ export interface AnalyticalConnector {
   plan(query: AuthorizedDatasetQuery): PreparedPlan;
   execute(
     plan: PreparedPlan,
-    options: { signal: AbortSignal; timeoutMs: number },
+    options: {
+      signal: AbortSignal;
+      timeoutMs: number;
+      /** Host diagnostics only; report entered phases on success and failure. */
+      onTiming?: (timing: AnalyticalExecutionTiming) => void;
+    },
   ): Promise<DatasetExecution>;
+}
+
+export interface AnalyticalExecutionTiming {
+  readonly stage: 'connectionStartup' | 'execution';
+  readonly durationMs: number;
 }
 
 export interface DatasetExecution {
@@ -1451,6 +1465,11 @@ contract test:
   deadline also covers startup and can cancel it earlier.
 - Result validation and JSON encoding are the runtime's, using the shared codecs
   in `packages/relate`. A connector does not decide a result's type.
+- When supplied, `onTiming` reports each entered connector phase exactly once,
+  including failure, timeout and cancellation paths. Durations use a monotonic
+  clock in the process that owns the phase. Observer failures must not change
+  query results or prevent resource cleanup. See
+  [Query stage timings](#query-stage-timings).
 
 Connector failures use a portable `DatasetExecutionError` contract with
 `code: 'execution-failed' | 'invalid-result'` and `retryable: boolean`.
@@ -1890,8 +1909,90 @@ number of expressions, whether computed filters or order were used, and the
 failure reason of each failed calculation. Declared calculations use their
 stable property IDs. It records no SQL, parameters or aliases.
 
+### Query stage timings
+
+**Required for v1; implementation pending.** Analytical reads need a timing
+breakdown so the host can distinguish slow source reads, queue contention,
+connection startup and database execution. Capture it for both caller
+expressions and declared calculations, through `get` and both query execution
+paths. Build the measurements with those paths, before using the full-path
+benchmark to choose budgets.
+
+Attach a bounded summary to the existing host operation activity record and show
+it in the Inspector's operation detail. Reuse the operation's existing
+`durationMs` as total elapsed time. Timings are host diagnostics: they do not go
+in consumer response metadata, field evidence, discovery or MCP results.
+`readAt` remains the statement's wall-clock start, not a duration measurement.
+
+```ts
+type AnalyticalTimingStage =
+  | 'preparation'
+  | 'candidates'
+  | 'dependencyReads'
+  | 'planning'
+  | 'queueWait'
+  | 'connectionStartup'
+  | 'execution'
+  | 'revalidation'
+  | 'finalization';
+
+interface StageTiming {
+  readonly count: number; // Number of measured spans, including failed attempts.
+  readonly totalMs: number; // Sum of their durations; not additive across stages.
+  readonly maxMs: number; // Longest individual span.
+}
+
+interface AnalyticalTimings {
+  readonly stages: Partial<Record<AnalyticalTimingStage, StageTiming>>;
+}
+```
+
+| Stage               | Measured work                                                                                           | Owner                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `preparation`       | Parse SQL, resolve names/types/access, and validate compute/filter/order requests                       | Runtime analytics                      |
+| `candidates`        | Find graph members, authorize them and apply ordinary filters, including source refreshes               | Read/query owner                       |
+| `dependencyReads`   | Obtain ordinary values required by correlations and `self` references; reused reads are measured once   | Read/query owner                       |
+| `planning`          | Form batches, calculate parameter budgets and generate connector plans                                  | Runtime analytics                      |
+| `queueWait`         | From enqueue until admission, rejection or cancellation                                                 | Statement queue                        |
+| `connectionStartup` | Acquire a client or start a worker process before statement dispatch                                    | Connector                              |
+| `execution`         | Statement dispatch through result collection, driver decoding and required resource cleanup             | Connector                              |
+| `revalidation`      | Final authorization and dependency checks for the object or full candidate scope                        | Read/query owner                       |
+| `finalization`      | Validate/encode computed values, merge results, apply computed filters/order, and build the page/cursor | Runtime analytics and read/query owner |
+
+Measurement rules:
+
+- Use monotonic elapsed time, not differences between wall-clock timestamps.
+  Durations are finite, non-negative milliseconds. Connector execution is
+  client-observed elapsed time, not server CPU time or a database query plan.
+- Close a span in `finally`, including on rejection, timeout, cancellation and
+  runtime retirement. Omit stages never entered; do not fill them with invented
+  zeroes. Record time spent waiting even when no statement is admitted. Failed
+  startup records `connectionStartup` without an `execution` span.
+- Parallel batches and dependency reads overlap; some spans are nested, such as
+  dependency reads within candidate enumeration or revalidation. Measure each
+  actual read once, but retain its enclosing stage duration. Therefore stage
+  totals can exceed operation elapsed time. Inspector must label them as summed
+  work durations and must not display them as additive parts of a stacked total.
+- The runtime measures its own stages and queue waits. Connectors report startup
+  and execution separately through `execute`'s timing callback, including
+  errors; timing only the outer `execute` promise cannot distinguish those
+  costs. Final activity capture must include reported cancellation/cleanup
+  durations before the operation is recorded under the existing operation
+  lifecycle.
+- Keep only the fixed set of stage aggregates per operation. Do not retain a
+  growing span list or record SQL, parameters, caller aliases, object values,
+  physical identifiers, hosts or credentials. Existing stable-ID activity
+  attribution remains unchanged. Timing capture follows existing host activity
+  enablement/retention and best-effort failure behavior; no external telemetry
+  service is required and diagnostics failure must not fail a read.
+- The full-path benchmark reports total elapsed time and this stage breakdown,
+  with candidate, source-refresh, batch and statement counts, on both backends.
+  Counts describe the measured workload; they are not inferred from span counts.
+  Report the cost of enabled instrumentation as part of that benchmark.
+
 **Inspector.** Shows datasets as nodes with association edges to objects, and
-columns with their access groups. Exact presentation is left to the Inspector.
+columns with their access groups. Operation detail also shows the timing summary
+above. Exact presentation is left to the Inspector.
 
 ## Conformance corpus
 
@@ -2180,7 +2281,8 @@ steps below. No production package imports the spike under `dev/`.
    2. `packages/sql-parser`.
    3. Declared-property authoring and startup validation;
       `runtime/src/analytics` and the membership-first path through `get` and
-      `query` for both forms, with the SQLite connector.
+      `query` for both forms, with the SQLite connector. Instrument the runtime,
+      queue and connector stages as these paths are implemented.
    4. `connectors/postgres`.
    5. The scope-first path: declared properties and caller aliases in computed
       `where` and `orderBy`, encrypted cursors including definition revisions.
@@ -2188,6 +2290,44 @@ steps below. No production package imports the spike under `dev/`.
 6. **Ship:** discovery, MCP, Inspector, docs, and an example using a general
    `events` table in the example's SQLite file with both a caller-side login
    filter and a declared `loginCount` property. Update the README status table.
+
+### Implementation progress
+
+[PR #38](https://github.com/relatehq/relate/pull/38) implements the complete v1
+scope below. A checked foundation does not establish analytical execution.
+
+- [x] Rename `connect`/`connections` to `bind`/`bindings` across source, docs,
+      examples and installed-package programs.
+- [x] Scope observations and cursors by connection plus resource; migrate
+      Postgres observations without inventing resource identity.
+- [x] Configure identity on SQLite, Stripe and Salesforce connections; bind
+      selected resources using the source definition's key and fields.
+- [x] Separate object read/query requests from traversal and transaction reads.
+- [ ] Finalize portable SQL, logical types, codecs, execution contracts and the
+      conformance corpus, including the open decisions below.
+- [x] Add column-derived dataset authoring, compiled association pairs and
+      policy metadata, preserving stable IDs and descriptions.
+- [x] Compile declared-calculation identity, access and SQL into revisioned
+      metadata; reject calculated reads on traversal and action surfaces.
+- [ ] Complete integer object-property support and declared-calculation semantic
+      validation at startup.
+- [x] Parse the complete restricted SQL subset through `@relate/sql-parser`.
+- [x] Define the opaque analytical connector boundary and implement bounded
+      statement admission, cancellation and retirement; host wiring remains
+      below.
+- [ ] Execute authorized caller and declared calculations through object get and
+      membership-first query on SQLite and Postgres, including cancellation,
+      limits, failure granularity and dependency revalidation.
+- [ ] Benchmark authorized candidate enumeration and set finite budgets.
+- [ ] Capture bounded host query-stage timings on success and failure, expose
+      them in operation activity and Inspector, and include them in both backend
+      benchmarks before choosing final budgets.
+- [ ] Execute computed filtering/order through the scope-first path with opaque,
+      revision-bound cursors and full-scope revalidation.
+- [ ] Ship `decodeComputed`, authorized discovery, MCP, Inspector, documentation
+      and the events example with caller SQL and declared `loginCount`.
+- [ ] Verify every acceptance criterion on both backends, run repository and
+      installed-package checks, and mark the PR ready for review.
 
 ## Acceptance criteria
 
@@ -2291,6 +2431,19 @@ the running example:
 - Multiple bindings share one connection queue. Startup failure, shutdown and
   reload each dispose owned connections once, after work is drained or
   cancelled.
+- Host activity and Inspector show total operation elapsed time and the entered
+  analytical stages for successful, rejected, partially unavailable, timed-out,
+  cancelled and retired reads. A queued cancellation records its wait without
+  inventing execution time; a connector startup failure records startup only.
+- Timing contract tests use a controllable monotonic clock to verify accumulated
+  duration, maximum span, counts, omitted stages, overlapping work and failure
+  cleanup. Both connector suites prove startup/execution reporting on success
+  and failure. Integration tests verify host visibility and absence from
+  consumer responses, evidence and MCP results, including redaction of sensitive
+  inputs.
+- The full-path benchmark includes the stage breakdown and workload counts for
+  both backends. Parallel/nested stage totals are not asserted to equal the
+  operation duration. Disabled or failed diagnostics do not change read results.
 - `decodeComputed` returns `2n` for `loginsOct` and a `Date` for `lastLogin`.
 - The same corpus passes on Postgres and SQLite with identical JSON.
 - Embedded, HTTP and MCP callers get identical validation and errors.
@@ -2303,6 +2456,7 @@ the running example:
 
 | Decision                                                                                                                                         | Status   |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| [Bounded host query-stage timings in activity, Inspector and full-path benchmarks](#query-stage-timings)                                         | Agreed   |
 | [Execution equivalence, grain, combination and reuse constraints](#correctness-across-execution-strategies)                                      | Agreed   |
 | [Evaluate DataFusion, egg, sqlparser-rs, Arrow/arrow-rs and Cube Store after API stability](#deferred-technology-evaluation-after-api-stability) | Deferred |
 | Datasets are separate from objects: no adoption, no object IDs, no persisted values                                                              | Agreed   |
@@ -2373,26 +2527,31 @@ Each question names the delivery step that settles it.
 4. Exact protocol names: unavailable reasons (today's `unavailable` variant has
    no `reason`), `location` units and whether they are UTF-16 columns, the
    `meta.computed` key, expression identity. (Contracts.)
-5. **Quoted lowercase names.** Does `e."eventtype"` resolve to `eventType` (the
-   spike's behaviour) or is it `unknown-property` (strict Postgres)? Strict is
-   recommended so the future graph SQL behaves like Postgres. Also: may a
-   declared name be a reserved word (`order`), usable only quoted? (Contracts.)
-6. `decodeComputed`: name, and whether int64 values come back as plain `bigint`
-   or wrapped with `toNumber()`. (Contracts.)
+5. **Settled in implementation:** quoted names match exactly, while unquoted
+   names fold to lowercase. `e."eventtype"` does not resolve to `eventType`.
+   Quoting permits declared identifiers that the grammar reserves.
+6. **Settled in implementation:** `decodeComputed` returns plain `bigint` for
+   int64. Shared scalar codecs enforce signed int64 bounds without number
+   rounding.
 7. **Statement-level failure.** Is it acceptable that one alias's database error
    fails every alias in its statement? The alternative is a bounded retry of the
    remaining aliases without the failed one, which costs extra statements
    against the queue and time budget. (Contracts.)
-8. **Microsecond timestamps.** The spike tested milliseconds only, and a
-   JavaScript `Date` cannot hold microseconds. Keep µs columns in v1 (and decide
-   what `decodeComputed` returns for them), or accept ms only and defer µs?
-   (Contracts.)
-9. Package names: `@relate/sql-parser` is suggested; name of the Postgres
-   connector package. Whether `packages/node` depends on the parser always (1.7
-   MB WASM, loaded at startup) or only when a graph declares datasets. (Build.)
-10. After the protocol split, do `ReadRequest` and `QueryRequest` remain as
-    exported names (aliases of the new types) or are they removed? (Protocol
-    split.)
+8. **Settled in implementation:** keep microsecond columns in v1. Decoding
+   returns their canonical UTC string, preserving all six fractional digits;
+   millisecond values decode to `Date`. The scalar corpus covers offset
+   normalization, pre-epoch instants and precision-loss rejection. Backend
+   comparison and execution cases remain required before shipping.
+9. **Partly settled in implementation:** `@relate/sql-parser` is a Node package
+   dependency, imported and initialized by `startApp` only for graphs with
+   datasets or computed properties. Analytical graphs use asynchronous
+   `startApp` so schema inspection completes before the runtime is returned;
+   ordinary graphs retain synchronous `createRuntime`. The Postgres connector
+   package name remains to be settled during its implementation.
+10. **Settled in implementation:** keep `ReadRequest` and `QueryRequest` as
+    aliases of `ObjectReadRequest` and `ObjectQueryRequest`. Traversal and
+    transaction readers depend on the common controls, so extending object
+    requests does not extend those restricted surfaces.
 11. **Candidate enumeration budgets.** Benchmark actual authorized reads and
     source refreshes, then set finite scan, refresh, admitted-candidate and
     whole-operation limits. Confirm that honoring existing freshness options
@@ -2416,11 +2575,12 @@ Each question names the delivery step that settles it.
     recomputation, required aliases fail the read, and transaction-bound action
     readers reject `compute`. (Contracts, before either public read path.)
 
-16. **Declared-property API details.** Finalize `computed(...)` authoring types,
-    the `ComputedPropertyNames<O>` consumer generic and startup diagnostic
-    shape. Preserve the agreed shared execution, scalar-union result typing, no
-    named parameters or computed dependencies, revision and selection rules
-    above. (Contracts, before building either form.)
+16. **Settled in implementation:** `computed(...)` authoring types,
+    `ComputedPropertyNames<O>` and startup diagnostics are implemented. Startup
+    reports `calculation.invalid-definition` with each authored property path.
+    Preserve the agreed shared execution, scalar-union result typing, no named
+    parameters or computed dependencies, revision and selection rules above.
+    (Contracts, before building either form.)
 
 Settled by the spike, from the previous list: the parser's load time and size
 are acceptable and no fallback parser is needed (was 7); identifier rules are
@@ -2431,6 +2591,14 @@ scope limit is per query and host-configured, with no push-down before graph SQL
 Postgres (was 1, now a scope question).
 
 ## Revision notes
+
+### 2026-10-21: Query stage timings
+
+- Require host-side stage timing summaries for analytical reads, including
+  failures and cancellation. Define monotonic-clock and overlapping-span rules,
+  connector timing reporting, bounded/redacted capture, Inspector visibility,
+  benchmark output and acceptance tests. Instrumentation is part of execution
+  implementation; consumer result and evidence contracts remain unchanged.
 
 ### 2026-10-21: Explicit association pairs
 

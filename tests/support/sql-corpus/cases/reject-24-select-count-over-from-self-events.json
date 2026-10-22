@@ -1,0 +1,8 @@
+{
+  "name": "reject-24-select-count-over-from-self-events",
+  "sql": "SELECT COUNT(*) OVER () FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

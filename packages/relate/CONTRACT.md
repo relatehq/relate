@@ -2,20 +2,25 @@
 
 ## Portable application and extension contracts
 
-`connect`, `defineApp`, and their `Connection`, `AppBindings`, `AppDefinition`,
-and `AppSetupContext` types belong to `relate`. `connect` creates a frozen
-binding and defaults authorization to `shared-service`; it does not open a
-connection. `defineApp` preserves the exact graph type and stores deferred setup
-without invoking it. `isAppDefinition` recognizes the descriptor across module
+`bind`, `defineApp`, and their `Binding`, `AppBindings`, `AppDefinition`, and
+`AppSetupContext` types belong to `relate`. `bind` creates a frozen binding and
+defaults authorization to `shared-service`; it does not open a connection.
+`defineApp` preserves the exact graph type and stores deferred setup without
+invoking it. `isAppDefinition` recognizes the descriptor across module
 instances. Execution and registered cleanup belong to `startApp` in
 `@relate/node`.
 
 `relate/connectors` owns `SourceConnector`, `SourceRecord`, `SourceVersion`,
-`SourceBinding`, and `SourceAccessDenied`. This is the existing resource-read
-contract: account identification and fetching a known source record ID. It does
-not yet define system factories, resource discovery, synchronization, or
-external writes. Account evidence and denial/deletion semantics are unchanged;
-see the [runtime contract](../runtime/CONTRACT.md).
+`SourceBinding`, `SourceResource`, `ResourceConnection`, and
+`SourceAccessDenied`. A selected resource carries its connection identity and
+resource ID. `bind` derives its keyed selection from the source definition
+through `bindSource`. Provider resources require an expected account;
+application-owned resources cannot assert one. Custom adapters may supply an
+explicit `SourceBinding` configuration. The resource-read contract covers:
+account identification and fetching a known source record ID. It does not yet
+define system factories, resource discovery, synchronization, or external
+writes. Account evidence and denial/deletion semantics are unchanged; see the
+[runtime contract](../runtime/CONTRACT.md).
 
 `relate/storage` exports storage interface types needed by app setup and runtime
 implementations. `@relate/runtime/storage` continues to re-export those types
@@ -48,14 +53,16 @@ field classifications, and policy dependencies, then returns an immutable,
 serializable manifest. Property renames preserve their IDs and change the
 definition revision.
 
-The current manifest format is **6**. Source observations, native values,
+The current manifest format is **7**. Source observations, native values,
 authorization evidence and persisted value history use stable property IDs;
-consumer results retain property names. Formats 1 through 5 must be recompiled.
+consumer results retain property names. Formats 1 through 6 must be recompiled.
 Format 4 added portable scalar bounds and declared action failure schemas;
-format 5 added portable graph discovery descriptions; format 6 adds timestamp
-semantics to scalar schemas. Recompilation also changes the installed revision,
-preventing an existing name-keyed store from being read as ID-keyed data.
-Existing installations need an explicit data/revision migration; see the
+format 5 added portable graph discovery descriptions; format 6 added timestamp
+semantics to scalar schemas; format 7 adds analytical dataset and association
+metadata with column policies and correlation IDs. Recompilation also changes
+the installed revision, preventing an existing name-keyed store from being read
+as ID-keyed data. Existing installations need an explicit data/revision
+migration; see the
 [storage contract](../runtime/STORE_CONTRACT.md#property-identity).
 
 This slice supports a single membership source per object, scalar string/number/
@@ -595,8 +602,11 @@ preserves the bounds; loading the manifest validates their shape and scalar
 type. Runtime validation uses this portable metadata, so an application cannot
 bypass a native property limit by supplying a valid action input and
 constructing an invalid value inside the handler. Unsupported checks (including
-regex, arbitrary refinements, formats, integer checks, transforms, defaults and
-coercion) still reject compilation.
+regex, arbitrary refinements, unrecognized formats, `z.int()`, transforms,
+defaults and coercion) still reject compilation. Unrefined `z.int32()` and
+`z.int64()` have explicit portable formats: signed 32-bit JSON numbers and
+canonical signed 64-bit decimal strings, respectively. Optional/nullable
+wrappers are supported; additional integer bounds or refinements are rejected.
 
 Actions may declare `errors: { inactive: z.object({}) }`. Their implementation
 can call `fail('inactive', {})`; callers receive a typed failed receipt after
@@ -617,3 +627,271 @@ chronology. Plain strings and existing timestamps keep their contracts. Adoption
 changes the portable schema and definition revision, invalidating old cursors;
 recompile consumers and readopt/reacquire into the new revision. No silent
 conversion of existing strings or source pushdown occurs.
+
+## Analytical value boundary
+
+`relate/analytics` exports `AnalyticalLimits` for the host-owned
+`AppBindings.analytics` operation deadline and source-call budget, alongside the
+portable SQL representation, parser interface, logical types and codecs. SQL
+source spans are zero-based UTF-16 offsets into the original expression. Numeric
+SQL literals retain their exact spelling until contextual type resolution;
+parsing must never round a wide integer through a JavaScript number. No
+parser-specific syntax tree crosses this boundary.
+
+Result encoding validates int32/int64 bounds, finite float64 values, exact
+boolean/string types and canonical UTC timestamp precision. Portable strings
+exclude NUL; canonical int64 strings exclude `'-0'`. Int64 JSON is always a
+decimal string; scalar decoding returns bigint. Millisecond timestamp decoding
+returns Date, while microsecond decoding preserves the canonical string. The
+same codecs own runtime result validation and consumer decoding. Null parameters
+are rejected; SQL null literals have their own restricted syntax. Invalid values
+raise a sanitized error that contains neither the value nor provider details.
+
+Aggregates execute in the backend. `COUNT`, integer `SUM`, and `MIN`/`MAX` of
+integer, boolean, string and timestamp values are identical on every supported
+backend: strings order by UTF-8 bytes and timestamps by instant. `AVG` and
+float64 `SUM` use the backend's floating-point arithmetic. Results can differ
+between backends in the last digits, and can vary with row order or parallel
+execution within one backend.
+
+`relate/consumer` exports `decodeComputed(result)`, `DecodedComputed<R>` and
+`AnalyticalValueError`. Typed results constrain the decoded bag to selected
+declared calculations and caller aliases. The input is a get result or an
+individual query record carrying `data` and `meta.computed`. The output is a
+separate object containing only own, present computed fields, decoded with those
+logical types. It does not alter data, status, IDs or evidence in the input.
+Both compact and full metadata are supported. Missing/forbidden/unavailable
+values remain omitted; null remains null. A not-found result or absent computed
+metadata returns an empty object. Ordinary fields, including ordinary int64
+strings, are not part of the decoded bag. Pages are decoded record by record.
+
+Malformed present scalars and their type metadata throw `AnalyticalValueError`;
+no partial bag is returned and no value is included in the error. Type entries
+for omitted fields are not decoded. Literal metadata narrows the decoded scalar
+type; authored SQL retains the scalar union, and all output fields are optional.
+The helper stays browser-safe and reaches only the shared portable value codecs.
+
+The analytical entry point and its transitive local imports stay inside the
+analytics subtree. Connector/storage contracts may reach that subtree but still
+cannot reach graph authoring, compilation or runtime code.
+
+## Analytical connector boundary
+
+Glossary:
+
+- **Resource handle**: a connector-owned identity for one selected table and
+  column mapping, represented by `DatasetResource`.
+- **Slot**: one object in a statement, identified by its zero-based input index.
+  Two objects sharing correlation values still have different slots.
+- **Validity mask**: one boolean per aggregate in each slot. A false mask means
+  that object's dependency is unavailable; it must not widen another aggregate.
+- **Plan**: a connector-owned `PreparedPlan`, created from an authorized query.
+  It belongs to its resource and binding generation; it is never caller SQL.
+
+`validateAuthorizedDatasetQuery(query, declaredColumns)` from
+`relate/connectors` checks shared logical query invariants: mapped column names,
+key indexes, slot widths and types, aggregate forms, and predicate
+operators/arity. Empty slots are allowed for parameter budgeting; connectors
+require nonempty executable plans separately. Physical identifier quoting, value
+encoding, SQL generation and backend execution remain connector-owned.
+
+`relate/connectors` exports `AnalyticalConnector`, `AnalyticalResource`,
+`AnalyticalConnection`, and their execution types. The SQLite and PostgreSQL
+connectors implement this boundary for the runtime's analytical object reads.
+
+```mermaid
+flowchart LR
+  Runtime[Runtime authorized query] --> Plan[Connector plan]
+  Resource[Opaque resource and physical mapping] --> Plan
+  Plan --> Execute[Connector execute]
+  Execute --> Rows[Portable rows by object slot]
+  Rows --> Validate[Runtime scalar validation and JSON encoding]
+```
+
+`AuthorizedDatasetQuery` contains declared column names, typed bound values,
+correlation keys, per-slot validity masks and Relate result types. It contains
+no SQL or physical identifiers. `parameterBudget` conservatively counts every
+parameter generated by `plan`, including repeated placeholders and masks; `plan`
+must check its actual count. Correlation and masks are combined outside the
+caller predicate. Returned rows contain exactly one row per slot, in order, with
+one portable scalar per aggregate. Driver wrappers and `Date` objects must be
+decoded inside the connector without losing precision.
+
+`describe` returns columns keyed by declared name. Each `PhysicalColumn` reports
+`databaseType` for startup diagnostics, `nullable`, and `supportedTypes` for
+lossless compatibility checks. A missing physical column is absent. An
+unsupported type has an empty supported-types list. This permits SQLite's
+`INTEGER` affinity to support both int32 and int64 without pretending the
+physical schema distinguishes them. It does not validate individual rows.
+
+The connection owns cleanup, and the analytical capability has no `close()`.
+`execute` must reject foreign or retired plans, honor abort and statement
+timeout, and settle only after releasing its resources. `readAt` records
+statement start after queue admission and client startup. Optional `modifiedAt`
+is an observed backend timestamp, not a snapshot or ingestion guarantee.
+
+`DatasetExecutionError` reports only `execution-failed` or `invalid-result` and
+`retryable`. It stores optional driver details in a nonenumerable `cause`; its
+message contains no driver text. Consumers must never serialize that cause.
+Caller abort and retirement propagate through the operation signal, separately
+from retryable analytical failures.
+
+## Dataset and association compilation
+
+Glossary:
+
+- **Dataset**: an unbound row definition, such as `Events`. It has columns and
+  no row key; duplicate rows are meaningful.
+- **Association**: a named connection from one object to a dataset, such as
+  `Customer.datasets.events`. Its `on` pairs describe which rows belong to that
+  object using declared names, not physical column names.
+- **Column group**: the declared access classification of a column, such as
+  `ordinary` or `identifying`. Dataset policy assigns roles to restricted
+  groups.
+
+`defineDataset` accepts `id`, optional `description`, and `columns`. Every
+column declares its Zod `schema`, stable `id`, `access` group and optional
+`description`. A separate top-level input schema is rejected. The helper
+captures and freezes column descriptors and derives `dataset.schema` and the
+`DatasetRow<D>` TypeScript row type from them.
+
+The compiler accepts unrefined `z.boolean()`, `z.string()`, `z.int32()`,
+`z.int64()`, `z.number()` and
+`z.iso.datetime({ offset: true, precision: 3 | 6 })` column schemas, optionally
+wrapped in `.nullable()`. Optional values, coercions, transforms, defaults,
+enum/decimal types and additional refinements are rejected: physical schema
+checks cannot promise their row-level constraints. Int64 row schemas retain
+bigint; datasets do not persist their rows as object JSON.
+
+```mermaid
+flowchart LR
+  Columns[Column schemas, IDs and groups] --> Dataset[Derived row schema]
+  Columns --> Compile[Compile analytical model]
+  Pairs[Object association pairs] --> Compile
+  Policies[Association gates and dataset groups] --> Compile
+  Compile --> Manifest[Portable metadata with stable IDs]
+  Manifest --> Validate[Independent manifest validation]
+```
+
+A graph registers datasets separately from objects. API names are unique across
+those registries, and all stable IDs are unique across the graph. Dataset
+columns, object properties and each object's association names cannot collide
+after SQL case folding. Descriptions are preserved exactly; blank descriptions
+are invalid and omitted descriptions remain absent.
+
+Association `on` is a non-empty array of `{ column, property }`. Both names are
+checked against their owner and compiled to stable IDs. Dataset column mappings
+cannot repeat; multiple columns may match the same object property. Pair order
+is normalized so it does not change `definitionRevision`. A dataset reference
+must be the registered definition instance. Ordinary string, boolean, int32,
+int64 and millisecond-instant properties (including nullable/optional properties
+and object IDs) can correlate with compatible columns. Integer formats must
+match exactly. Timestamp precision may differ without losing the millisecond
+value. Reference properties, local wall-clock values, floating equality and
+incompatible types are rejected.
+
+Every registered dataset requires a policy, including `{}` for ordinary-only
+columns. Every restricted column group requires a role gate. Dataset policies
+accept only `groups`; uncorrelated row policy is deferred. Every association
+requires its own object-policy gate, even if the object's read policy is deny.
+Unknown association policy names, unsupported gates and unknown roles/groups are
+compile errors. Association gates and dataset column groups are compiled
+independently; neither grants access to the object itself.
+
+Manifest format 7 includes dataset schemas and groups plus per-object
+associations, correlation IDs and gates. Validation of loaded JSON repeats ID,
+name, logical-type, correlation and policy checks independently of TypeScript
+and authoring helpers. Dataset or association renames retain explicit IDs but
+change the revision; description and policy changes also affect the revision.
+Node `startApp` combines these declarations with physical bindings and the SQL
+parser. The runtime executes caller expressions and declared calculations
+through object `get` and `query`, including computed filtering and ordering on
+both SQLite and PostgreSQL. See the
+[runtime analytical contract](../runtime/CONTRACT.md#analytical-object-get).
+
+## Declared calculation metadata
+
+`computed({ id, sql, access?, description? })` declares a read-only analytical
+property. Its default access group is `ordinary`, matching ordinary property
+helpers. The helper captures and freezes the declaration. It rejects blank or
+non-string SQL and unsupported authoring options, including parameters and a
+caller-supplied schema. The compiler deliberately does not parse SQL: Node's
+startup preparation validates all declarations with the injected parser,
+including unselected or denied declarations. Unknown names, invalid types, named
+parameters and computed dependencies fail startup with authored-path
+diagnostics.
+
+Manifest format 7 stores declarations in each object's `calculations` array,
+separate from its ordinary `properties`. Each entry retains `id`, `name`,
+`access`, `sql` and an optional unchanged `description`. Entries are sorted by
+stable ID and participate in `definitionRevision`. Changing SQL or renaming the
+property changes the revision without changing its explicit ID. Loaded JSON
+validates declaration shape, names, IDs and access groups; calculated and
+ordinary names share one namespace and cannot collide after SQL folding.
+
+```mermaid
+flowchart LR
+  Declaration[computed property declaration] --> Compile[Portable compiler]
+  Compile --> Metadata[Revisioned calculation metadata]
+  Compile --> Stored[Ordinary stored property metadata]
+  Metadata --> Prepare[Runtime type and dependency preparation]
+  Stored --> Persistence[Source observation and native write validation]
+```
+
+`ComputedPropertyNames<O>` denotes declared calculation names. The property
+schema in TypeScript represents the JSON output envelope only: string, number,
+boolean or null. It does not infer a result from the SQL string. Selected
+calculated values remain optional, and ordinary selected properties retain
+existing types. Declared filters accept scalar comparisons; runtime preparation
+will validate them against the inferred result type.
+
+Computed properties cannot be correlation keys, row-policy dependencies,
+relationship references or native action write targets. Compilation rejects
+policy/correlation dependencies, and native writes validate only stored
+properties. Calculations are absent from adoption mappings and native stored
+values, so adding a declaration cannot persist an analytical result.
+
+## Dataset resource binding
+
+`bind(Dataset, resource, { columns? })` binds a dataset declaration to an
+`AnalyticalResource`. The optional mapping uses declared column names as keys;
+unspecified physical names default to their declared names. Unknown keys, empty
+or NUL-containing physical names and unsupported options are rejected.
+Identifier text otherwise passes unchanged to the connector, which owns quoting.
+Binding captures and freezes the mapping and does not inspect or execute the
+resource.
+
+`Binding` is the union of `SourceAppBinding` and `DatasetBinding`. A dataset
+binding retains the original definition and connection, connection/resource IDs,
+the opaque connector resource and the frozen mapping. A selected source binding
+also retains its original connection. Explicit custom source bindings can supply
+`connection` when several resource readers share the same configured connection.
+Dataset resources require `bindDataset`; source resources require `bindSource`.
+A resource can implement both capabilities.
+
+Node `startApp` checks registrations, capabilities, connection identity and
+physical-schema compatibility before returning a runtime. The resulting bindings
+supply the opaque resources and shared connection queues used by analytical
+object reads. Source and dataset resources may share a connection without
+sharing object identity or membership.
+
+## Analytical connector timing
+
+`AnalyticalExecutionTiming` and `AnalyticalConnector.execute(..., { onTiming })`
+provide optional host-only measurement of `connectionStartup` and `execution`.
+Each entered phase reports once on success, failure, timeout or cancellation,
+using monotonic finite non-negative durations. Execution includes required
+resource cleanup. A phase never entered is omitted; failed startup does not
+invent execution time. Observers cannot fail the query or block cleanup. These
+callbacks contain only a stage and duration, never SQL, values, aliases or
+physical connection details. Runtime activity aggregation and Inspector display
+remain implementation work.
+
+Traversal defaults select ordinary properties even when the target declares
+calculations. Traversal selection and filters exclude calculated names in the
+typed facade; explicit calculated requests remain unsupported at runtime.
+
+Analytical connectors may publish `limits.maxConcurrentStatements`. Hosts clamp
+admission to that capacity and coordinate it across runtimes borrowing a
+connection; callers do not configure connector capacity. A missing capability
+limit leaves the host's finite concurrency limit in force.

@@ -59,7 +59,7 @@ validation/
   check-policies.mjs                independent unsuppressed rejection check
   scenario.ts                       intended outcomes, never executed
   reference-write-scenario.ts       write identity, permission and rollback cases
-  setup.ts                          simulated connections and principals
+  setup.ts                          simulated bindings and principals
   records.ts                        provider data
 ```
 
@@ -150,7 +150,7 @@ retain the alternatives and behavioral experiment. The native account-review
 slice enforces create policies at the write and before commit. Task integrity
 rules and their evidence bounds remain unimplemented/open.
 
-`createRuntime({ graph, actionImplementations, connections })` checks action
+`createRuntime({ graph, actionImplementations, bindings })` checks action
 registration. `creates` limits native creation capability; runtime policies
 still must authorize the values and relationships. Source-owned objects have no
 native `create` operation. Source-backed reads are not part of the native

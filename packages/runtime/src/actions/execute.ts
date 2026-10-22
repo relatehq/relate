@@ -6,9 +6,9 @@ import type {
   FullReadResult,
   FullPageResult,
   Json,
-  QueryRequest,
+  CollectionReadControls,
   PageResult,
-  ReadRequest,
+  ReadControls,
   ObjectResult,
   FullObjectResult,
   ActionReceipt,
@@ -42,8 +42,8 @@ export interface ActionExecutionContext {
   readonly idempotencyId: string;
   readonly actor: Principal;
   readonly input: Record<string, Json>;
-  read(type: string, id: string, request?: ReadRequest): Promise<ObjectResult>;
-  query(type: string, request?: QueryRequest): Promise<PageResult>;
+  read(type: string, id: string, request?: ReadControls): Promise<ObjectResult>;
+  query(type: string, request?: CollectionReadControls): Promise<PageResult>;
   fail(code: string, details: unknown): never;
   create(type: string, values: unknown): Promise<{ id: string }>;
 }
@@ -88,7 +88,7 @@ export function createActionExecutor(options: {
     principal: Principal,
     type: string,
     id: string,
-    request: ReadRequest,
+    request: ReadControls,
     transaction: NativeTransaction,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
   ): Promise<FullObjectResult>;
@@ -96,7 +96,7 @@ export function createActionExecutor(options: {
     attempt: OperationScope,
     principal: Principal,
     type: string,
-    request: QueryRequest,
+    request: CollectionReadControls,
     transaction: NativeTransaction,
     onRead: (
       id: string,

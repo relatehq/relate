@@ -309,7 +309,7 @@ try {
           kind: 'runtime',
           code: 'runtime.not-configured',
           severity: 'warning',
-          message: `The config exports a graph without an app, so there is no setup to supply its connections (${sanitizeMessage(error)}). Export defineApp({ graph, setup }) to run it.`,
+          message: `The config exports a graph without an app, so there is no setup to supply its bindings (${sanitizeMessage(error)}). Export defineApp({ graph, setup }) to run it.`,
         },
       ],
     });
@@ -319,7 +319,7 @@ try {
   await fail([
     runtimeDiagnostic(
       'runtime.setup-failed',
-      `Starting the application failed${args.seed ? '; the requested seed could not run' : ''}: ${sanitizeMessage(error)}${selected!.kind === 'graph' ? '. Export defineApp({ graph, setup }) to supply connections before seeding.' : ''}`,
+      `Starting the application failed${args.seed ? '; the requested seed could not run' : ''}: ${sanitizeMessage(error)}${selected!.kind === 'graph' ? '. Export defineApp({ graph, setup }) to supply bindings before seeding.' : ''}`,
       error,
     ),
   ]);

@@ -82,7 +82,7 @@ export default defineApp({
   graph,
   setup: ${
     options.setup ??
-    `() => ({ connections: [], actionImplementations: [addNote] })`
+    `() => ({ bindings: [], actionImplementations: [addNote] })`
   },
 });
 `;
@@ -320,7 +320,7 @@ ${noteApp({
         await new Promise((done) => setTimeout(done, 150));
         writeFileSync(${JSON.stringify(marker)}, 'disposed');
       });
-      return { connections: [], actionImplementations: [addNote] };
+      return { bindings: [], actionImplementations: [addNote] };
     }`,
 })}
 export async function seed(relate) { ${seedBody} }
@@ -346,7 +346,7 @@ it('bounds cleanup after an escaped seed error and preserves its diagnostic', as
   const build = await project.build(`${noteApp({
     setup: `({ onDispose }) => {
       onDispose(() => new Promise(() => {}));
-      return { connections: [], actionImplementations: [addNote] };
+      return { bindings: [], actionImplementations: [addNote] };
     }`,
   })}
 export function seed() {
@@ -405,7 +405,7 @@ ${noteApp({
         await new Promise((done) => setTimeout(done, 50));
         writeFileSync(${JSON.stringify(marker)}, 'disposed');
       });
-      return { connections: [], actionImplementations: [addNote] };
+      return { bindings: [], actionImplementations: [addNote] };
     }`,
 })}
 export async function seed() { throw new Error('Fixture unavailable'); }
@@ -448,7 +448,7 @@ it('finishes and cleans up a seed retired during startup without publishing it a
 ${noteApp({
   setup: `({ onDispose }) => {
       onDispose(() => writeFileSync(${JSON.stringify(marker)}, 'disposed'));
-      return { connections: [], actionImplementations: [addNote] };
+      return { bindings: [], actionImplementations: [addNote] };
     }`,
 })}
 export async function seed() {
@@ -613,7 +613,7 @@ it('reports a persistent store that holds another revision and leaves it untouch
     const store = createMemoryStore();
 
     return {
-      connections: [],
+      bindings: [],
       actionImplementations: [addNote],
       store: {
         ...store,
@@ -653,7 +653,7 @@ it('reports the application store and withholds ANTHROPIC_API_KEY from the runti
     console.log('marker:' + process.env.RELATE_RUNTIME_MARKER);
 
     return {
-      connections: [],
+      bindings: [],
       actionImplementations: [addNote],
       store: createMemoryStore(),
     };
@@ -761,7 +761,7 @@ it('forwards the runtime record of an operation whose row is still being appende
     const activity = store.activity;
 
     return {
-      connections: [],
+      bindings: [],
       actionImplementations: [addNote],
       store: {
         ...store,
@@ -833,7 +833,7 @@ it('finishes a slow setup when retired during startup, so its cleanup runs', asy
     console.log('setup started');
     await new Promise((done) => setTimeout(done, 300));
 
-    return { connections: [], actionImplementations: [addNote] };
+    return { bindings: [], actionImplementations: [addNote] };
   }`,
     })}`,
   );
@@ -923,7 +923,7 @@ it('reports a host that cannot be spawned, releases its bundle and still stops',
 });
 
 it.each([false, true])(
-  'reports a bare graph missing connections with seed=%s',
+  'reports a bare graph missing bindings with seed=%s',
   async (seed) => {
     const project = await createProject();
     const build = await project.build(`import { z } from 'zod';

@@ -1,6 +1,7 @@
+import type { ReadExecution } from '../reads/index.js';
 import type { Manifest } from 'relate/model';
 import type {
-  ReadRequest,
+  ReadControls,
   FullReadResult as ReadResult,
   Refresh,
 } from '@relate/protocol';
@@ -22,7 +23,12 @@ import {
   SourceAccessDenied,
 } from '../observations/index.js';
 import type { AnySourceConnector } from 'relate/connectors';
-import { describeRefresh, nestedScope, uuidv7 } from '../activity/index.js';
+import {
+  describeRefresh,
+  nestedScope,
+  uuidv7,
+  rejected,
+} from '../activity/index.js';
 import type {
   Capture,
   RefreshOutcome,
@@ -38,12 +44,13 @@ export async function refreshObservation(options: {
   resource: Manifest['sources'][number];
   connector: AnySourceConnector;
   clock: () => number;
-  request: ReadRequest;
+  request: ReadControls;
   needsSource: boolean;
   sourcePermission: boolean;
   evidenceMaxAgeMs: number;
   capture: Capture;
   operation: OperationScope;
+  execution?: ReadExecution;
 }) {
   const {
     store,
@@ -71,6 +78,7 @@ export async function refreshObservation(options: {
       );
   };
 
+  options.execution?.signal.throwIfAborted();
   assertPropertyIds(stored);
   const objectId = stored.objectId;
   const age = clock() - stored.observation.observedAt;
@@ -106,12 +114,17 @@ export async function refreshObservation(options: {
       try {
         const token = await store.beginFetch(),
           observedAt = clock();
+
+        options.execution?.beforeSourceCall();
         const fetched = await boundedFetch(
           connector,
           stored.sourceRecordId,
           timeout,
           scope.providerAccountId,
+          options.execution?.signal,
         );
+
+        options.execution?.signal.throwIfAborted();
         const incoming = observation(
           fetched,
           resource,
@@ -229,6 +242,11 @@ export async function refreshObservation(options: {
           }
         }
       } catch (error) {
+        if (options.execution?.signal.aborted) {
+          settled = { outcome: rejected(error), details: {} };
+          options.execution.signal.throwIfAborted();
+        }
+
         settled = {
           outcome: {
             status: 'rejected',

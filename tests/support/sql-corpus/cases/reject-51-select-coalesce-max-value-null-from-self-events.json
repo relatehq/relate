@@ -1,0 +1,8 @@
+{
+  "name": "reject-51-select-coalesce-max-value-null-from-self-events",
+  "sql": "SELECT COALESCE(MAX(value), NULL) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

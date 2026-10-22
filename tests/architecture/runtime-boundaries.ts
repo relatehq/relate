@@ -8,8 +8,11 @@ const dependencies: Record<string, readonly string[]> = {
     'observations',
     'memory',
     'activity',
+    'analytics',
   ],
   composition: [
+    'analytical-reads',
+    'analytics',
     'actions',
     'authorization',
     'resolution',
@@ -21,6 +24,13 @@ const dependencies: Record<string, readonly string[]> = {
     'discovery',
     'activity',
   ],
+  'analytical-reads': [
+    'authorization',
+    'queries',
+    'reads',
+    'analytics',
+    'activity',
+  ],
   actions: ['authorization', 'reads', 'storage', 'activity'],
   resolution: ['authorization', 'observations', 'reads', 'storage', 'activity'],
   traversal: ['authorization', 'reads', 'storage', 'activity'],
@@ -28,26 +38,30 @@ const dependencies: Record<string, readonly string[]> = {
   authorization: ['storage'],
   // Discovery reuses the enforcement gates rather than restating them, and
   // describes read options from the same table request validation uses.
-  discovery: ['authorization', 'actions', 'traversal', 'reads'],
+  discovery: ['authorization', 'actions', 'traversal', 'reads', 'analytics'],
   observations: ['storage'],
   reads: [],
   storage: ['observations'],
   memory: ['storage', 'observations'],
   // Operation capture: scopes, lineage and the best-effort queue.
   activity: ['storage'],
+  // Analytical execution owns its admission queue; dependencies arrive as input.
+  analytics: [],
 };
 const roots: Record<string, string> = {
   'index.ts': 'public',
   'runtime.ts': 'composition',
+  'analytics-startup.ts': 'composition',
   'storage.ts': 'storage',
   'activity-store.ts': 'storage',
   'memory.ts': 'memory',
   'native-memory.ts': 'memory',
   'memory-activity.ts': 'memory',
-  'discovery.ts': 'discovery',
-  'contracts.ts': 'discovery',
 };
 const folders = new Set([
+  'analytical-reads',
+  'discovery',
+  'analytics',
   'activity',
   'actions',
   'authorization',

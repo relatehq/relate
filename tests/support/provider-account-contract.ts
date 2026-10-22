@@ -48,6 +48,7 @@ export function providerAccountContract(
           sources: {
             'crm.customers': {
               connectionId: 'reused-connection',
+              resourceId: 'records',
               providerAccountId,
               authorization: 'shared-service',
               // Deliberately allow malformed provider identity in regression cases.
@@ -65,6 +66,7 @@ export function providerAccountContract(
           sources: {
             'crm.customers': {
               connectionId,
+              resourceId: 'records',
               authorization: 'shared-service',
               connector: applicationConnector,
             },
@@ -152,6 +154,7 @@ export function providerAccountContract(
           sources: {
             'crm.customers': {
               connectionId: 'x',
+              resourceId: 'records',
               authorization: 'shared-service',
               providerAccountId: 'fake',
               connector: applicationConnector,

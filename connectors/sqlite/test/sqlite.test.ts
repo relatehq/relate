@@ -29,6 +29,7 @@ function fixture() {
     "CREATE TABLE account (id TEXT PRIMARY KEY NOT NULL); INSERT INTO account VALUES ('demo-crm')",
   );
   const database = sqlite({
+    connectionId: 'sqlite',
     path,
     identity: { table: 'account', column: 'id' },
   });
@@ -91,6 +92,7 @@ test('binds IDs and quotes identifiers without executing input as SQL', async ()
     'CREATE TABLE "odd""table" ("key""column" TEXT PRIMARY KEY, value REAL); INSERT INTO "odd""table" VALUES (\'one\', 1.5)',
   );
   const connection = sqlite({
+    connectionId: 'sqlite',
     path,
     identity: { table: 'account', column: 'id' },
   });
@@ -328,6 +330,7 @@ test('close rejects active and queued reads and is safe to await twice', async (
 test('missing files reject on first use without claiming provider denial', async () => {
   const { path } = fixture();
   const database = sqlite({
+    connectionId: 'sqlite',
     path: `${path}.missing`,
     identity: { table: 'account', column: 'id' },
   });
@@ -433,7 +436,7 @@ test('defaults to application-owned identity without querying an account table',
   const { db, path } = fixture();
 
   db.exec('DROP TABLE account');
-  const database = sqlite({ path });
+  const database = sqlite({ connectionId: 'sqlite', path });
 
   cleanups.push(() => database.close());
   const connector = database.table('customers', {
@@ -450,4 +453,43 @@ test('defaults to application-owned identity without querying an account table',
   expect(await connector.fetch('absent', request())).toEqual({
     state: 'deleted',
   });
+});
+
+test('encodes declared int64 source columns exactly and rejects precision loss or incompatible values', async () => {
+  const { db, database } = fixture();
+
+  db.exec(`CREATE TABLE integers(id TEXT PRIMARY KEY, large INTEGER, small INTEGER, ordinary INTEGER);
+    INSERT INTO integers VALUES ('one', 9007199254740993, 2, 42), ('null', NULL, NULL, 0), ('bad', 1.5, 2, 0)`);
+  const connector = database.table('integers', {
+    idColumn: 'id',
+    columns: ['large', 'small', 'ordinary'],
+    int64Columns: ['large', 'small'],
+  });
+
+  expect(await connector.fetch('one', request())).toMatchObject({
+    record: { id: 'one', large: '9007199254740993', small: '2', ordinary: 42 },
+  });
+  expect(await connector.fetch('null', request())).toMatchObject({
+    record: { large: null, small: null, ordinary: 0 },
+  });
+  await expect(connector.fetch('bad', request())).rejects.toThrow(
+    'must contain INTEGER',
+  );
+  const untyped = database.table('integers', {
+    idColumn: 'id',
+    columns: ['large'],
+  });
+
+  await expect(untyped.fetch('one', request())).rejects.toThrow(
+    'requires an int64 encoding',
+  );
+
+  for (const int64Columns of [['id'], ['missing']])
+    expect(() =>
+      database.table('integers', {
+        idColumn: 'id',
+        columns: ['large'],
+        int64Columns,
+      }),
+    ).toThrow('selected non-key');
 });

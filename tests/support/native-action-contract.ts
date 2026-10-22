@@ -4,7 +4,7 @@ import { implementAction, referenceInput } from 'relate';
 import type { ActionContext, ObjectId } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { SourceAccessDenied } from 'relate/connectors';
 import { ReadError } from '@relate/protocol';
 import type { ObservationStore, NativeRecord } from '@relate/runtime/storage';
@@ -97,10 +97,11 @@ export function nativeActionContract(
         actionImplementations: [
           implementAction(graph, AddAccountReview, handler),
         ],
-        connections: [
-          connect(customers, {
+        bindings: [
+          bind(customers, {
             providerAccountId: 'example-account',
             connectionId: 'crm',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               async fetch(id) {
@@ -118,9 +119,10 @@ export function nativeActionContract(
               },
             },
           }),
-          connect(invoices, {
+          bind(invoices, {
             providerAccountId: 'example-account',
             connectionId: 'billing',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               async fetch(id) {

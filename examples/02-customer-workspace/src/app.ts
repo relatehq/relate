@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { connect, defineApp, implementAction, type ObjectId } from 'relate';
+import { bind, defineApp, implementAction, type ObjectId } from 'relate';
 import { startApp } from '@relate/node';
 import { sqlite } from '@relate/connector-sqlite';
 import { startCrmSimulator } from '@relate/dev-crm-simulator';
@@ -73,26 +73,21 @@ export function createWorkspaceApp(
       onDispose(() => crm.stop());
       await crm.update({ status: 'active' });
       options.onCrm?.(crm);
-      const billing = sqlite({ path });
+      const billing = sqlite({ connectionId: 'demo-billing', path });
 
       onDispose(() => billing.close());
 
       return {
         graphId: 'customer-workspace',
         actionImplementations: [addAccountReview],
-        connections: [
-          connect(crmCustomers, {
+        bindings: [
+          bind(crmCustomers, {
             connectionId: 'demo-crm',
+            resourceId: 'records',
             providerAccountId: 'example-account',
             connector: crmConnector(crm.url),
           }),
-          connect(billingInvoices, {
-            connectionId: 'demo-billing',
-            connector: billing.table('invoices', {
-              idColumn: 'id',
-              columns: ['crm_customer_id', 'total_minor', 'currency', 'status'],
-            }),
-          }),
+          bind(billingInvoices, billing.table('invoices')),
         ],
       };
     },

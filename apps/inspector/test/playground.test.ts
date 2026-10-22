@@ -1,7 +1,11 @@
 import { expect, it } from 'vitest';
 import { checkCode, runDiagnostics } from '../src/playground/checks.js';
 import { describeSql, suggest } from '../src/playground/completion.js';
-import { datasetsOf } from '../src/playground/model.js';
+import {
+  datasetsOf,
+  isFilterable,
+  propertyType,
+} from '../src/playground/model.js';
 import { resultObjectOf } from '../src/playground/Results.js';
 import {
   callContext,
@@ -480,4 +484,27 @@ it('types result headers from the read that returned the records', () => {
 
   expect(resultObjectOf(run)).toBe('Customer');
   expect(resultObjectOf({ ...run, reads: run.reads.slice(1) })).toBeNull();
+});
+
+it('uses explicit computed capabilities and logical types from runtime discovery', () => {
+  const property = {
+    definitionId: 'count',
+    name: 'count',
+    kind: 'computed',
+    schema: { type: 'int64', nullable: false },
+    readable: false,
+    filterOperators: [],
+  };
+
+  expect(propertyType(property)).toBe('int64');
+  expect(isFilterable(property)).toBe(false);
+  expect(isFilterable({ ...property, filterOperators: ['eq', 'in'] })).toBe(
+    true,
+  );
+  expect(
+    propertyType({
+      ...property,
+      schema: { type: 'timestamp', precision: 6, nullable: true },
+    }),
+  ).toBe('timestamp?');
 });

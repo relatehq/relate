@@ -1,36 +1,12 @@
 # Type Alias: ReadOptions\<K, E\>
 
 ```ts
-type ReadOptions<K, E> = Omit<ReadRequest, "select" | "evidence"> & {
-  evidence?: E;
-  select?: readonly K[];
-};
+type ReadOptions<K, E> = ReadControlOptions<K, E> & Omit<ObjectReadRequest, keyof ReadControls>;
 ```
 
-Defined in: [packages/relate/src/operations.ts:32](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L32)
+Defined in: [packages/relate/src/operations.ts:49](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L49)
 
-Select properties and control evidence detail for an object read.
-
-Evidence is compact by default. Request `full` when you need provenance for
-every selected field. Selection never bypasses authorization.
-
-## Type Declaration
-
-### evidence?
-
-```ts
-readonly optional evidence?: E;
-```
-
-Evidence presentation; defaults to compact.
-
-### select?
-
-```ts
-readonly optional select?: readonly K[];
-```
-
-Property names to read from the object.
+Object reads may extend common controls without widening traversal.
 
 ## Type Parameters
 
@@ -38,12 +14,3 @@ Property names to read from the object.
 | ------ | ------ |
 | `K` *extends* `string` | - |
 | `E` *extends* `EvidenceMode` | `EvidenceMode` |
-
-## Example
-
-```ts
-const customer = await objects.Customer.get(customerId, {
-  select: ['name'],
-  evidence: 'full',
-});
-```

@@ -4,7 +4,7 @@ import { createRuntime } from '@relate/node';
 import type { QueryResult, ObjectRecord } from '@relate/protocol';
 import { z } from 'zod';
 import {
-  connect,
+  bind,
   defineAccess,
   defineGraph,
   defineObject,
@@ -71,9 +71,10 @@ export function queryContract(
             handler(context),
           ),
         ],
-        connections: [
-          connect(model.customers, {
+        bindings: [
+          bind(model.customers, {
             connectionId: 'crm',
+            resourceId: 'records',
             providerAccountId: 'account',
             connector: {
               identify: async () => account,
@@ -88,8 +89,9 @@ export function queryContract(
               },
             },
           }),
-          connect(model.invoices, {
+          bind(model.invoices, {
             connectionId: 'billing',
+            resourceId: 'records',
             providerAccountId: 'account',
             connector: {
               identify: async () => account,
@@ -893,9 +895,10 @@ export function queryContract(
         graphId: randomUUID(),
         store: backing.store,
         clock: () => now,
-        connections: [
-          connect(wide, {
+        bindings: [
+          bind(wide, {
             connectionId: 'wide',
+            resourceId: 'records',
             providerAccountId: 'account',
             connector: {
               identify: async () => 'account',

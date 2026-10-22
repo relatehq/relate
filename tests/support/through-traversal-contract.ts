@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRuntime } from '@relate/node';
 import {
-  connect,
+  bind,
   defineAccess,
   defineGraph,
   defineObject,
@@ -84,20 +84,23 @@ export function throughTraversalContract(
         graphId: randomUUID(),
         store: backing.store,
         clock: () => now,
-        connections: [
-          connect(model.playlists, {
+        bindings: [
+          bind(model.playlists, {
             providerAccountId: 'music',
             connectionId: 'playlists',
+            resourceId: 'records',
             connector: connector('playlists'),
           }),
-          connect(model.songs, {
+          bind(model.songs, {
             providerAccountId: 'music',
             connectionId: 'songs',
+            resourceId: 'records',
             connector: connector('songs'),
           }),
-          connect(model.memberships, {
+          bind(model.memberships, {
             providerAccountId: 'music',
             connectionId: 'memberships',
+            resourceId: 'records',
             connector: connector('memberships'),
           }),
         ],
@@ -570,7 +573,7 @@ export function throughTraversalContract(
         graph,
         graphId,
         store: backing.store,
-        connections: [],
+        bindings: [],
       });
 
       cleanup.push(() => runtime.close());

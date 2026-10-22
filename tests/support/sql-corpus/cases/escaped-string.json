@@ -1,0 +1,63 @@
+{
+  "name": "escaped-string",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE eventType = E'it\\'s $notParameter' AND value = $value",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "boolean",
+        "op": "and",
+        "args": [
+          {
+            "kind": "compare",
+            "op": "=",
+            "left": {
+              "kind": "column",
+              "name": "eventtype",
+              "quoted": false
+            },
+            "right": {
+              "kind": "literal",
+              "literal": "string",
+              "value": "it's $notParameter"
+            }
+          },
+          {
+            "kind": "compare",
+            "op": "=",
+            "left": {
+              "kind": "column",
+              "name": "value",
+              "quoted": false
+            },
+            "right": {
+              "kind": "parameter",
+              "name": "value"
+            }
+          }
+        ]
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "2",
+      "acme_late": "2",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "0"
+    }
+  },
+  "parameters": {
+    "value": "2"
+  }
+}

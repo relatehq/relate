@@ -1,10 +1,15 @@
 {
   "extends": "../../tsconfig.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist", "composite": true },
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true
+  },
   "include": ["src/**/*.ts"],
   "references": [
     { "path": "../relate" },
     { "path": "../runtime" },
-    { "path": "../protocol" }
+    { "path": "../protocol" },
+    { "path": "../sql-parser" }
   ]
 }

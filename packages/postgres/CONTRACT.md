@@ -103,3 +103,15 @@ timeouts, so a hung best-effort append cannot consume connections committed
 writes need. `close()` closes all three pools. Feed reads take one
 repeatable-read snapshot for the page, high-water mark and floor. Nothing is
 pruned yet; `floor` stays 0 and stream identity changes only on explicit reset.
+
+### Resource identity
+
+Source scopes include both `connectionId` and `resourceId`. Rebinding a source
+to another table or API resource on the same connection cannot reuse its
+previous membership, observation, provenance or continuation cursor. Memory and
+Postgres stores enforce the same scope on load, resolve, scan and acceptance.
+
+Migration 7 drops existing source observations and their object-version rows:
+those rows cannot establish a resource identity. It preserves native objects,
+invocations and activity history. This reset is for the current development
+release; source objects must be adopted again after migration.

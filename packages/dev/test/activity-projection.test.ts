@@ -274,3 +274,48 @@ it('keeps the runtime record of an event over the size budget', () => {
   });
   expect(activityEventSchema.safeParse(event).success).toBe(true);
 });
+
+it('preserves bounded host analytical timings in Inspector activity without adding them to request or outcome', () => {
+  const log = createActivityLog();
+
+  openRequest(log);
+  const analytical = {
+    summary: {
+      expressionCount: 1,
+      computedFilter: true,
+      computedOrder: false,
+      calculations: [
+        {
+          associationId: 'note.events',
+          datasetId: 'events',
+          propertyId: 'note.count',
+          failures: { forbidden: 2 },
+        },
+      ],
+    },
+    stages: { execution: { count: 2, totalMs: 17, maxMs: 12 } },
+  };
+
+  projectActivity(log, runtimeId, {
+    feed: [],
+    operations: [query('timed', { details: { analytical } })],
+  });
+  const event = operations(log)[0]!;
+
+  expect(event.runtime!.analytical).toEqual(analytical);
+  expect(event.ms).toBe(1);
+  expect(activityEventSchema.parse(event).kind).toBe('operation');
+  expect(JSON.stringify(event.outcome)).not.toContain('totalMs');
+  expect(JSON.stringify(event.request)).not.toContain('totalMs');
+  const invalid = {
+    ...event,
+    runtime: {
+      ...event.runtime,
+      analytical: {
+        stages: { arbitraryAlias: { count: 1, totalMs: 1, maxMs: 1 } },
+      },
+    },
+  };
+
+  expect(activityEventSchema.safeParse(invalid).success).toBe(false);
+});

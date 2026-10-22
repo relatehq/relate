@@ -1,0 +1,8 @@
+{
+  "name": "reject-11-select-count-from-self-events-e-join-self-events-x-on-true",
+  "sql": "SELECT COUNT(*) FROM self.events e JOIN self.events x ON TRUE",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

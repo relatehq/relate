@@ -28,18 +28,23 @@ export function summarize(
   warnings: readonly string[] = [],
 ): Summary {
   const values = Object.values(fields);
+  const degraded = (field: FieldEvidence): boolean => {
+    if (field.status === 'unavailable') return true;
+
+    if (!supplied(field)) return false;
+
+    if (field.source === 'computed')
+      return Object.values(field.dependencies).some(degraded);
+
+    return (
+      field.freshness === 'stale' ||
+      field.refresh === 'invalid' ||
+      field.refresh === 'unavailable'
+    );
+  };
 
   return {
     completeness: values.every(supplied) ? 'complete' : 'partial',
-    degraded:
-      warnings.length > 0 ||
-      values.some(
-        (field) =>
-          field.status === 'unavailable' ||
-          (supplied(field) &&
-            (field.freshness === 'stale' ||
-              field.refresh === 'invalid' ||
-              field.refresh === 'unavailable')),
-      ),
+    degraded: warnings.length > 0 || values.some(degraded),
   };
 }

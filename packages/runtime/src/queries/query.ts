@@ -1,10 +1,14 @@
+import { selectedProperties, selectionIssues } from '../reads/index.js';
+import { mapReads } from '../reads/index.js';
+import type { ReadExecution } from '../reads/index.js';
 import type { OperationScope } from '../activity/index.js';
-import { createHash, randomUUID } from 'node:crypto';
-import { canonicalJson } from 'relate/model';
+import { randomUUID } from 'node:crypto';
+import type { QueryCursors } from './cursors.js';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
   QueryRequest,
+  ReadControls,
   ReadRequest,
   FullReadResult as ReadResult,
   FullPageResult as PageResult,
@@ -25,8 +29,8 @@ import {
 } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import {
-  cursorCodec,
   compileWhere,
+  calculatedReadIssues,
   predicateMatcher,
   type Predicate,
   project,
@@ -36,6 +40,19 @@ import {
 
 type Available = Extract<ReadResult, { status: 'ok' }>;
 
+/** Trusted composition controls; never accepted from a consumer request. */
+export interface QueryContext {
+  readonly execution?: ReadExecution;
+  readonly scanCandidates?: (count: number) => void;
+  readonly admitCandidate?: () => void;
+  readonly captureCandidate?: (record: ObjectRecord, at: number) => void;
+  readonly cursorScope?: unknown;
+  readonly signal?: AbortSignal;
+  readonly beginDependencyRead?: () => () => void;
+  readonly beginFinalization?: () => () => void;
+  readonly candidateControls?: Pick<ReadControls, 'maxAgeMs' | 'stale'>;
+}
+
 /** Enumerate graph membership through the same authorized read path as get. */
 export function createGraphQuery(options: {
   manifest: Manifest;
@@ -43,7 +60,7 @@ export function createGraphQuery(options: {
   store: ObservationStore;
   clock(): number;
   install(): Promise<void>;
-  cursorKey?: Uint8Array;
+  cursors: QueryCursors;
   scopeFor(type: string, source: string): StorageScope;
   read(
     attempt: OperationScope,
@@ -54,10 +71,10 @@ export function createGraphQuery(options: {
     requiredReference?: string,
     capture?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
+    execution?: ReadExecution,
   ): Promise<ReadResult>;
 }) {
   const { manifest, store, clock } = options;
-  const codec = cursorCodec(options.cursorKey);
   const transactions = new WeakMap<NativeTransaction, string>();
 
   return async (
@@ -67,12 +84,40 @@ export function createGraphQuery(options: {
     input: QueryRequest = {},
     transaction?: NativeTransaction,
     onRead?: (id: string, result: Available) => void,
+    context?: QueryContext,
   ): Promise<PageResult> => {
     const object = manifest.objects.find((o) => o.id === type);
     const policy = object && manifest.policies[object.id];
     const operation = operationName(manifest, principal, type, 'query');
-    const issues = requestIssues(input, 'query');
+    const issues = requestIssues(
+      input,
+      'query',
+      context?.execution?.expandedSelection,
+    );
     const predicates: Predicate[] = [];
+
+    context?.signal?.throwIfAborted();
+
+    if (input?.compute !== undefined || input?.orderBy !== undefined)
+      issues.push({
+        path: [input.compute !== undefined ? 'compute' : 'orderBy'],
+        problem: 'not-supported',
+        message:
+          'Analytical requests require the analytical query path and are not supported in action transactions.',
+      });
+
+    if (transaction && object && allowsObject(principal, policy)) {
+      const calculated = calculatedReadIssues(
+        input,
+        (object.calculations ?? []).map((property) => ({
+          name: property.name,
+          defaultSelected: allowsField(principal, policy!, property.access),
+        })),
+      );
+
+      if (calculated.length)
+        throwIssues(operation, 'query', [...issues, ...calculated]);
+    }
 
     if (!object)
       issues.push({
@@ -111,47 +156,32 @@ export function createGraphQuery(options: {
       ...readRequest
     } = request;
     const filterNames = Object.keys(filters);
-    const selected = [
-      ...new Set(
-        readRequest.select ??
-          object.properties
-            .filter((p) => policy && allowsField(principal, policy, p.access))
-            .map((p) => p.name),
-      ),
-    ];
+    const selected = selectedProperties(
+      object.properties,
+      readRequest.select,
+      (p) => Boolean(policy && allowsField(principal, policy, p.access)),
+    );
     const needed = [...new Set([...selected, ...filterNames])];
 
-    // An omitted selection already covers every readable filter field, so it keeps
-    // get's unbounded default; only an explicit selection/filter union is capped.
-    if (readRequest.select && needed.length > 100)
-      throwIssues(operation, 'query', [
-        {
-          path: ['select'],
-          problem: 'invalid-value',
-          message: 'select and where together name more than 100 properties.',
-        },
-      ]);
+    const selectedIssues = selectionIssues(
+      readRequest.select,
+      needed,
+      context?.execution?.expandedSelection,
+    );
+
+    if (selectedIssues.length) throwIssues(operation, 'query', selectedIssues);
 
     if (transaction && !transactions.has(transaction))
       transactions.set(transaction, randomUUID());
 
-    const scope = createHash('sha256')
-      .update(
-        canonicalJson({
-          ...options.scope,
-          type,
-          principal,
-          transaction: transaction ? transactions.get(transaction)! : null,
-          query: { ...readRequest, where: predicates, limit },
-          bindings: manifest.objects
-            .filter((o) => o.sourceDefinitionId)
-            .map((o) => options.scopeFor(o.id, o.sourceDefinitionId!)),
-        }),
-      )
-      .digest('hex');
-    let after = cursor
-      ? codec.decode(cursor, scope, clock(), operation)
-      : undefined;
+    const cursorScope = options.cursors(
+      type,
+      principal,
+      { ...readRequest, where: predicates, limit },
+      context?.cursorScope,
+      transaction ? transactions.get(transaction)! : undefined,
+    );
+    let after = cursor ? cursorScope.decode(cursor, operation) : undefined;
 
     if (!allowsObject(principal, policy))
       return { data: [], meta: { exhausted: true } };
@@ -163,23 +193,35 @@ export function createGraphQuery(options: {
 
     const filter = predicateMatcher(predicates, readRequest, clock);
     const readCandidate = async (id: string) => {
+      context?.signal?.throwIfAborted();
       let allowed = async () => false;
-      const result = await options.read(
-        attempt,
-        principal,
-        type,
-        id,
-        {
-          ...readRequest,
-          ...(readRequest.select ? { select: needed } : {}),
-          requireComplete: false,
-        },
-        undefined,
-        (check) => {
-          allowed = check;
-        },
-        transaction,
-      );
+      const endRead = context?.beginDependencyRead?.();
+      let result;
+
+      try {
+        result = await options.read(
+          attempt,
+          principal,
+          type,
+          id,
+          {
+            ...readRequest,
+            ...context?.candidateControls,
+            ...(readRequest.select ? { select: needed } : {}),
+            requireComplete: false,
+          },
+          undefined,
+          (check) => {
+            allowed = check;
+          },
+          transaction,
+          context?.execution,
+        );
+      } finally {
+        endRead?.();
+      }
+
+      context?.signal?.throwIfAborted();
 
       return { result, allowed: () => allowed() };
     };
@@ -197,6 +239,7 @@ export function createGraphQuery(options: {
     // For source-backed objects, retain cached non-matches that require refresh:
     // they may become matches. Keep authorized reads and final predicate checks.
     while (more && scanned < 100 && pending.length < limit) {
+      context?.signal?.throwIfAborted();
       const batch = await scanBatch(
         (scan) =>
           object.sourceDefinitionId
@@ -217,6 +260,7 @@ export function createGraphQuery(options: {
 
       after = batch.ids.at(-1);
       scanned += batch.ids.length;
+      context?.scanCandidates?.(batch.ids.length);
 
       // Transactions share one connection; independent reads can overlap. Each
       // candidate is evaluated as soon as its read settles, while evidence is fresh.
@@ -235,15 +279,12 @@ export function createGraphQuery(options: {
           match: filter.matches(id, result, at),
         };
       };
-      const evaluated: Awaited<ReturnType<typeof evaluate>>[] = [];
-      const concurrency = transaction ? 1 : 8;
-
-      for (let i = 0; i < batch.ids.length; i += concurrency)
-        evaluated.push(
-          ...(await Promise.all(
-            batch.ids.slice(i, i + concurrency).map(evaluate),
-          )),
-        );
+      const evaluated = await mapReads(
+        batch.ids,
+        evaluate,
+        context?.signal,
+        transaction ? 1 : 8,
+      );
 
       for (const item of evaluated) {
         if (!item) continue;
@@ -254,34 +295,57 @@ export function createGraphQuery(options: {
       }
     }
 
-    const data: ObjectRecord[] = [];
+    const endFinalization = context?.beginFinalization?.();
 
-    for (const item of pending) {
-      if (!(await item.allowed())) continue;
+    try {
+      const data: ObjectRecord[] = [];
 
-      const at = await filter.confirm(item, async () => {
-        const reread = await readCandidate(item.id);
+      for (const item of pending) {
+        context?.signal?.throwIfAborted();
 
-        if (reread.result.status !== 'ok' || !(await reread.allowed()))
-          return undefined;
+        if (!(await item.allowed())) continue;
 
-        onRead?.(item.id, reread.result);
+        const at = await filter.confirm(item, async () => {
+          const reread = await readCandidate(item.id);
 
-        return reread.result;
-      });
+          if (reread.result.status !== 'ok' || !(await reread.allowed()))
+            return undefined;
 
-      if (at !== undefined)
-        data.push(project(item.id, item.result, selected, readRequest, at));
+          onRead?.(item.id, reread.result);
+          item.at = clock();
+
+          return reread.result;
+        });
+
+        if (at !== undefined) {
+          context?.admitCandidate?.();
+          const readAt = context?.captureCandidate ? item.at : at;
+          const record = project(
+            item.id,
+            item.result,
+            selected,
+            readRequest,
+            readAt,
+          );
+
+          context?.captureCandidate?.(record, readAt);
+          data.push(record);
+        }
+      }
+
+      context?.signal?.throwIfAborted();
+
+      return {
+        data,
+        meta: more
+          ? {
+              exhausted: false,
+              continuationCursor: cursorScope.encode(after!, operation),
+            }
+          : { exhausted: true },
+      };
+    } finally {
+      endFinalization?.();
     }
-
-    return {
-      data,
-      meta: more
-        ? {
-            exhausted: false,
-            continuationCursor: codec.encode(scope, after!, clock() + 900_000),
-          }
-        : { exhausted: true },
-    };
   };
 }

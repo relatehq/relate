@@ -1,3 +1,4 @@
+import type { PortableValue } from './schema.js';
 import type { z } from 'zod';
 import type {
   EvidenceMode,
@@ -15,8 +16,8 @@ import type {
 import type { RoleGate } from './authorization.js';
 import type {
   ObjectResult,
-  ReadOptions,
-  QueryOptions,
+  ReadControlOptions,
+  CollectionReadOptions,
   QueryResult,
   ObjectRecord,
 } from './operations.js';
@@ -102,7 +103,7 @@ export type NativeValues<O extends ObjectDefinition> = {
       : never
   ]: O['properties'][K] extends { references: string }
     ? PropertyValue<O, K>
-    : z.input<O['properties'][K]['schema']>;
+    : PortableValue<z.input<O['properties'][K]['schema']>>;
 };
 
 export interface ActionContext<
@@ -121,13 +122,14 @@ export interface ActionContext<
     readonly roles: readonly string[];
     readonly claims: Readonly<Record<string, string | number | boolean | null>>;
   };
-  readonly input: z.output<A['input']>;
+  readonly input: PortableValue<z.output<A['input']>>;
   /** Aborts this invocation and rolls back native writes, even if caught by the handler. */
   readonly fail: (
     ...args: {
       [Code in keyof A['errors'] & string]: [
         code: Code,
-        details: Record<string, unknown> & z.input<A['errors'][Code]>,
+        details: Record<string, unknown> &
+          PortableValue<z.input<A['errors'][Code]>>,
       ];
     }[keyof A['errors'] & string]
   ) => never;
@@ -138,7 +140,7 @@ export interface ActionContext<
           G['objects'][K]
         >,
       >(
-        options: QueryOptions<G['objects'][K], N, 'full'> & {
+        options: CollectionReadOptions<G['objects'][K], N, 'full'> & {
           readonly evidence: 'full';
         },
       ): QueryResult<ObjectRecord<G['objects'][K], N, 'full'>>;
@@ -148,7 +150,7 @@ export interface ActionContext<
         >,
         E extends EvidenceMode = 'compact',
       >(
-        options?: QueryOptions<G['objects'][K], N, E>,
+        options?: CollectionReadOptions<G['objects'][K], N, E>,
       ): QueryResult<ObjectRecord<G['objects'][K], N, E | 'compact'>>;
       get<
         N extends PropertyNames<G['objects'][K]> = PropertyNames<
@@ -156,7 +158,7 @@ export interface ActionContext<
         >,
       >(
         id: ObjectId<G['objects'][K]['id']>,
-        options: ReadOptions<N, 'full'> & { readonly evidence: 'full' },
+        options: ReadControlOptions<N, 'full'> & { readonly evidence: 'full' },
       ): Promise<ObjectResult<G['objects'][K], N, 'full'>>;
       get<
         N extends PropertyNames<G['objects'][K]> = PropertyNames<
@@ -165,7 +167,7 @@ export interface ActionContext<
         E extends EvidenceMode = 'compact',
       >(
         id: ObjectId<G['objects'][K]['id']>,
-        options?: ReadOptions<N, E>,
+        options?: ReadControlOptions<N, E>,
       ): Promise<ObjectResult<G['objects'][K], N, E | 'compact'>>;
     } & (G['objects'][K] extends A['creates'][number]
       ? {
@@ -185,7 +187,7 @@ export interface ActionImplementation<
   readonly action: A;
   readonly implementation: (
     context: ActionContext<G, A>,
-  ) => Promise<z.input<A['output']>>;
+  ) => Promise<PortableValue<z.input<A['output']>>>;
 }
 
 export function implementAction<
@@ -198,7 +200,7 @@ export function implementAction<
   action: A,
   execute: (
     context: ActionContext<NoInfer<G>, NoInfer<A>>,
-  ) => Promise<z.input<A['output']>>,
+  ) => Promise<PortableValue<z.input<A['output']>>>,
 ): ActionImplementation<G, A> {
   if (!Object.values(graph.actions).includes(action))
     throw new Error('Unregistered action implementation');
@@ -208,15 +210,15 @@ export function implementAction<
 
 /** Actions without declared errors retain a success-only result type. */
 export type Receipt<A extends ActionDefinition> =
-  | SucceededReceipt<z.output<A['output']>>
+  | SucceededReceipt<PortableValue<z.output<A['output']>>>
   | {
       [Code in keyof A['errors'] & string]: FailedReceipt<
         Code,
-        z.output<A['errors'][Code]>
+        PortableValue<z.output<A['errors'][Code]>>
       >;
     }[keyof A['errors'] & string];
 
 export type ActionRequest<A extends ActionDefinition> = {
-  readonly input: z.input<A['input']>;
+  readonly input: PortableValue<z.input<A['input']>>;
   readonly idempotencyKey: string;
 };

@@ -58,7 +58,7 @@ const graph = defineGraph({
 });
 const runtime = createRuntime({
   graph,
-  connections: [],
+  bindings: [],
   actionImplementations: [
     implementAction(graph, AddNote, async ({ input, objects }) => {
       const note = await objects.Note.create({ text: input.text });

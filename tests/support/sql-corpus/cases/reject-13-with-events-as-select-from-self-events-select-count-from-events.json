@@ -1,0 +1,8 @@
+{
+  "name": "reject-13-with-events-as-select-from-self-events-select-count-from-events",
+  "sql": "WITH events AS (SELECT * FROM self.events) SELECT COUNT(*) FROM events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

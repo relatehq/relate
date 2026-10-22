@@ -1,0 +1,8 @@
+{
+  "name": "reject-50-select-coalesce-max-value-a-b-from-self-events",
+  "sql": "SELECT COALESCE(MAX(value), 'a', 'b') FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

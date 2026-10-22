@@ -12,10 +12,12 @@ const temp = await mkdtemp(join(tmpdir(), 'relate-package-check-'));
 const packages = [
   'packages/protocol',
   'packages/relate',
+  'packages/sql-parser',
   'packages/runtime',
   'packages/postgres',
   'packages/node',
   'connectors/sqlite',
+  'connectors/postgres',
   'connectors/stripe',
   'connectors/salesforce',
   'apps/inspector',
@@ -99,15 +101,41 @@ try {
     join(portable, 'smoke.mjs'),
     `
 import assert from 'node:assert/strict';
-import { isAppDefinition } from 'relate';
-import { SourceAccessDenied } from 'relate/connectors';
+import { isAppDefinition, defineDataset, defineAccess, computed } from 'relate';
+import { z } from 'zod';
+import { SourceAccessDenied, DatasetExecutionError, validateAuthorizedDatasetQuery } from 'relate/connectors';
 import { app } from './built/app.types.js';
+import { encodeAnalyticalValue, decodeAnalyticalValue } from 'relate/analytics';
+assert.equal(encodeAnalyticalValue(9007199254740993n, { type: 'int64', nullable: false }), '9007199254740993');
+assert.equal(decodeAnalyticalValue('9007199254740993', { type: 'int64', nullable: false }), 9007199254740993n);
+assert.equal(decodeAnalyticalValue('2026-01-01T00:00:00.123456Z', { type: 'timestamp', precision: 6, nullable: false }), '2026-01-01T00:00:00.123456Z');
 assert.ok(isAppDefinition(app));
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
+const Events = defineDataset({ id: 'events', columns: {
+  count: { id: 'events.count', schema: z.int64(), access: access.groups.ordinary },
+} });
+assert.equal(Events.schema.parse({ count: 9007199254740993n }).count, 9007199254740993n);
+assert.ok(Object.isFrozen(Events.columns));
+const calculation = computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.events' });
+assert.equal(calculation.origin.kind, 'computed');
+assert.ok(Object.isFrozen(calculation.origin));
+validateAuthorizedDatasetQuery({
+  resource: {}, keys: [{ type: { type: 'string' } }],
+  correlation: [{ column: 'customerId', key: 0 }], slots: [],
+  aggregates: [{ aggregate: 'count', argument: '*', distinct: false, result: { type: 'int64', nullable: false } }],
+}, ['customerId']);
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
+const failure = new DatasetExecutionError('execution-failed', { retryable: true, cause: new Error('private driver detail') });
+assert.equal(failure.code, 'execution-failed');
+assert.ok(!JSON.stringify(failure).includes('private driver detail'));
 assert.deepEqual(Object.keys(await import('relate/storage')), []);
 const consumer = await import('relate/consumer');
 assert.equal(typeof consumer.createConsumer, 'function');
 assert.equal(typeof consumer.createQuery, 'function');
+const decoded = consumer.decodeComputed({ data: { count: '9007199254740993', latest: '2026-10-09T10:30:00.001Z' }, meta: { computed: { count: { type: 'int64', nullable: false }, latest: { type: 'timestamp', precision: 3, nullable: true } } } });
+assert.equal(decoded.count, 9007199254740993n);
+assert.deepEqual(decoded.latest, new Date('2026-10-09T10:30:00.001Z'));
+assert.deepEqual(consumer.decodeComputed({ status: 'not-found' }), {});
 await assert.rejects(import('@relate/node'), { code: 'ERR_MODULE_NOT_FOUND' });
 await assert.rejects(import('@relate/runtime'), { code: 'ERR_MODULE_NOT_FOUND' });
 console.log('Portable app and connector contracts work without Node host or runtime packages.');
@@ -142,39 +170,108 @@ console.log('Portable app and connector contracts work without Node host or runt
     `
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
+import { createSqlParser } from '@relate/sql-parser';
+const sqlParser = await createSqlParser();
+assert.equal(sqlParser.parse('SELECT COUNT(*) FROM self.events').ok, true);
+assert.equal(sqlParser.parse("SELECT COUNT(*) FROM pg_read_file('/etc/passwd')").ok, false);
+console.log('Installed SQL parser initializes its WASM and rejects unsupported queries.');
 import { stripe } from '@relate/connector-stripe';
 import { salesforce } from '@relate/connector-salesforce';
 import { sqlite } from '@relate/connector-sqlite';
-const salesforceResource = salesforce({ credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture-token' }, apiVersion: '67.0', fetch: async url => Response.json(String(url).endsWith('/userinfo') ? { organization_id: '00D000000000001EAA' } : { done: true, totalSize: 1, records: [{ attributes: { type: 'Account' }, Id: '001000000000001AAA', IsDeleted: false, Name: 'Ada' }] }) }).resource('Account', { fields: ['Name'] });
+import { postgres } from '@relate/connector-postgres';
+const analyticalPostgres = postgres({ connectionId: 'analytics', url: 'postgres://localhost/package-smoke' });
+const pgResource = analyticalPostgres.table('events', { schema: 'reporting' }).bindDataset({ columns: { customerId: 'customer_id' } });
+const pgQuery = { resource: pgResource, keys: [{ type: { type: 'string' } }], correlation: [{ column: 'customerId', key: 0 }], slots: [{ values: [{ type: 'string', value: 'one' }], valid: [true] }], aggregates: [{ aggregate: 'count', argument: '*', distinct: false, result: { type: 'int64', nullable: false } }] };
+assert.deepEqual(analyticalPostgres.analytics.parameterBudget(pgQuery), { fixed: 1, perSlot: 3 });
+assert.deepEqual(analyticalPostgres.analytics.plan(pgQuery), {});
+await analyticalPostgres.close();
+console.log('Installed PostgreSQL analytical connector prepares opaque, parameter-budgeted plans.');
+const salesforceResource = salesforce({ connectionId: 'salesforce', credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture-token' }, apiVersion: '67.0', fetch: async url => Response.json(String(url).endsWith('/userinfo') ? { organization_id: '00D000000000001EAA' } : { done: true, totalSize: 1, records: [{ attributes: { type: 'Account' }, Id: '001000000000001AAA', IsDeleted: false, Name: 'Ada' }] }) }).resource('Account', { fields: ['Name'] });
 assert.equal(await salesforceResource.identify({ signal: new AbortController().signal }), '00D000000000001EAA');
 assert.deepEqual(await salesforceResource.fetch('001000000000001AAA', { signal: new AbortController().signal }), { state: 'present', providerAccountId: '00D000000000001EAA', record: { Id: '001000000000001AAA', IsDeleted: false, Name: 'Ada' } });
 console.log('Installed Salesforce connector verifies org identity and reads Accounts in plain Node ESM.');
-const billing = stripe({ apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test', fetch: async url => Response.json(String(url).endsWith('/account') ? { id: 'acct_packed', object: 'account' } : { id: 'cus_packed', object: 'customer', livemode: false, name: 'Ada' }) });
+const billing = stripe({ connectionId: 'stripe', apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test', fetch: async url => Response.json(String(url).endsWith('/account') ? { id: 'acct_packed', object: 'account' } : { id: 'cus_packed', object: 'customer', livemode: false, name: 'Ada' }) });
 const stripeResource = billing.resource('customers', { fields: ['name'] });
 assert.equal(await stripeResource.identify({ signal: new AbortController().signal }), 'acct_packed:test');
 assert.deepEqual(await stripeResource.fetch('cus_packed', { signal: new AbortController().signal }), { state: 'present', providerAccountId: 'acct_packed:test', record: { id: 'cus_packed', name: 'Ada' } });
 const db = new DatabaseSync('source.sqlite');
-db.exec("CREATE TABLE account (id TEXT); INSERT INTO account VALUES ('packed'); CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT); INSERT INTO customers VALUES ('1', 'Ada')");
+db.exec("CREATE TABLE account (id TEXT); INSERT INTO account VALUES ('packed'); CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT, total INTEGER, quantity INTEGER); INSERT INTO customers VALUES ('1', 'Ada', 9007199254740993, 2); CREATE TABLE events(customer_id TEXT NOT NULL, amount INTEGER NOT NULL); INSERT INTO events VALUES ('1', 9007199254740993), ('1', 2)");
 db.close();
-const connection = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } });
+const connection = sqlite({ connectionId: 'sqlite', path: 'source.sqlite', identity: { table: 'account', column: 'id' } });
 const connector = connection.table('customers', { idColumn: 'id', columns: ['name'] });
 try {
   assert.equal(await connector.identify({ signal: new AbortController().signal }), 'packed');
   assert.equal((await connector.fetch('1', { signal: new AbortController().signal })).record.name, 'Ada');
 } finally { await connection.close(); }
-const local = sqlite({ path: 'source.sqlite' });
+const local = sqlite({ connectionId: 'sqlite', path: 'source.sqlite' });
 try {
   const table = local.table('customers', { idColumn: 'id', columns: ['name'] });
   assert.equal(table.identity, 'application');
   assert.equal(table.identify, undefined);
   assert.deepEqual(await table.fetch('1', { signal: new AbortController().signal }), { state: 'present', record: { id: '1', name: 'Ada' } });
+  const resource = local.table('events').bindDataset({ columns: { customerId: 'customer_id', amount: 'amount' } });
+  const schema = await local.analytics.describe(resource, { signal: new AbortController().signal });
+  assert.equal(schema.columns.customerId.nullable, false);
+  const query = { resource, keys: [{ type: { type: 'string' } }], correlation: [{ column: 'customerId', key: 0 }], slots: [{ values: [{ type: 'string', value: '1' }], valid: [true] }], aggregates: [{ aggregate: 'sum', argument: { kind: 'column', column: 'amount', type: { type: 'int64' } }, distinct: false, result: { type: 'int64', nullable: true } }] };
+  const timings = [];
+  const computed = await local.analytics.execute(local.analytics.plan(query), { signal: new AbortController().signal, timeoutMs: 2000, onTiming: timing => timings.push(timing.stage) });
+  assert.deepEqual(computed.rows, [{ slot: 0, values: [9007199254740995n] }]);
+  assert.deepEqual(timings, ['connectionStartup', 'execution']);
 } finally { await local.close(); }
-console.log('Installed SQLite connector reads both identity modes in plain Node ESM.');
+console.log('Installed SQLite connector reads records and executes exact aggregates in its packaged child process.');
 `,
   );
   process.stdout.write(
     (await execFile(process.execPath, ['sqlite-smoke.mjs'], { cwd: consumer }))
       .stdout,
+  );
+  await writeFile(
+    join(consumer, 'analytics-startup-smoke.mjs'),
+    `
+import assert from 'node:assert/strict';
+import { z } from 'zod';
+import { bind, computed, defineAccess, defineApp, defineDataset, defineGraph, defineObject, defineSource, from, source, objectId } from 'relate';
+import { startApp } from '@relate/node';
+import { decodeComputed } from 'relate/consumer';
+import { sqlite } from '@relate/connector-sqlite';
+const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
+const Events = defineDataset({ id: 'events', columns: { customerId: { id: 'events.customer', schema: z.string(), access: access.groups.ordinary } } });
+const customers = defineSource({ id: 'customers', idField: 'id', schema: z.object({ id: z.string(), name: z.string(), total: z.int64(), quantity: z.int32() }) });
+const Customer = defineObject({ id: 'customer', membership: source(customers), properties: { id: objectId({ id: 'customer.id' }), externalId: from(customers.fields.id, { id: 'customer.external' }), totalMinor: from(customers.fields.total, { id: 'customer.total' }), quantity: from(customers.fields.quantity, { id: 'customer.quantity' }), count: computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.events' }) }, datasets: { events: { id: 'customer.events', dataset: Events, on: [{ column: 'customerId', property: 'externalId' }] } } });
+const graph = defineGraph({ id: 'graph', access, objects: { Customer }, datasets: { Events }, policies: { Customer: { read: { gate: access.role('reader') }, datasets: { events: { gate: access.role('reader') } } }, Events: {} } });
+const setup = ({ onDispose }) => {
+  const connection = sqlite({ connectionId: 'analytics', path: 'source.sqlite' });
+  onDispose(() => connection.close());
+  return { bindings: [bind(customers, connection.table('customers', { idColumn: 'id', columns: ['name'] })), bind(Events, connection.table('events'), { columns: { customerId: 'customer_id' } })] };
+};
+const runtime = await startApp(defineApp({ graph, setup }));
+try {
+  const id = await runtime.host.adopt(Customer, '1');
+  const consumer = runtime.as({ id: 'reader', roles: ['reader'], claims: {} }).objects.Customer;
+  const compute = { total: { sql: 'SELECT COUNT(*) FROM self.events' } };
+  const record = await consumer.get(id, { compute });
+  assert.equal(record.data.count, '2', JSON.stringify(record));
+  assert.equal(record.data.total, '2');
+  assert.equal(record.data.totalMinor, '9007199254740993');
+  assert.equal(record.data.quantity, 2);
+  assert.deepEqual(decodeComputed(record), { count: 2n, total: 2n });
+  const page = await consumer.query({ compute, where: { totalMinor: { gt: '9007199254740992' } }, limit: 1 });
+  assert.equal(page.data.length, 1);
+  assert.equal(page.data[0].data.total, '2');
+  assert.equal(page.data[0].data.count, '2');
+  assert.deepEqual(decodeComputed(page.data[0]), { count: 2n, total: 2n });
+} finally { await runtime.close(); }
+const invalid = { ...graph, objects: { Customer: { ...Customer, properties: { ...Customer.properties, count: computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.absent' }) } } } };
+await assert.rejects(startApp(defineApp({ graph: invalid })), error => error.name === 'CompileError' && error.issues[0].code === 'calculation.invalid-definition');
+console.log('Installed Node host validates analytical startup and executes computed get and query reads.');
+`,
+  );
+  process.stdout.write(
+    (
+      await execFile(process.execPath, ['analytics-startup-smoke.mjs'], {
+        cwd: consumer,
+      })
+    ).stdout,
   );
   const program = `
 import assert from 'node:assert/strict';
@@ -182,7 +279,7 @@ import { z } from 'zod';
 import { defineAccess, defineGraph, defineObject, defineSource, source, objectId, from } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime, createMemoryStore } from '@relate/runtime';
-import { SourceAccessDenied } from 'relate/connectors';
+import { SourceAccessDenied, DatasetExecutionError, validateAuthorizedDatasetQuery } from 'relate/connectors';
 import { createPostgresStore } from '@relate/postgres';
 import { assertFields } from 'relate';
 import { ReadError } from '@relate/protocol';
@@ -212,7 +309,7 @@ assert.equal(model.manifest.objects[0].id, 'customer');
 assert.equal(typeof createRuntime, 'function');
 assert.equal(createMemoryStore().durability, 'volatile');
 const memoryModel = compile(defineGraph({ id: 'graph', objects: { Customer }, access, policies: { Customer: { read: { gate: access.role('reader') } } } }));
-const runtime = createRuntime({ model: memoryModel, graphId: 'smoke', sources: { crm: { connectionId: 'fixture', providerAccountId: 'example-account', authorization: 'shared-service', connector: { identify: async () => 'example-account', async fetch(id) { return { providerAccountId: 'example-account', state: 'present', record: { id, name: 'Ada' } }; } } } } });
+const runtime = createRuntime({ model: memoryModel, graphId: 'smoke', sources: { crm: { connectionId: 'fixture', resourceId: 'records', providerAccountId: 'example-account', authorization: 'shared-service', connector: { identify: async () => 'example-account', async fetch(id) { return { providerAccountId: 'example-account', state: 'present', record: { id, name: 'Ada' } }; } } } } });
 const objectIdValue = await runtime.adopt('customer', '1');
 const read = await runtime.read({ id: 'reader', roles: ['reader'], claims: {} }, 'customer', objectIdValue);
 assertFields(read, ['name']);
@@ -229,7 +326,15 @@ assert.equal(detailed.meta.fields.name.retentionDurability, 'volatile');
 const store = createPostgresStore({ connectionString: 'postgresql://unused@127.0.0.1:1/unused' });
 await store.close();
 assert.equal(new ReadError('incomplete').code, 'incomplete');
+validateAuthorizedDatasetQuery({
+  resource: {}, keys: [{ type: { type: 'string' } }],
+  correlation: [{ column: 'customerId', key: 0 }], slots: [],
+  aggregates: [{ aggregate: 'count', argument: '*', distinct: false, result: { type: 'int64', nullable: false } }],
+}, ['customerId']);
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
+const failure = new DatasetExecutionError('execution-failed', { retryable: true, cause: new Error('private driver detail') });
+assert.equal(failure.code, 'execution-failed');
+assert.ok(!JSON.stringify(failure).includes('private driver detail'));
 assert.equal((await import('relate/model')).validateManifest(model.manifest).graphDefinitionId, 'graph');
 assert.equal(typeof (await import('@relate/runtime/storage')).compareObservation, 'function');
 await assert.rejects(import('relate/dist/compiler.js'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
@@ -274,20 +379,28 @@ defineObject({ id: 'customer', label: 'Customer', key: 'id', membership: source(
 import { stripe } from '@relate/connector-stripe';
 import { salesforce } from '@relate/connector-salesforce';
 import { sqlite } from '@relate/connector-sqlite';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import type { SourceConnector, ApplicationSourceConnector } from 'relate/connectors';
-const salesforceResource: SourceConnector = salesforce({ credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture' }, apiVersion: '67.0' }).resource('Account', { fields: ['Name'] });
-connect(crm, { connectionId: 'salesforce', providerAccountId: '00D000000000001EAA', connector: salesforceResource });
-const stripeResource: SourceConnector = stripe({ apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test' }).resource('customers', { fields: ['name'] });
-connect(crm, { connectionId: 'stripe', providerAccountId: 'acct_fixture:test', connector: stripeResource });
-const localResource: ApplicationSourceConnector = sqlite({ path: 'source.sqlite' }).table('customers', { idColumn: 'id', columns: ['name'] });
-connect(crm, { connectionId: 'local', connector: localResource });
+const salesforceResource: SourceConnector = salesforce({ connectionId: 'salesforce', credentials: { instanceUrl: 'https://fixture.my.salesforce.com', accessToken: 'fixture' }, apiVersion: '67.0' }).resource('Account', { fields: ['Name'] });
+bind(crm, { connectionId: 'salesforce', resourceId: 'records', providerAccountId: '00D000000000001EAA', connector: salesforceResource });
+const stripeResource: SourceConnector = stripe({ connectionId: 'stripe', apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test' }).resource('customers', { fields: ['name'] });
+bind(crm, { connectionId: 'stripe', resourceId: 'records', providerAccountId: 'acct_fixture:test', connector: stripeResource });
+const localResource: ApplicationSourceConnector = sqlite({ connectionId: 'sqlite', path: 'source.sqlite' }).table('customers', { idColumn: 'id', columns: ['name'] });
+bind(crm, { connectionId: 'local', resourceId: 'records', connector: localResource });
 // @ts-expect-error application identity cannot claim a provider account
-connect(crm, { connectionId: 'local', providerAccountId: 'fake', connector: localResource });
-const resource: SourceConnector = sqlite({ path: 'source.sqlite', identity: { table: 'account', column: 'id' } }).table('customers', { idColumn: 'id', columns: ['name'] });
-connect(crm, { connectionId: 'verified', providerAccountId: 'account', connector: resource });
+bind(crm, { connectionId: 'local', resourceId: 'records', providerAccountId: 'fake', connector: localResource });
+const resource: SourceConnector = sqlite({ connectionId: 'sqlite', path: 'source.sqlite', identity: { table: 'account', column: 'id' } }).table('customers', { idColumn: 'id', columns: ['name'] });
+bind(crm, { connectionId: 'verified', resourceId: 'records', providerAccountId: 'account', connector: resource });
 // @ts-expect-error verified identity requires an expected account
-connect(crm, { connectionId: 'verified', connector: resource });
+bind(crm, { connectionId: 'verified', resourceId: 'records', connector: resource });
+const selectedLocal = sqlite({ connectionId: 'crm', path: 'source.sqlite' }).table('customers');
+bind(crm, selectedLocal);
+// @ts-expect-error local resources cannot claim provider identity
+bind(crm, selectedLocal, { providerAccountId: 'fake' });
+const selectedProvider = stripe({ connectionId: 'billing', apiKey: 'sk_test_fixture', apiVersion: '2025-06-30.basil', mode: 'test' }).resource('customers');
+bind(crm, selectedProvider, { providerAccountId: 'acct_fixture:test' });
+// @ts-expect-error verified resources require an expected account
+bind(crm, selectedProvider);
 export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
 `,
   );
@@ -355,7 +468,7 @@ export type Contracts = [ReadResult, ObservationStore, RuntimeOptions];
     `
 import assert from 'node:assert/strict';
 import { startApp } from '@relate/node';
-import { connect, defineApp } from 'relate';
+import { bind, defineApp } from 'relate';
 import { createInvoiceGraph } from './built/invoice-graph.js';
 const { graph, ana, Customer, Invoice, customers, invoices } = createInvoiceGraph();
 let setupCalls = 0;
@@ -363,9 +476,9 @@ let disposed = false;
 const definition = defineApp({ graph, setup({ onDispose }) {
   setupCalls++;
   onDispose(() => { disposed = true; });
-  return { connections: [
-  connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Mothlight', portfolio: 'north', revenue: 100 } }) } }),
-  connect(invoices, { connectionId: 'billing', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, customer_id: 'crm_1', status: 'open', total_minor: 12500 } }) } }),
+  return { bindings: [
+  bind(customers, { connectionId: 'crm', resourceId: 'records', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Mothlight', portfolio: 'north', revenue: 100 } }) } }),
+  bind(invoices, { connectionId: 'billing', resourceId: 'records', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, customer_id: 'crm_1', status: 'open', total_minor: 12500 } }) } }),
 ] }; } });
 assert.equal(setupCalls, 0);
 const relate = await startApp(definition);
@@ -429,13 +542,13 @@ console.log('Installed typed traversal and iteration run in plain Node ESM.');
     `
 import assert from 'node:assert/strict';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { createConsumer } from 'relate/consumer';
 import { compile } from 'relate/compiler';
 import { graph, AddAccountReview, addAccountReview, ana, Customer, customers, invoices } from './built/native-action-model.js';
-const app = createRuntime({ graph, actionImplementations: [addAccountReview], connections: [
-  connect(customers, { connectionId: 'crm', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Mothlight', portfolio: 'north' } }) } }),
-  connect(invoices, { connectionId: 'billing', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id } }) } }),
+const app = createRuntime({ graph, actionImplementations: [addAccountReview], bindings: [
+  bind(customers, { connectionId: 'crm', resourceId: 'records', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id, name: 'Mothlight', portfolio: 'north' } }) } }),
+  bind(invoices, { connectionId: 'billing', resourceId: 'records', providerAccountId: 'example-account', connector: { identify: async () => 'example-account', fetch: async (id) => ({ providerAccountId: 'example-account', state: 'present', record: { id } }) } }),
 ] });
 try {
   const customer = await app.host.adopt(Customer, 'mothlight');
@@ -462,7 +575,7 @@ console.log('Installed native action executes and returns a readable committed r
 import { z } from 'zod';
 import {
   assertFields,
-  connect,
+  bind,
   defineAccess,
   defineApp,
   defineGraph,
@@ -501,10 +614,10 @@ const relate = await startApp(
     graph,
     setup: () => ({
       graphId: 'typed-read-smoke',
-      connections: [
-        connect(people, {
+      bindings: [
+        bind(people, {
           providerAccountId: 'smoke-account',
-          connectionId: 'smoke',
+          connectionId: 'smoke', resourceId: 'records',
           connector: {
             identify: async () => 'smoke-account',
             fetch: async (id: string) =>
@@ -632,7 +745,7 @@ console.log('Installed inspector protocol and packaged assets load.');
   await writeFile(
     join(consumer, 'relate.config.ts'),
     `import assert from 'node:assert/strict';
-import { connect, defineApp } from 'relate';
+import { bind, defineApp } from 'relate';
 import type { Relate } from '@relate/node';
 import { createInvoiceGraph } from './invoice-graph.js';
 const { graph, customers, invoices, Customer, ana } = createInvoiceGraph();
@@ -644,8 +757,8 @@ const connector = {
   }),
 };
 export default defineApp({ graph, setup() {
-  return { connections: [customers, invoices].map((resource) => connect(resource, {
-    connectionId: resource.id, providerAccountId: 'packed-account', connector,
+  return { bindings: [customers, invoices].map((resource) => bind(resource, {
+    connectionId: resource.id, resourceId: 'records', providerAccountId: 'packed-account', connector,
   })) };
 } });
 export async function seed(relate: Relate<typeof graph>) {

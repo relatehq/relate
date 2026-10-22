@@ -1,5 +1,5 @@
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import type { FieldEvidence } from '@relate/protocol';
 import { assertFields } from 'relate';
 import { defineObject, referenceInput } from 'relate';
@@ -7,10 +7,11 @@ import { graph, Customer, customers, ana } from './model.js';
 
 const relate = createRuntime({
   graph,
-  connections: [
-    connect(customers, {
+  bindings: [
+    bind(customers, {
       providerAccountId: 'example-account',
       connectionId: 'crm',
+      resourceId: 'records',
       connector: {
         identify: async () => 'example-account',
         fetch: async () => ({

@@ -1,4 +1,6 @@
+import type { PortableValue } from './schema.js';
 import type { z } from 'zod';
+import type { DatasetRegistry } from './datasets.js';
 import type {
   ObjectDefinition,
   ObjectRegistry,
@@ -32,15 +34,17 @@ export type PolicyWhere<
 > = {
   readonly [
     K in keyof O['properties']
-  ]?: O['properties'][K] extends ReferenceProperty<infer Id>
-    ? PolicyWhere<Registry, Extract<Registry[keyof Registry], { id: Id }>>
-    : {
-        readonly eq:
-          | Claim<z.ZodType<z.output<O['properties'][K]['schema']>>>
-          | (z.output<O['properties'][K]['schema']> extends string
-              ? ActorField
-              : never);
-      };
+  ]?: O['properties'][K]['origin']['kind'] extends 'computed'
+    ? never
+    : O['properties'][K] extends ReferenceProperty<infer Id>
+      ? PolicyWhere<Registry, Extract<Registry[keyof Registry], { id: Id }>>
+      : {
+          readonly eq:
+            | Claim<z.ZodType<z.output<O['properties'][K]['schema']>>>
+            | (z.output<O['properties'][K]['schema']> extends string
+                ? ActorField
+                : never);
+        };
 };
 
 /** Reject surplus extracted keys as well as fresh literal typos. */
@@ -78,15 +82,18 @@ export type Policy<
   R extends string = string,
   G extends string = string,
   W = unknown,
+  A extends string = string,
 > =
   | {
       readonly read: 'deny';
       readonly groups?: never;
       readonly create?: ObjectRule<R, W> | 'deny';
+      readonly datasets?: Readonly<Record<A, { readonly gate: RoleGate<R> }>>;
     }
   | {
       readonly read: ObjectRule<R, W>;
       readonly create?: ObjectRule<R, W> | 'deny';
+      readonly datasets?: Readonly<Record<A, { readonly gate: RoleGate<R> }>>;
       readonly groups?: Readonly<
         Partial<Record<Exclude<G, 'ordinary'>, RoleGate<R>>>
       > & { readonly ordinary?: never };
@@ -95,11 +102,13 @@ export type Policy<
 export type Policies<
   Registry extends ObjectRegistry,
   Access extends AccessDefinition,
+  Datasets extends DatasetRegistry = {},
 > = {
   readonly [K in keyof Registry]: Policy<
     Access['roles'][number],
     Access['fieldGroups'][number],
-    PolicyWhere<Registry, Registry[K]>
+    PolicyWhere<Registry, Registry[K]>,
+    Extract<keyof NonNullable<Registry[K]['datasets']>, string>
   > & {
     readonly create?: Registry[K]['membership'] extends { kind: 'native' }
       ? | ObjectRule<
@@ -108,8 +117,30 @@ export type Policies<
           >
         | 'deny'
       : never;
-  };
+  } & (keyof NonNullable<Registry[K]['datasets']> extends never
+      ? {}
+      : {
+          readonly datasets: {
+            readonly [A in keyof NonNullable<Registry[K]['datasets']>]: {
+              readonly gate: RoleGate<Access['roles'][number]>;
+            };
+          };
+        });
+} & {
+  readonly [K in keyof Datasets]: DatasetPolicy<
+    Access['roles'][number],
+    Access['fieldGroups'][number]
+  >;
 };
+
+export interface DatasetPolicy<
+  R extends string = string,
+  G extends string = string,
+> {
+  readonly groups?: Readonly<
+    Partial<Record<Exclude<G, 'ordinary'>, RoleGate<R>>>
+  > & { readonly ordinary?: never };
+}
 
 /** A claim value as the runtime receives it from an authenticated host. */
 export type ClaimValue = string | number | boolean | null;
@@ -123,8 +154,8 @@ export interface PrincipalDefinition<
 > {
   readonly roles: readonly Access['roles'][number][];
   readonly claims?: {
-    readonly [K in keyof Access['claims']]?: z.input<
-      Access['claims'][K]['schema']
+    readonly [K in keyof Access['claims']]?: PortableValue<
+      z.input<Access['claims'][K]['schema']>
     > &
       ClaimValue;
   };

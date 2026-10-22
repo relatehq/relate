@@ -9,8 +9,11 @@ Relate consumer surface. Private and unpublished.
 
 ## Responsibility
 
-- Requests: `ReadRequest` (`evidence`, `select`, `maxAgeMs`, `refresh`, `stale`,
-  `requireComplete`, `timeoutMs`) and `TraversalRequest` (`limit`, `cursor`).
+- Requests: `ReadControls` owns `evidence`, `select`, `maxAgeMs`, `refresh`,
+  `stale`, `requireComplete` and `timeoutMs`. `CollectionReadControls` adds
+  `limit`, `cursor` and `where`. `ObjectReadRequest` and `ObjectQueryRequest`
+  extend object reads independently of `TraversalRequest`. `ReadRequest` and
+  `QueryRequest` remain aliases of those object-specific types.
 - Results: `ObjectResult` and `ObjectRecord` (`ok` with the canonical `id`,
   partial `data` and `meta`, or `not-found`), `Page<T>` with `PageMeta`, and the
   engine-level `ReadResult`.
@@ -31,7 +34,14 @@ Relate consumer surface. Private and unpublished.
   engine implements it, the planned `@relate/http` serves it, and the planned
   `@relate/client` implements it over a transport, and `relate/consumer` types
   it.
-- `Json`.
+- `Json` and analytical wire contracts (`AnalyticalExpression`, `LogicalType`,
+  `ComputedResultType`, `OrderEntry`, `ComputedUnavailableReason`). Analytical
+  object `get` and membership-first `query` accept `compute` and selected
+  declared calculations through a configured Node runtime. Computed values have
+  `source: 'computed'`, `freshness: 'unverified'`, complete coverage, input
+  timestamps and ordinary dependency evidence. `meta.computed` carries logical
+  result types in compact and full modes. Computed filtering and ordering remain
+  in progress.
 
 These are types, two error classes and pure evidence presentation helpers. The
 package has no runtime, database, provider or schema-library dependency and
@@ -120,3 +130,18 @@ Discovery describes local calendar fields as `format: 'local-datetime'` with
 on the wire. See the
 [owning scalar contract](../relate/CONTRACT.md#local-calendar-datetimes) for
 validation, clock-domain semantics and migration requirements.
+
+## Host analytical timings
+
+Host operation activity can include `details.analytical: AnalyticalTimings` for
+analytical `get` and membership-first `query`. Its fixed `stages` map contains
+`{ count, totalMs, maxMs }` for each entered stage, including failed work.
+Parallel and nested spans overlap, so summed stage durations are not additive;
+`Operation.durationMs` remains total elapsed time. The summary contains no SQL,
+parameters, aliases, object values or physical identifiers and is absent from
+consumer results, field evidence, discovery and MCP responses.
+
+Ordinary integer discovery uses `ScalarSchema` formats: `int32` has JSON type
+`number`, while `int64` has JSON type `string`. The latter is a canonical signed
+64-bit decimal string on every ordinary read, action and filter boundary.
+JavaScript bigint values never enter protocol envelopes.

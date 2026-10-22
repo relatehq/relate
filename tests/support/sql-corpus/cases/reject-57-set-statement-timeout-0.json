@@ -1,0 +1,8 @@
+{
+  "name": "reject-57-set-statement-timeout-0",
+  "sql": "SET statement_timeout = 0",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

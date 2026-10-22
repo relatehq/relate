@@ -1,5 +1,5 @@
 /** Sample records, simulated connectors and principals used only by validation. */
-import { connect } from './target.js';
+import { bind } from './target.js';
 import type { Principal } from './target.js';
 import { access } from '../source/access.js';
 import { createApp } from '../source/app.js';
@@ -18,12 +18,14 @@ const lookup = <R>(records: Record<string, R>) => ({
 
 export const createFixtureApp = () =>
   createApp([
-    connect(crmCustomers, {
+    bind(crmCustomers, {
       connectionId: 'crm-primary',
+      resourceId: 'records',
       connector: lookup(customers),
     }),
-    connect(billingInvoices, {
+    bind(billingInvoices, {
       connectionId: 'billing-primary',
+      resourceId: 'records',
       connector: lookup(invoices),
     }),
   ]);

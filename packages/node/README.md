@@ -4,16 +4,21 @@
 > Not ready for application use. APIs and behavior are incomplete and may change
 > without notice.
 
-Application composition for Node: compile an authored graph, bind connections
-and action implementations, and expose a typed, authorized consumer API. Private
-and unpublished while implementation is in progress.
+Application composition for Node: compile an authored graph, supply source
+bindings and action implementations, and expose a typed, authorized consumer
+API. Private and unpublished while implementation is in progress.
 
 ## Responsibility
 
-- `createRuntime({ graph, connections, actionImplementations?, store?, … })`
-  compiles the graph with `relate/compiler`, validates connections against the
-  registered sources, binds action handlers, and starts a `@relate/runtime`
-  engine.
+- `startApp(app)` runs setup and validates analytical declarations and dataset
+  bindings, including asynchronous physical-schema checks, before returning the
+  runtime. It owns registered disposal callbacks and retires statement queues
+  before disposing connections. SQLite and PostgreSQL datasets execute through
+  the runtime's shared analytical read/query path.
+- `createRuntime({ graph, bindings, actionImplementations?, store?, … })`
+  synchronously compiles an ordinary graph with `relate/compiler`, validates
+  bindings against the registered sources, binds action handlers, and starts a
+  `@relate/runtime` engine.
 - `relate.as(principal)` returns consumer operations whose names and types are
   inferred from the graph's object registry: `objects.Customer.get`,
   `objects.Customer.query`, `objects.Customer.traverse.invoices`,
@@ -34,8 +39,8 @@ and unpublished while implementation is in progress.
   trusted host APIs: the activity feed and operation history, who created or
   adopted an object, and a single call under a transport-assigned operation ID.
   None of them is exposed to consumers.
-- `connect` and `defineApp` are portable authoring helpers imported from
-  `relate`. This package executes their definitions.
+- `bind` and `defineApp` are portable authoring helpers imported from `relate`.
+  This package executes their definitions.
 
 Authorization, transactions and evidence belong to the engine. This package adds
 types, composition and lifecycle. Storage defaults to isolated memory; an
@@ -46,13 +51,32 @@ binding in `src/runtime.ts`. Dispatch supplies one trusted operation scope;
 ordinary bindings create a fresh scope for each call. Both paths use the same
 lifecycle tracking, authorization and argument validation.
 
+Analytical apps started with `startApp` can use object `get` and `query` with
+caller `compute` aliases and selected declared calculations. Both run through
+the same batch executor and are revalidated against ordinary dependency values
+before projection. For example,
+`Customer.get(id, { select: ['name', 'loginCount'], compute: { total: { sql: 'SELECT SUM(amount) FROM self.events' } } })`
+adds an exact JSON int64 total alongside the selected fields. `meta.computed`
+supplies result types in both evidence modes. Dependencies and computed input
+freshness remain explicit; no dataset synchronization is claimed. SQLite and
+PostgreSQL analytical connectors execute these reads. Computed filters and
+ordering evaluate the authorized matching scope before choosing a page, with
+finite host budgets and revision-bound cursors. Actor-bound discovery exposes
+associations, column access and inferred calculation types through the consumer,
+MCP and Inspector playground. See the
+[application guide](../../apps/docs/content/runtime/application.md#filtering-and-ordering-by-calculations).
+
 ## How it fits
 
 - Depends on `relate`, `relate/compiler` and `relate/consumer`,
-  `@relate/runtime` and `@relate/protocol`.
-- The embedded entry point for applications today. Planned HTTP and MCP adapters
-  serve `relate.operations(principal)`. The existing CLI inspects definitions
-  without starting a runtime.
+  `@relate/runtime` and `@relate/protocol`. Analytical apps additionally
+  initialize `@relate/sql-parser` during `startApp` to validate declared
+  calculations.
+- The embedded entry point for applications today. The MCP adapter serves
+  `relate.operations(principal)` over stdio and Streamable HTTP; a standalone
+  HTTP consumer API remains planned. `relate dev` starts a runtime for its
+  Inspector, playground and MCP endpoint; `--no-runtime` inspects definitions
+  only.
 
 ## Public API
 
@@ -69,7 +93,7 @@ import {
   source,
 } from 'relate';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 
 const people = defineSource({
   id: 'example.people',
@@ -98,9 +122,10 @@ const graph = defineGraph({
 
 const relate = createRuntime({
   graph,
-  connections: [
-    connect(people, {
+  bindings: [
+    bind(people, {
       connectionId: 'directory',
+      resourceId: 'records',
       providerAccountId: 'example-account',
       connector: {
         // This in-memory fixture is its own provider. Real adapters authenticate.

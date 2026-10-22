@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, it } from 'vitest';
-import { connect, implementAction } from 'relate';
+import { bind, implementAction } from 'relate';
 import { createRuntime } from '@relate/node';
 import { createMemoryStore } from '@relate/runtime';
 import {
@@ -22,10 +22,11 @@ function deferred() {
   return { promise, resolve };
 }
 
-function connections(name: () => Promise<string>) {
+function bindings(name: () => Promise<string>) {
   return [
-    connect(customers, {
+    bind(customers, {
       connectionId: 'crm',
+      resourceId: 'records',
       connector: {
         identity: 'application',
         async fetch(id) {
@@ -36,8 +37,9 @@ function connections(name: () => Promise<string>) {
         },
       },
     }),
-    connect(invoices, {
+    bind(invoices, {
       connectionId: 'billing',
+      resourceId: 'records',
       connector: {
         identity: 'application',
         fetch: async (id) => ({ state: 'present', record: { id } }),
@@ -59,7 +61,7 @@ it('keeps concurrent read and query refreshes attached to their own runtime and 
         graphId,
         store,
         actionImplementations: [addAccountReview],
-        connections: connections(async () => {
+        bindings: bindings(async () => {
           if (!refreshing) return 'Before';
 
           entered.resolve();
@@ -145,7 +147,7 @@ it('keeps action queries in the outer scope after a nested public call with anot
     graph,
     graphId,
     store,
-    connections: connections(async () => `Name ${++fetches}`),
+    bindings: bindings(async () => `Name ${++fetches}`),
     actionImplementations: [
       implementAction(graph, AddAccountReview, async (context) => {
         await nestedRead(context.input.customer);
@@ -228,7 +230,7 @@ it('rejects late handler reads after timeout without attributing them to the nex
     graphId,
     store,
     actionTimeoutMs: 500,
-    connections: connections(async () => 'Customer'),
+    bindings: bindings(async () => 'Customer'),
     actionImplementations: [
       implementAction(graph, AddAccountReview, async (context) => {
         if (context.input.note === 'slow') {

@@ -1,8 +1,9 @@
 # Learn Relate by running it
 
-These three examples have distinct jobs: the smallest application, a fuller
-business application, and a specific deployment setup. Future examples should
-teach a new concept or deployment method rather than repeat these applications.
+These examples have distinct jobs: the smallest application, a fuller business
+application, persistent deployment, and analytical datasets. Future examples
+should teach a new concept or deployment method rather than repeat these
+applications.
 
 Run from a repository checkout with Node 22 (22.16+), 24, or 26 and pnpm 12.9.1
 (`npm install --global pnpm@12.9.1`). Run `pnpm install` at the repository root;
@@ -14,9 +15,10 @@ packages are required.
 | 01    | [Todo notes](01-todo-notes)                     | One native object, an action, owner-only access, typed reads and queries. Small terminal app with no services.                                                        | `pnpm example:todo-notes`         |
 | 02    | [Customer workspace](02-customer-workspace)     | A business graph across an HTTP CRM, SQLite invoices and native reviews; relationships, role and field policies, receipts, refresh and model inspection in a browser. | `pnpm example:customer-workspace` |
 | 03    | [Postgres persistence](03-postgres-persistence) | Persistent storage, explicit migrations, restart recovery, freshness, stale fallback and provider denial. Requires Postgres.                                          | `pnpm example:postgres`           |
+| 04    | [Customer events](04-customer-events)           | Correlated event datasets, caller SQL, declared calculations, computed filters/order and field access. Requires only Node.                                            | `pnpm example:customer-events`    |
 
 Start with 01 to read the smallest app, or 02 to explore a complete business
-scenario in the browser. Examples 01 and 02 use isolated **in-memory Relate
+scenario in the browser. Examples 01, 02 and 04 use isolated **in-memory Relate
 stores**. SQLite in 02 is a **source system**, not Relate's persistence layer.
 Example 03 persists Relate state in Postgres.
 
@@ -38,5 +40,5 @@ their own definitions and data; `pnpm check:boundaries` enforces that
 separation. Tests of each example itself live in its own `test/` folder.
 
 The exploratory application under `dev/fixtures/customer-graph` includes
-proposed APIs as well as implemented behavior. Use these three examples for
-runnable public APIs.
+proposed APIs as well as implemented behavior. Use these examples for runnable
+public APIs.

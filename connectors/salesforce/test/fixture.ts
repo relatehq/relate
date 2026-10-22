@@ -38,6 +38,7 @@ export function fixture(overrides: Partial<SalesforceOptions> = {}) {
       : Response.json(result, { status });
   };
   const connection = salesforce({
+    connectionId: 'salesforce',
     credentials,
     apiVersion: '67.0',
     fetch: transport,

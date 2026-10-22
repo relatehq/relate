@@ -79,7 +79,7 @@ it('keeps the Node development service out of the Inspector browser', async () =
   });
 });
 
-it.each(['connectors', 'storage'])(
+it.each(['connectors', 'storage', 'analytics'])(
   'keeps %s contracts independent of graph authoring, including type imports',
   async (entry) => {
     await expect(
@@ -353,5 +353,27 @@ it('keeps the CRM simulator independent of Relate', async () => {
     }),
   ).rejects.toMatchObject({
     stderr: expect.stringContaining('Forbidden dependency'),
+  });
+});
+
+it('allows connector contracts to reach only portable analytical helpers', async () => {
+  const portable = {
+    'packages/relate/src/connectors.ts':
+      "export type { Query } from './analytics.js';",
+    'packages/relate/src/analytics.ts':
+      "export type { Query } from './analytics/sql.js';",
+    'packages/relate/src/analytics/sql.ts': 'export interface Query {}',
+  };
+
+  await expect(check(portable)).resolves.toBeDefined();
+  await expect(
+    check({
+      ...portable,
+      'packages/relate/src/index.ts': 'export interface Graph {}',
+      'packages/relate/src/analytics/sql.ts':
+        "export type { Graph as Query } from '../index.js';",
+    }),
+  ).rejects.toMatchObject({
+    stderr: expect.stringContaining('src/analytics/sql.ts -> src/index.ts'),
   });
 });

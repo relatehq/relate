@@ -1,8 +1,9 @@
+import type { ReadExecution } from '../reads/index.js';
 import type { OperationScope } from '../activity/index.js';
 import type { Manifest, Policy } from 'relate/model';
 import { ActionError, ReadError } from '@relate/protocol';
 import type {
-  ReadRequest,
+  ReadControls,
   FullObjectResult as ReadResult,
   Json,
   FieldEvidence,
@@ -61,7 +62,8 @@ export function createNativeOperations(options: {
     age: number,
     canonical: boolean,
     transaction?: NativeTransaction,
-    request?: ReadRequest,
+    request?: ReadControls,
+    execution?: ReadExecution,
   ): Promise<AuthorizationEvidence | undefined>;
 }) {
   const { manifest, scope, store, clock } = options;
@@ -69,7 +71,8 @@ export function createNativeOperations(options: {
     attempt: OperationScope,
     principal: Principal,
     transaction?: NativeTransaction,
-    request?: ReadRequest,
+    request?: ReadControls,
+    execution?: ReadExecution,
   ) =>
     createAuthorization({
       manifest,
@@ -84,6 +87,7 @@ export function createNativeOperations(options: {
           canonical,
           transaction,
           request,
+          execution,
         ),
     });
 
@@ -144,13 +148,17 @@ export function createNativeOperations(options: {
       principal: Principal,
       objectDefinitionId: string,
       id: string,
-      request: ReadRequest,
+      request: ReadControls,
       transaction?: NativeTransaction,
       capture?: (check: () => Promise<boolean>) => void,
+      execution?: ReadExecution,
     ): Promise<ReadResult> {
+      execution?.signal.throwIfAborted();
       validateReadRequest(
         request,
         operationName(manifest, principal, objectDefinitionId, 'get'),
+        'get',
+        execution?.expandedSelection,
       );
       const object = manifest.objects.find((o) => o.id === objectDefinitionId);
       const policy = Object.hasOwn(manifest.policies, objectDefinitionId)
@@ -177,7 +185,13 @@ export function createNativeOperations(options: {
       if (!record) return { status: 'not-found' };
 
       const evidence = nativeEvidence(object, record);
-      const auth = authorization(attempt, principal, transaction, request);
+      const auth = authorization(
+        attempt,
+        principal,
+        transaction,
+        request,
+        execution,
+      );
 
       if (!(await auth.allows(object, evidence)))
         return { status: 'not-found' };

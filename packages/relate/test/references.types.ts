@@ -70,7 +70,7 @@ defineGraph({ ...graph, policies: { ...graph.policies, Customer: { read: 'deny',
 // @ts-expect-error reference targets must come from the same object registry
 defineGraph({ id: 'invalid', objects: { Invoice }, access, policies: { Invoice: { read: { gate, evidenceMaxAgeMs, where: valid } } } });
 
-const relate = createRuntime({ graph, connections: [] });
+const relate = createRuntime({ graph, bindings: [] });
 
 async function read() {
   const invoice = await relate

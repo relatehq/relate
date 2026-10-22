@@ -23,6 +23,7 @@ export function propertyIdentityContract(
       const sources = {
         'crm.customers': {
           connectionId: 'crm',
+          resourceId: 'records',
           providerAccountId: 'crm-account',
           authorization: 'shared-service' as const,
           connector: {
@@ -86,6 +87,7 @@ export function propertyIdentityContract(
             objectDefinitionId: Customer.id,
             sourceDefinitionId: 'crm.customers',
             connectionId: 'crm',
+            resourceId: 'records',
             providerAccountId: 'crm-account',
             partition: 'shared-service',
           };
@@ -159,6 +161,7 @@ export function propertyIdentityContract(
           objectDefinitionId: Customer.id,
           sourceDefinitionId: 'crm.customers',
           connectionId: 'crm',
+          resourceId: 'records',
           providerAccountId: 'crm-account',
           partition: 'shared-service',
         };
@@ -224,12 +227,13 @@ export function propertyIdentityContract(
         objectDefinitionId: Customer.id,
         sourceDefinitionId: 'crm.customers',
         connectionId: 'crm',
+        resourceId: 'records',
         providerAccountId: 'crm-account',
         partition: 'shared-service',
       };
 
       try {
-        expect(model.manifest.formatVersion).toBe(6);
+        expect(model.manifest.formatVersion).toBe(7);
         expect(() => validateManifest(legacy)).toThrow();
         await backing.store.install(graphId, revision);
         const saved = await backing.store.accept(scope, {

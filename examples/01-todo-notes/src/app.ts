@@ -68,5 +68,5 @@ const addTodo = implementAction(
 
 export const app = defineApp({
   graph,
-  setup: () => ({ connections: [], actionImplementations: [addTodo] }),
+  setup: () => ({ bindings: [], actionImplementations: [addTodo] }),
 });

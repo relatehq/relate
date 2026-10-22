@@ -1,0 +1,8 @@
+{
+  "name": "reject-49-select-count-from-self-events-where-value-value-is-null",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE (value, value) IS NULL",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

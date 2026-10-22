@@ -1,0 +1,8 @@
+{
+  "name": "reject-15-select-count-from-self-events-group-by-value",
+  "sql": "SELECT COUNT(*) FROM self.events GROUP BY value",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

@@ -2,7 +2,7 @@ import type { OperationScope } from '../activity/index.js';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
-  ReadRequest,
+  ReadControls,
   FullReadResult as ReadResult,
   TraversalRequest,
   FullObjectRecord as ObjectRecord,
@@ -20,6 +20,7 @@ import {
 import type { Principal } from '../authorization/index.js';
 import {
   compileWhere,
+  calculatedReadIssues,
   cursorCodec,
   invalidValue,
   predicateMatcher,
@@ -49,7 +50,7 @@ export interface TraversalOptions {
     principal: Principal,
     typeId: string,
     id: string,
-    request?: ReadRequest,
+    request?: ReadControls,
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
   ): Promise<ReadResult>;
@@ -93,6 +94,16 @@ export function createTraversal(options: TraversalOptions) {
     const kind =
       match.traversal.cardinality === 'one' ? 'traverse-one' : 'traverse-many';
     const issues = requestIssues(input, kind);
+    const calculated = calculatedReadIssues(
+      input,
+      (match.target.calculations ?? []).map((property) => ({
+        name: property.name,
+        defaultSelected: false,
+      })),
+    );
+
+    if (calculated.length)
+      rejectIssues(operation, kind, [...issues, ...calculated]);
 
     if (typeof id !== 'string' || !id.trim())
       issues.unshift(
@@ -195,7 +206,7 @@ export function createTraversal(options: TraversalOptions) {
 
     if (root.status !== 'ok') return unavailable();
 
-    const linkRequest = (refresh = request.refresh): ReadRequest => ({
+    const linkRequest = (refresh = request.refresh): ReadControls => ({
       ...readRequest,
       select: [via.name],
       requireComplete: false,

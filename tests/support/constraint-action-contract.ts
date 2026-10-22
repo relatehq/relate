@@ -72,7 +72,7 @@ export function constraintActionContract(
       graph,
       graphId,
       store: backing.store,
-      connections: [],
+      bindings: [],
       actionImplementations: [
         implementAction(graph, RecordScore, async ({ input, objects }) => {
           calls++;

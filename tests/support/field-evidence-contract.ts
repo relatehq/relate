@@ -87,6 +87,7 @@ export function fieldEvidenceContract(
           records: {
             providerAccountId: 'example-account',
             connectionId: 'test',
+            resourceId: 'records',
             authorization: 'shared-service',
             connector: {
               identify: async () => 'example-account',

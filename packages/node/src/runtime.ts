@@ -1,10 +1,12 @@
+import { bindHostResources } from './bindings.js';
+import type { HostBindings } from './bindings.js';
 import type {
   ActivityActor,
   ActivityObjectRef,
   ConsumerOperations,
   OperationActor,
   OperationContext,
-  QueryRequest,
+  CollectionReadControls,
 } from '@relate/protocol';
 import { compile } from 'relate/compiler';
 import type {
@@ -22,9 +24,11 @@ import {
   createOperationScope,
   createRuntime as createEngine,
   hostActor,
+  validateDeclaredCalculations,
+  resolveAnalyticalLimits,
 } from '@relate/runtime';
 import type { OperationScope, Principal } from '@relate/runtime';
-import type { SourceBinding } from 'relate/connectors';
+import type { SqlParser } from 'relate/analytics';
 import type { ActionHandler } from '@relate/runtime';
 import type { Relate } from './types.js';
 
@@ -117,11 +121,91 @@ export interface AppOptions<
   readonly graph: G;
 }
 
+type StartupOptions<
+  G extends GraphDefinition & { readonly objects: ObjectRegistry },
+> = AppOptions<G> & { readonly sqlParser?: SqlParser };
+
 /** Compile an authored graph and bind typed reads and native action handlers. */
+function prepareHost<
+  G extends GraphDefinition & { readonly objects: ObjectRegistry },
+>(options: StartupOptions<G>) {
+  const shutdownTimeoutMs = options.shutdownTimeoutMs ?? 5000;
+
+  if (
+    !Number.isSafeInteger(shutdownTimeoutMs) ||
+    shutdownTimeoutMs < 1 ||
+    shutdownTimeoutMs > 2147483647
+  )
+    throw new Error('shutdownTimeoutMs must be between 1 and 2147483647');
+
+  const limits = resolveAnalyticalLimits(options.analytics);
+  const model = compile(options.graph);
+  const analytical = Boolean(
+    model.manifest.datasets?.length ||
+    model.manifest.objects.some((object) => object.calculations?.length),
+  );
+
+  if (analytical && !options.sqlParser)
+    throw new Error(
+      'Analytical graphs require asynchronous startup. Use startApp().',
+    );
+
+  if (analytical)
+    validateDeclaredCalculations(model.manifest, options.sqlParser!, limits);
+
+  return {
+    model,
+    limits,
+    bindings: bindHostResources(options.graph, model, options.bindings, {
+      concurrency: limits.maxConcurrentStatements,
+      maxQueued: limits.maxQueuedStatements,
+      maxWaitMs: limits.queueTimeoutMs,
+    }),
+  };
+}
+
+/** Compile and bind ordinary graphs synchronously; analytical graphs use startApp. */
 export function createRuntime<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(options: AppOptions<G>): Relate<G> {
-  const model = compile(options.graph);
+  const { model, bindings, limits } = prepareHost(options);
+
+  return composeRuntime({ ...options, analytics: limits }, model, bindings);
+}
+
+/** Internal asynchronous composition used by startApp; no readiness surface escapes. */
+export async function startRuntime<
+  G extends GraphDefinition & { readonly objects: ObjectRegistry },
+>(options: StartupOptions<G>): Promise<Relate<G>> {
+  const { model, bindings, limits } = prepareHost(options);
+  let runtime: Relate<G> | undefined;
+
+  try {
+    // Capture all registries and validate ordinary bindings before asynchronous inspection.
+    // The runtime remains private until every physical schema passes.
+    runtime = composeRuntime(
+      { ...options, analytics: limits },
+      model,
+      bindings,
+    );
+    await bindings.describe();
+
+    return runtime;
+  } catch (error) {
+    if (runtime) await runtime.close();
+    else await bindings.retire();
+
+    throw error;
+  }
+}
+
+function composeRuntime<
+  G extends GraphDefinition & { readonly objects: ObjectRegistry },
+>(
+  options: StartupOptions<G>,
+  model: ReturnType<typeof compile<G>>,
+  bindings: HostBindings,
+): Relate<G> {
   // Keep every later facade aligned with this compiled model. Definitions are
   // immutable, but the graph and its caller-owned registries need not be.
   const description = model.consumer;
@@ -129,26 +213,6 @@ export function createRuntime<
   const registered = new Set<ObjectDefinition>(
     objects.map(([, object]) => object),
   );
-  const resources = new Set(
-    objects.flatMap(([, object]) =>
-      'resource' in object.membership ? [object.membership.resource] : [],
-    ),
-  );
-  const sources: Record<string, SourceBinding> = {};
-
-  for (const connection of options.connections) {
-    if (!resources.has(connection.source))
-      throw new Error('Unregistered source connection');
-
-    if (Object.hasOwn(sources, connection.source.id))
-      throw new Error('Duplicate source connection');
-
-    Object.defineProperty(sources, connection.source.id, {
-      value: connection,
-      enumerable: true,
-    });
-  }
-
   const actions = Object.entries(options.graph.actions ?? {});
   const handlers: Record<string, ActionHandler> = {};
 
@@ -177,7 +241,7 @@ export function createRuntime<
           objects.map(([name, object]) => [
             name,
             Object.freeze({
-              query: (request: QueryRequest = {}) =>
+              query: (request: CollectionReadControls = {}) =>
                 createPagedQuery(`${name}.query`, request, (page) =>
                   context.query(object.id, page),
                 ),
@@ -198,10 +262,23 @@ export function createRuntime<
   if (actions.some(([, action]) => !Object.hasOwn(handlers, action.id)))
     throw new Error('Missing action implementation');
 
+  const analyticalLifetime = new AbortController();
   const engine = createEngine({
+    ...(options.sqlParser
+      ? {
+          analytics: {
+            parser: options.sqlParser,
+            ...(options.analytics === undefined
+              ? {}
+              : { limits: options.analytics }),
+            signal: analyticalLifetime.signal,
+            binding: bindings.analyticalBinding,
+          },
+        }
+      : {}),
     model,
     graphId: options.graphId ?? options.graph.id,
-    sources,
+    sources: bindings.sources,
     actionHandlers: handlers,
     ...(options.actionTimeoutMs !== undefined
       ? { actionTimeoutMs: options.actionTimeoutMs }
@@ -390,7 +467,31 @@ export function createRuntime<
     }),
     async close() {
       closed = true;
-      await Promise.allSettled([...pending]);
+      analyticalLifetime.abort();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+
+      try {
+        await Promise.race([
+          (async () => {
+            await bindings.retire();
+            await Promise.allSettled([...pending]);
+          })(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    'Runtime shutdown timed out while draining operations',
+                  ),
+                ),
+              options.shutdownTimeoutMs ?? 5000,
+            );
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+
       // Drain tracked operations first, then flush capture within a deadline.
       // Expiry reports abandoned rows; a borrowed store stays open either way.
       await engine.drainActivity(flushTimeoutMs);

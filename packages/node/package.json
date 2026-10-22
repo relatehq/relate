@@ -8,7 +8,8 @@
   "dependencies": {
     "relate": "workspace:*",
     "@relate/runtime": "workspace:*",
-    "@relate/protocol": "workspace:*"
+    "@relate/protocol": "workspace:*",
+    "@relate/sql-parser": "workspace:*"
   },
   "files": [
     "dist",

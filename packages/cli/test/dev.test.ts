@@ -714,14 +714,14 @@ it('adopts seed records into the served runtime and reseeds after editing an imp
   );
   await project.write(
     'src/relate/app.ts',
-    `import { connect, defineApp } from 'relate';
+    `import { bind, defineApp } from 'relate';
 import { graph, Customer } from './graph.js';
 export default defineApp({
   graph,
   setup() {
     return {
-      connections: [connect(Customer.membership.resource, {
-        connectionId: 'crm', providerAccountId: 'test-account',
+      bindings: [bind(Customer.membership.resource, {
+        connectionId: 'crm', resourceId: 'records', providerAccountId: 'test-account',
         connector: {
           identify: async () => 'test-account',
           fetch: async (id) => ({

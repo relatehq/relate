@@ -1,0 +1,36 @@
+{
+  "name": "coalesce-sum",
+  "sql": "SELECT COALESCE(SUM(e.value), 0) FROM self.events e",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "sum",
+      "argument": {
+        "kind": "column",
+        "name": "value",
+        "quoted": false
+      },
+      "distinct": false,
+      "fallback": {
+        "kind": "literal",
+        "literal": "number",
+        "value": "0"
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "8",
+      "acme_late": "8",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "9007199254740995"
+    }
+  }
+}

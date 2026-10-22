@@ -1,0 +1,54 @@
+export { createStatementQueue, AnalyticalBusyError } from './queue.js';
+export { resolveAnalyticalLimits } from './limits.js';
+export type { StatementQueue, StatementQueueOptions } from './queue.js';
+
+export { prepareExpression } from './prepare-expression.js';
+export { AnalyticalPreparationError } from './expression-types.js';
+
+export type {
+  ActorAssociations,
+  AnalyticalAssociation,
+  ResolvedExpression,
+} from './expression-types.js';
+
+export { computeFields, validatePreparedCapacity } from './execute.js';
+export { AnalyticalIncompleteError } from './execution-types.js';
+
+export type {
+  ResolvedCalculation,
+  AuthorizedCandidate,
+  AnalyticalBinding,
+  ComputedField,
+  ComputedScope,
+} from './execution-types.js';
+
+export { createAnalyticalTimings, beginTiming } from './timings.js';
+export { createCalculationSummary, captureCalculations } from './activity.js';
+
+export type {
+  AnalyticalTimingStage,
+  StageTiming,
+  AnalyticalTimings,
+  TimingCapture,
+} from './timings.js';
+
+export {
+  prepareCompute,
+  preparedBindingRevisions,
+  authorizeDeclaration,
+} from './prepare-compute.js';
+
+export type { PreparedCompute } from './prepare-compute.js';
+
+export type {
+  ComputeRequest,
+  DeclaredCalculationRequest,
+  PreparationLimits,
+} from './request.js';
+
+export { revalidateFields } from './revalidate.js';
+
+export { prepareComputedOrder, computedFilterOperators } from './order.js';
+export type { ComputedPosition } from './order.js';
+
+export type { CalculationCapture } from './activity.js';

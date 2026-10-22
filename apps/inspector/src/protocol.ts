@@ -10,8 +10,8 @@ import { manifestSchema } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import type { ModelIssue, SourceSite } from 'relate/diagnostics';
 
-/** 4: playground runs are activity calls from `inspector-playground`. */
-export const PROTOCOL_VERSION = 4 as const;
+/** 5: analytical activity includes bounded calculation summaries. */
+export const PROTOCOL_VERSION = 5 as const;
 
 const text = z.string().min(1);
 const identifierList = z.array(text).readonly();
@@ -221,8 +221,74 @@ const activityActorSchema = z.strictObject({
  * feed entry, committed with the state it describes. Metadata only: IDs,
  * actors and outcomes, never values.
  */
+const stageTimingSchema = z
+  .strictObject({
+    count: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    totalMs: z.number().nonnegative(),
+    maxMs: z.number().nonnegative(),
+  })
+  .refine((value) => value.maxMs <= value.totalMs);
+
+const calculationIdentifier = text.refine(
+  (value) =>
+    value.trim().length > 0 &&
+    new TextEncoder().encode(value).byteLength <= 256,
+);
+const failureCount = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+
+export const analyticalSummarySchema = z
+  .strictObject({
+    expressionCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(Number.MAX_SAFE_INTEGER),
+    computedFilter: z.boolean(),
+    computedOrder: z.boolean(),
+    calculations: z
+      .array(
+        z.strictObject({
+          associationId: calculationIdentifier,
+          datasetId: calculationIdentifier,
+          propertyId: calculationIdentifier.optional(),
+          failures: z.strictObject({
+            forbidden: failureCount.optional(),
+            'correlation-unavailable': failureCount.optional(),
+            'execution-failed': failureCount.optional(),
+            'invalid-result': failureCount.optional(),
+            busy: failureCount.optional(),
+            interrupted: failureCount.optional(),
+          }),
+        }),
+      )
+      .max(32)
+      .readonly(),
+    omittedCalculations: failureCount.optional(),
+  })
+  .refine(
+    (value) =>
+      value.expressionCount ===
+      value.calculations.length + (value.omittedCalculations ?? 0),
+  );
+
+export const analyticalTimingsSchema = z.strictObject({
+  summary: analyticalSummarySchema.optional(),
+  stages: z.strictObject({
+    preparation: stageTimingSchema.optional(),
+    candidates: stageTimingSchema.optional(),
+    dependencyReads: stageTimingSchema.optional(),
+    planning: stageTimingSchema.optional(),
+    queueWait: stageTimingSchema.optional(),
+    connectionStartup: stageTimingSchema.optional(),
+    execution: stageTimingSchema.optional(),
+    revalidation: stageTimingSchema.optional(),
+    finalization: stageTimingSchema.optional(),
+  }),
+});
+
 export const runtimeRecordSchema = z.strictObject({
   record: z.enum(['attempt', 'committed']),
+  analytical: analyticalTimingsSchema.optional(),
   actor: activityActorSchema,
   /** A source change: the actor whose operation triggered the refresh. */
   triggeredBy: activityActorSchema.optional(),

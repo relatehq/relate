@@ -10,7 +10,7 @@ import {
 import type { ActionContext } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { NativeCommitUncertain } from '@relate/runtime/storage';
 import type { ObservationStore, NativeRecord } from '@relate/runtime/storage';
 import {
@@ -105,10 +105,11 @@ export function domainActionContract(
           },
         },
         actionImplementations: [implementAction(domainGraph, Review, handler)],
-        connections: [
-          connect(customers, {
+        bindings: [
+          bind(customers, {
             providerAccountId: 'test',
             connectionId: 'crm',
+            resourceId: 'records',
             connector: {
               identify: async () => 'test',
               fetch: async (id) => ({

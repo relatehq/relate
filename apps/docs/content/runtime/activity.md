@@ -213,7 +213,7 @@ await runtime.host.adopt(Customer, 'crm_456', {
 ```ts
 const runtime = createRuntime({
   graph,
-  connections,
+  bindings,
   activity: {
     operations: 'enabled', // 'disabled' keeps the feed and provenance
     queueEntries: 1_000,
@@ -253,6 +253,54 @@ const { entries } = await runtime.host.activity.operations.list({ limit: 1 });
 ```
 
 ---
+
+Analytical object reads and queries include bounded host diagnostics when
+operation capture is enabled:
+
+```ts
+const { entries } = await runtime.host.activity.operations.list({ limit: 1 });
+const stages = entries[0]?.details.analytical?.stages;
+// stages.execution: { count: 2, totalMs: 19.4, maxMs: 11 }
+```
+
+In Inspector's Activity screen, open a request and choose **Timeline**:
+selecting an analytical operation in its waterfall shows this summary under
+**Analytical timings**, one bar of summed work per stage with a tick at the
+longest single span. The stages distinguish request preparation, candidate and
+dependency reads, statement planning, queue waits, connection startup, database
+execution, revalidation and result finalization. Unentered stages are omitted.
+Failed operations retain measurements through cancellation cleanup.
+
+The bars and table show summed work durations; concurrent and nested work
+overlaps and does not add up to the operation's elapsed time. Timings contain
+only stage names, counts and durations. They follow activity enablement and
+retention and are absent from consumer results, evidence, discovery and MCP
+responses.
+
+After successful expression preparation, `details.analytical.summary` also
+records the expression count, whether computed filtering/ordering was used, and
+the logical association/dataset IDs for each calculation. Declared calculations
+carry their stable property ID; caller expressions have no recorded alias.
+Inspector displays these under **Analytical calculations**.
+
+```ts
+const summary = entries[0]?.details.analytical?.summary;
+// summary.expressionCount: 2
+// summary.computedFilter: true
+// summary.calculations[0]: {
+//   associationId: 'customer.events', datasetId: 'events',
+//   propertyId: 'customer.login-count', failures: { 'execution-failed': 3 }
+// }
+```
+
+Failure counts cover observed object results across the evaluated scope, even
+outside the returned page. Repeated checks count once. `interrupted` means an
+in-flight operation stopped before a pending calculation settled; the operation
+outcome explains why the read stopped. Preparation errors have no calculation
+summary. Diagnostics retain at most 32 entries and omit entries whose stable
+identifiers exceed 256 UTF-8 bytes, reporting `omittedCalculations` explicitly.
+SQL, parameters, aliases, object values and physical binding details are never
+recorded in these summaries.
 
 ## 5. Storage and Retention
 

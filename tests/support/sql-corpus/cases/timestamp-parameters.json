@@ -1,0 +1,77 @@
+{
+  "name": "timestamp-parameters",
+  "sql": "SELECT COUNT(*) FROM self.events e WHERE e.eventType = $kind AND e.occurredAt >= $since AND e.occurredAt < $until",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "boolean",
+        "op": "and",
+        "args": [
+          {
+            "kind": "compare",
+            "op": "=",
+            "left": {
+              "kind": "column",
+              "name": "eventtype",
+              "quoted": false
+            },
+            "right": {
+              "kind": "parameter",
+              "name": "kind"
+            }
+          },
+          {
+            "kind": "compare",
+            "op": ">=",
+            "left": {
+              "kind": "column",
+              "name": "occurredat",
+              "quoted": false
+            },
+            "right": {
+              "kind": "parameter",
+              "name": "since"
+            }
+          },
+          {
+            "kind": "compare",
+            "op": "<",
+            "left": {
+              "kind": "column",
+              "name": "occurredat",
+              "quoted": false
+            },
+            "right": {
+              "kind": "parameter",
+              "name": "until"
+            }
+          }
+        ]
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "1",
+      "acme_late": "1",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "2"
+    }
+  },
+  "parameters": {
+    "kind": "login",
+    "since": "2026-10-01T00:00:00.000Z",
+    "until": "2026-10-10T00:00:00.000Z"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "max-boolean",
+  "sql": "SELECT MAX(enabled) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "max",
+      "argument": {
+        "kind": "column",
+        "name": "enabled",
+        "quoted": false
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "boolean",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": true,
+      "acme_late": true,
+      "empty": null,
+      "nulls": null,
+      "wide": true
+    }
+  }
+}

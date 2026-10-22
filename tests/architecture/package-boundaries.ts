@@ -16,9 +16,18 @@ export const packagePolicies: Record<
     imports: ['@relate/connector-salesforce', 'zod'],
     builtins: true,
   },
+  'connectors/postgres': {
+    builtins: ['node:net'],
+    imports: ['relate/connectors', 'relate/analytics', 'pg'],
+  },
   'connectors/sqlite': {
-    imports: ['relate/connectors'],
-    builtins: ['node:sqlite', 'node:worker_threads', 'node:path'],
+    imports: ['relate/connectors', 'relate/analytics'],
+    builtins: [
+      'node:sqlite',
+      'node:worker_threads',
+      'node:path',
+      'node:child_process',
+    ],
   },
   'examples/02-customer-workspace': {
     imports: [
@@ -34,8 +43,11 @@ export const packagePolicies: Record<
   },
   'packages/relate': { imports: ['zod', '@relate/protocol'] },
   'packages/protocol': { imports: [] },
+  'packages/sql-parser': { imports: ['relate/analytics', 'libpg-query'] },
   'packages/runtime': {
     imports: [
+      'relate/diagnostics',
+      'relate/analytics',
       'relate/model',
       'relate/connectors',
       'relate/storage',
@@ -48,7 +60,12 @@ export const packagePolicies: Record<
     builtins: true,
   },
   'packages/node': {
+    // The host hashes physical binding identity before exposing its revision.
+    builtins: ['node:crypto'],
     imports: [
+      'relate/model',
+      'relate/analytics',
+      '@relate/sql-parser',
       'relate',
       'relate/compiler',
       'relate/connectors',
@@ -184,6 +201,17 @@ export const packagePolicies: Record<
     imports: ['hono', '@hono/node-server'],
     builtins: ['node:events', 'node:http'],
   },
+  'examples/04-customer-events': {
+    imports: [
+      'relate',
+      'relate/consumer',
+      'relate/compiler',
+      '@relate/node',
+      '@relate/connector-sqlite',
+      'zod',
+    ],
+    builtins: true,
+  },
   'examples/03-postgres-persistence': {
     imports: [
       'relate',
@@ -208,6 +236,7 @@ export function assertRelateEntryPoints(
     'src/model.ts',
     'src/connectors.ts',
     'src/storage.ts',
+    'src/analytics.ts',
   ]) {
     const visited = new Set<string>();
     const visit = (file: string, path: readonly string[]): void => {
@@ -217,11 +246,15 @@ export function assertRelateEntryPoints(
       const compiler =
         file === 'src/compiler.ts' || file.startsWith('src/compiler/');
       const model = file === 'src/model.ts' || file.startsWith('src/model/');
+      const analytics =
+        file === 'src/analytics.ts' || file.startsWith('src/analytics/');
 
       if (
         compiler ||
         (['src/connectors.ts', 'src/storage.ts'].includes(entry) &&
-          !['src/connectors.ts', 'src/storage.ts'].includes(file)) ||
+          !['src/connectors.ts', 'src/storage.ts'].includes(file) &&
+          !analytics) ||
+        (entry === 'src/analytics.ts' && !analytics) ||
         (entry === 'src/model.ts' && !model && file !== 'src/diagnostics.ts')
       )
         throw new Error(

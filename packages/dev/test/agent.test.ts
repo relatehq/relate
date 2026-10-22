@@ -1193,7 +1193,7 @@ const addNote = implementAction(graph, AddNote, async ({ input, objects }) => {
 
 export default defineApp({
   graph,
-  setup: () => ({ connections: [], actionImplementations: [addNote] }),
+  setup: () => ({ bindings: [], actionImplementations: [addNote] }),
 });
 `;
 

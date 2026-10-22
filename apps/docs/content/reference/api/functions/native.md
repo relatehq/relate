@@ -9,7 +9,7 @@ function native<S, Id>(schema, options): Property<S> & {
 };
 ```
 
-Defined in: [packages/relate/src/index.ts:150](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L150)
+Defined in: [packages/relate/src/index.ts:158](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L158)
 
 ## Type Parameters
 

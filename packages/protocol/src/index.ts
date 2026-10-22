@@ -1,9 +1,17 @@
+import type {
+  AnalyticalExpression,
+  ComputedResultType,
+  ComputedUnavailableReason,
+  OrderEntry,
+} from './analytics.js';
+
 export type Json =
   null | boolean | number | string | Json[] | { [key: string]: Json };
 
 export type EvidenceMode = 'compact' | 'full';
 
-export interface ReadRequest {
+/** Shared controls, including restricted traversal and transaction reads. */
+export interface ReadControls {
   /** Evidence presentation only; defaults to compact. */
   readonly evidence?: EvidenceMode;
   readonly select?: readonly string[];
@@ -13,6 +21,14 @@ export interface ReadRequest {
   readonly requireComplete?: boolean;
   readonly timeoutMs?: number;
 }
+
+/** Object reads have their own extension point, separate from traversal. */
+export interface ObjectReadRequest extends ReadControls {
+  readonly compute?: Readonly<Record<string, AnalyticalExpression>>;
+}
+
+/** Existing public name retained for object reads. */
+export type ReadRequest = ObjectReadRequest;
 
 /** Exhaustion and continuation are mutually exclusive, including on the wire. */
 export type PageMeta =
@@ -46,7 +62,12 @@ export type Refresh =
  */
 export type FieldEvidence =
   | { status: 'forbidden' }
-  | { status: 'unavailable' }
+  | {
+      status: 'unavailable';
+      reason?: ComputedUnavailableReason;
+      retryable?: boolean;
+    }
+  | ComputedFieldEvidence
   | {
       status: 'available' | 'absent';
       freshness: 'fresh' | 'stale';
@@ -60,6 +81,22 @@ export type FieldEvidence =
       refresh: Refresh;
     };
 
+export interface ComputedFieldEvidence {
+  readonly status: 'available';
+  readonly source: 'computed';
+  readonly freshness: 'unverified';
+  readonly computedAt: string;
+  readonly inputs: readonly {
+    readonly associationId: string;
+    readonly datasetId: string;
+    readonly bindingRevision: string;
+    readonly readAt: string;
+    readonly modifiedAt?: string;
+  }[];
+  readonly coverage: 'complete';
+  readonly dependencies: Readonly<Record<string, FieldEvidence>>;
+}
+
 export type EvidenceWarning =
   'observation_not_retained' | 'retention_unconfirmed' | 'ordering_unconfirmed';
 
@@ -67,6 +104,7 @@ interface ReadSummary {
   completeness: 'complete' | 'partial';
   degraded: boolean;
   definitionRevision: string;
+  computed?: Readonly<Record<string, ComputedResultType>>;
 }
 
 export interface FullReadMeta extends ReadSummary {
@@ -135,14 +173,23 @@ export interface FilterOperators {
  * properties; schema-specific operators are validated by the runtime. A to-one
  * traversal accepts neither paging nor filters.
  */
-export interface TraversalRequest extends ReadRequest {
+export interface CollectionReadControls extends ReadControls {
   readonly limit?: number;
   readonly cursor?: string;
   readonly where?: Readonly<Record<string, FilterScalar | FilterOperators>>;
 }
 
+/** Traversal never inherits object-only analytical options. */
+export interface TraversalRequest extends CollectionReadControls {}
+
 /** A query pages and filters graph members of one object type. */
-export type QueryRequest = TraversalRequest;
+export interface ObjectQueryRequest
+  extends ObjectReadRequest, CollectionReadControls {
+  readonly orderBy?: readonly OrderEntry[];
+}
+
+/** Existing public name retained for object queries. */
+export type QueryRequest = ObjectQueryRequest;
 
 /**
  * One problem with a caller's read request. Paths name request options, filter
@@ -157,10 +204,13 @@ export interface RequestIssue {
     | 'unknown-property'
     | 'unknown-traversal'
     | 'invalid-cursor'
-    | 'not-supported';
+    | 'not-supported'
+    | 'limit-exceeded';
   readonly message: string;
   /** Names the reader may use instead, when that list is useful. */
   readonly accepted?: readonly string[];
+  readonly location?: { readonly line: number; readonly column: number };
+  readonly suggestion?: string;
 }
 
 export interface ReadErrorDetails {
@@ -197,7 +247,11 @@ export class ReadError extends Error {
 
   constructor(
     readonly code:
-      'incomplete' | 'invalid-request' | 'unavailable' | 'runtime-retired',
+      | 'incomplete'
+      | 'invalid-request'
+      | 'unavailable'
+      | 'runtime-retired'
+      | 'resource-exhausted',
     details?: ReadErrorDetails,
   ) {
     super(readErrorMessage(code, details));
@@ -281,15 +335,31 @@ export type {
   TraversalOverview,
   OptionDescription,
   PropertyDescription,
+  ComputedPropertyDescription,
+  DatasetColumnDescription,
+  DatasetDescription,
+  ComputeDescription,
   ScalarSchema,
   TraversalDescription,
 } from './discovery.js';
 
 export type { ConsumerOperations } from './consumer.js';
 
-export { ActivityError } from './activity.js';
+export {
+  ActivityError,
+  analyticalTimingStages,
+  analyticalFailureReasons,
+  analyticalSummaryLimits,
+} from './activity.js';
 
 export type {
+  AnalyticalTimingStage,
+  AnalyticalTimings,
+  AnalyticalActivity,
+  AnalyticalSummary,
+  AnalyticalCalculationSummary,
+  AnalyticalFailureReason,
+  StageTiming,
   ActivityActor,
   ActivityFilter,
   ActivityObjectRef,
@@ -316,3 +386,11 @@ export type {
   RejectedOutcome,
   UncertainOutcome,
 } from './activity.js';
+
+export type {
+  LogicalType,
+  ComputedResultType,
+  AnalyticalExpression,
+  OrderEntry,
+  ComputedUnavailableReason,
+} from './analytics.js';

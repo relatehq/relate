@@ -1,0 +1,36 @@
+{
+  "name": "coalesce-label",
+  "sql": "SELECT COALESCE(MAX(e.label), 'none') FROM self.events e",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "max",
+      "argument": {
+        "kind": "column",
+        "name": "label",
+        "quoted": false
+      },
+      "distinct": false,
+      "fallback": {
+        "kind": "literal",
+        "literal": "string",
+        "value": "none"
+      }
+    },
+    "resultType": {
+      "type": "string",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "z",
+      "acme_late": "z",
+      "empty": "none",
+      "nulls": "none",
+      "wide": "wide"
+    }
+  }
+}

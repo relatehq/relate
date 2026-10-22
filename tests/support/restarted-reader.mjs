@@ -14,6 +14,7 @@ try {
       'crm.customers': {
         providerAccountId: 'example-account',
         connectionId: 'crm-primary',
+        resourceId: 'records',
         authorization: 'shared-service',
         connector: {
           async identify({ signal }) {

@@ -10,6 +10,10 @@ const output = path.join(appDirectory, 'content/reference/api');
 // Runtime and consumer entry points have a separate handwritten API reference.
 const selected = [
   'defineSource',
+  'defineDataset',
+  'computed',
+  'ComputedPropertyNames',
+  'DatasetRow',
   'defineObject',
   'defineRelationship',
   'defineGraph',
@@ -17,7 +21,7 @@ const selected = [
   'defineAction',
   'implementAction',
   'defineApp',
-  'connect',
+  'bind',
   'source',
   'nativeMembership',
   'objectId',
@@ -89,7 +93,12 @@ const files = (await readdir(output, { recursive: true })).sort((a, b) =>
 for (const file of files) {
   if (!file.endsWith('.md')) continue;
 
-  const source = await readFile(path.join(output, file), 'utf8');
+  const source = (await readFile(path.join(output, file), 'utf8')).replace(
+    /[\t ]+$/gm,
+    '',
+  );
+
+  await writeFile(path.join(output, file), source);
   const title =
     source.match(/^# (.+)$/m)?.[1]?.replace(/\\/g, '') ?? 'API Reference';
 

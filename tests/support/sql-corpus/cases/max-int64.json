@@ -1,0 +1,31 @@
+{
+  "name": "max-int64",
+  "sql": "SELECT MAX(e.value) FROM self.events e",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "max",
+      "argument": {
+        "kind": "column",
+        "name": "value",
+        "quoted": false
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": "3",
+      "acme_late": "3",
+      "empty": null,
+      "nulls": null,
+      "wide": "9007199254740993"
+    }
+  }
+}

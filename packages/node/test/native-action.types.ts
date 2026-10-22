@@ -14,7 +14,7 @@ import {
 async function caller() {
   const relate = createRuntime({
     graph,
-    connections: [],
+    bindings: [],
     actionImplementations: [addAccountReview],
   });
   const consumer = relate.as(ana);

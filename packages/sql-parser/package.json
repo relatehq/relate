@@ -1,0 +1,26 @@
+{
+  "name": "@relate/sql-parser",
+  "version": "0.0.0-dev.0",
+  "license": "Apache-2.0",
+  "private": false,
+  "type": "module",
+  "description": "Restricted analytical SQL parser adapter for Relate.",
+  "files": [
+    "dist",
+    "README.md",
+    "CONTRACT.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "relate": "workspace:*",
+    "libpg-query": "18.1.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

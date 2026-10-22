@@ -75,11 +75,11 @@ export function GraphScreen() {
         )}
         {model && model.nodes.length === 0 && (
           <div className="graph-overlay-center empty">
-            <div className="title">This graph has no objects</div>
+            <div className="title">This graph has no objects or datasets</div>
             <div className="hint">
-              {state.model!.manifest.graphDefinitionId} compiled with 0 objects
-              and 0 relationships. Objects appear here when you add them to
-              defineGraph and save.
+              {state.model!.manifest.graphDefinitionId} compiled with no objects
+              or datasets. Nodes appear here when you add them to defineGraph
+              and save.
             </div>
             <div className="snippet">
               {`defineGraph({ id: '${state.model!.manifest.graphDefinitionId}', objects: { } })`}

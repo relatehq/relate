@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  connect,
+  bind,
   defineAccess,
   defineApp,
   defineGraph,
@@ -10,11 +10,11 @@ import {
   objectId,
   source,
 } from 'relate';
-import type { SourceConnector } from 'relate/connectors';
+import type { SourceConnector, SourceResource } from 'relate/connectors';
 
 /** Test-owned application factory shared by simulated and live Salesforce checks. */
 export function customerApp(
-  connector: SourceConnector,
+  connector: SourceResource<SourceConnector>,
   providerAccountId: string,
 ) {
   const accounts = defineSource({
@@ -51,13 +51,7 @@ export function customerApp(
   const app = defineApp({
     graph,
     setup: () => ({
-      connections: [
-        connect(accounts, {
-          connectionId: 'salesforce',
-          providerAccountId,
-          connector,
-        }),
-      ],
+      bindings: [bind(accounts, connector, { providerAccountId })],
     }),
   });
 

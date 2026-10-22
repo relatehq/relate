@@ -6,7 +6,7 @@ type ObjectId<DefinitionId> = string & {
 };
 ```
 
-Defined in: [packages/relate/src/index.ts:18](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L18)
+Defined in: [packages/relate/src/index.ts:25](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L25)
 
 A canonical record ID, scoped to its stable object definition ID.
 

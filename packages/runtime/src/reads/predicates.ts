@@ -30,7 +30,10 @@ export interface FilterProperty {
 type Condition =
   | { readonly operator: 'eq'; readonly value: FilterScalar }
   | { readonly operator: 'in'; readonly value: readonly FilterScalar[] }
-  | { readonly operator: 'gt' | 'gte' | 'lt' | 'lte'; readonly value: number };
+  | {
+      readonly operator: 'gt' | 'gte' | 'lt' | 'lte';
+      readonly value: number | string;
+    };
 
 /** Validated, normalized once per request; values use instant milliseconds for timestamps. */
 export interface Predicate {
@@ -46,6 +49,20 @@ function normalizeScalar(
   value: FilterScalar,
 ): FilterScalar {
   if (value === null) return value;
+
+  if (
+    (scalar.format === 'int64' || scalar.format === 'int32') &&
+    !accepts(
+      {
+        type: scalar.format === 'int64' ? 'string' : 'number',
+        format: scalar.format,
+        optional: false,
+        nullable: false,
+      },
+      value,
+    )
+  )
+    throw new ReadError('incomplete');
 
   if (scalar.format === 'local-datetime') {
     const normalized = scalar.precision
@@ -65,6 +82,7 @@ function normalizeScalar(
 /** Discovery and validation use the same operator vocabulary. */
 export function filterOperators(schema: ScalarSchema): readonly string[] {
   return schema.type === 'number' ||
+    schema.format === 'int64' ||
     schema.format === 'timestamp' ||
     schema.format === 'local-datetime'
     ? ['eq', 'in', 'gt', 'gte', 'lt', 'lte']
@@ -148,7 +166,7 @@ export function compilePredicate(
           type: property.schema.type,
           optional: false,
           nullable: false,
-          ...(timestamp ? { format: 'timestamp' as const } : {}),
+          ...(property.schema.format ? { format: property.schema.format } : {}),
           ...(localPrecision
             ? { format: 'local-datetime' as const, precision: localPrecision }
             : {}),
@@ -192,7 +210,7 @@ export function compilePredicate(
     else
       conditions.push({
         operator: operator as 'gt' | 'gte' | 'lt' | 'lte',
-        value: normalized[0] as number,
+        value: normalized[0] as number | string,
       });
   }
 
@@ -209,6 +227,23 @@ export function matchesPredicate(
   value: FilterScalar,
 ): boolean {
   const actual = normalizeScalar(predicate.scalar, value);
+  // Keep cursor-bound predicates JSON-only; convert to bigint only while
+  // comparing an exact integer. Lexicographic comparison is never numeric.
+  const compare = (
+    expected: number | string,
+    test: (a: number | bigint, b: number | bigint) => boolean,
+  ) => {
+    if (predicate.scalar.format === 'int64')
+      return (
+        typeof actual === 'string' && test(BigInt(actual), BigInt(expected))
+      );
+
+    return (
+      typeof actual === 'number' &&
+      typeof expected === 'number' &&
+      test(actual, expected)
+    );
+  };
 
   return predicate.conditions.every((condition) => {
     switch (condition.operator) {
@@ -217,13 +252,13 @@ export function matchesPredicate(
       case 'in':
         return condition.value.includes(actual);
       case 'gt':
-        return typeof actual === 'number' && actual > condition.value;
+        return compare(condition.value, (a, b) => a > b);
       case 'gte':
-        return typeof actual === 'number' && actual >= condition.value;
+        return compare(condition.value, (a, b) => a >= b);
       case 'lt':
-        return typeof actual === 'number' && actual < condition.value;
+        return compare(condition.value, (a, b) => a < b);
       case 'lte':
-        return typeof actual === 'number' && actual <= condition.value;
+        return compare(condition.value, (a, b) => a <= b);
     }
   });
 }

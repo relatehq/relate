@@ -7,7 +7,7 @@ Node's built-in fetch; no Stripe SDK or runtime dependency is required.
 
 ```ts
 import { stripe } from '@relate/connector-stripe';
-import { connect, defineSource } from 'relate';
+import { bind, defineSource } from 'relate';
 import { z } from 'zod';
 
 const customers = defineSource({
@@ -20,16 +20,15 @@ const customers = defineSource({
   }),
 });
 const billing = stripe({
+  connectionId: 'billing',
   apiKey: () => process.env.STRIPE_SECRET_KEY!,
   apiVersion: '2025-06-30.basil', // Pin the version your schema targets.
   mode: 'test',
 });
-const binding = connect(customers, {
-  connectionId: 'billing',
+const binding = bind(customers, billing.resource('customers'), {
   providerAccountId: 'acct_yourAccount:test',
-  connector: billing.resource('customers', { fields: ['name', 'email'] }),
 });
-// Return { graphId, connections: [binding] } from defineApp.setup.
+// Return { graphId, bindings: [binding] } from defineApp.setup.
 // Define objects using source(customers) and from(customers.fields.name).
 // Adopt a known cus_... ID through app.host.adopt, then read as an actor.
 ```
@@ -125,8 +124,8 @@ completion. Callbacks/transports should honor the signal; a noncooperative
 callback may continue after the caller is rejected, but cannot start a request
 after cancellation. `maxResponseBytes` defaults to 2 MiB per response and bounds
 streamed response consumption. Redirects are rejected. There are no automatic
-retries, background jobs, or owned connections to close. A trusted `fetch`
-override supports deterministic testing; production requests use the fixed
+retries, background jobs, or owned bindings to close. A trusted `fetch` override
+supports deterministic testing; production requests use the fixed
 `https://api.stripe.com/v1/` endpoint.
 
 Enumeration, search, webhooks, provider writes, and payment actions are not

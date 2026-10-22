@@ -1,0 +1,31 @@
+{
+  "name": "count-distinct",
+  "sql": "SELECT COUNT(DISTINCT e.userId) FROM self.events AS e",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": {
+        "kind": "column",
+        "name": "userid",
+        "quoted": false
+      },
+      "distinct": true
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "2",
+      "acme_late": "2",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "2"
+    }
+  }
+}

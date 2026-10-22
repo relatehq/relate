@@ -15,7 +15,7 @@ Private and unpublished while implementation is in progress.
   `defineAccess`, `defineAction` and `defineGraph`; the property constructors
   `objectId`, `from`, `native` and `reference`; `source` and `nativeMembership`;
   `implementAction`; and the boundary helpers `referenceInput` and
-  `assertFields`; `connect`, `defineApp`, and `isAppDefinition`.
+  `assertFields`; `bind`, `defineApp`, and `isAppDefinition`.
 - `relate/consumer`: the typed consumer facade shared by every surface:
   `createConsumer(description, operations)` builds `objects.Customer.get`,
   `objects.Customer.query`, `objects.Customer.traverse.invoices`,
@@ -66,10 +66,10 @@ An app author uses three steps:
 1. Define sources, objects, relationships, actions, and policies with `relate`.
    The graph describes the model; it contains no live provider clients.
 2. Wrap the graph in `defineApp({ graph, setup })` from `relate`. Inside setup,
-   open provider clients, bind each source with `connect`, and register cleanup.
-   `connect` only creates a binding; it performs no I/O.
+   open provider clients, bind each source with `bind`, and register cleanup.
+   `bind` only creates a binding; it performs no I/O.
 3. In a Node server entry point, call `startApp(app)` from `@relate/node`. The
-   host runs setup, compiles the graph, and supplies the connections to the
+   host runs setup, compiles the graph, and supplies the bindings to the
    runtime. It returns the typed consumer API and drains work before cleanup.
 
 ```ts
@@ -83,7 +83,7 @@ export default defineApp({
     const { openBindings } = await import('./bindings.js');
     const bindings = await openBindings();
     onDispose(() => bindings.close());
-    return { connections: bindings.connections };
+    return { bindings: bindings.bindings };
   },
 });
 ```
@@ -288,6 +288,40 @@ remains accessible separately. See the
 and
 [traversal guide](../../apps/docs/content/runtime/reading-data.md#many-to-many-traversal).
 
+## Integer properties
+
+Use `z.int32()` for signed 32-bit integers and `z.int64()` for signed 64-bit
+integers in source fields, native properties, action payloads and claims.
+Optional and nullable wrappers are supported; integer refinements and coercion
+are rejected. Other bigint schemas and `z.number().int()` are not supported.
+
+```ts
+const totalMinor = native(z.int64(), { id: 'invoice.total-minor' });
+// Typed reads, native writes, action payloads and filters all use JSON strings:
+const where = { totalMinor: { gt: '9007199254740992' } };
+```
+
+`int32` values are JSON numbers in `[-2147483648, 2147483647]`. `int64` values
+are canonical decimal strings in `[-9223372036854775808, 9223372036854775807]`,
+including small values such as `'2'`. Leading zeros, `'-0'`, fractions, numbers
+and JavaScript bigints are rejected at ordinary value boundaries. Use
+`BigInt(value)` explicitly for local arithmetic. Discovery reports
+`{ type: 'number', format: 'int32' }` or `{ type: 'string', format: 'int64' }`.
+Filters compare integers numerically without rounding, and keep their strings in
+encrypted cursor scope. Integer properties can supply matching dataset
+correlation keys and `self` operands in calculations.
+
+```mermaid
+flowchart LR
+  Declaration[Zod integer declaration] --> Manifest[Portable integer format]
+  Source[Source or native action] --> JSON[Exact JSON scalar]
+  Manifest --> Validation[Range and representation validation]
+  JSON --> Validation
+  Validation --> Storage[Memory or Postgres storage]
+  Storage --> Read[Typed read and numeric filter]
+  Read --> SQL[Typed correlation and self operands]
+```
+
 ## Timestamp properties and query predicates
 
 Declare timestamps with `z.iso.datetime({ offset: true, precision: 3 })` in a
@@ -312,11 +346,130 @@ const events = defineSource({
 
 Map `events.fields.occurredAt` using `from(...)` as usual. `QueryOptions` infers
 scalar equality and `eq`/`in` for every property, plus `gt`/`gte`/`lt`/`lte` for
-numbers and timestamps. References retain their object-ID brand inside `in`.
-Timestamp equality and ranges compare instants, so different offsets can match;
-returned property values preserve the supplied string. Ordinary strings have no
-range operators. See
+numbers, int64 values and timestamps. References retain their object-ID brand
+inside `in`. Timestamp equality and ranges compare instants, so different
+offsets can match; returned property values preserve the supplied string.
+Ordinary strings have no range operators. See
 [reading data](../../apps/docs/content/runtime/reading-data.md#querying-objects-query)
 for consumer examples and
 [the runtime contract](../runtime/CONTRACT.md#graph-queries) for validation,
 evidence and pagination rules.
+
+## Portable analytical contracts
+
+`relate/analytics` owns SQL representation types and shared scalar codecs. The
+Node host uses them for computed object get/query reads. The entry point has no
+compiler, SQL parser implementation or database driver.
+
+```ts
+import { encodeAnalyticalValue, decodeAnalyticalValue } from 'relate/analytics';
+
+const type = { type: 'int64', nullable: false } as const;
+encodeAnalyticalValue(9007199254740993n, type); // '9007199254740993'
+decodeAnalyticalValue('9007199254740993', type); // 9007199254740993n
+```
+
+Int64 values always encode as decimal strings. Millisecond instants decode to
+`Date`; microsecond instants remain canonical UTC strings so no digits are lost.
+Codecs reject overflow, nonfinite numbers, malformed timestamps and mismatched
+JSON values. `parseAnalyticalValue` resolves typed JSON parameters and
+normalizes instant offsets without rounding. Null is valid only for nullable
+results.
+
+`decodeComputed` from `relate/consumer` applies these codecs using a record's
+`meta.computed` entries:
+
+```ts
+import { decodeComputed } from 'relate/consumer';
+
+const record = await consumer.objects.Customer.get(customerId, {
+  compute: { logins: { sql: 'SELECT COUNT(*) FROM self.events' } },
+});
+const fields = decodeComputed(record);
+// fields.logins is 2n when the returned JSON value was "2".
+```
+
+The helper returns a separate bag of present computed fields, for both caller
+aliases and declared calculations. It accepts get results and individual query
+records in either evidence mode. Ordinary fields and the original evidence stay
+unchanged. Missing fields stay missing; SQL null stays null. Not-found results
+and records without computed metadata return `{}`. Decode pages with
+`page.data.map(record => decodeComputed(record))`.
+
+Malformed present values or their type metadata throw `AnalyticalValueError`
+from `relate/analytics`, without including the input value. Result fields remain
+optional in TypeScript; SQL result types are known at runtime. Keep the original
+record for JSON transport; the decoded bag is for local use.
+
+`relate/connectors` also defines the analytical connector boundary:
+`AnalyticalConnector.plan(authorizedQuery)` returns an opaque `PreparedPlan`,
+and `execute(plan, { signal, timeoutMs })` returns portable values by object
+slot. Physical names and generated SQL remain connector-owned. See the
+[connector contract](./CONTRACT.md#analytical-connector-boundary).
+
+## Analytical dataset declarations
+
+`defineDataset` declares rows without an object identity. Each column owns its
+schema, stable ID, access group and optional description. `DatasetRow` infers
+the row type, and `dataset.schema` is derived from those same column schemas.
+Bind datasets to SQLite or PostgreSQL resources with `bind(...)` and start the
+application with `startApp`. Object `get` and `query` support caller expressions
+and declared calculations through the same authorized execution path; computed
+filters and ordering evaluate the matching scope before choosing a page.
+
+```ts
+import { z } from 'zod';
+import { defineAccess, defineDataset } from 'relate';
+import type { DatasetRow } from 'relate';
+
+const access = defineAccess({
+  roles: ['analyst'],
+  fieldGroups: ['ordinary'],
+  claims: {},
+});
+const Events = defineDataset({
+  id: 'analytics.events',
+  description:
+    'One row per recorded event. Duplicate events remain separate rows.',
+  columns: {
+    customerId: {
+      id: 'analytics.events.customer-id',
+      schema: z.string(),
+      access: access.groups.ordinary,
+    },
+  },
+});
+type Event = DatasetRow<typeof Events>; // { customerId: string }
+```
+
+Register datasets under `defineGraph({ datasets: { Events }, ... })`. An object
+associates itself through
+`datasets: { events: { id, dataset: Events, on: [{ column: 'customerId', property: 'externalId' }] } }`.
+The property belongs to the containing object; the column belongs to the
+selected dataset. Multiple pairs combine with AND. Policies declare both
+`Customer.datasets.events.gate` and the dataset's column `groups`; ordinary-only
+datasets use an empty policy. See the
+[dataset contract](./CONTRACT.md#dataset-and-association-compilation).
+
+A named calculation is declared alongside ordinary properties:
+
+```ts
+import { computed } from 'relate';
+
+const loginCount = computed({
+  id: 'customer.login-count',
+  access: access.groups.ordinary,
+  sql: "SELECT COUNT(*) FROM self.events WHERE eventType = 'login'",
+});
+// Use in defineObject({ properties: { ...ordinaryProperties, loginCount }, ... }).
+```
+
+Compilation keeps calculation IDs, access, descriptions and SQL in the graph
+revision. Calculations cannot be native action write targets, row-policy inputs
+or correlation keys. Their TypeScript values are optional JSON scalars; SQL
+result types are inferred by runtime preparation. `startApp` validates every
+declared calculation, including unselected properties, before returning the
+runtime. Object reads execute declared and caller calculations on SQLite and
+PostgreSQL. Traversal and action-bound readers reject calculated selections,
+including defaults, while explicit ordinary-property selections remain
+supported.

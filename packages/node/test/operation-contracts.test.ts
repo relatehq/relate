@@ -1,6 +1,6 @@
 import { inspect } from 'node:util';
 import { expect, it } from 'vitest';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import type { SourceConnector } from 'relate/connectors';
 import { createRuntime } from '@relate/node';
 import { operationContracts } from '@relate/runtime';
@@ -33,14 +33,16 @@ function createInvoiceApp() {
   const relate = createRuntime({
     graph: model.graph,
     cursorKey: new Uint8Array(32).fill(3),
-    connections: [
-      connect(model.customers, {
+    bindings: [
+      bind(model.customers, {
         connectionId: 'crm',
+        resourceId: 'records',
         providerAccountId: 'account',
         connector: connector(rows.customers),
       }),
-      connect(model.invoices, {
+      bind(model.invoices, {
         connectionId: 'billing',
+        resourceId: 'records',
         providerAccountId: 'account',
         connector: connector(rows.invoices),
       }),
@@ -68,12 +70,17 @@ it('discovers the generic read contract and each object’s concrete calls', asy
 
   const { sdk } = consumer.describe();
 
-  expect(Object.keys(sdk.options)).toEqual(operationContracts.query.options);
+  expect(Object.keys(sdk.options)).toEqual(
+    operationContracts.options.map((option) => option.name),
+  );
+  expect(sdk.options.compute?.operations).toEqual(['get', 'query']);
   expect(operationContracts.traverse.many.options).toEqual(
-    operationContracts.query.options,
+    operationContracts.query.options.filter(
+      (option) => !['compute', 'orderBy'].includes(option),
+    ),
   );
   expect(operationContracts.traverse.one.options).toEqual(
-    operationContracts.get.options,
+    operationContracts.get.options.filter((option) => option !== 'compute'),
   );
 
   for (const option of operationContracts.options) {
@@ -170,7 +177,7 @@ it('prints operations as call signatures instead of implementation source', asyn
     'objects.Invoice.traverse.customer(id: ObjectId<Invoice>, options?: { select?, evidence?, stale?, maxAgeMs?, refresh?, requireComplete?, timeoutMs? }): Promise<ObjectResult<Customer>>',
   );
   expect(String(Customer.query)).toMatch(
-    /^objects\.Customer\.query\(options\?: \{ where\?, select\?, limit\?, cursor\?/,
+    /^objects\.Customer\.query\(options\?: \{ compute\?, orderBy\?, where\?, select\?, limit\?, cursor\?/,
   );
   expect(String(Customer.get)).toMatch(
     /^objects\.Customer\.get\(id: ObjectId<Customer>/,
@@ -201,7 +208,7 @@ it('names unknown paging options and the accepted generic options', async () => 
       'invalid-request in Customer.query:',
       '- pageSize: unknown option; use "limit" (integer 1–100).',
       '- pageIndex: unknown option; there is no offset or page-number paging; pass page.meta.continuationCursor from the previous page as "cursor", or iterate with for await.',
-      'Accepted options: where, select, limit, cursor, evidence, stale, maxAgeMs, refresh, requireComplete, timeoutMs.',
+      'Accepted options: compute, orderBy, where, select, limit, cursor, evidence, stale, maxAgeMs, refresh, requireComplete, timeoutMs.',
     ].join('\n'),
   );
 

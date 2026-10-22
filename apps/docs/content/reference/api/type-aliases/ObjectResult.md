@@ -1,21 +1,21 @@
 # Type Alias: ObjectResult\<O, K, E\>
 
 ```ts
-type ObjectResult<O, K, E> = 
+type ObjectResult<O, K, E> =
   | {
   status: "not-found";
 }
   | {
   data: ObjectData<O, K>;
   id: ObjectId<O["id"]>;
-  meta: TypedMeta<Extract<ReadMeta, {
+  meta: DeclaredComputedMeta<TypedMeta<Extract<ReadMeta, {
      evidence: E;
-  }>, K>;
+  }>, K>, Extract<K, ComputedPropertyNames<O>>>;
   status: "ok";
 };
 ```
 
-Defined in: [packages/relate/src/operations.ts:51](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L51)
+Defined in: [packages/relate/src/operations.ts:69](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L69)
 
 Read methods guarantee full only for a required full evidence option.
 

@@ -41,6 +41,7 @@ export function storeContract(
         objectDefinitionId: 'person',
         sourceDefinitionId: 'people',
         connectionId: 'connection-1',
+        resourceId: 'records',
         providerAccountId: 'account-1',
         partition: 'shared-service',
       };
@@ -48,6 +49,38 @@ export function storeContract(
     });
     afterEach(async () => {
       await fixture?.close();
+    });
+
+    it('isolates resources sharing a connection, definition and record key', async () => {
+      const { object: first } = await adopt(
+        observation(await store.beginFetch(), 'First'),
+      );
+      const otherScope = { ...scope, resourceId: 'archived-people' };
+
+      expect(await store.load(otherScope, first.objectId)).toBeUndefined();
+      expect(
+        await store.resolve(otherScope, first.sourceRecordId),
+      ).toBeUndefined();
+      expect(
+        await store.provenance(otherScope, first.objectId),
+      ).toBeUndefined();
+      const { object: second } = await store.accept(otherScope, {
+        attribution: testAttribution(),
+        sourceRecordId: first.sourceRecordId,
+        adopt: true,
+        observation: observation(await store.beginFetch(), 'Second'),
+      });
+
+      expect(second.objectId).not.toBe(first.objectId);
+      expect(await store.resolve(scope, first.sourceRecordId)).toEqual(first);
+      expect(await store.resolve(otherScope, first.sourceRecordId)).toEqual(
+        second,
+      );
+      expect(await store.load(scope, second.objectId)).toBeUndefined();
+      expect((await store.scan(scope, { limit: 10 })).objects).toEqual([first]);
+      expect((await store.scan(otherScope, { limit: 10 })).objects).toEqual([
+        second,
+      ]);
     });
 
     it('isolates application-owned identity from verified accounts and other connections', async () => {
@@ -107,6 +140,7 @@ export function storeContract(
         'objectDefinitionId',
         'sourceDefinitionId',
         'connectionId',
+        'resourceId',
         'providerAccountId',
       ] as const) {
         expect(
@@ -139,6 +173,7 @@ export function storeContract(
         'objectDefinitionId',
         'sourceDefinitionId',
         'connectionId',
+        'resourceId',
         'providerAccountId',
         'partition',
       ] as const) {
@@ -192,6 +227,7 @@ export function storeContract(
         'objectDefinitionId',
         'sourceDefinitionId',
         'connectionId',
+        'resourceId',
         'providerAccountId',
         'partition',
       ] as const) {

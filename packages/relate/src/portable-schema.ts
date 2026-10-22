@@ -24,6 +24,29 @@ export function portable(schema: z.ZodType): ScalarSchema {
 
   const type = current.def.type;
 
+  // Integer formats have a fixed representation at every JSON boundary. In
+  // particular, int64 never passes through a JavaScript number or JSON bigint.
+  if (
+    'format' in current.def &&
+    ((current.def.type === 'number' && current.def.format === 'int32') ||
+      (current.def.type === 'bigint' && current.def.format === 'int64'))
+  ) {
+    if (
+      ('coerce' in current.def && current.def.coerce) ||
+      ('checks' in current.def && current.def.checks?.length)
+    )
+      throw new Error(
+        'Integer formats require uncoerced schemas without refinements',
+      );
+
+    return {
+      type: current.def.format === 'int64' ? 'string' : 'number',
+      format: current.def.format,
+      optional,
+      nullable,
+    };
+  }
+
   if (
     !['string', 'number', 'boolean'].includes(type) ||
     // Coercion changes which inputs parse; the portable scalar would accept fewer.

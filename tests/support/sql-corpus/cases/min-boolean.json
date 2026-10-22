@@ -1,0 +1,31 @@
+{
+  "name": "min-boolean",
+  "sql": "SELECT MIN(enabled) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "min",
+      "argument": {
+        "kind": "column",
+        "name": "enabled",
+        "quoted": false
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "boolean",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": false,
+      "acme_late": false,
+      "empty": null,
+      "nulls": null,
+      "wide": true
+    }
+  }
+}

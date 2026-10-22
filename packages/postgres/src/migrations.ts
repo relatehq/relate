@@ -251,3 +251,16 @@ CREATE TABLE relate.feed_streams (
 INSERT INTO relate.feed_streams(graph_id, stream_id)
   SELECT graph_id, gen_random_uuid()::text FROM relate.graphs;
 `;
+
+// Development-only reset: old observations do not identify their physical resource.
+// Never guess a resource for retained data. Native objects and activity survive.
+export const resourceIdentityMigration = `
+DELETE FROM relate.object_versions;
+DELETE FROM relate.objects;
+ALTER TABLE relate.objects ADD COLUMN resource_id text NOT NULL
+  CHECK (length(btrim(resource_id)) > 0);
+ALTER TABLE relate.objects DROP CONSTRAINT objects_account_alias;
+ALTER TABLE relate.objects ADD CONSTRAINT objects_resource_alias
+  UNIQUE (graph_id, object_type, source_id, connection_id, resource_id,
+          partition, identity_kind, provider_account_id, provider_key);
+`;

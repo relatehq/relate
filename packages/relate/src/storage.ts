@@ -25,6 +25,7 @@ export interface StorageScope {
   readonly objectDefinitionId: string;
   readonly sourceDefinitionId: string;
   readonly connectionId: string;
+  readonly resourceId: string;
   /** Null means application-owned connection identity, distinct from every verified account. */
   readonly providerAccountId: string | null;
   readonly partition: 'shared-service';

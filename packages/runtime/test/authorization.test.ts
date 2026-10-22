@@ -70,6 +70,7 @@ it.each([
         records: {
           providerAccountId: 'example-account',
           connectionId: 'test',
+          resourceId: 'records',
           authorization: 'shared-service' as const,
           connector: {
             identify: async () => 'example-account',

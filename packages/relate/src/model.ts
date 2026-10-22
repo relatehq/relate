@@ -1,10 +1,24 @@
 import { z } from 'zod';
 import {
+  datasetSchema,
+  associationSchema,
+  calculationSchema,
+  validateDatasets,
+} from './model/datasets.js';
+
+export type {
+  CompiledDataset,
+  CompiledAssociation,
+  CompiledCalculation,
+} from './model/datasets.js';
+
+import {
   localDateTimeValue,
   localDateTimePrecisions,
 } from './model/local-datetime.js';
 
 export { localDateTimeValue } from './model/local-datetime.js';
+export { analyticalSchemaType } from './model/datasets.js';
 
 import type { ScalarSchema } from '@relate/protocol';
 import { ManifestValidationError } from './diagnostics.js';
@@ -24,7 +38,7 @@ export const scalarSchema = z.strictObject({
   type: z.enum(['string', 'number', 'boolean']),
   optional: z.boolean(),
   nullable: z.boolean(),
-  format: z.enum(['timestamp', 'local-datetime']).optional(),
+  format: z.enum(['timestamp', 'local-datetime', 'int32', 'int64']).optional(),
   precision: z.enum(localDateTimePrecisions).optional(),
   minLength: z.number().int().nonnegative().optional(),
   maxLength: z.number().int().nonnegative().optional(),
@@ -95,7 +109,7 @@ const propertySchema = z.strictObject({
 });
 
 export const manifestSchema = z.strictObject({
-  formatVersion: z.literal(6),
+  formatVersion: z.literal(7),
   graphDefinitionId: text,
   description: prose.optional(),
   fieldGroups: z.array(text),
@@ -108,6 +122,7 @@ export const manifestSchema = z.strictObject({
       fields: z.record(text, scalarSchema),
     }),
   ),
+  datasets: z.array(datasetSchema).optional(),
   objects: z.array(
     z.strictObject({
       id: text,
@@ -117,6 +132,8 @@ export const manifestSchema = z.strictObject({
       description: prose.optional(),
       sourceDefinitionId: text.optional(),
       properties: z.array(propertySchema),
+      datasets: z.array(associationSchema).optional(),
+      calculations: z.array(calculationSchema).optional(),
     }),
   ),
   relationships: z
@@ -259,6 +276,31 @@ export function accepts(schema: ScalarSchema, value: unknown): boolean {
   if (value === null) return schema.nullable;
 
   if (typeof value !== schema.type) return false;
+
+  if (schema.format === 'int64') {
+    if (
+      typeof value !== 'string' ||
+      value.length > 20 ||
+      !/^(0|-?[1-9][0-9]*)$/.test(value)
+    )
+      return false;
+
+    const integer = BigInt(value);
+
+    return (
+      String(integer) === value &&
+      integer >= -(1n << 63n) &&
+      integer < 1n << 63n
+    );
+  }
+
+  if (schema.format === 'int32')
+    return (
+      typeof value === 'number' &&
+      Number.isInteger(value) &&
+      value >= -2147483648 &&
+      value <= 2147483647
+    );
 
   if (typeof value === 'string') {
     if (
@@ -413,7 +455,17 @@ export function validateManifest(input: unknown): Manifest {
       (schema.type !== 'string' &&
         (schema.minLength !== undefined ||
           schema.maxLength !== undefined ||
-          schema.format !== undefined)) ||
+          (schema.format !== undefined && schema.format !== 'int32'))) ||
+      (schema.format === 'int32' && schema.type !== 'number') ||
+      ((schema.format === 'int32' || schema.format === 'int64') &&
+        [
+          schema.minimum,
+          schema.maximum,
+          schema.exclusiveMinimum,
+          schema.exclusiveMaximum,
+          schema.minLength,
+          schema.maxLength,
+        ].some((value) => value !== undefined)) ||
       (schema.type !== 'number' &&
         [
           schema.minimum,
@@ -494,6 +546,7 @@ export function validateManifest(input: unknown): Manifest {
   };
 
   register(manifest.graphDefinitionId, ['graphDefinitionId']);
+  validateDatasets(manifest, issues, register);
 
   if (
     !manifest.fieldGroups.includes('ordinary') ||
@@ -528,7 +581,13 @@ export function validateManifest(input: unknown): Manifest {
     register(resource.id, ['sources', index, 'id']);
     const key = resource.fields[resource.idField];
 
-    if (!key || key.type !== 'string' || key.optional || key.nullable)
+    if (
+      !key ||
+      key.type !== 'string' ||
+      key.format === 'int64' ||
+      key.optional ||
+      key.nullable
+    )
       issues.report(
         'source.invalid-id-field',
         `Source idField must be a required string: source '${resource.id}' field '${resource.idField}'`,
@@ -624,6 +683,7 @@ export function validateManifest(input: unknown): Manifest {
         if (
           property.origin.kind === 'native-reference' &&
           (property.schema.type !== 'string' ||
+            property.schema.format === 'int64' ||
             property.schema.optional ||
             property.schema.nullable ||
             !objectById.has(property.origin.targetObjectDefinitionId))
@@ -637,6 +697,7 @@ export function validateManifest(input: unknown): Manifest {
       } else if (property.origin.kind === 'object-id') {
         if (
           property.schema.type !== 'string' ||
+          property.schema.format === 'int64' ||
           property.schema.nullable ||
           property.schema.optional ||
           property.access !== 'ordinary'
@@ -655,9 +716,11 @@ export function validateManifest(input: unknown): Manifest {
           property.origin.sourceDefinitionId !== resource?.id ||
           !key ||
           key.type !== 'string' ||
+          key.format === 'int64' ||
           key.optional ||
           key.nullable ||
           property.schema.type !== 'string' ||
+          property.schema.format === 'int64' ||
           property.schema.optional ||
           property.schema.nullable ||
           !objectById.has(targetId)
@@ -928,7 +991,7 @@ export function validateManifest(input: unknown): Manifest {
               return;
             }
 
-            const claim =
+            const claim: ScalarSchema | undefined =
               condition.claim !== undefined
                 ? manifest.claims[condition.claim]
                 : { type: 'string', nullable: false, optional: false };
@@ -946,6 +1009,11 @@ export function validateManifest(input: unknown): Manifest {
 
             if (
               claim.type !== property.schema.type ||
+              ((claim.format === 'int32' ||
+                claim.format === 'int64' ||
+                property.schema.format === 'int32' ||
+                property.schema.format === 'int64') &&
+                claim.format !== property.schema.format) ||
               (claim.nullable && !property.schema.nullable) ||
               (claim.optional && !property.schema.optional)
             )
@@ -1042,6 +1110,7 @@ export function validateManifest(input: unknown): Manifest {
         if (
           field.references &&
           (field.type !== 'string' ||
+            field.format === 'int64' ||
             field.nullable ||
             field.optional ||
             !objectById.has(field.references))

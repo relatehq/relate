@@ -67,7 +67,7 @@ export const graph = defineGraph({
   principals: { alice: { roles: ['reader'] }, bob: { roles: [] } },
 });
 
-export default defineApp({ graph, setup: () => ({ connections: [] }) });
+export default defineApp({ graph, setup: () => ({ bindings: [] }) });
 `;
 }
 
@@ -106,7 +106,7 @@ interface Harness {
 }
 
 /** The dev server with the playground and a running runtime host for `noteApp`. */
-async function createHarness(): Promise<Harness> {
+async function createHarness(source = noteApp()): Promise<Harness> {
   const root = await mkdtemp(join(tmpdir(), 'relate-playground-test-'));
 
   cleanups.push(() => rm(root, { recursive: true, force: true }));
@@ -158,7 +158,7 @@ async function createHarness(): Promise<Harness> {
 
   const bundle = join(root, 'build-1.mjs');
 
-  await writeFile(bundle, noteApp());
+  await writeFile(bundle, source);
   await controller.restart({
     generation: 1,
     bundle: { path: bundle, release: async () => {} },
@@ -482,4 +482,79 @@ it('reports any binding failure as unavailable, and records the run', async () =
   expect(activity.snapshot()).toMatchObject([
     { kind: 'call', source: 'inspector-playground', status: 'failed' },
   ]);
+});
+
+it('preserves authorized analytical metadata from the runtime host through playground discovery and execution', async () => {
+  const harness = await createHarness(`
+import { z } from 'zod';
+import { DatabaseSync } from 'node:sqlite';
+import { fileURLToPath } from 'node:url';
+import { sqlite } from '@relate/connector-sqlite';
+import { bind, computed, defineAccess, defineApp, defineDataset, defineGraph, defineObject, native, nativeMembership, objectId } from 'relate';
+const access = defineAccess({ roles: ['reader', 'analyst', 'private'], fieldGroups: ['ordinary', 'private'], claims: {} });
+const Events = defineDataset({ id: 'events', description: 'Note events.', columns: {
+  owner: { id: 'events.owner', schema: z.string(), access: access.groups.ordinary },
+  secret: { id: 'events.secret', schema: z.string(), access: access.groups.private, description: 'Private detail.' },
+} });
+const Note = defineObject({ id: 'note', membership: nativeMembership(), properties: {
+  id: objectId({ id: 'note.id' }),
+  key: native(z.string(), { id: 'note.key' }),
+  count: computed({ id: 'note.count', sql: 'SELECT COUNT(*) FROM self.events' }),
+}, datasets: { events: { id: 'note.events', dataset: Events, on: [{ column: 'owner', property: 'key' }] } } });
+const graph = defineGraph({ id: 'notes', objects: { Note }, datasets: { Events }, access, policies: {
+  Note: { read: { gate: access.role('reader') }, datasets: { events: { gate: access.role('analyst') } } },
+  Events: { groups: { private: access.role('private') } },
+}, principals: { alice: { roles: ['reader', 'analyst'] }, bob: { roles: ['reader'] } } });
+export default defineApp({ graph, setup({ onDispose }) {
+  const path = fileURLToPath(new URL('./events.sqlite', import.meta.url));
+  const db = new DatabaseSync(path);
+  db.exec('CREATE TABLE events(owner TEXT NOT NULL, secret TEXT NOT NULL)');
+  db.close();
+  const connection = sqlite({ connectionId: 'events', path });
+  onDispose(() => connection.close());
+  return { bindings: [bind(Events, connection.table('events'))] };
+} });
+`);
+  const alice = playgroundDiscoverySchema.parse(
+    await (await harness.get('/dev/playground/discovery?as=alice')).json(),
+  );
+  const bob = playgroundDiscoverySchema.parse(
+    await (await harness.get('/dev/playground/discovery?as=bob')).json(),
+  );
+
+  expect(alice.objects.Note).toMatchObject({
+    datasets: {
+      events: {
+        description: 'Note events.',
+        columns: {
+          secret: { readable: false, description: 'Private detail.' },
+        },
+      },
+    },
+  });
+  expect(alice.objects.Note!.properties).toContainEqual(
+    expect.objectContaining({
+      name: 'count',
+      kind: 'computed',
+      readable: true,
+      schema: { type: 'int64', nullable: false },
+    }),
+  );
+  expect(bob.objects.Note).not.toHaveProperty('datasets');
+  expect(bob.objects.Note!.properties).toContainEqual(
+    expect.objectContaining({ name: 'count', readable: false }),
+  );
+  const run = await runOf(
+    await harness.run({
+      principal: 'alice',
+      code: 'return graph.objects.Note.describe();',
+    }),
+  );
+
+  expect(run).toMatchObject({
+    status: 'succeeded',
+    result: { datasets: alice.objects.Note!['datasets'] },
+  });
+  expect(JSON.stringify(alice)).not.toContain('"sql"');
+  expect(JSON.stringify(bob)).not.toContain('note.events');
 });

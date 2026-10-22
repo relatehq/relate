@@ -100,7 +100,7 @@ const addNote = implementAction(graph, AddNote, ${
 
 export default defineApp({
   graph,
-  setup: () => ({ connections: [], actionImplementations: [addNote] }),
+  setup: () => ({ bindings: [], actionImplementations: [addNote] }),
 });
 `;
 }

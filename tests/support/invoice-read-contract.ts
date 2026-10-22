@@ -3,7 +3,7 @@ import type { Policy } from 'relate';
 import type { ObservationStore } from '@relate/runtime/storage';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { SourceAccessDenied } from 'relate/connectors';
 import { RetentionError } from '@relate/runtime/storage';
 import { createInvoiceGraph } from './invoice-graph.js';
@@ -69,18 +69,20 @@ export function invoiceReadContract(
         graphId: randomUUID(),
         store,
         clock: () => now,
-        connections: [
-          connect(customers, {
+        bindings: [
+          bind(customers, {
             providerAccountId: 'example-account',
             connectionId: 'crm',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               fetch: fetchCustomer,
             },
           }),
-          connect(invoices, {
+          bind(invoices, {
             providerAccountId: 'example-account',
             connectionId: 'billing',
+            resourceId: 'records',
             connector: {
               identify: async () => 'example-account',
               async fetch(id) {

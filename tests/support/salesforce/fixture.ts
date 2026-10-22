@@ -29,6 +29,7 @@ export function fixture() {
 
   return {
     resource: salesforce({
+      connectionId: 'salesforce',
       credentials: {
         instanceUrl: 'https://fixture.my.salesforce.com',
         accessToken: 'test-secret',

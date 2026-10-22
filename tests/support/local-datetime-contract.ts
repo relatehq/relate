@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
-  connect,
+  bind,
   defineAccess,
   defineGraph,
   defineObject,
@@ -97,16 +97,18 @@ export function localDateTimeContract(
         graph,
         graphId: randomUUID(),
         store: backing.store,
-        connections: [
-          connect(calendars, {
+        bindings: [
+          bind(calendars, {
             connectionId: 'calendars',
+            resourceId: 'records',
             connector: {
               identity: 'application',
               fetch: async (id) => ({ state: 'present', record: { id } }),
             },
           }),
-          connect(appointments, {
+          bind(appointments, {
             connectionId: 'schedule',
+            resourceId: 'records',
             connector: {
               identity: 'application',
               fetch: async (id) => {

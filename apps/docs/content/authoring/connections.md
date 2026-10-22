@@ -1,7 +1,7 @@
 # Connecting Sources
 
 A source definition describes records. A connector reads them from an external
-system, and `connect(source, binding)` attaches that access to your graph.
+system, and `bind(source, binding)` attaches that access to your graph.
 Connectors do not own your business objects, property mappings, or policies.
 
 ## Choose a Connector
@@ -15,6 +15,12 @@ Connectors do not own your business objects, property mappings, or policies.
 All three read known record IDs. Enumeration, synchronization, webhooks, and
 provider writes are not implemented. SQLite here is a source; the
 [Postgres store](../deployment/postgres.md) separately persists Relate's state.
+For analytical datasets, SQLite and the
+[PostgreSQL analytical connector](../../../../connectors/postgres/README.md)
+execute authorized aggregate plans. PostgreSQL dataset bindings use
+`bind(Events, analytics.table('events', { schema: 'reporting' }))`; this
+connector does not implement keyed source reads.
+
 Packages are currently used from a repository checkout, not installed from npm.
 
 ## Systems, Resources, Sources, and Bindings
@@ -26,26 +32,18 @@ connects that source to the reader and supplies its stable identity.
 
 ```ts
 import { sqlite } from '@relate/connector-sqlite';
-import { connect, defineApp } from 'relate';
+import { bind, defineApp } from 'relate';
 import { graph, customers } from './model.js';
 
 // This example assumes graph's only source is customers.
 export default defineApp({
   graph,
   setup({ onDispose }) {
-    const database = sqlite({ path: './crm.sqlite' });
+    const database = sqlite({ connectionId: 'crm', path: './crm.sqlite' });
     onDispose(() => database.close());
 
     return {
-      connections: [
-        connect(customers, {
-          connectionId: 'crm',
-          connector: database.table('customers', {
-            idColumn: 'id',
-            columns: ['name'],
-          }),
-        }),
-      ],
+      bindings: [bind(customers, database.table('customers'))],
     };
   },
 });
@@ -133,3 +131,16 @@ The host still needs to
 [adopt known source IDs](../runtime/reading-data.md#2-adopting-source-records)
 before consumers can query or traverse them. A connector's `fetch` method does
 not imply discovery of other records.
+
+### Implementing analytical connectors
+
+Custom analytical connectors can use
+`validateAuthorizedDatasetQuery(query, declaredColumns)` from
+`relate/connectors` to check mapped column names, key indexes, slot widths and
+types, aggregate forms, and predicate operators before generating SQL. Pass the
+declared column names from the resource mapping. Empty slots are valid for
+parameter budgeting; require at least one slot when building an executable plan.
+The connector still owns physical identifier quoting, parameter encoding,
+backend-specific SQL and execution. See the
+[analytical connector contract](../../../../packages/relate/CONTRACT.md#analytical-connector-boundary)
+for the full interface.

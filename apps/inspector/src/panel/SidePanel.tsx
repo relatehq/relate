@@ -6,6 +6,11 @@ import type { Diagnostic } from '../protocol.js';
 import { Button } from '../ui/button.js';
 import { Callout } from '../ui/callout.js';
 import { Tag } from '../ui/tag.js';
+import {
+  AssociationDetails,
+  ComputedDetails,
+  DatasetDetails,
+} from './AnalyticalDetails.js';
 
 export interface SidePanelProps {
   readonly state: InspectorState;
@@ -139,15 +144,25 @@ function selectionHeader(model: GraphModel | null, selected: string | null) {
   const node = model?.nodes.find((n) => n.id === selected);
 
   if (node)
-    return { title: node.data.label, meta: node.id, sub: 'Selected object' };
+    return {
+      title: node.data.label,
+      meta: node.id,
+      sub: `Selected ${node.data.kind}`,
+    };
 
   const edge = model?.edges.find((e) => e.id === selected);
 
   if (edge)
     return {
-      title: edge.data.forward.name,
+      title:
+        edge.data.kind === 'association'
+          ? edge.data.name
+          : edge.data.forward.name,
       meta: edge.id,
-      sub: 'Selected relationship',
+      sub:
+        edge.data.kind === 'association'
+          ? 'Selected dataset association'
+          : 'Selected relationship',
     };
 
   return { title: 'Nothing selected', meta: '', sub: '' };
@@ -359,6 +374,22 @@ function Selection(props: {
       (e) => e.source === node.id || e.target === node.id,
     );
 
+    if (node.data.kind === 'dataset')
+      return (
+        <>
+          {props.withLabel && (
+            <div className="section-label">Selected · {node.data.label}</div>
+          )}
+          <DatasetDetails data={node.data} />
+          {related.length > 0 && (
+            <div className="section-label">Associations</div>
+          )}
+          {related.map((edge) => (
+            <RelationshipCard key={edge.id} edge={edge} nameOf={nameOf} />
+          ))}
+        </>
+      );
+
     return (
       <>
         {props.withLabel && (
@@ -410,12 +441,23 @@ function Selection(props: {
             </div>
           ))}
         </div>
-        {related.length > 0 && (
+        <ComputedDetails calculations={node.data.calculations} />
+        {related.some((edge) => edge.data.kind === 'relationship') && (
           <div className="section-label">Relationships</div>
         )}
-        {related.map((edge) => (
-          <RelationshipCard key={edge.id} edge={edge} nameOf={nameOf} />
-        ))}
+        {related
+          .filter((edge) => edge.data.kind === 'relationship')
+          .map((edge) => (
+            <RelationshipCard key={edge.id} edge={edge} nameOf={nameOf} />
+          ))}
+        {related.some((edge) => edge.data.kind === 'association') && (
+          <div className="section-label">Dataset associations</div>
+        )}
+        {related
+          .filter((edge) => edge.data.kind === 'association')
+          .map((edge) => (
+            <RelationshipCard key={edge.id} edge={edge} nameOf={nameOf} />
+          ))}
       </>
     );
   }
@@ -423,6 +465,16 @@ function Selection(props: {
   const edge = model.edges.find((e) => e.id === selected);
 
   if (!edge) return null;
+
+  if (edge.data.kind === 'association')
+    return (
+      <>
+        {props.withLabel && (
+          <div className="section-label">Selected dataset association</div>
+        )}
+        <RelationshipCard edge={edge} nameOf={nameOf} />
+      </>
+    );
 
   return (
     <>
@@ -450,11 +502,21 @@ function RelationshipCard(props: {
 }) {
   const { edge, nameOf } = props;
 
+  if (edge.data.kind === 'association')
+    return (
+      <AssociationDetails
+        data={edge.data}
+        objectName={nameOf(edge.source)}
+        datasetName={nameOf(edge.target)}
+      />
+    );
+
   return (
     <div className="relationship-card">
       <span className="name">{edge.data.forward.name}</span>
       <span className="endpoints">
-        {nameOf(edge.source)} → {nameOf(edge.target)} · one-to-many
+        {nameOf(edge.source)} → {nameOf(edge.target)} ·{' '}
+        {edge.data.reverse.cardinality}-to-{edge.data.forward.cardinality}
       </span>
       <span className="traversals">
         forward {edge.data.forward.name} · reverse {edge.data.reverse.name}
@@ -475,6 +537,8 @@ function subject(diagnostic: Diagnostic): string {
       return 'Relationship';
     case 'actions':
       return 'Action';
+    case 'datasets':
+      return 'Dataset';
     default:
       return 'Graph';
   }

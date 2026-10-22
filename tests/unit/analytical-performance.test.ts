@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import {
   events,
   summarize,
-  summarizedEvents,
 } from '../performance/analytical-properties/seed.js';
 import {
   runWorkload,
@@ -15,6 +14,7 @@ import {
 } from '../performance/analytical-properties/run.js';
 import {
   markdown,
+  instrumentationComparison,
   percentile,
   summarizeSamples,
 } from '../performance/analytical-properties/report.js';
@@ -49,19 +49,25 @@ describe('analytical performance harness', () => {
     expect(result.samples).toHaveLength(12);
     expect(result.samples.filter((s) => s.status === 'error')).toEqual([]);
     const ranking = result.samples.find(
-      (s) => s.mode === 'hybrid-mock' && s.scenario === 'ranking',
+      (s) => s.mode === 'relate' && s.scenario === 'ranking',
     )!;
 
     expect(ranking.counters.candidatesAdmitted).toBe(112);
     expect(ranking.counters.objectsReturned).toBe(25);
-    expect(ranking.counters.analyticalStatements).toBe(0);
-    expect(
-      ranking.spans.filter((s) => s.kind === 'mock').map((s) => s.name),
-    ).toEqual([
-      'analytical-preparation',
-      'analytical-execution',
-      'computed-finalization',
-    ]);
+    expect(ranking.counters.analyticalStatements).toBe(1);
+    expect(ranking.counters.analyticalBatches).toBe(1);
+    expect(ranking.counters.computedSlots).toBe(112);
+    expect(ranking.counters.candidatesScanned).toBe(140);
+    expect(ranking.counters.sourceFetches).toBe(0);
+    expect(ranking.counters.sourceIdentifications).toBe(775);
+    expect(ranking.counters.sourceCalls).toBe(775);
+    expect(ranking.counters.capturedOperations).toBe(1);
+    expect(ranking.stages.execution?.count).toBe(1);
+    expect(ranking.stages.preparation?.count).toBe(1);
+    expect(ranking.spans.map((s) => s.name)).toContain('public-query');
+    expect(ranking.spans.map((s) => s.name)).not.toContain(
+      'benchmark-local-sort',
+    );
     expect(result.summary.every((s) => s.p95Ms === null)).toBe(true);
     expect(markdown([result])).toContain('must not be compared');
   });
@@ -71,7 +77,7 @@ describe('analytical performance harness', () => {
 
     await expect(
       trace.measure('outer', 'real', () =>
-        trace.measure('inner', 'mock', () => {
+        trace.measure('inner', 'real', () => {
           throw new Error('failed');
         }),
       ),
@@ -95,26 +101,26 @@ describe('analytical performance harness', () => {
       { warmups: 3, repetitions: 30 },
       () => [],
       async () => {
-        throw new Error('hybrid failed');
+        throw new Error('Relate failed');
       },
     );
-    const hybrid = samples.filter((s) => s.mode === 'hybrid-mock');
+    const relate = samples.filter((s) => s.mode === 'relate');
 
-    expect(hybrid.filter((s) => s.phase === 'warm')).toHaveLength(30);
-    expect(hybrid.filter((s) => s.phase === 'warmup')).toHaveLength(3);
-    expect(hybrid.filter((s) => s.phase === 'first-of-scenario')).toHaveLength(
+    expect(relate.filter((s) => s.phase === 'warm')).toHaveLength(30);
+    expect(relate.filter((s) => s.phase === 'warmup')).toHaveLength(3);
+    expect(relate.filter((s) => s.phase === 'first-of-scenario')).toHaveLength(
       1,
     );
-    expect(hybrid.every((s) => s.status === 'error')).toBe(true);
+    expect(relate.every((s) => s.status === 'error')).toBe(true);
     expect(summarizeSamples(samples)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          group: 'hybrid-mock/objects/warm',
+          group: 'relate/objects/warm',
           samples: 30,
           failures: 30,
         }),
         expect.objectContaining({
-          group: 'hybrid-mock/objects/warmup',
+          group: 'relate/objects/warmup',
           samples: 3,
           failures: 3,
         }),
@@ -122,27 +128,27 @@ describe('analytical performance harness', () => {
     );
   });
 
-  it('never accepts a hybrid result when the SQLite oracle is unavailable', async () => {
-    const hybrid = vi.fn(async () => []);
+  it('never accepts a Relate result when the SQLite oracle is unavailable', async () => {
+    const relate = vi.fn(async () => []);
     const samples = await measureScenario(
       'objects',
       { warmups: 1, repetitions: 2 },
       () => {
         throw new Error('SQL failed');
       },
-      hybrid,
+      relate,
     );
 
-    expect(hybrid).not.toHaveBeenCalled();
+    expect(relate).not.toHaveBeenCalled();
     expect(samples.every((s) => s.status === 'error')).toBe(true);
     expect(
       samples
-        .filter((s) => s.mode === 'hybrid-mock')
+        .filter((s) => s.mode === 'relate')
         .every((s) => s.error?.includes('oracle unavailable')),
     ).toBe(true);
   });
 
-  it('detects hybrid mismatches against the SQLite oracle', async () => {
+  it('detects Relate mismatches against the SQLite oracle', async () => {
     const samples = await measureScenario(
       'objects',
       { warmups: 0, repetitions: 1 },
@@ -152,27 +158,37 @@ describe('analytical performance harness', () => {
 
     expect(
       samples
-        .filter((s) => s.mode === 'hybrid-mock')
+        .filter((s) => s.mode === 'relate')
         .every((s) => s.status === 'error'),
     ).toBe(true);
   });
 
-  it('feeds summary and insertion from a single event stream', () => {
-    let generated = 0;
+  it('measures real refreshes and suppresses timing capture when disabled', async () => {
+    const result = await runWorkload({
+      customers: 12,
+      events: 20,
+      seed: 42,
+      warmups: 0,
+      repetitions: 1,
+      capture: 'disabled',
+      freshness: 'refresh',
+    });
 
-    function* source() {
-      for (const event of events(10, 20, 42)) {
-        generated++;
-        yield event;
-      }
-    }
+    expect(
+      result.samples.filter((sample) => sample.status === 'error'),
+    ).toEqual([]);
+    const ranking = result.samples.find(
+      (sample) =>
+        sample.mode === 'relate' &&
+        sample.scenario === 'ranking' &&
+        sample.phase === 'warm',
+    )!;
 
-    const values = new Map();
-    const inserted = [...summarizedEvents(source(), values)];
-
-    expect(generated).toBe(20);
-    expect(inserted).toHaveLength(20);
-    expect(values).toEqual(summarize(inserted));
+    expect(ranking.counters.candidatesScanned).toBe(12);
+    expect(ranking.counters.sourceFetches).toBe(12);
+    expect(ranking.counters.capturedOperations).toBe(0);
+    expect(ranking.stages).toEqual({});
+    expect(ranking.counters.analyticalStatements).toBe(1);
   });
 
   it('checkpoints completed workloads and records a later setup failure', async () => {
@@ -239,4 +255,116 @@ describe('analytical performance harness', () => {
       await rm(directory, { recursive: true, force: true });
     }
   });
+});
+
+it('compares only matching capture configurations and retains noisy negative differences', () => {
+  const sample = (durationMs: number) => ({
+    scenario: 'enrichment' as const,
+    mode: 'relate' as const,
+    phase: 'warm' as const,
+    durationMs,
+    spans: [],
+    counters: {},
+    stages: {},
+    status: 'ok' as const,
+  });
+  const result = instrumentationComparison([
+    {
+      config: {
+        customers: 100,
+        events: 1000,
+        backend: 'sqlite',
+        capture: 'disabled',
+      },
+      samples: [sample(20)],
+    },
+    {
+      config: {
+        capture: 'enabled',
+        backend: 'sqlite',
+        events: 1000,
+        customers: 100,
+      },
+      samples: [sample(18)],
+    },
+    {
+      config: {
+        customers: 100,
+        events: 1000,
+        backend: 'postgres',
+        capture: 'enabled',
+      },
+      samples: [sample(1)],
+    },
+  ]);
+
+  expect(result.filter((row) => row.scenario === 'enrichment')).toEqual([
+    expect.objectContaining({
+      disabledMedianMs: 20,
+      enabledMedianMs: 18,
+      differenceMs: -2,
+      ratio: 0.9,
+    }),
+  ]);
+});
+
+it('drains diagnostics after failures and records delivery failure without hiding the measured request', async () => {
+  let drained = 0;
+  const samples = await measureScenario(
+    'objects',
+    { warmups: 0, repetitions: 1 },
+    () => [],
+    async (trace) => {
+      trace.settle = async () => {
+        drained++;
+        throw new Error('delivery failed');
+      };
+
+      return [];
+    },
+  );
+
+  expect(drained).toBe(2);
+  expect(samples.filter((sample) => sample.mode === 'relate')).toEqual([
+    expect.objectContaining({
+      status: 'error',
+      error: 'delivery failed',
+      durationMs: expect.any(Number),
+    }),
+    expect.objectContaining({
+      status: 'error',
+      error: 'delivery failed',
+      durationMs: expect.any(Number),
+    }),
+  ]);
+});
+
+it('reports no analytical execution for an entirely unauthorized population', async () => {
+  const result = await runWorkload({
+    customers: 1,
+    events: 1,
+    seed: 42,
+    warmups: 0,
+    repetitions: 1,
+  });
+
+  expect(result.samples.filter((sample) => sample.status === 'error')).toEqual(
+    [],
+  );
+  const ranking = result.samples.find(
+    (sample) =>
+      sample.mode === 'relate' &&
+      sample.scenario === 'ranking' &&
+      sample.phase === 'warm',
+  )!;
+
+  expect(ranking.counters).toMatchObject({
+    candidatesScanned: 1,
+    candidatesAdmitted: 0,
+    objectsReturned: 0,
+    analyticalBatches: 0,
+    analyticalStatements: 0,
+    computedSlots: 0,
+  });
+  expect(ranking.stages).not.toHaveProperty('execution');
 });

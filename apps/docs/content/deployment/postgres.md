@@ -46,7 +46,7 @@ Create the store, migrate it, and pass it to the runtime:
 ```ts
 import { createPostgresStore } from '@relate/postgres';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { addAccountReview } from './actions/add-account-review.server.js';
 import { graph } from './graph.js';
 import { Customer, billingInvoices, crmCustomers } from './model.js';
@@ -64,15 +64,17 @@ const relate = createRuntime({
   graph,
   actionImplementations: [addAccountReview],
   store,
-  connections: [
-    connect(crmCustomers, {
+  bindings: [
+    bind(crmCustomers, {
       providerAccountId: 'crm-account',
       connectionId: 'crm-primary',
+      resourceId: 'records',
       connector: crmConnector,
     }),
-    connect(billingInvoices, {
+    bind(billingInvoices, {
       providerAccountId: 'billing-account',
       connectionId: 'billing-primary',
+      resourceId: 'records',
       connector: billingConnector,
     }),
   ],

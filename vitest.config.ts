@@ -6,6 +6,7 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
+          exclude: ['**/*.integration.test.ts'],
           include: [
             'packages/*/test/**/*.test.ts',
             'connectors/*/test/**/*.test.ts',
@@ -20,7 +21,10 @@ export default defineConfig({
       {
         test: {
           name: 'integration',
-          include: ['tests/integration/**/*.test.ts'],
+          include: [
+            'tests/integration/**/*.test.ts',
+            'connectors/*/test/**/*.integration.test.ts',
+          ],
           globalSetup: ['./tests/support/database-setup.ts'],
           // These suites share a schema and install failure-injection triggers.
           fileParallelism: false,

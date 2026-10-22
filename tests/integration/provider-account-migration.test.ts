@@ -9,7 +9,7 @@ import {
 import { testDatabaseUrl } from '../support/database.js';
 import { testAttribution } from '../support/activity.js';
 
-it('preserves legacy rows without assigning unverified identities to an account', async () => {
+it('discards legacy observations without inventing account or resource identities', async () => {
   const connectionString = testDatabaseUrl();
   const db = new pg.Client({ connectionString });
   const store = createPostgresStore({ connectionString });
@@ -49,14 +49,24 @@ it('preserves legacy rows without assigning unverified identities to an account'
     );
     await db.query(`INSERT INTO relate.value_changes(graph_id,object_type,object_key,origin,state,values,observed_at,fetch_token)
       VALUES ('legacy','customer','old-id','adoption','present','{}',now(),1)`);
+    await db.query(`INSERT INTO relate.native_objects
+      VALUES ('legacy', 'note', 'native-id', '{"name":"Keep me"}', 1000)`);
     await store.migrate();
     await store.migrate();
+    expect(
+      (
+        await db.query(
+          "SELECT values FROM relate.native_objects WHERE object_key='native-id'",
+        )
+      ).rows,
+    ).toEqual([{ values: { name: 'Keep me' } }]);
     const scope = {
       graphId: 'legacy',
       definitionRevision: 'revision',
       objectDefinitionId: 'customer',
       sourceDefinitionId: 'crm',
       connectionId: 'reused',
+      resourceId: 'records',
       partition: 'shared-service' as const,
       providerAccountId: 'account-a',
     };
@@ -119,14 +129,14 @@ it('preserves legacy rows without assigning unverified identities to an account'
           "SELECT provider_account_id FROM relate.objects WHERE object_key='old-id'",
         )
       ).rows,
-    ).toEqual([{ provider_account_id: null }]);
+    ).toEqual([]);
     expect(
       (
         await db.query(
           "SELECT change_id FROM relate.object_versions WHERE object_key='old-id'",
         )
       ).rows,
-    ).toEqual([{ change_id: null }]);
+    ).toEqual([]);
     // Legacy rows acquire no invented provenance or history.
     expect(
       (
@@ -134,7 +144,7 @@ it('preserves legacy rows without assigning unverified identities to an account'
           "SELECT adopted_by_kind, adopted_at FROM relate.objects WHERE object_key='old-id'",
         )
       ).rows,
-    ).toEqual([{ adopted_by_kind: null, adopted_at: null }]);
+    ).toEqual([]);
     expect(
       (
         await db.query(

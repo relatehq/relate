@@ -6,7 +6,7 @@ function defineAction<Id, Input, Output, Creates, Errors>(definition): ActionDef
 };
 ```
 
-Defined in: [packages/relate/src/actions.ts:59](https://github.com/relatehq/relate/blob/main/packages/relate/src/actions.ts#L59)
+Defined in: [packages/relate/src/actions.ts:60](https://github.com/relatehq/relate/blob/main/packages/relate/src/actions.ts#L60)
 
 Synchronous native action with optional declared business failures.
 

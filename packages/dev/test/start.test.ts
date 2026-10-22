@@ -34,7 +34,7 @@ export default defineApp({ graph: defineGraph({
   id: 'notes', objects: { Note }, access,
   policies: { Note: { read: { gate: access.role('reader') } } },
   principals: { alice: { roles: ['reader'] } },
-}), setup: () => ({ connections: [] }) });
+}), setup: () => ({ bindings: [] }) });
 `;
 
   await writeFile(config, source);

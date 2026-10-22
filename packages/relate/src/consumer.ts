@@ -1,4 +1,5 @@
 import { ActionError, ReadError } from '@relate/protocol';
+
 import { captureConsumerDescription } from './consumer-description.js';
 import type { ConsumerRoutingDescription } from './consumer-description.js';
 import type {
@@ -24,6 +25,7 @@ import type {
   ObjectId,
   ObjectRegistry,
   PropertyNames,
+  ComputedPropertyNames,
   Receipt,
   RelationshipDefinition,
   RelationshipRegistry,
@@ -32,8 +34,13 @@ import type {
   ObjectRecord,
   ObjectResult,
   PageOptions,
-  QueryOptions,
+  ReadControlOptions,
+  CollectionReadOptions,
   ReadOptions,
+  Expressions,
+  ComputeOptions,
+  ComputedQueryOptions,
+  WithComputed,
 } from './operations.js';
 
 export type {
@@ -44,6 +51,11 @@ export type {
   QueryResult,
   ReadOptions,
 } from './operations.js';
+
+export { AnalyticalValueError } from './analytics/values.js';
+
+export { decodeComputed } from './consumer-computed.js';
+export type { DecodedComputed } from './consumer-computed.js';
 
 // Pagination
 
@@ -248,22 +260,46 @@ type Edges<R extends RelationshipRegistry, O extends ObjectDefinition> = {
 
 type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
   readonly [E in Edges<R, O> as E['traversal']['name']]: {
-    <K extends PropertyNames<E['target']> = PropertyNames<E['target']>>(
+    <
+      K extends Exclude<
+        PropertyNames<E['target']>,
+        ComputedPropertyNames<E['target']>
+      > = Exclude<
+        PropertyNames<E['target']>,
+        ComputedPropertyNames<E['target']>
+      >,
+    >(
       id: ObjectId<O['id']>,
       options: (E['traversal']['cardinality'] extends 'many'
-        ? QueryOptions<E['target'], K, 'full'>
-        : ReadOptions<K, 'full'>) & { readonly evidence: 'full' },
+        ? Omit<CollectionReadOptions<E['target'], K, 'full'>, 'where'> & {
+            readonly where?: Omit<
+              NonNullable<CollectionReadOptions<E['target']>['where']>,
+              ComputedPropertyNames<E['target']>
+            >;
+          }
+        : ReadControlOptions<K, 'full'>) & { readonly evidence: 'full' },
     ): E['traversal']['cardinality'] extends 'many'
       ? QueryResult<ObjectRecord<E['target'], K, 'full'>>
       : Promise<ObjectResult<E['target'], K, 'full'>>;
     <
-      K extends PropertyNames<E['target']> = PropertyNames<E['target']>,
+      K extends Exclude<
+        PropertyNames<E['target']>,
+        ComputedPropertyNames<E['target']>
+      > = Exclude<
+        PropertyNames<E['target']>,
+        ComputedPropertyNames<E['target']>
+      >,
       M extends EvidenceMode = 'compact',
     >(
       id: ObjectId<O['id']>,
       options?: E['traversal']['cardinality'] extends 'many'
-        ? QueryOptions<E['target'], K, M>
-        : ReadOptions<K, M>,
+        ? Omit<CollectionReadOptions<E['target'], K, M>, 'where'> & {
+            readonly where?: Omit<
+              NonNullable<CollectionReadOptions<E['target']>['where']>,
+              ComputedPropertyNames<E['target']>
+            >;
+          }
+        : ReadControlOptions<K, M>,
     ): E['traversal']['cardinality'] extends 'many'
       ? QueryResult<ObjectRecord<E['target'], K, M | 'compact'>>
       : Promise<ObjectResult<E['target'], K, M | 'compact'>>;
@@ -276,26 +312,37 @@ export interface ObjectOperations<
 > {
   describe(): ObjectDescription | undefined;
   readonly traverse: Traversals<R, O>;
-  query<K extends PropertyNames<O> = PropertyNames<O>>(
-    options: QueryOptions<O, K, 'full'> & { readonly evidence: 'full' },
-  ): QueryResult<ObjectRecord<O, K, 'full'>>;
+  query<
+    K extends PropertyNames<O> = PropertyNames<O>,
+    const C extends Expressions = {},
+  >(
+    options: ComputedQueryOptions<O, K, 'full', C> & {
+      readonly evidence: 'full';
+    },
+  ): QueryResult<WithComputed<ObjectRecord<O, K, 'full'>, C>>;
   query<
     K extends PropertyNames<O> = PropertyNames<O>,
     E extends EvidenceMode = 'compact',
+    const C extends Expressions = {},
   >(
-    options?: QueryOptions<O, K, E>,
-  ): QueryResult<ObjectRecord<O, K, E | 'compact'>>;
-  get<K extends PropertyNames<O> = PropertyNames<O>>(
+    options?: ComputedQueryOptions<O, K, E, C>,
+  ): QueryResult<WithComputed<ObjectRecord<O, K, E | 'compact'>, C>>;
+  get<
+    K extends PropertyNames<O> = PropertyNames<O>,
+    const C extends Expressions = {},
+  >(
     id: ObjectId<O['id']>,
-    options: ReadOptions<K, 'full'> & { readonly evidence: 'full' },
-  ): Promise<ObjectResult<O, K, 'full'>>;
+    options: Omit<ReadOptions<K, 'full'>, 'compute'> &
+      ComputeOptions<O, C> & { readonly evidence: 'full' },
+  ): Promise<WithComputed<ObjectResult<O, K, 'full'>, C>>;
   get<
     K extends PropertyNames<O> = PropertyNames<O>,
     E extends EvidenceMode = 'compact',
+    const C extends Expressions = {},
   >(
     id: ObjectId<O['id']>,
-    options?: ReadOptions<K, E>,
-  ): Promise<ObjectResult<O, K, E | 'compact'>>;
+    options?: Omit<ReadOptions<K, E>, 'compute'> & ComputeOptions<O, C>,
+  ): Promise<WithComputed<ObjectResult<O, K, E | 'compact'>, C>>;
 }
 
 export type ActionOperations<A extends ActionDefinition> = {

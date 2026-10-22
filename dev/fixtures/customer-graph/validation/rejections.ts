@@ -6,7 +6,7 @@ import {
   referenceInput,
   defineAction,
   defineAccess,
-  connect,
+  bind,
   defineRelationship,
   createRuntime,
   defineGraph,
@@ -289,22 +289,22 @@ const implementations = [
 createRuntime({
   graph,
   actionImplementations: implementations,
-  connections: [],
+  bindings: [],
 });
 createRuntime({
   graph: { ...graph, actions: { review: AddAccountReview } },
   actionImplementations: [addAccountReview],
-  connections: [],
+  bindings: [],
 });
 createRuntime({
   graph,
-  connections: [],
+  bindings: [],
   // @ts-expect-error missing action implementation
   actionImplementations: [addAccountReview],
 });
 createRuntime({
   graph,
-  connections: [],
+  bindings: [],
   // @ts-expect-error duplicate implementation
   actionImplementations: [...implementations, addAccountReview],
 });
@@ -312,7 +312,7 @@ const dynamic = [addAccountReview, escalateAccount, reviewInvoice];
 
 createRuntime({
   graph,
-  connections: [],
+  bindings: [],
   // @ts-expect-error widened arrays cannot prove coverage
   actionImplementations: dynamic,
 });
@@ -324,7 +324,7 @@ const foreign = implementAction(
 
 createRuntime({
   graph,
-  connections: [],
+  bindings: [],
   // @ts-expect-error foreign action ID
   actionImplementations: [foreign, escalateAccount, reviewInvoice],
 });
@@ -336,7 +336,7 @@ const mismatch = implementAction(
 
 createRuntime({
   graph,
-  connections: [],
+  bindings: [],
   // @ts-expect-error same ID does not excuse a different input/output contract
   actionImplementations: [mismatch, escalateAccount, reviewInvoice],
 });
@@ -353,7 +353,7 @@ implementAction(graph, Echo, async ({ input }) => input.text);
 createRuntime({
   graph: { ...graph, actions: {} },
   actionImplementations: [],
-  connections: [],
+  bindings: [],
 });
 // Implementations bound to another graph must satisfy installation compatibility.
 const differentObjects = implementAction(
@@ -368,7 +368,7 @@ const differentObjects = implementAction(
 
 createRuntime({
   graph,
-  connections: [],
+  bindings: [],
   // @ts-expect-error graph cannot supply an implementation's extra object binding
   actionImplementations: [differentObjects, escalateAccount, reviewInvoice],
 });
@@ -404,7 +404,7 @@ const differentRelationships = implementAction(
 
 createRuntime({
   graph,
-  connections: [],
+  bindings: [],
   actionImplementations: [
     // @ts-expect-error graph cannot supply an implementation's extra relationship binding
     differentRelationships,
@@ -447,8 +447,9 @@ defineRelationship({
   // @ts-expect-error via must be a bound reference
   via: Invoice.properties.status,
 });
-connect(crmCustomers, {
+bind(crmCustomers, {
   connectionId: 'crm',
+  resourceId: 'records',
   connector: {
     // @ts-expect-error provider records must follow the source schema
     async fetch() {
@@ -464,7 +465,7 @@ const incompatible = defineAccess({
 
 createRuntime({
   graph: { ...graph, access: incompatible },
-  connections: [],
+  bindings: [],
   // @ts-expect-error graph access cannot supply implementation claims
   actionImplementations: implementations,
 });

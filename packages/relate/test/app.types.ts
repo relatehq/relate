@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  connect,
+  bind,
   defineAccess,
   defineApp,
   defineGraph,
@@ -61,9 +61,10 @@ export const app = defineApp({
     onDispose('close');
 
     return {
-      connections: [
-        connect(people, {
+      bindings: [
+        bind(people, {
           connectionId: 'directory',
+          resourceId: 'records',
           providerAccountId: 'fixture',
           connector,
         }),
@@ -83,7 +84,7 @@ const missingAccount: SourceRecord = { state: 'deleted' };
 defineApp({ graph, setup: () => ({}) });
 
 export function withStore(store: ObservationStore): AppBindings<typeof graph> {
-  return { connections: [], store };
+  return { bindings: [], store };
 }
 
 void [person, missingAccount];
@@ -96,12 +97,17 @@ const applicationConnector: import('relate/connectors').ApplicationSourceConnect
     },
   };
 
-connect(people, { connectionId: 'local', connector: applicationConnector });
-// @ts-expect-error provider verification requires an expected account
-connect(people, { connectionId: 'remote', connector });
-// @ts-expect-error application identity must not claim a provider account
-connect(people, {
+bind(people, {
   connectionId: 'local',
+  resourceId: 'records',
+  connector: applicationConnector,
+});
+// @ts-expect-error provider verification requires an expected account
+bind(people, { connectionId: 'remote', resourceId: 'records', connector });
+// @ts-expect-error application identity must not claim a provider account
+bind(people, {
+  connectionId: 'local',
+  resourceId: 'records',
   providerAccountId: 'fake',
   connector: applicationConnector,
 });
@@ -113,3 +119,24 @@ const falseVerification: import('relate/connectors').ApplicationSourceConnector 
   };
 
 void falseVerification;
+
+const localResource: import('relate/connectors').SourceResource<
+  typeof applicationConnector
+> = {
+  connection: { connectionId: 'directory' },
+  resourceId: 'people',
+  bindSource: () => applicationConnector,
+};
+const verifiedResource: import('relate/connectors').SourceResource<SourceConnector> =
+  {
+    connection: { connectionId: 'directory' },
+    resourceId: 'people',
+    bindSource: () => connector,
+  };
+
+bind(people, localResource);
+bind(people, verifiedResource, { providerAccountId: 'fixture' });
+// @ts-expect-error provider resources require an expected authenticated account
+bind(people, verifiedResource);
+// @ts-expect-error application resources cannot assert a provider account
+bind(people, localResource, { providerAccountId: 'fake' });

@@ -4,8 +4,8 @@ import type {
   ObjectRecord,
   ObjectResult,
   Page,
-  QueryRequest,
-  ReadRequest,
+  ObjectQueryRequest,
+  ObjectReadRequest,
   TraversalRequest,
 } from './index.js';
 import type { Discovery } from './discovery.js';
@@ -33,11 +33,11 @@ export interface ConsumerOperations {
   get(
     objectDefinitionId: string,
     objectId: string,
-    request?: ReadRequest,
+    request?: ObjectReadRequest,
   ): Promise<ObjectResult>;
   query(
     objectDefinitionId: string,
-    request?: QueryRequest,
+    request?: ObjectQueryRequest,
   ): Promise<Page<ObjectRecord>>;
   /** A to-one traversal yields an `ObjectResult`; a to-many traversal yields one page. */
   traverse(

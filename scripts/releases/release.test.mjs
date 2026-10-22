@@ -39,7 +39,7 @@ test('release versions cannot inject shell or tag syntax', () => {
   assert.equal(validateVersion([{ ...pkg, version: '0.0.1' }], '0.0.1'), false);
 });
 
-test('release inventory includes both connectors and their tarballs', async () => {
+test('release inventory includes connectors and their tarballs', async () => {
   const packages = await releasePackages();
   const connector = packages.find(
     (entry) => entry.name === '@relate/connector-sqlite',
@@ -48,6 +48,13 @@ test('release inventory includes both connectors and their tarballs', async () =
   assert.ok(connector);
   assert.equal(connector.directory, 'connectors/sqlite');
   assert.ok(packedPackages.includes(connector.directory));
+  const postgres = packages.find(
+    (entry) => entry.name === '@relate/connector-postgres',
+  );
+
+  assert.ok(postgres);
+  assert.equal(postgres.directory, 'connectors/postgres');
+  assert.ok(packedPackages.includes(postgres.directory));
   const stripe = packages.find(
     (entry) => entry.name === '@relate/connector-stripe',
   );

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { createRuntime } from '@relate/node';
 import {
   AccountReview,
@@ -23,14 +23,16 @@ const connector = () => ({
 it('exposes progressive discovery on the typed consumer handle', async () => {
   const relate = createRuntime({
     graph,
-    connections: [
-      connect(customers, {
+    bindings: [
+      bind(customers, {
         connectionId: 'crm',
+        resourceId: 'records',
         providerAccountId: 'test-account',
         connector: connector(),
       }),
-      connect(invoices, {
+      bind(invoices, {
         connectionId: 'billing',
+        resourceId: 'records',
         providerAccountId: 'test-account',
         connector: connector(),
       }),

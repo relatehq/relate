@@ -162,7 +162,7 @@ caller:
 // tutorial/index.ts
 import { z } from 'zod';
 import { createRuntime } from '@relate/node';
-import { connect } from 'relate';
+import { bind } from 'relate';
 import { customerSource } from './source.js';
 import { Customer } from './customer.js';
 import { graph } from './graph.js';
@@ -186,10 +186,11 @@ const crm: Record<string, z.infer<typeof customerSource.schema>> = {
 const relate = createRuntime({
   graph,
   graphId: 'my-app',
-  connections: [
-    connect(customerSource, {
+  bindings: [
+    bind(customerSource, {
       providerAccountId: 'crm-prod',
       connectionId: 'crm-main',
+      resourceId: 'records',
       connector: {
         identify: async () => 'crm-prod',
         async fetch(sourceRecordId) {

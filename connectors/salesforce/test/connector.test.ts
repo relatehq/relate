@@ -301,7 +301,11 @@ test('cancellation reaches outstanding transport and preserves caller reason', a
 
 test('pre-aborted work never resolves credentials', async () => {
   const resolve = vi.fn(() => credentials);
-  const connection = salesforce({ apiVersion: '67.0', credentials: resolve });
+  const connection = salesforce({
+    connectionId: 'salesforce',
+    apiVersion: '67.0',
+    credentials: resolve,
+  });
 
   await expect(
     connection

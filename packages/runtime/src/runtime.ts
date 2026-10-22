@@ -1,3 +1,6 @@
+import type { ReadExecution } from './reads/index.js';
+import { createAnalyticalReads } from './analytical-reads/index.js';
+import type { AnalyticalReadOptions } from './analytical-reads/index.js';
 import {
   createNativeOperations,
   nativeEvidence,
@@ -5,7 +8,7 @@ import {
 } from './actions/index.js';
 import type { ActionHandler } from './actions/index.js';
 import type { NativeTransaction, StorageScope } from './storage.js';
-import { createGraphQuery } from './queries/index.js';
+import { createGraphQuery, createQueryCursors } from './queries/index.js';
 import { createTraversal, traversalsFrom } from './traversal/index.js';
 import {
   createSourceOperations,
@@ -23,7 +26,11 @@ import type {
 } from './activity/index.js';
 import type { SourceBinding } from 'relate/connectors';
 import { createMemoryStore } from './memory.js';
-import { presenting } from './reads/index.js';
+import {
+  presenting,
+  calculatedReadIssues,
+  rejectIssues,
+} from './reads/index.js';
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
@@ -41,7 +48,13 @@ import type {
 } from '@relate/protocol';
 import type { ObservationStore } from './storage.js';
 import type { Principal } from './authorization/index.js';
-import { createDiscovery } from './discovery.js';
+import {
+  allowsObject,
+  allowsField,
+  operationName,
+} from './authorization/index.js';
+import { createDiscovery } from './discovery/index.js';
+import { resolveAnalyticalLimits } from './analytics/index.js';
 
 export interface RuntimeOptions {
   readonly model: CompiledModel;
@@ -56,6 +69,7 @@ export interface RuntimeOptions {
   readonly actionTimeoutMs?: number;
   /** Operation capture configuration; the feed and provenance are always recorded. */
   readonly activity?: ActivityCaptureOptions;
+  readonly analytics?: AnalyticalReadOptions;
 }
 
 /** Trusted host operations without an explicit actor are attributed to this one. */
@@ -68,6 +82,12 @@ const nonblank = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
 
 export function createRuntime(options: RuntimeOptions) {
+  const analytics = options.analytics
+    ? {
+        ...options.analytics,
+        limits: resolveAnalyticalLimits(options.analytics.limits),
+      }
+    : undefined;
   const actionTimeoutMs = options.actionTimeoutMs ?? 60_000;
 
   if (
@@ -107,6 +127,8 @@ export function createRuntime(options: RuntimeOptions) {
     if (
       !binding ||
       !binding.connectionId.trim() ||
+      typeof binding.resourceId !== 'string' ||
+      !binding.resourceId.trim() ||
       (binding.connector.identity === 'application'
         ? binding.providerAccountId !== undefined ||
           binding.connector.identify !== undefined
@@ -139,6 +161,7 @@ export function createRuntime(options: RuntimeOptions) {
     objectDefinitionId,
     sourceDefinitionId,
     connectionId: sources[sourceDefinitionId]!.connectionId,
+    resourceId: sources[sourceDefinitionId]!.resourceId,
     providerAccountId: sources[sourceDefinitionId]!.providerAccountId ?? null,
     partition: 'shared-service',
   });
@@ -156,7 +179,10 @@ export function createRuntime(options: RuntimeOptions) {
     canonical = false,
     transaction?: NativeTransaction,
     request: ReadRequest = {},
+    execution?: ReadExecution,
   ) {
+    execution?.signal.throwIfAborted();
+
     if (!target.sourceDefinitionId) {
       const record = transaction
         ? await transaction.load(target.id, key)
@@ -172,6 +198,7 @@ export function createRuntime(options: RuntimeOptions) {
       maxAgeMs,
       canonical,
       request,
+      execution,
     );
   }
 
@@ -218,8 +245,38 @@ export function createRuntime(options: RuntimeOptions) {
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
+    execution?: ReadExecution,
   ): Promise<ReadResult> {
+    execution?.signal.throwIfAborted();
     const object = manifest.objects.find((o) => o.id === objectDefinitionId);
+    const policy = manifest.policies[objectDefinitionId];
+
+    if (transaction && request?.compute !== undefined)
+      rejectIssues(
+        operationName(manifest, principal, objectDefinitionId, 'get'),
+        'get',
+        [
+          {
+            path: ['compute'],
+            problem: 'not-supported',
+            message:
+              'Analytical reads are not supported in action transactions.',
+          },
+        ],
+      );
+
+    if (transaction && object && allowsObject(principal, policy))
+      rejectIssues(
+        operationName(manifest, principal, objectDefinitionId, 'get'),
+        'get',
+        calculatedReadIssues(
+          request,
+          (object.calculations ?? []).map((property) => ({
+            name: property.name,
+            defaultSelected: allowsField(principal, policy!, property.access),
+          })),
+        ),
+      );
 
     if (object?.sourceDefinitionId)
       return source.read(
@@ -231,6 +288,7 @@ export function createRuntime(options: RuntimeOptions) {
         requiredReference,
         captureAuthorization,
         transaction,
+        execution,
       );
 
     return native.read(
@@ -241,9 +299,17 @@ export function createRuntime(options: RuntimeOptions) {
       request,
       transaction,
       captureAuthorization,
+      execution,
     );
   }
 
+  const queryCursors = createQueryCursors({
+    manifest,
+    scope: nativeScope,
+    clock,
+    scopeFor,
+    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+  });
   const query = createGraphQuery({
     manifest,
     scope: nativeScope,
@@ -252,7 +318,49 @@ export function createRuntime(options: RuntimeOptions) {
     install,
     scopeFor,
     read: readObject,
-    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+    cursors: queryCursors,
+  });
+
+  const analyticalReads = createAnalyticalReads({
+    manifest,
+    cursors: queryCursors,
+    read: async ({
+      attempt,
+      principal,
+      objectType,
+      id,
+      request,
+      execution,
+    }) => {
+      let recheckAuthorization = async () => false;
+      const result = await readObject(
+        attempt,
+        principal,
+        objectType,
+        id,
+        request,
+        undefined,
+        (check) => {
+          recheckAuthorization = check;
+        },
+        undefined,
+        execution,
+      );
+
+      return { result, recheckAuthorization };
+    },
+    query: ({ attempt, principal, objectType, request, context }) =>
+      query(
+        attempt,
+        principal,
+        objectType,
+        request,
+        undefined,
+        undefined,
+        context,
+      ),
+    clock,
+    ...(analytics ? { analytics } : {}),
   });
 
   const traverse = createTraversal({
@@ -348,7 +456,12 @@ export function createRuntime(options: RuntimeOptions) {
 
   return {
     discover: (principal: Principal) =>
-      createDiscovery({ manifest, definitionRevision: revision }, principal),
+      createDiscovery(
+        { manifest, definitionRevision: revision },
+        principal,
+        analytics?.parser,
+        analytics?.limits,
+      ),
     /** Trusted host ingestion, attributed to the host actor or the scope's actor. */
     adopt(
       objectDefinitionId: string,
@@ -372,7 +485,8 @@ export function createRuntime(options: RuntimeOptions) {
       return presenting(request, (r) =>
         capture.operation(
           attempt,
-          () => query(attempt, principal, objectDefinitionId, r),
+          () =>
+            analyticalReads.query(attempt, principal, objectDefinitionId, r),
           describe.query(objectDefinitionId),
         ),
       );
@@ -389,7 +503,14 @@ export function createRuntime(options: RuntimeOptions) {
       return presenting(request, (r) =>
         capture.operation(
           attempt,
-          () => readObject(attempt, principal, objectDefinitionId, objectId, r),
+          () =>
+            analyticalReads.get(
+              attempt,
+              principal,
+              objectDefinitionId,
+              objectId,
+              r,
+            ),
           describe.get(objectDefinitionId, objectId),
         ),
       );

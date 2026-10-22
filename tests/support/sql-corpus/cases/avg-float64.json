@@ -1,0 +1,31 @@
+{
+  "name": "avg-float64",
+  "sql": "SELECT AVG(ratio) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "avg",
+      "argument": {
+        "kind": "column",
+        "name": "ratio",
+        "quoted": false
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 2.5,
+      "acme_late": 2.5,
+      "empty": null,
+      "nulls": null,
+      "wide": 1.5
+    }
+  }
+}

@@ -372,3 +372,21 @@ console.log(definitionRevision); // 'sha256:…'
 Stores pin a graph ID to one definition revision. The Postgres store refuses to
 serve a graph whose revision differs from the one installed for that graph ID.
 Migrating between revisions is not yet implemented.
+
+## Integer fields
+
+Use `native(z.int32(), { id: 'invoice.quantity' })` for a signed 32-bit number,
+or `native(z.int64(), { id: 'invoice.total-minor' })` for a signed 64-bit value.
+The same schemas work in sources, action payloads and claims. Optional and
+nullable wrappers are supported; additional integer refinements are not.
+
+Ordinary `int64` values use decimal strings in reads, writes and filters:
+`{ totalMinor: '9007199254740993' }` and
+`{ where: { totalMinor: { gt: '9007199254740992' } } }`. Comparisons are numeric
+and exact. Pass small values as strings too, such as `'2'`; JavaScript bigint
+and number inputs, leading zeros, `'-0'` and out-of-range values are rejected.
+Use `BigInt(value)` for local arithmetic. `int32` values stay JSON numbers.
+
+SQLite source bindings infer this encoding from `z.int64()` and preserve the
+full INTEGER value. Dataset correlations require a matching logical type:
+`int32` keys match `int32` columns and `int64` keys match `int64` columns.

@@ -24,7 +24,7 @@ it('renders GitHub-flavoured Markdown from the model', () => {
 it('renders fenced code with the inspector code view', () => {
   const html = render('```js\nconst x = 1;\n```');
 
-  expect(html).toContain('class="agent-code"');
+  expect(html).toContain('class="code-view"');
   expect(html).toContain('<span class="tok-kw">const </span>');
   expect(html).not.toContain('<pre');
 });
@@ -39,5 +39,5 @@ it('never renders raw HTML from the model', () => {
 it('closes half-written syntax while a reply streams', () => {
   expect(render('Found **3 cust')).toContain('<strong>3 cust</strong>');
   expect(render('Run `relate de')).toContain('<code>relate de</code>');
-  expect(render('Here:\n\n```js\nconst y')).toContain('class="agent-code"');
+  expect(render('Here:\n\n```js\nconst y')).toContain('class="code-view"');
 });

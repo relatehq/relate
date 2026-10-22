@@ -51,7 +51,7 @@ export async function createFixture(
   const runtime = createRuntime({
     graph,
     graphId: 'test',
-    connections: [],
+    bindings: [],
     actionImplementations: [
       implementAction(graph, AddNote, async ({ input, objects }) => {
         const note = await objects.Note.create({ text: input.text });

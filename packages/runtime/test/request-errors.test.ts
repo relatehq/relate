@@ -40,6 +40,7 @@ function createRestrictedRuntime() {
   const binding = {
     providerAccountId: 'account',
     connectionId: 'test',
+    resourceId: 'records',
     authorization: 'shared-service' as const,
     connector: {
       identify: async () => 'account',
@@ -135,3 +136,45 @@ it('names object types in errors only when the reader may read them', async () =
     ),
   ).toEqual(['Customer.query', 'Customer.get', 'Customer.traverse.invoice']);
 });
+
+it.each([
+  ['many', 'compute', 'compute is supported only by object get and query'],
+  ['one', 'compute', 'compute is supported only by object get and query'],
+  ['many', 'orderBy', 'orderBy is supported only by object query'],
+  ['one', 'orderBy', 'orderBy is supported only by object query'],
+  ['get', 'orderBy', 'orderBy is supported only by object query'],
+  ['many', 'sort', 'orderBy is supported only by object query'],
+] as const)(
+  'explains unsupported %s %s without claiming every traversal returns one record',
+  async (surface, option, hint) => {
+    const { runtime, finance, Customer, Invoice } = createRestrictedRuntime();
+    const options = { [option]: option === 'compute' ? {} : [] };
+    const error = await readError(() =>
+      surface === 'get'
+        ? runtime.read(finance, Customer.id, 'customer', options as never)
+        : surface === 'many'
+          ? runtime.traverse(
+              finance,
+              Customer.id,
+              'customer',
+              'invoices',
+              options as never,
+            )
+          : runtime.traverse(
+              finance,
+              Invoice.id,
+              'invoice',
+              'customer',
+              options as never,
+            ),
+    );
+
+    expect(error.issues).toEqual([
+      {
+        path: [option],
+        problem: option === 'sort' ? 'unknown-option' : 'not-supported',
+        message: `${option === 'sort' ? 'unknown option' : 'not accepted here'}; ${hint}.`,
+      },
+    ]);
+  },
+);

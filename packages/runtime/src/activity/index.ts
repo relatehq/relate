@@ -1,6 +1,11 @@
 export { uuidv7 } from './ids.js';
 
-export { createOperationScope, nestedScope, snapshotContext } from './scope.js';
+export {
+  createOperationScope,
+  nestedScope,
+  snapshotContext,
+  operationDiagnostics,
+} from './scope.js';
 
 export type { OperationScope } from './scope.js';
 

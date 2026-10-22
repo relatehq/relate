@@ -1,3 +1,4 @@
+import type { ScalarSchema } from '@relate/protocol';
 import type { Json } from '@relate/protocol';
 
 export interface SourceVersion {
@@ -56,6 +57,8 @@ export class SourceAccessDenied extends Error {
 
 interface BindingOptions {
   readonly connectionId: string;
+  /** Stable identity of the selected table or API resource within the connection. */
+  readonly resourceId: string;
   readonly authorization: 'shared-service';
 }
 
@@ -71,3 +74,48 @@ export type SourceBinding = BindingOptions &
         readonly providerAccountId?: never;
       }
   );
+
+/** One configured connection may supply several independently scoped resources. */
+export interface ResourceConnection {
+  readonly connectionId: string;
+}
+
+/** Source selection derives from the unbound definition when it is bound. */
+export interface SourceSelection {
+  readonly idField: string;
+  readonly fields: readonly string[];
+  /** Portable field encodings, when bound from an authored source definition. */
+  readonly schemas?: Readonly<Record<string, ScalarSchema>>;
+}
+
+/** A selected resource exposes only the capabilities its connection implements. */
+export interface SourceResource<
+  C extends AnySourceConnector = AnySourceConnector,
+> {
+  readonly connection: ResourceConnection;
+  readonly resourceId: string;
+  bindSource(selection: SourceSelection): C;
+}
+
+export type {
+  AnalyticalConnection,
+  AnalyticalExecutionTiming,
+  AnalyticalConnector,
+  AnalyticalResource,
+  AuthorizedDatasetQuery,
+  DatasetExecution,
+  DatasetResource,
+  DatasetSelection,
+  PhysicalColumn,
+  PhysicalSchema,
+  PreparedPlan,
+  ResolvedAggregate,
+  ResolvedOperand,
+  ResolvedPredicate,
+  SlotRow,
+} from './analytics/connectors.js';
+
+export { DatasetExecutionError } from './analytics/connectors.js';
+export type { TypedValue } from './analytics/values.js';
+
+export { validateAuthorizedDatasetQuery } from './analytics/query-validation.js';

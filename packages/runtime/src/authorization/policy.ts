@@ -253,7 +253,7 @@ export function allowsObject(
 
 export function allowsField(
   principal: Principal,
-  policy: Policy,
+  policy: Pick<Policy, 'groups'>,
   access: string,
 ): boolean {
   return (
