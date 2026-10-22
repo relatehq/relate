@@ -1,0 +1,8 @@
+{
+  "name": "reject-52-select-coalesce-max-value-fallback-from-self-events",
+  "sql": "SELECT COALESCE(MAX(value), $fallback) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

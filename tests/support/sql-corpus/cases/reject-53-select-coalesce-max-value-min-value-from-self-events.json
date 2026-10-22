@@ -1,0 +1,8 @@
+{
+  "name": "reject-53-select-coalesce-max-value-min-value-from-self-events",
+  "sql": "SELECT COALESCE(MAX(value), MIN(value)) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

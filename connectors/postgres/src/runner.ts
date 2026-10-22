@@ -19,18 +19,15 @@ export function createRunner(
       ...(cause === undefined ? {} : { cause }),
     });
 
-  async function cancel(pid: number): Promise<boolean> {
+  async function cancel(target: StatementClient): Promise<boolean> {
     const control = factory('control');
     const timer = setTimeout(() => control.destroy(), settings.cancelTimeoutMs);
 
     try {
       await control.connect();
-      const rows = await control.query(
-        'SELECT pg_catalog.pg_cancel_backend($1::pg_catalog.int4)',
-        [pid],
-      );
+      await control.cancel(target);
 
-      return rows[0]?.[0] === 't';
+      return true;
     } catch {
       return false;
     } finally {
@@ -81,7 +78,6 @@ export function createRunner(
       throw failure(cause);
     }
 
-    let pid: number | undefined;
     let cancellation: Promise<void> | undefined;
     let ending: Promise<void> | undefined;
     let statement: Promise<T> | undefined;
@@ -91,12 +87,12 @@ export function createRunner(
       if (cancellation) return;
 
       cancellation = (async () => {
-        if (executionStarted && pid !== undefined) {
-          const acknowledged = await cancel(pid).catch(() => false);
+        if (executionStarted) {
+          await cancel(client).catch(() => false);
 
-          // If control access fails, keep capacity until the primary receives its
-          // server timeout/result. The watchdog bounds a lost primary connection.
-          if (!acknowledged && statement) await statement.catch(() => {});
+          // CancelRequest has no acknowledgement. Join the primary result or server
+          // timeout even when the control socket closes successfully.
+          if (statement) await statement.catch(() => {});
         } else client.destroy();
 
         await end();
@@ -119,14 +115,10 @@ export function createRunner(
       await client.connect();
       controller.signal.throwIfAborted();
       await client.query('BEGIN READ ONLY');
-      const identity = await client.query('SELECT pg_catalog.pg_backend_pid()');
-
-      pid = Number(identity[0]?.[0]);
-
-      if (!Number.isSafeInteger(pid) || pid < 1) throw failure();
-
+      // Float text output follows the session setting; a role or pooler default
+      // below 1 rounds float8 values. Transaction-local, like the timeout.
       await client.query(
-        "SELECT pg_catalog.set_config('statement_timeout', $1::pg_catalog.text, true)",
+        "SELECT pg_catalog.set_config('statement_timeout', $1::pg_catalog.text, true), pg_catalog.set_config('extra_float_digits', '3', true)",
         [String(options.timeoutMs)],
       );
 
@@ -137,11 +129,17 @@ export function createRunner(
       phase = 'execution';
       started = performance.now();
       executionStarted = true;
-      timer = setTimeout(() => controller.abort(failure()), options.timeoutMs);
-      watchdog = setTimeout(() => {
-        controller.abort(failure());
-        client.destroy();
-      }, options.timeoutMs + settings.cancelTimeoutMs);
+      const timeout = () =>
+        new DatasetExecutionError('execution-failed', { retryable: false });
+
+      timer = setTimeout(() => controller.abort(timeout()), options.timeoutMs);
+      watchdog = setTimeout(
+        () => {
+          controller.abort(timeout());
+          client.destroy();
+        },
+        Math.min(2147483647, options.timeoutMs + settings.cancelTimeoutMs),
+      );
       statement = execute(client, new Date().toISOString());
       const result = await statement;
 
@@ -160,7 +158,7 @@ export function createRunner(
       throw new DatasetExecutionError('execution-failed', {
         retryable:
           typeof code === 'string' &&
-          (/^(08|53|57|40001|40P01)/.test(code) ||
+          ((code !== '57014' && /^(08|53|57|40001|40P01)/.test(code)) ||
             [
               'ECONNRESET',
               'ECONNREFUSED',
@@ -199,7 +197,7 @@ export function createRunner(
         onTiming?: (timing: AnalyticalExecutionTiming) => void;
       },
     ): Promise<T> {
-      options.signal.throwIfAborted();
+      if (options.signal.aborted) return Promise.reject(options.signal.reason);
 
       if (closed)
         return Promise.reject(

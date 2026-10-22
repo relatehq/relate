@@ -217,9 +217,15 @@ export async function openObjects(records: Customer[], options: ObjectOptions) {
             resourceId: 'customers',
             providerAccountId: 'synthetic',
             connector: {
-              identify: async () => 'synthetic',
+              identify: async () => {
+                count('sourceIdentifications');
+                count('sourceCalls');
+
+                return 'synthetic';
+              },
               fetch: async (key, { signal }) => {
                 count('sourceFetches');
+                count('sourceCalls');
 
                 if (active && options.sourceDelayMs)
                   await delay(options.sourceDelayMs, undefined, { signal });
@@ -269,6 +275,8 @@ export async function openObjects(records: Customer[], options: ObjectOptions) {
         'objectLoads',
         'sourceResolutions',
         'sourceFetches',
+        'sourceIdentifications',
+        'sourceCalls',
         'analyticalBatches',
         'analyticalStatements',
         'computedSlots',

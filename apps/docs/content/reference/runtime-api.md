@@ -22,6 +22,20 @@ an optional `graphId`, `store`, `cursorKey` and `activity` configuration.
 typed `Relate<G>` runtime. See [Application Setup](../runtime/application.md)
 for resource ownership and [Persistence](../deployment/postgres.md) for stores.
 
+For analytical graphs, setup may also return
+`analytics: { operationTimeoutMs: 60_000, maxSourceCalls: 100_000, maxCandidatesScanned: 12_500, maxCandidatesAdmitted: 10_000 }`.
+These defaults bound each analytical get or query page, including ordinary
+source reads and nested authorization checks. Both provider identity checks and
+fetch attempts count; cached application-identity reads do not. A caller's
+`timeoutMs` can only shorten the operation deadline. Exhausting the source-call
+budget rejects the request rather than returning stale fallback. The same
+`analytics` configuration controls SQL bytes, parsed nodes, named parameter
+count/value size, expression count, keys per batch, statement execution time,
+and per-connection running/queued statement capacity. These settings are
+snapshotted at startup and shared by declared and caller expressions. See the
+[Node contract](../../../../packages/node/CONTRACT.md#analytical-operation-limits)
+for configuration, cancellation and validation limits.
+
 | Runtime method                    | Result and purpose                                                                                                                                                                                      |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `as(principal)`                   | `Consumer<G>`: graph-typed, actor-bound object, action and receipt methods.                                                                                                                             |
@@ -69,6 +83,42 @@ construction; the operations implementation must keep requests bound to the same
 model and actor. Ordinary embedded applications use `runtime.as(principal)`.
 Source:
 [consumer exports and interfaces](../../../../packages/relate/src/consumer.ts).
+
+## Decoding computed values
+
+`decodeComputed` from `relate/consumer` returns a separate bag of computed
+values using `record.meta.computed`. It works for get results and individual
+query records, with compact or full evidence:
+
+```ts
+import { decodeComputed } from 'relate/consumer';
+
+const record = await consumer.objects.Customer.get(customerId, {
+  compute: { logins: { sql: 'SELECT COUNT(*) FROM self.events' } },
+});
+const fields = decodeComputed(record);
+// fields.logins is 2n if the response returned "2".
+```
+
+| Logical type           | Decoded value                                   |
+| ---------------------- | ----------------------------------------------- |
+| int64                  | `bigint`                                        |
+| timestamp, precision 3 | `Date`                                          |
+| timestamp, precision 6 | Canonical UTC string, preserving all six digits |
+| int32, float64         | `number`                                        |
+| string, boolean        | Unchanged scalar                                |
+| SQL null               | `null`                                          |
+
+Caller aliases and declared calculations use the same path. Missing values stay
+missing; ordinary fields are excluded. The input record and evidence remain
+unchanged. A not-found result or absent computed metadata returns `{}`. For a
+page, use `page.data.map(record => decodeComputed(record))`.
+
+Fields remain optional in the `DecodedComputed<R>` return type. Literal metadata
+can narrow the value type; authored SQL needs runtime type checks, such as
+`typeof fields.logins === 'bigint'`. Invalid present values or their metadata
+throw `AnalyticalValueError` from `relate/analytics`, without disclosing values.
+The decoded bag is for local use; retain the original record for JSON transport.
 
 ## Trusted host APIs
 

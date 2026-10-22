@@ -14,6 +14,8 @@ afterEach(() => {
 function setup() {
   const child = Object.assign(new EventEmitter(), {
     send: vi.fn(),
+    ref: vi.fn(),
+    unref: vi.fn(),
     kill: vi.fn(() => true),
   });
 
@@ -45,7 +47,7 @@ function setup() {
   };
 }
 
-it('uses monotonic phase clocks and settles only after process cleanup', async () => {
+it('uses monotonic clocks and releases a successful worker after database cleanup', async () => {
   const f = setup();
   let settled = false;
   const task = f.runner
@@ -65,14 +67,15 @@ it('uses monotonic phase clocks and settles only after process cleanup', async (
   expect(f.timings).toEqual([{ stage: 'connectionStartup', durationMs: 7 }]);
   f.setTime(11);
   f.child.emit('message', { kind: 'result', value: { columns: {} } });
-  await Promise.resolve();
-  expect(settled).toBe(false);
+  await task;
+  expect(settled).toBe(true);
+  expect(f.child.unref).toHaveBeenCalled();
   f.setTime(17);
   f.child.emit('close', 0);
   expect(await task).toEqual({ columns: {} });
   expect(f.timings).toEqual([
     { stage: 'connectionStartup', durationMs: 7 },
-    { stage: 'execution', durationMs: 10 },
+    { stage: 'execution', durationMs: 4 },
   ]);
   await f.runner.close();
 });
@@ -210,6 +213,48 @@ it('withholds a completed result when retirement occurs before publication', asy
   await retirement;
   expect(f.timings).toEqual([
     { stage: 'connectionStartup', durationMs: 2 },
-    { stage: 'execution', durationMs: 3 },
+    { stage: 'execution', durationMs: 0 },
   ]);
+});
+
+it('reuses an idle process but reopens the database for each statement', async () => {
+  const f = setup();
+  const options = { signal: f.controller.signal, timeoutMs: 5000 };
+  const first = f.runner.run(f.operation, options);
+
+  f.child.emit('message', { kind: 'ready' });
+  f.child.emit('message', { kind: 'result', value: { columns: {} } });
+  await first;
+  const second = f.runner.run(f.operation, options);
+
+  f.child.emit('message', { kind: 'ready' });
+  f.child.emit('message', { kind: 'result', value: { columns: {} } });
+  await second;
+  expect(fork).toHaveBeenCalledTimes(1);
+  expect(
+    f.child.send.mock.calls.filter(([message]) => message.kind === 'open'),
+  ).toHaveLength(2);
+  const closed = f.runner.close();
+
+  expect(f.child.kill).toHaveBeenCalledWith('SIGKILL');
+  f.child.emit('close', null);
+  await closed;
+});
+
+it('withholds a released result if cancellation wins before its promise publishes', async () => {
+  const f = setup();
+  const task = f.runner.run(f.operation, {
+    signal: f.controller.signal,
+    timeoutMs: 5000,
+  });
+  const rejected = expect(task).rejects.toBe('stop');
+
+  f.child.emit('message', { kind: 'ready' });
+  f.child.emit('message', { kind: 'result', value: { columns: {} } });
+  f.controller.abort('stop');
+  await rejected;
+  const closed = f.runner.close();
+
+  f.child.emit('close', null);
+  await closed;
 });

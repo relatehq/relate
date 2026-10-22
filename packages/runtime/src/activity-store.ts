@@ -1,4 +1,9 @@
-import { ActivityError, analyticalTimingStages } from '@relate/protocol';
+import {
+  ActivityError,
+  analyticalTimingStages,
+  analyticalFailureReasons,
+  analyticalSummaryLimits,
+} from '@relate/protocol';
 import type {
   ActivityActor,
   ActivityFilter,
@@ -116,6 +121,68 @@ function actor(value: unknown, kinds: readonly string[], what: string) {
     throw new InvalidDraft(`${what} actor`);
 
   allowOnly(value, ['kind', 'id'], what);
+}
+
+function analyticalSummary(value: unknown) {
+  if (
+    !isRecord(value) ||
+    !Number.isSafeInteger(value.expressionCount) ||
+    (value.expressionCount as number) < 0 ||
+    typeof value.computedFilter !== 'boolean' ||
+    typeof value.computedOrder !== 'boolean' ||
+    !Array.isArray(value.calculations) ||
+    value.calculations.length > analyticalSummaryLimits.maxCalculations ||
+    (value.omittedCalculations !== undefined &&
+      (!Number.isSafeInteger(value.omittedCalculations) ||
+        (value.omittedCalculations as number) < 1)) ||
+    value.calculations.length +
+      ((value.omittedCalculations as number | undefined) ?? 0) !==
+      value.expressionCount
+  )
+    throw new InvalidDraft('analytical summary');
+
+  allowOnly(
+    value,
+    [
+      'expressionCount',
+      'computedFilter',
+      'computedOrder',
+      'calculations',
+      'omittedCalculations',
+    ],
+    'analytical summary',
+  );
+  const identifier = (id: unknown) =>
+    nonblank(id) &&
+    new TextEncoder().encode(id).byteLength <=
+      analyticalSummaryLimits.maxIdentifierBytes;
+
+  for (const calculation of value.calculations) {
+    if (
+      !isRecord(calculation) ||
+      !identifier(calculation.associationId) ||
+      !identifier(calculation.datasetId) ||
+      (calculation.propertyId !== undefined &&
+        !identifier(calculation.propertyId)) ||
+      !isRecord(calculation.failures)
+    )
+      throw new InvalidDraft('analytical calculation');
+
+    allowOnly(
+      calculation,
+      ['associationId', 'datasetId', 'propertyId', 'failures'],
+      'analytical calculation',
+    );
+    allowOnly(
+      calculation.failures,
+      analyticalFailureReasons,
+      'analytical failure',
+    );
+
+    for (const count of Object.values(calculation.failures))
+      if (!Number.isSafeInteger(count) || (count as number) < 1)
+        throw new InvalidDraft('analytical failure count');
+  }
 }
 
 function objectRef(value: unknown, what: string) {
@@ -389,7 +456,10 @@ export function validateOperationDraft(input: unknown): OperationDraft {
     )
       throw new InvalidDraft('analytical timings');
 
-    allowOnly(analytical, ['stages'], 'analytical timings');
+    allowOnly(analytical, ['stages', 'summary'], 'analytical activity');
+
+    if (analytical.summary !== undefined) analyticalSummary(analytical.summary);
+
     allowOnly(analytical.stages, analyticalTimingStages, 'analytical stages');
 
     for (const timing of Object.values(analytical.stages)) {

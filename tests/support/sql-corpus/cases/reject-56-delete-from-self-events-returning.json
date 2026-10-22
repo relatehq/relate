@@ -1,0 +1,8 @@
+{
+  "name": "reject-56-delete-from-self-events-returning",
+  "sql": "DELETE FROM self.events RETURNING *",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

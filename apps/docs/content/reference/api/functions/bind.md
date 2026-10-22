@@ -3,22 +3,23 @@
 ## Call Signature
 
 ```ts
-function bind<D>(
+function bind<D, C>(
    dataset,
    resource,
    options?
 ): DatasetBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:48](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L48)
+Defined in: [packages/relate/src/app.ts:55](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L55)
 
 Bind a dataset to a selected analytical resource; unspecified columns retain their names.
 
 ### Type Parameters
 
-| Type Parameter |
-| ------ |
-| `D` *extends* `DatasetDefinition`\<`Readonly`\<`Record`\<`string`, `DatasetColumn`\<`ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>\>\>\>\> |
+| Type Parameter | Default type |
+| ------ | ------ |
+| `D` *extends* `DatasetDefinition`\<`Readonly`\<`Record`\<`string`, `DatasetColumn`\<`ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>\>\>\>\> | - |
+| `C` *extends* `Readonly`\<`Record`\<`string`, `unknown`\>\> | \{ \} |
 
 ### Parameters
 
@@ -26,8 +27,8 @@ Bind a dataset to a selected analytical resource; unspecified columns retain the
 | ------ | ------ |
 | `dataset` | `D` |
 | `resource` | `AnalyticalResource` |
-| `options?` | \{ `columns?`: `Partial`\<`Record`\<`Extract`\<keyof `NoInfer`\<`D`\>\[`"columns"`\], `string`\>, `string`\>\>; \} |
-| `options.columns?` | `Partial`\<`Record`\<`Extract`\<keyof `NoInfer`\<`D`\>\[`"columns"`\], `string`\>, `string`\>\> |
+| `options?` | \{ `columns?`: `C` & \{ readonly \[K in string \| number \| symbol\]-?: string \} & `Record`\<`Exclude`\<keyof `C`, `Extract`\<keyof `NoInfer`\<`D`\>\[`"columns"`\], `string`\>\>, `never`\>; \} |
+| `options.columns?` | `C` & \{ readonly \[K in string \| number \| symbol\]-?: string \} & `Record`\<`Exclude`\<keyof `C`, `Extract`\<keyof `NoInfer`\<`D`\>\[`"columns"`\], `string`\>\>, `never`\> |
 
 ### Returns
 
@@ -39,7 +40,7 @@ Bind a dataset to a selected analytical resource; unspecified columns retain the
 function bind(source, resource): SourceAppBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:59](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L59)
+Defined in: [packages/relate/src/app.ts:70](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L70)
 
 Custom adapters may supply the explicit resource identity and keyed reader.
 
@@ -64,7 +65,7 @@ function bind(
 ): SourceAppBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:65](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L65)
+Defined in: [packages/relate/src/app.ts:76](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L76)
 
 Bind a source contract to a selected resource without opening it.
 
@@ -92,7 +93,7 @@ function bind(
 ): SourceAppBinding;
 ```
 
-Defined in: [packages/relate/src/app.ts:74](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L74)
+Defined in: [packages/relate/src/app.ts:85](https://github.com/relatehq/relate/blob/main/packages/relate/src/app.ts#L85)
 
 Bind a dataset to a selected analytical resource; unspecified columns retain their names.
 

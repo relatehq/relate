@@ -13,7 +13,8 @@ API. Private and unpublished while implementation is in progress.
 - `startApp(app)` runs setup and validates analytical declarations and dataset
   bindings, including asynchronous physical-schema checks, before returning the
   runtime. It owns registered disposal callbacks and retires statement queues
-  before disposing connections. Analytical execution is still being implemented.
+  before disposing connections. SQLite and PostgreSQL datasets execute through
+  the runtime's shared analytical read/query path.
 - `createRuntime({ graph, bindings, actionImplementations?, store?, … })`
   synchronously compiles an ordinary graph with `relate/compiler`, validates
   bindings against the registered sources, binds action handlers, and starts a
@@ -58,8 +59,12 @@ before projection. For example,
 adds an exact JSON int64 total alongside the selected fields. `meta.computed`
 supplies result types in both evidence modes. Dependencies and computed input
 freshness remain explicit; no dataset synchronization is claimed. SQLite and
-PostgreSQL analytical connectors execute these reads. Computed filtering/order
-and analytical discovery/MCP integration remain in progress.
+PostgreSQL analytical connectors execute these reads. Computed filters and
+ordering evaluate the authorized matching scope before choosing a page, with
+finite host budgets and revision-bound cursors. Actor-bound discovery exposes
+associations, column access and inferred calculation types through the consumer,
+MCP and Inspector playground. See the
+[application guide](../../apps/docs/content/runtime/application.md#filtering-and-ordering-by-calculations).
 
 ## How it fits
 
@@ -67,9 +72,11 @@ and analytical discovery/MCP integration remain in progress.
   `@relate/runtime` and `@relate/protocol`. Analytical apps additionally
   initialize `@relate/sql-parser` during `startApp` to validate declared
   calculations.
-- The embedded entry point for applications today. Planned HTTP and MCP adapters
-  serve `relate.operations(principal)`. The existing CLI inspects definitions
-  without starting a runtime.
+- The embedded entry point for applications today. The MCP adapter serves
+  `relate.operations(principal)` over stdio and Streamable HTTP; a standalone
+  HTTP consumer API remains planned. `relate dev` starts a runtime for its
+  Inspector, playground and MCP endpoint; `--no-runtime` inspects definitions
+  only.
 
 ## Public API
 

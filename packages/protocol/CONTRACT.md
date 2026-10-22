@@ -69,9 +69,20 @@ carry `SdkOptionDescription` (`description` and accepted `ReadOperation` kinds),
 so applicability is transport data, not inferred from prose. `sdk.errors`
 explains read failures and how to inspect request issues. Full read-contract
 types (`OperationContract`, `OperationContracts`) belong to `@relate/runtime`,
-not this transport. Every scalar in detail is reported as a `ScalarSchema`;
-`relate/model` validates compiled manifests against that same shape, so
-discovery never invents a constraint the compiler did not record.
+not this transport. Ordinary fields use `ScalarSchema`; `relate/model` validates
+compiled manifests against that same shape. Declared calculations use
+`ComputedPropertyDescription` with `kind: 'computed'`, an inferred logical
+`ComputedResultType` schema, and `readable` for static dependency access. Their
+SQL is never included. A property denied by its own field group is omitted.
+
+Optional `datasets` maps declared association names to `DatasetDescription`.
+Association gates determine presence; denied columns remain listed with
+`readable: false`. Descriptions, stable IDs, logical types, nullability and
+timestamp precision survive. Correlation text uses quoted declared names and is
+omitted if it would name a hidden object property. Physical resource identifiers
+and binding details never appear. Optional `compute` explains SQL syntax,
+encoding, freshness and the currently supported read modes. Computed
+`filterOperators` remains empty until computed filtering is implemented.
 
 `Discovery` is the actor-bound interface: `describe()`, `describeObject(id)` and
 `describeAction(id)`. It is a pure function of one actor snapshot and the
@@ -156,6 +167,19 @@ attempt: `get`, `query`, `traverse`, `invoke`, `receipt`, `adopt` or `refresh`),
 references only, never property values, filter values, action inputs/outputs or
 raw errors.
 
+Analytical `get` and `query` operations may include `details.analytical`: fixed
+stage timings plus a `summary` after successful expression preparation. The
+summary reports expression count, computed-filter/order flags, and one entry per
+prepared expression with association/dataset IDs, an optional declared property
+ID, and failed-object-result counts by reason. Caller expressions have no
+recorded name. Revalidation updates counts without counting a result twice;
+`interrupted` means a pending calculation had no settled result when execution
+was aborted. No SQL, parameters, aliases, values or physical identifiers occur
+in this summary. At most 32 entries are retained, with each identifier bounded
+to 256 UTF-8 bytes. Oversized entries are omitted whole and counted in
+`omittedCalculations`; stable IDs are never shortened. These diagnostics are
+absent from consumer read results and MCP results.
+
 Each union constrains its variant: only `invoke` has `replayed`, a terminal
 invocation outcome always has an `invocationId`, only `refresh` has a refresh
 result, and only `query` and `traverse` successes have `hasMore`. `Change.kind`
@@ -169,3 +193,9 @@ kinds or versions while advancing their checkpoint.
 when no entry matched, unlike `Page<T>`. `ActivityError` codes are `unsupported`
 (never an empty history), `unavailable`, `invalid-request`, `invalid-cursor` and
 `cursor-expired`.
+
+Analytical population, admission and source-call budget overruns use
+`ReadError('resource-exhausted')` with `limit-exceeded` issues. They distinguish
+finite host capacity from malformed requests and unsupported operations. Scan
+budgets count visited membership, including rejected objects, so budget failure
+is not a count of objects visible to the actor.

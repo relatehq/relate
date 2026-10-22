@@ -1,0 +1,8 @@
+{
+  "name": "reject-26-select-count-value-order-by-value-from-self-events",
+  "sql": "SELECT COUNT(value ORDER BY value) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

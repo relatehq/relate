@@ -1,0 +1,31 @@
+{
+  "name": "min-int64",
+  "sql": "SELECT MIN(e.value) FROM self.events e",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "min",
+      "argument": {
+        "kind": "column",
+        "name": "value",
+        "quoted": false
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": "1",
+      "acme_late": "1",
+      "empty": null,
+      "nulls": null,
+      "wide": "2"
+    }
+  }
+}

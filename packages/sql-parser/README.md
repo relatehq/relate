@@ -47,5 +47,8 @@ Parser errors are sanitized and never echo literals or PostgreSQL diagnostics.
 The adapter pins `libpg-query@18.1.5`, grammar version `180004`. Its
 implementation uses the
 [upstream parser and scanner API](https://github.com/constructive-io/libpg-query-node/tree/main/versions/18).
-Parser upgrades must pass the shared corpus in `tests/support/sql-corpus` and
-the package's fail-closed tree tests.
+Parser upgrades must pass the
+[shared JSON corpus](../../tests/support/sql-corpus/README.md) and the package's
+fail-closed tree tests. The same corpus fixes semantic trees, resolved types and
+expected values for the runtime identifier suite and both real backend
+generation suites.

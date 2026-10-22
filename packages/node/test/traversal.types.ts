@@ -149,3 +149,41 @@ const genericPage = await objects.Customer.traverse.invoices<'status', 'full'>(
 
 // @ts-expect-error an explicit type argument cannot request evidence
 genericPage.data[0]!.meta.fields.status;
+
+// Adding a declaration to the target keeps ordinary default traversal reads usable.
+import { computed, defineObject } from 'relate';
+import type { ObjectOperations } from 'relate/consumer';
+
+const AnalyticalInvoice = defineObject({
+  ...Invoice,
+  properties: {
+    ...Invoice.properties,
+    eventCount: computed({
+      id: 'invoice.event-count',
+      sql: 'SELECT COUNT(*) FROM self.events',
+    }),
+  },
+});
+const analyticalRelation = defineRelationship({
+  id: 'analytical-invoices',
+  via: AnalyticalInvoice.properties.customer,
+  forward: 'invoices',
+  reverse: 'customer',
+});
+
+declare const analyticalCustomer: ObjectOperations<
+  typeof Customer,
+  { invoices: typeof analyticalRelation }
+>;
+const ordinaryTraversal =
+  await analyticalCustomer.traverse.invoices(customerId);
+
+ordinaryTraversal.data[0]?.data.status;
+// @ts-expect-error Default traversal results contain only ordinary fields.
+ordinaryTraversal.data[0]?.data.eventCount;
+// @ts-expect-error Calculated traversal selection is unsupported.
+analyticalCustomer.traverse.invoices(customerId, { select: ['eventCount'] });
+analyticalCustomer.traverse.invoices(customerId, {
+  // @ts-expect-error Calculated traversal filters are unsupported.
+  where: { eventCount: '1' },
+});

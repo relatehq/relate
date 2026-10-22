@@ -14,7 +14,7 @@ import type { DatasetBinding } from 'relate';
 import type { PhysicalSchema } from 'relate/connectors';
 import { compile } from 'relate/compiler';
 import { startApp } from '@relate/node';
-import { bindHostResources } from '../src/datasets.js';
+import { bindHostResources } from '../src/bindings.js';
 import { createAnalyticalGraph } from '../../../tests/support/analytical-graph.js';
 import {
   createAnalyticalConnector,
@@ -225,12 +225,35 @@ it('shares one queue for datasets on one connection and rejects conflicting inst
   const connector = createAnalyticalConnector(analyticalGraphSchema());
   const first = bind(Events, connector.table('events'));
   const second = bind(Second, connector.table('other'));
-  const host = bindHostResources(input, compile(input), [first, second]);
+  const host = bindHostResources(input, compile(input), [first, second], {
+    concurrency: 1,
+    maxQueued: 0,
+  });
 
   expect(host.datasets.get(Events.id)!.queue).toBe(
     host.datasets.get(Second.id)!.queue,
   );
   const task = vi.fn(async () => 1);
+  let release!: () => void;
+  const running = host.datasets.get(Events.id)!.queue.run(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    { signal: new AbortController().signal },
+  );
+
+  try {
+    await expect(
+      host.datasets
+        .get(Second.id)!
+        .queue.run(task, { signal: new AbortController().signal }),
+    ).rejects.toThrow('busy');
+    expect(task).not.toHaveBeenCalled();
+  } finally {
+    release();
+    await running;
+  }
 
   await host.retire();
   await expect(
@@ -405,4 +428,52 @@ it('does not expose a runtime until inspection settles and captures registries b
       .objects.Customer.describe()!.definitionId,
   ).toBe(Customer.id);
   await runtime.close();
+});
+
+it('clamps and shares capacity across runtimes without retiring another host', async () => {
+  const { graph, Events } = createAnalyticalGraph();
+  const connector = createAnalyticalConnector(analyticalGraphSchema());
+
+  Object.assign(connector.connection.analytics.limits, {
+    maxConcurrentStatements: 1,
+  });
+  const binding = bind(Events, connector.table('events'));
+  const first = bindHostResources(graph, compile(graph), [binding], {
+    concurrency: 8,
+  });
+  const second = bindHostResources(graph, compile(graph), [binding], {
+    concurrency: 8,
+  });
+  const signal = new AbortController().signal;
+  let release!: () => void;
+  const started = vi.fn();
+  const running = first.datasets.get(Events.id)!.queue.run(
+    async () => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    },
+    { signal },
+  );
+
+  await vi.waitFor(() => expect(release).toBeDefined());
+  const waiting = second.datasets.get(Events.id)!.queue.run(
+    async () => {
+      started();
+
+      return 42;
+    },
+    { signal },
+  );
+
+  await Promise.resolve();
+  expect(started).not.toHaveBeenCalled();
+  release();
+  await running;
+  await first.retire();
+  expect(await waiting).toBe(42);
+  expect(
+    await second.datasets.get(Events.id)!.queue.run(async () => 43, { signal }),
+  ).toBe(43);
+  await second.retire();
 });

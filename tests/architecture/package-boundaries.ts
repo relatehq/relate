@@ -21,6 +21,7 @@ export const packagePolicies: Record<
     builtins: ['node:path', 'node:child_process'],
   },
   'connectors/postgres': {
+    builtins: ['node:net'],
     imports: ['relate/connectors', 'relate/analytics', 'pg'],
   },
   'connectors/sqlite': {
@@ -203,6 +204,17 @@ export const packagePolicies: Record<
   'dev/simulators/crm': {
     imports: ['hono', '@hono/node-server'],
     builtins: ['node:events', 'node:http'],
+  },
+  'examples/04-customer-events': {
+    imports: [
+      'relate',
+      'relate/consumer',
+      'relate/compiler',
+      '@relate/node',
+      '@relate/connector-sqlite',
+      'zod',
+    ],
+    builtins: true,
   },
   'examples/03-postgres-persistence': {
     imports: [

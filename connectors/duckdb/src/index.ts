@@ -78,7 +78,7 @@ export function duckdb(options: DuckDBOptions): DuckDBConnection {
     return resource;
   };
   const analytics = Object.freeze<AnalyticalConnector>({
-    limits: Object.freeze({ maxParameters: 65535 }),
+    limits: Object.freeze({ maxParameters: 65535, maxConcurrentStatements: 4 }),
     async describe(resource, input) {
       const resourceSelection = selected(resource);
 

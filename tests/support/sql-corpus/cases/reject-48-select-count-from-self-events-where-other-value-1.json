@@ -1,0 +1,8 @@
+{
+  "name": "reject-48-select-count-from-self-events-where-other-value-1",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE other.value = 1",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

@@ -2,9 +2,9 @@ import { expect, it } from 'vitest';
 import { createSqlParser } from '@relate/sql-parser';
 import type { RelateSqlQuery } from 'relate/analytics';
 import {
-  acceptedSql,
-  rejectedSql,
-} from '../../../tests/support/sql-corpus/syntax.js';
+  sqlCorpus,
+  semanticQuery,
+} from '../../../tests/support/sql-corpus/index.js';
 
 async function parse(sql: string): Promise<RelateSqlQuery> {
   const parser = await createSqlParser();
@@ -15,28 +15,25 @@ async function parse(sql: string): Promise<RelateSqlQuery> {
   return result.query;
 }
 
-it.each(acceptedSql)('accepts %s', async (sql) => {
-  const parser = await createSqlParser();
-  const result = parser.parse(sql);
+it.each(sqlCorpus)(
+  'matches the shared syntax contract: $name',
+  async ({ sql, expect: expected }) => {
+    const parser = await createSqlParser();
+    const result = parser.parse(sql);
 
-  expect(result).toMatchObject({
-    ok: true,
-    query: { association: { name: expect.any(String) } },
-  });
-});
+    if (expected.phase === 'parse') {
+      expect(result).toMatchObject({
+        ok: false,
+        issues: [expect.objectContaining({ problem: expected.problem })],
+      });
+    } else {
+      expect(result.ok).toBe(true);
 
-it.each(rejectedSql)('rejects %s', async (sql) => {
-  const parser = await createSqlParser();
-
-  expect(parser.parse(sql)).toMatchObject({
-    ok: false,
-    issues: [
-      expect.objectContaining({
-        problem: expect.stringMatching(/invalid-value|not-supported/),
-      }),
-    ],
-  });
-});
+      if (result.ok)
+        expect(semanticQuery(result.query)).toEqual(expected.representation);
+    }
+  },
+);
 
 it('initializes once and returns a synchronous parser with the pinned grammar', async () => {
   const parsers = await Promise.all([createSqlParser(), createSqlParser()]);

@@ -1,5 +1,6 @@
-import { createAnalyticalReads } from './analytical-read.js';
-import type { AnalyticalReadOptions } from './analytical-read.js';
+import type { ReadExecution } from './reads/index.js';
+import { createAnalyticalReads } from './analytical-reads/index.js';
+import type { AnalyticalReadOptions } from './analytical-reads/index.js';
 import {
   createNativeOperations,
   nativeEvidence,
@@ -7,7 +8,7 @@ import {
 } from './actions/index.js';
 import type { ActionHandler } from './actions/index.js';
 import type { NativeTransaction, StorageScope } from './storage.js';
-import { createGraphQuery } from './queries/index.js';
+import { createGraphQuery, createQueryCursors } from './queries/index.js';
 import { createTraversal, traversalsFrom } from './traversal/index.js';
 import {
   createSourceOperations,
@@ -52,7 +53,8 @@ import {
   allowsField,
   operationName,
 } from './authorization/index.js';
-import { createDiscovery } from './discovery.js';
+import { createDiscovery } from './discovery/index.js';
+import { resolveAnalyticalLimits } from './analytics/index.js';
 
 export interface RuntimeOptions {
   readonly model: CompiledModel;
@@ -80,6 +82,12 @@ const nonblank = (value: unknown): value is string =>
   typeof value === 'string' && value.trim().length > 0;
 
 export function createRuntime(options: RuntimeOptions) {
+  const analytics = options.analytics
+    ? {
+        ...options.analytics,
+        limits: resolveAnalyticalLimits(options.analytics.limits),
+      }
+    : undefined;
   const actionTimeoutMs = options.actionTimeoutMs ?? 60_000;
 
   if (
@@ -171,7 +179,10 @@ export function createRuntime(options: RuntimeOptions) {
     canonical = false,
     transaction?: NativeTransaction,
     request: ReadRequest = {},
+    execution?: ReadExecution,
   ) {
+    execution?.signal.throwIfAborted();
+
     if (!target.sourceDefinitionId) {
       const record = transaction
         ? await transaction.load(target.id, key)
@@ -187,6 +198,7 @@ export function createRuntime(options: RuntimeOptions) {
       maxAgeMs,
       canonical,
       request,
+      execution,
     );
   }
 
@@ -233,7 +245,9 @@ export function createRuntime(options: RuntimeOptions) {
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
+    execution?: ReadExecution,
   ): Promise<ReadResult> {
+    execution?.signal.throwIfAborted();
     const object = manifest.objects.find((o) => o.id === objectDefinitionId);
     const policy = manifest.policies[objectDefinitionId];
 
@@ -274,6 +288,7 @@ export function createRuntime(options: RuntimeOptions) {
         requiredReference,
         captureAuthorization,
         transaction,
+        execution,
       );
 
     return native.read(
@@ -284,9 +299,17 @@ export function createRuntime(options: RuntimeOptions) {
       request,
       transaction,
       captureAuthorization,
+      execution,
     );
   }
 
+  const queryCursors = createQueryCursors({
+    manifest,
+    scope: nativeScope,
+    clock,
+    scopeFor,
+    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+  });
   const query = createGraphQuery({
     manifest,
     scope: nativeScope,
@@ -295,16 +318,49 @@ export function createRuntime(options: RuntimeOptions) {
     install,
     scopeFor,
     read: readObject,
-    ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
+    cursors: queryCursors,
   });
 
   const analyticalReads = createAnalyticalReads({
     manifest,
-    read: readObject,
-    query: (attempt, principal, type, request, context) =>
-      query(attempt, principal, type, request, undefined, undefined, context),
+    cursors: queryCursors,
+    read: async ({
+      attempt,
+      principal,
+      objectType,
+      id,
+      request,
+      execution,
+    }) => {
+      let recheckAuthorization = async () => false;
+      const result = await readObject(
+        attempt,
+        principal,
+        objectType,
+        id,
+        request,
+        undefined,
+        (check) => {
+          recheckAuthorization = check;
+        },
+        undefined,
+        execution,
+      );
+
+      return { result, recheckAuthorization };
+    },
+    query: ({ attempt, principal, objectType, request, context }) =>
+      query(
+        attempt,
+        principal,
+        objectType,
+        request,
+        undefined,
+        undefined,
+        context,
+      ),
     clock,
-    ...(options.analytics ? { analytics: options.analytics } : {}),
+    ...(analytics ? { analytics } : {}),
   });
 
   const traverse = createTraversal({
@@ -400,7 +456,12 @@ export function createRuntime(options: RuntimeOptions) {
 
   return {
     discover: (principal: Principal) =>
-      createDiscovery({ manifest, definitionRevision: revision }, principal),
+      createDiscovery(
+        { manifest, definitionRevision: revision },
+        principal,
+        analytics?.parser,
+        analytics?.limits,
+      ),
     /** Trusted host ingestion, attributed to the host actor or the scope's actor. */
     adopt(
       objectDefinitionId: string,

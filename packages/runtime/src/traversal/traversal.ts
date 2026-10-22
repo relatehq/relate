@@ -98,11 +98,7 @@ export function createTraversal(options: TraversalOptions) {
       input,
       (match.target.calculations ?? []).map((property) => ({
         name: property.name,
-        defaultSelected: allowsField(
-          principal,
-          manifest.policies[match.target.id]!,
-          property.access,
-        ),
+        defaultSelected: false,
       })),
     );
 

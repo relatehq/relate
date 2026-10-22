@@ -1,12 +1,28 @@
 # Type Alias: QueryOptions\<O, K, E\>
 
 ```ts
-type QueryOptions<O, K, E> = CollectionReadOptions<O, K, E> & ReadOptions<K, E>;
+type QueryOptions<O, K, E> = CollectionReadOptions<O, K, E> & ReadOptions<K, E> & {
+  orderBy?: readonly {
+     direction: "asc" | "desc";
+     field: ComputedPropertyNames<O>;
+  }[];
+};
 ```
 
-Defined in: [packages/relate/src/operations.ts:148](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L148)
+Defined in: [packages/relate/src/operations.ts:160](https://github.com/relatehq/relate/blob/main/packages/relate/src/operations.ts#L160)
 
 Object queries have an independent extension point from related collections.
+
+## Type Declaration
+
+### orderBy?
+
+```ts
+readonly optional orderBy?: readonly {
+  direction: "asc" | "desc";
+  field: ComputedPropertyNames<O>;
+}[];
+```
 
 ## Type Parameters
 

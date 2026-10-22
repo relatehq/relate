@@ -1,0 +1,8 @@
+{
+  "name": "reject-47-select-count-from-self-events-where-random-0-5",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE random() > 0.5",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

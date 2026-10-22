@@ -328,7 +328,12 @@ for validation, clock-domain semantics and migration requirements.
 
 `createStatementQueue` is the public composition factory for analytical
 statement admission. Node supplies one queue per configured connection to
-analytical object reads.
+analytical object reads. `resolveAnalyticalLimits(input)` validates and freezes
+the host's complete settings. Node uses that snapshot for parser setup,
+declaration validation, discovery, request preparation, batching, execution and
+queue construction. Its `maxConcurrentStatements`, `maxQueuedStatements` and
+`queueTimeoutMs` map to the queue's `concurrency`, `maxQueued` and `maxWaitMs`.
+Connection startup and cleanup bounds remain connector configuration.
 
 A **running statement** owns a connection slot until its task settles after
 resource cleanup. A **waiting statement** has no connection slot. By default,
@@ -373,9 +378,9 @@ resources. Retirement never closes the application-owned connection itself.
 Traversal and transaction-bound action readers reject selections, filters or
 ordering that reference declared calculations. They report `invalid-request`
 with a `not-supported` issue before source reads or analytical execution. A
-default selection is rejected if it would include a readable calculation;
-calculations excluded by field-group access do not enter that default selection.
-Explicitly selecting ordinary fields retains the existing read behavior.
+transaction-bound default selection is rejected if it would include a readable
+calculation. Traversal defaults include ordinary properties only. Explicitly
+selecting ordinary fields retains the existing read behavior.
 
 The check uses compiled calculation metadata through `reads/calculations.ts`.
 Traversal applies it after resolving a visible traversal and before reading its
@@ -387,14 +392,14 @@ stores only ordinary fields.
 
 ## Analytical expression preparation
 
-`analytics/prepare.ts` is the pure shared boundary for expression parsing and
-resolution. It accepts an injected parser and an actor's association view. It
-checks SQL and parameter sizes, resolves quoted names exactly and unquoted names
-by case folding, infers scalar and aggregate result types, binds exact literal
-and parameter values, and records column and ordinary property dependencies. No
-source or dataset reads occur during preparation. Unsupported property types,
-computed dependencies, missing/unused parameters and conflicting inferred
-parameter types fail with sanitized issues and original source spans.
+`analytics/prepare-expression.ts` is the pure shared boundary for expression
+parsing and resolution. It accepts an injected parser and an actor's association
+view. It checks SQL and parameter sizes, resolves quoted names exactly and
+unquoted names by case folding, infers scalar and aggregate result types, binds
+exact literal and parameter values, and records column and ordinary property
+dependencies. No source or dataset reads occur during preparation. Unsupported
+property types, computed dependencies, missing/unused parameters and conflicting
+inferred parameter types fail with sanitized issues and original source spans.
 
 `authorization/analytics.ts` owns association and column access decisions.
 Hidden associations are absent and resolve like unknown names. Denied referenced
@@ -402,12 +407,12 @@ columns and non-correlation `self` properties mark an expression forbidden. A
 denied correlation property is tracked separately for unavailable dependency
 handling. Neither decision grants permission to execute a dataset query.
 
-`validateDeclaredCalculations(manifest, parser)` composes a trusted declaration
-view with the same preparation code, validates every calculation, and returns a
-frozen stable-ID map of inferred result types. It aggregates preparation
-failures into `CompileError` issues with authored paths. Node invokes it before
-creating an engine. Portable compilation itself remains independent of a SQL
-parser.
+`validateDeclaredCalculations(manifest, parser, limits?)` composes a trusted
+declaration view with the same preparation code, validates every calculation,
+and returns a frozen stable-ID map of inferred result types. It aggregates
+preparation failures into `CompileError` issues with authored paths. Node
+invokes it before creating an engine. Portable compilation itself remains
+independent of a SQL parser.
 
 ```mermaid
 flowchart LR
@@ -421,8 +426,8 @@ flowchart LR
 ```
 
 Object `get` and membership-first `query` use this resolver and access view for
-caller expressions and selected declarations. Computed filtering/order remain in
-progress.
+caller expressions and selected declarations. Computed filters and ordering use
+the same preparation with required aliases and filter/order-only declarations.
 
 ### Analytical batch execution (internal)
 
@@ -465,15 +470,31 @@ cleanup. Disabled capture does not create a timing accumulator. Inspector shows
 count, summed work and longest span beside the operation's elapsed duration;
 nested and parallel spans overlap, so these values are not additive.
 
+`analytics/activity.ts` adds `details.analytical.summary` after successful
+preparation: expression count, computed-filter/order flags, and bounded
+association/dataset identities with declared property IDs where available.
+Failures count observed object results by fixed reason, across the evaluated
+scope. Executor cleanup records initial outcomes, including pending results as
+`interrupted` on abort; revalidation records transitions without counting the
+same result twice. Once a value is invalidated, a later page check cannot
+restore it. The accumulator retains no object IDs, SQL, parameters or values;
+caller aliases remain private lookup keys and never enter its snapshot. It keeps
+at most 32 entries with 256-byte UTF-8 identifiers, reporting omitted entries
+rather than shortening IDs. Invalid preparation has no summary, and disabled
+capture allocates no accumulator. Diagnostic observer failures cannot fail a
+read. Inspector shows identities and failures separately from timings.
+
 ```mermaid
 flowchart LR
   Capture[Enabled operation capture] --> Scope[Private scope diagnostic provider]
   Read[Analytical get or query] --> Stages[Monotonic runtime stage spans]
+  Read --> Calculations[Bounded calculation identities and failure counts]
+  Calculations --> Scope
   Connector[Connector startup and execution] --> Stages
   Stages --> Scope
   Scope --> Settled[Read and cleanup settle]
   Settled --> Activity[Bounded operation details]
-  Activity --> Inspector[Inspector timing table]
+  Activity --> Inspector[Inspector calculation and timing tables]
 ```
 
 ```mermaid
@@ -508,13 +529,15 @@ inputs yield `forbidden`. Rejected declaration diagnostics name only the
 selected property. Startup continues to report authored SQL errors to the
 application owner.
 
-Preparation exposes only frozen dependency IDs and projected result metadata;
-private resolved expressions and parameter values live in a weak map. It clones
-the request/model inputs before asynchronous reads, rejects forged handles and
-consumes each handle once. Preparation timing is recorded on success and error.
-Object `get`/`query` normalization, dependency materialization/revalidation and
-response projection live in the composition owner `analytical-read.ts`. Computed
-filter/order validation and scope-first execution remain in progress.
+Preparation exposes frozen dependency IDs, all result types for validation, and
+separate projected result metadata; private resolved expressions and parameter
+values live in a weak map. It clones the request/model inputs before
+asynchronous reads, rejects forged handles and consumes each handle once.
+Preparation timing is recorded on success and error. Object `get`/`query`
+normalization, dependency materialization/revalidation and response projection
+live in the analytical-read owner `analytical-reads/read.ts`.
+`analytics/order.ts` owns typed computed comparisons and position ordering;
+`queries/cursors.ts` binds both query paths to the same cursor codec and scopes.
 
 ```mermaid
 flowchart LR
@@ -530,11 +553,11 @@ flowchart LR
 
 ### Analytical object get
 
-`analytical-read.ts` composes ordinary authorized reads with preparation and
-execution. It preserves ordinary reads when no calculation is requested. For an
-analytical read, it privately includes correlation/self dependencies, runs the
-batch, rereads ordinary values, rechecks object access, and compares every used
-value before projection. Changed values are withheld without recomputation.
+`analytical-reads/read.ts` composes ordinary authorized reads with preparation
+and execution. It preserves ordinary reads when no calculation is requested. For
+an analytical read, it privately includes correlation/self dependencies, runs
+the batch, rereads ordinary values, rechecks object access, and compares every
+used value before projection. Changed values are withheld without recomputation.
 Hidden associations and denied columns withhold computed fields; denied
 correlation keys remain `correlation-unavailable`. A required-complete read
 reports omitted field names and safe reasons.
@@ -543,10 +566,10 @@ Computed evidence is retained in compact mode because its input freshness is
 unverified. Healthy unverified analytical evidence alone does not degrade the
 read; stale or failed-refresh dependency evidence does. Metadata includes
 logical result types in both evidence modes. Dependency values, SQL, private
-column footprints and physical resource names are not projected. The host hashes
-connection identity, resource identity and column mapping for the public binding
-revision. Caller deadlines and host retirement cancel analytical work and wait
-for connector cleanup before the operation settles.
+column footprints and physical resource names are not projected. The host
+authenticates connection identity, resource identity and column mapping for the
+public binding revision. Caller deadlines and host retirement cancel analytical
+work and wait for connector cleanup before the operation settles.
 
 ```mermaid
 flowchart LR
@@ -593,4 +616,85 @@ flowchart LR
   Prepare --> Scope[Analytical inputs and binding revisions]
   Scope --> Cursor[Existing encrypted cursor codec]
   Cursor --> Membership
+```
+
+### Source-call budgets during analytical reads
+
+The composition layer gives ordinary reads a trusted `ReadExecution` context,
+with an abort signal and `beforeSourceCall()` admission hook. Read resolution
+passes it through native and source authorization dependencies; provider
+identity checks and refresh fetches charge the same operation budget. It is
+separate from consumer JSON and optional activity capture. Budget exhaustion
+aborts the operation before another provider call is admitted, and refresh
+cannot convert that cancellation into stale fallback. A query joins its admitted
+candidate reads before returning the failure. The host deadline also reaches
+provider calls inside final revalidation. Connectors must cooperate with abort
+signals to stop their own work; storage calls are not interruptible.
+
+### Scope-first computed filtering and ordering
+
+A query with a computed `where` field or nonempty `orderBy` enumerates the
+entire authorized ordinary-filter scope through ordinary reads before running
+SQL. Finite host scan and admission caps reject oversized scopes before SQL.
+Each calculation runs in association batches over that scope. Every visible
+candidate is revalidated before computed filters, ordering and cursor position
+are used; selected page members are revalidated again before projection. Changed
+correlation/self values invalidate the calculation without recomputation.
+
+Filter/order fields are required across the scope regardless of
+`requireComplete`. Missing or invalidated required values throw `incomplete`
+with alias and safe reason, including on objects that would not make the page.
+Objects that lose visibility are withheld. Caller aliases are projected;
+declared calculations referenced only by filter/order are excluded from data,
+field evidence and computed metadata. `requireComplete` also requires projected
+calculations across a scope-first query.
+
+Computed scalar equality, `eq` and `in` work on logical scalar types; numeric
+and timestamp types also accept ranges. Int64 bounds must be canonical decimal
+strings and compare exactly. Timestamp bounds are normalized to declared
+precision. Null never matches a computed predicate. All predicates combine with
+AND; `in: []` matches nothing. Ordering accepts only computed fields, places
+null last in either direction, and breaks ties by object ID ascending.
+
+Each page recomputes the scope. Its encrypted cursor records ordering values and
+ID, bound to the original query, caller expressions/parameters, order,
+principal, definition revision and source/dataset binding identities. Evidence
+mode is excluded. Final page withholding can produce an empty nonfinal page; the
+cursor advances past the selected position, without exposing withheld IDs.
+Changes between pages can move objects across the position: there is no
+snapshot.
+
+```mermaid
+flowchart LR
+  Enumerate[Bounded ordinary candidate reads] --> Compute[Compute full scope]
+  Compute --> Revalidate[Revalidate every candidate]
+  Revalidate --> Select[Filter and order after cursor position]
+  Select --> Page[Choose page]
+  Page --> Check[Recheck selected dependencies and access]
+  Check --> Project[Project data and encrypted continuation]
+```
+
+Analytical record materialization, revalidation and projection live in
+`analytical-reads/record.ts`; ordinary and analytical reads share selection
+validation and bounded read concurrency. Discovery lives in
+`discovery/analytics.ts`.
+
+The `analytical-reads` owner uses `prepare.ts` to normalize requests into `get`,
+`enrich-page`, or `rank-scope` mode before any reads. `operation.ts` owns the
+deadline, retirement listener and source-call budget. `query.ts` collects
+candidates and ranks pages; `record.ts` materializes dependencies, revalidates
+access and projects results. `read.ts` coordinates these stages. Its injected
+ordinary reader accepts named inputs and returns both the result and a deferred
+`recheckAuthorization()`; returning that function does not execute the check.
+
+```mermaid
+flowchart LR
+  Runtime[Runtime composition] --> Read[analytical-reads/index]
+  Read --> Prepare[Request preparation]
+  Read --> Operation[Deadline and source budget]
+  Read --> Ordinary[queries and authorized reads]
+  Read --> Records[Record materialization and revalidation]
+  Read --> Execution[analytics preparation and execution]
+  Discovery[discovery] --> Authorization[Shared authorization]
+  Discovery --> Execution
 ```

@@ -1,0 +1,43 @@
+{
+  "name": "nested-comment-parameters",
+  "sql": "SELECT COUNT(*) /* $not /* $nested */ */ FROM self.events -- $no\n WHERE value = $value",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "compare",
+        "op": "=",
+        "left": {
+          "kind": "column",
+          "name": "value",
+          "quoted": false
+        },
+        "right": {
+          "kind": "parameter",
+          "name": "value"
+        }
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "2",
+      "acme_late": "2",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "1"
+    }
+  },
+  "parameters": {
+    "value": "2"
+  }
+}

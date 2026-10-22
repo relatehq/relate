@@ -1,0 +1,43 @@
+{
+  "name": "constructor-parameter",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE \"column$identifier\" = $constructor",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "compare",
+        "op": "=",
+        "left": {
+          "kind": "column",
+          "name": "column$identifier",
+          "quoted": true
+        },
+        "right": {
+          "kind": "parameter",
+          "name": "constructor"
+        }
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "2",
+      "acme_late": "2",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "0"
+    }
+  },
+  "parameters": {
+    "constructor": 2
+  }
+}

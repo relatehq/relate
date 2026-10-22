@@ -69,3 +69,37 @@ export const policyDependency: import('relate').PolicyWhere<
   // @ts-expect-error a row policy cannot depend on a calculated property
   loginCount: { eq: { kind: 'actor-field', name: 'id' } },
 };
+
+declare const customer: import('relate/consumer').ObjectOperations<
+  typeof Customer
+>;
+const total = { sql: 'SELECT SUM(amount) FROM self.events' };
+
+export const ordered = customer.query({
+  select: ['name'],
+  compute: { total },
+  where: { total: { gte: '9' }, name: 'Acme' },
+  orderBy: [{ field: 'total', direction: 'desc' }],
+});
+
+export const declaredOrder = customer.query({
+  select: ['name'],
+  where: { loginCount: '1' },
+  orderBy: [{ field: 'loginCount', direction: 'asc' }],
+});
+
+customer.query({
+  compute: { total },
+  // @ts-expect-error misspelled aliases cannot infer extra compute entries
+  orderBy: [{ field: 'totla', direction: 'asc' }],
+});
+// @ts-expect-error misspelled filter aliases cannot infer extra compute entries
+customer.query({ compute: { total }, where: { totla: '1' } });
+// @ts-expect-error undeclared aliases require a compute entry
+customer.query({ orderBy: [{ field: 'total', direction: 'desc' }] });
+// @ts-expect-error ordinary property ordering is deferred
+customer.query({ orderBy: [{ field: 'name', direction: 'asc' }] });
+customer.get('one' as import('relate').ObjectId<'customer'>, {
+  // @ts-expect-error get does not inherit ordering
+  orderBy: [{ field: 'loginCount', direction: 'asc' }],
+});

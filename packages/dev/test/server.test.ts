@@ -9,7 +9,7 @@ import {
   createSessions,
 } from '@relate/dev';
 import { createInspectorApp } from '@relate/inspector/server';
-import { parseDevEvent } from '@relate/inspector/protocol';
+import { parseDevEvent, PROTOCOL_VERSION } from '@relate/inspector/protocol';
 import { createInvoiceGraph } from '../../../tests/support/invoice-graph.js';
 
 const { graph } = createInvoiceGraph();
@@ -91,7 +91,7 @@ it('requires a session for metadata, exchanges the token for an HttpOnly cookie 
 
   expect(identity).toEqual({
     instanceId: 'instance-1',
-    protocolVersion: 4,
+    protocolVersion: PROTOCOL_VERSION,
     ownerId: 'owner-1',
   });
   expect(JSON.stringify(identity)).not.toContain(sessions.token);

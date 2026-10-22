@@ -6,32 +6,28 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import type { Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
-import { ObjectNode } from './ObjectNode.js';
-import { ArrowMarkers, RelationshipEdge } from './RelationshipEdge.js';
+import { ModelNode } from './ModelNode.js';
+import { ArrowMarkers, ModelEdge } from './ModelEdge.js';
 import { estimateNodeSize, layoutSignature } from './map.js';
-import type {
-  GraphModel,
-  ObjectNodeData,
-  RelationshipEdgeData,
-} from './map.js';
+import type { GraphModel, GraphNodeData, GraphEdgeData } from './map.js';
 import { useLayout } from '../layout/useLayout.js';
 import type { LayoutRequest } from '../layout/elk.js';
 import { useDevClient } from '../inspector-context.js';
 import { useTheme } from '../theme/theme.js';
 import { Button } from '../ui/button.js';
 
-export type ObjectFlowNode = Node<
-  ObjectNodeData & { issues: number; touched: boolean },
+export type ModelFlowNode = Node<
+  GraphNodeData & { issues: number; touched: boolean },
   'object'
 >;
 
-export type RelationshipFlowEdge = Edge<
-  RelationshipEdgeData & { highlighted: boolean },
+export type ModelFlowEdge = Edge<
+  GraphEdgeData & { highlighted: boolean },
   'relationship'
 >;
 
-const nodeTypes = { object: ObjectNode };
-const edgeTypes = { relationship: RelationshipEdge };
+const nodeTypes = { object: ModelNode };
+const edgeTypes = { relationship: ModelEdge };
 
 export interface ModelGraphProps {
   readonly model: GraphModel | null;
@@ -101,7 +97,7 @@ function ModelGraphView(props: ModelGraphProps) {
       onSelect(null);
   }, [model, selected, onSelect]);
 
-  const nodes = useMemo<ObjectFlowNode[]>(() => {
+  const nodes = useMemo<ModelFlowNode[]>(() => {
     if (!model) return [];
 
     return model.nodes.map((node) => {
@@ -133,7 +129,7 @@ function ModelGraphView(props: ModelGraphProps) {
       };
     });
   }, [model, layout.positions, selected, highlights.nodes, touched]);
-  const edges = useMemo<RelationshipFlowEdge[]>(
+  const edges = useMemo<ModelFlowEdge[]>(
     () =>
       (model?.edges ?? []).map((edge) => ({
         id: edge.id,
@@ -211,7 +207,7 @@ function ModelGraphView(props: ModelGraphProps) {
       data-generation={generation}
     >
       <ArrowMarkers />
-      <ReactFlow<ObjectFlowNode, RelationshipFlowEdge>
+      <ReactFlow<ModelFlowNode, ModelFlowEdge>
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}

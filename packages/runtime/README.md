@@ -18,11 +18,16 @@ and unpublished.
 - Observation validation and the pure ordering rule (`compareObservation`).
   Storage owns atomic acceptance; the runtime owns the rule.
 - `createMemoryStore()` for volatile storage.
-- `createDiscovery(model, principal)` returns a compact, complete graph overview
-  with authorized traversal links and SDK guidance, plus on-demand object/action
-  detail. The separate `operationContracts` export and its `OperationContract` /
-  `OperationContracts` types retain the full read guide. Discovery metadata is
-  actor-bound and uses `@relate/protocol` shapes.
+- `createDiscovery(model, principal, parser?)` returns a compact, complete graph
+  overview with authorized traversal links and SDK guidance, plus on-demand
+  object/action detail. The separate `operationContracts` export and its
+  `OperationContract` / `OperationContracts` types retain the full read guide.
+  Discovery metadata is actor-bound and uses `@relate/protocol` shapes.
+  Analytical models supply the initialized SQL parser (the Node host supplies it
+  automatically). Discovery reuses association/column authorization and
+  declared-expression preparation to infer logical types without executing SQL.
+  Hidden associations and properties are omitted, denied columns are marked, and
+  authored calculation SQL is never disclosed.
 - `@relate/runtime/storage`: the adapter extension boundary. `ObservationStore`,
   `NativeStore`, `NativeTransaction` and their errors are the contract that
   `@relate/postgres` and custom stores implement.
@@ -228,17 +233,20 @@ and Postgres; feed and operation pruning are not.
 Cross-module imports use the owning module's `index.ts`, including type imports.
 New top-level modules need an explicit owner in the checker.
 
-| Module                          | Owns                                                       | Runtime dependencies                                            |
-| ------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------- |
-| `runtime.ts`                    | Validated composition, installation, source/native routing | Operation entry points, storage contracts, default memory store |
-| `resolution/`                   | Source reads, adoption, refresh and retention recovery     | Authorization, observations, read helpers, storage contracts    |
-| `actions/`                      | Native reads/creation, action execution and deadlines      | Authorization, read helpers, storage contracts                  |
-| `traversal/`                    | Reference traversal, bounded enumeration and cursors       | Authorization, read helpers, storage contracts                  |
-| `authorization/`                | Policy evaluation and reference visibility                 | Storage types only                                              |
-| `observations/`                 | Fetch validation, ID-keyed mapping and pure ordering       | Storage types only                                              |
-| `reads/`                        | Request validation and field-evidence summaries            | No other runtime modules                                        |
-| `storage.ts`                    | Adapter capabilities and errors                            | Pure observation ordering re-export only                        |
-| `memory.ts`, `native-memory.ts` | In-memory implementations                                  | Storage contracts and pure ordering                             |
+| Module                          | Owns                                                                      | Runtime dependencies                                            |
+| ------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `runtime.ts`                    | Validated composition, installation, source/native routing                | Operation entry points, storage contracts, default memory store |
+| `analytical-reads/`             | Analytical request preparation, execution orchestration and revalidation  | Authorization, queries, read helpers, analytics, activity       |
+| `analytics/`                    | Expression preparation, batching, execution and computed-value validation | No other runtime modules                                        |
+| `discovery/`                    | Actor-visible descriptions and operation contracts                        | Authorization, actions, traversal, read helpers, analytics      |
+| `resolution/`                   | Source reads, adoption, refresh and retention recovery                    | Authorization, observations, read helpers, storage contracts    |
+| `actions/`                      | Native reads/creation, action execution and deadlines                     | Authorization, read helpers, storage contracts                  |
+| `traversal/`                    | Reference traversal, bounded enumeration and cursors                      | Authorization, read helpers, storage contracts                  |
+| `authorization/`                | Policy evaluation and reference visibility                                | Storage types only                                              |
+| `observations/`                 | Fetch validation, ID-keyed mapping and pure ordering                      | Storage types only                                              |
+| `reads/`                        | Request validation and field-evidence summaries                           | No other runtime modules                                        |
+| `storage.ts`                    | Adapter capabilities and errors                                           | Pure observation ordering re-export only                        |
+| `memory.ts`, `native-memory.ts` | In-memory implementations                                                 | Storage contracts and pure ordering                             |
 
 Composition injects read and evidence-resolution callbacks. Actions and
 traversal cannot import source resolution, and authorization cannot fetch data

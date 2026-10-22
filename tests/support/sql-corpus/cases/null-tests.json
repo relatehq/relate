@@ -1,0 +1,51 @@
+{
+  "name": "null-tests",
+  "sql": "SELECT COUNT(*) FROM self.events e WHERE e.userId IS NULL OR e.userId IS NOT NULL",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "boolean",
+        "op": "or",
+        "args": [
+          {
+            "kind": "null",
+            "value": {
+              "kind": "column",
+              "name": "userid",
+              "quoted": false
+            },
+            "not": false
+          },
+          {
+            "kind": "null",
+            "value": {
+              "kind": "column",
+              "name": "userid",
+              "quoted": false
+            },
+            "not": true
+          }
+        ]
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "5",
+      "acme_late": "5",
+      "empty": "0",
+      "nulls": "1",
+      "wide": "2"
+    }
+  }
+}

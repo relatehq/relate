@@ -1,0 +1,8 @@
+{
+  "name": "reject-31-select-count-bigint-from-self-events",
+  "sql": "SELECT COUNT(*)::bigint FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

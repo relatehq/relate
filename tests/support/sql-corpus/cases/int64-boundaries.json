@@ -1,0 +1,61 @@
+{
+  "name": "int64-boundaries",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE value >= -9223372036854775808 AND value <= 9223372036854775807",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "boolean",
+        "op": "and",
+        "args": [
+          {
+            "kind": "compare",
+            "op": ">=",
+            "left": {
+              "kind": "column",
+              "name": "value",
+              "quoted": false
+            },
+            "right": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "-9223372036854775808"
+            }
+          },
+          {
+            "kind": "compare",
+            "op": "<=",
+            "left": {
+              "kind": "column",
+              "name": "value",
+              "quoted": false
+            },
+            "right": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "9223372036854775807"
+            }
+          }
+        ]
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "4",
+      "acme_late": "4",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "2"
+    }
+  }
+}

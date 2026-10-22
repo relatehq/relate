@@ -7,6 +7,7 @@ import type { CodeExecutor, GraphBinding } from './executor.js';
 
 export const javascriptInstructions = `Use discover first. execute runs an async JavaScript function body with an injected graph consumer. Use await and an explicit return for the result; console.log/error are captured. Each execution starts fresh: variables, timers and globals do not survive. Return JSON-serializable data.
 The graph overview contains actor-visible objects, relationships, actions and SDK option guidance. Use graph.describe(), graph.objects[apiName].describe(), and graph.actions[apiName].describe() for details.
+For analytical reads, inspect the object description's datasets, computed properties and compute guidance first. Hidden associations are absent; readable: false marks dependencies or calculations the caller cannot read. Calculations use logical types; int64 results are JSON strings.
 Read one page: const page = await graph.objects[apiName].query({ limit: 10 }); return page;
 Read all pages: for await (const record of graph.objects[apiName].query()) { console.log(record); }
 Read one record: await graph.objects[apiName].get(id). Traverse: await graph.objects[apiName].traverse[edgeName](id).

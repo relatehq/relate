@@ -1,0 +1,8 @@
+{
+  "name": "reject-42-select-count-from-self-events-where-value-between-1-and-2",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE value BETWEEN 1 AND 2",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

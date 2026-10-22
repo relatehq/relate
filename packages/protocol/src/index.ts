@@ -2,6 +2,7 @@ import type {
   AnalyticalExpression,
   ComputedResultType,
   ComputedUnavailableReason,
+  OrderEntry,
 } from './analytics.js';
 
 export type Json =
@@ -183,7 +184,9 @@ export interface TraversalRequest extends CollectionReadControls {}
 
 /** A query pages and filters graph members of one object type. */
 export interface ObjectQueryRequest
-  extends ObjectReadRequest, CollectionReadControls {}
+  extends ObjectReadRequest, CollectionReadControls {
+  readonly orderBy?: readonly OrderEntry[];
+}
 
 /** Existing public name retained for object queries. */
 export type QueryRequest = ObjectQueryRequest;
@@ -201,7 +204,8 @@ export interface RequestIssue {
     | 'unknown-property'
     | 'unknown-traversal'
     | 'invalid-cursor'
-    | 'not-supported';
+    | 'not-supported'
+    | 'limit-exceeded';
   readonly message: string;
   /** Names the reader may use instead, when that list is useful. */
   readonly accepted?: readonly string[];
@@ -243,7 +247,11 @@ export class ReadError extends Error {
 
   constructor(
     readonly code:
-      'incomplete' | 'invalid-request' | 'unavailable' | 'runtime-retired',
+      | 'incomplete'
+      | 'invalid-request'
+      | 'unavailable'
+      | 'runtime-retired'
+      | 'resource-exhausted',
     details?: ReadErrorDetails,
   ) {
     super(readErrorMessage(code, details));
@@ -327,17 +335,30 @@ export type {
   TraversalOverview,
   OptionDescription,
   PropertyDescription,
+  ComputedPropertyDescription,
+  DatasetColumnDescription,
+  DatasetDescription,
+  ComputeDescription,
   ScalarSchema,
   TraversalDescription,
 } from './discovery.js';
 
 export type { ConsumerOperations } from './consumer.js';
 
-export { ActivityError, analyticalTimingStages } from './activity.js';
+export {
+  ActivityError,
+  analyticalTimingStages,
+  analyticalFailureReasons,
+  analyticalSummaryLimits,
+} from './activity.js';
 
 export type {
   AnalyticalTimingStage,
   AnalyticalTimings,
+  AnalyticalActivity,
+  AnalyticalSummary,
+  AnalyticalCalculationSummary,
+  AnalyticalFailureReason,
   StageTiming,
   ActivityActor,
   ActivityFilter,

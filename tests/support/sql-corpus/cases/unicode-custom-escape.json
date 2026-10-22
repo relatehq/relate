@@ -1,0 +1,31 @@
+{
+  "name": "unicode-custom-escape",
+  "sql": "SELECT MAX(U&\"e\" UESCAPE '!'.U&\"event!0054ype\" UESCAPE '!') FROM self.events e",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "max",
+      "argument": {
+        "kind": "column",
+        "name": "eventType",
+        "quoted": true
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "string",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": "login",
+      "acme_late": "login",
+      "empty": null,
+      "nulls": null,
+      "wide": "login"
+    }
+  }
+}

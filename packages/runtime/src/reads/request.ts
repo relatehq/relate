@@ -9,6 +9,11 @@ export function validateReadRequest(
   request: ReadControls,
   operation = 'read',
   kind: ReadOperation = 'get',
+  expandedSelection = false,
 ) {
-  rejectIssues(operation, kind, requestIssues(request, kind));
+  rejectIssues(
+    operation,
+    kind,
+    requestIssues(request, kind, expandedSelection),
+  );
 }

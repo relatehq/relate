@@ -44,6 +44,16 @@ const dialect: AnalyticalSqlDialect<string | number | bigint | null> = {
       ? `(${text} COLLATE BINARY)`
       : text;
   },
+  equality(left, right, type, correlation) {
+    if (correlation && type === 'timestamp') {
+      const exact = `__relate_instant(${right})`;
+      const millis = `CASE WHEN substr(${exact}, 24, 3) = '000' THEN substr(${exact}, 1, 23) || 'Z' ELSE ${exact} END`;
+
+      return `((${left} COLLATE BINARY) IN (${exact}, ${millis}))`;
+    }
+
+    return `${this.operand(left, type, true)} = ${this.operand(right, type, true)}`;
+  },
   operator(op) {
     return op;
   },

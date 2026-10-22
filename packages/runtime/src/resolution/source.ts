@@ -1,3 +1,4 @@
+import type { ReadExecution } from '../reads/index.js';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
@@ -85,23 +86,36 @@ export function createSourceOperations(options: {
     canonical: boolean,
     transaction?: NativeTransaction,
     request?: ReadControls,
+    execution?: ReadExecution,
   ): Promise<AuthorizationEvidence | undefined>;
 }) {
   const { manifest, revision, store, sources, clock, install, scopeFor } =
     options;
 
-  async function accountAllowed(sourceId: string, request: ReadControls = {}) {
+  async function accountAllowed(
+    sourceId: string,
+    request: ReadControls = {},
+    execution?: ReadExecution,
+  ) {
     const binding = sources[sourceId]!;
 
     try {
+      execution?.signal.throwIfAborted();
+
+      if (binding.connector.identity !== 'application')
+        execution?.beforeSourceCall();
+
       await verifyAccount(
         binding.connector,
         binding.providerAccountId ?? null,
         request.timeoutMs ?? 3_000,
+        execution?.signal,
       );
 
       return true;
     } catch (error) {
+      execution?.signal.throwIfAborted();
+
       if (error instanceof SourceAccessDenied) return false;
 
       throw new ReadError('unavailable');
@@ -115,7 +129,10 @@ export function createSourceOperations(options: {
     maxAgeMs: number,
     canonical = false,
     request: ReadControls = {},
+    execution?: ReadExecution,
   ) {
+    execution?.signal.throwIfAborted();
+
     if (!target.sourceDefinitionId)
       throw new Error(
         'Source evidence resolution requires a source-backed object',
@@ -128,7 +145,7 @@ export function createSourceOperations(options: {
 
     if (!retained || retained.observation.state !== 'present') return undefined;
 
-    if (!(await accountAllowed(target.sourceDefinitionId, request)))
+    if (!(await accountAllowed(target.sourceDefinitionId, request, execution)))
       return undefined;
 
     const resolved = await refreshObservation({
@@ -147,9 +164,10 @@ export function createSourceOperations(options: {
       evidenceMaxAgeMs: maxAgeMs,
       capture: options.capture,
       operation: attempt,
+      ...(execution ? { execution } : {}),
     });
 
-    if (!(await accountAllowed(target.sourceDefinitionId, request)))
+    if (!(await accountAllowed(target.sourceDefinitionId, request, execution)))
       return undefined;
 
     return resolved?.candidate.observation.state === 'present' &&
@@ -167,10 +185,14 @@ export function createSourceOperations(options: {
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
+    execution?: ReadExecution,
   ): Promise<ReadResult> {
+    execution?.signal.throwIfAborted();
     validateReadRequest(
       request,
       operationName(manifest, principal, objectDefinitionId, 'get'),
+      'get',
+      execution?.expandedSelection,
     );
     const maxAge = request.maxAgeMs ?? 60_000;
 
@@ -197,7 +219,7 @@ export function createSourceOperations(options: {
     if (!stored || stored.observation.state === 'deleted')
       return { status: 'not-found' };
 
-    if (!(await accountAllowed(sourceDefinitionId, request)))
+    if (!(await accountAllowed(sourceDefinitionId, request, execution)))
       return { status: 'not-found' };
 
     const select = [
@@ -240,6 +262,7 @@ export function createSourceOperations(options: {
         : 60_000,
       capture: options.capture,
       operation: attempt,
+      ...(execution ? { execution } : {}),
     });
 
     if (!resolved) return { status: 'not-found' };
@@ -259,6 +282,7 @@ export function createSourceOperations(options: {
           canonical,
           transaction,
           request,
+          execution,
         ),
     });
 
@@ -327,7 +351,7 @@ export function createSourceOperations(options: {
       };
     }
 
-    if (!(await accountAllowed(sourceDefinitionId, request)))
+    if (!(await accountAllowed(sourceDefinitionId, request, execution)))
       return { status: 'not-found' };
 
     // Source and identity I/O may outlast an evidence window; recheck before disclosure.
@@ -340,7 +364,8 @@ export function createSourceOperations(options: {
       throw new ReadError('incomplete');
 
     captureAuthorization?.(async () => {
-      if (!(await accountAllowed(sourceDefinitionId, request))) return false;
+      if (!(await accountAllowed(sourceDefinitionId, request, execution)))
+        return false;
 
       if (!(await evidence.allows(object, resolved))) return false;
 

@@ -1,0 +1,8 @@
+{
+  "name": "reject-22-select-count-into-copied-from-self-events",
+  "sql": "SELECT COUNT(*) INTO copied FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

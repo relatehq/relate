@@ -142,6 +142,10 @@ modules.
 - Without `ANTHROPIC_API_KEY`, an `Agent      off: no ANTHROPIC_API_KEY` line
   gives the setup for the [built-in agent](#built-in-agent); nothing else
   changes.
+- The ready line includes dataset counts when present. Updates name dataset,
+  association and computed-property changes, for example `~dataset Events`,
+  `~association Customer.events` and `~Customer.loginCount`. Summaries are
+  bounded to three changes and never print SQL or parameter values.
 - Successful loads advance the generation; failed attempts keep the last good
   model on screen and print structured diagnostics with `path:line:column`
   tokens relative to the invoking directory.

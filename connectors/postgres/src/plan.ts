@@ -41,6 +41,14 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
   operand(text, type) {
     return type === 'string' ? `(${text} COLLATE pg_catalog."C")` : text;
   },
+  equality(left, right, type) {
+    const indexed = `${left} OPERATOR(pg_catalog.=) ${right}`;
+
+    // Keep index use and exact scope under nondeterministic collations.
+    return type === 'string'
+      ? `(${indexed} AND (${left} COLLATE pg_catalog."C") OPERATOR(pg_catalog.=) (${right} COLLATE pg_catalog."C"))`
+      : `(${indexed})`;
+  },
   operator(op) {
     return `OPERATOR(pg_catalog.${op})`;
   },

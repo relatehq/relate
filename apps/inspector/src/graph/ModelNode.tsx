@@ -1,0 +1,64 @@
+import { memo } from 'react';
+import { Handle, Position } from '@xyflow/react';
+import type { NodeProps } from '@xyflow/react';
+import type { ModelFlowNode } from './ModelGraph.js';
+import { Tag } from '../ui/tag.js';
+import type { TagColor } from '../ui/tag.js';
+
+// Source tags cycle through hues that stay clear of the problem colors.
+const sourceColors: readonly TagColor[] = [
+  'blue',
+  'jade',
+  'sky',
+  'iris',
+  'gold',
+  'pink',
+];
+
+/** Compact object or dataset card: label, API name and ownership. Details live in the panel. */
+export const ModelNode = memo(function ModelNode(
+  props: NodeProps<ModelFlowNode>,
+) {
+  const { data, selected } = props;
+
+  return (
+    <div
+      className={`object-node${selected ? ' selected' : ''}${
+        data.issues > 0 ? ' highlighted' : ''
+      }${data.touched ? ' touched' : ''}`}
+      data-definition-id={data.id}
+      title={data.description ?? data.id}
+    >
+      <Handle type="target" position={Position.Left} isConnectable={false} />
+      <div className="object-node-text">
+        <span className="object-node-label">{data.label}</span>
+        <span className="object-node-api-name">{data.apiName}</span>
+      </div>
+      {data.kind === 'dataset' ? (
+        <Tag color="gold" title="Analytical dataset">
+          Dataset
+        </Tag>
+      ) : data.ownership.kind === 'source' ? (
+        <Tag
+          color={sourceColors[data.ownership.tone % sourceColors.length]!}
+          title={`Owned by source ${data.ownership.sourceId}`}
+        >
+          {data.ownership.sourceId}
+        </Tag>
+      ) : (
+        <Tag color="purple" title="Records are owned by Relate">
+          Relate
+        </Tag>
+      )}
+      {data.issues > 0 && (
+        <span
+          className="object-node-badge"
+          aria-label={`${data.issues} issues`}
+        >
+          {data.issues}
+        </span>
+      )}
+      <Handle type="source" position={Position.Right} isConnectable={false} />
+    </div>
+  );
+});

@@ -6,9 +6,10 @@ handwritten SQLite SQL. No latency threshold is a CI gate.
 
 - **Candidate scanned:** a member returned by an actual storage scan, including
   objects subsequently rejected by policy or ordinary filters.
-- **Candidate admitted:** an authorized, matching row emitted by the query path.
-  This fixed workload has complete dependencies and no concurrent changes, so no
-  candidates disappear during revalidation.
+- **Candidate admitted:** an authorized ordinary match. For analytical scenarios
+  this is the actual planned slot count: the fixed workload uses one
+  association, one slot per object, complete dependencies and no concurrent
+  changes. Ordinary queries count returned rows.
 - **Batch:** an actual connector plan; **statement:** an actual execute call.
   These counters are independent of timing span counts.
 - **Stage:** a runtime-owned activity timing aggregate. Stages can nest or
@@ -52,18 +53,19 @@ and timestamps outside October 2026. Counts and latest-login timestamps use
 `(customer, type, at)` and run `ANALYZE` before measurement.
 
 Setup, generation, adoption, index creation and cleanup are outside timing.
-SQLite owns a temporary file, because the real connector runs each statement in
-an isolated process. PostgreSQL owns a uniquely named events schema. Optional
-Postgres object storage uses the real persistence adapter; cleanup deletes only
-the run's graph rows. The harness never resets the database's `relate` schema.
+SQLite owns a temporary file; the connector executes statements in a bounded
+pool of isolated processes, reopening the read-only database for each statement.
+PostgreSQL owns a uniquely named events schema. Optional Postgres object storage
+uses the real persistence adapter; cleanup deletes only the run's graph rows.
+The harness never resets the database's `relate` schema.
 
 ## What runs
 
-| Scenario   | Public query work                                  | Additional benchmark work                         |
-| ---------- | -------------------------------------------------- | ------------------------------------------------- |
-| objects    | First authorized page of 25                        | None                                              |
-| enrichment | First page with count and latest-login expressions | None                                              |
-| ranking    | Iterate all authorized pages with both expressions | Sort by count descending, then object ID; take 25 |
+| Scenario   | Public query work                                         | Additional benchmark work |
+| ---------- | --------------------------------------------------------- | ------------------------- |
+| objects    | First authorized page of 25                               | None                      |
+| enrichment | First page with count and latest-login expressions        | None                      |
+| ranking    | One full-scope computed order query with both expressions | None                      |
 
 Every analytical page includes parsing/authorization, candidate and dependency
 reads, generated SQL, connector lifecycle, result merging and revalidation.
@@ -71,28 +73,11 @@ reads, generated SQL, connector lifecycle, result merging and revalidation.
 connector supplies synthetic customer records; `--source-delay-ms` applies only
 to measured fetches, not adoption. It is not a production provider model.
 
-The current public query path scans at most 100 members per page. Ranking
-therefore measures several real page operations and a separately labeled
-`benchmark-local-sort`. It is **not** runtime computed ordering or one
-scope-first operation. Do not use its page count as the eventual full-scope
-batch count. It exposes candidate and refresh costs before implementing that
-path; remeasure the actual scope-first path before treating its limits as
-validated.
-
-The benchmark selects `name` and the correlation `key` in all scenarios to keep
-ordinary projection work consistent. Its result projection returns only `name`
-and requested analytical values. Complete IDs, order, counts, timestamps and
-nulls must match the SQL oracle. A missing or withheld calculation fails the
-sample. The oracle must succeed before Relate results can be checked; the
-benchmark cannot validate against itself.
-
-Cached runs keep a controlled host clock and one-day policy evidence valid.
-Refresh runs advance the host clock by two days before each measured request,
-forcing initial candidate source refreshes while retaining normal runtime
-freshness enforcement. This includes source calls for denied candidates.
-Monotonic request and stage clocks continue to run normally. Concurrent changes,
-refreshes expiring midway through a request and cancellation pressure are not
-modeled by these scenarios.
+Ranking now uses the runtime's scope-first `orderBy` path. It enumerates all
+authorized ordinary matches, computes association batches, revalidates the whole
+scope, sorts, then rechecks the selected 25 records. It is one public operation;
+there is no benchmark-side sort. Ordinary page reads retain their 100-member
+scan bound. The independent SQL oracle remains unchanged.
 
 ```mermaid
 flowchart LR
@@ -100,7 +85,7 @@ flowchart LR
   Seed --> DB[SQLite or PostgreSQL events]
   Host --> DB
   DB --> Checks[Runtime merge and revalidation]
-  Checks --> Sort[Optional benchmark local sort]
+  Checks --> Sort[Runtime full-scope ordering and final page check]
   Seed --> Oracle[Independent SQLite SQL]
   Sort --> Verify[Compare complete results]
   Oracle --> Verify
@@ -115,9 +100,10 @@ flowchart LR
 status, machine resources, Node/backend versions, raw samples and summaries.
 Each sample records request spans, runtime stage aggregates and actual counters:
 scanned/admitted candidates, storage scans/loads/resolutions, source fetches,
-planned batches, executed statements, computed slots, captured operations and
-activity drops. Storage counters count API calls, not inferred database round
-trips. Server-only execution time and generated-SQL replay remain unavailable.
+provider identity checks and their combined source-call count, planned batches,
+executed statements, computed slots, captured operations and activity drops.
+Storage counters count API calls, not inferred database round trips. Server-only
+execution time and generated-SQL replay remain unavailable.
 
 Activity capture follows the real host enablement path. Enabled samples collect
 stage summaries from the storage append boundary. After stopping the request
@@ -136,8 +122,7 @@ at least 20 successful samples; capacity runs report medians only. Failures are
 counted separately. SQL reference latency excludes authorization, evidence,
 process/network startup and object storage, so it is not an equivalent-work
 baseline for a Relate overhead ratio. `performanceComparisonEligible` remains
-false while scope-first ordering, controlled concurrency and generated-SQL
-replay are absent.
+false while controlled concurrency and generated-SQL replay are absent.
 
 Reports checkpoint completed workloads atomically per output file. Setup and
 sample failures remain visible, subsequent workloads run, and any failure makes
@@ -146,26 +131,33 @@ than a transactional pair. Default outputs are ignored under
 `benchmark-results`. CI runs the small profile on both backends and uploads
 reports even on failure.
 
-## Remaining integration
+## Historical measurements
 
-The
-[2026-10-21 exploratory measurements](measurements/candidate-path-2026-10-21.json)
-retain warm ranking samples and environment metadata from 18 configurations (540
-total samples, zero failures). On an Apple M2 Max with Node 26.9.0, 10,000
-admitted candidates and 100,000 events took median 9.85 s with SQLite and 5.65 s
-with PostgreSQL using cached memory storage and activity capture. With
-PostgreSQL object storage and forced synthetic 2 ms source refreshes, medians
-were 20.93 s and 17.16 s respectively. Each ranking scanned 12,500 members and
-executed 125 analytical statements through the current page path. Only three
-warm repetitions were collected per configuration. These results identify
-candidate and refresh costs; they do not validate full-scope limits or establish
-a performance baseline.
+Exploratory runs on 2026-10-21 used an Apple M2 Max, Node 26.9.0, 10,000
+admitted customers from 12,500 scanned members, and three warm repetitions per
+configuration. The following medians are historical context, before the review
+fixes to candidate freshness, revalidation concurrency and indexed correlation.
+They are not current performance claims or the basis for default limits.
 
-1. Replace local ranking with the actual scope-first filter/order path and
-   retain the independent oracle. Record its single-operation candidate/batch
-   counts.
-2. Replay generated plans beside the independent SQL reference, preserving actor
+| Backend    |    Events | Capture disabled | Capture enabled |
+| ---------- | --------: | ---------------: | --------------: |
+| SQLite     |   100,000 |      3,587.50 ms |     3,573.09 ms |
+| PostgreSQL |   100,000 |      3,528.88 ms |     3,495.76 ms |
+| SQLite     | 1,000,000 |      4,348.25 ms |     4,403.82 ms |
+| PostgreSQL | 1,000,000 |      4,062.86 ms |     4,089.90 ms |
+
+The source checkout included local edits, so those runs do not establish an
+independently reproducible baseline. An earlier run rejected ranking queries at
+a provisional source-call budget; it is not successful capacity evidence. Raw
+exploratory samples are excluded from the repository. New runs write ignored
+`benchmark-results` files; CI uploads these as artifacts associated with the
+workflow's exact commit. Use a clean checkout and retain its source alongside
+artifacts when recording deployment capacity. Report failures separately.
+
+## Future performance comparisons
+
+1. Replay generated plans beside the independent SQL reference, preserving actor
    scope, integer/null semantics and ordering.
-3. Add controlled cold starts, concurrency, queue pressure and cancellation.
-4. Use consistent deployment conditions and sufficient repetitions before
+2. Add controlled cold starts, concurrency, queue pressure and cancellation.
+3. Use consistent deployment conditions and sufficient repetitions before
    publishing baselines or enabling performance regression gates.

@@ -2,13 +2,13 @@ import type {
   FieldEvidence,
   ComputedUnavailableReason,
 } from '@relate/protocol';
-import type { AnalyticalScalar, ResultType } from 'relate/analytics';
+import type { AnalyticalScalar, ComputedResultType } from 'relate/analytics';
 import type {
   AnalyticalConnector,
   DatasetResource,
   TypedValue,
 } from 'relate/connectors';
-import type { ResolvedExpression } from './types.js';
+import type { ResolvedExpression } from './expression-types.js';
 import type { StatementQueue } from './queue.js';
 
 /** Both caller aliases and normalized declarations enter this execution contract. */
@@ -65,7 +65,7 @@ export type ComputedField =
 export interface ComputedScope {
   readonly rows: ReadonlyMap<string, Readonly<Record<string, ComputedField>>>;
   /** Projection metadata only; filter/order-only declarations remain internal. */
-  readonly results: Readonly<Record<string, ResultType>>;
+  readonly results: Readonly<Record<string, ComputedResultType>>;
 }
 
 export class AnalyticalIncompleteError extends Error {

@@ -1,0 +1,21 @@
+{
+  "name": "quoted-case-mismatch",
+  "sql": "SELECT MAX(e.\"EventType\") FROM self.events e",
+  "expect": {
+    "phase": "resolve",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "max",
+      "argument": {
+        "kind": "column",
+        "name": "EventType",
+        "quoted": true
+      },
+      "distinct": false
+    },
+    "problem": "unknown-property"
+  }
+}

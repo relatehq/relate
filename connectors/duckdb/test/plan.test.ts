@@ -36,6 +36,7 @@ it('quotes every physical identifier, binds every value and reports the exact pa
   expect(plan.sql).toContain('COLLATE "binary"');
   expect(plan.sql).not.toContain('DROP TABLE');
   expect(plan.values).toContain("x'); DROP TABLE events; --");
+  expect(connection.analytics.limits.maxConcurrentStatements).toBe(4);
   const budget = connection.analytics.parameterBudget(request);
 
   expect(plan.values.length).toBe(

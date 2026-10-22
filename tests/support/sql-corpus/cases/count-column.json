@@ -1,0 +1,31 @@
+{
+  "name": "count-column",
+  "sql": "select count(e.userId) from self.events e",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": {
+        "kind": "column",
+        "name": "userid",
+        "quoted": false
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "4",
+      "acme_late": "4",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "2"
+    }
+  }
+}

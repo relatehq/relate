@@ -104,7 +104,7 @@ try {
 import assert from 'node:assert/strict';
 import { isAppDefinition, defineDataset, defineAccess, computed } from 'relate';
 import { z } from 'zod';
-import { SourceAccessDenied, DatasetExecutionError } from 'relate/connectors';
+import { SourceAccessDenied, DatasetExecutionError, validateAuthorizedDatasetQuery } from 'relate/connectors';
 import { app } from './built/app.types.js';
 import { encodeAnalyticalValue, decodeAnalyticalValue } from 'relate/analytics';
 assert.equal(encodeAnalyticalValue(9007199254740993n, { type: 'int64', nullable: false }), '9007199254740993');
@@ -120,6 +120,11 @@ assert.ok(Object.isFrozen(Events.columns));
 const calculation = computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.events' });
 assert.equal(calculation.origin.kind, 'computed');
 assert.ok(Object.isFrozen(calculation.origin));
+validateAuthorizedDatasetQuery({
+  resource: {}, keys: [{ type: { type: 'string' } }],
+  correlation: [{ column: 'customerId', key: 0 }], slots: [],
+  aggregates: [{ aggregate: 'count', argument: '*', distinct: false, result: { type: 'int64', nullable: false } }],
+}, ['customerId']);
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
 const failure = new DatasetExecutionError('execution-failed', { retryable: true, cause: new Error('private driver detail') });
 assert.equal(failure.code, 'execution-failed');
@@ -128,6 +133,10 @@ assert.deepEqual(Object.keys(await import('relate/storage')), []);
 const consumer = await import('relate/consumer');
 assert.equal(typeof consumer.createConsumer, 'function');
 assert.equal(typeof consumer.createQuery, 'function');
+const decoded = consumer.decodeComputed({ data: { count: '9007199254740993', latest: '2026-10-09T10:30:00.001Z' }, meta: { computed: { count: { type: 'int64', nullable: false }, latest: { type: 'timestamp', precision: 3, nullable: true } } } });
+assert.equal(decoded.count, 9007199254740993n);
+assert.deepEqual(decoded.latest, new Date('2026-10-09T10:30:00.001Z'));
+assert.deepEqual(consumer.decodeComputed({ status: 'not-found' }), {});
 await assert.rejects(import('@relate/node'), { code: 'ERR_MODULE_NOT_FOUND' });
 await assert.rejects(import('@relate/runtime'), { code: 'ERR_MODULE_NOT_FOUND' });
 console.log('Portable app and connector contracts work without Node host or runtime packages.');
@@ -253,6 +262,7 @@ import assert from 'node:assert/strict';
 import { z } from 'zod';
 import { bind, computed, defineAccess, defineApp, defineDataset, defineGraph, defineObject, defineSource, from, source, objectId } from 'relate';
 import { startApp } from '@relate/node';
+import { decodeComputed } from 'relate/consumer';
 import { sqlite } from '@relate/connector-sqlite';
 const access = defineAccess({ roles: ['reader'], fieldGroups: ['ordinary'], claims: {} });
 const Events = defineDataset({ id: 'events', columns: { customerId: { id: 'events.customer', schema: z.string(), access: access.groups.ordinary } } });
@@ -274,10 +284,12 @@ try {
   assert.equal(record.data.total, '2');
   assert.equal(record.data.totalMinor, '9007199254740993');
   assert.equal(record.data.quantity, 2);
+  assert.deepEqual(decodeComputed(record), { count: 2n, total: 2n });
   const page = await consumer.query({ compute, where: { totalMinor: { gt: '9007199254740992' } }, limit: 1 });
   assert.equal(page.data.length, 1);
   assert.equal(page.data[0].data.total, '2');
   assert.equal(page.data[0].data.count, '2');
+  assert.deepEqual(decodeComputed(page.data[0]), { count: 2n, total: 2n });
 } finally { await runtime.close(); }
 const invalid = { ...graph, objects: { Customer: { ...Customer, properties: { ...Customer.properties, count: computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.absent' }) } } } };
 await assert.rejects(startApp(defineApp({ graph: invalid })), error => error.name === 'CompileError' && error.issues[0].code === 'calculation.invalid-definition');
@@ -326,7 +338,7 @@ import { z } from 'zod';
 import { defineAccess, defineGraph, defineObject, defineSource, source, objectId, from } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime, createMemoryStore } from '@relate/runtime';
-import { SourceAccessDenied, DatasetExecutionError } from 'relate/connectors';
+import { SourceAccessDenied, DatasetExecutionError, validateAuthorizedDatasetQuery } from 'relate/connectors';
 import { createPostgresStore } from '@relate/postgres';
 import { assertFields } from 'relate';
 import { ReadError } from '@relate/protocol';
@@ -373,6 +385,11 @@ assert.equal(detailed.meta.fields.name.retentionDurability, 'volatile');
 const store = createPostgresStore({ connectionString: 'postgresql://unused@127.0.0.1:1/unused' });
 await store.close();
 assert.equal(new ReadError('incomplete').code, 'incomplete');
+validateAuthorizedDatasetQuery({
+  resource: {}, keys: [{ type: { type: 'string' } }],
+  correlation: [{ column: 'customerId', key: 0 }], slots: [],
+  aggregates: [{ aggregate: 'count', argument: '*', distinct: false, result: { type: 'int64', nullable: false } }],
+}, ['customerId']);
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
 const failure = new DatasetExecutionError('execution-failed', { retryable: true, cause: new Error('private driver detail') });
 assert.equal(failure.code, 'execution-failed');

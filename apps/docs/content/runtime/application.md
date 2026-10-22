@@ -142,9 +142,10 @@ const customer = await ana.objects.Customer.get(customerId, {
 
 This assumes `Customer` declares the `events` association and `loginCount`
 calculation. Aliases add fields independently of `select` and cannot collide
-with any property. Both forms share the eight-expression limit. Int64 values,
-including counts, are JSON strings; `meta.computed` describes each projected
-result in both evidence modes. Missing or forbidden values remain omitted.
+with any property. Both forms share the host expression limit (eight by
+default). Int64 values, including counts, are JSON strings; `meta.computed`
+describes each projected result in both evidence modes. Missing or forbidden
+values remain omitted.
 
 The runtime reads ordinary dependencies, executes against the dataset, then
 rechecks object access and dependency values. Changed or unusable inputs
@@ -154,12 +155,13 @@ SQL. Dataset freshness is `unverified`; freshness options and object policy
 evidence limits apply to ordinary dependencies. Caller timeout and runtime
 shutdown fail the whole read after analytical statement cleanup.
 
-For a query, ordinary authorization and property filters select the page first.
-The runtime computes all page members together, with one statement per
-association and batch, then revalidates them before returning the page. An
-ordinary filter whose value changed is checked again. Failed analytical aliases
-are withheld across the whole evaluated page, including earlier successful
-batches. `requireComplete` fails the query if a returned record has omissions.
+For a query without computed filters or ordering, ordinary authorization and
+property filters select the page first. The runtime computes all page members
+together, with one statement per association and batch, then revalidates them
+before returning the page. An ordinary filter whose value changed is checked
+again. Failed analytical aliases are withheld across the whole evaluated page,
+including earlier successful batches. `requireComplete` fails the query if a
+returned record has omissions.
 
 ```ts
 const page = await ana.objects.Customer.query({
@@ -178,6 +180,83 @@ their members. Typed page reads and iteration preserve the alias result types.
 
 Both SQLite and the
 [PostgreSQL analytical connector](../../../../connectors/postgres/README.md)
-execute these reads. Computed filtering/order and analytical discovery/MCP
-details remain in progress. Traversal and action transaction readers reject
-analytical requests.
+execute these reads. [Discovery](./discovery.md#analytical-metadata) describes
+actor-visible associations and calculated properties through the same consumer,
+MCP and Inspector playground paths. Traversal and action transaction readers
+reject analytical requests.
+
+Use [`decodeComputed`](../reference/runtime-api.md#decoding-computed-values)
+from `relate/consumer` to decode present calculated values using
+`meta.computed`. It returns a separate bag, preserving missing fields and SQL
+nulls without changing the read's data or evidence.
+
+### Filtering and ordering by calculations
+
+```ts
+const page = await ana.objects.Customer.query({
+  select: ['name'],
+  where: { loginCount: { gte: '1' } },
+  orderBy: [{ field: 'loginCount', direction: 'desc' }],
+  limit: 25,
+});
+```
+
+Here `loginCount` is a declared calculation. It is used to choose the page but
+is returned only if selected. Caller aliases declared in `compute` can also be
+used in `where` and `orderBy`, and are always returned. TypeScript rejects
+undeclared aliases and ordinary property ordering.
+
+These queries evaluate the whole authorized ordinary-filter scope before
+choosing a page. Every filter/order calculation must succeed across that scope,
+including objects outside the final page. Missing or changed dependencies fail
+with `incomplete`; there is no automatic recomputation. Objects that are no
+longer visible are withheld. Dependencies are checked across the scope and again
+for the selected page.
+
+Computed null never matches a filter and sorts last in both directions. Ties use
+object ID ascending. Int64 bounds are decimal strings and comparisons remain
+exact. Each page repeats enumeration and computation; the encrypted cursor
+resumes after the previous ordering values and ID. Changing data between pages
+can move objects across that position.
+
+Host setup can bound this work with `analytics`: the default scan cap is 12,500
+members, including rejected or inaccessible objects, and the admission cap is
+10,000 ordinary matches. Both reject with `resource-exhausted` before SQL when
+exceeded. Ordinary filters do not reduce the population scan. A 100,000
+source-call budget and 60,000 ms deadline cover the whole operation, including
+final checks. These are safeguards, not capacity guarantees; deployments require
+their own validation. Reading 10,000 matches in pages of 25 can perform 400 full
+passes.
+
+Preparation, batching and connection admission can also be configured:
+
+```ts
+return {
+  bindings,
+  analytics: {
+    maxSqlBytes: 4096,
+    maxParsedNodes: 256,
+    maxParameters: 16,
+    maxParameterBytes: 1024,
+    maxExpressions: 8,
+    maxKeysPerStatement: 1000,
+    statementTimeoutMs: 5000,
+    maxConcurrentStatements: 4,
+    maxQueuedStatements: 32,
+    queueTimeoutMs: 2000,
+  },
+};
+```
+
+These are the defaults. Declaration validation, discovery and caller expressions
+use the same preparation limits. Queues are shared by all actors and bindings on
+each configured connection, and capacity is released after statement cleanup. A
+statement timeout starts after connector startup; the whole-operation deadline
+continues to cover queueing, startup and revalidation. See the
+[Node contract](../../../../packages/node/CONTRACT.md#analytical-operation-limits).
+
+Run the
+[customer events example](../../../../examples/04-customer-events/README.md)
+with `pnpm example:customer-events` to try caller expressions, declared
+calculations, computed filtering and ordering, and actor-specific column access
+using one SQLite file.

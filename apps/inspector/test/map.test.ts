@@ -19,6 +19,8 @@ it('maps object types to nodes with ownership and typed properties, identity fir
   expect(model.nodes.map((node) => node.id)).toEqual([Customer.id, Invoice.id]);
   const customer = model.nodes[0]!.data;
 
+  if (customer.kind !== 'object') throw new Error('Expected customer object');
+
   expect(customer).toMatchObject({
     apiName: 'Customer',
     label: 'Customer',
@@ -34,6 +36,9 @@ it('maps object types to nodes with ownership and typed properties, identity fir
     'financial',
   );
   const invoice = model.nodes[1]!.data;
+
+  if (invoice.kind !== 'object') throw new Error('Expected invoice object');
+
   const reference = invoice.properties.find((p) => p.name === 'customer');
 
   expect(reference).toMatchObject({
@@ -52,6 +57,7 @@ it('maps declared relationships to edges and never invents edges from references
       source: Customer.id,
       target: Invoice.id,
       data: {
+        kind: 'relationship',
         id: CustomerInvoices.id,
         forward: {
           name: 'invoices',

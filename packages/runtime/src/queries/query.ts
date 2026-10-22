@@ -1,6 +1,9 @@
+import { selectedProperties, selectionIssues } from '../reads/index.js';
+import { mapReads } from '../reads/index.js';
+import type { ReadExecution } from '../reads/index.js';
 import type { OperationScope } from '../activity/index.js';
-import { createHash, randomUUID } from 'node:crypto';
-import { canonicalJson } from 'relate/model';
+import { randomUUID } from 'node:crypto';
+import type { QueryCursors } from './cursors.js';
 import type { Manifest } from 'relate/model';
 import { ReadError } from '@relate/protocol';
 import type {
@@ -26,7 +29,6 @@ import {
 } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
 import {
-  cursorCodec,
   compileWhere,
   calculatedReadIssues,
   predicateMatcher,
@@ -40,6 +42,10 @@ type Available = Extract<ReadResult, { status: 'ok' }>;
 
 /** Trusted composition controls; never accepted from a consumer request. */
 export interface QueryContext {
+  readonly execution?: ReadExecution;
+  readonly scanCandidates?: (count: number) => void;
+  readonly admitCandidate?: () => void;
+  readonly captureCandidate?: (record: ObjectRecord, at: number) => void;
   readonly cursorScope?: unknown;
   readonly signal?: AbortSignal;
   readonly beginDependencyRead?: () => () => void;
@@ -54,7 +60,7 @@ export function createGraphQuery(options: {
   store: ObservationStore;
   clock(): number;
   install(): Promise<void>;
-  cursorKey?: Uint8Array;
+  cursors: QueryCursors;
   scopeFor(type: string, source: string): StorageScope;
   read(
     attempt: OperationScope,
@@ -65,10 +71,10 @@ export function createGraphQuery(options: {
     requiredReference?: string,
     capture?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
+    execution?: ReadExecution,
   ): Promise<ReadResult>;
 }) {
   const { manifest, store, clock } = options;
-  const codec = cursorCodec(options.cursorKey);
   const transactions = new WeakMap<NativeTransaction, string>();
 
   return async (
@@ -83,14 +89,18 @@ export function createGraphQuery(options: {
     const object = manifest.objects.find((o) => o.id === type);
     const policy = object && manifest.policies[object.id];
     const operation = operationName(manifest, principal, type, 'query');
-    const issues = requestIssues(input, 'query');
+    const issues = requestIssues(
+      input,
+      'query',
+      context?.execution?.expandedSelection,
+    );
     const predicates: Predicate[] = [];
 
     context?.signal?.throwIfAborted();
 
-    if (input?.compute !== undefined)
+    if (input?.compute !== undefined || input?.orderBy !== undefined)
       issues.push({
-        path: ['compute'],
+        path: [input.compute !== undefined ? 'compute' : 'orderBy'],
         problem: 'not-supported',
         message:
           'Analytical requests require the analytical query path and are not supported in action transactions.',
@@ -146,50 +156,32 @@ export function createGraphQuery(options: {
       ...readRequest
     } = request;
     const filterNames = Object.keys(filters);
-    const selected = [
-      ...new Set(
-        readRequest.select ??
-          object.properties
-            .filter((p) => policy && allowsField(principal, policy, p.access))
-            .map((p) => p.name),
-      ),
-    ];
+    const selected = selectedProperties(
+      object.properties,
+      readRequest.select,
+      (p) => Boolean(policy && allowsField(principal, policy, p.access)),
+    );
     const needed = [...new Set([...selected, ...filterNames])];
 
-    // An omitted selection already covers every readable filter field, so it keeps
-    // get's unbounded default; only an explicit selection/filter union is capped.
-    if (readRequest.select && needed.length > 100)
-      throwIssues(operation, 'query', [
-        {
-          path: ['select'],
-          problem: 'invalid-value',
-          message: 'select and where together name more than 100 properties.',
-        },
-      ]);
+    const selectedIssues = selectionIssues(
+      readRequest.select,
+      needed,
+      context?.execution?.expandedSelection,
+    );
+
+    if (selectedIssues.length) throwIssues(operation, 'query', selectedIssues);
 
     if (transaction && !transactions.has(transaction))
       transactions.set(transaction, randomUUID());
 
-    const scope = createHash('sha256')
-      .update(
-        canonicalJson({
-          ...options.scope,
-          type,
-          principal,
-          transaction: transaction ? transactions.get(transaction)! : null,
-          query: { ...readRequest, where: predicates, limit },
-          ...(context?.cursorScope === undefined
-            ? {}
-            : { analytical: context.cursorScope }),
-          bindings: manifest.objects
-            .filter((o) => o.sourceDefinitionId)
-            .map((o) => options.scopeFor(o.id, o.sourceDefinitionId!)),
-        }),
-      )
-      .digest('hex');
-    let after = cursor
-      ? codec.decode(cursor, scope, clock(), operation)
-      : undefined;
+    const cursorScope = options.cursors(
+      type,
+      principal,
+      { ...readRequest, where: predicates, limit },
+      context?.cursorScope,
+      transaction ? transactions.get(transaction)! : undefined,
+    );
+    let after = cursor ? cursorScope.decode(cursor, operation) : undefined;
 
     if (!allowsObject(principal, policy))
       return { data: [], meta: { exhausted: true } };
@@ -223,6 +215,7 @@ export function createGraphQuery(options: {
             allowed = check;
           },
           transaction,
+          context?.execution,
         );
       } finally {
         endRead?.();
@@ -267,6 +260,7 @@ export function createGraphQuery(options: {
 
       after = batch.ids.at(-1);
       scanned += batch.ids.length;
+      context?.scanCandidates?.(batch.ids.length);
 
       // Transactions share one connection; independent reads can overlap. Each
       // candidate is evaluated as soon as its read settles, while evidence is fresh.
@@ -285,26 +279,12 @@ export function createGraphQuery(options: {
           match: filter.matches(id, result, at),
         };
       };
-      const evaluated: Awaited<ReturnType<typeof evaluate>>[] = [];
-      const concurrency = transaction ? 1 : 8;
-
-      for (let i = 0; i < batch.ids.length; i += concurrency) {
-        context?.signal?.throwIfAborted();
-        // Join every admitted ordinary read before surfacing failure or cancellation.
-        const results = await Promise.allSettled(
-          batch.ids.slice(i, i + concurrency).map(evaluate),
-        );
-        const failed = results.find((result) => result.status === 'rejected');
-
-        if (failed?.status === 'rejected') throw failed.reason;
-
-        context?.signal?.throwIfAborted();
-        evaluated.push(
-          ...results.map((result) =>
-            result.status === 'fulfilled' ? result.value : undefined,
-          ),
-        );
-      }
+      const evaluated = await mapReads(
+        batch.ids,
+        evaluate,
+        context?.signal,
+        transaction ? 1 : 8,
+      );
 
       for (const item of evaluated) {
         if (!item) continue;
@@ -332,12 +312,25 @@ export function createGraphQuery(options: {
             return undefined;
 
           onRead?.(item.id, reread.result);
+          item.at = clock();
 
           return reread.result;
         });
 
-        if (at !== undefined)
-          data.push(project(item.id, item.result, selected, readRequest, at));
+        if (at !== undefined) {
+          context?.admitCandidate?.();
+          const readAt = context?.captureCandidate ? item.at : at;
+          const record = project(
+            item.id,
+            item.result,
+            selected,
+            readRequest,
+            readAt,
+          );
+
+          context?.captureCandidate?.(record, readAt);
+          data.push(record);
+        }
       }
 
       context?.signal?.throwIfAborted();
@@ -347,11 +340,7 @@ export function createGraphQuery(options: {
         meta: more
           ? {
               exhausted: false,
-              continuationCursor: codec.encode(
-                scope,
-                after!,
-                clock() + 900_000,
-              ),
+              continuationCursor: cursorScope.encode(after!, operation),
             }
           : { exhausted: true },
       };

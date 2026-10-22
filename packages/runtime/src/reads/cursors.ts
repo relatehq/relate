@@ -2,6 +2,8 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { ReadError } from '@relate/protocol';
 import { cursorIssue } from './options.js';
 
+const maxCursorLength = 8192;
+
 // Encryption also hides a continuation boundary belonging to a denied record.
 export function cursorCodec(key: Uint8Array = randomBytes(32)) {
   if (key.length !== 32) throw new Error('Cursor key must contain 32 bytes');
@@ -9,7 +11,7 @@ export function cursorCodec(key: Uint8Array = randomBytes(32)) {
   const secret = Buffer.from(key);
 
   return {
-    encode(scope: string, after: string, expires: number) {
+    encode(scope: string, after: string, expires: number, operation = 'read') {
       const iv = randomBytes(12),
         cipher = createCipheriv('aes-256-gcm', secret, iv);
       const body = Buffer.concat([
@@ -17,9 +19,24 @@ export function cursorCodec(key: Uint8Array = randomBytes(32)) {
         cipher.final(),
       ]);
 
-      return Buffer.concat([iv, cipher.getAuthTag(), body]).toString(
+      const token = Buffer.concat([iv, cipher.getAuthTag(), body]).toString(
         'base64url',
       );
+
+      if (token.length > maxCursorLength)
+        throw new ReadError('invalid-request', {
+          operation,
+          issues: [
+            {
+              path: ['cursor'],
+              problem: 'not-supported',
+              message:
+                'The continuation position exceeds the supported cursor size. Narrow the query scope or use smaller computed ordering values.',
+            },
+          ],
+        });
+
+      return token;
     },
     decode(
       token: string,
@@ -28,7 +45,7 @@ export function cursorCodec(key: Uint8Array = randomBytes(32)) {
       operation = 'read',
     ): string {
       try {
-        if (token.length > 8192 || !/^[A-Za-z0-9_-]+$/.test(token))
+        if (token.length > maxCursorLength || !/^[A-Za-z0-9_-]+$/.test(token))
           throw new Error();
 
         const data = Buffer.from(token, 'base64url');

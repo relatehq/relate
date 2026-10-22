@@ -1,4 +1,5 @@
 export { validateReadRequest } from './request.js';
+export type { ReadExecution } from './execution.js';
 
 export {
   cursorIssue,
@@ -28,3 +29,6 @@ export {
 export type { FilterProperty, Predicate } from './predicates.js';
 
 export { calculatedReadIssues } from './calculations.js';
+
+export { mapReads } from './concurrent.js';
+export { selectedProperties, selectionIssues } from './selection.js';

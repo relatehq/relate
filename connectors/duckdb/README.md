@@ -80,11 +80,12 @@ flowchart LR
 Timeouts and caller abort terminate the affected worker and wait for process
 cleanup before rejecting. A later statement starts a replacement. `close()`
 retires every worker, including idle workers, and joins all child exits. Each
-worker runs one statement at a time; the runtime provides queued admission.
-Statement timers stop when an outcome arrives. Process startup is charged only
-when a new worker is needed, with a separate execution timing per operation.
-Cancellation timings include cleanup. Failed diagnostic observers cannot fail a
-read.
+worker runs one statement at a time. The connector advertises
+`maxConcurrentStatements: 4` so the runtime queues work within that capacity,
+including when multiple runtimes share the connection. Statement timers stop
+when an outcome arrives. Process startup is charged only when a new worker is
+needed, with a separate execution timing per operation. Cancellation timings
+include cleanup. Failed diagnostic observers cannot fail a read.
 
 `analyticalStartupTimeoutMs` defaults to 5,000 ms (allowed: 1–60,000 ms).
 Statement execution uses the runtime-provided timeout, up to 2,147,483,647 ms.

@@ -1,0 +1,8 @@
+{
+  "name": "reject-43-select-count-from-self-events-where-value-like",
+  "sql": "SELECT COUNT(*) FROM self.events WHERE value LIKE '%'",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

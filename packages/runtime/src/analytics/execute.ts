@@ -12,8 +12,10 @@ import type {
 } from './execution-types.js';
 import type { TimingCapture } from './timings.js';
 import { beginTiming, recordTiming } from './timings.js';
-import { preparedFields } from './prepared.js';
-import type { PreparedCompute } from './prepared.js';
+import { preparedFields } from './prepare-compute.js';
+import type { PreparedCompute } from './prepare-compute.js';
+import { captureCalculations } from './activity.js';
+import type { CalculationCapture } from './activity.js';
 
 /** Request-local execution over authorized, materialized ordinary dependencies. */
 export async function executeResolvedFields(input: {
@@ -23,8 +25,10 @@ export async function executeResolvedFields(input: {
   readonly signal: AbortSignal;
   readonly maxSlots?: number;
   readonly statementTimeoutMs?: number;
+  readonly maxConcurrentStatements?: number;
   readonly requireComplete?: boolean;
   readonly timings?: TimingCapture;
+  readonly activity?: CalculationCapture;
   readonly clock?: () => number;
 }): Promise<ComputedScope> {
   input.signal.throwIfAborted();
@@ -36,8 +40,11 @@ export async function executeResolvedFields(input: {
     throw new Error('Duplicate analytical field');
 
   const timeoutMs = input.statementTimeoutMs ?? 5000;
+  const concurrency = input.maxConcurrentStatements ?? 4;
 
   if (
+    !Number.isSafeInteger(concurrency) ||
+    concurrency < 1 ||
     !Number.isSafeInteger(timeoutMs) ||
     timeoutMs < 1 ||
     timeoutMs > 2147483647
@@ -154,7 +161,7 @@ export async function executeResolvedFields(input: {
     for (const group of connections.values()) {
       let cursor = 0;
 
-      for (let i = 0; i < Math.min(4, group.length); i++)
+      for (let i = 0; i < Math.min(concurrency, group.length); i++)
         workers.push(
           (async () => {
             try {
@@ -186,6 +193,12 @@ export async function executeResolvedFields(input: {
 
     return result;
   } finally {
+    if (input.activity)
+      for (const row of rows)
+        captureCalculations(input.activity, (activity) =>
+          activity.results(row.fields, undefined, controller.signal.aborted),
+        );
+
     input.signal.removeEventListener('abort', abort);
   }
 }
@@ -200,4 +213,19 @@ export async function computeFields(
   const fields = preparedFields(prepared);
 
   return executeResolvedFields({ ...execution, fields });
+}
+
+/** Pure connector capacity validation, independent of candidate data or visibility. */
+export function validatePreparedCapacity(
+  prepared: PreparedCompute,
+  binding: (id: string) => AnalyticalBinding,
+  maxSlots: number,
+): void {
+  planBatches({
+    fields: preparedFields(prepared, false),
+    rows: [],
+    binding,
+    maxSlots,
+    preflight: true,
+  });
 }

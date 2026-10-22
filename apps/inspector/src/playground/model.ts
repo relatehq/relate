@@ -3,10 +3,8 @@
  * feature (completion, checks, the schema tree, result headers) asks this
  * module, so a change in the discovery shape is absorbed here.
  *
- * Datasets and computed properties are read as the analytical-properties
- * spec proposes them (`specs/2026-10-18-analytical-properties.md`,
- * "Discovery"). Until the runtime reports them, an object simply has none and
- * the editor shows ordinary properties only:
+ * Datasets and computed properties come from actor-bound runtime discovery.
+ * Ordinary objects omit analytical metadata:
  *
  *   object.datasets.events = {
  *     description: 'One row per recorded customer event.',
@@ -78,7 +76,9 @@ export const isComputed = (property: PlaygroundProperty): boolean =>
  * listed without operators and is filtered by its result type.
  */
 export const isFilterable = (property: PlaygroundProperty): boolean =>
-  (property.filterOperators?.length ?? 0) > 0 || isComputed(property);
+  property.filterOperators !== undefined
+    ? property.filterOperators.length > 0
+    : isComputed(property);
 
 /** A short type label for a property: `string`, `timestamp`, `number?`. */
 export function propertyType(property: PlaygroundProperty): string {
@@ -104,7 +104,7 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-/** The object's datasets, in the shape the spec proposes; none until reported. */
+/** The object's actor-visible datasets; ordinary objects have none. */
 export function datasetsOf(object: PlaygroundObject | undefined): Dataset[] {
   const datasets = record(object?.['datasets']);
 

@@ -1,0 +1,61 @@
+{
+  "name": "boolean-literals",
+  "sql": "SELECT COUNT(*) FROM self.events e WHERE e.enabled = FALSE AND e.visible = TRUE",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "boolean",
+        "op": "and",
+        "args": [
+          {
+            "kind": "compare",
+            "op": "=",
+            "left": {
+              "kind": "column",
+              "name": "enabled",
+              "quoted": false
+            },
+            "right": {
+              "kind": "literal",
+              "literal": "boolean",
+              "value": false
+            }
+          },
+          {
+            "kind": "compare",
+            "op": "=",
+            "left": {
+              "kind": "column",
+              "name": "visible",
+              "quoted": false
+            },
+            "right": {
+              "kind": "literal",
+              "literal": "boolean",
+              "value": true
+            }
+          }
+        ]
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "1",
+      "acme_late": "1",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "0"
+    }
+  }
+}

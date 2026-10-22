@@ -77,22 +77,28 @@ unsupported capabilities, invalid identities and conflicting connection
 instances with the same `connectionId` fail startup before schema inspection.
 Selected source and dataset resources can share one connection object.
 
-Node creates one statement queue per analytical connection, shared by all its
-dataset bindings. Every startup inspects every bound dataset through the
-connector's `describe`, including unused datasets. Each declared column must be
-present and advertise its exact logical type and timestamp precision. A
-non-nullable declaration cannot use a nullable physical column; a nullable
-declaration can use a non-nullable physical column. Inspection does not scan
-rows. Driver failures retain their cause internally and expose a sanitized
-startup message. Schema mismatches identify the declared dataset and column.
+Node creates one statement queue per analytical connection, shared by its
+dataset bindings and by other runtimes borrowing the same connection object. The
+effective concurrency is the lesser of the host setting and the connector
+capability limit. Concurrent hosts sharing a connection must use matching
+effective queue settings; retiring one host cancels only its own work. Every
+startup inspects every bound dataset through the connector's `describe`,
+including unused datasets. Each declared column must be present and advertise
+its exact logical type and timestamp precision. A non-nullable declaration
+cannot use a nullable physical column; a nullable declaration can use a
+non-nullable physical column. Inspection does not scan rows. Driver failures
+retain their cause internally and expose a sanitized startup message. Schema
+mismatches identify the declared dataset and column.
 
 The runtime stays private until these asynchronous checks complete. Failure
 retires its queues and releases app resources; close retires queues before
-waiting for operations and before application disposal. Supplied connections
-remain owned by application setup, so multiple dataset bindings do not cause
-multiple connection closes. Explicit custom source bindings may supply
-`connection` to establish shared ownership; otherwise their keyed connector
-object is their identity for conflict detection.
+waiting for operations and before application disposal. `shutdownTimeoutMs`
+(default 5,000 ms) bounds this drain; expiry rejects close and `startApp` still
+runs registered disposers. Arbitrary JavaScript that ignores cancellation cannot
+be forcibly terminated. Supplied connections remain owned by application setup,
+so multiple dataset bindings do not cause multiple connection closes. Explicit
+custom source bindings may supply `connection` to establish shared ownership;
+otherwise their keyed connector object is their identity for conflict detection.
 
 ```mermaid
 flowchart LR
@@ -104,9 +110,108 @@ flowchart LR
   Close --> Dispose[Application disposes owned connections]
 ```
 
-Binding and schema checks are implemented. Analytical object reads and built-in
-analytical connector execution remain in progress; selecting a calculation
-currently fails with `not-supported`.
+Analytical `get` and ordinary query pages execute selected declared calculations
+and caller `compute` expressions through the bound connector. Queries with
+computed filters or ordering evaluate the full authorized ordinary-filter scope
+before selecting a page, then recheck that page before returning it. Every page
+repeats this entire pass: reading 10,000 matches in pages of 25 can require 400
+passes. Candidate freshness is evaluated at each read instant; revalidation
+checks current freshness and permissions with at most eight independent reads in
+flight.
+
+## Analytical operation limits
+
+Application setup may return host-owned limits alongside its bindings:
+
+```ts
+return {
+  bindings,
+  analytics: {
+    operationTimeoutMs: 60_000,
+    maxSourceCalls: 100_000,
+    maxCandidatesScanned: 12_500,
+    maxCandidatesAdmitted: 10_000,
+  },
+};
+```
+
+These are the operation defaults. The same `analytics` object also accepts:
+
+| Setting                   | Default | Scope                                                            |
+| ------------------------- | ------- | ---------------------------------------------------------------- |
+| `maxSqlBytes`             | 4,096   | UTF-8 SQL bytes per expression                                   |
+| `maxParsedNodes`          | 256     | Parsed syntax nodes per expression                               |
+| `maxParameters`           | 16      | Distinct named parameters per expression                         |
+| `maxParameterBytes`       | 1,024   | UTF-8 bytes in each parameter's JSON encoding                    |
+| `maxExpressions`          | 8       | Caller expressions plus selected or required declarations        |
+| `maxKeysPerStatement`     | 1,000   | Authorized object slots, reduced by connector parameter capacity |
+| `statementTimeoutMs`      | 5,000   | Statement execution, excluding queue wait and connection startup |
+| `maxConcurrentStatements` | 4       | Running statements per configured connection                     |
+| `maxQueuedStatements`     | 32      | Waiting statements per configured connection                     |
+| `queueTimeoutMs`          | 2,000   | Maximum time waiting for a statement slot                        |
+
+All values must be safe integers. Source, scan, admission and queue-depth limits
+may be zero. `queueTimeoutMs: 0` rejects work that would have to wait; zero
+queue depth rejects when all running slots are occupied. Other values must be
+positive. All three timer limits must be at most 2,147,483,647 ms. Unknown keys
+and invalid values fail startup and run registered disposal callbacks, including
+for ordinary apps that supply analytical settings. Limits are copied before
+parser initialization or resource inspection; later mutation cannot change them.
+
+The same SQL and parameter limits govern declaration startup validation,
+authorized discovery and request preparation. Selected declarations and caller
+expressions share the expression budget. Invalid expressions fail before
+candidate reads, including an empty query scope. Batching cannot exceed the
+connector's physical parameter limit. Queues are shared by all dataset bindings
+and actors on a configured connection; binding another dataset does not create
+additional capacity. Statement slots remain occupied until connector cleanup
+settles. Connector startup and cancellation bounds are configured on the
+connection itself, separately from `statementTimeoutMs`.
+
+Computed filter/order queries count every scanned member, including rejected
+objects, against `maxCandidatesScanned`. Objects passing ordinary policy and
+filters count against `maxCandidatesAdmitted`; exceeding either cap rejects
+before analytical SQL. Ordinary page-first queries retain their 100-member scan
+bound. These caps never return a truncated computed order.
+
+Every analytical get or query page has one deadline and source-call budget,
+shared by candidate reads, source-backed authorization dependencies, and final
+revalidation. Both provider identity checks and fetch attempts consume the
+budget. Cached application-identity reads consume none; zero permits those
+reads. Each concurrent operation has its own budget. A consumer `timeoutMs` can
+shorten the host deadline but cannot extend it. Consumers cannot set host limits
+through read options. Activity capture does not affect enforcement.
+
+Exceeding source, scan or admission budgets rejects with `resource-exhausted` /
+`limit-exceeded`. A narrower ordinary filter does not reduce the population
+scan; indexed filter pushdown is not implemented. An expired deadline rejects
+with `unavailable`; runtime retirement rejects with `runtime-retired`. These
+failures cannot return stale fallback or partial analytical results.
+Cancellation reaches provider identity and fetch signals; providers must honor
+those signals to stop their own work. Storage and arbitrary provider JavaScript
+cannot be forcibly interrupted. Analytical connector cancellation retains its
+joined cleanup contract.
+
+The defaults are finite safeguards, not a promise of capacity or latency.
+Deployments must validate their own provider, policy and data shape; historical
+local measurements are summarized in the
+[benchmark guide](../../tests/performance/analytical-properties/README.md#historical-measurements).
+
+Binding evidence uses a per-runtime HMAC revision. Physical table, connection
+and column names cannot be confirmed by hashing guesses. Revisions remain stable
+within a runtime and change on restart, invalidating its analytical cursors.
+
+```mermaid
+flowchart LR
+  Host[Host limits] --> Operation[One analytical operation]
+  Operation --> Candidates[Candidate reads]
+  Operation --> SQL[Analytical statements]
+  Operation --> Final[Final revalidation]
+  Candidates --> Sources[Shared identity and fetch budget]
+  Final --> Sources
+  Sources --> Policy[Nested authorization reads]
+  Policy --> Sources
+```
 
 ## Actor-bound discovery
 
@@ -310,3 +415,19 @@ deadline, queued rows are reported as dropped with reason `shutdown`. Borrowed
 stores remain open; close the runtime before closing its store. `startApp` then
 runs registered disposal callbacks. Operation capture is best effort and is
 separate from the feed's atomic publication guarantees.
+
+## Binding ownership
+
+`bindings.ts` validates source and dataset bindings, checks physical schemas and
+constructs runtime analytical bindings with a per-host revision secret.
+`connection-queues.ts` owns shared connection queues and host-specific leases;
+retiring one host cancels only its work. `runtime.ts` coordinates startup and
+shutdown through these interfaces.
+
+```mermaid
+flowchart LR
+  Runtime[Node runtime] --> Bindings[Source and dataset bindings]
+  Bindings --> Queues[Connection queue leases]
+  Bindings --> Connectors[Connector capabilities]
+  Queues --> Queue[Runtime statement queue]
+```

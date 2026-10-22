@@ -17,6 +17,7 @@ import { testCreation } from '../../../tests/support/activity.js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { postgres } from '@relate/connector-postgres';
 import type { AnalyticalExecutionTiming } from 'relate/connectors';
+import { render } from '../src/plan.js';
 import { createRunner } from '../src/runner.js';
 import { createClientFactory } from '../src/client.js';
 import { testDatabaseUrl } from '../../../tests/support/database.js';
@@ -173,6 +174,50 @@ it('executes all portable aggregate families with exact integers and timestamps'
     'execution',
   ]);
   expect(result.readAt).toMatch(/^\d{4}-.*Z$/);
+});
+
+it('returns exact float64 values when the session default rounds float output', async () => {
+  const { db, schema, columns } = await fixture();
+
+  await db.query(
+    `INSERT INTO "${schema}".events(customer_id, ratio) VALUES ('float', 0.1), ('float', 0.2)`,
+  );
+  // A role, database or pooler default; startup options stand in for all three.
+  const url = new URL(testDatabaseUrl());
+
+  url.searchParams.set('options', '-c extra_float_digits=0');
+  const rounding = new pg.Client({ connectionString: url.toString() });
+
+  await rounding.connect();
+  cleanups.push(() => rounding.end());
+  const session = await rounding.query({
+    text: 'SELECT 0.1::float8 + 0.2::float8 AS sum',
+    rowMode: 'array',
+    types: { getTypeParser: () => (value: string) => value },
+  });
+
+  expect(session.rows).toEqual([['0.3']]);
+  const connection = postgres({
+    connectionId: 'rounding',
+    url: url.toString(),
+  });
+
+  cleanups.push(() => connection.close());
+  const resource = connection
+    .table('events', { schema })
+    .bindDataset({ columns });
+  const result = await connection.analytics.execute(
+    connection.analytics.plan(
+      query(
+        resource,
+        [aggregate('sum', column('ratio', 'float64'), 'float64')],
+        ['float'],
+      ),
+    ),
+    options(),
+  );
+
+  expect(result.rows[0]!.values).toEqual([0.1 + 0.2]);
 });
 
 it('keeps duplicate keys in distinct slots, masks unavailable inputs and contains caller predicates inside correlation', async () => {
@@ -506,6 +551,7 @@ it('uses the real server statement timeout when its cancellation control connect
           query: async () => {
             throw new Error('unreachable');
           },
+          cancel: async () => {},
           end: async () => {},
           destroy() {},
         },
@@ -658,3 +704,75 @@ it.each(['int32', 'int64'] as const)(
     ).toEqual(result.status === 'ok' ? result.data : undefined);
   },
 );
+
+it('keeps default-collation text indexes eligible for correlation equality', async () => {
+  const { db, schema, resource, columns } = await fixture();
+  const request = query(resource, [aggregate('count', '*', 'int64')], ['acme']);
+  const generated = render(
+    request,
+    { schema, table: 'events', columns },
+    request.slots,
+  );
+
+  await db.query('SET enable_seqscan = off');
+  const explanation = await db.query(`EXPLAIN (FORMAT JSON) ${generated.sql}`, [
+    ...generated.values,
+  ]);
+
+  expect(JSON.stringify(explanation.rows)).toContain('Index Cond');
+});
+
+it('accepts smallint and domains with compatible base types', async () => {
+  const { db, schema, connection } = await fixture();
+
+  await db.query(`CREATE DOMAIN "${schema}".key_text AS text;
+    ALTER TABLE "${schema}".events ADD COLUMN tiny smallint, ADD COLUMN domain_key "${schema}".key_text;`);
+  const resource = connection
+    .table('events', { schema })
+    .bindDataset({ columns: { tiny: 'tiny', domain: 'domain_key' } });
+  const physical = await connection.analytics.describe(resource, options());
+
+  expect(physical.columns.tiny!.supportedTypes).toEqual([{ type: 'int32' }]);
+  expect(physical.columns.domain!.supportedTypes).toEqual([{ type: 'string' }]);
+});
+
+it('retains byte-exact scope under nondeterministic text collations', async () => {
+  const { db, schema, connection } = await fixture();
+
+  await db.query(`CREATE COLLATION "${schema}".folded (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
+    CREATE TABLE "${schema}".folded_events (customer_id text COLLATE "${schema}".folded NOT NULL, kind text COLLATE "${schema}".folded NOT NULL);
+    CREATE INDEX ON "${schema}".folded_events(customer_id);
+    INSERT INTO "${schema}".folded_events VALUES ('acme', 'login'), ('acme', 'LOGIN'), ('ACME', 'login');`);
+  const resource = connection
+    .table('folded_events', { schema })
+    .bindDataset({ columns: { customerId: 'customer_id', kind: 'kind' } });
+
+  expect(
+    (await connection.analytics.describe(resource, options())).columns
+      .customerId!.supportedTypes,
+  ).toEqual([{ type: 'string' }]);
+  const count = aggregate('count', '*', 'int64');
+  const filtered = {
+    ...count,
+    predicate: {
+      kind: 'compare' as const,
+      op: '=' as const,
+      left: column('kind', 'string'),
+      right: {
+        kind: 'value' as const,
+        value: { type: 'string' as const, value: 'login' },
+      },
+    },
+  };
+  const result = await connection.analytics.execute(
+    connection.analytics.plan(
+      query(resource, [count, filtered], ['acme', 'ACME']),
+    ),
+    options(),
+  );
+
+  expect(result.rows.map((row) => row.values)).toEqual([
+    [2n, 1n],
+    [1n, 1n],
+  ]);
+});

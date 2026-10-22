@@ -357,9 +357,9 @@ evidence and pagination rules.
 
 ## Portable analytical contracts
 
-`relate/analytics` owns SQL representation types and shared scalar codecs. These
-are implementation foundations; analytical reads are still being implemented.
-The entry point has no compiler, SQL parser implementation or database driver.
+`relate/analytics` owns SQL representation types and shared scalar codecs. The
+Node host uses them for computed object get/query reads. The entry point has no
+compiler, SQL parser implementation or database driver.
 
 ```ts
 import { encodeAnalyticalValue, decodeAnalyticalValue } from 'relate/analytics';
@@ -376,6 +376,31 @@ JSON values. `parseAnalyticalValue` resolves typed JSON parameters and
 normalizes instant offsets without rounding. Null is valid only for nullable
 results.
 
+`decodeComputed` from `relate/consumer` applies these codecs using a record's
+`meta.computed` entries:
+
+```ts
+import { decodeComputed } from 'relate/consumer';
+
+const record = await consumer.objects.Customer.get(customerId, {
+  compute: { logins: { sql: 'SELECT COUNT(*) FROM self.events' } },
+});
+const fields = decodeComputed(record);
+// fields.logins is 2n when the returned JSON value was "2".
+```
+
+The helper returns a separate bag of present computed fields, for both caller
+aliases and declared calculations. It accepts get results and individual query
+records in either evidence mode. Ordinary fields and the original evidence stay
+unchanged. Missing fields stay missing; SQL null stays null. Not-found results
+and records without computed metadata return `{}`. Decode pages with
+`page.data.map(record => decodeComputed(record))`.
+
+Malformed present values or their type metadata throw `AnalyticalValueError`
+from `relate/analytics`, without including the input value. Result fields remain
+optional in TypeScript; SQL result types are known at runtime. Keep the original
+record for JSON transport; the decoded bag is for local use.
+
 `relate/connectors` also defines the analytical connector boundary:
 `AnalyticalConnector.plan(authorizedQuery)` returns an opaque `PreparedPlan`,
 and `execute(plan, { signal, timeoutMs })` returns portable values by object
@@ -387,8 +412,10 @@ slot. Physical names and generated SQL remain connector-owned. See the
 `defineDataset` declares rows without an object identity. Each column owns its
 schema, stable ID, access group and optional description. `DatasetRow` infers
 the row type, and `dataset.schema` is derived from those same column schemas.
-Dataset and association compilation are implemented; binding and analytical
-object reads are still in progress.
+Bind datasets to SQLite or PostgreSQL resources with `bind(...)` and start the
+application with `startApp`. Object `get` and `query` support caller expressions
+and declared calculations through the same authorized execution path; computed
+filters and ordering evaluate the matching scope before choosing a page.
 
 ```ts
 import { z } from 'zod';
@@ -440,7 +467,9 @@ const loginCount = computed({
 Compilation keeps calculation IDs, access, descriptions and SQL in the graph
 revision. Calculations cannot be native action write targets, row-policy inputs
 or correlation keys. Their TypeScript values are optional JSON scalars; SQL
-result types will be inferred by runtime preparation. Semantic startup
-validation and analytical reads remain in progress. Traversal and action-bound
-readers reject calculated selections, including defaults, while explicit
-ordinary-property selections remain supported.
+result types are inferred by runtime preparation. `startApp` validates every
+declared calculation, including unselected properties, before returning the
+runtime. Object reads execute declared and caller calculations on SQLite and
+PostgreSQL. Traversal and action-bound readers reject calculated selections,
+including defaults, while explicit ordinary-property selections remain
+supported.

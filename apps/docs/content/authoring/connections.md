@@ -135,3 +135,16 @@ The host still needs to
 [adopt known source IDs](../runtime/reading-data.md#2-adopting-source-records)
 before consumers can query or traverse them. A connector's `fetch` method does
 not imply discovery of other records.
+
+### Implementing analytical connectors
+
+Custom analytical connectors can use
+`validateAuthorizedDatasetQuery(query, declaredColumns)` from
+`relate/connectors` to check mapped column names, key indexes, slot widths and
+types, aggregate forms, and predicate operators before generating SQL. Pass the
+declared column names from the resource mapping. Empty slots are valid for
+parameter budgeting; require at least one slot when building an executable plan.
+The connector still owns physical identifier quoting, parameter encoding,
+backend-specific SQL and execution. See the
+[analytical connector contract](../../../../packages/relate/CONTRACT.md#analytical-connector-boundary)
+for the full interface.

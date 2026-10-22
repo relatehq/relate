@@ -37,7 +37,12 @@ function integer64(value: unknown): bigint {
 
     value = BigInt(value);
   } else if (typeof value === 'string') {
-    if (!/^-?(0|[1-9][0-9]*)$/.test(value) || value.length > 20) invalid();
+    if (
+      value === '-0' ||
+      !/^-?(0|[1-9][0-9]*)$/.test(value) ||
+      value.length > 20
+    )
+      invalid();
 
     value = BigInt(value);
   }
@@ -162,7 +167,7 @@ export function encodeAnalyticalValue(
       return value;
     }
     case 'string': {
-      if (typeof value !== 'string') invalid();
+      if (typeof value !== 'string' || value.includes('\0')) invalid();
 
       return value;
     }
@@ -188,7 +193,7 @@ export function parseAnalyticalValue(
   if (value === null || typeof value === 'bigint') invalid();
 
   if (type.type === 'timestamp') {
-    if (typeof value !== 'string') invalid();
+    if (typeof value !== 'string' || value.includes('\0')) invalid();
 
     return { ...type, value: canonicalTimestamp(value, type.precision) };
   }
@@ -206,14 +211,14 @@ export function decodeAnalyticalValue(
   value: unknown,
   result: ComputedResultType,
 ): DecodedAnalyticalScalar {
+  const encoded = encodeAnalyticalValue(value, result);
+
   // Driver-only bigint input is not valid JSON, even for an int64 field.
   if (
     typeof value === 'bigint' ||
     (result.type === 'int64' && value !== null && typeof value !== 'string')
   )
     invalid();
-
-  const encoded = encodeAnalyticalValue(value, result);
 
   if (encoded === null) return null;
 

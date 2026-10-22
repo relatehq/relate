@@ -1,9 +1,9 @@
-import type { AnalyticalScalar, ResultType } from 'relate/analytics';
+import type { AnalyticalScalar, ComputedResultType } from 'relate/analytics';
 
 /** Backend suites reuse these expected encodings; no driver dependencies here. */
 export const scalarCases: readonly {
   name: string;
-  result: ResultType;
+  result: ComputedResultType;
   input: string | number | bigint | boolean | null;
   json: AnalyticalScalar;
 }[] = [

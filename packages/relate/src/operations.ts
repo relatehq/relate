@@ -8,6 +8,8 @@ import type {
   ObjectReadRequest,
   AnalyticalExpression,
   ComputedResultType,
+  FilterScalar,
+  FilterOperators,
 } from '@relate/protocol';
 import type {
   ObjectData,
@@ -16,6 +18,7 @@ import type {
   PropertyNames,
   Property,
   PropertyValue,
+  ComputedPropertyNames,
 } from './index.js';
 
 /**
@@ -56,6 +59,12 @@ type TypedMeta<M, K extends string> = M extends { fields: unknown }
       readonly fields?: { readonly [N in K]?: FieldEvidence };
     };
 
+type DeclaredComputedMeta<M, K extends string> = M extends unknown
+  ? Omit<M, 'computed'> & {
+      readonly computed?: { readonly [N in K]: ComputedResultType };
+    }
+  : never;
+
 /** Read methods guarantee full only for a required full evidence option. */
 export type ObjectResult<
   O extends ObjectDefinition,
@@ -67,7 +76,10 @@ export type ObjectResult<
       readonly status: 'ok';
       readonly id: ObjectId<O['id']>;
       readonly data: ObjectData<O, K>;
-      readonly meta: TypedMeta<Extract<ReadMeta, { evidence: E }>, K>;
+      readonly meta: DeclaredComputedMeta<
+        TypedMeta<Extract<ReadMeta, { evidence: E }>, K>,
+        Extract<K, ComputedPropertyNames<O>>
+      >;
     };
 
 export type PageOptions<
@@ -149,7 +161,33 @@ export type QueryOptions<
   O extends ObjectDefinition,
   K extends PropertyNames<O> = PropertyNames<O>,
   E extends EvidenceMode = EvidenceMode,
-> = CollectionReadOptions<O, K, E> & ReadOptions<K, E>;
+> = CollectionReadOptions<O, K, E> &
+  ReadOptions<K, E> & {
+    readonly orderBy?: readonly {
+      readonly field: ComputedPropertyNames<O>;
+      readonly direction: 'asc' | 'desc';
+    }[];
+  };
+
+/** SQL result types are inferred at runtime; aliases cannot be inferred from misspelled filters. */
+export type ComputedQueryOptions<
+  O extends ObjectDefinition,
+  K extends PropertyNames<O>,
+  E extends EvidenceMode,
+  C extends Expressions,
+> = Omit<QueryOptions<O, K, E>, 'where' | 'orderBy' | 'compute'> &
+  ComputeOptions<O, C> & {
+    readonly where?: CollectionReadOptions<O, K, E>['where'] & {
+      readonly [A in keyof NoInfer<C>]?: FilterScalar | FilterOperators;
+    };
+    readonly orderBy?: readonly {
+      readonly field: Extract<
+        keyof NoInfer<C> | ComputedPropertyNames<O>,
+        string
+      >;
+      readonly direction: 'asc' | 'desc';
+    }[];
+  };
 
 export type ObjectRecord<
   O extends ObjectDefinition,
@@ -175,6 +213,15 @@ export type ComputeOptions<
     >;
 };
 
+type CallerComputedMeta<M, C extends Expressions> = M extends unknown
+  ? Omit<M, 'computed'> & {
+      readonly computed: (M extends { readonly computed?: infer D }
+        ? NonNullable<D>
+        : {}) & { readonly [A in keyof C]: ComputedResultType };
+      readonly fields?: { readonly [A in keyof C]?: FieldEvidence };
+    }
+  : never;
+
 export type WithComputed<R, C extends Expressions> = keyof C extends never
   ? R
   : R extends { readonly data: infer D; readonly meta: infer M }
@@ -182,9 +229,6 @@ export type WithComputed<R, C extends Expressions> = keyof C extends never
         readonly data: D & {
           readonly [A in keyof C]?: string | number | boolean | null;
         };
-        readonly meta: M & {
-          readonly computed: { readonly [A in keyof C]: ComputedResultType };
-          readonly fields?: { readonly [A in keyof C]?: FieldEvidence };
-        };
+        readonly meta: CallerComputedMeta<M, C>;
       }
     : R;

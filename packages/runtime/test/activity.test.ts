@@ -13,6 +13,7 @@ import { createMemoryStore } from '@relate/runtime';
 import { createOperationRecorder } from '../src/activity/recorder.js';
 import { uuidv7 } from '../src/activity/ids.js';
 import { createCapture } from '../src/activity/capture.js';
+import { analyticalSummaryCorpus } from '../../../tests/support/analytical-summary-corpus.js';
 import {
   createOperationScope,
   operationDiagnostics,
@@ -177,6 +178,23 @@ describe('activity draft validation', () => {
         operation({ kind: 'receipt', details: { analytical } }),
       ),
     ).toThrow(/analytical/);
+  });
+
+  it('validates calculation summaries without accepting SQL, aliases or unbounded identifiers', () => {
+    const { valid, invalid } = analyticalSummaryCorpus();
+
+    expect(() =>
+      validateOperationDraft(
+        operation({ details: { analytical: { stages: {}, summary: valid } } }),
+      ),
+    ).not.toThrow();
+
+    for (const summary of invalid)
+      expect(() =>
+        validateOperationDraft(
+          operation({ details: { analytical: { stages: {}, summary } } }),
+        ),
+      ).toThrow();
   });
 
   it('enforces source and trigger attribution on changes', () => {

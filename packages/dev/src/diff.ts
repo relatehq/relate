@@ -66,6 +66,10 @@ function displayName(
   ...manifests: readonly (Manifest | null)[]
 ): string {
   for (const manifest of manifests) {
+    const dataset = manifest?.datasets?.find((entry) => entry.id === id);
+
+    if (dataset) return dataset.apiName;
+
     const object = manifest?.objects.find((o) => o.id === id);
 
     if (object) return object.apiName;
@@ -88,20 +92,38 @@ function propertyChanges(
   previous: ManifestObject,
   next: ManifestObject,
 ): string[] {
-  const before = new Map(previous.properties.map((p) => [p.id, p] as const));
-  const after = new Map(next.properties.map((p) => [p.id, p] as const));
+  return [
+    ...memberChanges(previous.properties, next.properties, next.apiName),
+    ...memberChanges(
+      previous.calculations ?? [],
+      next.calculations ?? [],
+      next.apiName,
+    ),
+    ...memberChanges(
+      previous.datasets ?? [],
+      next.datasets ?? [],
+      `association ${next.apiName}`,
+    ),
+  ];
+}
+
+function memberChanges<
+  T extends { readonly id: string; readonly name: string },
+>(previous: readonly T[], next: readonly T[], owner: string): string[] {
+  const before = new Map(previous.map((p) => [p.id, p] as const));
+  const after = new Map(next.map((p) => [p.id, p] as const));
   const changes: string[] = [];
 
   for (const [id, property] of after) {
     const prior = before.get(id);
 
-    if (!prior) changes.push(`+${next.apiName}.${property.name}`);
+    if (!prior) changes.push(`+${owner}.${property.name}`);
     else if (canonicalJson(prior) !== canonicalJson(property))
-      changes.push(`~${next.apiName}.${property.name}`);
+      changes.push(`~${owner}.${property.name}`);
   }
 
   for (const [id, property] of before)
-    if (!after.has(id)) changes.push(`-${next.apiName}.${property.name}`);
+    if (!after.has(id)) changes.push(`-${owner}.${property.name}`);
 
   return changes;
 }
@@ -204,6 +226,19 @@ export function summarizeDiff(
   if (diff.otherChanged && previous)
     changes.push(...otherSections(previous, next));
 
+  const datasets = compareCollections(
+    previous?.datasets ?? [],
+    next.datasets ?? [],
+  );
+  const datasetName = (id: string) =>
+    next.datasets?.find((dataset) => dataset.id === id)?.apiName ??
+    previous?.datasets?.find((dataset) => dataset.id === id)?.apiName ??
+    id;
+
+  changes.push(...datasets.added.map((id) => `+dataset ${datasetName(id)}`));
+  changes.push(...datasets.changed.map((id) => `~dataset ${datasetName(id)}`));
+  changes.push(...datasets.removed.map((id) => `-dataset ${datasetName(id)}`));
+
   if (changes.length === 0)
     return previous ? 'model changed' : `${next.objects.length} objects`;
 
@@ -219,5 +254,7 @@ export function describeManifest(manifest: Manifest): string {
   const count = (n: number, noun: string) =>
     `${n} ${noun}${n === 1 ? '' : 's'}`;
 
-  return `${manifest.graphDefinitionId}  ${count(manifest.objects.length, 'object')} · ${count(manifest.sources.length, 'source')} · ${count(manifest.relationships?.length ?? 0, 'relationship')}`;
+  const datasets = manifest.datasets?.length ?? 0;
+
+  return `${manifest.graphDefinitionId}  ${count(manifest.objects.length, 'object')} · ${count(manifest.sources.length, 'source')} · ${count(manifest.relationships?.length ?? 0, 'relationship')}${datasets ? ` · ${count(datasets, 'dataset')}` : ''}`;
 }

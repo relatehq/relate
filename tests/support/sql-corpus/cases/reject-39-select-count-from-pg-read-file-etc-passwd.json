@@ -1,0 +1,8 @@
+{
+  "name": "reject-39-select-count-from-pg-read-file-etc-passwd",
+  "sql": "SELECT COUNT(*) FROM pg_read_file('/etc/passwd')",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

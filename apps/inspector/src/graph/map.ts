@@ -10,6 +10,8 @@ type ManifestProperty = ManifestObject['properties'][number];
 
 type ManifestRelationship = NonNullable<Manifest['relationships']>[number];
 
+type ManifestDataset = NonNullable<Manifest['datasets']>[number];
+
 export interface PropertyView {
   readonly id: string;
   readonly name: string;
@@ -34,6 +36,7 @@ export type Ownership =
 
 // Type aliases (not interfaces) so React Flow's Record<string, unknown> data constraint holds.
 export type ObjectNodeData = {
+  readonly kind: 'object';
   readonly id: string;
   readonly apiName: string;
   readonly label: string;
@@ -41,9 +44,34 @@ export type ObjectNodeData = {
   readonly description?: string;
   readonly ownership: Ownership;
   readonly properties: readonly PropertyView[];
+  readonly calculations: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly access: string;
+    readonly description?: string;
+  }[];
 };
 
+export type DatasetNodeData = {
+  readonly kind: 'dataset';
+  readonly id: string;
+  readonly apiName: string;
+  readonly label: string;
+  readonly description?: string;
+  readonly columns: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly type: string;
+    readonly access: string;
+    readonly role?: string;
+    readonly description?: string;
+  }[];
+};
+
+export type GraphNodeData = ObjectNodeData | DatasetNodeData;
+
 export type RelationshipEdgeData = {
+  readonly kind: 'relationship';
   readonly id: string;
   readonly forward: ManifestRelationship['forward'];
   readonly reverse: ManifestRelationship['reverse'];
@@ -59,17 +87,30 @@ export type RelationshipEdgeData = {
     }
 );
 
+export type AssociationEdgeData = {
+  readonly kind: 'association';
+  readonly id: string;
+  readonly name: string;
+  readonly role: string;
+  readonly on: readonly {
+    readonly column: string;
+    readonly property: string;
+  }[];
+};
+
+export type GraphEdgeData = RelationshipEdgeData | AssociationEdgeData;
+
 export interface GraphNode {
   readonly id: string;
-  readonly data: ObjectNodeData;
+  readonly data: GraphNodeData;
 }
 
 export interface GraphEdge {
   readonly id: string;
-  /** The `from` object: traversing `forward` from it reaches many `target`s. */
+  /** Object at the relationship or dataset association's start. */
   readonly source: string;
   readonly target: string;
-  readonly data: RelationshipEdgeData;
+  readonly data: GraphEdgeData;
 }
 
 export interface GraphModel {
@@ -79,6 +120,17 @@ export interface GraphModel {
 
 export function describeScalar(schema: ManifestProperty['schema']): string {
   return `${schema.type}${schema.nullable ? ' | null' : ''}${schema.optional ? '?' : ''}`;
+}
+
+export function describeDatasetType(
+  schema: ManifestDataset['columns'][number]['schema'],
+): string {
+  const type =
+    schema.type === 'timestamp'
+      ? `timestamp(${schema.precision})`
+      : schema.type;
+
+  return `${type}${schema.nullable ? ' | null' : ''}`;
 }
 
 function propertyView(property: ManifestProperty): PropertyView {
@@ -100,7 +152,7 @@ function propertyView(property: ManifestProperty): PropertyView {
 const byId = <T extends { readonly id: string }>(a: T, b: T) =>
   a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
-/** Object types become nodes; declared relationships become edges. Reference properties alone never do. */
+/** Objects and datasets become nodes; declared relationships and associations become edges. */
 export function mapManifest(manifest: Manifest): GraphModel {
   const objects = new Map(manifest.objects.map((o) => [o.id, o] as const));
   const sources = [
@@ -109,6 +161,7 @@ export function mapManifest(manifest: Manifest): GraphModel {
   const nodes = [...manifest.objects].sort(byId).map((object): GraphNode => ({
     id: object.id,
     data: {
+      kind: 'object',
       id: object.id,
       apiName: object.apiName,
       label: object.label,
@@ -133,6 +186,16 @@ export function mapManifest(manifest: Manifest): GraphModel {
           return identity || byId(a, b);
         })
         .map(propertyView),
+      calculations: [...(object.calculations ?? [])]
+        .sort(byId)
+        .map((calculation) => ({
+          id: calculation.id,
+          name: calculation.name,
+          access: calculation.access,
+          ...(calculation.description !== undefined
+            ? { description: calculation.description }
+            : {}),
+        })),
     },
   }));
   const edges = [...(manifest.relationships ?? [])]
@@ -190,6 +253,7 @@ export function mapManifest(manifest: Manifest): GraphModel {
           source: relationship.fromObjectDefinitionId,
           target: relationship.toObjectDefinitionId,
           data: {
+            kind: 'relationship',
             id: relationship.id,
             forward: relationship.forward,
             reverse: relationship.reverse,
@@ -199,14 +263,81 @@ export function mapManifest(manifest: Manifest): GraphModel {
       ];
     });
 
-  return { nodes, edges };
+  const datasets = new Map(
+    (manifest.datasets ?? []).map((dataset) => [dataset.id, dataset]),
+  );
+
+  for (const dataset of datasets.values()) {
+    nodes.push({
+      id: dataset.id,
+      data: {
+        kind: 'dataset',
+        id: dataset.id,
+        apiName: dataset.apiName,
+        label: dataset.apiName,
+        ...(dataset.description !== undefined
+          ? { description: dataset.description }
+          : {}),
+        columns: [...dataset.columns].sort(byId).map((column) => ({
+          id: column.id,
+          name: column.name,
+          type: describeDatasetType(column.schema),
+          access: column.access,
+          ...(dataset.groups[column.access]
+            ? { role: dataset.groups[column.access]!.role }
+            : {}),
+          ...(column.description !== undefined
+            ? { description: column.description }
+            : {}),
+        })),
+      },
+    });
+  }
+
+  for (const object of manifest.objects) {
+    for (const association of object.datasets ?? []) {
+      const dataset = datasets.get(association.datasetDefinitionId);
+
+      if (!dataset) continue;
+
+      const on = association.on.flatMap((pair) => {
+        const column = dataset.columns.find(
+          (column) => column.id === pair.columnDefinitionId,
+        );
+        const property = object.properties.find(
+          (property) => property.id === pair.propertyDefinitionId,
+        );
+
+        return column && property
+          ? [{ column: column.name, property: property.name }]
+          : [];
+      });
+
+      if (on.length !== association.on.length) continue;
+
+      edges.push({
+        id: association.id,
+        source: object.id,
+        target: dataset.id,
+        data: {
+          kind: 'association',
+          id: association.id,
+          name: association.name,
+          role: association.gate.role,
+          on,
+        },
+      });
+    }
+  }
+
+  return { nodes: nodes.sort(byId), edges: edges.sort(byId) };
 }
 
 export const NODE_WIDTH = 200;
 export const NODE_HEIGHT = 60;
 
 /** Dimensions ELK lays out with; the rendered card matches them through CSS. */
-export function estimateNodeSize(data: ObjectNodeData): {
+export function estimateNodeSize(data: GraphNodeData): {
   readonly width: number;
   readonly height: number;
 } {

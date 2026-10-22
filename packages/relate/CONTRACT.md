@@ -602,8 +602,11 @@ preserves the bounds; loading the manifest validates their shape and scalar
 type. Runtime validation uses this portable metadata, so an application cannot
 bypass a native property limit by supplying a valid action input and
 constructing an invalid value inside the handler. Unsupported checks (including
-regex, arbitrary refinements, formats, integer checks, transforms, defaults and
-coercion) still reject compilation.
+regex, arbitrary refinements, unrecognized formats, `z.int()`, transforms,
+defaults and coercion) still reject compilation. Unrefined `z.int32()` and
+`z.int64()` have explicit portable formats: signed 32-bit JSON numbers and
+canonical signed 64-bit decimal strings, respectively. Optional/nullable
+wrappers are supported; additional integer bounds or refinements are rejected.
 
 Actions may declare `errors: { inactive: z.object({}) }`. Their implementation
 can call `fail('inactive', {})`; callers receive a typed failed receipt after
@@ -627,19 +630,46 @@ conversion of existing strings or source pushdown occurs.
 
 ## Analytical value boundary
 
-`relate/analytics` exports the portable SQL representation, parser interface,
-logical types and codecs. SQL source spans are zero-based UTF-16 offsets into
-the original expression. Numeric SQL literals retain their exact spelling until
-contextual type resolution; parsing must never round a wide integer through a
-JavaScript number. No parser-specific syntax tree crosses this boundary.
+`relate/analytics` exports `AnalyticalLimits` for the host-owned
+`AppBindings.analytics` operation deadline and source-call budget, alongside the
+portable SQL representation, parser interface, logical types and codecs. SQL
+source spans are zero-based UTF-16 offsets into the original expression. Numeric
+SQL literals retain their exact spelling until contextual type resolution;
+parsing must never round a wide integer through a JavaScript number. No
+parser-specific syntax tree crosses this boundary.
 
 Result encoding validates int32/int64 bounds, finite float64 values, exact
-boolean/string types and canonical UTC timestamp precision. Int64 JSON is always
-a decimal string; scalar decoding returns bigint. Millisecond timestamp decoding
+boolean/string types and canonical UTC timestamp precision. Portable strings
+exclude NUL; canonical int64 strings exclude `'-0'`. Int64 JSON is always a
+decimal string; scalar decoding returns bigint. Millisecond timestamp decoding
 returns Date, while microsecond decoding preserves the canonical string. The
 same codecs own runtime result validation and consumer decoding. Null parameters
 are rejected; SQL null literals have their own restricted syntax. Invalid values
 raise a sanitized error that contains neither the value nor provider details.
+
+Aggregates execute in the backend. `COUNT`, integer `SUM`, and `MIN`/`MAX` of
+integer, boolean, string and timestamp values are identical on every supported
+backend: strings order by UTF-8 bytes and timestamps by instant. `AVG` and
+float64 `SUM` use the backend's floating-point arithmetic. Results can differ
+between backends in the last digits, and can vary with row order or parallel
+execution within one backend.
+
+`relate/consumer` exports `decodeComputed(result)`, `DecodedComputed<R>` and
+`AnalyticalValueError`. Typed results constrain the decoded bag to selected
+declared calculations and caller aliases. The input is a get result or an
+individual query record carrying `data` and `meta.computed`. The output is a
+separate object containing only own, present computed fields, decoded with those
+logical types. It does not alter data, status, IDs or evidence in the input.
+Both compact and full metadata are supported. Missing/forbidden/unavailable
+values remain omitted; null remains null. A not-found result or absent computed
+metadata returns an empty object. Ordinary fields, including ordinary int64
+strings, are not part of the decoded bag. Pages are decoded record by record.
+
+Malformed present scalars and their type metadata throw `AnalyticalValueError`;
+no partial bag is returned and no value is included in the error. Type entries
+for omitted fields are not decoded. Literal metadata narrows the decoded scalar
+type; authored SQL retains the scalar union, and all output fields are optional.
+The helper stays browser-safe and reaches only the shared portable value codecs.
 
 The analytical entry point and its transitive local imports stay inside the
 analytics subtree. Connector/storage contracts may reach that subtree but still
@@ -658,9 +688,16 @@ Glossary:
 - **Plan**: a connector-owned `PreparedPlan`, created from an authorized query.
   It belongs to its resource and binding generation; it is never caller SQL.
 
+`validateAuthorizedDatasetQuery(query, declaredColumns)` from
+`relate/connectors` checks shared logical query invariants: mapped column names,
+key indexes, slot widths and types, aggregate forms, and predicate
+operators/arity. Empty slots are allowed for parameter budgeting; connectors
+require nonempty executable plans separately. Physical identifier quoting, value
+encoding, SQL generation and backend execution remain connector-owned.
+
 `relate/connectors` exports `AnalyticalConnector`, `AnalyticalResource`,
-`AnalyticalConnection`, and their execution types. These are contracts for the
-analytical implementation in progress, not an enabled object-read feature.
+`AnalyticalConnection`, and their execution types. The SQLite and PostgreSQL
+connectors implement this boundary for the runtime's analytical object reads.
 
 ```mermaid
 flowchart LR
@@ -746,13 +783,12 @@ Association `on` is a non-empty array of `{ column, property }`. Both names are
 checked against their owner and compiled to stable IDs. Dataset column mappings
 cannot repeat; multiple columns may match the same object property. Pair order
 is normalized so it does not change `definitionRevision`. A dataset reference
-must be the registered definition instance. Ordinary string, boolean and
-millisecond-instant properties (including nullable/optional properties and
-object IDs) can currently correlate with compatible columns. Timestamp precision
-may differ without losing the millisecond value. Reference properties, local
-wall-clock values, floating equality and incompatible types are rejected.
-Integer object-property schemas remain implementation work; dataset integer
-columns and declared calculation metadata are supported by the compiler.
+must be the registered definition instance. Ordinary string, boolean, int32,
+int64 and millisecond-instant properties (including nullable/optional properties
+and object IDs) can correlate with compatible columns. Integer formats must
+match exactly. Timestamp precision may differ without losing the millisecond
+value. Reference properties, local wall-clock values, floating equality and
+incompatible types are rejected.
 
 Every registered dataset requires a policy, including `{}` for ordinary-only
 columns. Every restricted column group requires a role gate. Dataset policies
@@ -767,7 +803,11 @@ associations, correlation IDs and gates. Validation of loaded JSON repeats ID,
 name, logical-type, correlation and policy checks independently of TypeScript
 and authoring helpers. Dataset or association renames retain explicit IDs but
 change the revision; description and policy changes also affect the revision.
-These contracts do not yet enable analytical reads in the Node runtime.
+Node `startApp` combines these declarations with physical bindings and the SQL
+parser. The runtime executes caller expressions and declared calculations
+through object `get` and `query`, including computed filtering and ordering on
+both SQLite and PostgreSQL. See the
+[runtime analytical contract](../runtime/CONTRACT.md#analytical-object-get).
 
 ## Declared calculation metadata
 
@@ -830,8 +870,10 @@ Dataset resources require `bindDataset`; source resources require `bindSource`.
 A resource can implement both capabilities.
 
 Node `startApp` checks registrations, capabilities, connection identity and
-physical-schema compatibility before returning a runtime. These binding
-contracts do not yet enable analytical object reads.
+physical-schema compatibility before returning a runtime. The resulting bindings
+supply the opaque resources and shared connection queues used by analytical
+object reads. Source and dataset resources may share a connection without
+sharing object identity or membership.
 
 ## Analytical connector timing
 
@@ -844,6 +886,15 @@ invent execution time. Observers cannot fail the query or block cleanup. These
 callbacks contain only a stage and duration, never SQL, values, aliases or
 physical connection details. Runtime activity aggregation and Inspector display
 remain implementation work.
+
+Traversal defaults select ordinary properties even when the target declares
+calculations. Traversal selection and filters exclude calculated names in the
+typed facade; explicit calculated requests remain unsupported at runtime.
+
+Analytical connectors may publish `limits.maxConcurrentStatements`. Hosts clamp
+admission to that capacity and coordinate it across runtimes borrowing a
+connection; callers do not configure connector capacity. A missing capability
+limit leaves the host's finite concurrency limit in force.
 
 ## Shared analytical SQL rendering
 
