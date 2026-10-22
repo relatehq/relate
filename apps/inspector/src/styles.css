@@ -3147,8 +3147,10 @@ a.icon-button.active {
   font-size: 10.5px;
 }
 
+/* Not a scroll container: .pg-results-main scrolls both ways, so the sticky
+   header row and id column pin against the box that actually scrolls. */
 .pg-table-wrap {
-  overflow: auto;
+  overflow: visible;
 }
 
 .pg-table {
