@@ -1,5 +1,5 @@
 import type { ComputedResultType, LogicalType } from '@relate/protocol';
-import type { Aggregate, Predicate } from './sql.js';
+import type { Aggregate, Predicate, ScalarExpression } from './sql.js';
 import type { TypedValue } from './values.js';
 
 declare const datasetResource: unique symbol;
@@ -42,7 +42,20 @@ export type ResolvedPredicate =
       readonly not: boolean;
     };
 
-export interface ResolvedAggregate {
+export type ResolvedScalarExpression = ScalarExpression<
+  ResolvedAggregateLeaf,
+  ResolvedOperand
+>;
+
+export type ResolvedAggregate =
+  | ResolvedAggregateLeaf
+  | {
+      readonly aggregate: 'expression';
+      readonly expression: ResolvedScalarExpression;
+      readonly result: ComputedResultType;
+    };
+
+export interface ResolvedAggregateLeaf {
   readonly aggregate: Aggregate;
   readonly argument: ResolvedOperand | '*';
   readonly distinct: boolean;

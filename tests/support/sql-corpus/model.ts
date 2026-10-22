@@ -52,6 +52,8 @@ export function createSqlCorpusGraph(entry: SqlCorpusCase, declared = false) {
     properties: {
       id: objectId({ id: 'customer.id' }),
       externalId: native(z.string(), { id: 'customer.external' }),
+      budget: native(z.number(), { id: 'customer.budget' }),
+      elapsed: native(z.number(), { id: 'customer.elapsed' }),
       customerSince: native(z.iso.datetime({ offset: true, precision: 3 }), {
         id: 'customer.since',
       }),

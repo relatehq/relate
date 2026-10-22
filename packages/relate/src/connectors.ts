@@ -110,6 +110,8 @@ export type {
   PhysicalSchema,
   PreparedPlan,
   ResolvedAggregate,
+  ResolvedAggregateLeaf,
+  ResolvedScalarExpression,
   ResolvedOperand,
   ResolvedPredicate,
   SlotRow,

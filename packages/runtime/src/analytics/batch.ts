@@ -1,10 +1,15 @@
-import { encodeAnalyticalValue, parseAnalyticalValue } from 'relate/analytics';
+import {
+  encodeAnalyticalValue,
+  mapScalarExpression,
+  parseAnalyticalValue,
+} from 'relate/analytics';
 import type { LogicalType } from 'relate/analytics';
 import type {
   AuthorizedDatasetQuery,
   ResolvedOperand,
   ResolvedPredicate,
   ResolvedAggregate,
+  ResolvedAggregateLeaf,
   TypedValue,
 } from 'relate/connectors';
 import type {
@@ -146,6 +151,16 @@ function remap(
       : value.kind === 'null'
         ? { ...value, value: operand(value.value) }
         : { ...value, args: value.args.map(predicate) };
+
+  if (aggregate.aggregate === 'expression')
+    return {
+      ...aggregate,
+      expression: mapScalarExpression(
+        aggregate.expression,
+        (leaf) => remap(leaf, indexes) as ResolvedAggregateLeaf,
+        operand,
+      ),
+    };
 
   return {
     ...aggregate,

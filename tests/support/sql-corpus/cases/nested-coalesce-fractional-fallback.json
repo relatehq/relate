@@ -1,0 +1,60 @@
+{
+  "name": "nested-coalesce-fractional-fallback",
+  "sql": "SELECT COALESCE(SUM(small), 0.5) + 1 FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "binary",
+        "op": "+",
+        "left": {
+          "kind": "coalesce",
+          "left": {
+            "kind": "aggregate",
+            "value": {
+              "aggregate": "sum",
+              "argument": {
+                "kind": "column",
+                "name": "small",
+                "quoted": false
+              },
+              "distinct": false
+            }
+          },
+          "right": {
+            "kind": "operand",
+            "value": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "0.5"
+            }
+          }
+        },
+        "right": {
+          "kind": "operand",
+          "value": {
+            "kind": "literal",
+            "literal": "number",
+            "value": "1"
+          }
+        }
+      }
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 17,
+      "acme_late": 17,
+      "empty": 1.5,
+      "nulls": 1.5,
+      "wide": 17
+    }
+  }
+}

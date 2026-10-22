@@ -654,6 +654,18 @@ float64 `SUM` use the backend's floating-point arithmetic. Results can differ
 between backends in the last digits, and can vary with row order or parallel
 execution within one backend.
 
+Scalar formulas over one dataset support `+`, `-`, `*`, `/`, `NULLIF`,
+`COALESCE`, and per-aggregate `FILTER (WHERE predicate)`. Numeric formula leaves
+may be aggregates, ordinary `self` properties, literals or named parameters.
+Formula results are nullable float64, with null for division by zero; wide
+integers can lose precision during conversion. Standalone aggregates preserve
+the types above. Each aggregate is evaluated before the formula, including zero
+counts for empty datasets. All branches contribute authorization and
+ordinary-property dependencies. Joins and multi-dataset expressions remain
+unsupported. Connector plans carry either a `ResolvedAggregateLeaf` or an
+`aggregate: 'expression'` tree; masks remain per output field and parameter
+budgets include all nested leaves and values.
+
 `relate/consumer` exports `decodeComputed(result)`, `DecodedComputed<R>` and
 `AnalyticalValueError`. Typed results constrain the decoded bag to selected
 declared calculations and caller aliases. The input is a get result or an
@@ -690,9 +702,10 @@ Glossary:
 
 `validateAuthorizedDatasetQuery(query, declaredColumns)` from
 `relate/connectors` checks shared logical query invariants: mapped column names,
-key indexes, slot widths and types, aggregate forms, and predicate
-operators/arity. Empty slots are allowed for parameter budgeting; connectors
-require nonempty executable plans separately. Physical identifier quoting, value
+key indexes, slot widths and types, aggregate forms, predicate operators/arity,
+and formula trees (plain numeric aggregate and operand leaves, no nested
+formulas). Empty slots are allowed for parameter budgeting; connectors require
+nonempty executable plans separately. Physical identifier quoting, value
 encoding, SQL generation and backend execution remain connector-owned.
 
 `relate/connectors` exports `AnalyticalConnector`, `AnalyticalResource`,
@@ -904,7 +917,15 @@ runtime-authorized query structures, never caller SQL, and do not grant access
 or replace runtime authorization. `SqlDataset` holds connector-owned physical
 identifiers. `AnalyticalSqlDialect` supplies scalar binding, comparison,
 aggregate and timestamp syntax; the shared renderer validates operands,
-operators, slots and correlations and owns the grouped join shape.
+operators, slots and correlations and owns the grouped join shape. Formula
+arithmetic also renders through `operator`. A dialect that qualifies operators
+can replace `NULLIF` with an optional `nullif(left, right)` hook, which must
+render each argument once; PostgreSQL uses it so `search_path` cannot pick the
+zero-division guard's `=`.
+
+`foldScalarExpression`, `mapScalarExpression` and `scalarLeaves` are the one
+left-to-right walk over a `ScalarExpression<A, O>` formula, shared by the
+parser, runtime resolution, batching, validation and rendering.
 
 PostgreSQL, SQLite and DuckDB use this renderer. The count-only budget traversal
 counts literals, predicates, fallbacks, slot keys/masks and dialect timestamp

@@ -1,0 +1,60 @@
+{
+  "name": "empty-formula-fallback",
+  "sql": "SELECT COALESCE(SUM(small) / COUNT(*), 7) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "coalesce",
+        "left": {
+          "kind": "binary",
+          "op": "/",
+          "left": {
+            "kind": "aggregate",
+            "value": {
+              "aggregate": "sum",
+              "argument": {
+                "kind": "column",
+                "name": "small",
+                "quoted": false
+              },
+              "distinct": false
+            }
+          },
+          "right": {
+            "kind": "aggregate",
+            "value": {
+              "aggregate": "count",
+              "argument": "*",
+              "distinct": false
+            }
+          }
+        },
+        "right": {
+          "kind": "operand",
+          "value": {
+            "kind": "literal",
+            "literal": "number",
+            "value": "7"
+          }
+        }
+      }
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 3.2,
+      "acme_late": 3.2,
+      "empty": 7,
+      "nulls": 7,
+      "wide": 8
+    }
+  }
+}

@@ -1,6 +1,10 @@
 import { validateAuthorizedDatasetQuery } from './query-validation.js';
+import { foldScalarExpression, scalarLeaves } from './scalar.js';
 import type {
   AuthorizedDatasetQuery,
+  ResolvedAggregate,
+  ResolvedAggregateLeaf,
+  ResolvedScalarExpression,
   ResolvedOperand,
   ResolvedPredicate,
 } from './query.js';
@@ -105,7 +109,12 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
       ...slot.valid.map((value) => bind({ type: 'boolean', value })),
     ].join(', ')})`;
   });
-  const aggregates = query.aggregates.map((aggregate, index) => {
+  const aggregates: string[] = [];
+  const aliases = new Map<ResolvedAggregateLeaf, string>();
+  const collectLeaf = (
+    aggregate: ResolvedAggregateLeaf,
+    index: number,
+  ): void => {
     const argument =
       aggregate.argument === '*'
         ? '*'
@@ -116,9 +125,62 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
     const filter = aggregate.predicate
       ? ` AND ${predicate(aggregate.predicate)}`
       : '';
+    const alias = `v${aggregates.length}`;
 
-    return `${dialect.aggregate(aggregate, argument, `k.m${index}${filter}`)} AS v${index}`;
-  });
+    aliases.set(aggregate, alias);
+    aggregates.push(
+      `${dialect.aggregate(aggregate, argument, `k.m${index}${filter}`)} AS ${alias}`,
+    );
+  };
+
+  // Render all aggregate inputs before projection values for positional binds.
+  query.aggregates.forEach((value, index) =>
+    value.aggregate === 'expression'
+      ? scalarLeaves(value.expression).forEach(
+          (leaf) => leaf.kind === 'aggregate' && collectLeaf(leaf.value, index),
+        )
+      : collectLeaf(value, index),
+  );
+  const leafProjection = (aggregate: ResolvedAggregateLeaf): string => {
+    let value = `a.${aliases.get(aggregate)!}`;
+
+    if (aggregate.aggregate === 'count')
+      value = `COALESCE(${value}, ${bind({ type: 'int64', value: 0n })})`;
+    else if (aggregate.fallback)
+      value = `COALESCE(${value}, ${bind(aggregate.fallback)})`;
+
+    if (aggregate.result.type === 'timestamp')
+      value = dialect.timestamp(value, aggregate.result.precision, bind);
+
+    return value;
+  };
+  const float = (sql: string) => `CAST(${sql} AS DOUBLE PRECISION)`;
+  const nullif = (left: string, right: string) =>
+    dialect.nullif ? dialect.nullif(left, right) : `NULLIF(${left}, ${right})`;
+  const scalar = (value: ResolvedScalarExpression): string =>
+    foldScalarExpression(
+      value,
+      (leaf) =>
+        float(
+          leaf.kind === 'aggregate'
+            ? leafProjection(leaf.value)
+            : operand(leaf.value),
+        ),
+      (node, left, right) => {
+        if (node.kind === 'binary') {
+          // Guard every denominator: all supported engines return NULL for zero division.
+          return `(${left} ${dialect.operator(node.op)} ${node.op === '/' ? nullif(right, float('0')) : right})`;
+        }
+
+        return node.kind === 'nullif'
+          ? nullif(left, right)
+          : `COALESCE(${left}, ${right})`;
+      },
+    );
+  const projection = query.aggregates.map(
+    (aggregate, index) =>
+      `${aggregate.aggregate === 'expression' ? scalar(aggregate.expression) : leafProjection(aggregate)} AS v${index}`,
+  );
   const correlation = query.correlation
     .map((pair) => {
       const type = query.keys[pair.key]!.type;
@@ -130,19 +192,6 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
       );
     })
     .join(' AND ');
-  const projection = query.aggregates.map((aggregate, i) => {
-    let value = `a.v${i}`;
-
-    if (aggregate.aggregate === 'count')
-      value = `COALESCE(${value}, ${bind({ type: 'int64', value: 0n })})`;
-    else if (aggregate.fallback)
-      value = `COALESCE(${value}, ${bind(aggregate.fallback)})`;
-
-    if (aggregate.result.type === 'timestamp')
-      value = dialect.timestamp(value, aggregate.result.precision, bind);
-
-    return `${value} AS v${i}`;
-  });
 
   // Positional parameters are explicitly typed; physical identifiers stay connector-owned.
   return {
@@ -183,8 +232,10 @@ export interface AnalyticalSqlDialect<
     correlation: boolean,
   ): string;
   operator(operator: string): string;
+  /** Replaces `NULLIF`; must render each argument exactly once. */
+  nullif?(left: string, right: string): string;
   aggregate(
-    aggregate: AuthorizedDatasetQuery['aggregates'][number],
+    aggregate: ResolvedAggregateLeaf,
     argument: string,
     filter: string,
   ): string;
@@ -211,13 +262,22 @@ export function analyticalParameterBudget(
 
     return value.args.reduce((sum, arg) => sum + predicate(arg), 0);
   };
+  const aggregate = (value: ResolvedAggregate): number =>
+    value.aggregate === 'expression'
+      ? foldScalarExpression(
+          value.expression,
+          (leaf) =>
+            leaf.kind === 'aggregate'
+              ? aggregate(leaf.value)
+              : operand(leaf.value),
+          (_, left, right) => left + right,
+        )
+      : (value.argument === '*' ? 0 : operand(value.argument)) +
+        (value.predicate ? predicate(value.predicate) : 0) +
+        (value.aggregate === 'count' || value.fallback ? 1 : 0) +
+        (value.result.type === 'timestamp' ? dialect.timestampParameters : 0);
   const fixed = query.aggregates.reduce(
-    (sum, aggregate) =>
-      sum +
-      (aggregate.argument === '*' ? 0 : operand(aggregate.argument)) +
-      (aggregate.predicate ? predicate(aggregate.predicate) : 0) +
-      (aggregate.aggregate === 'count' || aggregate.fallback ? 1 : 0) +
-      (aggregate.result.type === 'timestamp' ? dialect.timestampParameters : 0),
+    (sum, value) => sum + aggregate(value),
     0,
   );
 

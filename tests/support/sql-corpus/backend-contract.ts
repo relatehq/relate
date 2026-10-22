@@ -76,6 +76,8 @@ export function sqlCorpusBackendContract(
                   createdAt: 1,
                   values: {
                     'customer.external': external!,
+                    'customer.budget': 100,
+                    'customer.elapsed': 0.5,
                     'customer.since': since!,
                   },
                 },

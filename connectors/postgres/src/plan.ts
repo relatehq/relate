@@ -52,6 +52,10 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
   operator(op) {
     return `OPERATOR(pg_catalog.${op})`;
   },
+  nullif(left, right) {
+    // NULLIF resolves `=` through search_path; evaluate each argument once.
+    return `(SELECT CASE WHEN z.l OPERATOR(pg_catalog.=) z.r THEN NULL ELSE z.l END FROM (SELECT ${left} AS l, ${right} AS r) AS z)`;
+  },
   aggregate(aggregate, argument, filter) {
     const inputType =
       aggregate.argument === '*'

@@ -1,5 +1,8 @@
+import { scalarLeaves } from 'relate/analytics';
 import type {
   Aggregate,
+  SqlAggregate,
+  ScalarExpression,
   LiteralOperand,
   Operand,
   Predicate,
@@ -217,6 +220,30 @@ export function lower(
   }
 
   function predicate(value: unknown): Predicate {
+    if (
+      value &&
+      typeof value === 'object' &&
+      ('ColumnRef' in value || 'ParamRef' in value || 'A_Const' in value)
+    ) {
+      const left = operand(value);
+
+      // Bare boolean columns, parameters and TRUE/FALSE mean `= TRUE`.
+      if (left.kind === 'literal' && left.literal !== 'boolean')
+        return unsupported(left.at);
+
+      return {
+        kind: 'compare',
+        op: '=',
+        left,
+        right: {
+          kind: 'literal',
+          literal: 'boolean',
+          value: true,
+          at: left.at,
+        },
+      };
+    }
+
     const node = shape(value, ['A_Expr', 'BoolExpr', 'NullTest']);
 
     if (Object.keys(node).length !== 1) return unsupported();
@@ -292,67 +319,184 @@ export function lower(
     'val',
     'location',
   ]);
-  let output = target.val;
-  let fallback: LiteralOperand | undefined;
 
-  if (output && typeof output === 'object' && 'CoalesceExpr' in output) {
-    const coalesce = shape(shape(output, ['CoalesceExpr']).CoalesceExpr, [
+  // Lowered once, after the first aggregate call, and shared by every leaf.
+  let where: Predicate | undefined;
+  const lowerWhere = () =>
+    select.whereClause === undefined
+      ? undefined
+      : (where ??= predicate(select.whereClause));
+
+  function aggregate(output: unknown): SqlAggregate {
+    let fallback: LiteralOperand | undefined;
+
+    if (output && typeof output === 'object' && 'CoalesceExpr' in output) {
+      const coalesce = shape(shape(output, ['CoalesceExpr']).CoalesceExpr, [
+        'args',
+        'location',
+      ]);
+      const args = list(coalesce.args);
+
+      if (args.length !== 2)
+        return unsupported(source.span(location(coalesce)));
+
+      const value = operand(args[1]);
+
+      if (value.kind !== 'literal' || value.literal === 'null')
+        return unsupported(source.span(location(coalesce)));
+
+      fallback = value;
+      output = args[0];
+    }
+
+    const call = shape(shape(output, ['FuncCall']).FuncCall, [
+      'funcname',
       'args',
+      'agg_star',
+      'agg_distinct',
+      'agg_filter',
+      'funcformat',
       'location',
     ]);
-    const args = list(coalesce.args);
+    const functions = strings(call.funcname);
+    const name = functions[0];
 
-    if (args.length !== 2) return unsupported(source.span(location(coalesce)));
+    if (
+      functions.length !== 1 ||
+      !['count', 'sum', 'avg', 'min', 'max'].includes(name!) ||
+      call.funcformat !== 'COERCE_EXPLICIT_CALL'
+    )
+      return unsupported(source.span(location(call)));
 
-    const value = operand(args[1]);
+    if (
+      (call.agg_star !== undefined && call.agg_star !== true) ||
+      (call.agg_distinct !== undefined && call.agg_distinct !== true)
+    )
+      return unsupported(source.span(location(call)));
 
-    if (value.kind !== 'literal' || value.literal === 'null')
-      return unsupported(source.span(location(coalesce)));
+    if (
+      call.agg_star
+        ? name !== 'count' || call.args !== undefined || call.agg_distinct
+        : list(call.args).length !== 1
+    )
+      return unsupported(source.span(location(call)));
 
-    fallback = value;
-    output = args[0];
+    if (call.agg_distinct && name !== 'count')
+      return unsupported(source.span(location(call)));
+
+    const filters = [
+      lowerWhere(),
+      call.agg_filter === undefined ? undefined : predicate(call.agg_filter),
+    ].filter((value) => value !== undefined);
+
+    return {
+      aggregate: name as Aggregate,
+      argument: call.agg_star ? '*' : operand(list(call.args)[0]),
+      distinct: call.agg_distinct === true,
+      ...(filters.length
+        ? {
+            predicate:
+              filters.length === 1
+                ? filters[0]!
+                : {
+                    kind: 'boolean' as const,
+                    op: 'and' as const,
+                    args: filters,
+                  },
+          }
+        : {}),
+      ...(fallback ? { fallback } : {}),
+    };
   }
 
-  const call = shape(shape(output, ['FuncCall']).FuncCall, [
-    'funcname',
-    'args',
-    'agg_star',
-    'agg_distinct',
-    'funcformat',
-    'location',
-  ]);
-  const functions = strings(call.funcname);
-  const aggregate = functions[0];
+  function expression(
+    value: unknown,
+    standalone = false,
+  ): ScalarExpression<SqlAggregate> {
+    const node = shape(value, [
+      'A_Expr',
+      'CoalesceExpr',
+      'FuncCall',
+      'A_Const',
+      'ColumnRef',
+      'ParamRef',
+    ]);
 
-  if (
-    functions.length !== 1 ||
-    !['count', 'sum', 'avg', 'min', 'max'].includes(aggregate!) ||
-    call.funcformat !== 'COERCE_EXPLICIT_CALL'
-  )
-    return unsupported(source.span(location(call)));
+    if (Object.keys(node).length !== 1) return unsupported();
 
-  if (
-    (call.agg_star !== undefined && call.agg_star !== true) ||
-    (call.agg_distinct !== undefined && call.agg_distinct !== true)
-  )
-    return unsupported();
+    if (node.A_Expr) {
+      const expr = shape(node.A_Expr, [
+        'kind',
+        'name',
+        'lexpr',
+        'rexpr',
+        'location',
+      ]);
+      const names = strings(expr.name);
+      const at = source.span(location(expr));
 
-  if (
-    call.agg_star
-      ? aggregate !== 'count' || call.args !== undefined || call.agg_distinct
-      : list(call.args).length !== 1
-  )
-    return unsupported(source.span(location(call)));
+      if (names.length !== 1) return unsupported(at);
 
-  if (call.agg_distinct && aggregate !== 'count')
-    return unsupported(source.span(location(call)));
+      if (expr.kind === 'AEXPR_NULLIF' && names[0] === '=')
+        return {
+          kind: 'nullif',
+          left: expression(expr.lexpr),
+          right: expression(expr.rexpr),
+        };
 
-  return {
-    association,
-    aggregate: aggregate as Aggregate,
-    argument: call.agg_star ? '*' : operand(list(call.args)[0]),
-    distinct: call.agg_distinct === true,
-    ...(select.whereClause ? { predicate: predicate(select.whereClause) } : {}),
-    ...(fallback ? { fallback } : {}),
-  };
+      if (expr.kind !== 'AEXPR_OP' || !['+', '-', '*', '/'].includes(names[0]!))
+        return unsupported(at);
+
+      return {
+        kind: 'binary',
+        op: names[0] as '+' | '-' | '*' | '/',
+        left: expression(expr.lexpr),
+        right: expression(expr.rexpr),
+      };
+    }
+
+    if (node.CoalesceExpr) {
+      const coalesce = shape(node.CoalesceExpr, ['args', 'location']);
+      const args = list(coalesce.args);
+
+      if (args.length !== 2)
+        return unsupported(source.span(location(coalesce)));
+
+      // Only standalone COALESCE keeps the aggregate's exact scalar type.
+      // Nested calls use float64 operands like the surrounding formula.
+      if (
+        standalone &&
+        args[0] &&
+        typeof args[0] === 'object' &&
+        'FuncCall' in args[0] &&
+        args[1] &&
+        typeof args[1] === 'object' &&
+        'A_Const' in args[1]
+      )
+        return { kind: 'aggregate', value: aggregate(value) };
+
+      return {
+        kind: 'coalesce',
+        left: expression(args[0]),
+        right: expression(args[1]),
+      };
+    }
+
+    if (node.FuncCall) return { kind: 'aggregate', value: aggregate(value) };
+
+    const resolved = operand(value);
+
+    if (resolved.kind === 'column') return unsupported(resolved.at);
+
+    return { kind: 'operand', value: resolved };
+  }
+
+  const result = expression(target.val, true);
+
+  if (result.kind === 'aggregate') return { association, ...result.value };
+
+  if (!scalarLeaves(result).some((leaf) => leaf.kind === 'aggregate'))
+    return unsupported(source.span(location(target)));
+
+  return { association, aggregate: 'expression', expression: result };
 }

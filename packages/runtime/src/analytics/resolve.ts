@@ -1,5 +1,10 @@
-import { parseAnalyticalValue } from 'relate/analytics';
+import {
+  mapScalarExpression,
+  parseAnalyticalValue,
+  scalarLeaves,
+} from 'relate/analytics';
 import type {
+  SqlAggregate,
   LogicalType,
   ComputedResultType,
   Name,
@@ -9,6 +14,8 @@ import type {
   LiteralOperand,
 } from 'relate/analytics';
 import type {
+  ResolvedAggregate,
+  ResolvedAggregateLeaf,
   ResolvedOperand,
   ResolvedPredicate,
   TypedValue,
@@ -318,9 +325,23 @@ export function resolveExpression(
     } else operands.push(predicate.value);
   };
 
-  if (query.argument !== '*') operands.push(query.argument);
+  const leaves: SqlAggregate[] = [];
+  const scalarOperands: Operand[] = [];
 
-  if (query.predicate) visit(query.predicate);
+  if (query.aggregate === 'expression') {
+    for (const leaf of scalarLeaves(query.expression)) {
+      if (leaf.kind === 'aggregate') leaves.push(leaf.value);
+      else scalarOperands.push(leaf.value);
+    }
+  } else leaves.push(query);
+
+  for (const leaf of leaves) {
+    if (leaf.argument !== '*') operands.push(leaf.argument);
+
+    if (leaf.predicate) visit(leaf.predicate);
+  }
+
+  operands.push(...scalarOperands);
 
   for (const operand of operands) {
     reference(operand);
@@ -385,20 +406,32 @@ export function resolveExpression(
   };
 
   // A parameter used in an aggregate or IS NULL may be typed by another comparison.
-  for (let pass = 0; pass <= operands.length; pass++) {
-    const before = parameterTypes.size;
+  const propagate = () => {
+    for (let pass = 0; pass <= operands.length; pass++) {
+      const before = parameterTypes.size;
 
-    for (const comparison of comparisons) {
-      const type = comparisonType(comparison.left, comparison.right);
+      for (const comparison of comparisons) {
+        const type = comparisonType(comparison.left, comparison.right);
 
-      if (type) {
-        assign(comparison.left, type);
-        assign(comparison.right, type);
+        if (type) {
+          assign(comparison.left, type);
+          assign(comparison.right, type);
+        }
       }
-    }
 
-    if (before === parameterTypes.size) break;
+      if (before === parameterTypes.size) break;
+    }
+  };
+
+  propagate();
+
+  // Formula parameters keep a comparison's type; otherwise they are float64.
+  for (const value of scalarOperands) {
+    if (value.kind === 'parameter' && !parameterTypes.has(value.name))
+      assign(value, { type: 'float64' });
   }
+
+  propagate();
 
   const values = new Map<string, TypedValue>();
   const resolve = (
@@ -474,36 +507,84 @@ export function resolveExpression(
       right: resolve(input.right, type),
     };
   };
-  const argument = query.argument === '*' ? '*' : resolve(query.argument);
-  const inputType =
-    argument === '*'
-      ? undefined
-      : argument.kind === 'value'
-        ? logical(argument.value)
-        : argument.type;
+  const resolveAggregate = (leaf: SqlAggregate): ResolvedAggregateLeaf => {
+    const argument = leaf.argument === '*' ? '*' : resolve(leaf.argument);
+    const inputType =
+      argument === '*'
+        ? undefined
+        : argument.kind === 'value'
+          ? logical(argument.value)
+          : argument.type;
 
-  if (
-    ['sum', 'avg'].includes(query.aggregate) &&
-    (!inputType || !['int32', 'int64', 'float64'].includes(inputType.type))
-  )
-    fail(
-      'This aggregate requires a numeric operand.',
-      query.argument === '*' ? undefined : query.argument.at,
-      'not-supported',
+    if (
+      ['sum', 'avg'].includes(leaf.aggregate) &&
+      (!inputType || !['int32', 'int64', 'float64'].includes(inputType.type))
+    )
+      fail(
+        'This aggregate requires a numeric operand.',
+        leaf.argument === '*' ? undefined : leaf.argument.at,
+        'not-supported',
+      );
+
+    const result: ComputedResultType =
+      leaf.aggregate === 'count'
+        ? { type: 'int64', nullable: false }
+        : leaf.aggregate === 'avg'
+          ? { type: 'float64', nullable: true }
+          : leaf.aggregate === 'sum' && inputType?.type !== 'float64'
+            ? { type: 'int64', nullable: true }
+            : { ...inputType!, nullable: true };
+    const filter = leaf.predicate ? predicate(leaf.predicate) : undefined;
+    const fallback = leaf.fallback
+      ? literalValue(leaf.fallback, result)
+      : undefined;
+
+    return {
+      aggregate: leaf.aggregate,
+      argument,
+      distinct: leaf.distinct,
+      ...(filter ? { predicate: filter } : {}),
+      ...(fallback ? { fallback } : {}),
+      result: fallback ? { ...result, nullable: false } : result,
+    };
+  };
+  const scalarAggregate = (leaf: SqlAggregate): ResolvedAggregateLeaf => {
+    const aggregate = resolveAggregate(leaf);
+
+    if (!['int32', 'int64', 'float64'].includes(aggregate.result.type))
+      fail(
+        'Formulas require numeric aggregates.',
+        leaf.argument === '*' ? undefined : leaf.argument.at,
+        'not-supported',
+      );
+
+    return aggregate;
+  };
+  const scalarOperand = (operand: Operand): ResolvedOperand => {
+    const resolved = resolve(
+      operand,
+      operand.kind === 'literal' ? { type: 'float64' } : undefined,
     );
+    const type =
+      resolved.kind === 'value' ? resolved.value.type : resolved.type.type;
 
-  const result: ComputedResultType =
-    query.aggregate === 'count'
-      ? { type: 'int64', nullable: false }
-      : query.aggregate === 'avg'
-        ? { type: 'float64', nullable: true }
-        : query.aggregate === 'sum' && inputType?.type !== 'float64'
-          ? { type: 'int64', nullable: true }
-          : { ...inputType!, nullable: true };
-  const filter = query.predicate ? predicate(query.predicate) : undefined;
-  const fallback = query.fallback
-    ? literalValue(query.fallback, result)
-    : undefined;
+    if (!['int32', 'int64', 'float64'].includes(type))
+      fail('Formulas require numeric operands.', operand.at, 'not-supported');
+
+    return resolved;
+  };
+  const aggregate: ResolvedAggregate =
+    query.aggregate === 'expression'
+      ? {
+          aggregate: 'expression',
+          expression: mapScalarExpression(
+            query.expression,
+            scalarAggregate,
+            scalarOperand,
+          ),
+          result: { type: 'float64', nullable: true },
+        }
+      : resolveAggregate(query);
 
   if (Object.keys(parameters).some((name) => !values.has(name)))
     fail('An unused named parameter was supplied.');
@@ -516,13 +597,6 @@ export function resolveExpression(
     parameters: Object.fromEntries(values),
     forbidden,
     correlationForbidden,
-    aggregate: {
-      aggregate: query.aggregate,
-      argument,
-      distinct: query.distinct,
-      ...(filter ? { predicate: filter } : {}),
-      ...(fallback ? { fallback } : {}),
-      result: fallback ? { ...result, nullable: false } : result,
-    },
+    aggregate,
   };
 }

@@ -1,0 +1,74 @@
+{
+  "name": "cpa",
+  "sql": "SELECT SUM(small) / NULLIF(COUNT(*) FILTER (WHERE enabled), 0) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "binary",
+        "op": "/",
+        "left": {
+          "kind": "aggregate",
+          "value": {
+            "aggregate": "sum",
+            "argument": {
+              "kind": "column",
+              "name": "small",
+              "quoted": false
+            },
+            "distinct": false
+          }
+        },
+        "right": {
+          "kind": "nullif",
+          "left": {
+            "kind": "aggregate",
+            "value": {
+              "aggregate": "count",
+              "argument": "*",
+              "distinct": false,
+              "predicate": {
+                "kind": "compare",
+                "op": "=",
+                "left": {
+                  "kind": "column",
+                  "name": "enabled",
+                  "quoted": false
+                },
+                "right": {
+                  "kind": "literal",
+                  "literal": "boolean",
+                  "value": true
+                }
+              }
+            }
+          },
+          "right": {
+            "kind": "operand",
+            "value": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "0"
+            }
+          }
+        }
+      }
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 8,
+      "acme_late": 8,
+      "empty": null,
+      "nulls": null,
+      "wide": 8
+    }
+  }
+}

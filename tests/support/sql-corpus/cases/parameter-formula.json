@@ -1,0 +1,63 @@
+{
+  "name": "parameter-formula",
+  "sql": "SELECT SUM(small) / ($budget * $elapsed) FROM self.events",
+  "parameters": {
+    "budget": 100,
+    "elapsed": 0.5
+  },
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "binary",
+        "op": "/",
+        "left": {
+          "kind": "aggregate",
+          "value": {
+            "aggregate": "sum",
+            "argument": {
+              "kind": "column",
+              "name": "small",
+              "quoted": false
+            },
+            "distinct": false
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "*",
+          "left": {
+            "kind": "operand",
+            "value": {
+              "kind": "parameter",
+              "name": "budget"
+            }
+          },
+          "right": {
+            "kind": "operand",
+            "value": {
+              "kind": "parameter",
+              "name": "elapsed"
+            }
+          }
+        }
+      }
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 0.32,
+      "acme_late": 0.32,
+      "empty": null,
+      "nulls": null,
+      "wide": 0.32
+    }
+  }
+}

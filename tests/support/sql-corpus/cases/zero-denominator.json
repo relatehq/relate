@@ -1,0 +1,57 @@
+{
+  "name": "zero-denominator",
+  "sql": "SELECT COUNT(*) / (COUNT(*) - COUNT(*)) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "binary",
+        "op": "/",
+        "left": {
+          "kind": "aggregate",
+          "value": {
+            "aggregate": "count",
+            "argument": "*",
+            "distinct": false
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "-",
+          "left": {
+            "kind": "aggregate",
+            "value": {
+              "aggregate": "count",
+              "argument": "*",
+              "distinct": false
+            }
+          },
+          "right": {
+            "kind": "aggregate",
+            "value": {
+              "aggregate": "count",
+              "argument": "*",
+              "distinct": false
+            }
+          }
+        }
+      }
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": null,
+      "acme_late": null,
+      "empty": null,
+      "nulls": null,
+      "wide": null
+    }
+  }
+}

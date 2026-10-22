@@ -6,11 +6,21 @@ import {
   semanticQuery,
 } from '../../../tests/support/sql-corpus/index.js';
 
-async function parse(sql: string): Promise<RelateSqlQuery> {
+async function parse(
+  sql: string,
+): Promise<
+  Extract<
+    RelateSqlQuery,
+    { aggregate: 'count' | 'sum' | 'avg' | 'min' | 'max' }
+  >
+> {
   const parser = await createSqlParser();
   const result = parser.parse(sql);
 
   if (!result.ok) throw new Error(JSON.stringify(result.issues));
+
+  if (result.query.aggregate === 'expression')
+    throw new Error('Expected a single aggregate');
 
   return result.query;
 }
@@ -195,3 +205,76 @@ it.each(['\0', '\ud800', '\udc00'])(
     ).toMatchObject({ ok: false });
   },
 );
+
+it.each([
+  ['SELECT SUM(*) FROM self.events', 'SUM'],
+  ['SELECT SUM(value, value) FROM self.events', 'SUM'],
+  ['SELECT SUM(DISTINCT value) FROM self.events', 'SUM'],
+  ['SELECT COALESCE(SUM(value), 0, 1) FROM self.events', 'COALESCE'],
+  ['SELECT COALESCE(SUM(value), 0) % 2 FROM self.events', '%'],
+  ['SELECT 1 + $value FROM self.events', '1'],
+])(
+  'reports where unsupported formula syntax occurs: %s',
+  async (sql, token) => {
+    const parser = await createSqlParser();
+
+    expect(parser.parse(sql)).toMatchObject({
+      ok: false,
+      issues: [
+        {
+          problem: 'not-supported',
+          at: { start: sql.indexOf(token) },
+        },
+      ],
+    });
+  },
+);
+
+it.each(['1', "'yes'", 'NULL'])(
+  'rejects the non-boolean bare predicate %s at parse time',
+  async (constant) => {
+    const parser = await createSqlParser();
+    const sql = `SELECT COUNT(*) FROM self.events WHERE ${constant}`;
+
+    expect(parser.parse(sql)).toMatchObject({
+      ok: false,
+      issues: [
+        { problem: 'not-supported', at: { start: sql.indexOf(constant) } },
+      ],
+    });
+  },
+);
+
+it('lowers bare boolean columns, parameters and constants to equality with true', async () => {
+  const query = await parse(
+    'SELECT COUNT(*) FILTER (WHERE enabled) FROM self.events WHERE $active AND FALSE',
+  );
+
+  expect(query.predicate).toMatchObject({
+    kind: 'boolean',
+    op: 'and',
+    args: [
+      {
+        kind: 'boolean',
+        op: 'and',
+        args: [
+          {
+            op: '=',
+            left: { kind: 'parameter', name: 'active' },
+            right: { literal: 'boolean', value: true },
+          },
+          {
+            op: '=',
+            left: { literal: 'boolean', value: false },
+            right: { literal: 'boolean', value: true },
+          },
+        ],
+      },
+      {
+        op: '=',
+        left: { kind: 'column', name: 'enabled' },
+        right: { literal: 'boolean', value: true },
+      },
+    ],
+  });
+});

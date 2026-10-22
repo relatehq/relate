@@ -1,8 +1,0 @@
-{
-  "name": "reject-25-select-count-filter-where-true-from-self-events",
-  "sql": "SELECT COUNT(*) FILTER (WHERE TRUE) FROM self.events",
-  "expect": {
-    "phase": "parse",
-    "problem": "not-supported"
-  }
-}

@@ -118,10 +118,10 @@ export function analyticalDiscovery(
   const first = scope.associations[0];
   const compute: ComputeDescription = {
     syntax:
-      'SELECT <aggregate> FROM self.<dataset> [AS alias] [WHERE predicate]',
+      'SELECT <aggregate expression> FROM self.<dataset> [AS alias] [WHERE predicate]',
     aggregates: ['COUNT', 'COUNT DISTINCT', 'SUM', 'AVG', 'MIN', 'MAX'],
     encoding:
-      'int64 results are canonical decimal JSON strings; timestamps are UTC strings with declared precision.',
+      'int64 results are canonical decimal JSON strings; timestamps are UTC strings with declared precision. Numeric formulas use nullable float64 and return null for division by zero.',
     identifiers:
       'Unquoted names match declared names case-insensitively; quoted names match exactly.',
     filters:
