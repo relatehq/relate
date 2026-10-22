@@ -1,0 +1,109 @@
+Validation for the whole-scope federation spike; no repository-wide pnpm check rerun.
+
+$ node tests/performance/federation/build.mjs (cargo release --locked; exit 0)
+   Compiling relate-federation-spike v0.0.0 (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/tests/performance/federation/rust/engine)
+   Compiling relate-federation-neon v0.0.0 (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/tests/performance/federation/rust/neon)
+    Finished `release` profile [optimized] target(s) in 33.11s
+{"buildMs":33258.301667,"platform":"darwin","arch":"arm64"}
+
+$ pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/scope-test.mjs (exit 0)
+⟐ injected env (4) from .env
+neon ranking-db native passed
+neon ranking-db slot-scan passed
+neon ranking-db scope-scan passed
+neon ranking-db scope-federated passed
+neon multi native passed
+neon multi slot-scan passed
+neon multi scope-scan passed
+neon multi scope-federated passed
+neon scope isolation, denied access, revocation, evidence passed
+child ranking-db native passed
+child ranking-db slot-scan passed
+child ranking-db scope-scan passed
+child ranking-db scope-federated passed
+child multi native passed
+child multi slot-scan passed
+child multi scope-scan passed
+child multi scope-federated passed
+child scope isolation, denied access, revocation, evidence passed
+http ranking-db native passed
+http ranking-db slot-scan passed
+http ranking-db scope-scan passed
+http ranking-db scope-federated passed
+http multi native passed
+http multi slot-scan passed
+http multi scope-scan passed
+http multi scope-federated passed
+http scope isolation, denied access, revocation, evidence passed
+
+$ pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/test.mjs (exit 0)
+⟐ injected env (4) from .env
+neon scan ranking-db
+neon scan ranking-file
+neon scan multi
+neon scan selective
+neon scan bulk
+neon federated ranking-db
+neon federated ranking-file
+neon federated multi
+neon federated selective
+neon federated bulk
+child scan ranking-db
+child scan ranking-file
+child scan multi
+child scan selective
+child scan bulk
+child federated ranking-db
+child federated ranking-file
+child federated multi
+child federated selective
+child federated bulk
+http scan ranking-db
+http scan ranking-file
+http scan multi
+http scan selective
+http scan bulk
+http federated ranking-db
+http federated ranking-file
+http federated multi
+http federated selective
+http federated bulk
+{
+  "outcomes": [
+    {
+      "kind": "neon",
+      "status": "passed"
+    },
+    {
+      "kind": "child",
+      "status": "passed"
+    },
+    {
+      "kind": "http",
+      "status": "passed"
+    }
+  ],
+  "postgresBaseline": "passed"
+}
+
+$ pnpm exec tsc --noEmit -p tsconfig.tests.json
+Exit status: 0
+
+$ pnpm check:boundaries
+$ node --import tsx tests/boundaries.mjs
+Verified package/runtime boundaries and execution cycles (26 packages, 305 modules).
+Exit status: 0
+
+$ pnpm exec eslint tests/performance/federation/relate-adapter.mjs tests/performance/federation/test.mjs tests/performance/federation/transports.mjs tests/performance/federation/scope-executor.mjs tests/performance/federation/run.mjs tests/performance/federation/profile.mjs tests/performance/federation/fixture.mjs tests/performance/federation/diagnose.mjs tests/performance/federation/scope-test.mjs tests/performance/federation/multi-adapter.mjs tests/performance/federation/build.mjs tests/performance/federation/register.mjs tests/performance/federation/queries.mjs tests/performance/analytical-properties/model.ts
+Exit status: 0
+
+$ pnpm exec prettier --check tests/performance/federation/relate-adapter.mjs tests/performance/federation/test.mjs tests/performance/federation/transports.mjs tests/performance/federation/scope-executor.mjs tests/performance/federation/run.mjs tests/performance/federation/profile.mjs tests/performance/federation/fixture.mjs tests/performance/federation/diagnose.mjs tests/performance/federation/scope-test.mjs tests/performance/federation/multi-adapter.mjs tests/performance/federation/build.mjs tests/performance/federation/register.mjs tests/performance/federation/queries.mjs tests/performance/analytical-properties/model.ts tests/performance/federation/measurements/whole-scope/summary.json tests/performance/federation/measurements/whole-scope/tables.md tests/performance/federation/measurements/whole-scope/profile-summary.json tests/performance/federation/measurements/whole-scope/REPORT.md tests/performance/federation/measurements/whole-scope/artifacts.json tests/performance/federation/measurements/whole-scope/development/README.md tests/performance/federation/README.md tests/performance/federation/RESEARCH.md tests/performance/federation/measurements/REPORT.md
+Checking formatting...
+All matched files use Prettier code style!
+Exit status: 0
+
+$ cargo fmt --manifest-path tests/performance/federation/rust/Cargo.toml --all --check
+Exit status: 0
+
+$ git diff --check
+Exit status: 0

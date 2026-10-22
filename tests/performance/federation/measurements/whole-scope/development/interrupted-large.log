@@ -1,0 +1,28 @@
+Federation 12500/1000000: control
+Federation 12500/1000000: ranking-db
+Federation 12500/1000000: ranking-file
+Federation 12500/1000000: multi
+Federation 12500/1000000: selective
+Federation 12500/1000000: bulk
+Public Relate 12500/1000000: ranking-db (10 paths)
+  ranking-db block -3 complete
+  ranking-db block -2 complete
+  ranking-db block -1 complete
+  ranking-db block 0 complete
+  ranking-db block 1 complete
+  ranking-db block 2 complete
+  ranking-db block 3 complete
+  ranking-db block 4 complete
+  ranking-db block 5 complete
+  ranking-db block 6 complete
+Error: Engine has exited
+    at file:///Users/dennis/dev/vs/relate-worktrees/datafusion-federation/tests/performance/federation/transports.mjs:75:26
+    at new Promise (<anonymous>)
+    at next (file:///Users/dennis/dev/vs/relate-worktrees/datafusion-federation/tests/performance/federation/transports.mjs:74:5)
+    at Object.query (file:///Users/dennis/dev/vs/relate-worktrees/datafusion-federation/tests/performance/federation/transports.mjs:112:26)
+    at computeScope (file:///Users/dennis/dev/vs/relate-worktrees/datafusion-federation/tests/performance/federation/scope-executor.mjs:196:42)
+    at run (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/analytical-reads/read.ts:193:27)
+    at async Object.operation (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/activity/capture.ts:166:38)
+    at async presenting (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/reads/present.ts:19:18)
+    at async run (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/node/src/runtime.ts:309:14)
+    at async fetchPage (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/relate/src/consumer.ts:134:18)

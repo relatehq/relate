@@ -109,8 +109,8 @@ scoping, evidence, batching and revalidation. It compares the shipped PostgreSQL
 connector to a narrow spike adapter sending generated slot SQL through each
 DataFusion transport in **scan mode**. Federation 0.5.5 fails to translate the
 renderer's `VALUES` input; this is retained as a limitation rather than silently
-falling back. Only COUNT/MAX and the benchmark types are implemented; this is
-**not a complete connector**. The adapter uses the public shared renderer and
+falling back. Only COUNT/MAX/SUM and the benchmark types are implemented; this
+is **not a complete connector**. The adapter uses the public shared renderer and
 checks resource/plan handles, slot order and safe integers. It awaits ongoing
 work before honoring an abort. It does not establish production cancellation,
 timestamp edge cases, or complete connector conformance.
@@ -281,3 +281,16 @@ and native file reference), `scope-test.mjs` (parity, denial, masks, isolation,
 evidence and in-flight authorization change). The Rust engine adds request-local
 input tables; `run.mjs` adds the full comparison. Existing implementations
 remain.
+
+Capture a separate warm Node CPU profile and store-operation counts after the
+performance matrix has finished (profiling must not compete with timed runs):
+
+```sh
+pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/profile.mjs
+uv run tests/performance/federation/measurements/whole-scope/analyze.py
+```
+
+The profile includes only Node, not the child engine or PostgreSQL. It adds
+sampling overhead and its duration is not a primary benchmark sample. The new
+optional `now` setting in `analytical-properties/model.ts` aligns frozen clocks
+across benchmark hosts; its default behavior remains unchanged.

@@ -1,0 +1,39 @@
+⟐ injected env (4) from .env
+neon ranking-db native passed
+neon ranking-db slot-scan passed
+neon ranking-db scope-scan passed
+neon ranking-db scope-federated passed
+neon multi native passed
+neon multi slot-scan passed
+neon multi scope-scan passed
+neon multi scope-federated passed
+/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/analytical-reads/prepare.ts:287
+      throw new ReadError('invalid-request', {
+            ^
+
+ReadError: invalid-request in Customer.query:
+- compute.paidTotal.sql: Unknown analytical name.
+    at prepareAnalyticalRead (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/analytical-reads/prepare.ts:287:13)
+    at run (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/analytical-reads/read.ts:43:13)
+    at Object.query (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/analytical-reads/read.ts:346:5)
+    at <anonymous> (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/runtime.ts:489:29)
+    at Object.operation (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/activity/capture.ts:166:44)
+    at <anonymous> (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/runtime.ts:486:17)
+    at presenting (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/reads/present.ts:19:24)
+    at Object.query (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/runtime/src/runtime.ts:485:14)
+    at <anonymous> (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/node/src/runtime.ts:326:26)
+    at run (/Users/dennis/dev/vs/relate-worktrees/datafusion-federation/packages/node/src/runtime.ts:304:20) {
+  code: 'invalid-request',
+  operation: 'Customer.query',
+  issues: [
+    {
+      path: [ 'compute', 'paidTotal', 'sql' ],
+      problem: 'unknown-property',
+      message: 'Unknown analytical name.',
+      location: { line: 1, column: 43 }
+    }
+  ],
+  acceptedOptions: undefined
+}
+
+Node.js v26.9.0

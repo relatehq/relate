@@ -1,5 +1,13 @@
 # DataFusion federation spike — 22 October 2026
 
+> **Follow-up:**
+> [Authorized whole-scope federation and a fresh full comparison](whole-scope/REPORT.md).
+> The report below preserves the first experiment. Its public-runtime timings
+> used separate frozen clocks with a shared observation store, which can trigger
+> incidental refreshes. Use the follow-up's aligned-clock, zero-refresh-checked
+> results for end-to-end comparisons. The original raw SQL results are
+> unaffected by this clock issue, and are also rerun in the follow-up.
+
 DataFusion works as a federation engine across SQLite, PostgreSQL and Parquet.
 The strongest measured benefit comes from deciding **where aggregation
 happens**, not from choosing Neon instead of a local process. Replacing Relate's

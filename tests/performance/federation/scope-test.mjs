@@ -158,13 +158,16 @@ try {
       );
 
       const captures = [];
-      let afterRead;
+      let afterRead,
+        malformed = false;
       const tracked = {
         ...engine,
         async query(request) {
           const result = await engine.query(request);
 
           if (afterRead) await afterRead();
+
+          if (malformed) result.rows.pop();
 
           return result;
         },
@@ -265,6 +268,35 @@ try {
             'available',
           );
         }
+
+        // Check the entire small scope, including empty customers and null inputs,
+        // rather than checking only the ranking page's populated leaders.
+        const all = await host.rawQuery({ limit: 100 });
+        const allRows = normalize(
+          all.data.map((row) => ({
+            key: row.data.key,
+            name: row.data.name,
+            login_count: row.data.loginCount,
+            last_login: row.data.lastLogin,
+            paid: row.data.paidTotal,
+          })),
+        );
+        const expectedAll = fixture
+          .expected('multi-bulk')
+          .sort(
+            (a, b) =>
+              Number(b.login_count) - Number(a.login_count) ||
+              (host.ids.get(a.key) < host.ids.get(b.key) ? -1 : 1),
+          );
+
+        assert.deepEqual(allRows, expectedAll);
+        malformed = true;
+        await assert.rejects(
+          async () => await host.rawQuery(),
+          /Invalid whole-scope result frame/,
+        );
+        malformed = false;
+        assert.deepEqual(normalize((await host.query()).rows), host.expected);
 
         console.log(
           kind,
