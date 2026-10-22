@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-22",
+  "temporalSdk": "1.24.0",
+  "node": "26.9.0",
+  "results": [
+    {
+      "scenario": "restart-and-retry",
+      "approvals": 1,
+      "completionAttempts": 2,
+      "replay": "passed"
+    },
+    {
+      "scenario": "revoked",
+      "approvals": 0,
+      "completionAttempts": 1,
+      "replay": "passed"
+    },
+    {
+      "scenario": "other-owner",
+      "approvals": 0,
+      "completionAttempts": 0,
+      "replay": "passed"
+    },
+    {
+      "scenario": "rejected",
+      "approvals": 0,
+      "completionAttempts": 0,
+      "replay": "passed"
+    },
+    {
+      "scenario": "expired",
+      "approvals": 0,
+      "completionAttempts": 0,
+      "replay": "passed"
+    }
+  ]
+}

@@ -46,7 +46,9 @@
     "bench:overhead:run": "node --import tsx tests/performance/analytical-properties/overhead/run.ts",
     "example:native-objects:walkthrough": "node scripts/examples/run.mjs native-objects --walkthrough",
     "example:persistence:walkthrough": "node scripts/examples/run.mjs persistence --walkthrough",
-    "example:connected-sources:walkthrough": "node scripts/examples/run.mjs connected-sources --walkthrough"
+    "example:connected-sources:walkthrough": "node scripts/examples/run.mjs connected-sources --walkthrough",
+    "example:temporal:test": "pnpm build && dotenvx run -f .env -- pnpm --filter @relate/example-temporal test",
+    "example:temporal": "dotenvx run -f .env -- pnpm --filter @relate/example-temporal demo"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

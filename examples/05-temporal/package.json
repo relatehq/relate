@@ -1,0 +1,22 @@
+{
+  "name": "@relate/example-temporal",
+  "version": "0.0.0-dev.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --import tsx --test test/poc.integration.test.ts",
+    "demo": "node --import tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@relate/node": "workspace:*",
+    "@relate/postgres": "workspace:*",
+    "@temporalio/activity": "1.24.0",
+    "@temporalio/client": "1.24.0",
+    "@temporalio/common": "1.24.0",
+    "@temporalio/testing": "1.24.0",
+    "@temporalio/worker": "1.24.0",
+    "@temporalio/workflow": "1.24.0",
+    "relate": "workspace:*",
+    "zod": "4.6.5"
+  }
+}
