@@ -77,8 +77,11 @@ The Activity screen (`src/screens/ActivityScreen.tsx`, derivations in
 Keys: `principal`, `source`, `transport`, `tool`, `op`, `def`, `status`,
 `runtime`, `record` (`attempt`, `committed`, `dispatch`), `object`, `req`,
 `analytical` and `duration` (`>`, `<`, `>=`, `<=`, `=`); bare words search all
-text. A histogram and facet counts follow the query. Selecting a request opens a
-drawer (`src/activity/ActivityDrawer.tsx`):
+text. `key:value` matches part of a value and `key=value` the whole value, so
+`object=cus_1` leaves out `cus_10`; facet and drawer filters add the `=` form,
+quoted when the value has spaces or commas. A histogram and facet counts follow
+the query. Selecting a request opens a drawer
+(`src/activity/ActivityDrawer.tsx`):
 
 | Tab      | Shows                                                                                                       |
 | -------- | ----------------------------------------------------------------------------------------------------------- |

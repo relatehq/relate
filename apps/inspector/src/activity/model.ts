@@ -121,13 +121,17 @@ export function timeline(request: ActivityRequest): readonly TimelineEntry[] {
   )) {
     const parent = operation.runtime?.parentOperationId;
     const key = parent && byId.has(parent) ? parent : undefined;
+    const siblings = children.get(key);
 
-    children.set(key, [...(children.get(key) ?? []), operation]);
+    if (siblings) siblings.push(operation);
+    else children.set(key, [operation]);
   }
 
   const entries: TimelineEntry[] = [];
+  const visited = new Set<OperationEvent>();
   const visit = (parent: string | undefined) => {
     for (const operation of children.get(parent) ?? []) {
+      visited.add(operation);
       entries.push({
         operation,
         depth: depthOf(operation),
@@ -141,7 +145,7 @@ export function timeline(request: ActivityRequest): readonly TimelineEntry[] {
 
   // A parent cycle leaves operations unvisited; list them flat rather than drop them.
   for (const operation of request.operations)
-    if (!entries.some((entry) => entry.operation === operation))
+    if (!visited.has(operation))
       entries.push({
         operation,
         depth: 0,
@@ -205,7 +209,10 @@ export interface QueryToken {
   /** `text` matches anywhere in the request or event. */
   readonly key: QueryKey | 'text';
   readonly comparator: ':' | '>' | '<' | '>=' | '<=' | '=';
-  /** Any of these, compared case-insensitively by substring. */
+  /**
+   * Any of these, compared case-insensitively: by substring after `:`, as
+   * the whole value after `=` (`object=cus_1` does not match `cus_10`).
+   */
   readonly values: readonly string[];
 }
 
@@ -214,9 +221,7 @@ export interface QueryToken {
  * Unknown keys and bare words search the text of the event.
  */
 export function parseQuery(query: string): readonly QueryToken[] {
-  return (
-    query.match(/-?[\w.]+(?::|>=|<=|>|<|=)"[^"]*"|"[^"]*"|\S+/g) ?? []
-  ).flatMap((raw): QueryToken[] => {
+  return splitQuery(query).flatMap((raw): QueryToken[] => {
     const match = raw.match(/^(-?)([\w.]+)(:|>=|<=|>|<|=)(.*)$/);
     const name = match?.[2]?.toLowerCase();
     const key =
@@ -227,7 +232,13 @@ export function parseQuery(query: string): readonly QueryToken[] {
           : aliases[name];
 
     if (match && key) {
-      const values = match[4]!.replace(/"/g, '').split(',').filter(Boolean);
+      const value = match[4]!;
+      // A quoted value is one value, commas included.
+      const values = (
+        /^".*"$/.test(value)
+          ? [value.slice(1, -1)]
+          : value.replace(/"/g, '').split(',')
+      ).filter(Boolean);
 
       return values.length
         ? [
@@ -249,6 +260,11 @@ export function parseQuery(query: string): readonly QueryToken[] {
       ? [{ raw, negated, key: 'text', comparator: ':', values: [value] }]
       : [];
   });
+}
+
+/** The raw tokens of a query; a quoted value stays in its token. */
+function splitQuery(query: string): readonly string[] {
+  return query.match(/-?[\w.]+(?::|>=|<=|>|<|=)"[^"]*"|"[^"]*"|\S+/g) ?? [];
 }
 
 /** `250`, `250ms`, `1.5s`, `2m` in milliseconds. */
@@ -296,7 +312,11 @@ export function matches(tokens: readonly QueryToken[], facts: Facts): boolean {
       const lower = haystack.map((value) => value.toLowerCase());
 
       hit = token.values.some((value) =>
-        lower.some((candidate) => candidate.includes(value.toLowerCase())),
+        lower.some((candidate) =>
+          token.comparator === '='
+            ? candidate === value.toLowerCase()
+            : candidate.includes(value.toLowerCase()),
+        ),
       );
     }
 
@@ -340,24 +360,56 @@ export function operationFacts(
   };
 }
 
+/** The call and execution alone, without the operations behind them. */
+export function callFacts(request: ActivityRequest): Facts {
+  return {
+    principal: [request.principal ?? ''],
+    source: [request.source],
+    transport: [],
+    tool: [request.tool],
+    op: [request.tool],
+    def: [],
+    status: [request.status],
+    runtime: [request.runtimeId ?? ''],
+    record: [],
+    object: [],
+    req: [request.requestId],
+    analytical: ['false'],
+    ms: request.ms,
+    text: [
+      request.principal,
+      request.tool,
+      request.call?.error,
+      request.execution?.code,
+      request.execution?.resultPreview,
+      request.execution?.error?.message,
+    ]
+      .filter(Boolean)
+      .join(' '),
+  };
+}
+
 export function requestFacts(
   request: ActivityRequest,
   labels: ReadonlyMap<string, string>,
 ): Facts {
+  const call = callFacts(request);
   const operations = request.operations.map((operation) =>
     operationFacts(request, operation, labels),
   );
-  const all = (key: Exclude<QueryKey, 'duration'>) =>
-    operations.flatMap((facts) => facts[key] ?? []);
+  const all = (key: Exclude<QueryKey, 'duration'>) => [
+    ...(call[key] ?? []),
+    ...operations.flatMap((facts) => facts[key] ?? []),
+  ];
 
   return {
-    principal: [request.principal ?? '', ...all('principal')],
+    principal: all('principal'),
     source: [request.source],
     transport: all('transport'),
     tool: [request.tool],
-    op: [request.tool, ...all('op')],
+    op: all('op'),
     def: all('def'),
-    status: [request.status, ...all('status')],
+    status: all('status'),
     runtime: [request.runtimeId ?? ''],
     record: all('record'),
     object: all('object'),
@@ -368,37 +420,33 @@ export function requestFacts(
         : 'false',
     ],
     ms: request.ms,
-    text: [
-      request.principal,
-      request.tool,
-      request.call?.error,
-      request.execution?.code,
-      request.execution?.resultPreview,
-      request.execution?.error?.message,
-      ...operations.map((facts) => facts.text),
-    ]
+    text: [call.text, ...operations.map((facts) => facts.text)]
       .filter(Boolean)
       .join(' '),
   };
 }
 
+export function hasToken(query: string, token: string): boolean {
+  return splitQuery(query).includes(token);
+}
+
 /** Add a token unless the query already has it. */
 export function addToken(query: string, token: string): string {
-  return query.split(/\s+/).includes(token)
-    ? query
-    : `${query.trim()} ${token}`.trim();
+  return hasToken(query, token) ? query : `${query.trim()} ${token}`.trim();
 }
 
 export function removeToken(query: string, token: string): string {
-  return query
-    .split(/\s+/)
+  return splitQuery(query)
     .filter((part) => part !== token)
     .join(' ');
 }
 
-/** Quote a facet value that would otherwise split or end the token. */
+/**
+ * A token matching exactly this value (`def=customer` leaves out
+ * `customer_note`), quoted when the value would otherwise split or end it.
+ */
 export function facetToken(key: QueryKey, value: string): string {
-  return /[\s,"]/.test(value) ? `${key}:"${value}"` : `${key}:${value}`;
+  return /[\s,"]/.test(value) ? `${key}="${value}"` : `${key}=${value}`;
 }
 
 // Facets and histogram ----------------------------------------------------
@@ -653,7 +701,10 @@ export function touchedObjects(
     if (isCommitted(operation) && !isAction(operation)) entry.changes += 1;
 
     entry.omitted += operation.runtime?.omittedObjects ?? 0;
-    entry.capped ||= operation.recordIds.length >= recordIdLimit;
+    // `records` counts every object returned; past the limit, IDs were dropped.
+    entry.capped ||=
+      operation.recordIds.length === recordIdLimit &&
+      (operation.outcome?.records ?? 0) > recordIdLimit;
 
     for (const id of operation.runtime?.forbidden ?? [])
       entry.forbidden.add(id);

@@ -13,6 +13,7 @@ import type { ActivityRequest, TimelineEntry } from './model.js';
 import {
   duration,
   executionOmitted,
+  facetToken,
   flattenFields,
   isCommitted,
   operationOmitted,
@@ -118,7 +119,7 @@ export function ActivityDrawer(props: {
           <button
             type="button"
             className="button button-ghost"
-            onClick={() => props.onFilter(`req:${request.requestId}`)}
+            onClick={() => props.onFilter(facetToken('req', request.requestId))}
           >
             Only this request
           </button>
@@ -126,7 +127,9 @@ export function ActivityDrawer(props: {
             <button
               type="button"
               className="button button-ghost"
-              onClick={() => props.onFilter(`principal:${request.principal}`)}
+              onClick={() =>
+                props.onFilter(facetToken('principal', request.principal!))
+              }
             >
               Only {request.principal}
             </button>
@@ -339,10 +342,10 @@ function TimelineTab(props: {
   const { request } = props;
   const entries = timeline(request);
   const span = timelineSpan(request, entries, props.now);
-  const selected =
-    entries.find((entry) => entry.operation.opId === props.selected) ??
-    entries.find((entry) => entry.operation.runtime?.analytical) ??
-    entries[0];
+  // Only the operation the table and Metadata tab also show as selected.
+  const selected = entries.find(
+    (entry) => entry.operation.opId === props.selected,
+  );
   const offsetOf = (at: string) => new Date(at).getTime() - request.start;
   const inOperations = entries
     .filter((entry) => entry.depth === 0)
@@ -411,12 +414,16 @@ function TimelineTab(props: {
           <Empty>This request made no graph operations.</Empty>
         )}
       </Section>
-      {selected && (
+      {selected ? (
         <OperationDetail
           entry={selected}
           labels={props.labels}
           request={request}
         />
+      ) : (
+        entries.length > 0 && (
+          <Empty>Select an operation to see its detail and timings.</Empty>
+        )
       )}
     </>
   );
@@ -670,7 +677,9 @@ function ObjectsTab(props: {
             <button
               type="button"
               className="activity-chip"
-              onClick={() => props.onFilter(`def:${definition.definitionId}`)}
+              onClick={() =>
+                props.onFilter(facetToken('def', definition.definitionId))
+              }
               title="Show activity on this definition"
             >
               {definition.definitionId}
@@ -683,7 +692,9 @@ function ObjectsTab(props: {
                   <button
                     type="button"
                     className="activity-chip activity-mono"
-                    onClick={() => props.onFilter(`object:${record.id}`)}
+                    onClick={() =>
+                      props.onFilter(facetToken('object', record.id))
+                    }
                     title="Show every request that touched this object"
                   >
                     {record.id}

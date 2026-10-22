@@ -5,10 +5,12 @@ import { ActivityDrawer } from '../activity/ActivityDrawer.js';
 import type { DrawerTab } from '../activity/ActivityDrawer.js';
 import {
   addToken,
+  callFacts,
   describeRequest,
   duration,
   facet,
   facetToken,
+  hasToken,
   histogram,
   matches,
   operationFacts,
@@ -73,7 +75,6 @@ type Row =
       readonly at: number;
       readonly request: ActivityRequest;
       readonly entry: TimelineEntry;
-      readonly span: number;
     };
 
 const pad = (value: number, width = 2) => String(value).padStart(width, '0');
@@ -109,16 +110,6 @@ function useNow(fast: boolean): number {
 
   return now;
 }
-
-/** A call row in the event list matches on the call alone, not its operations. */
-const callFacts = (facts: Facts, request: ActivityRequest): Facts => ({
-  ...facts,
-  op: [request.tool],
-  def: [],
-  object: [],
-  record: [],
-  analytical: ['false'],
-});
 
 /** Every MCP call, the code it ran and each graph read and action behind it. */
 export function ActivityScreen() {
@@ -178,27 +169,39 @@ export function ActivityScreen() {
   // `All` spans at least five minutes, so a burst of recent calls still spreads out.
   const from =
     range === null ? Math.min(oldest, now - 5 * 60_000) : now - range * 60_000;
+  // Facts and timelines change with the events, not with the ticking clock.
+  const derived = useMemo(
+    () =>
+      requests.map((request) => {
+        const entries = timeline(request);
+
+        return {
+          request,
+          facts: requestFacts(request, labels),
+          call: callFacts(request),
+          entries,
+          operations: entries.map((entry) =>
+            operationFacts(request, entry.operation, labels),
+          ),
+        };
+      }),
+    [requests, labels],
+  );
   const view = useMemo(() => {
-    const inRange = requests.filter((request) => request.start >= from);
-    const facts = new Map(
-      inRange.map((request) => [request, requestFacts(request, labels)]),
-    );
     const items: { facts: Facts; at: number; failed: boolean }[] = [];
     const rows: Row[] = [];
     let matched = 0;
     let failed = 0;
 
-    for (const request of inRange) {
-      const own = facts.get(request)!;
-      const entries = timeline(request);
-      const span = timelineSpan(request, entries, now);
+    for (const { request, facts: own, call, entries, operations } of derived) {
+      if (request.start < from) continue;
+
       const operationRow = (entry: TimelineEntry): Row => ({
         kind: 'operation',
         key: `${request.requestId}:${entry.operation.opId}`,
         at: request.start + entry.offset,
         request,
         entry,
-        span,
       });
 
       if (mode === 'requests') {
@@ -228,7 +231,7 @@ export function ActivityScreen() {
 
       if (request.call || request.execution)
         events.push({
-          facts: callFacts(own, request),
+          facts: call,
           row: {
             kind: 'request',
             key: request.requestId,
@@ -238,9 +241,9 @@ export function ActivityScreen() {
           failed: request.status === 'failed',
         });
 
-      for (const entry of entries)
+      for (const [index, entry] of entries.entries())
         events.push({
-          facts: operationFacts(request, entry.operation, labels),
+          facts: operations[index]!,
           row: operationRow(entry),
           failed: entry.operation.status === 'failed',
         });
@@ -262,7 +265,16 @@ export function ActivityScreen() {
     if (mode === 'events') rows.sort((a, b) => b.at - a.at);
 
     return { rows, items, matched, failed };
-  }, [requests, from, labels, tokens, mode, expanded, now]);
+  }, [derived, from, tokens, mode, expanded]);
+  // Each request's waterfall span, which grows with the clock while it runs.
+  const spans = useMemo(() => {
+    const spans = new Map<ActivityRequest, number>();
+
+    for (const { request, entries } of derived)
+      spans.set(request, timelineSpan(request, entries, now));
+
+    return spans;
+  }, [derived, now]);
 
   const buckets = useMemo(
     () => histogram(view.items, from, now),
@@ -332,9 +344,27 @@ export function ActivityScreen() {
     selectedRow.current?.scrollIntoView({ block: 'nearest' });
   }, [selected, linked]);
 
+  const closeDrawer = () => {
+    setSelected(null);
+    setSelectedOperation(null);
+  };
+
   useEffect(() => {
+    // Escape closes the drawer unless a field, a dialog or another handler took it.
     const close = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelected(null);
+      const target = event.target instanceof Element ? event.target : null;
+
+      if (
+        event.key !== 'Escape' ||
+        event.defaultPrevented ||
+        target?.closest(
+          'input, textarea, select, [contenteditable], dialog, [role="dialog"]',
+        )
+      )
+        return;
+
+      setSelected(null);
+      setSelectedOperation(null);
     };
 
     window.addEventListener('keydown', close);
@@ -344,7 +374,7 @@ export function ActivityScreen() {
 
   const toggleToken = (token: string) =>
     setQuery((current) =>
-      current.split(/\s+/).includes(token)
+      hasToken(current, token)
         ? removeToken(current, token)
         : addToken(current, token),
     );
@@ -500,7 +530,7 @@ export function ActivityScreen() {
               <div className="activity-facet-title">{group.title}</div>
               {group.values.map((value) => {
                 const token = facetToken(group.key, value.value);
-                const on = query.split(/\s+/).includes(token);
+                const on = hasToken(query, token);
 
                 return (
                   <button
@@ -556,6 +586,7 @@ export function ActivityScreen() {
                     <OperationRow
                       ref={isSelected ? selectedRow : undefined}
                       row={row}
+                      span={spans.get(row.request) ?? 1}
                       labels={labels}
                       nested={mode === 'requests'}
                       selected={isSelected}
@@ -595,7 +626,7 @@ export function ActivityScreen() {
             onFilter={(token) =>
               setQuery((current) => addToken(current, token))
             }
-            onClose={() => setSelected(null)}
+            onClose={closeDrawer}
           />
         )}
       </div>
@@ -705,12 +736,14 @@ function RequestRow(props: {
 function OperationRow(props: {
   readonly ref?: Ref<HTMLDivElement> | undefined;
   readonly row: Extract<Row, { kind: 'operation' }>;
+  readonly span: number;
   readonly labels: ReadonlyMap<string, string>;
   readonly nested: boolean;
   readonly selected: boolean;
   readonly onClick: () => void;
 }) {
-  const { request, entry, span } = props.row;
+  const { request, entry } = props.row;
+  const { span } = props;
   const { operation } = entry;
   const committed = operation.runtime?.record === 'committed';
   const summary = requestSummary(operation, props.labels);

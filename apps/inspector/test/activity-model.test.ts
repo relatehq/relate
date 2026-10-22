@@ -1,13 +1,17 @@
 import { expect, it } from 'vitest';
 import {
+  addToken,
+  callFacts,
   describeRequest,
   facet,
+  facetToken,
   flattenFields,
   histogram,
   matches,
   operationOmitted,
   parseDuration,
   parseQuery,
+  removeToken,
   requestFacts,
   timeline,
   touchedObjects,
@@ -184,6 +188,7 @@ it('groups touched records by definition with committed property changes and ref
     [
       createOperation({
         recordIds: ['cus_1', 'cus_2'],
+        outcome: { records: 5 },
         runtime: {
           record: 'attempt',
           actor: { kind: 'principal', id: 'ops@acme.com' },
@@ -284,4 +289,63 @@ it('flattens every recorded field except those shown on their own tab', () => {
     false,
   );
   expect(fields.some(([key]) => key === 'recordIds')).toBe(false);
+});
+
+it('keeps a quoted facet value whole, so it can be toggled off again', () => {
+  const token = facetToken('def', 'Orders, EU');
+  const query = addToken('status:failed', token);
+
+  expect(token).toBe('def="Orders, EU"');
+  expect(addToken(query, token)).toBe(query);
+  expect(parseQuery(query).at(-1)).toMatchObject({
+    key: 'def',
+    comparator: '=',
+    values: ['Orders, EU'],
+  });
+  expect(removeToken(query, token)).toBe('status:failed');
+});
+
+it('matches the whole value after = and part of it after :', () => {
+  const request = describeRequest(
+    createRequest([createOperation({ recordIds: ['cus_10'] })]),
+  );
+  const facts = requestFacts(request, new Map());
+
+  expect(matches(parseQuery('object:cus_1'), facts)).toBe(true);
+  expect(matches(parseQuery(facetToken('object', 'cus_1')), facts)).toBe(false);
+  expect(matches(parseQuery(facetToken('object', 'cus_10')), facts)).toBe(true);
+});
+
+it('matches a call on its own status and text, not its operations', () => {
+  const request = describeRequest(
+    createRequest([
+      createOperation({ status: 'failed', recordIds: ['cus_1'] }),
+    ]),
+  );
+  const facts = callFacts(request);
+
+  expect(matches(parseQuery('status:failed'), facts)).toBe(false);
+  expect(matches(parseQuery('status:succeeded'), facts)).toBe(true);
+  expect(matches(parseQuery('customer'), facts)).toBe(false);
+  expect(
+    matches(parseQuery('status:failed'), requestFacts(request, new Map())),
+  ).toBe(true);
+});
+
+it('marks record IDs capped only when the operation returned more than the limit', () => {
+  const ids = (count: number) =>
+    Array.from({ length: count }, (_, index) => `cus_${index}`);
+  const touched = (records: number) =>
+    touchedObjects(
+      [
+        createOperation({
+          recordIds: ids(Math.min(records, 3)),
+          outcome: { records },
+        }),
+      ],
+      3,
+    )[0]!.capped;
+
+  expect(touched(3)).toBe(false);
+  expect(touched(4)).toBe(true);
 });
