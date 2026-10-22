@@ -321,6 +321,14 @@ issue.
 - [Inspector](packages/cli/README.md): `pnpm relate dev`
 - [Contributing](CONTRIBUTING.md) · [Releasing](RELEASING.md)
 
+## Agent evaluations
+
+The standalone [SDK agent evaluation suite](evals/agent-sdk/README.md) measures
+discovery, reads, traversal, permissions and action workflows across models and
+agent strategies, with reproducible task worlds, state-based grading and
+retained transcripts. It is separate from the runtime packages and normal SDK
+installation.
+
 ## License
 
 [Apache 2.0](LICENSE). Created by [Viable Systems](https://viablesystems.ai).
