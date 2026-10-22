@@ -32,7 +32,8 @@ it('quotes every physical identifier, binds every value and reports the exact pa
 
   expect(plan.sql).toContain('"odd""schema"."odd"";table"');
   expect(plan.sql).toContain('"odd"";table"');
-  expect(plan.sql).not.toContain('COLLATE pg_catalog."C"');
+  expect(plan.sql).toContain('COLLATE pg_catalog."C"');
+  expect(plan.sql).toContain('d."odd""key" OPERATOR(pg_catalog.=) k.k0');
   expect(plan.sql).not.toContain('DROP TABLE');
   expect(plan.values).toContain("x'); DROP TABLE events; --");
   const budget = connection.analytics.parameterBudget(request);

@@ -691,3 +691,44 @@ it('accepts smallint and domains with compatible base types', async () => {
   expect(physical.columns.tiny!.supportedTypes).toEqual([{ type: 'int32' }]);
   expect(physical.columns.domain!.supportedTypes).toEqual([{ type: 'string' }]);
 });
+
+it('retains byte-exact scope under nondeterministic text collations', async () => {
+  const { db, schema, connection } = await fixture();
+
+  await db.query(`CREATE COLLATION "${schema}".folded (provider = icu, locale = 'und-u-ks-level2', deterministic = false);
+    CREATE TABLE "${schema}".folded_events (customer_id text COLLATE "${schema}".folded NOT NULL, kind text COLLATE "${schema}".folded NOT NULL);
+    CREATE INDEX ON "${schema}".folded_events(customer_id);
+    INSERT INTO "${schema}".folded_events VALUES ('acme', 'login'), ('acme', 'LOGIN'), ('ACME', 'login');`);
+  const resource = connection
+    .table('folded_events', { schema })
+    .bindDataset({ columns: { customerId: 'customer_id', kind: 'kind' } });
+
+  expect(
+    (await connection.analytics.describe(resource, options())).columns
+      .customerId!.supportedTypes,
+  ).toEqual([{ type: 'string' }]);
+  const count = aggregate('count', '*', 'int64');
+  const filtered = {
+    ...count,
+    predicate: {
+      kind: 'compare' as const,
+      op: '=' as const,
+      left: column('kind', 'string'),
+      right: {
+        kind: 'value' as const,
+        value: { type: 'string' as const, value: 'login' },
+      },
+    },
+  };
+  const result = await connection.analytics.execute(
+    connection.analytics.plan(
+      query(resource, [count, filtered], ['acme', 'ACME']),
+    ),
+    options(),
+  );
+
+  expect(result.rows.map((row) => row.values)).toEqual([
+    [2n, 1n],
+    [1n, 1n],
+  ]);
+});

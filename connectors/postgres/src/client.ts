@@ -101,6 +101,9 @@ export function createClientFactory(settings: {
       },
       destroy: () => {
         cancelSocket?.destroy();
+
+        if (purpose === 'control') return;
+
         // An explicit error also rejects pg.connect() while end() marks the client as ending.
         client.connection.stream.destroy(
           new Error('PostgreSQL connection closed'),

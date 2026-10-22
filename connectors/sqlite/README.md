@@ -165,14 +165,16 @@ milliseconds to microseconds, including MIN/MAX. Correlation uses indexed
 equality against both canonical timestamp precisions, leaving the dataset column
 unwrapped.
 
-Each analytical statement uses a fresh read-only child process. This
-deliberately isolates statement state and guarantees teardown; it is a bounded
-process-per-statement implementation, not a reusable process pool. Startup cost
-is included in host timing. A child-local watchdog runs on a separate thread,
-enforces its lifetime even while SQLite blocks, and terminates the child if its
-parent disappears. At most four children run per configured connection; the
-runtime's shared statement queue owns normal admission across runtimes borrowing
-that connection and clamps to its published capacity.
+A pool of at most four reusable child processes belongs to each configured
+connection. Every statement opens a fresh read-only database handle and closes
+it before returning a result; successful workers return to the idle pool.
+Failures and cancellation terminate the worker and await its exit before
+releasing capacity. A child-local watchdog runs on a separate thread, enforces
+the operation lifetime even while SQLite blocks, and terminates the child if its
+parent disappears. Idle workers exit on parent disconnect and do not keep the
+host event loop alive. The runtime's shared statement queue coordinates
+admission across runtimes borrowing that connection and clamps to its published
+capacity. Startup timing includes worker acquisition and opening the database.
 `analyticalStartupTimeoutMs` defaults to 5000 (range 1–60000). After startup,
 `execute`'s `timeoutMs` bounds the statement. Timeout, abort and connection
 close terminate the child and await its exit before settling, so capacity is not
@@ -196,12 +198,12 @@ host diagnostics, separate from returned data and evidence.
 ```mermaid
 flowchart LR
   Resource[Selected table and column mapping] --> Plan[Quoted SQL and typed parameters]
-  Plan --> Start[Start read-only child]
+  Plan --> Start[Acquire pooled child and open read-only database]
   Start --> Execute[Execute and decode rows]
-  Execute --> Cleanup[Close database and exit child]
+  Execute --> Cleanup[Close database and release worker]
   Cleanup --> Result[Return portable rows]
   Abort[Deadline or cancellation] --> Kill[Terminate child]
-  Kill --> Cleanup
+  Kill --> Exit[Await child exit before releasing capacity]
 ```
 
 Connector execution and public app schema validation are implemented. Analytical

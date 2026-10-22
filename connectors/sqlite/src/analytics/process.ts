@@ -10,6 +10,45 @@ export function createProcessRunner(settings: {
 }) {
   let closed = false;
   const active = new Map<AbortController, Promise<unknown>>();
+  const idle = new Set<ReturnType<typeof fork>>();
+  const children = new Map<ReturnType<typeof fork>, Promise<void>>();
+  let retirement: Promise<void> | undefined;
+  const acquire = () => {
+    let child = idle.values().next().value;
+
+    if (child) {
+      idle.delete(child);
+      child.ref();
+      child.channel?.ref();
+
+      return child;
+    }
+
+    child = fork(new URL('./child.js', import.meta.url), [], {
+      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      serialization: 'advanced',
+      execArgv: [],
+    });
+    const owned = child;
+
+    children.set(
+      owned,
+      new Promise<void>((resolve) => {
+        owned.once('close', () => {
+          idle.delete(owned);
+          children.delete(owned);
+          resolve();
+        });
+      }),
+    );
+    // Idle process errors also need a handler; active tasks attach their own failure handler.
+    owned.on('error', () => {
+      idle.delete(owned);
+      owned.kill('SIGKILL');
+    });
+
+    return owned;
+  };
 
   function run(
     operation: AnalyticalOperation,
@@ -62,11 +101,7 @@ export function createProcessRunner(settings: {
       let child: ReturnType<typeof fork>;
 
       try {
-        child = fork(new URL('./child.js', import.meta.url), [], {
-          stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-          serialization: 'advanced',
-          execArgv: [],
-        });
+        child = acquire();
       } catch (cause) {
         timing();
         reject(
@@ -98,15 +133,14 @@ export function createProcessRunner(settings: {
           ),
         settings.startupTimeoutMs,
       );
-      child.on('error', (error) =>
+      const onError = (error: Error) =>
         fail(
           new DatasetExecutionError('execution-failed', {
             retryable: true,
             cause: error,
           }),
-        ),
-      );
-      child.on('message', (message: ChildResponse) => {
+        );
+      const onMessage = (message: ChildResponse) => {
         if (failed) return;
 
         if (
@@ -151,29 +185,59 @@ export function createProcessRunner(settings: {
                 }),
               );
           });
-        } else outcome = message;
-      });
-      child.on('close', (code) => {
+        } else {
+          outcome = message;
+
+          if (message.kind === 'failure') {
+            fail(
+              new DatasetExecutionError(message.code, {
+                retryable: message.retryable,
+              }),
+            );
+
+            return;
+          }
+
+          // A result is sent only after the database and statement watchdog close.
+          timing();
+
+          if (options.signal.aborted) fail(options.signal.reason);
+
+          if (controller.signal.aborted) fail(controller.signal.reason);
+
+          if (failed) return;
+
+          detach();
+          idle.add(child);
+          child.unref();
+          child.channel?.unref();
+          resolve(message.value);
+        }
+      };
+      const detach = () => {
         clearTimeout(timer);
         options.signal.removeEventListener('abort', abort);
         controller.signal.removeEventListener('abort', retire);
+        child.off('error', onError);
+        child.off('message', onMessage);
+        child.off('close', onClose);
+      };
+      const onClose = () => {
         timing();
+        detach();
 
         if (failed) reject(failure);
         else if (options.signal.aborted) reject(options.signal.reason);
         else if (controller.signal.aborted) reject(controller.signal.reason);
-        else if (outcome?.kind === 'failure')
-          reject(
-            new DatasetExecutionError(outcome.code, {
-              retryable: outcome.retryable,
-            }),
-          );
-        else if (code !== 0 || outcome?.kind !== 'result')
+        else
           reject(
             new DatasetExecutionError('execution-failed', { retryable: true }),
           );
-        else resolve(outcome.value);
-      });
+      };
+
+      child.on('error', onError);
+      child.on('message', onMessage);
+      child.on('close', onClose);
       child.send(
         {
           kind: 'open',
@@ -194,6 +258,11 @@ export function createProcessRunner(settings: {
             );
         },
       );
+    }).then((value) => {
+      options.signal.throwIfAborted();
+      controller.signal.throwIfAborted();
+
+      return value;
     });
 
     active.set(controller, task);
@@ -207,18 +276,27 @@ export function createProcessRunner(settings: {
 
   return {
     run,
-    async close() {
-      closed = true;
+    close() {
+      return (retirement ??= (async () => {
+        closed = true;
 
-      for (const controller of active.keys())
-        controller.abort(
-          new DOMException(
-            'SQLite analytical connection retired',
-            'AbortError',
-          ),
-        );
+        for (const child of children.keys()) {
+          child.ref();
+          child.channel?.ref();
+        }
 
-      await Promise.allSettled([...active.values()]);
+        for (const controller of active.keys())
+          controller.abort(
+            new DOMException(
+              'SQLite analytical connection retired',
+              'AbortError',
+            ),
+          );
+
+        for (const child of idle) child.kill('SIGKILL');
+
+        await Promise.allSettled([...active.values(), ...children.values()]);
+      })());
     },
   };
 }

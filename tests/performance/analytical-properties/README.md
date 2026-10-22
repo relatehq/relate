@@ -53,10 +53,11 @@ and timestamps outside October 2026. Counts and latest-login timestamps use
 `(customer, type, at)` and run `ANALYZE` before measurement.
 
 Setup, generation, adoption, index creation and cleanup are outside timing.
-SQLite owns a temporary file, because the real connector runs each statement in
-an isolated process. PostgreSQL owns a uniquely named events schema. Optional
-Postgres object storage uses the real persistence adapter; cleanup deletes only
-the run's graph rows. The harness never resets the database's `relate` schema.
+SQLite owns a temporary file; the connector executes statements in a bounded
+pool of isolated processes, reopening the read-only database for each statement.
+PostgreSQL owns a uniquely named events schema. Optional Postgres object storage
+uses the real persistence adapter; cleanup deletes only the run's graph rows.
+The harness never resets the database's `relate` schema.
 
 ## What runs
 

@@ -114,9 +114,7 @@ function execute(plan: SqlitePlan): DatasetExecution {
   return { rows, readAt };
 }
 
-function finish(message: ChildResponse) {
-  void watchdog?.terminate();
-
+async function finish(message: ChildResponse) {
   try {
     database?.close();
   } catch {
@@ -124,10 +122,14 @@ function finish(message: ChildResponse) {
   }
 
   database = undefined;
-  process.send?.(message, () => {
-    if (process.connected) process.disconnect();
-  });
+  await watchdog?.terminate();
+  watchdog = undefined;
+  process.send?.(message);
 }
+
+process.on('disconnect', () => {
+  process.exit(0);
+});
 
 process.on('message', (request: ChildRequest) => {
   try {
@@ -157,12 +159,12 @@ process.on('message', (request: ChildRequest) => {
           ? inspect(request.resource)
           : execute(request.plan);
 
-      finish({ kind: 'result', value });
+      void finish({ kind: 'result', value });
     }
   } catch (error) {
     const errcode = (error as { errcode?: number }).errcode;
 
-    finish({
+    void finish({
       kind: 'failure',
       code:
         error instanceof InvalidResult ? 'invalid-result' : 'execution-failed',

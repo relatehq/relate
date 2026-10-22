@@ -83,11 +83,25 @@ export function render(
       ? `(${text} COLLATE pg_catalog."C")`
       : text;
   };
+  const equality = (left: ResolvedOperand, right: ResolvedOperand): string => {
+    const a = operand(left, false),
+      b = operand(right, false);
+    const type = left.kind === 'value' ? left.value.type : left.type.type;
+    const indexed = `${a} OPERATOR(pg_catalog.=) ${b}`;
+
+    // The ordinary equality is indexable. The binary guard preserves exact scope
+    // under nondeterministic collations, including a schema change after startup.
+    return type === 'string'
+      ? `(${indexed} AND (${a} COLLATE pg_catalog."C") OPERATOR(pg_catalog.=) (${b} COLLATE pg_catalog."C"))`
+      : `(${indexed})`;
+  };
   const predicate = (value: ResolvedPredicate): string => {
     if (value.kind === 'compare') {
       if (!['=', '<>', '<', '<=', '>', '>='].includes(value.op)) invalid();
 
-      return `(${operand(value.left, !['=', '<>'].includes(value.op))} OPERATOR(pg_catalog.${value.op}) ${operand(value.right, !['=', '<>'].includes(value.op))})`;
+      if (value.op === '=') return equality(value.left, value.right);
+
+      return `(${operand(value.left)} OPERATOR(pg_catalog.${value.op}) ${operand(value.right)})`;
     }
 
     if (value.kind === 'null')
@@ -195,7 +209,10 @@ export function render(
 
       const type = query.keys[pair.key]!.type;
 
-      return `${operand({ kind: 'column', column: pair.column, type }, false)} OPERATOR(pg_catalog.=) ${operand({ kind: 'key', key: pair.key, type }, false)}`;
+      return equality(
+        { kind: 'column', column: pair.column, type },
+        { kind: 'key', key: pair.key, type },
+      );
     })
     .join(' AND ');
   const projection = query.aggregates.map((aggregate, i) => {

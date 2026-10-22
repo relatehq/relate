@@ -54,18 +54,20 @@ types must match the physical schema:
 Domains over supported base types are accepted. `numeric`, `real`, zone-less
 timestamps and blank-padded `char` are unsupported: local timestamps have no
 instant without an explicit timezone, and `char` equality ignores trailing
-spaces. Text columns require deterministic collations. Use int64 minor units for
-exact monetary aggregates. No type coercion silently narrows a declared column.
+spaces. Text equality retains exact byte semantics even under nondeterministic
+collations. Use int64 minor units for exact monetary aggregates. No type
+coercion silently narrows a declared column.
 
 Plans bind every value with an explicit PostgreSQL type. Built-in types,
 functions, comparison operators and the binary collation are qualified through
 `pg_catalog`, preserving their meaning under application search paths. String
 ordering, minimum/maximum and distinct counts use `COLLATE "C"`. Equality and
-correlation retain the deterministic column collation so existing B-tree indexes
-remain eligible. Correlation joins remain outside caller predicates, and
-per-slot masks exclude unavailable dependencies. The parameter budget includes
-masks, slots, keys, literals and fallbacks, and plans reject more than 65,535
-parameters before opening a client.
+correlation combine an ordinary indexable comparison with a binary guard,
+preserving exact matching while existing B-tree indexes remain eligible.
+Correlation joins remain outside caller predicates, and per-slot masks exclude
+unavailable dependencies. The parameter budget includes masks, slots, keys,
+literals and fallbacks, and plans reject more than 65,535 parameters before
+opening a client.
 
 Integer sums cast to `bigint`; overflow fails the statement. Integer averages
 cast to `double precision`. Boolean minimum/maximum use `bool_and`/`bool_or`.
