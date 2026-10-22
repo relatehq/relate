@@ -895,3 +895,27 @@ Analytical connectors may publish `limits.maxConcurrentStatements`. Hosts clamp
 admission to that capacity and coordinate it across runtimes borrowing a
 connection; callers do not configure connector capacity. A missing capability
 limit leaves the host's finite concurrency limit in force.
+
+## Shared analytical SQL rendering
+
+`relate/analytics` exports `renderAnalyticalQuery`, `analyticalParameterBudget`
+and `quoteSqlIdentifier` for trusted connector implementations. They accept
+runtime-authorized query structures, never caller SQL, and do not grant access
+or replace runtime authorization. `SqlDataset` holds connector-owned physical
+identifiers. `AnalyticalSqlDialect` supplies scalar binding, comparison,
+aggregate and timestamp syntax; the shared renderer validates operands,
+operators, slots and correlations and owns the grouped join shape.
+
+PostgreSQL, SQLite and DuckDB use this renderer. The count-only budget traversal
+counts literals, predicates, fallbacks, slot keys/masks and dialect timestamp
+parameters without encoding values or generating SQL. Dialects declare their
+fixed timestamp-format parameter count, which must match their rendering hook.
+`AnalyticalSqlPlan` remains connector-internal; consumers receive opaque plans.
+
+```mermaid
+flowchart LR
+  Runtime[Authorized query] --> Budget[Count-only parameter budget]
+  Runtime --> Render[Shared validation and SQL structure]
+  Dialect[Connector dialect hooks] --> Render
+  Render --> Plan[Connector-owned SQL and bound values]
+```

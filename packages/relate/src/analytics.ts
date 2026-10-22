@@ -21,3 +21,15 @@ export type {
   AnalyticalScalar,
   DecodedAnalyticalScalar,
 } from './analytics/values.js';
+
+export {
+  renderAnalyticalQuery,
+  analyticalParameterBudget,
+  quoteSqlIdentifier,
+} from './analytics/render.js';
+
+export type {
+  AnalyticalSqlDialect,
+  AnalyticalSqlPlan,
+  SqlDataset,
+} from './analytics/render.js';

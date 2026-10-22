@@ -50,9 +50,4 @@ export type Response =
       };
     };
 
-export function identifier(value: string): string {
-  if (!value || value.includes('\0'))
-    throw new Error('Invalid SQLite identifier');
-
-  return `"${value.replaceAll('"', '""')}"`;
-}
+export { quoteSqlIdentifier as identifier } from 'relate/analytics';

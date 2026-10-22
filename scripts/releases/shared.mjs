@@ -11,6 +11,7 @@ export const packedPackages = [
   'packages/node',
   'connectors/sqlite',
   'connectors/postgres',
+  'connectors/duckdb',
   'connectors/stripe',
 ];
 
