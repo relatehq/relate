@@ -136,3 +136,13 @@ cancellation, session cleanup and public Node-host reads. The
 [generated SQL property suite](../../tests/support/sql-properties/README.md)
 compares generated queries with a reference evaluator. No external dataset or
 production credentials are required.
+
+TODO: run the integration suite through a connection pooler. Tests connect
+directly to PostgreSQL; no test covers PgBouncer in transaction mode or a
+managed pooler (Neon, Supabase). A CI job with a PgBouncer container in front of
+the test database should cover:
+
+- startup parameters the pooler accepts (no `statement_timeout` at startup);
+- cancellation, which must reach the pooler's virtual backend key;
+- transaction-local settings (`statement_timeout`, `extra_float_digits`) that
+  must not leak to other clients sharing the server connection.
