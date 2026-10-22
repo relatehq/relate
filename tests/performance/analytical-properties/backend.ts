@@ -11,10 +11,12 @@ import { createMemoryStore } from '@relate/runtime';
 import type { ObservationStore } from 'relate/storage';
 import type { AnalyticalResource } from 'relate/connectors';
 import type { Event } from './model.js';
+import { openDuckBackend } from './duckdb.js';
 
 export interface Backend {
   resource: AnalyticalResource;
   version: string;
+  file?: string;
   close(): Promise<void>;
 }
 
@@ -31,9 +33,11 @@ function databaseUrl() {
 
 /** Owned resources only; no global schema reset and no credentials in reports. */
 export async function openBackend(
-  kind: 'sqlite' | 'postgres',
+  kind: 'sqlite' | 'postgres' | 'duckdb',
   rows: Iterable<Event>,
 ): Promise<Backend> {
+  if (kind === 'duckdb') return openDuckBackend(rows);
+
   if (kind === 'sqlite') {
     const directory = await mkdtemp(join(tmpdir(), 'relate-analytical-bench-'));
     const path = join(directory, 'events.sqlite');

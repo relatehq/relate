@@ -24,7 +24,7 @@ export interface Config {
   seed: number;
   repetitions: number;
   warmups: number;
-  backend?: 'sqlite' | 'postgres';
+  backend?: 'sqlite' | 'postgres' | 'duckdb';
   objectStore?: 'memory' | 'postgres';
   capture?: 'enabled' | 'disabled';
   freshness?: 'cached' | 'refresh';
@@ -312,8 +312,8 @@ async function main() {
     'profile must be small, capacity or full',
   );
   assert(
-    ['sqlite', 'postgres', 'both'].includes(values.backend),
-    'backend must be sqlite, postgres or both',
+    ['sqlite', 'postgres', 'duckdb', 'both', 'all'].includes(values.backend),
+    'backend must be sqlite, postgres, duckdb, both or all',
   );
   assert(
     ['memory', 'postgres'].includes(values.store),
@@ -354,9 +354,11 @@ async function main() {
     performanceComparisonEligible: false,
   };
   const backends =
-    values.backend === 'both'
-      ? (['sqlite', 'postgres'] as const)
-      : [values.backend as 'sqlite' | 'postgres'];
+    values.backend === 'all'
+      ? (['sqlite', 'postgres', 'duckdb'] as const)
+      : values.backend === 'both'
+        ? (['sqlite', 'postgres'] as const)
+        : [values.backend as 'sqlite' | 'postgres' | 'duckdb'];
   const captures =
     values.capture === 'both'
       ? (['disabled', 'enabled'] as const)
