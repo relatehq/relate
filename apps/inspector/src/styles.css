@@ -2717,6 +2717,9 @@ a.icon-button.active {
   min-width: 0;
   min-height: 0;
   display: grid;
+  /* An implicit column sizes to its content, so a wide result table would
+     widen the whole screen; pin it to the space available instead. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(160px, 1.1fr) minmax(160px, 1fr);
 }
 
@@ -3047,6 +3050,7 @@ a.icon-button.active {
 
 /* Results */
 .pg-results {
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
