@@ -401,8 +401,10 @@ it('detaches values from caller and model mutations, without enumerating SQL or 
 
   await result;
   expect(queries[0]!.correlation).toHaveLength(1);
-  expect(queries[0]!.aggregates[0]!.predicate).toMatchObject({
-    right: { kind: 'value', value: { type: 'string', value: 'private-key' } },
+  expect(queries[0]!.aggregates[0]).toMatchObject({
+    predicate: {
+      right: { kind: 'value', value: { type: 'string', value: 'private-key' } },
+    },
   });
 });
 

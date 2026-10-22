@@ -13,6 +13,8 @@ export type {
   ResolvedOperand,
   ResolvedPredicate,
   ResolvedAggregate,
+  ResolvedAggregateLeaf,
+  ResolvedScalarExpression,
 } from './query.js';
 
 /** Types the physical column can represent without loss under this connector. */

@@ -1,5 +1,7 @@
 import type {
   AuthorizedDatasetQuery,
+  ResolvedAggregate,
+  ResolvedScalarExpression,
   ResolvedOperand,
   ResolvedPredicate,
 } from './query.js';
@@ -77,7 +79,33 @@ export function validateAuthorizedDatasetQuery(
     });
   }
 
-  for (const aggregate of query.aggregates) {
+  const scalar = (value: ResolvedScalarExpression): void => {
+    if (value.kind === 'aggregate') aggregate(value.value);
+    else if (value.kind === 'operand') {
+      if (value.value.kind === 'column') invalid();
+
+      operand(value.value);
+    } else {
+      if (
+        value.kind === 'binary'
+          ? !['+', '-', '*', '/'].includes(value.op)
+          : !['nullif', 'coalesce'].includes(value.kind)
+      )
+        invalid();
+
+      scalar(value.left);
+      scalar(value.right);
+    }
+  };
+  const aggregate = (aggregate: ResolvedAggregate): void => {
+    if (aggregate.aggregate === 'expression') {
+      if (aggregate.result.type !== 'float64') invalid();
+
+      scalar(aggregate.expression);
+
+      return;
+    }
+
     if (
       !['count', 'sum', 'avg', 'min', 'max'].includes(aggregate.aggregate) ||
       (aggregate.distinct && aggregate.aggregate !== 'count') ||
@@ -89,7 +117,9 @@ export function validateAuthorizedDatasetQuery(
     if (aggregate.argument !== '*') operand(aggregate.argument);
 
     if (aggregate.predicate) predicate(aggregate.predicate);
-  }
+  };
+
+  query.aggregates.forEach(aggregate);
 
   for (const pair of query.correlation) {
     key(pair.key);

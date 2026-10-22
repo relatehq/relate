@@ -45,8 +45,30 @@ export type Predicate =
 
 export type Aggregate = 'count' | 'sum' | 'avg' | 'min' | 'max';
 
-export interface RelateSqlQuery {
-  readonly association: Name;
+export type ScalarExpression<T> =
+  | { readonly kind: 'aggregate'; readonly value: T }
+  | { readonly kind: 'operand'; readonly value: Operand }
+  | {
+      readonly kind: 'binary';
+      readonly op: '+' | '-' | '*' | '/';
+      readonly left: ScalarExpression<T>;
+      readonly right: ScalarExpression<T>;
+    }
+  | {
+      readonly kind: 'nullif' | 'coalesce';
+      readonly left: ScalarExpression<T>;
+      readonly right: ScalarExpression<T>;
+    };
+
+export type RelateSqlQuery = { readonly association: Name } & (
+  | SqlAggregate
+  | {
+      readonly aggregate: 'expression';
+      readonly expression: ScalarExpression<SqlAggregate>;
+    }
+);
+
+export interface SqlAggregate {
   readonly aggregate: Aggregate;
   readonly argument: Operand | '*';
   readonly distinct: boolean;

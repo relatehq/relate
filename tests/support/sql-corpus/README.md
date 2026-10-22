@@ -5,11 +5,11 @@ expected semantic tree are independent of the parser implementation. Successful
 cases also fix the logical result type and JSON values for every object in
 `model.ts`. The parser never writes or updates these expectations.
 
-| Expected phase | Contract                                                                                                                |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `parse`        | Reject syntax outside the supported subset with the specified problem                                                   |
-| `resolve`      | Parse the expected tree, then reject an unknown identifier or invalid typed value before SQL execution                  |
-| `execute`      | Parse and resolve the expected type, then execute generated SQL on both backends and return exactly the expected values |
+| Expected phase | Contract                                                                                                                     |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `parse`        | Reject syntax outside the supported subset with the specified problem                                                        |
+| `resolve`      | Parse the expected tree, then reject an unknown identifier or invalid typed value before SQL execution                       |
+| `execute`      | Parse and resolve the expected type, then execute generated SQL on all three backends and return exactly the expected values |
 
 Source spans are removed by `semanticQuery` only for the semantic-tree
 comparison. The parser's separate tests verify original UTF-16 offsets, quoting
@@ -33,6 +33,7 @@ flowchart LR
   Model --> Backend
   Backend --> SQLite[SQLite generation suite]
   Backend --> Postgres[PostgreSQL generation suite]
+  Backend --> DuckDB[DuckDB generation suite]
 ```
 
 | Owner                | Suite                                                                                                         |
@@ -40,6 +41,7 @@ flowchart LR
 | Parser               | `packages/sql-parser/test/parser.test.ts` compares every tree or parse rejection                              |
 | Runtime analytics    | `packages/runtime/test/sql-corpus.test.ts` checks identifier resolution and inferred types for the same files |
 | SQLite connector     | `connectors/sqlite/test/sql-corpus.test.ts` runs the public Node host over real generated SQLite SQL          |
+| DuckDB connector     | `connectors/duckdb/test/sql-corpus.test.ts` runs the same backend contract over real DuckDB                   |
 | PostgreSQL connector | `connectors/postgres/test/sql-corpus.integration.test.ts` runs the same backend contract over real PostgreSQL |
 
 Every executable case runs as a caller expression. Cases without named
@@ -57,6 +59,7 @@ pnpm exec dotenvx run -f .env -- vitest run \
   packages/sql-parser/test/parser.test.ts \
   packages/runtime/test/sql-corpus.test.ts \
   connectors/sqlite/test/sql-corpus.test.ts \
+  connectors/duckdb/test/sql-corpus.test.ts \
   connectors/postgres/test/sql-corpus.integration.test.ts
 ```
 
@@ -65,4 +68,4 @@ Multi-dataset grain, composite correlations, batch/page-size equivalence,
 revocation, limits, cancellation and malformed driver results have separate
 focused contracts; these case files do not claim to replace those tests.
 [Generated SQL properties](../sql-properties/README.md) compare many generated
-queries with a reference evaluator on both backends.
+queries with a reference evaluator on SQLite and PostgreSQL.

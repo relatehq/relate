@@ -5,6 +5,7 @@ import type {
   ResolvedOperand,
   ResolvedPredicate,
   ResolvedAggregate,
+  ResolvedScalarExpression,
   TypedValue,
 } from 'relate/connectors';
 import type {
@@ -146,6 +147,24 @@ function remap(
       : value.kind === 'null'
         ? { ...value, value: operand(value.value) }
         : { ...value, args: value.args.map(predicate) };
+
+  const scalar = (
+    value: ResolvedScalarExpression,
+  ): ResolvedScalarExpression => {
+    if (value.kind === 'aggregate')
+      return {
+        ...value,
+        value: remap(value.value, indexes) as typeof value.value,
+      };
+
+    if (value.kind === 'operand')
+      return { ...value, value: operand(value.value) };
+
+    return { ...value, left: scalar(value.left), right: scalar(value.right) };
+  };
+
+  if (aggregate.aggregate === 'expression')
+    return { ...aggregate, expression: scalar(aggregate.expression) };
 
   return {
     ...aggregate,

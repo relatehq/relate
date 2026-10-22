@@ -6,11 +6,21 @@ import {
   semanticQuery,
 } from '../../../tests/support/sql-corpus/index.js';
 
-async function parse(sql: string): Promise<RelateSqlQuery> {
+async function parse(
+  sql: string,
+): Promise<
+  Extract<
+    RelateSqlQuery,
+    { aggregate: 'count' | 'sum' | 'avg' | 'min' | 'max' }
+  >
+> {
   const parser = await createSqlParser();
   const result = parser.parse(sql);
 
   if (!result.ok) throw new Error(JSON.stringify(result.issues));
+
+  if (result.query.aggregate === 'expression')
+    throw new Error('Expected a single aggregate');
 
   return result.query;
 }

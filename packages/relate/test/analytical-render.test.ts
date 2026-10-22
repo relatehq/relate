@@ -155,3 +155,77 @@ it('rejects malformed authorized structures through the common validation path',
   expect(quoteSqlIdentifier('a"b')).toBe('"a""b"');
   expect(() => quoteSqlIdentifier('a\0b')).toThrow('Invalid SQL identifier');
 });
+
+it('budgets nested formulas and binds aggregate inputs before projection values', () => {
+  const query = request();
+  const count = (value: number) => ({
+    kind: 'aggregate' as const,
+    value: {
+      aggregate: 'count' as const,
+      distinct: false,
+      argument: {
+        kind: 'value' as const,
+        value: { type: 'int32' as const, value },
+      },
+      result: { type: 'int64' as const, nullable: false },
+    },
+  });
+  const input: AuthorizedDatasetQuery = {
+    ...query,
+    slots: [{ ...query.slots[0]!, valid: [true] }],
+    aggregates: [
+      {
+        aggregate: 'expression',
+        result: { type: 'float64', nullable: true },
+        expression: {
+          kind: 'binary',
+          op: '/',
+          left: count(11),
+          right: {
+            kind: 'binary',
+            op: '+',
+            left: count(22),
+            right: {
+              kind: 'operand',
+              value: { kind: 'value', value: { type: 'float64', value: 33 } },
+            },
+          },
+        },
+      },
+    ],
+  };
+  const budget = analyticalParameterBudget(input, dialect);
+  const plan = renderAnalyticalQuery(input, resource, input.slots, {
+    ...dialect,
+    bind: (value) => ({
+      sql: '?',
+      value: encodeAnalyticalValue(value.value, { ...value, nullable: true }),
+    }),
+  });
+
+  expect(budget).toEqual({ fixed: 5, perSlot: 3 });
+  expect(plan.values).toEqual([
+    0,
+    "x'); DROP TABLE events;--",
+    true,
+    11,
+    22,
+    '0',
+    '0',
+    33,
+  ]);
+  expect(plan.sql.match(/\?/g)).toHaveLength(plan.values.length);
+  const forged = structuredClone(input);
+
+  Object.assign(forged.aggregates[0]!, {
+    expression: {
+      kind: 'binary',
+      op: '; DELETE',
+      left: count(1),
+      right: count(2),
+    },
+  });
+  expect(() =>
+    renderAnalyticalQuery(forged, resource, forged.slots, dialect),
+  ).toThrow('Invalid authorized analytical query');
+});

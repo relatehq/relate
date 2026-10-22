@@ -654,6 +654,18 @@ float64 `SUM` use the backend's floating-point arithmetic. Results can differ
 between backends in the last digits, and can vary with row order or parallel
 execution within one backend.
 
+Scalar formulas over one dataset support `+`, `-`, `*`, `/`, `NULLIF`,
+`COALESCE`, and per-aggregate `FILTER (WHERE predicate)`. Numeric formula leaves
+may be aggregates, ordinary `self` properties, literals or named parameters.
+Formula results are nullable float64, with null for division by zero; wide
+integers can lose precision during conversion. Standalone aggregates preserve
+the types above. Each aggregate is evaluated before the formula, including zero
+counts for empty datasets. All branches contribute authorization and
+ordinary-property dependencies. Joins and multi-dataset expressions remain
+unsupported. Connector plans carry either a `ResolvedAggregateLeaf` or an
+`aggregate: 'expression'` tree; masks remain per output field and parameter
+budgets include all nested leaves and values.
+
 `relate/consumer` exports `decodeComputed(result)`, `DecodedComputed<R>` and
 `AnalyticalValueError`. Typed results constrain the decoded bag to selected
 declared calculations and caller aliases. The input is a get result or an

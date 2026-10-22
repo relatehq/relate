@@ -401,6 +401,16 @@ dependencies. No source or dataset reads occur during preparation. Unsupported
 property types, computed dependencies, missing/unused parameters and conflicting
 inferred parameter types fail with sanitized issues and original source spans.
 
+A calculation can be one aggregate or a numeric expression over several
+aggregates from the same association, such as
+`SUM(spend) / NULLIF(COUNT(*) FILTER (WHERE converted), 0)`. Resolution visits
+all aggregate arguments, filters and scalar operands before execution,
+collecting one union of authorized columns and ordinary dependencies. Numeric
+parameters outside aggregates are float64. Formula outputs are nullable float64;
+standalone aggregate types are unchanged. The connector evaluates aggregate
+leaves before the formula, including empty-input count defaults and guarded zero
+division.
+
 `authorization/analytics.ts` owns association and column access decisions.
 Hidden associations are absent and resolve like unknown names. Denied referenced
 columns and non-correlation `self` properties mark an expression forbidden. A
@@ -422,7 +432,7 @@ flowchart LR
   Parser --> Prepare
   Authorization[Actor association and column gates] --> View[Actor association view]
   View --> Prepare
-  Prepare --> Resolved[Typed aggregate and dependency indexes]
+  Prepare --> Resolved[Typed aggregate expression and dependency indexes]
 ```
 
 Object `get` and membership-first `query` use this resolver and access view for
@@ -438,12 +448,12 @@ dependencies, authorize membership, or perform final dependency revalidation.
 Its returned dependency snapshots are private execution state, including values,
 and must never be projected as consumer evidence.
 
-| Module       | Responsibility                                                                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `batch.ts`   | Snapshot usable dependencies, group by association, remap shared keys, assign one slot per object, mask each aggregate, and size every batch before execution |
-| `execute.ts` | Execute through the shared connection queue; cancel and await every active statement before returning or rejecting                                            |
-| `merge.ts`   | Validate result framing and scalar types, withdraw failed aliases across the full scope, and enforce required fields                                          |
-| `timings.ts` | Aggregate fixed host-only stages into bounded count, total and maximum durations                                                                              |
+| Module       | Responsibility                                                                                                                                                   |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `batch.ts`   | Snapshot usable dependencies, group by association, remap shared keys, assign one slot per object, mask each output field, and size every batch before execution |
+| `execute.ts` | Execute through the shared connection queue; cancel and await every active statement before returning or rejecting                                               |
+| `merge.ts`   | Validate result framing and scalar types, withdraw failed aliases across the full scope, and enforce required fields                                             |
+| `timings.ts` | Aggregate fixed host-only stages into bounded count, total and maximum durations                                                                                 |
 
 A missing `self.since` masks only calculations that use it. A valid `COUNT(*)`
 can still be supplied for that object. Objects with matching correlation values

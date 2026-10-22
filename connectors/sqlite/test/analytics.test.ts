@@ -10,6 +10,7 @@ import { DatasetExecutionError } from 'relate/connectors';
 import type {
   AuthorizedDatasetQuery,
   ResolvedAggregate,
+  ResolvedAggregateLeaf,
   ResolvedOperand,
   TypedValue,
   AnalyticalExecutionTiming,
@@ -77,11 +78,11 @@ function column(
 }
 
 function aggregate(
-  name: ResolvedAggregate['aggregate'],
+  name: ResolvedAggregateLeaf['aggregate'],
   argument: ResolvedOperand | '*',
   type: TypedValue['type'],
   precision: 3 | 6 = 3,
-): ResolvedAggregate {
+): ResolvedAggregateLeaf {
   return {
     aggregate: name,
     argument,

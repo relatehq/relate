@@ -2,7 +2,36 @@
   "name": "reject-52-select-coalesce-max-value-fallback-from-self-events",
   "sql": "SELECT COALESCE(MAX(value), $fallback) FROM self.events",
   "expect": {
-    "phase": "parse",
-    "problem": "not-supported"
+    "phase": "resolve",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "coalesce",
+        "left": {
+          "kind": "aggregate",
+          "value": {
+            "aggregate": "max",
+            "argument": {
+              "kind": "column",
+              "name": "value",
+              "quoted": false
+            },
+            "distinct": false
+          }
+        },
+        "right": {
+          "kind": "operand",
+          "value": {
+            "kind": "parameter",
+            "name": "fallback"
+          }
+        }
+      }
+    },
+    "problem": "invalid-value"
   }
 }

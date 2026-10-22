@@ -1,0 +1,93 @@
+{
+  "name": "filtered-ratio",
+  "sql": "SELECT COUNT(*) FILTER (WHERE enabled) / COUNT(*) FROM self.events WHERE visible = TRUE",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "binary",
+        "op": "/",
+        "left": {
+          "kind": "aggregate",
+          "value": {
+            "aggregate": "count",
+            "argument": "*",
+            "distinct": false,
+            "predicate": {
+              "kind": "boolean",
+              "op": "and",
+              "args": [
+                {
+                  "kind": "compare",
+                  "op": "=",
+                  "left": {
+                    "kind": "column",
+                    "name": "visible",
+                    "quoted": false
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "literal": "boolean",
+                    "value": true
+                  }
+                },
+                {
+                  "kind": "compare",
+                  "op": "=",
+                  "left": {
+                    "kind": "column",
+                    "name": "enabled",
+                    "quoted": false
+                  },
+                  "right": {
+                    "kind": "literal",
+                    "literal": "boolean",
+                    "value": true
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "right": {
+          "kind": "aggregate",
+          "value": {
+            "aggregate": "count",
+            "argument": "*",
+            "distinct": false,
+            "predicate": {
+              "kind": "compare",
+              "op": "=",
+              "left": {
+                "kind": "column",
+                "name": "visible",
+                "quoted": false
+              },
+              "right": {
+                "kind": "literal",
+                "literal": "boolean",
+                "value": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 0.6666666666666666,
+      "acme_late": 0.6666666666666666,
+      "empty": null,
+      "nulls": null,
+      "wide": null
+    }
+  }
+}

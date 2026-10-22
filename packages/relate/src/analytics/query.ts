@@ -42,7 +42,30 @@ export type ResolvedPredicate =
       readonly not: boolean;
     };
 
-export interface ResolvedAggregate {
+export type ResolvedScalarExpression =
+  | { readonly kind: 'aggregate'; readonly value: ResolvedAggregateLeaf }
+  | { readonly kind: 'operand'; readonly value: ResolvedOperand }
+  | {
+      readonly kind: 'binary';
+      readonly op: '+' | '-' | '*' | '/';
+      readonly left: ResolvedScalarExpression;
+      readonly right: ResolvedScalarExpression;
+    }
+  | {
+      readonly kind: 'nullif' | 'coalesce';
+      readonly left: ResolvedScalarExpression;
+      readonly right: ResolvedScalarExpression;
+    };
+
+export type ResolvedAggregate =
+  | ResolvedAggregateLeaf
+  | {
+      readonly aggregate: 'expression';
+      readonly expression: ResolvedScalarExpression;
+      readonly result: ComputedResultType;
+    };
+
+export interface ResolvedAggregateLeaf {
   readonly aggregate: Aggregate;
   readonly argument: ResolvedOperand | '*';
   readonly distinct: boolean;

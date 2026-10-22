@@ -1,0 +1,52 @@
+{
+  "name": "coalesce-aggregates",
+  "sql": "SELECT COALESCE(MAX(small), MIN(small)) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "coalesce",
+        "left": {
+          "kind": "aggregate",
+          "value": {
+            "aggregate": "max",
+            "argument": {
+              "kind": "column",
+              "name": "small",
+              "quoted": false
+            },
+            "distinct": false
+          }
+        },
+        "right": {
+          "kind": "aggregate",
+          "value": {
+            "aggregate": "min",
+            "argument": {
+              "kind": "column",
+              "name": "small",
+              "quoted": false
+            },
+            "distinct": false
+          }
+        }
+      }
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 6,
+      "acme_late": 6,
+      "empty": null,
+      "nulls": null,
+      "wide": 8
+    }
+  }
+}

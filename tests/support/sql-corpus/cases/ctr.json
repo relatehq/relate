@@ -1,0 +1,82 @@
+{
+  "name": "ctr",
+  "sql": "SELECT COUNT(*) FILTER (WHERE enabled) * 1.0 / NULLIF(COUNT(*), 0) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "binary",
+        "op": "/",
+        "left": {
+          "kind": "binary",
+          "op": "*",
+          "left": {
+            "kind": "aggregate",
+            "value": {
+              "aggregate": "count",
+              "argument": "*",
+              "distinct": false,
+              "predicate": {
+                "kind": "compare",
+                "op": "=",
+                "left": {
+                  "kind": "column",
+                  "name": "enabled",
+                  "quoted": false
+                },
+                "right": {
+                  "kind": "literal",
+                  "literal": "boolean",
+                  "value": true
+                }
+              }
+            }
+          },
+          "right": {
+            "kind": "operand",
+            "value": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "1.0"
+            }
+          }
+        },
+        "right": {
+          "kind": "nullif",
+          "left": {
+            "kind": "aggregate",
+            "value": {
+              "aggregate": "count",
+              "argument": "*",
+              "distinct": false
+            }
+          },
+          "right": {
+            "kind": "operand",
+            "value": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "0"
+            }
+          }
+        }
+      }
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 0.4,
+      "acme_late": 0.4,
+      "empty": null,
+      "nulls": 0,
+      "wide": 1
+    }
+  }
+}

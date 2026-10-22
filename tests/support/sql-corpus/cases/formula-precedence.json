@@ -1,0 +1,81 @@
+{
+  "name": "formula-precedence",
+  "sql": "SELECT (COUNT(*) + 1) * 2 - 3 / 2 FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "binary",
+        "op": "-",
+        "left": {
+          "kind": "binary",
+          "op": "*",
+          "left": {
+            "kind": "binary",
+            "op": "+",
+            "left": {
+              "kind": "aggregate",
+              "value": {
+                "aggregate": "count",
+                "argument": "*",
+                "distinct": false
+              }
+            },
+            "right": {
+              "kind": "operand",
+              "value": {
+                "kind": "literal",
+                "literal": "number",
+                "value": "1"
+              }
+            }
+          },
+          "right": {
+            "kind": "operand",
+            "value": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "2"
+            }
+          }
+        },
+        "right": {
+          "kind": "binary",
+          "op": "/",
+          "left": {
+            "kind": "operand",
+            "value": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "3"
+            }
+          },
+          "right": {
+            "kind": "operand",
+            "value": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "2"
+            }
+          }
+        }
+      }
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 10.5,
+      "acme_late": 10.5,
+      "empty": 0.5,
+      "nulls": 2.5,
+      "wide": 4.5
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "name": "filtered-self-dependency",
+  "sql": "SELECT COUNT(*) FILTER (WHERE occurredAt >= self.customerSince) / NULLIF(COUNT(*), 0) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "expression",
+      "expression": {
+        "kind": "binary",
+        "op": "/",
+        "left": {
+          "kind": "aggregate",
+          "value": {
+            "aggregate": "count",
+            "argument": "*",
+            "distinct": false,
+            "predicate": {
+              "kind": "compare",
+              "op": ">=",
+              "left": {
+                "kind": "column",
+                "name": "occurredat",
+                "quoted": false
+              },
+              "right": {
+                "kind": "self",
+                "name": "customersince",
+                "quoted": false
+              }
+            }
+          }
+        },
+        "right": {
+          "kind": "nullif",
+          "left": {
+            "kind": "aggregate",
+            "value": {
+              "aggregate": "count",
+              "argument": "*",
+              "distinct": false
+            }
+          },
+          "right": {
+            "kind": "operand",
+            "value": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "0"
+            }
+          }
+        }
+      }
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 0.8,
+      "acme_late": 0.2,
+      "empty": null,
+      "nulls": 0,
+      "wide": 1
+    }
+  }
+}

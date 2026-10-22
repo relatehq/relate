@@ -3,10 +3,11 @@ import { loadModule, parseSync } from 'libpg-query';
 import { lower } from '../src/lower.js';
 import { rewriteParameters } from '../src/source.js';
 
-it('rejects an unrecognized key on every object in the parsed tree', async () => {
+it.each([
+  "SELECT COALESCE(COUNT(DISTINCT e.value), 0) FROM self.events e WHERE NOT (e.value >= $minimum OR e.label IS NULL) AND e.label = 'a' AND e.enabled = FALSE",
+  'SELECT COALESCE(COUNT(*) FILTER (WHERE enabled) * 1.0 / NULLIF(SUM(value) + self.budget, 0), $fallback) FROM self.events',
+])('rejects an unrecognized key on every parsed object: %s', async (sql) => {
   await loadModule();
-  const sql =
-    "SELECT COALESCE(COUNT(DISTINCT e.value), 0) FROM self.events e WHERE NOT (e.value >= $minimum OR e.label IS NULL) AND e.label = 'a' AND e.enabled = FALSE";
   const source = rewriteParameters(sql, 16);
   const tree = parseSync(source.sql);
   const paths: (string | number)[][] = [];

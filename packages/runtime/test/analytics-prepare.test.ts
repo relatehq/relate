@@ -1,3 +1,7 @@
+import type {
+  ResolvedAggregate,
+  ResolvedAggregateLeaf,
+} from 'relate/connectors';
 import { expect, it } from 'vitest';
 import { createSqlParser } from '@relate/sql-parser';
 import type { AnalyticalExpression, LogicalType } from 'relate/analytics';
@@ -110,11 +114,11 @@ it('retains exact int64 literals and explicitly types constant numeric compariso
     'SELECT COALESCE(SUM(large), 9007199254740993) FROM self.events WHERE 2 < 10',
   );
 
-  expect(prepared.aggregate.fallback).toEqual({
+  expect(leaf(prepared.aggregate).fallback).toEqual({
     type: 'int64',
     value: 9007199254740993n,
   });
-  expect(prepared.aggregate.predicate).toEqual({
+  expect(leaf(prepared.aggregate).predicate).toEqual({
     kind: 'compare',
     op: '<',
     left: { kind: 'value', value: { type: 'int64', value: 2n } },
@@ -236,7 +240,7 @@ it('types string literals from their column context and accepts NULL only in nul
     "SELECT COUNT(*) FROM self.events WHERE preciseAt >= '2026-10-01T00:00:00Z' AND NULL IS NULL",
   );
 
-  expect(JSON.stringify(prepared.aggregate.predicate)).toContain(
+  expect(JSON.stringify(leaf(prepared.aggregate).predicate)).toContain(
     '2026-10-01T00:00:00.000000Z',
   );
 });
@@ -309,11 +313,61 @@ it('accepts exact decimal/exponent integer literals without rounding', async () 
     'SELECT COALESCE(SUM(large), 90071992547409930e-1) FROM self.events WHERE small = 42.000',
   );
 
-  expect(prepared.aggregate.fallback).toEqual({
+  expect(leaf(prepared.aggregate).fallback).toEqual({
     type: 'int64',
     value: 9007199254740993n,
   });
-  expect(prepared.aggregate.predicate).toMatchObject({
+  expect(leaf(prepared.aggregate).predicate).toMatchObject({
     right: { kind: 'value', value: { type: 'int32', value: 42 } },
   });
+});
+
+function leaf(value: ResolvedAggregate): ResolvedAggregateLeaf {
+  if (value.aggregate === 'expression')
+    throw new Error('Expected a single aggregate');
+
+  return value;
+}
+
+it('collects authorization dependencies from every formula branch and aggregate filter', async () => {
+  const view = scope();
+  const denied = {
+    ...view,
+    associations: view.associations.map((association) => ({
+      ...association,
+      columns: association.columns.map((column) => ({
+        ...column,
+        readable: column.name !== 'enabled',
+      })),
+    })),
+  };
+  const expression = await prepare(
+    'SELECT SUM(small) / NULLIF(COUNT(*) FILTER (WHERE enabled), 0) FROM self.events WHERE at >= self.since',
+    undefined,
+    denied,
+  );
+
+  expect(expression.forbidden).toBe(true);
+  expect(expression.columns).toEqual(
+    expect.arrayContaining(['events.small', 'events.enabled', 'events.at']),
+  );
+  expect(expression.dependencies).toContainEqual({
+    id: 'customer.since',
+    type: { type: 'timestamp', precision: 3 },
+    correlation: false,
+  });
+});
+
+it.each([
+  'SUM(small) + MAX(text)',
+  'COUNT(*) / self.count',
+  'COUNT(*) + self.since',
+  'COUNT(*) + small',
+  'SUM(COUNT(*))',
+  'COUNT(*) + random()',
+  'COUNT(*) / (SELECT COUNT(*) FROM self.events)',
+])('rejects unsafe or nonnumeric formula %s', async (expression) => {
+  await expect(
+    prepare(`SELECT ${expression} FROM self.events`),
+  ).rejects.toBeInstanceOf(AnalyticalPreparationError);
 });

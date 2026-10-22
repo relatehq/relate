@@ -11,15 +11,26 @@
   parameters share a positional number without losing their individual source
   spans.
 - Every consumed tree object has a key allowlist; relevant enum values and list
-  arities are checked. Unknown syntax fails closed. An aggregate target and one
-  `FROM self.<association>` are required. The whole statement is validated.
+  arities are checked. Unknown syntax fails closed. A target containing at least
+  one aggregate and one `FROM self.<association>` are required. The whole
+  statement is validated.
 - Lowering preserves numeric text without conversion to Number. Identifier names
   are already PostgreSQL-folded or Unicode-decoded; the representation
   separately retains quotedness. Runtime resolution applies the model's
   identifier rules.
-- `COALESCE` permits exactly one aggregate and one non-null literal, with type
-  compatibility checked later by runtime resolution. `DISTINCT` is allowed only
-  for `COUNT(x)`. A caller cannot introduce an aggregate's `FILTER` or ordering.
+- Scalar formulas permit binary `+`, `-`, `*`, `/`, two-argument `NULLIF` and
+  `COALESCE`, numeric literals, ordinary `self` properties and named parameters.
+  Runtime resolution requires numeric operands. Dataset columns occur only in
+  aggregates or predicates; nested aggregates and subqueries are rejected.
+- `COALESCE(aggregate, non-null literal)` preserves the existing aggregate
+  scalar contract. Other formulas use nullable float64, including integer
+  division. Division by zero returns null on all connectors. Wide integers in
+  formulas may lose precision when converted to float64; standalone aggregates
+  stay exact.
+- `DISTINCT` is allowed only for `COUNT(x)`. Aggregate
+  `FILTER (WHERE predicate)` combines with the query's `WHERE` predicate;
+  neither can widen correlation. Aggregate ordering remains unsupported. Boolean
+  column/literal predicates are lowered to equality with true.
 - The portable result and issue types come from `relate/analytics`. Parser node
   types, driver objects, rewritten SQL and upstream error details never cross
   the public package boundary. Diagnostics contain only fixed messages and

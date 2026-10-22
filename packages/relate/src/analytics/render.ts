@@ -1,6 +1,9 @@
 import { validateAuthorizedDatasetQuery } from './query-validation.js';
 import type {
   AuthorizedDatasetQuery,
+  ResolvedAggregate,
+  ResolvedAggregateLeaf,
+  ResolvedScalarExpression,
   ResolvedOperand,
   ResolvedPredicate,
 } from './query.js';
@@ -105,7 +108,11 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
       ...slot.valid.map((value) => bind({ type: 'boolean', value })),
     ].join(', ')})`;
   });
-  const aggregates = query.aggregates.map((aggregate, index) => {
+  const aggregates: string[] = [];
+  const collectLeaf = (
+    aggregate: ResolvedAggregateLeaf,
+    index: number,
+  ): void => {
     const argument =
       aggregate.argument === '*'
         ? '*'
@@ -116,9 +123,61 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
     const filter = aggregate.predicate
       ? ` AND ${predicate(aggregate.predicate)}`
       : '';
+    const alias = `v${aggregates.length}`;
 
-    return `${dialect.aggregate(aggregate, argument, `k.m${index}${filter}`)} AS v${index}`;
-  });
+    aggregates.push(
+      `${dialect.aggregate(aggregate, argument, `k.m${index}${filter}`)} AS ${alias}`,
+    );
+  };
+  const collect = (value: ResolvedScalarExpression, index: number): void => {
+    if (value.kind === 'aggregate') collectLeaf(value.value, index);
+    else if (value.kind !== 'operand') {
+      collect(value.left, index);
+      collect(value.right, index);
+    }
+  };
+
+  // Render all aggregate inputs before projection values for positional binds.
+  query.aggregates.forEach((value, index) =>
+    value.aggregate === 'expression'
+      ? collect(value.expression, index)
+      : collectLeaf(value, index),
+  );
+  let leafIndex = 0;
+  const leafProjection = (aggregate: ResolvedAggregateLeaf): string => {
+    let value = `a.v${leafIndex++}`;
+
+    if (aggregate.aggregate === 'count')
+      value = `COALESCE(${value}, ${bind({ type: 'int64', value: 0n })})`;
+    else if (aggregate.fallback)
+      value = `COALESCE(${value}, ${bind(aggregate.fallback)})`;
+
+    if (aggregate.result.type === 'timestamp')
+      value = dialect.timestamp(value, aggregate.result.precision, bind);
+
+    return value;
+  };
+  const scalar = (value: ResolvedScalarExpression): string => {
+    if (value.kind === 'aggregate')
+      return `CAST(${leafProjection(value.value)} AS DOUBLE PRECISION)`;
+
+    if (value.kind === 'operand')
+      return `CAST(${operand(value.value)} AS DOUBLE PRECISION)`;
+
+    const left = scalar(value.left),
+      right = scalar(value.right);
+
+    if (value.kind === 'binary') {
+      // Guard every denominator: all supported engines return NULL for zero division.
+      return `(${left} ${value.op} ${value.op === '/' ? `NULLIF(${right}, 0)` : right})`;
+    }
+
+    return `${value.kind === 'nullif' ? 'NULLIF' : 'COALESCE'}(${left}, ${right})`;
+  };
+  const projection = query.aggregates.map(
+    (aggregate, index) =>
+      `${aggregate.aggregate === 'expression' ? scalar(aggregate.expression) : leafProjection(aggregate)} AS v${index}`,
+  );
   const correlation = query.correlation
     .map((pair) => {
       const type = query.keys[pair.key]!.type;
@@ -130,19 +189,6 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
       );
     })
     .join(' AND ');
-  const projection = query.aggregates.map((aggregate, i) => {
-    let value = `a.v${i}`;
-
-    if (aggregate.aggregate === 'count')
-      value = `COALESCE(${value}, ${bind({ type: 'int64', value: 0n })})`;
-    else if (aggregate.fallback)
-      value = `COALESCE(${value}, ${bind(aggregate.fallback)})`;
-
-    if (aggregate.result.type === 'timestamp')
-      value = dialect.timestamp(value, aggregate.result.precision, bind);
-
-    return `${value} AS v${i}`;
-  });
 
   // Positional parameters are explicitly typed; physical identifiers stay connector-owned.
   return {
@@ -184,7 +230,7 @@ export interface AnalyticalSqlDialect<
   ): string;
   operator(operator: string): string;
   aggregate(
-    aggregate: AuthorizedDatasetQuery['aggregates'][number],
+    aggregate: ResolvedAggregateLeaf,
     argument: string,
     filter: string,
   ): string;
@@ -211,13 +257,22 @@ export function analyticalParameterBudget(
 
     return value.args.reduce((sum, arg) => sum + predicate(arg), 0);
   };
+  const scalar = (value: ResolvedScalarExpression): number => {
+    if (value.kind === 'aggregate') return aggregate(value.value);
+
+    if (value.kind === 'operand') return operand(value.value);
+
+    return scalar(value.left) + scalar(value.right);
+  };
+  const aggregate = (value: ResolvedAggregate): number =>
+    value.aggregate === 'expression'
+      ? scalar(value.expression)
+      : (value.argument === '*' ? 0 : operand(value.argument)) +
+        (value.predicate ? predicate(value.predicate) : 0) +
+        (value.aggregate === 'count' || value.fallback ? 1 : 0) +
+        (value.result.type === 'timestamp' ? dialect.timestampParameters : 0);
   const fixed = query.aggregates.reduce(
-    (sum, aggregate) =>
-      sum +
-      (aggregate.argument === '*' ? 0 : operand(aggregate.argument)) +
-      (aggregate.predicate ? predicate(aggregate.predicate) : 0) +
-      (aggregate.aggregate === 'count' || aggregate.fallback ? 1 : 0) +
-      (aggregate.result.type === 'timestamp' ? dialect.timestampParameters : 0),
+    (sum, value) => sum + aggregate(value),
     0,
   );
 

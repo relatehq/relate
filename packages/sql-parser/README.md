@@ -1,8 +1,9 @@
 # @relate/sql-parser
 
 The analytical SQL boundary for Relate. It parses PostgreSQL grammar and accepts
-only one aggregate over a declared `self.<association>`. This package does not
-resolve model names, grant access, generate SQL, or execute database statements.
+one scalar expression over a declared `self.<association>`. This package does
+not resolve model names, grant access, generate SQL, or execute database
+statements.
 
 A **syntax tree** is PostgreSQL's parsed representation. **Lowering** validates
 that entire tree and converts it into Relate's smaller portable representation.
@@ -28,16 +29,22 @@ flowchart LR
 ```
 
 Supported syntax: `COUNT(*)`, `COUNT(x)`, `COUNT(DISTINCT x)`, `SUM`, `AVG`,
-`MIN`, `MAX`, and `COALESCE(aggregate, non-null literal)`. Predicates support
-comparisons, `AND`, `OR`, `NOT` and `IS [NOT] NULL`. Operands can name columns,
-ordinary `self` properties, literals and named parameters. Type compatibility,
-parameter values and name disclosure remain runtime responsibilities.
+`MIN`, `MAX`, aggregate `FILTER (WHERE predicate)`, and numeric formulas using
+`+`, `-`, `*`, `/`, parentheses, two-argument `NULLIF` and `COALESCE`. Every
+expression must contain an aggregate. Formula operands may also use numeric
+literals, ordinary `self` properties and named parameters; unaggregated dataset
+columns are rejected. `COALESCE(aggregate, non-null literal)` retains its
+existing scalar type. Other formulas return nullable `float64`; division by zero
+returns null. Predicates support comparisons, `AND`, `OR`, `NOT` and
+`IS [NOT] NULL`. Operands can name columns, ordinary `self` properties, literals
+and named parameters. Type compatibility, parameter values and name disclosure
+remain runtime responsibilities.
 
 The full query must fit the subset. Joins, CTEs, subqueries, casts, windows,
-caller aggregate filters, output aliases, grouping, ordering, paging, table
-functions, qualified functions and multiple statements are rejected. Numeric
-literals retain exact text; quoted identifiers retain exact case. PostgreSQL
-escape strings and Unicode identifier escapes are supported.
+output aliases, grouping, ordering, paging, table functions, qualified functions
+and multiple statements are rejected. Numeric literals retain exact text; quoted
+identifiers retain exact case. PostgreSQL escape strings and Unicode identifier
+escapes are supported.
 
 Initialization shares the WASM load, including concurrent calls. Default limits
 are 4 KiB of UTF-8 SQL, 256 parsed objects/arrays and 16 distinct named
@@ -50,5 +57,5 @@ implementation uses the
 Parser upgrades must pass the
 [shared JSON corpus](../../tests/support/sql-corpus/README.md) and the package's
 fail-closed tree tests. The same corpus fixes semantic trees, resolved types and
-expected values for the runtime identifier suite and both real backend
+expected values for the runtime identifier suite and all three real backend
 generation suites.
