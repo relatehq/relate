@@ -19,7 +19,18 @@ From the repository root, after `pnpm install`:
 pnpm example:customer-events
 ```
 
-The command builds its dependencies, runs both forms, prints the results and
+The command opens a seeded Inspector for the primary customer/events graph.
+Select Ana to explore the Events association, or Fin to see it hidden. Use
+`--no-open` to print the link without opening a browser; Ctrl+C closes the
+runtime and removes the temporary database.
+
+For the scripted queries and declared-property demonstration, run:
+
+```sh
+pnpm example:customer-events:walkthrough
+```
+
+The walkthrough builds its dependencies, runs both forms, prints the results and
 closes the runtime and database. Node 22.16+, 24 or 26 is sufficient; no
 external service or database is required. Each start creates a fresh SQLite file
 and an in-memory Relate store, and removes the file on shutdown. Dates are fixed
@@ -94,8 +105,7 @@ Neither a caller expression nor a declared property grants access to its inputs.
 ## Inspect the model
 
 ```sh
-pnpm build
-pnpm relate dev --config examples/04-customer-events/relate.config.ts --seed
+pnpm example:customer-events
 ```
 
 Open the printed Inspector link. The graph includes the Events dataset and its

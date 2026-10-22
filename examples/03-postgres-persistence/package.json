@@ -8,6 +8,7 @@
     "@relate/runtime": "workspace:*",
     "zod": "4.6.5",
     "@relate/postgres": "workspace:*",
-    "@relate/dev-crm-simulator": "workspace:*"
+    "@relate/dev-crm-simulator": "workspace:*",
+    "@relate/node": "workspace:*"
   }
 }

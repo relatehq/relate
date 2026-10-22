@@ -47,8 +47,9 @@ const ownedByMember = {
   evidenceMaxAgeMs: 30_000,
 };
 
-const graph = defineGraph({
+export const graph = defineGraph({
   id: 'todo-notes',
+  principals: { ada: { roles: ['member'], claims: {} } },
   objects: { Todo },
   actions: { addTodo: AddTodo },
   access,

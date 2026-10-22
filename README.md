@@ -34,20 +34,25 @@ pnpm install
 pnpm example:customer-workspace
 ```
 
-For the smallest terminal app, run `pnpm example:todo-notes` to create and list
-owner-only todos with notes. Run `pnpm example:customer-events` to filter and
-rank customers using event datasets. The [examples](examples/README.md) explain
-what each application teaches.
+Each default example command opens a seeded Inspector. Run
+`pnpm example:todo-notes` for owner-only todos with notes, or
+`pnpm example:customer-events` for customers with event datasets. Add
+`:walkthrough` to either command for the scripted terminal demo. The custom
+customer UI is available with `pnpm example:customer-workspace:app`. The
+[examples](examples/README.md) explain what each application teaches.
 
 Preparation runs quietly; add `--verbose` to see build logs. Build failures and
 runtime errors are always shown.
 
-The customer-workspace launcher loads the root `.env` if present. Add
-`ANTHROPIC_API_KEY` there to enable the inspector's built-in agent, then restart
-the example. The browser demo and seeded graph also work without a key.
+Each example launcher loads the root `.env` if present. Add `ANTHROPIC_API_KEY`
+there to enable the inspector's built-in agent, then restart the example. The
+browser demo and seeded graph also work without a key.
 
-A small app opens in your browser. Its customer comes from an HTTP CRM, its
-invoices from a SQLite database and its account reviews from Relate itself.
+The Inspector opens with a seeded customer from an HTTP CRM, invoices from a
+SQLite database and Relate-owned account reviews. Explore the graph and use the
+Playground as Ana or Fin.
+
+For the custom browser UI, run `pnpm example:customer-workspace:app` and try:
 
 1. As **Ana**, an account manager, you see Mothlight's invoices, amounts and
    currency. Customer revenue is withheld.

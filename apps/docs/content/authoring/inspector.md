@@ -40,7 +40,7 @@ amounts and currency and create account reviews. Fin can read customer revenue,
 but invoice amounts and currency are withheld and he cannot create reviews.
 
 The CLI itself does not load `.env`; use the loader above when your key lives in
-that file. For the full browser example, `pnpm example:customer-workspace`
+that file. The seeded Inspector command, `pnpm example:customer-workspace`,
 builds the packages and loads the root `.env` automatically if it exists. The
 key is optional for viewing the graph and querying seeded data through MCP.
 After changing `.env`, stop and restart the inspector: a second invocation

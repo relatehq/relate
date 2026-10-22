@@ -11,17 +11,27 @@ pnpm install
 pnpm example:customer-workspace
 ```
 
+This opens a seeded Inspector for Customer, Invoice and AccountReview. Select
+Ana or Fin to explore their access and run actions. Use `--no-open` to print the
+link without opening a browser; Ctrl+C stops the owned Inspector.
+
+## Custom browser application
+
+```sh
+pnpm example:customer-workspace:app
+```
+
 This builds the packages, starts the CRM simulator, seeds a temporary SQLite
 billing database, starts the application and a seeded model inspector, and opens
 your browser. No credentials or database server are required. Both listeners
-choose available loopback ports. Use `pnpm example:customer-workspace --no-open`
-to print the links without opening a browser. Ctrl+C closes the application,
-connectors, simulator and owned inspector process, then removes the temporary
-database. State resets on each launch. A second launch starts its own
-application and reuses the existing model inspector; stopping that second launch
-leaves the borrowed inspector running. Stop the original owner to close the
-inspector. A second Ctrl+C forces a stuck shutdown; shutdown also has a
-six-second limit.
+choose available loopback ports. Use
+`pnpm example:customer-workspace:app --no-open` to print the links without
+opening a browser. Ctrl+C closes the application, connectors, simulator and
+owned inspector process, then removes the temporary database. State resets on
+each launch. A second launch starts its own application and reuses the existing
+model inspector; stopping that second launch leaves the borrowed inspector
+running. Stop the original owner to close the inspector. A second Ctrl+C forces
+a stuck shutdown; shutdown also has a six-second limit.
 
 The launcher loads the repository root `.env` if it exists, preserving variables
 already exported in your shell. Put `ANTHROPIC_API_KEY` there to enable the

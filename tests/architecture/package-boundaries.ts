@@ -222,6 +222,7 @@ export const packagePolicies: Record<
       'relate/compiler',
       'relate/connectors',
       '@relate/runtime',
+      '@relate/node',
       '@relate/postgres',
       '@relate/dev-crm-simulator',
       'zod',

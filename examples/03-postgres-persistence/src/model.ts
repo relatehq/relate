@@ -49,6 +49,13 @@ export const Customer = defineObject({
 
 export const customerGraph = defineGraph({
   id: 'business.graph',
+  principals: {
+    ana: { roles: ['employee'], claims: { portfolio: 'portfolio_north' } },
+    fin: {
+      roles: ['employee', 'finance'],
+      claims: { portfolio: 'portfolio_north' },
+    },
+  },
   objects: { Customer },
   access,
   policies: {

@@ -257,6 +257,6 @@ continues to cover queueing, startup and revalidation. See the
 
 Run the
 [customer events example](../../../../examples/04-customer-events/README.md)
-with `pnpm example:customer-events` to try caller expressions, declared
-calculations, computed filtering and ordering, and actor-specific column access
-using one SQLite file.
+with `pnpm example:customer-events:walkthrough` to try caller expressions,
+declared calculations, computed filtering and ordering, and actor-specific
+column access using one SQLite file.

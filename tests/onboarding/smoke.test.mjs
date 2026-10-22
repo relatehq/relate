@@ -16,6 +16,7 @@ test(
     const { stdout, stderr } = await execute(process.execPath, [
       launcher,
       'todo-notes',
+      '--walkthrough',
     ]);
 
     assert.deepEqual(
@@ -33,7 +34,7 @@ test(
   async () => {
     const child = spawn(
       process.execPath,
-      [launcher, 'customer-workspace', '--no-open'],
+      [launcher, 'customer-workspace', '--app', '--no-open'],
       { stdio: ['ignore', 'pipe', 'pipe'] },
     );
     const closed = once(child, 'close');
@@ -107,7 +108,7 @@ test(
       // A second workspace must borrow the inspector without stopping its owner.
       const borrowed = spawn(
         process.execPath,
-        [launcher, 'customer-workspace', '--no-open'],
+        [launcher, 'customer-workspace', '--app', '--no-open'],
         {
           stdio: ['ignore', 'pipe', 'pipe'],
         },
@@ -184,7 +185,7 @@ test(
       await database.query('DROP SCHEMA IF EXISTS relate CASCADE');
       const { stdout } = await execute(
         process.execPath,
-        [launcher, 'postgres'],
+        [launcher, 'postgres', '--walkthrough'],
         {
           env: {
             ...process.env,
@@ -203,3 +204,120 @@ test(
     }
   },
 );
+
+for (const [name, principal, object, field, expected] of [
+  ['todo-notes', 'ada', 'Todo', 'title', ['Try Relate']],
+  ['customer-workspace', 'ana', 'Customer', 'name', ['Mothlight']],
+  ['customer-events', 'ana', 'Customer', 'name', ['Acme', 'Globex', 'Initech']],
+  ['postgres', 'ana', 'Customer', 'name', ['Mothlight']],
+]) {
+  test(
+    `${name} starts a seeded Inspector and shuts down`,
+    {
+      timeout: 120000,
+      skip: name === 'postgres' && !process.env.RELATE_TEST_DATABASE_URL,
+    },
+    async () => {
+      const child = spawn(process.execPath, [launcher, name, '--no-open'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          ...(name === 'postgres'
+            ? { DATABASE_URL: process.env.RELATE_TEST_DATABASE_URL }
+            : {}),
+        },
+      });
+      const closed = once(child, 'close');
+      let output = '';
+
+      child.stdout.on('data', (chunk) => {
+        output += chunk;
+      });
+      child.stderr.on('data', (chunk) => {
+        output += chunk;
+      });
+      let origin;
+
+      try {
+        const deadline = Date.now() + 90000;
+        let link;
+
+        while (!link && Date.now() < deadline) {
+          link =
+            /Inspector\s+(http:\/\/127\.0\.0\.1:\d+\/#token=[A-Za-z0-9_-]+)/.exec(
+              output,
+            )?.[1];
+
+          if (child.exitCode !== null) assert.fail(output);
+
+          if (!link) await delay(50);
+        }
+
+        assert.ok(link, output);
+        assert.doesNotMatch(
+          output,
+          /already running/,
+          'Test must own its Inspector',
+        );
+        const url = new URL(link);
+
+        origin = url.origin;
+        assert.equal((await fetch(origin)).status, 200);
+        const session = await fetch(`${origin}/dev/session`, {
+          method: 'POST',
+          headers: { origin, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            token: new URLSearchParams(url.hash.slice(1)).get('token'),
+          }),
+        });
+
+        assert.equal(session.status, 204);
+        const cookie = session.headers.get('set-cookie').split(';')[0];
+        let snapshot;
+
+        do {
+          snapshot = await (
+            await fetch(`${origin}/dev/snapshot`, { headers: { cookie } })
+          ).json();
+          assert.notEqual(
+            snapshot.runtime?.state,
+            'failed',
+            JSON.stringify(snapshot),
+          );
+
+          if (snapshot.runtime?.state === 'running') break;
+
+          await delay(50);
+        } while (Date.now() < deadline);
+
+        assert.equal(snapshot.runtime?.state, 'running');
+        const response = await fetch(`${origin}/dev/playground/runs`, {
+          method: 'POST',
+          headers: { origin, cookie, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            principal,
+            code: `return graph.objects.${object}.query({ select: ['${field}'] });`,
+          }),
+        });
+
+        assert.equal(response.status, 200);
+        const run = await response.json();
+
+        assert.equal(run.status, 'succeeded', JSON.stringify(run));
+        assert.deepEqual(
+          run.result.data.map((row) => row.data[field]).sort(),
+          expected,
+        );
+      } finally {
+        child.kill('SIGINT');
+        const timer = setTimeout(() => child.kill('SIGKILL'), 15000);
+        const [code] = await closed;
+
+        clearTimeout(timer);
+        assert.equal(code, 130, output);
+      }
+
+      await assert.rejects(fetch(origin));
+    },
+  );
+}

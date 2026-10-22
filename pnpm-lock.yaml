@@ -496,6 +496,9 @@ importers:
       '@relate/dev-crm-simulator':
         specifier: workspace:*
         version: link:../../dev/simulators/crm
+      '@relate/node':
+        specifier: workspace:*
+        version: link:../../packages/node
       '@relate/postgres':
         specifier: workspace:*
         version: link:../../packages/postgres

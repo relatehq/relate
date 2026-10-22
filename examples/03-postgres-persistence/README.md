@@ -18,8 +18,19 @@ includes the database name. The connection role needs permission to create the
 `relate` schema and its tables. Relate explicitly applies its migrations with
 `store.migrate()`. It does not provision databases or manage the server.
 
-The example starts an in-process Hono CRM simulator with a real HTTP listener,
-provided by the private workspace package
+The default command opens a seeded Inspector with Ana and Fin as demo
+principals. It starts the CRM simulator, migrates the Postgres store and adopts
+one customer. Ctrl+C closes the runtime and simulator; persisted data remains.
+Use `--no-open` to print the link without opening a browser.
+
+For the scripted refresh, denial and restart demonstration, run:
+
+```sh
+pnpm example:postgres:walkthrough
+```
+
+The walkthrough starts an in-process Hono CRM simulator with a real HTTP
+listener, provided by the private workspace package
 [`@relate/dev-crm-simulator`](../../dev/simulators/crm/README.md). It adopts one
 customer, reads as an employee, changes the CRM name, refreshes as Finance, has
 the CRM deny record access and shows a refused refresh next to a cached read,
@@ -31,6 +42,7 @@ CRM listener on exit; the database and retained data remain available.
 
 - `src/model.ts`: authoring, stable IDs, source ownership, field groups, policy.
 - `src/connector.ts`: the example's minimal HTTP source adapter.
+- `src/app.ts` and `src/seed.ts`: Inspector setup, storage cleanup and adoption.
 - `src/index.ts`: embedded composition and the complete scenario.
 
 `runtime.adopt(objectDefinitionId, sourceRecordId)` is a trusted host ingestion

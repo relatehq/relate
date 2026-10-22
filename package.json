@@ -43,7 +43,11 @@
     "test:salesforce:live": "pnpm build && tsx tests/integration/salesforce.live.ts",
     "example:customer-events": "node scripts/examples/run.mjs customer-events",
     "bench:overhead": "pnpm build && pnpm bench:overhead:run",
-    "bench:overhead:run": "node --import tsx tests/performance/analytical-properties/overhead/run.ts"
+    "bench:overhead:run": "node --import tsx tests/performance/analytical-properties/overhead/run.ts",
+    "example:todo-notes:walkthrough": "node scripts/examples/run.mjs todo-notes --walkthrough",
+    "example:postgres:walkthrough": "node scripts/examples/run.mjs postgres --walkthrough",
+    "example:customer-events:walkthrough": "node scripts/examples/run.mjs customer-events --walkthrough",
+    "example:customer-workspace:app": "node scripts/examples/run.mjs customer-workspace --app"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

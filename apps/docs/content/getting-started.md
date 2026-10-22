@@ -24,20 +24,25 @@ pnpm install
 pnpm example:todo-notes
 ```
 
-The [todo/notes app](../../../examples/01-todo-notes) creates a todo, reads it,
-and lists the current user's notes in the terminal. It introduces native
-objects, actions, owner-only policies, and typed queries without external
-services.
+The [todo/notes app](../../../examples/01-todo-notes) opens a seeded Inspector.
+Use `pnpm example:todo-notes:walkthrough` to create, read and query a todo in
+the terminal. It introduces native objects, actions, owner-only policies, and
+typed queries without external services.
 
 Then run `pnpm example:customer-workspace` for the
 [business example](../../../examples/02-customer-workspace): explore a CRM
-customer and SQLite invoices in the browser, switch roles, add a review, and
-inspect the model. Neither app requires credentials or a database server.
+customer and SQLite invoices in the Inspector, switch roles, and add a review.
+The custom browser application is available as
+`pnpm example:customer-workspace:app`. Neither app requires credentials or a
+database server.
 
 The third example, `pnpm example:postgres`, demonstrates persistent storage and
-restart recovery with a configured Postgres database. See the
-[three examples](../../../examples/README.md) for setup and their distinct
-concepts.
+a seeded Inspector with a configured Postgres database. Its `:walkthrough`
+command demonstrates restart recovery. The fourth,
+`pnpm example:customer-events`, explores customer event datasets and
+calculations. All four default commands open the Inspector; `--no-open` prints
+the link instead. See the [four examples](../../../examples/README.md) for setup
+and their distinct concepts.
 
 ---
 

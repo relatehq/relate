@@ -152,7 +152,7 @@ run the
 [Postgres persistence example](../../../../examples/03-postgres-persistence/README.md):
 
 ```sh
-pnpm example:postgres
+pnpm example:postgres:walkthrough
 ```
 
 The store's schema ownership, locking, and transaction semantics are documented

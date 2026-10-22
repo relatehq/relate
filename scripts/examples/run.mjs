@@ -23,11 +23,21 @@ const examples = {
 const [name, ...args] = process.argv.slice(2);
 const example = examples[name];
 const verbose = args.includes('--verbose');
-const forwarded = args.filter((arg) => arg !== '--verbose' && arg !== '--');
+const walkthrough = args.includes('--walkthrough');
+const browserApp = args.includes('--app');
+const inspector = !walkthrough && !browserApp;
+const forwarded = args.filter(
+  (arg) => !['--verbose', '--walkthrough', '--app', '--'].includes(arg),
+);
 
-if (!example || forwarded.some((arg) => arg !== '--no-open')) {
+if (
+  !example ||
+  (walkthrough && (browserApp || name === 'customer-workspace')) ||
+  (browserApp && name !== 'customer-workspace') ||
+  forwarded.some((arg) => arg !== '--no-open')
+) {
   console.error(
-    'Usage: node scripts/examples/run.mjs <todo-notes|customer-workspace|postgres|customer-events> [--verbose] [--no-open]',
+    'Usage: node scripts/examples/run.mjs <todo-notes|customer-workspace|postgres|customer-events> [--walkthrough|--app] [--verbose] [--no-open]',
   );
   process.exitCode = 1;
 } else {
@@ -35,9 +45,16 @@ if (!example || forwarded.some((arg) => arg !== '--no-open')) {
   const steps = [
     [
       process.execPath,
-      [require.resolve('typescript/bin/tsc'), '-b', ...example.projects],
+      [
+        require.resolve('typescript/bin/tsc'),
+        '-b',
+        ...new Set([
+          ...example.projects,
+          ...(inspector ? ['packages/cli'] : []),
+        ]),
+      ],
     ],
-    ...(example.client
+    ...(inspector || example.client
       ? [
           [
             process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
@@ -60,10 +77,7 @@ if (!example || forwarded.some((arg) => arg !== '--no-open')) {
 
   if (process.exitCode === 0) {
     // Node's optional env file preserves exported variables and needs no wrapper process.
-    const envArgs =
-      name === 'postgres' || name === 'customer-workspace'
-        ? ['--env-file-if-exists=.env']
-        : [];
+    const envArgs = ['--env-file-if-exists=.env'];
 
     process.exitCode = await runCommand(
       process.execPath,
@@ -71,8 +85,17 @@ if (!example || forwarded.some((arg) => arg !== '--no-open')) {
         ...envArgs,
         '--import',
         'tsx',
-        `examples/${example.directory}/src/index.ts`,
-        ...forwarded,
+        ...(inspector
+          ? [
+              'packages/cli/bin/relate.js',
+              'dev',
+              '--config',
+              `examples/${example.directory}/relate.config.ts`,
+              '--seed',
+              ...(!verbose ? ['--quiet'] : []),
+              ...(!forwarded.includes('--no-open') ? ['--open'] : []),
+            ]
+          : [`examples/${example.directory}/src/index.ts`, ...forwarded]),
       ],
       {
         cwd: root,
