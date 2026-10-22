@@ -2,7 +2,7 @@ import type { OrderEntry } from '@relate/protocol';
 import { parseAnalyticalValue, encodeAnalyticalValue } from 'relate/analytics';
 import type { AnalyticalScalar, ComputedResultType } from 'relate/analytics';
 import type { ComputedField } from './execution-types.js';
-import { AnalyticalPreparationError } from './types.js';
+import { AnalyticalPreparationError } from './expression-types.js';
 
 export interface ComputedPosition {
   readonly id: string;

@@ -13,14 +13,14 @@ import type {
   ResolvedPredicate,
   TypedValue,
 } from 'relate/connectors';
-import { AnalyticalPreparationError } from './types.js';
+import { AnalyticalPreparationError } from './expression-types.js';
 import type {
   ActorAssociations,
   AnalyticalProperty,
   AnalyticalColumn,
   ResolvedExpression,
   PreparationIssue,
-} from './types.js';
+} from './expression-types.js';
 
 function fail(
   message: string,
@@ -38,7 +38,7 @@ function logical(type: LogicalType): LogicalType {
     : { type: type.type };
 }
 
-function same(left: LogicalType, right: LogicalType): boolean {
+function sameLogicalType(left: LogicalType, right: LogicalType): boolean {
   return (
     left.type === right.type &&
     (left.type !== 'timestamp' ||
@@ -46,7 +46,7 @@ function same(left: LogicalType, right: LogicalType): boolean {
   );
 }
 
-function compatible(left: LogicalType, right: LogicalType): boolean {
+function comparisonCompatible(left: LogicalType, right: LogicalType): boolean {
   return left.type === right.type;
 }
 
@@ -248,7 +248,7 @@ export function resolveExpression(
       !property.schema ||
       property.calculated ||
       property.schema.type === 'float64' ||
-      !compatible(column.schema, property.schema)
+      !comparisonCompatible(column.schema, property.schema)
     )
       fail('Invalid declared correlation.', undefined, 'not-supported');
 
@@ -341,14 +341,14 @@ export function resolveExpression(
   const assign = (operand: Operand, type: LogicalType) => {
     const actual = known(operand);
 
-    if (actual && !compatible(actual, type))
+    if (actual && !comparisonCompatible(actual, type))
       fail('Operands have incompatible logical types.', operand.at);
 
     if (operand.kind !== 'parameter') return;
 
     const previous = parameterTypes.get(operand.name);
 
-    if (previous && !same(previous, type))
+    if (previous && !sameLogicalType(previous, type))
       fail('A parameter is used with conflicting types.', operand.at);
 
     parameterTypes.set(operand.name, logical(type));
@@ -361,7 +361,7 @@ export function resolveExpression(
       b = known(right);
 
     if (a && b) {
-      if (!compatible(a, b))
+      if (!comparisonCompatible(a, b))
         fail('Operands have incompatible logical types.', right.at);
 
       // References retain their own exact precision. A parameter must have one type.
@@ -420,7 +420,7 @@ export function resolveExpression(
 
     if (!type) fail('Cannot infer an analytical operand type.', operand.at);
 
-    if (expected && !compatible(type, expected))
+    if (expected && !comparisonCompatible(type, expected))
       fail('Operands have incompatible logical types.', operand.at);
 
     if (operand.kind === 'column')

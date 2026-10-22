@@ -392,14 +392,14 @@ stores only ordinary fields.
 
 ## Analytical expression preparation
 
-`analytics/prepare.ts` is the pure shared boundary for expression parsing and
-resolution. It accepts an injected parser and an actor's association view. It
-checks SQL and parameter sizes, resolves quoted names exactly and unquoted names
-by case folding, infers scalar and aggregate result types, binds exact literal
-and parameter values, and records column and ordinary property dependencies. No
-source or dataset reads occur during preparation. Unsupported property types,
-computed dependencies, missing/unused parameters and conflicting inferred
-parameter types fail with sanitized issues and original source spans.
+`analytics/prepare-expression.ts` is the pure shared boundary for expression
+parsing and resolution. It accepts an injected parser and an actor's association
+view. It checks SQL and parameter sizes, resolves quoted names exactly and
+unquoted names by case folding, infers scalar and aggregate result types, binds
+exact literal and parameter values, and records column and ordinary property
+dependencies. No source or dataset reads occur during preparation. Unsupported
+property types, computed dependencies, missing/unused parameters and conflicting
+inferred parameter types fail with sanitized issues and original source spans.
 
 `authorization/analytics.ts` owns association and column access decisions.
 Hidden associations are absent and resolve like unknown names. Denied referenced
@@ -535,9 +535,9 @@ values live in a weak map. It clones the request/model inputs before
 asynchronous reads, rejects forged handles and consumes each handle once.
 Preparation timing is recorded on success and error. Object `get`/`query`
 normalization, dependency materialization/revalidation and response projection
-live in the composition owner `reads/analytical.ts`. `analytics/order.ts` owns
-typed computed comparisons and position ordering; `queries/cursors.ts` binds
-both query paths to the same cursor codec and scopes.
+live in the analytical-read owner `analytical-reads/read.ts`.
+`analytics/order.ts` owns typed computed comparisons and position ordering;
+`queries/cursors.ts` binds both query paths to the same cursor codec and scopes.
 
 ```mermaid
 flowchart LR
@@ -553,11 +553,11 @@ flowchart LR
 
 ### Analytical object get
 
-`reads/analytical.ts` composes ordinary authorized reads with preparation and
-execution. It preserves ordinary reads when no calculation is requested. For an
-analytical read, it privately includes correlation/self dependencies, runs the
-batch, rereads ordinary values, rechecks object access, and compares every used
-value before projection. Changed values are withheld without recomputation.
+`analytical-reads/read.ts` composes ordinary authorized reads with preparation
+and execution. It preserves ordinary reads when no calculation is requested. For
+an analytical read, it privately includes correlation/self dependencies, runs
+the batch, rereads ordinary values, rechecks object access, and compares every
+used value before projection. Changed values are withheld without recomputation.
 Hidden associations and denied columns withhold computed fields; denied
 correlation keys remain `correlation-unavailable`. A required-complete read
 reports omitted field names and safe reasons.
@@ -675,15 +675,26 @@ flowchart LR
 ```
 
 Analytical record materialization, revalidation and projection live in
-`reads/analytical-record.ts`; ordinary and analytical reads share selection
+`analytical-reads/record.ts`; ordinary and analytical reads share selection
 validation and bounded read concurrency. Discovery lives in
-`analytics/discovery.ts`.
+`discovery/analytics.ts`.
+
+The `analytical-reads` owner uses `prepare.ts` to normalize requests into `get`,
+`enrich-page`, or `rank-scope` mode before any reads. `operation.ts` owns the
+deadline, retirement listener and source-call budget. `query.ts` collects
+candidates and ranks pages; `record.ts` materializes dependencies, revalidates
+access and projects results. `read.ts` coordinates these stages. Its injected
+ordinary reader accepts named inputs and returns both the result and a deferred
+`recheckAuthorization()`; returning that function does not execute the check.
 
 ```mermaid
 flowchart LR
-  Runtime[Runtime composition] --> Read[reads/analytical]
+  Runtime[Runtime composition] --> Read[analytical-reads/index]
+  Read --> Prepare[Request preparation]
+  Read --> Operation[Deadline and source budget]
   Read --> Ordinary[queries and authorized reads]
-  Read --> Records[reads/analytical-record]
+  Read --> Records[Record materialization and revalidation]
   Read --> Execution[analytics preparation and execution]
-  Discovery[analytics/discovery] --> Authorization[Shared authorization]
+  Discovery[discovery] --> Authorization[Shared authorization]
+  Discovery --> Execution
 ```

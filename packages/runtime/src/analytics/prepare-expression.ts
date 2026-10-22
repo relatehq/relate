@@ -1,7 +1,10 @@
 import type { AnalyticalExpression, SqlParser } from 'relate/analytics';
 import { resolveExpression } from './resolve.js';
-import { AnalyticalPreparationError } from './types.js';
-import type { ActorAssociations, ResolvedExpression } from './types.js';
+import { AnalyticalPreparationError } from './expression-types.js';
+import type {
+  ActorAssociations,
+  ResolvedExpression,
+} from './expression-types.js';
 
 /** One expression's common parser/resolver boundary, used by startup and requests. */
 export function prepareExpression(input: {

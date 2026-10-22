@@ -415,3 +415,19 @@ deadline, queued rows are reported as dropped with reason `shutdown`. Borrowed
 stores remain open; close the runtime before closing its store. `startApp` then
 runs registered disposal callbacks. Operation capture is best effort and is
 separate from the feed's atomic publication guarantees.
+
+## Binding ownership
+
+`bindings.ts` validates source and dataset bindings, checks physical schemas and
+constructs runtime analytical bindings with a per-host revision secret.
+`connection-queues.ts` owns shared connection queues and host-specific leases;
+retiring one host cancels only its work. `runtime.ts` coordinates startup and
+shutdown through these interfaces.
+
+```mermaid
+flowchart LR
+  Runtime[Node runtime] --> Bindings[Source and dataset bindings]
+  Bindings --> Queues[Connection queue leases]
+  Bindings --> Connectors[Connector capabilities]
+  Queues --> Queue[Runtime statement queue]
+```

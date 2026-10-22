@@ -14,7 +14,7 @@ import type { DatasetBinding } from 'relate';
 import type { PhysicalSchema } from 'relate/connectors';
 import { compile } from 'relate/compiler';
 import { startApp } from '@relate/node';
-import { bindHostResources } from '../src/datasets.js';
+import { bindHostResources } from '../src/bindings.js';
 import { createAnalyticalGraph } from '../../../tests/support/analytical-graph.js';
 import {
   createAnalyticalConnector,

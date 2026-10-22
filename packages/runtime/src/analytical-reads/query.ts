@@ -1,3 +1,4 @@
+import type { AnalyticalReadMode } from './types.js';
 import { ReadError } from '@relate/protocol';
 import type {
   QueryRequest,
@@ -10,11 +11,11 @@ import type {
   prepareComputedOrder,
   ComputedPosition,
 } from '../analytics/index.js';
-import type { Validated } from './analytical-record.js';
+import type { RevalidatedRecord } from './record.js';
 
 /** Page-first enrichment and full-scope ranking share authorized ordinary reads. */
 export async function readQueryCandidates(options: {
-  scopeFirst: boolean;
+  mode: Exclude<AnalyticalReadMode, 'get'>;
   limits: Required<AnalyticalLimits>;
   controller: AbortController;
   operation: string;
@@ -22,7 +23,7 @@ export async function readQueryCandidates(options: {
   request: QueryRequest;
   query(request: QueryRequest, context: QueryContext): Promise<FullPageResult>;
 }): Promise<FullPageResult> {
-  const { scopeFirst, limits, controller, operation, query, request } = options;
+  const { mode, limits, controller, operation, query, request } = options;
   let scanned = 0,
     admitted = 0;
   const exceeded = (budget: string): never => {
@@ -42,7 +43,7 @@ export async function readQueryCandidates(options: {
   };
   const context: QueryContext = {
     ...options.context,
-    ...(scopeFirst
+    ...(mode === 'rank-scope'
       ? {
           scanCandidates(count: number) {
             scanned += count;
@@ -62,13 +63,13 @@ export async function readQueryCandidates(options: {
     query(
       {
         ...ordinary,
-        limit: scopeFirst ? 100 : (request.limit ?? 25),
+        limit: mode === 'rank-scope' ? 100 : (request.limit ?? 25),
         ...(next === undefined ? {} : { cursor: next }),
       },
       context,
     );
 
-  return scopeFirst
+  return mode === 'rank-scope'
     ? readMatchingScope(readPage, controller.signal)
     : readPage(cursor);
 }
@@ -97,7 +98,7 @@ async function readMatchingScope(
 
 /** Select one page only after all authorized matches have been computed and revalidated. */
 export function rankPage(
-  rows: readonly Validated[],
+  rows: readonly RevalidatedRecord[],
   ordering: ReturnType<typeof prepareComputedOrder>,
   cursor: ReturnType<QueryCursors>,
   position: ComputedPosition | undefined,

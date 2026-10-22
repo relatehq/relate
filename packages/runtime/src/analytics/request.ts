@@ -1,5 +1,5 @@
 import type { AnalyticalExpression } from 'relate/analytics';
-import { AnalyticalPreparationError } from './types.js';
+import { AnalyticalPreparationError } from './expression-types.js';
 
 /** Trusted read-owner normalization: declarations retain their stable identity. */
 export interface DeclaredCalculationRequest {

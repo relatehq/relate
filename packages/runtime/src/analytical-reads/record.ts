@@ -1,16 +1,16 @@
+import type { AnalyticalReadMode, OrdinaryReadResult } from './types.js';
 import { ReadError } from '@relate/protocol';
 import type {
   FullObjectRecord,
-  FullObjectResult,
   ReadRequest,
   FieldEvidence,
 } from '@relate/protocol';
 import { analyticalSchemaType } from 'relate/model';
 import type { Manifest } from 'relate/model';
 import { parseAnalyticalValue } from 'relate/analytics';
-import { project } from './index.js';
-import { summarize } from './index.js';
-import type { predicateMatcher } from './index.js';
+import { project } from '../reads/index.js';
+import { summarize } from '../reads/index.js';
+import type { predicateMatcher } from '../reads/index.js';
 import {
   revalidateFields,
   AnalyticalIncompleteError,
@@ -26,7 +26,7 @@ import type { CalculationCapture } from '../analytics/index.js';
 
 type ObjectModel = Manifest['objects'][number];
 
-export interface Validated {
+export interface RevalidatedRecord {
   readonly record: FullObjectRecord;
   readonly fields: Readonly<Record<string, ComputedField>>;
   readonly at: number;
@@ -85,7 +85,7 @@ export function createRecordFinalizer(options: {
   request: ReadRequest;
   computed: ComputedScope;
   required: readonly string[];
-  scopeFirst: boolean;
+  mode: AnalyticalReadMode;
   operation: string;
   signal: AbortSignal;
   clock(): number;
@@ -93,10 +93,7 @@ export function createRecordFinalizer(options: {
   associations(): ActorAssociations;
   filter: Pick<ReturnType<typeof predicateMatcher>, 'matches'>;
   summary?: CalculationCapture;
-  read(
-    id: string,
-    capture: (check: () => Promise<boolean>) => void,
-  ): Promise<FullObjectResult>;
+  read(id: string): Promise<OrdinaryReadResult>;
 }) {
   const {
     object,
@@ -106,7 +103,7 @@ export function createRecordFinalizer(options: {
     request,
     computed,
     required,
-    scopeFirst,
+    mode,
     operation,
     signal,
     clock,
@@ -119,18 +116,15 @@ export function createRecordFinalizer(options: {
   const revalidate = async (
     record: FullObjectRecord,
     previous = computed.rows.get(record.id)!,
-  ): Promise<Validated | undefined> => {
+  ): Promise<RevalidatedRecord | undefined> => {
     signal.throwIfAborted();
-    let allowed = async () => false;
-    const current = await read(record.id, (check) => {
-      allowed = check;
-    });
+    const { result: current, recheckAuthorization } = await read(record.id);
 
     signal.throwIfAborted();
 
     if (current.status !== 'ok') return undefined;
 
-    const visible = await allowed();
+    const visible = await recheckAuthorization();
 
     signal.throwIfAborted();
 
@@ -154,7 +148,7 @@ export function createRecordFinalizer(options: {
       [
         ...new Set([
           ...required,
-          ...(scopeFirst && request.requireComplete
+          ...(mode === 'rank-scope' && request.requireComplete
             ? Object.keys(computed.results)
             : []),
         ]),
@@ -174,7 +168,7 @@ export function createRecordFinalizer(options: {
     record,
     fields,
     at,
-  }: Validated): FullObjectRecord => {
+  }: RevalidatedRecord): FullObjectRecord => {
     const output = project(
       record.id,
       { status: 'ok', ...record },

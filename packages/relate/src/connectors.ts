@@ -117,3 +117,5 @@ export type {
 
 export { DatasetExecutionError } from './analytics/connectors.js';
 export type { TypedValue } from './analytics/values.js';
+
+export { validateAuthorizedDatasetQuery } from './analytics/query-validation.js';

@@ -8,7 +8,7 @@ import type {
   DatasetResource,
   TypedValue,
 } from 'relate/connectors';
-import type { ResolvedExpression } from './types.js';
+import type { ResolvedExpression } from './expression-types.js';
 import type { StatementQueue } from './queue.js';
 
 /** Both caller aliases and normalized declarations enter this execution contract. */

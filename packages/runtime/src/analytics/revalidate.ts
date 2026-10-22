@@ -1,4 +1,4 @@
-import type { ActorAssociations } from './types.js';
+import type { ActorAssociations } from './expression-types.js';
 import type { AuthorizedCandidate, ComputedField } from './execution-types.js';
 
 /** Recheck the private footprint against freshly authorized, usable ordinary inputs. */

@@ -6,70 +6,11 @@ import type {
   PhysicalSchema,
   SourceBinding,
 } from 'relate/connectors';
-import { createStatementQueue } from '@relate/runtime';
+import { createHmac, randomBytes } from 'node:crypto';
+import { canonicalJson } from 'relate/model';
+import { leaseConnectionQueue } from './connection-queues.js';
+import type { RuntimeOptions } from '@relate/runtime';
 import type { StatementQueue, StatementQueueOptions } from '@relate/runtime';
-
-// Shared across host generations that borrow the same configured connection.
-const connectionQueues = new WeakMap<
-  object,
-  { options: string; queue: StatementQueue; leases: number }
->();
-
-function leaseQueue(
-  connection: object,
-  options: StatementQueueOptions,
-  capacity?: number,
-): StatementQueue {
-  const resolved = {
-    concurrency: Math.min(options.concurrency ?? 4, capacity ?? Infinity),
-    maxQueued: options.maxQueued ?? 32,
-    maxWaitMs: options.maxWaitMs ?? 2000,
-  };
-  const key = JSON.stringify(resolved);
-  let entry = connectionQueues.get(connection);
-
-  if (entry && entry.options !== key)
-    throw new Error(
-      'Runtimes sharing an analytical connection must use the same queue limits',
-    );
-
-  if (!entry) {
-    entry = { options: key, queue: createStatementQueue(resolved), leases: 0 };
-    connectionQueues.set(connection, entry);
-  }
-
-  const owned = entry;
-
-  owned.leases++;
-  let retirement: Promise<void> | undefined;
-  const shared = entry.queue;
-  const lifetime = new AbortController();
-  const pending = new Set<Promise<unknown>>();
-
-  return {
-    run(task, options) {
-      const result = shared.run(task, {
-        ...options,
-        signal: AbortSignal.any([lifetime.signal, options.signal]),
-      });
-
-      pending.add(result);
-      void result.finally(() => pending.delete(result)).catch(() => {});
-
-      return result;
-    },
-    retire() {
-      return (retirement ??= (async () => {
-        lifetime.abort(
-          new DOMException('Analytical connection retired', 'AbortError'),
-        );
-        await Promise.allSettled(pending);
-
-        if (--owned.leases === 0) connectionQueues.delete(connection);
-      })());
-    },
-  };
-}
 
 export interface BoundDataset {
   readonly binding: DatasetBinding;
@@ -81,11 +22,14 @@ export interface BoundDataset {
 export interface HostBindings {
   readonly sources: Readonly<Record<string, SourceBinding>>;
   readonly datasets: ReadonlyMap<string, BoundDataset>;
+  readonly analyticalBinding: NonNullable<
+    RuntimeOptions['analytics']
+  >['binding'];
   describe(): Promise<void>;
   retire(): Promise<void>;
 }
 
-function sameType(left: LogicalType, right: LogicalType): boolean {
+function sameLogicalType(left: LogicalType, right: LogicalType): boolean {
   return (
     left.type === right.type &&
     (left.type !== 'timestamp' ||
@@ -109,7 +53,7 @@ function validateSchema(
     else if (
       !Array.isArray(physical.supportedTypes) ||
       !physical.supportedTypes.some(
-        (type) => type && sameType(type, column.schema),
+        (type) => type && sameLogicalType(type, column.schema),
       )
     )
       failures.push(
@@ -137,6 +81,7 @@ export function bindHostResources(
   bindings: readonly Binding[],
   queueOptions: StatementQueueOptions = {},
 ): HostBindings {
+  const bindingSecret = randomBytes(32);
   const sources: Record<string, SourceBinding> = {};
   const datasets = new Map<string, BoundDataset>();
   const connections = new Map<string, object>();
@@ -213,7 +158,7 @@ export function bindHostResources(
         let queue = queues.get(connection);
 
         if (!queue) {
-          queue = leaseQueue(
+          queue = leaseConnectionQueue(
             connection,
             queueOptions,
             connector.limits.maxConcurrentStatements,
@@ -261,6 +206,26 @@ export function bindHostResources(
   return Object.freeze({
     sources: Object.freeze(sources),
     datasets,
+    analyticalBinding(datasetId: string) {
+      const dataset = datasets.get(datasetId);
+
+      if (!dataset) throw new Error('Missing analytical binding');
+
+      return {
+        resource: dataset.binding.resource,
+        connector: dataset.connector,
+        queue: dataset.queue,
+        bindingRevision: `hmac-sha256:${createHmac('sha256', bindingSecret)
+          .update(
+            canonicalJson({
+              connectionId: dataset.binding.connectionId,
+              resourceId: dataset.binding.resourceId,
+              columns: dataset.binding.columns,
+            }),
+          )
+          .digest('hex')}`,
+      };
+    },
     async describe() {
       for (const dataset of model.manifest.datasets ?? []) {
         controller.signal.throwIfAborted();

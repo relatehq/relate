@@ -1,10 +1,13 @@
 import type { ComputedResultType, SqlParser } from 'relate/analytics';
-import { prepareExpression } from './prepare.js';
+import { prepareExpression } from './prepare-expression.js';
 import { expressionEntries } from './request.js';
 import type { ComputeRequest, PreparationLimits } from './request.js';
 import type { ResolvedCalculation } from './execution-types.js';
-import type { ActorAssociations, ResolvedExpression } from './types.js';
-import { AnalyticalPreparationError } from './types.js';
+import type {
+  ActorAssociations,
+  ResolvedExpression,
+} from './expression-types.js';
+import { AnalyticalPreparationError } from './expression-types.js';
 import { beginTiming } from './timings.js';
 import type { TimingCapture } from './timings.js';
 import { captureCalculations } from './activity.js';

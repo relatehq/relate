@@ -31,9 +31,13 @@ export type { MemoryActivityLimits } from './memory-activity.js';
 
 export type { ActionHandler, ActionExecutionContext } from './actions/index.js';
 
-export { createDiscovery } from './discovery.js';
-export { operationContracts } from './contracts.js';
-export type { OperationContract, OperationContracts } from './contracts.js';
+export { createDiscovery } from './discovery/index.js';
+export { operationContracts } from './discovery/index.js';
+
+export type {
+  OperationContract,
+  OperationContracts,
+} from './discovery/index.js';
 
 export { ActionError } from '@relate/protocol';
 

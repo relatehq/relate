@@ -12,8 +12,8 @@ import type {
 } from './execution-types.js';
 import type { TimingCapture } from './timings.js';
 import { beginTiming, recordTiming } from './timings.js';
-import { preparedFields } from './prepared.js';
-import type { PreparedCompute } from './prepared.js';
+import { preparedFields } from './prepare-compute.js';
+import type { PreparedCompute } from './prepare-compute.js';
 import { captureCalculations } from './activity.js';
 import type { CalculationCapture } from './activity.js';
 

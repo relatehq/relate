@@ -14,7 +14,7 @@ import {
   authorizeDeclaration,
   prepareExpression,
   computedFilterOperators,
-} from './index.js';
+} from '../analytics/index.js';
 
 const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
 

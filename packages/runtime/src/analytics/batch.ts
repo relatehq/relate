@@ -13,7 +13,7 @@ import type {
   ComputedField,
   AnalyticalBinding,
 } from './execution-types.js';
-import { AnalyticalPreparationError } from './types.js';
+import { AnalyticalPreparationError } from './expression-types.js';
 
 export type Cell =
   | Exclude<ComputedField, { status: 'available' }>

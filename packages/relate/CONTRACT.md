@@ -681,6 +681,13 @@ Glossary:
 - **Plan**: a connector-owned `PreparedPlan`, created from an authorized query.
   It belongs to its resource and binding generation; it is never caller SQL.
 
+`validateAuthorizedDatasetQuery(query, declaredColumns)` from
+`relate/connectors` checks shared logical query invariants: mapped column names,
+key indexes, slot widths and types, aggregate forms, and predicate
+operators/arity. Empty slots are allowed for parameter budgeting; connectors
+require nonempty executable plans separately. Physical identifier quoting, value
+encoding, SQL generation and backend execution remain connector-owned.
+
 `relate/connectors` exports `AnalyticalConnector`, `AnalyticalResource`,
 `AnalyticalConnection`, and their execution types. The SQLite and PostgreSQL
 connectors implement this boundary for the runtime's analytical object reads.

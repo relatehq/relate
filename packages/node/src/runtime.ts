@@ -1,7 +1,5 @@
-import { createHmac, randomBytes } from 'node:crypto';
-import { canonicalJson } from 'relate/model';
-import { bindHostResources } from './datasets.js';
-import type { HostBindings } from './datasets.js';
+import { bindHostResources } from './bindings.js';
+import type { HostBindings } from './bindings.js';
 import type {
   ActivityActor,
   ActivityObjectRef,
@@ -265,7 +263,6 @@ function composeRuntime<
     throw new Error('Missing action implementation');
 
   const analyticalLifetime = new AbortController();
-  const bindingSecret = randomBytes(32);
   const engine = createEngine({
     ...(options.sqlParser
       ? {
@@ -275,29 +272,7 @@ function composeRuntime<
               ? {}
               : { limits: options.analytics }),
             signal: analyticalLifetime.signal,
-            binding(datasetId: string) {
-              const dataset = bindings.datasets.get(datasetId);
-
-              if (!dataset) throw new Error('Missing analytical binding');
-
-              return {
-                resource: dataset.binding.resource,
-                connector: dataset.connector,
-                queue: dataset.queue,
-                bindingRevision: `hmac-sha256:${createHmac(
-                  'sha256',
-                  bindingSecret,
-                )
-                  .update(
-                    canonicalJson({
-                      connectionId: dataset.binding.connectionId,
-                      resourceId: dataset.binding.resourceId,
-                      columns: dataset.binding.columns,
-                    }),
-                  )
-                  .digest('hex')}`,
-              };
-            },
+            binding: bindings.analyticalBinding,
           },
         }
       : {}),

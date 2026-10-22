@@ -1,3 +1,4 @@
+import { validateAuthorizedDatasetQuery } from 'relate/connectors';
 import { encodeAnalyticalValue } from 'relate/analytics';
 import type {
   AuthorizedDatasetQuery,
@@ -20,16 +21,16 @@ export interface PostgresPlan {
   readonly results: readonly AuthorizedDatasetQuery['aggregates'][number]['result'][];
 }
 
-function invalid(): never {
-  throw new Error('Invalid authorized analytical query');
-}
-
 /** Only connector-produced identifiers, fixed syntax, and explicitly typed bound values. */
 export function render(
   query: Omit<AuthorizedDatasetQuery, 'slots'>,
   resource: SelectedDataset,
   slots: AuthorizedDatasetQuery['slots'],
 ): PostgresPlan {
+  validateAuthorizedDatasetQuery(
+    { ...query, slots },
+    Object.keys(resource.columns),
+  );
   const values: (string | number | boolean | null)[] = [];
   const bind = (value: TypedValue): string => {
     const encoded = encodeAnalyticalValue(value.value, {
@@ -57,25 +58,14 @@ export function render(
     return `$${values.length}::${sqlType}`;
   };
   const column = (name: string) => {
-    if (!Object.hasOwn(resource.columns, name)) invalid();
-
     return `d.${identifier(resource.columns[name]!)}`;
   };
   const operand = (value: ResolvedOperand, ordered = true): string => {
     let text: string;
 
     if (value.kind === 'column') text = column(value.column);
-    else if (value.kind === 'key') {
-      if (
-        !Number.isSafeInteger(value.key) ||
-        value.key < 0 ||
-        !query.keys[value.key]
-      )
-        invalid();
-
-      text = `k.k${value.key}`;
-    } else if (value.kind === 'value') text = bind(value.value);
-    else return invalid();
+    else if (value.kind === 'key') text = `k.k${value.key}`;
+    else text = bind(value.value);
 
     const type = value.kind === 'value' ? value.value.type : value.type.type;
 
@@ -97,8 +87,6 @@ export function render(
   };
   const predicate = (value: ResolvedPredicate): string => {
     if (value.kind === 'compare') {
-      if (!['=', '<>', '<', '<=', '>', '>='].includes(value.op)) invalid();
-
       if (value.op === '=') return equality(value.left, value.right);
 
       return `(${operand(value.left)} OPERATOR(pg_catalog.${value.op}) ${operand(value.right)})`;
@@ -107,28 +95,12 @@ export function render(
     if (value.kind === 'null')
       return `(${operand(value.value)} IS ${value.not ? 'NOT ' : ''}NULL)`;
 
-    if (
-      value.kind !== 'boolean' ||
-      !['and', 'or', 'not'].includes(value.op) ||
-      !value.args.length
-    )
-      invalid();
-
     if (value.op === 'not') {
-      if (value.args.length !== 1) invalid();
-
       return `(NOT ${predicate(value.args[0]!)})`;
     }
 
     return `(${value.args.map(predicate).join(value.op === 'and' ? ' AND ' : ' OR ')})`;
   };
-
-  if (
-    !query.keys.length ||
-    !query.correlation.length ||
-    !query.aggregates.length
-  )
-    invalid();
 
   const names = [
     'slot',
@@ -136,39 +108,13 @@ export function render(
     ...query.aggregates.map((_, i) => `m${i}`),
   ];
   const rows = slots.map((slot, index) => {
-    if (
-      slot.values.length !== query.keys.length ||
-      slot.valid.length !== query.aggregates.length
-    )
-      invalid();
-
     return `(${[
       bind({ type: 'int32', value: index }),
-      ...slot.values.map((value, i) => {
-        const type = query.keys[i]!.type;
-
-        if (
-          type.type !== value.type ||
-          (type.type === 'timestamp' &&
-            value.type === 'timestamp' &&
-            type.precision !== value.precision)
-        )
-          invalid();
-
-        return bind(value);
-      }),
+      ...slot.values.map(bind),
       ...slot.valid.map((value) => bind({ type: 'boolean', value })),
     ].join(', ')})`;
   });
   const aggregates = query.aggregates.map((aggregate, index) => {
-    if (
-      !['count', 'sum', 'avg', 'min', 'max'].includes(aggregate.aggregate) ||
-      (aggregate.distinct && aggregate.aggregate !== 'count') ||
-      (aggregate.argument === '*' &&
-        (aggregate.aggregate !== 'count' || aggregate.distinct))
-    )
-      invalid();
-
     const argument =
       aggregate.argument === '*' ? '*' : operand(aggregate.argument);
     const filter = aggregate.predicate
@@ -200,13 +146,6 @@ export function render(
   });
   const correlation = query.correlation
     .map((pair) => {
-      if (
-        !Number.isSafeInteger(pair.key) ||
-        pair.key < 0 ||
-        !query.keys[pair.key]
-      )
-        invalid();
-
       const type = query.keys[pair.key]!.type;
 
       return equality(

@@ -1,6 +1,6 @@
 import type { ReadExecution } from './reads/index.js';
-import { createAnalyticalReads } from './reads/analytical.js';
-import type { AnalyticalReadOptions } from './reads/analytical.js';
+import { createAnalyticalReads } from './analytical-reads/index.js';
+import type { AnalyticalReadOptions } from './analytical-reads/index.js';
 import {
   createNativeOperations,
   nativeEvidence,
@@ -53,7 +53,7 @@ import {
   allowsField,
   operationName,
 } from './authorization/index.js';
-import { createDiscovery } from './discovery.js';
+import { createDiscovery } from './discovery/index.js';
 import { resolveAnalyticalLimits } from './analytics/index.js';
 
 export interface RuntimeOptions {
@@ -324,29 +324,41 @@ export function createRuntime(options: RuntimeOptions) {
   const analyticalReads = createAnalyticalReads({
     manifest,
     cursors: queryCursors,
-    read: (
+    read: async ({
       attempt,
       principal,
-      type,
+      objectType,
       id,
       request,
-      reference,
-      capture,
       execution,
-    ) =>
-      readObject(
+    }) => {
+      let recheckAuthorization = async () => false;
+      const result = await readObject(
         attempt,
         principal,
-        type,
+        objectType,
         id,
         request,
-        reference,
-        capture,
+        undefined,
+        (check) => {
+          recheckAuthorization = check;
+        },
         undefined,
         execution,
+      );
+
+      return { result, recheckAuthorization };
+    },
+    query: ({ attempt, principal, objectType, request, context }) =>
+      query(
+        attempt,
+        principal,
+        objectType,
+        request,
+        undefined,
+        undefined,
+        context,
       ),
-    query: (attempt, principal, type, request, context) =>
-      query(attempt, principal, type, request, undefined, undefined, context),
     clock,
     ...(analytics ? { analytics } : {}),
   });
