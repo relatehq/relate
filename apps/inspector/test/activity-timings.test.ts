@@ -4,7 +4,7 @@ import { expect, it } from 'vitest';
 import {
   AnalyticalTimings,
   AnalyticalSummary,
-} from '../src/screens/ActivityScreen.js';
+} from '../src/activity/ActivityDrawer.js';
 import { analyticalSummarySchema } from '../src/protocol.js';
 import { analyticalSummaryCorpus } from '../../../tests/support/analytical-summary-corpus.js';
 import type { OperationEvent } from '../src/protocol.js';
