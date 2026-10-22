@@ -1,0 +1,48 @@
+⟐ injected env (4) from .env
+neon scan ranking-db
+neon scan ranking-file
+neon scan multi
+neon scan selective
+neon scan bulk
+neon federated ranking-db
+neon federated ranking-file
+neon federated multi
+neon federated selective
+neon federated bulk
+child scan ranking-db
+child scan ranking-file
+child scan multi
+child scan selective
+child scan bulk
+child federated ranking-db
+child federated ranking-file
+child federated multi
+child federated selective
+child federated bulk
+http scan ranking-db
+http scan ranking-file
+http scan multi
+http scan selective
+http scan bulk
+http federated ranking-db
+http federated ranking-file
+http federated multi
+http federated selective
+http federated bulk
+{
+  "outcomes": [
+    {
+      "kind": "neon",
+      "status": "passed"
+    },
+    {
+      "kind": "child",
+      "status": "passed"
+    },
+    {
+      "kind": "http",
+      "status": "passed"
+    }
+  ],
+  "postgresBaseline": "passed"
+}
