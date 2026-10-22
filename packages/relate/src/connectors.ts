@@ -78,6 +78,8 @@ export type SourceBinding = BindingOptions &
 /** One configured connection may supply several independently scoped resources. */
 export interface ResourceConnection {
   readonly connectionId: string;
+  /** Provider system for display in developer tools, such as `stripe` or `postgres`. Never used for authorization. */
+  readonly system?: string;
 }
 
 /** Source selection derives from the unbound definition when it is bound. */

@@ -96,3 +96,20 @@ export function Icon(props: {
     </svg>
   );
 }
+
+/** The Relate mark from assets/brand, drawn in the current text color. */
+export function RelateMark(props: { readonly size?: number }) {
+  const size = props.size ?? 16;
+
+  return (
+    <svg
+      width={size}
+      height={(size * 96) / 123}
+      viewBox="0 0 123 96"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M0 0H48L69 63H21ZM76.33 47H123L106.67 96H60Z" />
+    </svg>
+  );
+}

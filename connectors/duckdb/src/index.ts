@@ -27,6 +27,7 @@ export interface DuckDBOptions {
 
 export interface DuckDBConnection {
   readonly connectionId: string;
+  readonly system: 'duckdb';
   readonly analytics: AnalyticalConnector;
   table(
     name: string,
@@ -131,6 +132,7 @@ export function duckdb(options: DuckDBOptions): DuckDBConnection {
   });
   const connection: DuckDBConnection = Object.freeze<DuckDBConnection>({
     connectionId: options.connectionId,
+    system: 'duckdb',
     analytics,
     table(name, input = {}) {
       open();

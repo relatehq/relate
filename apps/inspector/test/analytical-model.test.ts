@@ -5,6 +5,7 @@ import { compile } from 'relate/compiler';
 import { createAnalyticalGraph } from '../../../tests/support/analytical-graph.js';
 import {
   describeDatasetType,
+  dockDatasets,
   highlightable,
   layoutSignature,
   mapManifest,
@@ -150,4 +151,33 @@ it('shows dataset access groups, association role and computed declarations in s
 
   for (const html of [dataset, association, object])
     expect(html).not.toContain('SELECT');
+});
+
+it('docks associated datasets under their objects instead of drawing them as cards', () => {
+  const { graph } = createAnalyticalGraph();
+  const model = mapManifest(compile(graph).manifest);
+
+  const view = dockDatasets(model);
+
+  expect(view.nodes.map((node) => node.id)).toEqual(['customer']);
+  expect(view.edges).toEqual([]);
+  expect(
+    view.docks
+      .get('customer')
+      ?.map(({ dataset, association }) => [dataset.id, association.id]),
+  ).toEqual([['events', 'customer.events']]);
+});
+
+it('keeps a dataset no object joins on the canvas', () => {
+  const { graph } = createAnalyticalGraph();
+  const model = mapManifest(compile(graph).manifest);
+  const unjoined = {
+    nodes: model.nodes,
+    edges: model.edges.filter((edge) => edge.data.kind !== 'association'),
+  };
+
+  const view = dockDatasets(unjoined);
+
+  expect(view.nodes.map((node) => node.id)).toEqual(['customer', 'events']);
+  expect(view.docks.size).toBe(0);
 });

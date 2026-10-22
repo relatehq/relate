@@ -17,7 +17,7 @@ import type {
   ObjectDescription,
   ReadErrorDetails,
 } from '@relate/protocol';
-import { diagnosticSchema } from '@relate/inspector/protocol';
+import { diagnosticSchema, systemsSchema } from '@relate/inspector/protocol';
 
 export const runtimeOperations = [
   'get',
@@ -138,6 +138,7 @@ export const runtimeMessageSchema = z.discriminatedUnion('type', [
     /** `memory` when setup returned no store and the runtime's own is in use. */
     store: z.enum(['memory', 'application']),
     principals: z.array(text),
+    systems: systemsSchema,
     /** The consumer routing description from the runtime host's own compile. */
     consumer: z.looseObject({
       formatVersion: z.literal(1),

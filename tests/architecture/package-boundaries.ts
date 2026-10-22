@@ -187,6 +187,7 @@ export const packagePolicies: Record<
       'react-markdown',
       'remark-gfm',
       'remend',
+      'simple-icons',
       'vite',
       '@vitejs/plugin-react',
       '@fontsource/inter/400.css',

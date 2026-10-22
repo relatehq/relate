@@ -39,6 +39,7 @@ export interface StripeOptions {
 
 export interface StripeConnection {
   readonly connectionId: string;
+  readonly system: 'stripe';
   resource(name: StripeResource): SourceResource<SourceConnector>;
   resource(
     name: StripeResource,
@@ -326,6 +327,7 @@ export function stripe(options: StripeOptions): StripeConnection {
 
   const connection = {
     connectionId: options.connectionId,
+    system: 'stripe',
     resource(name: StripeResource, selection?: { fields: readonly string[] }) {
       const selected: SourceResource<SourceConnector> = {
         connection,

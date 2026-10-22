@@ -24,7 +24,7 @@ it('maps object types to nodes with ownership and typed properties, identity fir
   expect(customer).toMatchObject({
     apiName: 'Customer',
     label: 'Customer',
-    ownership: { kind: 'source', sourceId: 'crm.customers', tone: 1 },
+    ownership: { kind: 'source', sourceId: 'crm.customers' },
   });
   expect(customer.properties.map((p) => [p.name, p.type, p.origin])).toEqual([
     ['id', 'string', 'object-id'],
@@ -46,6 +46,19 @@ it('maps object types to nodes with ownership and typed properties, identity fir
     target: Customer.id,
     field: 'customer_id',
   });
+});
+
+it('attaches the reported provider system to source-owned objects', () => {
+  const model = mapManifest(manifest, {
+    sources: { 'crm.customers': 'salesforce' },
+    datasets: {},
+  });
+  const [customer, invoice] = model.nodes.map((node) => node.data);
+
+  expect(customer).toMatchObject({
+    ownership: { kind: 'source', system: 'salesforce' },
+  });
+  expect(invoice).not.toHaveProperty('ownership.system');
 });
 
 it('maps declared relationships to edges and never invents edges from references alone', () => {

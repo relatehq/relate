@@ -69,6 +69,12 @@ export const modelSnapshotSchema = z.strictObject({
   defaultPrincipal: text.nullable(),
 });
 
+/** Provider system (such as `stripe`) behind each bound source and dataset, keyed by definition ID. */
+export const systemsSchema = z.strictObject({
+  sources: z.record(text, text),
+  datasets: z.record(text, text),
+});
+
 /**
  * The runtime host started for an accepted model. `definitionRevision` is the
  * revision the running runtime serves, which can differ from the displayed
@@ -96,6 +102,8 @@ export const runtimeStatusSchema = z.strictObject({
   /** The previous runtime's in-memory data was discarded by this restart. */
   dataReset: z.boolean(),
   diagnostics: z.array(diagnosticSchema).readonly(),
+  /** Reported once the runtime is running; unknown before then. */
+  systems: systemsSchema.optional(),
 });
 
 export const manifestDiffSchema = z.strictObject({
@@ -169,6 +177,7 @@ export type CompileDiagnostic = z.infer<typeof compileDiagnosticSchema>;
 export type ToolDiagnostic = z.infer<typeof toolDiagnosticSchema>;
 export type ModelSnapshot = z.infer<typeof modelSnapshotSchema>;
 export type RuntimeStatus = z.infer<typeof runtimeStatusSchema>;
+export type Systems = z.infer<typeof systemsSchema>;
 export type ManifestDiff = z.infer<typeof manifestDiffSchema>;
 export type DevEvent = z.infer<typeof devEventSchema>;
 export type SnapshotEvent = Extract<DevEvent, { type: 'snapshot' }>;

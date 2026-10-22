@@ -75,7 +75,10 @@ export const ModelEdge = memo(function ModelEdge(
         interactionWidth={16}
         markerEnd={`url(#${arrowMarkerId(marker)})`}
       />
-      {data && (
+      {/* The cards at either end already name the objects. Relationships keep
+          only their cardinality; an association's dashed dataset card needs
+          no label. Names and IDs stay in the hover title and the panel. */}
+      {data?.kind === 'relationship' && (
         <EdgeLabelRenderer>
           <div
             className={`relationship-label${state}`}
@@ -83,31 +86,14 @@ export const ModelEdge = memo(function ModelEdge(
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             }}
             data-definition-id={data.id}
-            title={
-              data.kind === 'association'
-                ? `${data.id} · role ${data.role}`
-                : data.through
-                  ? `${data.id} through ${data.through.from} → ${data.through.to}`
-                  : `${data.id} via ${data.viaProperty}`
-            }
+            title={`${data.forward.name} ⇄ ${data.reverse.name} · ${
+              data.through
+                ? `${data.id} through ${data.through.from} → ${data.through.to}`
+                : `${data.id} via ${data.viaProperty}`
+            }`}
           >
-            {data.kind === 'association' ? (
-              <>
-                <span className="names">{data.name}</span>
-                <span className="cardinality">dataset</span>
-              </>
-            ) : (
-              <>
-                <span className="names">
-                  {data.forward.name} <span className="arrows">⇄</span>{' '}
-                  {data.reverse.name}
-                </span>
-                <span className="cardinality">
-                  {data.reverse.cardinality === 'one' ? '1' : 'N'} :{' '}
-                  {data.forward.cardinality === 'many' ? 'N' : '1'}
-                </span>
-              </>
-            )}
+            {data.reverse.cardinality === 'one' ? '1' : 'N'} :{' '}
+            {data.forward.cardinality === 'many' ? 'N' : '1'}
           </div>
         </EdgeLabelRenderer>
       )}

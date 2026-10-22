@@ -12,9 +12,10 @@ import { Callout } from '../ui/callout.js';
 export function GraphScreen() {
   const state = useInspectorState();
   const client = useDevClient();
+  const systems = state.runtime?.systems;
   const model = useMemo(
-    () => (state.model ? mapManifest(state.model.manifest) : null),
-    [state.model],
+    () => (state.model ? mapManifest(state.model.manifest, systems) : null),
+    [state.model, systems],
   );
   const highlights = useMemo(() => {
     const counts = new Map<string, number>();

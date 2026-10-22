@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { Icon } from './icons.js';
+import { Icon, RelateMark } from './icons.js';
 import type { IconName } from './icons.js';
 
 export type InspectorPage = {
@@ -38,7 +38,7 @@ export function NavRail() {
   return (
     <nav className="nav-rail" aria-label="Inspector pages">
       <div className="nav-rail-mark" aria-hidden="true">
-        <span>R</span>
+        <RelateMark size={20} />
       </div>
       {inspectorPages.map((page) => (
         <Link

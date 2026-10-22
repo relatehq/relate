@@ -27,6 +27,7 @@ export interface SqliteConnection<
   C extends AnySourceConnector = AnySourceConnector,
 > {
   readonly connectionId: string;
+  readonly system: 'sqlite';
   readonly analytics: AnalyticalConnector;
   table(name: string): SourceResource<C> & AnalyticalResource;
   table(
@@ -224,6 +225,7 @@ export function sqlite(options: SqliteOptions): SqliteConnection {
 
   const connection = {
     connectionId: options.connectionId,
+    system: 'sqlite',
     analytics: analytical.analytics,
     table(name: string, tableOptions?: SqliteTableOptions) {
       const selected: SourceResource & AnalyticalResource = {

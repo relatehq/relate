@@ -92,19 +92,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.nav-rail-mark span {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: var(--t-font-color-primary);
-  color: var(--t-background-primary);
-  font-size: 12px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: var(--t-font-color-primary);
 }
 
 .icon-button {
@@ -809,6 +797,12 @@ a.icon-button.active {
   transition: none;
 }
 
+/* An open dock overlaps the card below it; keep it on top. */
+.graph-canvas .react-flow__node-object:has(.object-node.dock-open),
+.graph-canvas .react-flow__node-object:has(.dataset-dock-card) {
+  z-index: 1000 !important;
+}
+
 .graph-overlay-center {
   position: absolute;
   inset: 0;
@@ -902,6 +896,11 @@ a.icon-button.active {
   cursor: default;
 }
 
+/* Datasets keep a dashed gold outline so the owner tab only says where they come from. */
+.object-node.dataset {
+  border: 1px dashed var(--t-color-gold8);
+}
+
 .object-node.selected {
   border: 2px solid var(--t-color-blue9);
   box-shadow: 0 0 0 4px var(--t-color-blue4);
@@ -937,10 +936,40 @@ a.icon-button.active {
   text-overflow: ellipsis;
 }
 
+/* The owner tab sits on the top border so the name keeps the card's full width. */
+.object-node-owner {
+  position: absolute;
+  top: -11px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--t-background-primary);
+  border: 1px solid var(--t-border-color-medium);
+  color: var(--t-font-color-secondary);
+}
+
+.object-node-owner.native {
+  background: var(--t-font-color-primary);
+  border-color: var(--t-font-color-primary);
+  color: var(--t-background-primary);
+}
+
+.object-node-owner.dataset {
+  background: var(--t-color-gold2);
+  border-color: var(--t-color-gold7);
+  color: var(--t-color-gold11);
+}
+
+/* Top-left, clear of the owner tab. */
 .object-node-badge {
   position: absolute;
   top: -7px;
-  right: -7px;
+  left: -7px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -952,6 +981,230 @@ a.icon-button.active {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Datasets docked under an object card (design 4b). The dock hangs below the
+   card's layout box, inside the gap between rows, so edges still meet the card. */
+.dataset-dock {
+  position: absolute;
+  top: 100%;
+  left: 20px;
+  padding-top: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  cursor: default;
+}
+
+/* Dotted stub from the card down to the chip. */
+.dataset-dock::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 20px;
+  height: 18px;
+  border-left: 1.5px dashed var(--t-color-gold9);
+}
+
+.dataset-dock-chip,
+.dataset-dock-pill {
+  display: flex;
+  align-items: center;
+  border: 1px dashed var(--t-color-gold8);
+  background: var(--t-color-gold2);
+  white-space: nowrap;
+}
+
+.dataset-dock-chip {
+  margin-left: 10px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: var(--t-font-weight-medium);
+  color: var(--t-color-gold11);
+}
+
+.dataset-dock-fan {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.dataset-dock-pill {
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 13px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--t-font-color-primary);
+  cursor: pointer;
+}
+
+.dataset-dock-pill:hover {
+  background: var(--t-color-gold3);
+}
+
+.dataset-dock-chip.highlighted,
+.dataset-dock-pill.highlighted {
+  border: 1px solid var(--t-color-red9);
+}
+
+.dataset-dock-pill .name,
+.dataset-dock-card-header .name {
+  font-weight: var(--t-font-weight-medium);
+}
+
+.dataset-dock-pill .join,
+.dataset-dock-card-header .caret {
+  font-family: var(--t-code-font-family);
+  font-size: 10px;
+  color: var(--t-color-gold11);
+}
+
+.dataset-dock-logo {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--t-background-primary);
+  color: var(--t-font-color-secondary);
+}
+
+.dataset-dock-card {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  background: var(--t-background-primary);
+  border: 1px dashed var(--t-color-gold8);
+  box-shadow: var(--t-box-shadow-light);
+  overflow: hidden;
+}
+
+.dataset-dock-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  border-bottom: 1px dashed var(--t-color-gold6);
+  background: var(--t-color-gold2);
+  font: inherit;
+  font-size: 12px;
+  color: var(--t-font-color-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dataset-dock-card-header .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataset-dock-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  padding: 6px 10px 8px;
+  font-family: var(--t-code-font-family);
+  font-size: 10.5px;
+}
+
+.dataset-dock-columns .row {
+  display: contents;
+}
+
+.dataset-dock-columns .row span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataset-dock-columns .kind {
+  color: var(--t-font-color-tertiary);
+}
+
+/* Dock motion: pills stagger in and fade out, a pinned card unrolls downward. */
+@media (prefers-reduced-motion: no-preference) {
+  .object-node {
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .dataset-dock-chip {
+    animation: dock-fade-in 160ms ease-out;
+  }
+
+  .dataset-dock-fan > * {
+    animation: dock-pill-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+    animation-delay: calc(var(--dock-index, 0) * 30ms);
+  }
+
+  .dataset-dock-fan.closing > * {
+    animation: dock-pill-out 120ms ease-in forwards;
+  }
+
+  .dataset-dock-fan > .dataset-dock-card {
+    animation: dock-card-open 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .dataset-dock-fan.closing > .dataset-dock-card {
+    animation: dock-pill-out 120ms ease-in forwards;
+  }
+
+  .dataset-dock-columns {
+    animation: dock-fade-in 180ms 80ms ease-out backwards;
+  }
+
+  .dataset-dock-pill {
+    transition:
+      background-color 120ms ease,
+      transform 120ms ease;
+  }
+
+  .dataset-dock-pill:active {
+    transform: scale(0.97);
+  }
+}
+
+@keyframes dock-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dock-pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+}
+
+@keyframes dock-pill-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+}
+
+@keyframes dock-card-open {
+  from {
+    clip-path: inset(0 0 calc(100% - 28px) 0 round 8px);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0 round 8px);
+  }
 }
 
 .react-flow__handle {
@@ -978,16 +1231,13 @@ a.icon-button.active {
 
 .relationship-label {
   position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  padding: 3px 7px;
+  padding: 2px 6px;
   border-radius: 6px;
   background: var(--t-background-primary);
   border: 1px solid var(--t-border-color-light);
   font-family: var(--t-code-font-family);
   font-size: 10.5px;
+  color: var(--t-font-color-tertiary);
   white-space: nowrap;
   pointer-events: all;
   cursor: default;
@@ -999,18 +1249,6 @@ a.icon-button.active {
 
 .relationship-label.highlighted {
   border-color: var(--t-color-red9);
-}
-
-.relationship-label .names {
-  color: var(--t-font-color-secondary);
-}
-
-.relationship-label .names .arrows {
-  color: var(--t-font-color-extra-light);
-}
-
-.relationship-label .cardinality {
-  color: var(--t-font-color-tertiary);
 }
 
 /* Side panel */

@@ -8,8 +8,14 @@ import {
 import type { Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
 import { ModelNode } from './ModelNode.js';
 import { ArrowMarkers, ModelEdge } from './ModelEdge.js';
-import { estimateNodeSize, layoutSignature } from './map.js';
-import type { GraphModel, GraphNodeData, GraphEdgeData } from './map.js';
+import { DockContext } from './DatasetDock.js';
+import { dockDatasets, estimateNodeSize, layoutSignature } from './map.js';
+import type {
+  DockedDataset,
+  GraphModel,
+  GraphNodeData,
+  GraphEdgeData,
+} from './map.js';
 import { useLayout } from '../layout/useLayout.js';
 import type { LayoutRequest } from '../layout/elk.js';
 import { useDevClient } from '../inspector-context.js';
@@ -17,7 +23,11 @@ import { useTheme } from '../theme/theme.js';
 import { Button } from '../ui/button.js';
 
 export type ModelFlowNode = Node<
-  GraphNodeData & { issues: number; touched: boolean },
+  GraphNodeData & {
+    issues: number;
+    touched: boolean;
+    docked: readonly DockedDataset[];
+  },
   'object'
 >;
 
@@ -56,27 +66,26 @@ function ModelGraphView(props: ModelGraphProps) {
   const client = useDevClient();
   const flow = useReactFlow();
   const { theme } = useTheme();
-  const signature = useMemo(
-    () => (model ? layoutSignature(model) : ''),
-    [model],
-  );
+  // What the canvas draws: associated datasets dock under their objects.
+  const view = useMemo(() => (model ? dockDatasets(model) : null), [model]);
+  const signature = useMemo(() => (view ? layoutSignature(view) : ''), [view]);
   const request = useMemo<LayoutRequest | null>(
     () =>
-      model
+      view
         ? {
             generation,
-            nodes: model.nodes.map((node) => ({
+            nodes: view.nodes.map((node) => ({
               id: node.id,
               ...estimateNodeSize(node.data),
             })),
-            edges: model.edges.map((edge) => ({
+            edges: view.edges.map((edge) => ({
               id: edge.id,
               source: edge.source,
               target: edge.target,
             })),
           }
         : null,
-    [model, generation],
+    [view, generation],
   );
   const layout = useLayout(request, signature);
   const previous = useRef<Map<string, { x: number; y: number }>>(new Map());
@@ -98,9 +107,9 @@ function ModelGraphView(props: ModelGraphProps) {
   }, [model, selected, onSelect]);
 
   const nodes = useMemo<ModelFlowNode[]>(() => {
-    if (!model) return [];
+    if (!view) return [];
 
-    return model.nodes.map((node) => {
+    return view.nodes.map((node) => {
       const size = estimateNodeSize(node.data);
       const position = layout.positions[node.id] ??
         previous.current.get(node.id) ?? { x: 0, y: 0 };
@@ -125,13 +134,14 @@ function ModelGraphView(props: ModelGraphProps) {
           ...node.data,
           issues: highlights.nodes.get(node.id) ?? 0,
           touched: touched?.has(node.id) ?? false,
+          docked: view.docks.get(node.id) ?? [],
         },
       };
     });
-  }, [model, layout.positions, selected, highlights.nodes, touched]);
+  }, [view, layout.positions, selected, highlights.nodes, touched]);
   const edges = useMemo<ModelFlowEdge[]>(
     () =>
-      (model?.edges ?? []).map((edge) => ({
+      (view?.edges ?? []).map((edge) => ({
         id: edge.id,
         type: 'relationship',
         source: edge.source,
@@ -141,7 +151,11 @@ function ModelGraphView(props: ModelGraphProps) {
         selected: selected === edge.id,
         data: { ...edge.data, highlighted: highlights.edges.has(edge.id) },
       })),
-    [model, selected, highlights.edges],
+    [view, selected, highlights.edges],
+  );
+  const dock = useMemo(
+    () => ({ selected, issues: highlights.nodes, onSelect }),
+    [selected, highlights.nodes, onSelect],
   );
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -207,29 +221,31 @@ function ModelGraphView(props: ModelGraphProps) {
       data-generation={generation}
     >
       <ArrowMarkers />
-      <ReactFlow<ModelFlowNode, ModelFlowEdge>
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable
-        edgesReconnectable={false}
-        edgesFocusable
-        nodesFocusable
-        deleteKeyCode={null}
-        panOnScroll
-        zoomOnDoubleClick={false}
-        minZoom={0.1}
-        maxZoom={2}
-        onNodesChange={collectSelection}
-        onEdgesChange={collectSelection}
-        proOptions={{ hideAttribution: true }}
-        // React Flow tags its root with .light/.dark, which also scopes the
-        // theme tokens; follow the system like the shell does.
-        colorMode={theme}
-      />
+      <DockContext value={dock}>
+        <ReactFlow<ModelFlowNode, ModelFlowEdge>
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable
+          edgesReconnectable={false}
+          edgesFocusable
+          nodesFocusable
+          deleteKeyCode={null}
+          panOnScroll
+          zoomOnDoubleClick={false}
+          minZoom={0.1}
+          maxZoom={2}
+          onNodesChange={collectSelection}
+          onEdgesChange={collectSelection}
+          proOptions={{ hideAttribution: true }}
+          // React Flow tags its root with .light/.dark, which also scopes the
+          // theme tokens; follow the system like the shell does.
+          colorMode={theme}
+        />
+      </DockContext>
       {model && model.nodes.length > 0 && (
         <div
           className="graph-controls"

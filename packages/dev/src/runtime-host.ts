@@ -278,6 +278,11 @@ try {
 // Observe, never replace, the store `setup` chooses.
 let store: ObservationStore | undefined;
 let graphId = app.graph.id;
+// Which provider system backs each source and dataset, for Inspector logos.
+const systems = {
+  sources: {} as Record<string, string>,
+  datasets: {} as Record<string, string>,
+};
 const observed: App = Object.freeze({
   ...app,
   ...(app.setup
@@ -287,6 +292,16 @@ const observed: App = Object.freeze({
 
           store = bindings.store;
           graphId = bindings.graphId ?? app.graph.id;
+
+          for (const binding of bindings.bindings ?? []) {
+            const system = binding?.connection?.system;
+
+            if (typeof system !== 'string') continue;
+
+            if ('dataset' in binding)
+              systems.datasets[binding.dataset.id] = system;
+            else systems.sources[binding.source.id] = system;
+          }
 
           return bindings;
         },
@@ -489,6 +504,7 @@ await send({
   definitionRevision: model!.definitionRevision,
   store: store ? 'application' : 'memory',
   principals: Object.keys(principals),
+  systems,
   consumer: model!.consumer as unknown as Extract<
     RuntimeMessage,
     { type: 'ready' }

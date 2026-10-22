@@ -29,8 +29,8 @@ export type Ownership =
   | {
       readonly kind: 'source';
       readonly sourceId: string;
-      /** Position among the model's sources by ID, so each source keeps a distinct color. */
-      readonly tone: number;
+      /** Provider system such as `stripe`, once the runtime reports it. */
+      readonly system?: string;
     }
   | { readonly kind: 'native' };
 
@@ -55,6 +55,8 @@ export type ObjectNodeData = {
 export type DatasetNodeData = {
   readonly kind: 'dataset';
   readonly id: string;
+  /** Provider system such as `duckdb`, once the runtime reports it. */
+  readonly system?: string;
   readonly apiName: string;
   readonly label: string;
   readonly description?: string;
@@ -149,15 +151,27 @@ function propertyView(property: ManifestProperty): PropertyView {
   };
 }
 
+const systemOf = (
+  systems: Readonly<Record<string, string>> | undefined,
+  id: string,
+): { system?: string } =>
+  systems && Object.hasOwn(systems, id) ? { system: systems[id]! } : {};
+
 const byId = <T extends { readonly id: string }>(a: T, b: T) =>
   a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 
+/** Provider system per source and dataset ID; see the Inspector protocol's `systems`. */
+export interface SystemsByDefinition {
+  readonly sources: Readonly<Record<string, string>>;
+  readonly datasets: Readonly<Record<string, string>>;
+}
+
 /** Objects and datasets become nodes; declared relationships and associations become edges. */
-export function mapManifest(manifest: Manifest): GraphModel {
+export function mapManifest(
+  manifest: Manifest,
+  systems?: SystemsByDefinition,
+): GraphModel {
   const objects = new Map(manifest.objects.map((o) => [o.id, o] as const));
-  const sources = [
-    ...new Set(manifest.objects.flatMap((o) => o.sourceDefinitionId ?? [])),
-  ].sort();
   const nodes = [...manifest.objects].sort(byId).map((object): GraphNode => ({
     id: object.id,
     data: {
@@ -173,7 +187,7 @@ export function mapManifest(manifest: Manifest): GraphModel {
         ? {
             kind: 'source',
             sourceId: object.sourceDefinitionId,
-            tone: sources.indexOf(object.sourceDefinitionId),
+            ...systemOf(systems?.sources, object.sourceDefinitionId),
           }
         : { kind: 'native' },
       properties: [...object.properties]
@@ -273,6 +287,7 @@ export function mapManifest(manifest: Manifest): GraphModel {
       data: {
         kind: 'dataset',
         id: dataset.id,
+        ...systemOf(systems?.datasets, dataset.id),
         apiName: dataset.apiName,
         label: dataset.apiName,
         ...(dataset.description !== undefined
@@ -377,4 +392,48 @@ export function highlightable(
   }
 
   return { nodes, edges };
+}
+
+/** A dataset shown in its object's dock: the dataset and the association that joins them. */
+export interface DockedDataset {
+  readonly dataset: DatasetNodeData;
+  readonly association: AssociationEdgeData;
+}
+
+/** The graph as drawn: associated datasets leave the canvas and dock under their objects. */
+export interface DockedGraph extends GraphModel {
+  readonly docks: ReadonlyMap<string, readonly DockedDataset[]>;
+}
+
+/**
+ * Datasets with at least one association are drawn in each associated
+ * object's dock instead of as cards with association edges. A dataset no object
+ * joins stays a card, so it remains visible.
+ */
+export function dockDatasets(model: GraphModel): DockedGraph {
+  const datasets = new Map(
+    model.nodes.flatMap((node) =>
+      node.data.kind === 'dataset' ? [[node.id, node.data] as const] : [],
+    ),
+  );
+  const docks = new Map<string, DockedDataset[]>();
+  const docked = new Set<string>();
+
+  for (const edge of model.edges) {
+    const dataset = datasets.get(edge.target);
+
+    if (edge.data.kind !== 'association' || !dataset) continue;
+
+    docked.add(dataset.id);
+    docks
+      .set(edge.source, docks.get(edge.source) ?? [])
+      .get(edge.source)!
+      .push({ dataset, association: edge.data });
+  }
+
+  return {
+    nodes: model.nodes.filter((node) => !docked.has(node.id)),
+    edges: model.edges.filter((edge) => edge.data.kind !== 'association'),
+    docks,
+  };
 }

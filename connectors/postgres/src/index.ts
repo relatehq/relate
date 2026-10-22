@@ -23,6 +23,7 @@ export interface PostgresOptions {
 
 export interface PostgresConnection {
   readonly connectionId: string;
+  readonly system: 'postgres';
   readonly analytics: AnalyticalConnector;
   table(
     name: string,
@@ -124,6 +125,7 @@ export function postgres(options: PostgresOptions): PostgresConnection {
   });
   const connection: PostgresConnection = Object.freeze<PostgresConnection>({
     connectionId: options.connectionId,
+    system: 'postgres',
     analytics,
     table(name, input = {}) {
       open();

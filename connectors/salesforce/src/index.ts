@@ -31,6 +31,7 @@ export interface SalesforceOptions {
 
 export interface SalesforceConnection {
   readonly connectionId: string;
+  readonly system: 'salesforce';
   resource(name: 'Account'): SourceResource<SourceConnector>;
   resource(
     name: 'Account',
@@ -315,6 +316,7 @@ export function salesforce(options: SalesforceOptions): SalesforceConnection {
 
   const connection = {
     connectionId: options.connectionId,
+    system: 'salesforce',
     resource(name: 'Account', selection?: { fields: readonly string[] }) {
       const selected: SourceResource<SourceConnector> = {
         connection,

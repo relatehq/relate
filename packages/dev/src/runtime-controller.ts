@@ -393,6 +393,7 @@ export function createRuntimeController(
               definitionRevision: message.definitionRevision,
               store: message.store,
               dataReset: previousStore === 'memory',
+              systems: message.systems,
             });
 
           return;
