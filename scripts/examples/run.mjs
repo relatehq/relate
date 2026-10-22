@@ -10,9 +10,15 @@ const examples = {
     directory: '02-customer-workspace',
     projects: ['packages/node', 'connectors/sqlite'],
   },
-  'customer-events': {
-    directory: '04-customer-events',
-    projects: ['packages/node', 'connectors/sqlite'],
+  datasets: {
+    directory: '04-datasets',
+    projects: [
+      'packages/node',
+      'connectors/sqlite',
+      'connectors/duckdb',
+      'connectors/salesforce',
+    ],
+    walkthrough: false,
   },
   postgres: {
     directory: '03-postgres-persistence',
@@ -28,9 +34,13 @@ const forwarded = args.filter(
   (arg) => !['--verbose', '--walkthrough', '--'].includes(arg),
 );
 
-if (!example || forwarded.some((arg) => arg !== '--no-open')) {
+if (
+  !example ||
+  (walkthrough && example.walkthrough === false) ||
+  forwarded.some((arg) => arg !== '--no-open')
+) {
   console.error(
-    'Usage: node scripts/examples/run.mjs <todo-notes|customer-workspace|postgres|customer-events> [--walkthrough] [--verbose] [--no-open]',
+    'Usage: node scripts/examples/run.mjs <todo-notes|customer-workspace|postgres|datasets> [--walkthrough] [--verbose] [--no-open]',
   );
   process.exitCode = 1;
 } else {

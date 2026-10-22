@@ -6,11 +6,11 @@ Connectors do not own your business objects, property mappings, or policies.
 
 ## Choose a Connector
 
-| Connector                                                 | Resource selection                            | Identity                                                     | Example or setup guide                                                     |
-| --------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| [SQLite](../../../../connectors/sqlite/README.md)         | `database.table(name, { idColumn, columns })` | Application-owned by default; optional database verification | [Customer workspace](../../../../examples/02-customer-workspace/README.md) |
-| [Stripe](../../../../connectors/stripe/README.md)         | `stripeConnection.resource(name, { fields })` | Verified account plus test/live namespace                    | Binding example in the connector README                                    |
-| [Salesforce](../../../../connectors/salesforce/README.md) | `crm.resource('Account', { fields })`         | Verified Salesforce org                                      | Binding and model in the connector README                                  |
+| Connector                                                 | Resource selection                            | Identity                                                     | Example or setup guide                                                                                |
+| --------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| [SQLite](../../../../connectors/sqlite/README.md)         | `database.table(name, { idColumn, columns })` | Application-owned by default; optional database verification | [Customer workspace](../../../../examples/02-customer-workspace/README.md)                            |
+| [Stripe](../../../../connectors/stripe/README.md)         | `stripeConnection.resource(name, { fields })` | Verified account plus test/live namespace                    | Binding example in the connector README                                                               |
+| [Salesforce](../../../../connectors/salesforce/README.md) | `crm.resource('Account', { fields })`         | Verified Salesforce org                                      | Connector README; simulated org in the [datasets example](../../../../examples/04-datasets/README.md) |
 
 All three read known record IDs. Enumeration, synchronization, webhooks, and
 provider writes are not implemented. SQLite here is a source; the

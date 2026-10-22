@@ -36,8 +36,8 @@ pnpm example:customer-workspace
 
 Each default example command opens a seeded Inspector. Run
 `pnpm example:todo-notes` for owner-only todos with notes, or
-`pnpm example:customer-events` for customers with event datasets. Add
-`:walkthrough` to either command for the scripted terminal demo. The
+`pnpm example:datasets` for ad campaigns with impression analytics. Add
+`:walkthrough` to the todo command for the scripted terminal demo. The
 [examples](examples/README.md) explain what each application teaches.
 
 Preparation runs quietly; add `--verbose` to see build logs. Build failures and

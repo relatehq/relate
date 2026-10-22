@@ -37,11 +37,11 @@ Neither app requires credentials or a database server.
 
 The third example, `pnpm example:postgres`, demonstrates persistent storage and
 a seeded Inspector with a configured Postgres database. Its `:walkthrough`
-command demonstrates restart recovery. The fourth,
-`pnpm example:customer-events`, explores customer event datasets and
-calculations. All four default commands open the Inspector; `--no-open` prints
-the link instead. See the [four examples](../../../examples/README.md) for setup
-and their distinct concepts.
+command demonstrates restart recovery. The fourth, `pnpm example:datasets`,
+ranks ad campaigns by impressions and clicks computed from a DuckDB delivery
+log. All four default commands open the Inspector; `--no-open` prints the link
+instead. See the [four examples](../../../examples/README.md) for setup and
+their distinct concepts.
 
 ---
 

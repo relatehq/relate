@@ -255,8 +255,7 @@ statement timeout starts after connector startup; the whole-operation deadline
 continues to cover queueing, startup and revalidation. See the
 [Node contract](../../../../packages/node/CONTRACT.md#analytical-operation-limits).
 
-Run the
-[customer events example](../../../../examples/04-customer-events/README.md)
-with `pnpm example:customer-events:walkthrough` to try caller expressions,
-declared calculations, computed filtering and ordering, and actor-specific
-column access using one SQLite file.
+Run the [datasets example](../../../../examples/04-datasets/README.md) with
+`pnpm example:datasets` to try caller expressions, declared calculations,
+computed filtering and ordering, and actor-specific column access over a DuckDB
+impression log correlated with SQLite campaigns.

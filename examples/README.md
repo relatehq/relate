@@ -15,7 +15,7 @@ packages are required.
 | 01    | [Todo notes](01-todo-notes)                     | One native object, an action, owner-only access, typed reads and queries. Seeded in-memory app with no external services.                                             | `pnpm example:todo-notes`         |
 | 02    | [Customer workspace](02-customer-workspace)     | A business graph across an HTTP CRM, SQLite invoices and native reviews; relationships, role and field policies, receipts, refresh and model inspection in a browser. | `pnpm example:customer-workspace` |
 | 03    | [Postgres persistence](03-postgres-persistence) | Persistent storage, explicit migrations, restart recovery, freshness, stale fallback and provider denial. Requires Postgres.                                          | `pnpm example:postgres`           |
-| 04    | [Customer events](04-customer-events)           | Correlated event datasets, caller SQL, declared calculations, computed filters/order and field access. Requires only Node.                                            | `pnpm example:customer-events`    |
+| 04    | [Datasets](04-datasets)                         | Salesforce advertisers, SQLite campaigns and a DuckDB impression log; caller SQL, declared calculations, computed filters/order and column access. Only Node needed.  | `pnpm example:datasets`           |
 
 Every default command builds its dependencies, starts a seeded Inspector, and
 opens your browser. Use `--no-open` to print the Inspector link without opening
@@ -28,7 +28,6 @@ The scripted SDK walkthroughs remain available separately:
 - `pnpm example:todo-notes:walkthrough`
 - `pnpm example:customer-workspace:walkthrough`
 - `pnpm example:postgres:walkthrough`
-- `pnpm example:customer-events:walkthrough`
 
 These print results and exit. Each walkthrough starts its own runtime separate
 from any running Inspector.
@@ -44,10 +43,10 @@ logs, or `--no-open` to keep an example from opening a browser. Press Ctrl+C to
 stop that app and its owned processes.
 
 Provider-specific setup belongs in the
-[connector guides](../connectors/README.md): SQLite is demonstrated in 02;
-Stripe and Salesforce have binding guidance in their connector READMEs.
-Salesforce scratch-org tooling and opt-in live checks remain under
-[dev/salesforce](../dev/salesforce/README.md).
+[connector guides](../connectors/README.md): SQLite is demonstrated in 02 and
+04; DuckDB and a simulated Salesforce org in 04. Stripe has binding guidance in
+its connector README. Salesforce scratch-org tooling and opt-in live checks
+remain under [dev/salesforce](../dev/salesforce/README.md).
 
 ## Examples are for learning, not library fixtures
 

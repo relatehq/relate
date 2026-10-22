@@ -204,13 +204,14 @@ export const packagePolicies: Record<
     imports: ['hono', '@hono/node-server'],
     builtins: ['node:events', 'node:http'],
   },
-  'examples/04-customer-events': {
+  'examples/04-datasets': {
     imports: [
       'relate',
-      'relate/consumer',
-      'relate/compiler',
       '@relate/node',
+      '@relate/connector-duckdb',
+      '@relate/connector-salesforce',
       '@relate/connector-sqlite',
+      '@duckdb/node-api',
       'zod',
     ],
     builtins: true,
