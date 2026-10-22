@@ -177,6 +177,9 @@ importers:
       '@dotenvx/dotenvx':
         specifier: 2.28.0
         version: 2.28.0
+      '@duckdb/node-api':
+        specifier: 1.5.6-r.1
+        version: 1.5.6-r.1
       '@relate/cli':
         specifier: workspace:*
         version: link:packages/cli

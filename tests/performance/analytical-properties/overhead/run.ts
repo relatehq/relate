@@ -17,6 +17,7 @@ import { percentile } from '../report.js';
 import { observeResource, concurrentMap, unionDuration } from './capture.js';
 import type { Interval } from './capture.js';
 import { postgresDatabase } from './database.js';
+import { duckDatabase } from '../duckdb.js';
 import type { Database, Scenario } from './database.js';
 
 export const modes = [
@@ -27,9 +28,11 @@ export const modes = [
   'colocated',
   'materialized',
 ] as const;
+
 export type Mode = (typeof modes)[number];
+
 export interface Config {
-  backend: 'postgres';
+  backend: 'postgres' | 'duckdb';
   customers: number;
   events: number;
   repetitions: number;
@@ -38,6 +41,7 @@ export interface Config {
   freshness: 'cached' | 'refresh';
   sourceDelayMs: number;
 }
+
 export interface Sample {
   scenario: Scenario;
   mode: Mode;
@@ -53,11 +57,14 @@ export interface Sample {
   counters?: Record<string, number>;
   stages?: Trace['stages'];
 }
+
 export function modeOrder(block: number): Mode[] {
   const offset = block % modes.length;
   const order = [...modes.slice(offset), ...modes.slice(0, offset)];
+
   return Math.floor(block / modes.length) % 2 ? order.reverse() : order;
 }
+
 export function summarize(samples: Sample[]) {
   return (['enrichment', 'ranking'] as const).flatMap((scenario) =>
     modes.map((mode) => {
@@ -67,6 +74,7 @@ export function summarize(samples: Sample[]) {
       const values = selected
         .filter((s) => s.status === 'ok')
         .map((s) => s.durationMs);
+
       return {
         scenario,
         mode,
@@ -78,6 +86,7 @@ export function summarize(samples: Sample[]) {
     }),
   );
 }
+
 /** Subtract matched block observations, not independently selected medians. */
 export function differences(samples: Sample[]) {
   const pairs: [Mode, Mode][] = [
@@ -87,6 +96,7 @@ export function differences(samples: Sample[]) {
     ['relate', 'direct-warm'],
     ['relate', 'colocated'],
   ];
+
   return (['enrichment', 'ranking'] as const).flatMap((scenario) =>
     pairs.map(([a, b]) => {
       const left = samples.filter(
@@ -100,10 +110,12 @@ export function differences(samples: Sample[]) {
             r.phase === 'warm' &&
             r.block === s.block,
         );
+
         return s.status === 'ok' && other?.status === 'ok'
           ? [s.durationMs - other.durationMs]
           : [];
       });
+
       return {
         scenario,
         comparison: `${a} minus ${b}`,
@@ -143,27 +155,41 @@ export async function runOverhead(
     summary: summarize(samples),
     differences: differences(samples),
   });
+
   try {
     const graphId = `analytical-benchmark-${randomUUID()}`;
+
     backing = await openStore(config.objectStore, graphId);
-    objects = await openObjects(records, {
-      ...config,
-      graphId,
-      store: backing.store,
-      resource: observer.resource,
-      capture: 'enabled',
-    });
+    const store = backing.store;
+
+    objects = await observer.initialize(() =>
+      openObjects(records, {
+        ...config,
+        graphId,
+        store,
+        resource: observer.resource,
+        capture: 'enabled',
+      }),
+    );
     reference = openReference(
       records,
       objects.ids,
       events(config.customers, config.events, 42),
     );
-    const [schema] = JSON.parse(backend.resource.resourceId) as [
-      string,
-      string,
-    ];
-    database = await postgresDatabase(schema, records, objects.ids);
+
+    if (config.backend === 'duckdb') {
+      database = await duckDatabase(backend.file!, records, objects.ids);
+    } else {
+      const [schema] = JSON.parse(backend.resource.resourceId) as [
+        string,
+        string,
+      ];
+
+      database = await postgresDatabase(schema, records, objects.ids);
+    }
+
     const adapter = createAdapter(objects);
+
     for (const scenario of ['enrichment', 'ranking'] as const) {
       const expected = reference.query(scenario);
       const trace = new Trace();
@@ -174,8 +200,10 @@ export async function runOverhead(
           await trace.settle();
         }
       });
+
       assert.deepEqual(captured.result, expected);
       const statements = captured.statements;
+
       assert.equal(
         statements.length,
         scenario === 'enrichment'
@@ -193,6 +221,7 @@ export async function runOverhead(
           sqlHash: createHash('sha256').update(s.sql!).digest('hex'),
         })),
       });
+
       for (
         let block = 0;
         block < 1 + config.warmups + config.repetitions;
@@ -204,15 +233,20 @@ export async function runOverhead(
             : block <= config.warmups
               ? 'warmup'
               : 'warm';
+
         for (const [order, mode] of modeOrder(block).entries()) {
           const active = new Trace();
           const intervals: Interval[] = [];
+
           if (mode === 'relate') observer.intervals(intervals);
+
           const start = performance.now();
           let durationMs: number | undefined;
           let error: string | undefined;
+
           try {
             let value: unknown;
+
             if (mode === 'relate')
               value = await adapter.query(scenarios[scenario], active);
             else if (mode === 'connector')
@@ -237,7 +271,9 @@ export async function runOverhead(
                 scenario,
                 mode === 'materialized',
               );
+
             durationMs = performance.now() - start;
+
             if (mode === 'connector')
               assert.deepEqual(
                 value,
@@ -254,13 +290,16 @@ export async function runOverhead(
             error = cause instanceof Error ? cause.message : String(cause);
           } finally {
             observer.intervals(undefined);
+
             try {
               await active.settle();
             } catch (cause) {
               error = String(cause);
             }
           }
+
           const busy = unionDuration(intervals);
+
           samples.push({
             scenario,
             mode,
@@ -284,12 +323,15 @@ export async function runOverhead(
               : {}),
           });
         }
+
         await checkpoint(result());
       }
     }
+
     return result();
   } finally {
     reference?.close();
+
     try {
       await objects?.app.close();
     } finally {
@@ -320,8 +362,9 @@ async function main() {
       out: { type: 'string', default: 'benchmark-results/overhead' },
     },
   });
+
   assert(['small', 'full'].includes(values.profile));
-  assert.equal(values.backend, 'postgres');
+  assert(['postgres', 'duckdb', 'both'].includes(values.backend));
   assert(['memory', 'postgres'].includes(values.store));
   assert(['cached', 'refresh'].includes(values.freshness));
   const populations = values.customers
@@ -338,10 +381,13 @@ async function main() {
     values.repetitions ?? (values.profile === 'small' ? 3 : 20),
   );
   const sourceDelayMs = Number(values['source-delay-ms']);
+
   for (const n of [...populations, ...eventCounts, repetitions])
     assert(Number.isSafeInteger(n) && n > 0);
+
   assert(Number.isSafeInteger(sourceDelayMs) && sourceDelayMs >= 0);
   const output = resolve(values.out);
+
   await mkdir(output, { recursive: true });
   const metadata = {
     schemaVersion: 1,
@@ -370,39 +416,60 @@ async function main() {
           typeof value === 'bigint' ? { $bigint: String(value) } : value,
         2,
       ) + '\n';
+
     await writeFile(`${output}/results.json.tmp`, text);
     await rename(`${output}/results.json.tmp`, `${output}/results.json`);
   };
+
   await persist();
-  for (const count of populations)
-    for (const eventCount of eventCounts) {
-      const config: Config = {
-        backend: 'postgres',
-        customers: count,
-        events: eventCount,
-        repetitions,
-        warmups: 2,
-        objectStore: values.store as Config['objectStore'],
-        freshness: values.freshness as Config['freshness'],
-        sourceDelayMs,
-      };
-      console.log(`Overhead: ${JSON.stringify(config)}`);
-      try {
-        const result = await runOverhead(config, persist);
-        workloads.push(result);
-        failed ||= result.samples.some((s) => s.status === 'error');
-      } catch (cause) {
-        failed = true;
-        workloads.push({
-          config,
-          error: cause instanceof Error ? cause.message : String(cause),
-        });
+  const backends =
+    values.backend === 'both'
+      ? (['postgres', 'duckdb'] as const)
+      : [values.backend as Config['backend']];
+
+  for (const backend of backends)
+    for (const count of populations)
+      for (const eventCount of eventCounts) {
+        const config: Config = {
+          backend,
+          customers: count,
+          events: eventCount,
+          repetitions,
+          warmups: 2,
+          objectStore: values.store as Config['objectStore'],
+          freshness: values.freshness as Config['freshness'],
+          sourceDelayMs,
+        };
+
+        console.log(`Overhead: ${JSON.stringify(config)}`);
+
+        let partial: object | undefined;
+
+        try {
+          const result = await runOverhead(config, async (current) => {
+            partial = current;
+            await persist(current);
+          });
+
+          workloads.push(result);
+          failed ||= result.samples.some((s) => s.status === 'error');
+        } catch (cause) {
+          failed = true;
+          workloads.push({
+            ...partial,
+            config,
+            error: cause instanceof Error ? cause.message : String(cause),
+          });
+        }
+
+        await persist();
       }
-      await persist();
-    }
+
   console.log(`Results: ${output}`);
+
   if (failed) process.exitCode = 1;
 }
+
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href

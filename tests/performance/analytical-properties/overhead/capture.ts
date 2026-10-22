@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { isDeepStrictEqual } from 'node:util';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { ChildProcess } from 'node:child_process';
 import pg from 'pg';
@@ -17,6 +18,7 @@ export interface Statement {
   rawRows?: unknown[][];
   rows?: DatasetExecution['rows'];
 }
+
 export interface Interval {
   startMs: number;
   endMs: number;
@@ -36,10 +38,36 @@ export function unionDuration(intervals: Interval[]): number {
   return total;
 }
 
+async function watchSpawns<T>(
+  visit: (child: ChildProcess) => void,
+  task: () => Promise<T>,
+) {
+  const emit = ChildProcess.prototype.emit;
+  const owned = Object.hasOwn(ChildProcess.prototype, 'emit');
+
+  ChildProcess.prototype.emit = function (
+    this: ChildProcess,
+    event: string | symbol,
+    ...args: unknown[]
+  ) {
+    if (event === 'spawn') visit(this);
+
+    return Reflect.apply(emit, this, [event, ...args]);
+  };
+
+  try {
+    return await task();
+  } finally {
+    if (owned) ChildProcess.prototype.emit = emit;
+    else Reflect.deleteProperty(ChildProcess.prototype, 'emit');
+  }
+}
+
 /** Capture exact driver/IPC input only during untimed preparation; no product exports. */
 export function observeResource(original: AnalyticalResource) {
   const analytics = original.connection.analytics;
   const context = new AsyncLocalStorage<Statement>();
+  const children = new Set<ChildProcess>();
   let recording: Statement[] | undefined;
   let intervals: Interval[] | undefined;
   const plans = new WeakMap<PreparedPlan, Statement>();
@@ -54,6 +82,7 @@ export function observeResource(original: AnalyticalResource) {
 
           if (recording) {
             const statement = { plan, query };
+
             plans.set(plan, statement);
             recording.push(statement);
           }
@@ -83,6 +112,9 @@ export function observeResource(original: AnalyticalResource) {
 
   return {
     resource,
+    initialize<T>(task: () => Promise<T>) {
+      return watchSpawns((child) => children.add(child), task);
+    },
     intervals(value: Interval[] | undefined) {
       intervals = value;
     },
@@ -90,9 +122,13 @@ export function observeResource(original: AnalyticalResource) {
       assert(!recording, 'Capture must not nest');
       const statements: Statement[] = [];
       const query = pg.Client.prototype.query;
-      const send = ChildProcess.prototype.send;
+      const sends = new Map<ChildProcess, ChildProcess['send']>();
+
       recording = statements;
-      pg.Client.prototype.query = function (this: pg.Client, ...args: unknown[]) {
+      pg.Client.prototype.query = function (
+        this: pg.Client,
+        ...args: unknown[]
+      ) {
         const statement = context.getStore();
         const config = args[0] as
           { text?: string; values?: unknown[] } | undefined;
@@ -105,30 +141,66 @@ export function observeResource(original: AnalyticalResource) {
 
           return (result as Promise<pg.QueryResult>).then((value) => {
             statement.rawRows = structuredClone(value.rows);
+
             return value;
           });
         }
 
         return result;
       } as typeof query;
-      ChildProcess.prototype.send = function (this: ChildProcess, ...args: unknown[]) {
-        const statement = context.getStore();
-        const message = args[0] as {
-          kind?: string;
-          plan?: { sql: string; values: unknown[] };
-        };
+      const attach = (child: ChildProcess) => {
+        children.add(child);
 
-        if (statement && message?.kind === 'execute' && message.plan) {
-          assert.equal(statement.sql, undefined, 'One IPC statement per plan');
-          statement.sql = message.plan.sql;
-          statement.parameters = structuredClone(message.plan.values);
-        }
+        if (sends.has(child)) return;
 
-        return Reflect.apply(send, this, args);
-      } as typeof send;
+        const send = child.send;
+
+        sends.set(child, send);
+        child.send = function (this: ChildProcess, ...args: unknown[]) {
+          const message = args[0] as {
+            kind?: string;
+            plan?: { sql: string; values: unknown[]; slots: number };
+          };
+
+          if (message?.kind === 'execute' && message.plan) {
+            // A pooled child's ready callback may originate in an earlier request's
+            // async context. Match the complete slot parameter prefix instead.
+            const matches = statements.filter((s) => {
+              const prefix = s.query.slots.flatMap((slot, index) => [
+                index,
+                ...slot.values.map((value) => value.value),
+                ...slot.valid,
+              ]);
+
+              return (
+                !s.sql &&
+                s.query.slots.length === message.plan!.slots &&
+                isDeepStrictEqual(
+                  prefix,
+                  message.plan!.values.slice(0, prefix.length),
+                )
+              );
+            });
+
+            assert.equal(
+              matches.length,
+              1,
+              'IPC plan must match exactly one captured slot set',
+            );
+            const statement = matches[0]!;
+
+            statement.sql = message.plan.sql;
+            statement.parameters = structuredClone(message.plan.values);
+          }
+
+          return Reflect.apply(send, this, args);
+        } as typeof send;
+      };
+
+      for (const child of children) attach(child);
 
       try {
-        const result = await task();
+        const result = await watchSpawns(attach, task);
 
         for (const statement of statements) {
           assert(statement.sql && statement.parameters && statement.rows);
@@ -139,10 +211,13 @@ export function observeResource(original: AnalyticalResource) {
         }
 
         assert(statements.length > 0, 'No generated statements captured');
+
         return { result, statements };
       } finally {
         pg.Client.prototype.query = query;
-        ChildProcess.prototype.send = send;
+
+        for (const [child, send] of sends) child.send = send;
+
         recording = undefined;
       }
     },
@@ -159,6 +234,7 @@ export async function concurrentMap<T, R>(
   let next = 0;
   const results: R[] = [];
   const failures: unknown[] = [];
+
   await Promise.all(
     Array.from(
       { length: Math.min(concurrency, items.length) },
@@ -166,6 +242,7 @@ export async function concurrentMap<T, R>(
         try {
           while (next < items.length) {
             const index = next++;
+
             results[index] = await task(items[index]!, index, worker);
           }
         } catch (error) {
@@ -174,6 +251,8 @@ export async function concurrentMap<T, R>(
       },
     ),
   );
+
   if (failures.length) throw failures[0];
+
   return results;
 }
