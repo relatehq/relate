@@ -158,6 +158,7 @@ export async function openFixture(customerCount, eventCount) {
         partitions: 4,
       },
       records,
+      now: Date.now(),
       resource: connector.table('events', { schema }),
       invoiceResource: connector.table('invoices', { schema }),
       fileResource: parquetResource(dc),

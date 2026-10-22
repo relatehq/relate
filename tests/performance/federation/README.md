@@ -136,8 +136,10 @@ flowchart TD
   first-of-scenario and two warmups are recorded separately. The first sample is
   **not a cold start**: schema discovery, snapshots and explain executions have
   already warmed sources.
-- Public Relate paths share one adopted memory store and object IDs. Ties use
-  Relate object-ID order, checked against oracle metrics sorted by those IDs.
+- Public Relate paths share one adopted memory store, object IDs and frozen
+  clock. Every timed public request asserts zero source refreshes; future-dated
+  or aged fixture observations must not skew comparisons. Ties use Relate
+  object-ID order, checked against oracle metrics sorted by those IDs.
   Whole-query SQL ties use source-key order; do not compare their hashes
   directly.
 - Request timing includes Node request serialization, boundary crossing, engine

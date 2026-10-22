@@ -225,7 +225,7 @@ export async function openMultiRelate(
   const byKey = new Map(fixture.records.map((row) => [row.key, row]));
   // Match the original harness: immutable fixtures and cached evidence must not
   // become stale merely because the full comparison takes several minutes.
-  const now = Date.now();
+  const now = fixture.now;
   const app = await startApp(
     defineApp({
       graph,

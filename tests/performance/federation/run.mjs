@@ -204,6 +204,7 @@ try {
         collectMs: value.collectMs,
         encodeMs: value.encodeMs,
         sourceRows: value.sourceRows,
+        sourceRefreshes: value.sourceRefreshes,
         scope: value.scope,
         resultRows: value.rows.length,
         resultSha256: validate(value, expected, scenario),
@@ -281,7 +282,16 @@ try {
       ['ranking-db', openRelate],
       ['multi', openMultiRelate],
     ]) {
-      const store = createMemoryStore(),
+      let sourceRefreshes = 0;
+      const underlying = createMemoryStore();
+      const store = {
+          ...underlying,
+          async beginFetch(...args) {
+            sourceRefreshes++;
+
+            return underlying.beginFetch(...args);
+          },
+        },
         scenarioPaths = [];
       const variants = [
         {
@@ -324,7 +334,15 @@ try {
         host.pid = process.pid;
         host.run = async () => {
           execution = undefined;
+          const refreshesBefore = sourceRefreshes;
           const value = await host.query();
+
+          assert.equal(
+            sourceRefreshes,
+            refreshesBefore,
+            'Immutable cached fixtures must not refresh during timed requests',
+          );
+          value.sourceRefreshes = sourceRefreshes - refreshesBefore;
 
           if (variant.scope) {
             assert(

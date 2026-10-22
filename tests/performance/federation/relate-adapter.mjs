@@ -170,6 +170,7 @@ export async function openRelate(
     capture: 'disabled',
     freshness: 'cached',
     sourceDelayMs: 0,
+    now: fixture.now,
   });
   const request = {
     ...scenarios.ranking,
