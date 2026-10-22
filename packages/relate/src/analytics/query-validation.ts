@@ -2,7 +2,7 @@ import type {
   AuthorizedDatasetQuery,
   ResolvedOperand,
   ResolvedPredicate,
-} from './connectors.js';
+} from './query.js';
 
 function invalid(): never {
   throw new Error('Invalid authorized analytical query');

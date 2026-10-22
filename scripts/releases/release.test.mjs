@@ -55,6 +55,13 @@ test('release inventory includes connectors and their tarballs', async () => {
   assert.ok(postgres);
   assert.equal(postgres.directory, 'connectors/postgres');
   assert.ok(packedPackages.includes(postgres.directory));
+  const duckdb = packages.find(
+    (entry) => entry.name === '@relate/connector-duckdb',
+  );
+
+  assert.ok(duckdb);
+  assert.equal(duckdb.directory, 'connectors/duckdb');
+  assert.ok(packedPackages.includes(duckdb.directory));
   const stripe = packages.find(
     (entry) => entry.name === '@relate/connector-stripe',
   );

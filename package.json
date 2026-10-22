@@ -10,7 +10,7 @@
   },
   "scripts": {
     "packages": "pnpm -r list --depth -1",
-    "build": "tsc -b packages/protocol packages/relate packages/sql-parser packages/runtime packages/postgres packages/node packages/mcp connectors/sqlite connectors/postgres connectors/stripe connectors/salesforce apps/inspector/tsconfig.server.json packages/dev packages/cli && pnpm --filter @relate/inspector build:client",
+    "build": "tsc -b packages/protocol packages/relate packages/sql-parser packages/runtime packages/postgres packages/node packages/mcp connectors/sqlite connectors/postgres connectors/duckdb connectors/stripe connectors/salesforce apps/inspector/tsconfig.server.json packages/dev packages/cli && pnpm --filter @relate/inspector build:client",
     "docs:dev": "pnpm --filter @relate/docs dev",
     "docs:build": "pnpm --filter @relate/docs build",
     "docs:check": "pnpm exec vitest run --project unit apps/docs/test/validation.test.ts && pnpm docs:build && node --import tsx apps/docs/scripts/check.ts",
@@ -73,6 +73,7 @@
     "@relate/connector-salesforce": "workspace:*",
     "@relate/dev-salesforce": "workspace:*",
     "@relate/sql-parser": "workspace:*",
-    "@relate/connector-postgres": "workspace:*"
+    "@relate/connector-postgres": "workspace:*",
+    "@relate/connector-duckdb": "workspace:*"
   }
 }
