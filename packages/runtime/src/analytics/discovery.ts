@@ -8,13 +8,13 @@ import type { SqlParser, AnalyticalLimits } from 'relate/analytics';
 import {
   actorAssociations,
   analyticalDeclarations,
-} from './authorization/index.js';
-import type { Principal } from './authorization/index.js';
+} from '../authorization/index.js';
+import type { Principal } from '../authorization/index.js';
 import {
   authorizeDeclaration,
   prepareExpression,
   computedFilterOperators,
-} from './analytics/index.js';
+} from './index.js';
 
 const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
 

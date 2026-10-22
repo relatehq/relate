@@ -145,11 +145,13 @@ return {
 ```
 
 `startApp` checks every declared column against `PRAGMA table_info`. INTEGER
-supports boolean, int32 and int64; TEXT supports strings and canonical UTC
-millisecond/microsecond timestamps; REAL supports float64. NUMERIC/DECIMAL and
-BLOB are unsupported. Non-null declarations require `NOT NULL` as reported by
-SQLite. Inspection checks affinity and nullability, without scanning rows, and
-uses a five-second statement deadline after process startup.
+supports boolean, int32 and int64; BOOLEAN declarations use the same portable
+values. TEXT supports strings and canonical UTC millisecond/microsecond
+timestamps; DATETIME and TIMESTAMP declarations support the same canonical text
+representation. REAL supports float64. NUMERIC/DECIMAL and BLOB are unsupported.
+Non-null declarations require `NOT NULL` as reported by SQLite. Inspection
+checks affinity and nullability, without scanning rows, and uses a five-second
+statement deadline after process startup.
 
 The connection's `analytics` capability accepts opaque resources and authorized,
 typed query structures. It never accepts caller SQL text. Planning generates one
@@ -159,16 +161,24 @@ bound with explicit SQLite types. Parameter budgeting counts the exact generated
 placeholders against SQLite's 32,766 limit. Correlation and masks remain outside
 expression predicates; duplicate correlation keys remain separate object slots.
 String comparisons use binary collation. Timestamp comparisons normalize exact
-milliseconds to microseconds, without losing their precision in returned values.
+milliseconds to microseconds, including MIN/MAX. Correlation uses indexed
+equality against both canonical timestamp precisions, leaving the dataset column
+unwrapped.
 
-Each analytical statement uses a fresh read-only child process. At most four
-children run per configured connection; the runtime's shared statement queue
-owns normal admission. `analyticalStartupTimeoutMs` defaults to 5000 (range
-1–60000). After startup, `execute`'s `timeoutMs` bounds the statement. Timeout,
-abort and connection close terminate the child and await its exit before
-settling, so capacity is not released while native SQLite work continues.
-Analytical cancellation does not retire the keyed-read worker. Resource and plan
-handles cannot move between connections or be used after retirement.
+Each analytical statement uses a fresh read-only child process. This
+deliberately isolates statement state and guarantees teardown; it is a bounded
+process-per-statement implementation, not a reusable process pool. Startup cost
+is included in host timing. A child-local watchdog runs on a separate thread,
+enforces its lifetime even while SQLite blocks, and terminates the child if its
+parent disappears. At most four children run per configured connection; the
+runtime's shared statement queue owns normal admission across runtimes borrowing
+that connection and clamps to its published capacity.
+`analyticalStartupTimeoutMs` defaults to 5000 (range 1–60000). After startup,
+`execute`'s `timeoutMs` bounds the statement. Timeout, abort and connection
+close terminate the child and await its exit before settling, so capacity is not
+released while native SQLite work continues. Analytical cancellation does not
+retire the keyed-read worker. Resource and plan handles cannot move between
+connections or be used after retirement.
 
 Integers are read as bigint to preserve int64; int32 and boolean driver values
 are decoded to portable scalars. SQL overflow fails the whole statement. BLOB or
@@ -195,4 +205,5 @@ flowchart LR
 ```
 
 Connector execution and public app schema validation are implemented. Analytical
-fields on object `get` and `query` are still being integrated in the runtime.
+fields execute on object `get` and `query`, including computed filters and
+ordering.

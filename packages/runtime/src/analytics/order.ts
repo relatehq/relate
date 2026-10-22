@@ -1,6 +1,6 @@
 import type { OrderEntry } from '@relate/protocol';
 import { parseAnalyticalValue, encodeAnalyticalValue } from 'relate/analytics';
-import type { AnalyticalScalar, ResultType } from 'relate/analytics';
+import type { AnalyticalScalar, ComputedResultType } from 'relate/analytics';
 import type { ComputedField } from './execution-types.js';
 import { AnalyticalPreparationError } from './types.js';
 
@@ -16,7 +16,9 @@ const compare = (
   right: string | number | boolean | bigint,
 ) => (left < right ? -1 : left > right ? 1 : 0);
 
-export function computedFilterOperators(type: ResultType): readonly string[] {
+export function computedFilterOperators(
+  type: ComputedResultType,
+): readonly string[] {
   return ['int32', 'int64', 'float64', 'timestamp'].includes(type.type)
     ? ['eq', 'in', 'gt', 'gte', 'lt', 'lte']
     : ['eq', 'in'];
@@ -26,7 +28,7 @@ export function computedFilterOperators(type: ResultType): readonly string[] {
 export function prepareComputedOrder(input: {
   readonly where: Readonly<Record<string, unknown>>;
   readonly orderBy: unknown;
-  readonly types: Readonly<Record<string, ResultType>>;
+  readonly types: Readonly<Record<string, ComputedResultType>>;
 }) {
   const fail = (path: readonly string[], message: string): never => {
     throw new AnalyticalPreparationError([
@@ -44,7 +46,7 @@ export function prepareComputedOrder(input: {
   };
   const valueFor = (
     value: unknown,
-    type: ResultType,
+    type: ComputedResultType,
     path: readonly string[],
   ) => {
     if (value === null) return null;
@@ -66,7 +68,7 @@ export function prepareComputedOrder(input: {
   const scalarCompare = (
     a: Exclude<AnalyticalScalar, null>,
     b: Exclude<AnalyticalScalar, null> | bigint,
-    type: ResultType,
+    type: ComputedResultType,
   ) =>
     type.type === 'int64'
       ? compare(BigInt(a as string), BigInt(b as string))

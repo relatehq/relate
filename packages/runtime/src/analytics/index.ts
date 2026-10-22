@@ -11,7 +11,7 @@ export type {
   ResolvedExpression,
 } from './types.js';
 
-export { computeFields } from './execute.js';
+export { computeFields, validatePreparedCapacity } from './execute.js';
 export { AnalyticalIncompleteError } from './execution-types.js';
 
 export type {
@@ -50,3 +50,5 @@ export { revalidateFields } from './revalidate.js';
 
 export { prepareComputedOrder, computedFilterOperators } from './order.js';
 export type { ComputedPosition } from './order.js';
+
+export type { CalculationCapture } from './activity.js';

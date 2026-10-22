@@ -32,7 +32,7 @@ it('quotes every physical identifier, binds every value and reports the exact pa
 
   expect(plan.sql).toContain('"odd""schema"."odd"";table"');
   expect(plan.sql).toContain('"odd"";table"');
-  expect(plan.sql).toContain('COLLATE pg_catalog."C"');
+  expect(plan.sql).not.toContain('COLLATE pg_catalog."C"');
   expect(plan.sql).not.toContain('DROP TABLE');
   expect(plan.values).toContain("x'); DROP TABLE events; --");
   const budget = connection.analytics.parameterBudget(request);
@@ -75,12 +75,12 @@ it('enforces the 65535 parameter bound and connection-owned opaque handles befor
   expect(() => other.analytics.plan(base)).toThrow(/Foreign/);
   const plan = connection.analytics.plan(base);
 
-  expect(() =>
+  await expect(
     other.analytics.execute(plan, {
       signal: new AbortController().signal,
       timeoutMs: 1,
     }),
-  ).toThrow(/Foreign/);
+  ).rejects.toThrow(/Foreign/);
   await connection.close();
   await other.close();
   expect(() => connection.analytics.plan(base)).toThrow(

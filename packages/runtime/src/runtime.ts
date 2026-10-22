@@ -1,6 +1,6 @@
 import type { ReadExecution } from './reads/index.js';
-import { createAnalyticalReads } from './analytical-read.js';
-import type { AnalyticalReadOptions } from './analytical-read.js';
+import { createAnalyticalReads } from './reads/analytical.js';
+import type { AnalyticalReadOptions } from './reads/analytical.js';
 import {
   createNativeOperations,
   nativeEvidence,

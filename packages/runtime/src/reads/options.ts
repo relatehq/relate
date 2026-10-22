@@ -1,3 +1,4 @@
+import { MAX_SELECTED_PROPERTIES } from './selection.js';
 import { ReadError } from '@relate/protocol';
 import type {
   Json,
@@ -71,7 +72,7 @@ const rules: readonly OptionRule[] = [
     operations: every,
     valid: (value) =>
       Array.isArray(value) &&
-      value.length <= 100 &&
+      value.length <= MAX_SELECTED_PROPERTIES &&
       value.every((p) => typeof p === 'string' && !unsafe.includes(p)),
   },
   {

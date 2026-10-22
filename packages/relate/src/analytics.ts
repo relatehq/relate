@@ -1,7 +1,7 @@
 /** Portable analytical contracts. No compiler, parser implementation or driver. */
 export type {
   LogicalType,
-  ComputedResultType as ResultType,
+  ComputedResultType,
   AnalyticalExpression,
 } from '@relate/protocol';
 

@@ -17,6 +17,7 @@ import { testCreation } from '../../../tests/support/activity.js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { postgres } from '@relate/connector-postgres';
 import type { AnalyticalExecutionTiming } from 'relate/connectors';
+import { render } from '../src/plan.js';
 import { createRunner } from '../src/runner.js';
 import { createClientFactory } from '../src/client.js';
 import { testDatabaseUrl } from '../../../tests/support/database.js';
@@ -506,6 +507,7 @@ it('uses the real server statement timeout when its cancellation control connect
           query: async () => {
             throw new Error('unreachable');
           },
+          cancel: async () => {},
           end: async () => {},
           destroy() {},
         },
@@ -658,3 +660,34 @@ it.each(['int32', 'int64'] as const)(
     ).toEqual(result.status === 'ok' ? result.data : undefined);
   },
 );
+
+it('keeps default-collation text indexes eligible for correlation equality', async () => {
+  const { db, schema, resource, columns } = await fixture();
+  const request = query(resource, [aggregate('count', '*', 'int64')], ['acme']);
+  const generated = render(
+    request,
+    { schema, table: 'events', columns },
+    request.slots,
+  );
+
+  await db.query('SET enable_seqscan = off');
+  const explanation = await db.query(`EXPLAIN (FORMAT JSON) ${generated.sql}`, [
+    ...generated.values,
+  ]);
+
+  expect(JSON.stringify(explanation.rows)).toContain('Index Cond');
+});
+
+it('accepts smallint and domains with compatible base types', async () => {
+  const { db, schema, connection } = await fixture();
+
+  await db.query(`CREATE DOMAIN "${schema}".key_text AS text;
+    ALTER TABLE "${schema}".events ADD COLUMN tiny smallint, ADD COLUMN domain_key "${schema}".key_text;`);
+  const resource = connection
+    .table('events', { schema })
+    .bindDataset({ columns: { tiny: 'tiny', domain: 'domain_key' } });
+  const physical = await connection.analytics.describe(resource, options());
+
+  expect(physical.columns.tiny!.supportedTypes).toEqual([{ type: 'int32' }]);
+  expect(physical.columns.domain!.supportedTypes).toEqual([{ type: 'string' }]);
+});

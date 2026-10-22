@@ -299,8 +299,8 @@ export function analyticalOrderContract(
         const { consumer, counters } = await app({ limits });
 
         await expect(consumer.query(ordered)).rejects.toMatchObject({
-          code: 'invalid-request',
-          issues: [{ problem: 'not-supported' }],
+          code: 'resource-exhausted',
+          issues: [{ problem: 'limit-exceeded' }],
         });
         expect(counters.statements).toBe(0);
       },
@@ -313,7 +313,7 @@ export function analyticalOrderContract(
 
       await expect(
         consumer.query({ ...ordered, where: { label: 'never' } }),
-      ).rejects.toMatchObject({ code: 'invalid-request' });
+      ).rejects.toMatchObject({ code: 'resource-exhausted' });
       expect(counters.statements).toBe(0);
     });
 
@@ -727,8 +727,8 @@ export function analyticalOrderContract(
       const fixture = await app({ count: 10_001 });
 
       await expect(fixture.query(ordered)).rejects.toMatchObject({
-        code: 'invalid-request',
-        issues: [{ problem: 'not-supported' }],
+        code: 'resource-exhausted',
+        issues: [{ problem: 'limit-exceeded' }],
       });
       expect(fixture.counters.statements).toBe(0);
       expect(fixture.counters.slots).toBe(0);

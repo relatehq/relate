@@ -1,8 +1,10 @@
+import { fork } from 'node:child_process';
+import { once } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, onTestFinished, expect, it } from 'vitest';
 import { sqlite } from '@relate/connector-sqlite';
 import { DatasetExecutionError } from 'relate/connectors';
 import type {
@@ -595,7 +597,7 @@ it('terminates native SQLite work on timeout and immediately permits a fresh sta
       timeoutMs: 25,
       onTiming: (timing) => timings.push(timing),
     }),
-  ).rejects.toMatchObject({ code: 'execution-failed', retryable: true });
+  ).rejects.toMatchObject({ code: 'execution-failed', retryable: false });
   expect(performance.now() - started).toBeLessThan(2000);
   expect(timings.map((timing) => timing.stage)).toEqual([
     'connectionStartup',
@@ -731,4 +733,106 @@ it('applies every composite correlation pair and preserves NULL-key empty behavi
     { slot: 0, values: [1n] },
     { slot: 1, values: [0n] },
   ]);
+});
+
+it('orders mixed timestamp precision by instant and keeps timestamp correlation indexes usable', async () => {
+  const { connection, db } = fixture();
+
+  db.exec(`CREATE TABLE instants (at TEXT NOT NULL); CREATE INDEX instants_at ON instants(at);
+    INSERT INTO instants VALUES ('2026-10-01T00:00:00.123Z'), ('2026-10-01T00:00:00.123400Z');`);
+  const resource = connection
+    .table('instants')
+    .bindDataset({ columns: { at: 'at' } });
+  const request: AuthorizedDatasetQuery = {
+    resource,
+    keys: [{ type: { type: 'timestamp', precision: 6 } }],
+    correlation: [{ column: 'at', key: 0 }],
+    slots: [
+      {
+        values: [
+          {
+            type: 'timestamp',
+            precision: 6,
+            value: '2026-10-01T00:00:00.123000Z',
+          },
+        ],
+        valid: [true],
+      },
+    ],
+    aggregates: [aggregate('count', '*', 'int64')],
+  };
+  const plan = render(
+    request,
+    { table: 'instants', columns: { at: 'at' } },
+    request.slots,
+  );
+
+  db.function('__relate_instant', { deterministic: true }, (value) => value);
+  const explanation = db
+    .prepare(`EXPLAIN QUERY PLAN ${plan.sql}`)
+    .all(...plan.values);
+
+  expect(JSON.stringify(explanation)).toContain('instants_at');
+  const result = await connection.analytics.execute(
+    connection.analytics.plan(request),
+    options(),
+  );
+
+  expect(result.rows[0]!.values).toEqual([1n]);
+
+  db.exec(
+    `INSERT INTO events(customer_id, precise_at) VALUES ('mixed', '2026-10-01T00:00:00.123Z'), ('mixed', '2026-10-01T00:00:00.123400Z')`,
+  );
+  const events = connection
+    .table('events')
+    .bindDataset({ columns: { customerId: 'customer_id', at: 'precise_at' } });
+  const extrema = await connection.analytics.execute(
+    connection.analytics.plan(
+      query(
+        events,
+        [
+          aggregate('min', column('at', 'timestamp', 6), 'timestamp', 6),
+          aggregate('max', column('at', 'timestamp', 6), 'timestamp', 6),
+        ],
+        ['mixed'],
+      ),
+    ),
+    options(),
+  );
+
+  expect(extrema.rows[0]!.values).toEqual([
+    '2026-10-01T00:00:00.123000Z',
+    '2026-10-01T00:00:00.123400Z',
+  ]);
+});
+
+it('enforces a child-local deadline while SQLite blocks without a parent execution timer', async () => {
+  const { path } = fixture();
+  const child = fork(
+    new URL('../dist/analytics/child.js', import.meta.url),
+    [],
+    { stdio: ['ignore', 'ignore', 'ignore', 'ipc'], execArgv: [] },
+  );
+
+  onTestFinished(() => {
+    child.kill('SIGKILL');
+  });
+  const closed = once(child, 'close');
+
+  child.send({ kind: 'open', path, busyTimeoutMs: 1, lifetimeMs: 400 });
+  const [message] = await once(child, 'message');
+
+  expect(message).toEqual({ kind: 'ready' });
+  child.send({
+    kind: 'execute',
+    plan: {
+      sql: 'WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<1000000000) SELECT 0 AS slot, SUM(x) AS v0 FROM n',
+      values: [],
+      slots: 1,
+      results: [{ type: 'int64', nullable: false }],
+    },
+  });
+  const [, signal] = await closed;
+
+  expect(signal).toBe('SIGKILL');
 });

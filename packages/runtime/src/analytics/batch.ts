@@ -162,6 +162,7 @@ export function planBatches(input: {
   rows: readonly CandidateRow[];
   binding(datasetId: string): AnalyticalBinding;
   maxSlots: number;
+  preflight?: boolean;
 }): CalculationBatch[] {
   if (!Number.isSafeInteger(input.maxSlots) || input.maxSlots < 1)
     throw new Error('Invalid analytical batch limit');
@@ -169,7 +170,15 @@ export function planBatches(input: {
   const groups = new Map<string, ResolvedCalculation[]>();
 
   for (const field of input.fields) {
-    if (!input.rows.some((row) => row.fields[field.name]!.status === 'pending'))
+    if (
+      input.preflight
+        ? !field.readable ||
+          field.expression.forbidden ||
+          field.expression.correlationForbidden
+        : !input.rows.some(
+            (row) => row.fields[field.name]!.status === 'pending',
+          )
+    )
       continue;
 
     const id = field.expression.association.id;

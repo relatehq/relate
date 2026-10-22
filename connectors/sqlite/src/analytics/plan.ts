@@ -156,7 +156,12 @@ export function render(
       invalid();
 
     const argument =
-      aggregate.argument === '*' ? '*' : operand(aggregate.argument);
+      aggregate.argument === '*'
+        ? '*'
+        : operand(
+            aggregate.argument,
+            ['min', 'max'].includes(aggregate.aggregate),
+          );
     const filter = aggregate.predicate
       ? ` AND ${predicate(aggregate.predicate)}`
       : '';
@@ -174,7 +179,17 @@ export function render(
 
       const type = query.keys[pair.key]!.type;
 
-      return `${operand({ kind: 'column', column: pair.column, type }, true)} = ${operand({ kind: 'key', key: pair.key, type }, true)}`;
+      const left = operand({ kind: 'column', column: pair.column, type });
+      const right = operand({ kind: 'key', key: pair.key, type });
+
+      if (type.type === 'timestamp') {
+        const exact = `__relate_instant(${right})`;
+        const millis = `CASE WHEN substr(${exact}, 24, 3) = '000' THEN substr(${exact}, 1, 23) || 'Z' ELSE ${exact} END`;
+
+        return `(${left} IN (${exact}, ${millis}))`;
+      }
+
+      return `${left} = ${right}`;
     })
     .join(' AND ');
   const projection = query.aggregates.map((aggregate, i) => {

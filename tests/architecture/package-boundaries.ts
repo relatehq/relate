@@ -17,6 +17,7 @@ export const packagePolicies: Record<
     builtins: true,
   },
   'connectors/postgres': {
+    builtins: ['node:net'],
     imports: ['relate/connectors', 'relate/analytics', 'pg'],
   },
   'connectors/sqlite': {

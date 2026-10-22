@@ -104,7 +104,10 @@ export interface AnalyticalExecutionTiming {
 }
 
 export interface AnalyticalConnector {
-  readonly limits: { readonly maxParameters: number };
+  readonly limits: {
+    readonly maxParameters: number;
+    readonly maxConcurrentStatements?: number;
+  };
   describe(
     resource: DatasetResource,
     options: { signal: AbortSignal },

@@ -44,3 +44,21 @@ ordinary.name;
 // @ts-expect-error A page must be decoded record by record.
 decodeComputed({ data: [], meta: { exhausted: true } });
 void [count, latest, exact, flag, requiredCount, rounded];
+
+// Real consumer metadata must not inherit the protocol's open string index.
+import type { ObjectOperations } from 'relate/consumer';
+import { createAnalyticalGraph } from '../../../tests/support/analytical-graph.js';
+
+const { Customer } = createAnalyticalGraph();
+
+declare const customer: ObjectOperations<typeof Customer>;
+const page = await customer.query({
+  select: ['label', 'count'],
+  compute: { extra: { sql: 'SELECT COUNT(*) FROM self.events' } },
+});
+const values = decodeComputed(page.data[0]!);
+
+values.count;
+values.extra;
+// @ts-expect-error Ordinary fields are never computed values.
+values.label;

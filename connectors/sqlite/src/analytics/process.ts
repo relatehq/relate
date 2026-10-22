@@ -19,7 +19,7 @@ export function createProcessRunner(settings: {
       onTiming?: (timing: AnalyticalExecutionTiming) => void;
     },
   ): Promise<Extract<ChildResponse, { kind: 'result' }>['value']> {
-    options.signal.throwIfAborted();
+    if (options.signal.aborted) return Promise.reject(options.signal.reason);
 
     if (closed)
       return Promise.reject(
@@ -137,7 +137,7 @@ export function createProcessRunner(settings: {
             () =>
               fail(
                 new DatasetExecutionError('execution-failed', {
-                  retryable: true,
+                  retryable: false,
                 }),
               ),
             options.timeoutMs,
@@ -179,6 +179,10 @@ export function createProcessRunner(settings: {
           kind: 'open',
           path: settings.path,
           busyTimeoutMs: settings.busyTimeoutMs,
+          lifetimeMs: Math.min(
+            2147483647,
+            settings.startupTimeoutMs + options.timeoutMs,
+          ),
         },
         (error) => {
           if (error)

@@ -61,7 +61,7 @@ export function render(
 
     return `d.${identifier(resource.columns[name]!)}`;
   };
-  const operand = (value: ResolvedOperand): string => {
+  const operand = (value: ResolvedOperand, ordered = true): string => {
     let text: string;
 
     if (value.kind === 'column') text = column(value.column);
@@ -79,13 +79,15 @@ export function render(
 
     const type = value.kind === 'value' ? value.value.type : value.type.type;
 
-    return type === 'string' ? `(${text} COLLATE pg_catalog."C")` : text;
+    return type === 'string' && ordered
+      ? `(${text} COLLATE pg_catalog."C")`
+      : text;
   };
   const predicate = (value: ResolvedPredicate): string => {
     if (value.kind === 'compare') {
       if (!['=', '<>', '<', '<=', '>', '>='].includes(value.op)) invalid();
 
-      return `(${operand(value.left)} OPERATOR(pg_catalog.${value.op}) ${operand(value.right)})`;
+      return `(${operand(value.left, !['=', '<>'].includes(value.op))} OPERATOR(pg_catalog.${value.op}) ${operand(value.right, !['=', '<>'].includes(value.op))})`;
     }
 
     if (value.kind === 'null')
@@ -193,7 +195,7 @@ export function render(
 
       const type = query.keys[pair.key]!.type;
 
-      return `${operand({ kind: 'column', column: pair.column, type })} OPERATOR(pg_catalog.=) ${operand({ kind: 'key', key: pair.key, type })}`;
+      return `${operand({ kind: 'column', column: pair.column, type }, false)} OPERATOR(pg_catalog.=) ${operand({ kind: 'key', key: pair.key, type }, false)}`;
     })
     .join(' AND ');
   const projection = query.aggregates.map((aggregate, i) => {

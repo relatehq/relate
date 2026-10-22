@@ -6,7 +6,8 @@ export type AnalyticalOperation =
   | { kind: 'execute'; plan: SqlitePlan };
 
 export type ChildRequest =
-  { kind: 'open'; path: string; busyTimeoutMs: number } | AnalyticalOperation;
+  | { kind: 'open'; path: string; busyTimeoutMs: number; lifetimeMs: number }
+  | AnalyticalOperation;
 
 export type ChildResponse =
   | { kind: 'ready' }

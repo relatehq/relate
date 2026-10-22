@@ -378,9 +378,9 @@ resources. Retirement never closes the application-owned connection itself.
 Traversal and transaction-bound action readers reject selections, filters or
 ordering that reference declared calculations. They report `invalid-request`
 with a `not-supported` issue before source reads or analytical execution. A
-default selection is rejected if it would include a readable calculation;
-calculations excluded by field-group access do not enter that default selection.
-Explicitly selecting ordinary fields retains the existing read behavior.
+transaction-bound default selection is rejected if it would include a readable
+calculation. Traversal defaults include ordinary properties only. Explicitly
+selecting ordinary fields retains the existing read behavior.
 
 The check uses compiled calculation metadata through `reads/calculations.ts`.
 Traversal applies it after resolving a visible traversal and before reading its
@@ -535,7 +535,7 @@ values live in a weak map. It clones the request/model inputs before
 asynchronous reads, rejects forged handles and consumes each handle once.
 Preparation timing is recorded on success and error. Object `get`/`query`
 normalization, dependency materialization/revalidation and response projection
-live in the composition owner `analytical-read.ts`. `analytics/order.ts` owns
+live in the composition owner `reads/analytical.ts`. `analytics/order.ts` owns
 typed computed comparisons and position ordering; `queries/cursors.ts` binds
 both query paths to the same cursor codec and scopes.
 
@@ -553,7 +553,7 @@ flowchart LR
 
 ### Analytical object get
 
-`analytical-read.ts` composes ordinary authorized reads with preparation and
+`reads/analytical.ts` composes ordinary authorized reads with preparation and
 execution. It preserves ordinary reads when no calculation is requested. For an
 analytical read, it privately includes correlation/self dependencies, runs the
 batch, rereads ordinary values, rechecks object access, and compares every used
@@ -566,10 +566,10 @@ Computed evidence is retained in compact mode because its input freshness is
 unverified. Healthy unverified analytical evidence alone does not degrade the
 read; stale or failed-refresh dependency evidence does. Metadata includes
 logical result types in both evidence modes. Dependency values, SQL, private
-column footprints and physical resource names are not projected. The host hashes
-connection identity, resource identity and column mapping for the public binding
-revision. Caller deadlines and host retirement cancel analytical work and wait
-for connector cleanup before the operation settles.
+column footprints and physical resource names are not projected. The host
+authenticates connection identity, resource identity and column mapping for the
+public binding revision. Caller deadlines and host retirement cancel analytical
+work and wait for connector cleanup before the operation settles.
 
 ```mermaid
 flowchart LR
@@ -672,4 +672,18 @@ flowchart LR
   Select --> Page[Choose page]
   Page --> Check[Recheck selected dependencies and access]
   Check --> Project[Project data and encrypted continuation]
+```
+
+Analytical record materialization, revalidation and projection live in
+`reads/analytical-record.ts`; ordinary and analytical reads share selection
+validation and bounded read concurrency. Discovery lives in
+`analytics/discovery.ts`.
+
+```mermaid
+flowchart LR
+  Runtime[Runtime composition] --> Read[reads/analytical]
+  Read --> Ordinary[queries and authorized reads]
+  Read --> Records[reads/analytical-record]
+  Read --> Execution[analytics preparation and execution]
+  Discovery[analytics/discovery] --> Authorization[Shared authorization]
 ```

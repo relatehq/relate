@@ -1,7 +1,7 @@
 import { parseAnalyticalValue } from 'relate/analytics';
 import type {
   LogicalType,
-  ResultType,
+  ComputedResultType,
   Name,
   Operand,
   Predicate,
@@ -492,7 +492,7 @@ export function resolveExpression(
       'not-supported',
     );
 
-  const result: ResultType =
+  const result: ComputedResultType =
     query.aggregate === 'count'
       ? { type: 'int64', nullable: false }
       : query.aggregate === 'avg'

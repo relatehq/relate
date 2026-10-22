@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from 'vitest';
+import { onTestFinished, expect, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,21 +18,18 @@ import { createMemoryStore } from '@relate/runtime';
 import { createAnalyticalGraph } from '../../../tests/support/analytical-graph.js';
 import { testCreation } from '../../../tests/support/activity.js';
 
-const cleanup: (() => void | Promise<void>)[] = [];
-
-afterEach(async () => {
-  for (const close of cleanup.reverse()) await close();
-
-  cleanup.length = 0;
-});
-
 async function app(
-  options: { connectionId?: string; activity?: 'enabled' | 'disabled' } = {},
+  options: {
+    connectionId?: string;
+    activity?: 'enabled' | 'disabled';
+    shutdownTimeoutMs?: number;
+    dispose?: () => void;
+  } = {},
 ) {
   const { graph, Customer, Events } = createAnalyticalGraph();
   const directory = mkdtempSync(join(tmpdir(), 'relate-public-analytics-'));
 
-  cleanup.push(() => rmSync(directory, { recursive: true, force: true }));
+  onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
   const path = join(directory, 'events.sqlite');
   const db = new DatabaseSync(path);
 
@@ -92,8 +89,13 @@ async function app(
       setup({ onDispose }) {
         onDispose(() => connection.close());
 
+        if (options.dispose) onDispose(options.dispose);
+
         return {
           store,
+          ...(options.shutdownTimeoutMs
+            ? { shutdownTimeoutMs: options.shutdownTimeoutMs }
+            : {}),
           ...(options.activity
             ? { activity: { operations: options.activity } }
             : {}),
@@ -104,7 +106,7 @@ async function app(
     }),
   );
 
-  cleanup.push(() => runtime.close());
+  onTestFinished(() => runtime.close());
   const principal = {
     id: 'ana',
     roles: ['reader', 'analyst', 'private'],
@@ -964,3 +966,90 @@ it.each(['compact', 'full'] as const)(
     expect(decodeComputed(forbidden)).toEqual({});
   },
 );
+
+it('rejects impossible connector parameter budgets before reads, even for empty scopes', async () => {
+  const fixture = await app();
+
+  fixture.hooks.parameterBudget = () => ({ fixed: 32766, perSlot: 1 });
+
+  for (const id of ['one', 'missing']) {
+    await expect(
+      fixture.runtime.operations(fixture.principal).get('customer', id, {}),
+    ).rejects.toMatchObject({
+      code: 'invalid-request',
+      issues: [expect.objectContaining({ problem: 'not-supported' })],
+    });
+  }
+});
+
+it('runs disposers after a bounded shutdown when a custom connector ignores abort', async () => {
+  let release!: () => void;
+  let began!: () => void;
+  const started = new Promise<void>((resolve) => {
+    began = resolve;
+  });
+  let disposed = false;
+  const fixture = await app({
+    shutdownTimeoutMs: 10,
+    dispose: () => {
+      disposed = true;
+      release();
+    },
+  });
+
+  fixture.hooks.execute = async () => {
+    began();
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    throw new Error('released by disposal');
+  };
+  const pending = fixture.runtime
+    .operations(fixture.principal)
+    .get('customer', 'one', {})
+    .catch((error) => error);
+
+  await started;
+  await expect(fixture.runtime.close()).rejects.toThrow('shutdown timed out');
+  expect(disposed).toBe(true);
+  expect(await pending).toMatchObject({ code: 'runtime-retired' });
+});
+
+it('drops a ranked candidate that leaves the ordinary filter before checking its changed dependency', async () => {
+  const fixture = await app();
+  let executed = false;
+
+  fixture.hooks.execute = async (...args) => {
+    const result = await fixture.connection.analytics.execute(...args);
+
+    executed = true;
+
+    return result;
+  };
+  const original = fixture.store.native!.load.bind(fixture.store.native!);
+
+  fixture.store.native!.load = async (...args) => {
+    const record = await original(...args);
+
+    return executed && record
+      ? {
+          ...record,
+          values: {
+            ...record.values,
+            'customer.label': 'Changed',
+            'customer.external': 'different',
+          },
+        }
+      : record;
+  };
+  const page = await fixture.runtime
+    .as(fixture.principal)
+    .objects.Customer.query({
+      select: ['count'],
+      where: { label: 'Acme' },
+      orderBy: [{ field: 'count', direction: 'desc' }],
+    });
+
+  expect(page.data).toEqual([]);
+  expect(page.meta.exhausted).toBe(true);
+});

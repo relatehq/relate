@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { canonicalJson } from 'relate/model';
 import { bindHostResources } from './datasets.js';
 import type { HostBindings } from './datasets.js';
@@ -131,6 +131,15 @@ type StartupOptions<
 function prepareHost<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(options: StartupOptions<G>) {
+  const shutdownTimeoutMs = options.shutdownTimeoutMs ?? 5000;
+
+  if (
+    !Number.isSafeInteger(shutdownTimeoutMs) ||
+    shutdownTimeoutMs < 1 ||
+    shutdownTimeoutMs > 2147483647
+  )
+    throw new Error('shutdownTimeoutMs must be between 1 and 2147483647');
+
   const limits = resolveAnalyticalLimits(options.analytics);
   const model = compile(options.graph);
   const analytical = Boolean(
@@ -162,11 +171,6 @@ export function createRuntime<
   G extends GraphDefinition & { readonly objects: ObjectRegistry },
 >(options: AppOptions<G>): Relate<G> {
   const { model, bindings, limits } = prepareHost(options);
-
-  if (bindings.datasets.size)
-    throw new Error(
-      'Analytical dataset bindings require asynchronous startup. Use startApp().',
-    );
 
   return composeRuntime({ ...options, analytics: limits }, model, bindings);
 }
@@ -261,6 +265,7 @@ function composeRuntime<
     throw new Error('Missing action implementation');
 
   const analyticalLifetime = new AbortController();
+  const bindingSecret = randomBytes(32);
   const engine = createEngine({
     ...(options.sqlParser
       ? {
@@ -279,7 +284,10 @@ function composeRuntime<
                 resource: dataset.binding.resource,
                 connector: dataset.connector,
                 queue: dataset.queue,
-                bindingRevision: `sha256:${createHash('sha256')
+                bindingRevision: `hmac-sha256:${createHmac(
+                  'sha256',
+                  bindingSecret,
+                )
                   .update(
                     canonicalJson({
                       connectionId: dataset.binding.connectionId,
@@ -485,8 +493,30 @@ function composeRuntime<
     async close() {
       closed = true;
       analyticalLifetime.abort();
-      await bindings.retire();
-      await Promise.allSettled([...pending]);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+
+      try {
+        await Promise.race([
+          (async () => {
+            await bindings.retire();
+            await Promise.allSettled([...pending]);
+          })(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    'Runtime shutdown timed out while draining operations',
+                  ),
+                ),
+              options.shutdownTimeoutMs ?? 5000,
+            );
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+
       // Drain tracked operations first, then flush capture within a deadline.
       // Expiry reports abandoned rows; a borrowed store stays open either way.
       await engine.drainActivity(flushTimeoutMs);

@@ -214,3 +214,18 @@ export async function computeFields(
 
   return executeResolvedFields({ ...execution, fields });
 }
+
+/** Pure connector capacity validation, independent of candidate data or visibility. */
+export function validatePreparedCapacity(
+  prepared: PreparedCompute,
+  binding: (id: string) => AnalyticalBinding,
+  maxSlots: number,
+): void {
+  planBatches({
+    fields: preparedFields(prepared, false),
+    rows: [],
+    binding,
+    maxSlots,
+    preflight: true,
+  });
+}

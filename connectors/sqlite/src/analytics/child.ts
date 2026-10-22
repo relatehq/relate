@@ -1,3 +1,5 @@
+import { canonicalTimestamp } from 'relate/analytics';
+import { Worker } from 'node:worker_threads';
 import { DatabaseSync } from 'node:sqlite';
 import type { SQLOutputValue } from 'node:sqlite';
 import type {
@@ -10,6 +12,7 @@ import type { ChildRequest, ChildResponse } from './messages.js';
 import type { SelectedDataset, SqlitePlan } from './plan.js';
 
 let database: DatabaseSync | undefined;
+let watchdog: Worker | undefined;
 
 class InvalidResult extends Error {}
 
@@ -33,9 +36,11 @@ function inspect(resource: SelectedDataset): PhysicalSchema {
 
     const databaseType = String(row.type);
     const type = databaseType.toUpperCase();
-    const supportedTypes: PhysicalColumn['supportedTypes'] = /INT/.test(type)
+    const supportedTypes: PhysicalColumn['supportedTypes'] = /INT|BOOL/.test(
+      type,
+    )
       ? [{ type: 'boolean' }, { type: 'int32' }, { type: 'int64' }]
-      : /CHAR|CLOB|TEXT/.test(type)
+      : /CHAR|CLOB|TEXT|DATETIME|TIMESTAMP/.test(type)
         ? [
             { type: 'string' },
             { type: 'timestamp', precision: 3 },
@@ -92,6 +97,14 @@ function execute(plan: SqlitePlan): DatasetExecution {
       )
         return Number(value);
 
+      if (result.type === 'timestamp' && typeof value === 'string') {
+        try {
+          return canonicalTimestamp(value, result.precision);
+        } catch {
+          /* Preserve invalid scalar for alias withdrawal. */
+        }
+      }
+
       return value as string | number | bigint | boolean | null;
     });
 
@@ -102,6 +115,8 @@ function execute(plan: SqlitePlan): DatasetExecution {
 }
 
 function finish(message: ChildResponse) {
+  void watchdog?.terminate();
+
   try {
     database?.close();
   } catch {
@@ -117,6 +132,10 @@ function finish(message: ChildResponse) {
 process.on('message', (request: ChildRequest) => {
   try {
     if (request.kind === 'open') {
+      watchdog = new Worker(new URL('./watchdog.js', import.meta.url), {
+        workerData: { parent: process.ppid, lifetimeMs: request.lifetimeMs },
+      });
+      watchdog.unref();
       database = new DatabaseSync(request.path, {
         readOnly: true,
         enableDoubleQuotedStringLiterals: false,
@@ -147,7 +166,9 @@ process.on('message', (request: ChildRequest) => {
       kind: 'failure',
       code:
         error instanceof InvalidResult ? 'invalid-result' : 'execution-failed',
-      retryable: errcode === 5 || errcode === 6,
+      retryable:
+        typeof errcode === 'number' &&
+        ((errcode & 0xff) === 5 || (errcode & 0xff) === 6),
     });
   }
 });

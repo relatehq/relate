@@ -130,67 +130,28 @@ than a transactional pair. Default outputs are ignored under
 `benchmark-results`. CI runs the small profile on both backends and uploads
 reports even on failure.
 
-## Retained measurements
+## Historical measurements
 
-The
-[2026-10-21 exploratory measurements](measurements/candidate-path-2026-10-21.json)
-retain warm ranking samples and environment metadata from 18 configurations (540
-total samples, zero failures). On an Apple M2 Max with Node 26.9.0, 10,000
-admitted candidates and 100,000 events took median 9.85 s with SQLite and 5.65 s
-with PostgreSQL using cached memory storage and activity capture. With
-PostgreSQL object storage and forced synthetic 2 ms source refreshes, medians
-were 20.93 s and 17.16 s respectively. Each ranking scanned 12,500 members and
-executed 125 analytical statements through the historical page path. Only three
-warm repetitions were collected per configuration. These results identify
-candidate and refresh costs; they do not validate full-scope limits or establish
-a performance baseline.
+Exploratory runs on 2026-10-21 used an Apple M2 Max, Node 26.9.0, 10,000
+admitted customers from 12,500 scanned members, and three warm repetitions per
+configuration. The following medians are historical context, before the review
+fixes to candidate freshness, revalidation concurrency and indexed correlation.
+They are not current performance claims or the basis for default limits.
 
-The [runtime scope-first measurements](measurements/scope-path-2026-10-21.json)
-retain all 120 samples from four configurations at commit `a4a8a43`, with zero
-failures. Each ranking admitted 10,000 candidates from 12,500 scanned members,
-executed 10 statements, captured one operation and returned 25 records.
+| Backend    |    Events | Capture disabled | Capture enabled |
+| ---------- | --------: | ---------------: | --------------: |
+| SQLite     |   100,000 |      3,587.50 ms |     3,573.09 ms |
+| PostgreSQL |   100,000 |      3,528.88 ms |     3,495.76 ms |
+| SQLite     | 1,000,000 |      4,348.25 ms |     4,403.82 ms |
+| PostgreSQL | 1,000,000 |      4,062.86 ms |     4,089.90 ms |
 
-| Object storage and freshness              | SQLite warm median | PostgreSQL warm median | Source calls per ranking                |
-| ----------------------------------------- | ------------------ | ---------------------- | --------------------------------------- |
-| Memory, cached                            | 3.70 s             | 3.62 s                 | 62,575 identity checks                  |
-| PostgreSQL, forced synthetic 2 ms refresh | 14.66 s            | 14.61 s                | 62,575 identity checks + 12,500 fetches |
-
-These runs used 100,000 events, activity capture enabled and three warm
-repetitions on an Apple M2 Max with Node 26.9.0. Identity checks return a fixed
-synthetic identity without simulated latency; only source fetches receive the
-configured delay. The measurements exercise the default 10,000 admitted, 12,500
-scanned, 100,000 source-call and 60-second operation budgets for this workload.
-They do not establish those defaults as sufficient for arbitrary providers,
-policy shapes or deployment conditions. Runtime and benchmark code were
-unchanged during measurement; report provenance records the dirty state and a
-concurrent workflow-only commit.
-
-The
-[current instrumentation report](measurements/instrumentation-scope-2026-10-21.md)
-and its [raw samples](measurements/instrumentation-scope-2026-10-21.json) retain
-240 successful samples from eight configurations at `c214daf`. Each backend runs
-100,000 and 1,000,000 events with activity capture enabled and disabled, using
-cached memory object storage. Every ranking admits 10,000 of 12,500 scanned
-customers, executes 10 statements, returns 25 records and makes 62,575 synthetic
-identity checks without source fetches. Enabled rankings capture one operation
-with all nine entered timing stages; disabled rankings capture none. No activity
-records were dropped. All results match the independent SQL oracle.
-
-| Backend    |    Events | Capture disabled median | Capture enabled median | Observed difference |
-| ---------- | --------: | ----------------------: | ---------------------: | ------------------: |
-| SQLite     |   100,000 |             3,587.50 ms |            3,573.09 ms |           -14.41 ms |
-| PostgreSQL |   100,000 |             3,528.88 ms |            3,495.76 ms |           -33.12 ms |
-| SQLite     | 1,000,000 |             4,348.25 ms |            4,403.82 ms |           +55.57 ms |
-| PostgreSQL | 1,000,000 |             4,062.86 ms |            4,089.90 ms |           +27.04 ms |
-
-These are three warm repetitions per configuration on an Apple M2 Max with Node
-26.9.0. They exercise the finite default budgets and report the observed cost of
-enabling activity, including calculation summaries. Sequential runs and small
-samples cannot isolate instrumentation overhead from noise; negative differences
-are retained, and no p95 or causal overhead estimate is claimed. Runtime and
-benchmark code remained unchanged throughout the run. The dirty working tree
-contained specification edits, with documentation edits made while the benchmark
-ran; no tests or builds ran concurrently.
+The source checkout included local edits, so those runs do not establish an
+independently reproducible baseline. An earlier run rejected ranking queries at
+a provisional source-call budget; it is not successful capacity evidence. Raw
+exploratory samples are excluded from the repository. New runs write ignored
+`benchmark-results` files; CI uploads these as artifacts associated with the
+workflow's exact commit. Use a clean checkout and retain its source alongside
+artifacts when recording deployment capacity. Report failures separately.
 
 ## Future performance comparisons
 
@@ -199,10 +160,3 @@ ran; no tests or builds ran concurrently.
 2. Add controlled cold starts, concurrency, queue pressure and cancellation.
 3. Use consistent deployment conditions and sufficient repetitions before
    publishing baselines or enabling performance regression gates.
-
-The
-[first scope-first capacity run](measurements/scope-budget-rejection-2026-10-21.json)
-rejected all ten ranking samples during revalidation at the provisional 50,000
-source-call budget. Cached records still require provider identity checks. The
-harness now records those checks alongside fetches, and the default budget is
-100,000. The failed run is retained; it is not a successful capacity result.

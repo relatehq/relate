@@ -68,7 +68,12 @@ export function ComputedDetails({
                 Group: {calculation.access}
               </span>
             </span>
-            <span className="type">computed</span>
+            <span
+              className="type"
+              title="Open the Playground to inspect the runtime-inferred result type"
+            >
+              Runtime-inferred
+            </span>
           </div>
         ))}
       </div>

@@ -18,7 +18,7 @@ import { availableTraversals } from './traversal/index.js';
 import { sdkDescription } from './contracts.js';
 import { schemaText, filterOperators } from './reads/index.js';
 import type { SqlParser, AnalyticalLimits } from 'relate/analytics';
-import { analyticalDiscovery } from './analytical-discovery.js';
+import { analyticalDiscovery } from './analytics/discovery.js';
 
 type ManifestObject = Manifest['objects'][number];
 

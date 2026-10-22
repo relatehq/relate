@@ -44,14 +44,16 @@ const roots: Record<string, string> = {
   'index.ts': 'public',
   'runtime.ts': 'composition',
   'analytics-startup.ts': 'composition',
-  'analytical-read.ts': 'composition',
+  'reads/analytical.ts': 'composition',
+  'reads/analytical-record.ts': 'composition',
+  'reads/analytical-query.ts': 'composition',
   'storage.ts': 'storage',
   'activity-store.ts': 'storage',
   'memory.ts': 'memory',
   'native-memory.ts': 'memory',
   'memory-activity.ts': 'memory',
   'discovery.ts': 'discovery',
-  'analytical-discovery.ts': 'discovery',
+  'analytics/discovery.ts': 'discovery',
   'contracts.ts': 'discovery',
 };
 const folders = new Set([

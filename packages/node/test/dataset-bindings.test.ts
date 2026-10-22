@@ -429,3 +429,51 @@ it('does not expose a runtime until inspection settles and captures registries b
   ).toBe(Customer.id);
   await runtime.close();
 });
+
+it('clamps and shares capacity across runtimes without retiring another host', async () => {
+  const { graph, Events } = createAnalyticalGraph();
+  const connector = createAnalyticalConnector(analyticalGraphSchema());
+
+  Object.assign(connector.connection.analytics.limits, {
+    maxConcurrentStatements: 1,
+  });
+  const binding = bind(Events, connector.table('events'));
+  const first = bindHostResources(graph, compile(graph), [binding], {
+    concurrency: 8,
+  });
+  const second = bindHostResources(graph, compile(graph), [binding], {
+    concurrency: 8,
+  });
+  const signal = new AbortController().signal;
+  let release!: () => void;
+  const started = vi.fn();
+  const running = first.datasets.get(Events.id)!.queue.run(
+    async () => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    },
+    { signal },
+  );
+
+  await vi.waitFor(() => expect(release).toBeDefined());
+  const waiting = second.datasets.get(Events.id)!.queue.run(
+    async () => {
+      started();
+
+      return 42;
+    },
+    { signal },
+  );
+
+  await Promise.resolve();
+  expect(started).not.toHaveBeenCalled();
+  release();
+  await running;
+  await first.retire();
+  expect(await waiting).toBe(42);
+  expect(
+    await second.datasets.get(Events.id)!.queue.run(async () => 43, { signal }),
+  ).toBe(43);
+  await second.retire();
+});

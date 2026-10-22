@@ -1,6 +1,10 @@
 import { CompileError } from 'relate/diagnostics';
 import type { Manifest, ModelIssue } from 'relate/model';
-import type { SqlParser, ResultType, AnalyticalLimits } from 'relate/analytics';
+import type {
+  SqlParser,
+  ComputedResultType,
+  AnalyticalLimits,
+} from 'relate/analytics';
 import { analyticalDeclarations } from './authorization/index.js';
 import {
   prepareExpression,
@@ -12,8 +16,8 @@ export function validateDeclaredCalculations(
   manifest: Manifest,
   parser: SqlParser,
   limits: AnalyticalLimits = {},
-): Readonly<Record<string, ResultType>> {
-  const types: Record<string, ResultType> = {};
+): Readonly<Record<string, ComputedResultType>> {
+  const types: Record<string, ComputedResultType> = {};
   const issues: ModelIssue[] = [];
 
   for (const object of manifest.objects) {

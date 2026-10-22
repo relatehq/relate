@@ -596,6 +596,9 @@ importers:
       '@modelcontextprotocol/client':
         specifier: 2.3.1
         version: 2.3.1
+      '@relate/connector-sqlite':
+        specifier: workspace:*
+        version: link:../../connectors/sqlite
       '@relate/node':
         specifier: workspace:*
         version: link:../node

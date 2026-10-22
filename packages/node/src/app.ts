@@ -92,8 +92,24 @@ export async function startApp<G extends Graph>(
     ) => runtime.operations(principal, context),
     host: runtime.host,
     async close() {
-      await runtime.close();
-      await dispose();
+      const errors: unknown[] = [];
+
+      try {
+        await runtime.close();
+      } catch (error) {
+        errors.push(error);
+      }
+
+      try {
+        await dispose();
+      } catch (error) {
+        errors.push(error);
+      }
+
+      if (errors.length === 1) throw errors[0];
+
+      if (errors.length)
+        throw new AggregateError(errors, 'Application shutdown failed');
     },
   });
 }

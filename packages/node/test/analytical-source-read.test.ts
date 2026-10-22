@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from 'vitest';
+import { onTestFinished, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   bind,
@@ -18,12 +18,6 @@ import {
   createAnalyticalConnector,
   analyticalGraphSchema,
 } from '../../../tests/support/analytical-connector.js';
-
-const cleanup: (() => Promise<void>)[] = [];
-
-afterEach(async () => {
-  for (const close of cleanup.splice(0)) await close();
-});
 
 it.each(
   (['get', 'query'] as const).flatMap((mode) =>
@@ -143,7 +137,7 @@ it.each(
       }),
     );
 
-    cleanup.push(() => runtime.close());
+    onTestFinished(() => runtime.close());
     const id = await runtime.host.adopt(Customer, 'one');
     const consumer = runtime.as({
       id: 'ana',
@@ -188,3 +182,96 @@ it.each(
     }
   },
 );
+
+it('keeps each candidate read time across a scan longer than its freshness bound', async () => {
+  const base = createAnalyticalGraph();
+  const customers = defineSource({
+    id: 'crm-customers',
+    idField: 'id',
+    schema: z.object({ id: z.string(), externalId: z.string() }),
+  });
+  const Customer = defineObject({
+    ...base.Customer,
+    membership: source(customers),
+    properties: {
+      id: objectId({ id: 'customer.id' }),
+      externalId: from(customers.fields.externalId, {
+        id: 'customer.external',
+      }),
+      count: base.Customer.properties.count,
+    },
+  });
+  const graph = defineGraph({ ...base.graph, objects: { Customer } });
+  const connector = createAnalyticalConnector(analyticalGraphSchema());
+  const plans = new WeakMap<PreparedPlan, AuthorizedDatasetQuery>();
+  let now = 0,
+    measured = false,
+    planned = 0,
+    active = 0,
+    peak = 0;
+
+  connector.connection.analytics.plan = (query) => {
+    const handle = {} as PreparedPlan;
+
+    plans.set(handle, query);
+    planned += query.slots.length;
+
+    return handle;
+  };
+  connector.connection.analytics.execute = async (handle) => ({
+    readAt: new Date(now).toISOString(),
+    rows: plans.get(handle)!.slots.map((_, slot) => ({ slot, values: [1n] })),
+  });
+  const runtime = await startApp(
+    defineApp({
+      graph,
+      setup: () => ({
+        clock: () => now,
+        bindings: [
+          bind(base.Events, connector.table('events')),
+          bind(customers, {
+            connectionId: 'crm',
+            resourceId: 'customers',
+            connector: {
+              identity: 'application',
+              async fetch(id) {
+                if (measured) now += 1000;
+
+                if (planned) {
+                  peak = Math.max(peak, ++active);
+                  await new Promise<void>((resolve) => setImmediate(resolve));
+                  active--;
+                }
+
+                return { state: 'present', record: { id, externalId: id } };
+              },
+            },
+          }),
+        ],
+      }),
+    }),
+  );
+
+  onTestFinished(() => runtime.close());
+
+  for (let i = 0; i < 120; i++) await runtime.host.adopt(Customer, String(i));
+
+  measured = true;
+  const page = await runtime
+    .as({ id: 'ana', roles: ['reader', 'analyst', 'private'], claims: {} })
+    .objects.Customer.query({
+      select: ['count'],
+      maxAgeMs: 10000,
+      refresh: true,
+      stale: 'omit',
+      orderBy: [{ field: 'count', direction: 'desc' }],
+      limit: 25,
+    });
+
+  expect(now).toBeGreaterThan(10000);
+  expect(planned).toBe(120);
+  expect(peak).toBeGreaterThan(1);
+  expect(peak).toBeLessThanOrEqual(8);
+  expect(page.data).toHaveLength(25);
+  expect(page.data.every((row) => row.data.count === '1')).toBe(true);
+});

@@ -9,6 +9,68 @@ import type {
 import { createStatementQueue } from '@relate/runtime';
 import type { StatementQueue, StatementQueueOptions } from '@relate/runtime';
 
+// Shared across host generations that borrow the same configured connection.
+const connectionQueues = new WeakMap<
+  object,
+  { options: string; queue: StatementQueue; leases: number }
+>();
+
+function leaseQueue(
+  connection: object,
+  options: StatementQueueOptions,
+  capacity?: number,
+): StatementQueue {
+  const resolved = {
+    concurrency: Math.min(options.concurrency ?? 4, capacity ?? Infinity),
+    maxQueued: options.maxQueued ?? 32,
+    maxWaitMs: options.maxWaitMs ?? 2000,
+  };
+  const key = JSON.stringify(resolved);
+  let entry = connectionQueues.get(connection);
+
+  if (entry && entry.options !== key)
+    throw new Error(
+      'Runtimes sharing an analytical connection must use the same queue limits',
+    );
+
+  if (!entry) {
+    entry = { options: key, queue: createStatementQueue(resolved), leases: 0 };
+    connectionQueues.set(connection, entry);
+  }
+
+  const owned = entry;
+
+  owned.leases++;
+  let retirement: Promise<void> | undefined;
+  const shared = entry.queue;
+  const lifetime = new AbortController();
+  const pending = new Set<Promise<unknown>>();
+
+  return {
+    run(task, options) {
+      const result = shared.run(task, {
+        ...options,
+        signal: AbortSignal.any([lifetime.signal, options.signal]),
+      });
+
+      pending.add(result);
+      void result.finally(() => pending.delete(result)).catch(() => {});
+
+      return result;
+    },
+    retire() {
+      return (retirement ??= (async () => {
+        lifetime.abort(
+          new DOMException('Analytical connection retired', 'AbortError'),
+        );
+        await Promise.allSettled(pending);
+
+        if (--owned.leases === 0) connectionQueues.delete(connection);
+      })());
+    },
+  };
+}
+
 export interface BoundDataset {
   readonly binding: DatasetBinding;
   readonly connector: AnalyticalConnector;
@@ -89,96 +151,109 @@ export function bindHostResources(
   if (!Array.isArray(bindings))
     throw new Error('Application bindings must be an array');
 
-  for (const binding of bindings) {
-    if (
-      !binding ||
-      typeof binding !== 'object' ||
-      typeof binding.connectionId !== 'string' ||
-      !binding.connectionId.trim() ||
-      typeof binding.resourceId !== 'string' ||
-      !binding.resourceId.trim()
-    )
-      throw new Error('Invalid resource binding identity');
+  try {
+    for (const binding of bindings) {
+      if (
+        !binding ||
+        typeof binding !== 'object' ||
+        typeof binding.connectionId !== 'string' ||
+        !binding.connectionId.trim() ||
+        typeof binding.resourceId !== 'string' ||
+        !binding.resourceId.trim()
+      )
+        throw new Error('Invalid resource binding identity');
 
-    const connection =
-      binding.connection ??
-      ('connector' in binding ? binding.connector : undefined);
-
-    if (
-      !connection ||
-      typeof connection !== 'object' ||
-      (binding.connection &&
-        binding.connection.connectionId !== binding.connectionId)
-    )
-      throw new Error('Invalid configured connection identity');
-
-    const existing = connections.get(binding.connectionId);
-
-    if (existing && existing !== connection)
-      throw new Error(
-        'Conflicting instances for configured connection identity',
-      );
-
-    connections.set(binding.connectionId, connection);
-
-    if ('dataset' in binding) {
-      if (!datasetDefinitions.has(binding.dataset))
-        throw new Error('Unregistered dataset binding');
-
-      if (datasets.has(binding.dataset.id))
-        throw new Error('Duplicate dataset binding');
-
-      const connector = binding.connection.analytics;
+      const connection =
+        binding.connection ??
+        ('connector' in binding ? binding.connector : undefined);
 
       if (
-        !connector ||
-        ['describe', 'parameterBudget', 'plan', 'execute'].some(
-          (method) =>
-            typeof connector[method as keyof AnalyticalConnector] !==
-            'function',
-        ) ||
-        !Number.isSafeInteger(connector.limits?.maxParameters) ||
-        connector.limits.maxParameters < 1 ||
-        !binding.resource ||
-        typeof binding.resource !== 'object'
+        !connection ||
+        typeof connection !== 'object' ||
+        (binding.connection &&
+          binding.connection.connectionId !== binding.connectionId)
       )
-        throw new Error('Missing or unsupported analytical capability');
+        throw new Error('Invalid configured connection identity');
 
-      let queue = queues.get(connection);
+      const existing = connections.get(binding.connectionId);
 
-      if (!queue) {
-        queue = createStatementQueue(queueOptions);
-        queues.set(connection, queue);
-      }
+      if (existing && existing !== connection)
+        throw new Error(
+          'Conflicting instances for configured connection identity',
+        );
 
-      datasets.set(
-        binding.dataset.id,
-        Object.freeze({
-          binding: Object.freeze({
-            ...binding,
-            columns: Object.freeze({ ...binding.columns }),
+      connections.set(binding.connectionId, connection);
+
+      if ('dataset' in binding) {
+        if (!datasetDefinitions.has(binding.dataset))
+          throw new Error('Unregistered dataset binding');
+
+        if (datasets.has(binding.dataset.id))
+          throw new Error('Duplicate dataset binding');
+
+        const connector = binding.connection.analytics;
+
+        if (
+          !connector ||
+          ['describe', 'parameterBudget', 'plan', 'execute'].some(
+            (method) =>
+              typeof connector[method as keyof AnalyticalConnector] !==
+              'function',
+          ) ||
+          !Number.isSafeInteger(connector.limits?.maxParameters) ||
+          connector.limits.maxParameters < 1 ||
+          (connector.limits.maxConcurrentStatements !== undefined &&
+            (!Number.isSafeInteger(connector.limits.maxConcurrentStatements) ||
+              connector.limits.maxConcurrentStatements < 1)) ||
+          !binding.resource ||
+          typeof binding.resource !== 'object'
+        )
+          throw new Error('Missing or unsupported analytical capability');
+
+        let queue = queues.get(connection);
+
+        if (!queue) {
+          queue = leaseQueue(
+            connection,
+            queueOptions,
+            connector.limits.maxConcurrentStatements,
+          );
+          queues.set(connection, queue);
+        }
+
+        datasets.set(
+          binding.dataset.id,
+          Object.freeze({
+            binding: Object.freeze({
+              ...binding,
+              columns: Object.freeze({ ...binding.columns }),
+            }),
+            connector,
+            queue,
           }),
-          connector,
-          queue,
-        }),
-      );
-    } else {
-      if (!sourceDefinitions.has(binding.source))
-        throw new Error('Unregistered source connection');
+        );
+      } else {
+        if (!sourceDefinitions.has(binding.source))
+          throw new Error('Unregistered source connection');
 
-      if (Object.hasOwn(sources, binding.source.id))
-        throw new Error('Duplicate source connection');
+        if (Object.hasOwn(sources, binding.source.id))
+          throw new Error('Duplicate source connection');
 
-      Object.defineProperty(sources, binding.source.id, {
-        value: binding,
-        enumerable: true,
-      });
+        Object.defineProperty(sources, binding.source.id, {
+          value: binding,
+          enumerable: true,
+        });
+      }
     }
-  }
 
-  for (const definition of datasetDefinitions)
-    if (!datasets.has(definition.id))
-      throw new Error('Missing dataset binding');
+    for (const definition of datasetDefinitions)
+      if (!datasets.has(definition.id))
+        throw new Error('Missing dataset binding');
+  } catch (error) {
+    for (const queue of queues.values()) void queue.retire();
+
+    throw error;
+  }
 
   let retired = false;
   const controller = new AbortController();
@@ -193,9 +268,11 @@ export function bindHostResources(
         let schema: PhysicalSchema;
 
         try {
-          schema = await entry.connector.describe(entry.binding.resource, {
-            signal: controller.signal,
-          });
+          schema = await entry.queue.run(
+            (signal) =>
+              entry.connector.describe(entry.binding.resource, { signal }),
+            { signal: controller.signal },
+          );
         } catch (cause) {
           throw new Error(
             `Could not inspect dataset binding ${dataset.apiName}`,
