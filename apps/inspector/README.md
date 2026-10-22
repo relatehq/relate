@@ -70,8 +70,28 @@ Browser code never imports the compiler, runtime, connectors or user modules;
   live checks use that discovery only. Datasets and computed properties are read
   from authorized runtime metadata (`src/playground/model.ts`).
 
-Analytical operations in the Activity screen expose an expandable timing table
-with each entered stage's count, summed work duration and longest span. The
+The Activity screen (`src/screens/ActivityScreen.tsx`, derivations in
+`src/activity/model.ts`) lists requests, or every call and operation with
+**Events**, filtered by a query such as
+`principal:ana status:failed duration>100ms def:customer object:cus_1 -source:agent`.
+Keys: `principal`, `source`, `transport`, `tool`, `op`, `def`, `status`,
+`runtime`, `record` (`attempt`, `committed`, `dispatch`), `object`, `req`,
+`analytical` and `duration` (`>`, `<`, `>=`, `<=`, `=`); bare words search all
+text. `key:value` matches part of a value and `key=value` the whole value, so
+`object=cus_1` leaves out `cus_10`; facet and drawer filters add the `=` form,
+quoted when the value has spaces or commas. A histogram and facet counts follow
+the query. Selecting a request opens a drawer
+(`src/activity/ActivityDrawer.tsx`):
+
+| Tab      | Shows                                                                                                       |
+| -------- | ----------------------------------------------------------------------------------------------------------- |
+| Code     | The executed JavaScript, highlighted and numbered, with stdout/stderr, the returned preview or thrown error |
+| Timeline | Call, execution and operation waterfall from each event's start and duration; nested refreshes are indented |
+| Objects  | Records each operation returned or changed, grouped by definition, with changed and refused property IDs    |
+| Metadata | Every recorded field of the call, execution and selected operation, and the raw events as JSON              |
+
+Selecting an analytical operation in Timeline shows **Analytical timings**: each
+entered stage's count, summed work duration (bar) and longest span (tick). The
 operation duration remains elapsed time; overlapping stages are not presented as
 additive parts of a total. Timings come from host activity, including failed
 operations after cleanup, and contain only fixed stage names and numbers. An
