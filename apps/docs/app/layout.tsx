@@ -7,6 +7,7 @@ import { navigationTree } from '../lib/pages';
 import './global.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://docs.relatehq.dev'),
   title: 'Relate',
   description: 'A semantic business graph, defined in TypeScript.',
   icons: { icon: '/assets/brand/favicon.svg' },

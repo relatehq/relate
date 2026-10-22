@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { RenderDoc } from '../../components/doc-renderer';
+import { pageMetadata } from '../../lib/metadata';
 import { findPage, pages } from '../../lib/pages';
 
 export const dynamicParams = false;
@@ -20,7 +21,7 @@ export async function generateMetadata({
 
   if (!page) return {};
 
-  return { title: `${page.title} | Relate`, description: page.description };
+  return pageMetadata(page);
 }
 
 export default async function Page({
