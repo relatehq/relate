@@ -133,6 +133,13 @@ reports even on failure.
 ## Retained measurements
 
 The
+[22 October PR #38 verification](measurements/verification-2026-10-22/README.md)
+confirms the published harness runs without integration fixes. It retains the
+full 30-repetition matrix, default-capacity and PostgreSQL-storage refresh runs:
+38 configurations and 5,316 samples, all passing. The report includes latency
+distributions, observed counters, limitations and compressed raw evidence.
+
+The
 [2026-10-21 exploratory measurements](measurements/candidate-path-2026-10-21.json)
 retain warm ranking samples and environment metadata from 18 configurations (540
 total samples, zero failures). On an Apple M2 Max with Node 26.9.0, 10,000
