@@ -111,6 +111,9 @@ shows a complete app with source bindings, action implementations, and cleanup.
 
 ## Analytical declaration validation
 
+Start with [Datasets and Calculations](../authoring/datasets.md) to define the
+model, policies and bindings. This section covers startup and execution.
+
 `startApp` initializes the SQL parser for graphs containing datasets or
 `computed(...)` properties. It validates every declared calculation before
 serving, including calculations that have not been selected or are restricted by
@@ -128,8 +131,8 @@ when no calculation references them.
 
 `createRuntime` remains synchronous for ordinary graphs. For analytical graphs,
 use `startApp(defineApp({ graph, setup }))`; no separate readiness call is
-needed. SQLite analytical execution and object `get`/`query` support caller SQL
-and selected declared calculations:
+needed. Object `get`/`query` support caller SQL and selected declared
+calculations:
 
 ```ts
 const customer = await ana.objects.Customer.get(customerId, {
@@ -179,8 +182,8 @@ change between pages. A cursor from a different expression or binding is
 rejected. Empty pages may still have a continuation when final checks withhold
 their members. Typed page reads and iteration preserve the alias result types.
 
-Both SQLite and the
-[PostgreSQL analytical connector](../../../../connectors/postgres/README.md)
+The SQLite, PostgreSQL and DuckDB
+[analytical connectors](../authoring/connections.md#analytical-dataset-connectors)
 execute these reads. [Discovery](./discovery.md#analytical-metadata) describes
 actor-visible associations and calculated properties through the same consumer,
 MCP and Inspector playground paths. Traversal and action transaction readers

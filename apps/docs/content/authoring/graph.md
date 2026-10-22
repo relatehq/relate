@@ -4,6 +4,9 @@ In Relate, your domain model is defined in TypeScript using the `relate`
 package. A graph consists of **sources**, **objects**, **references**, and
 **relationships**, registered together with `defineGraph`.
 
+For aggregate properties over external rows, see
+[Datasets and Calculations](./datasets.md).
+
 ---
 
 ## 1. Defining Sources

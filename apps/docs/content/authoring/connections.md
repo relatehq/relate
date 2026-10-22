@@ -15,17 +15,24 @@ Connectors do not own your business objects, property mappings, or policies.
 All three read known record IDs. Enumeration, synchronization, webhooks, and
 provider writes are not implemented. SQLite here is a source; the
 [Postgres store](../deployment/postgres.md) separately persists Relate's state.
-For analytical datasets, SQLite, the
-[PostgreSQL analytical connector](../../../../connectors/postgres/README.md),
-and the opt-in
-[DuckDB analytical connector](../../../../connectors/duckdb/README.md) execute
-authorized aggregate plans. DuckDB reads existing local database files; its
-native binary is installed only with `@relate/connector-duckdb`. PostgreSQL
-dataset bindings use
-`bind(Events, analytics.table('events', { schema: 'reporting' }))`; this
-connector does not implement keyed source reads.
 
 Packages are currently used from a repository checkout, not installed from npm.
+
+### Analytical dataset connectors
+
+[Datasets and Calculations](./datasets.md) covers declarations, associations,
+policies and binding. These connectors execute authorized aggregate plans over
+existing tables; their READMEs describe supported physical types and lifecycle.
+
+| Connector                                               | Resource selection                                   | Capabilities and setup                                                                                           |
+| ------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [SQLite](../../../../connectors/sqlite/README.md)       | `database.table('events')`                           | Keyed source reads and datasets in an existing SQLite file                                                       |
+| [PostgreSQL](../../../../connectors/postgres/README.md) | `analytics.table('events', { schema: 'reporting' })` | Analytical datasets; separate from the `@relate/postgres` persistence adapter                                    |
+| [DuckDB](../../../../connectors/duckdb/README.md)       | `warehouse.table('events')`                          | Analytical datasets in an existing local DuckDB file; native binary is opt-in through `@relate/connector-duckdb` |
+
+PostgreSQL and DuckDB do not implement keyed source reads. Bind each dataset
+with `bind(Events, connection.table('events'))`; optional `columns` mappings
+translate logical column names to physical names.
 
 ## Systems, Resources, Sources, and Bindings
 

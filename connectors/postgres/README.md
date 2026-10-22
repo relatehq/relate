@@ -1,5 +1,8 @@
 # PostgreSQL analytical connector
 
+For the shared dataset declaration, access rules and query flow, see
+[Datasets and Calculations](../../apps/docs/content/authoring/datasets.md).
+
 `@relate/connector-postgres` reads aggregates from application-owned PostgreSQL
 tables through Relate dataset bindings. It implements the analytical capability;
 keyed source reads are not implemented. Relate's own graph persistence uses the

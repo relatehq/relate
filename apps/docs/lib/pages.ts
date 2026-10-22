@@ -49,6 +49,14 @@ export const pages: readonly DocPage[] = [
     section: 'Authoring',
   },
   {
+    slug: ['authoring', 'datasets'],
+    name: 'Datasets and Calculations',
+    title: 'Datasets and Calculations',
+    description:
+      'Declare datasets, associate rows, bind connectors, and calculate object values.',
+    section: 'Authoring',
+  },
+  {
     slug: ['authoring', 'access-control'],
     name: 'Access Control',
     title: 'Access Control & Security',

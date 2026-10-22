@@ -1,5 +1,8 @@
 # DuckDB analytical connector
 
+For the shared dataset declaration, access rules and query flow, see
+[Datasets and Calculations](../../apps/docs/content/authoring/datasets.md).
+
 `@relate/connector-duckdb` reads existing DuckDB tables for Relate computed
 properties and caller calculations. It does not persist Relate's own state or
 implement keyed source reads.

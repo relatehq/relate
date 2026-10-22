@@ -90,30 +90,8 @@ customer?.compute?.syntax;
 // SELECT <aggregate expression> FROM self.<dataset> [AS alias] [WHERE predicate]
 ```
 
-Compute supports numeric formulas over aggregates from one dataset:
-
-```sql
--- CTR: clicks divided by impressions
-SELECT COUNT(*) FILTER (WHERE clicked) * 1.0 / NULLIF(COUNT(*), 0)
-FROM self.impressions
-
--- CPA: spend divided by conversions
-SELECT SUM(spend) / NULLIF(SUM(conversions), 0) FROM self.delivery
-
--- Pacing: pass the elapsed flight share as a named numeric parameter
-SELECT SUM(spend) / NULLIF(self.budget * $elapsedShare, 0)
-FROM self.delivery
-```
-
-Use `+`, `-`, `*`, `/`, parentheses, `NULLIF(a, b)` and `COALESCE(a, b)`. Each
-aggregate may have its own `FILTER`; the query's `WHERE` applies to all of its
-aggregates. Formulas return nullable `float64`, including integer division. Zero
-denominators return null; use `COALESCE(formula, 0)` if zero is the desired
-fallback. Wide integers may lose precision in formulas. Standalone counts and
-integer sums retain their exact `int64` results. Ordinary `self` properties must
-be readable and available. Declared calculations cannot use named parameters;
-store the elapsed share as an ordinary property to use it in a declaration.
-Joins, subqueries and multiple datasets in one expression are unsupported.
+See [Datasets and Calculations](../authoring/datasets.md#sql-expressions) for
+SQL formulas, parameters, result types and the supported subset.
 
 Association gates determine which datasets appear. A denied column remains
 listed with `readable: false`; its description and logical type still help

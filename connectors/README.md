@@ -8,16 +8,20 @@ Relate storage adapters such as `@relate/postgres`.
   [connected sources example](../examples/02-connected-sources).
 - [PostgreSQL](postgres): execute read-only dataset aggregates with exact scalar
   decoding and cancellable statement clients.
+- [DuckDB](duckdb): execute read-only dataset aggregates from existing local
+  DuckDB files; its native binary is an explicit opt-in.
 - [Stripe](stripe): read selected billing resources with verified account and
   test/live identity. The README includes a complete binding example.
 - [Salesforce](salesforce): read Accounts with verified org identity. See its
   [connection and model guide](salesforce/README.md#connect).
 
-SQLite, Stripe and Salesforce support keyed source reads. SQLite and PostgreSQL
-support analytical dataset bindings. Enumeration, sync, webhooks and provider
-writes are not implemented. See the public
+SQLite, Stripe and Salesforce support keyed source reads. SQLite, PostgreSQL and
+DuckDB support analytical dataset bindings. Enumeration, sync, webhooks and
+provider writes are not implemented. See the public
 [Connecting Sources guide](../apps/docs/content/authoring/connections.md) for
-bindings, identity, custom connectors, and failure semantics.
+bindings, identity, custom connectors, and failure semantics. The
+[Datasets and Calculations guide](../apps/docs/content/authoring/datasets.md)
+covers the shared analytical authoring and query flow.
 
 ## Follow-up work
 

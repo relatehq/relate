@@ -1,5 +1,8 @@
 # @relate/connector-sqlite
 
+For the shared dataset declaration, access rules and query flow, see
+[Datasets and Calculations](../../apps/docs/content/authoring/datasets.md).
+
 Read an existing SQLite database as a Relate source. This is a provider
 connector, separate from the storage adapter used to persist Relate observations
 and actions. Requires Node.js 22 (22.16+), 24 or 26; uses built-in
