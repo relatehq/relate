@@ -1,5 +1,9 @@
 # PR #38 performance verification — 22 October 2026
 
+> Historical end-to-end measurements at commit 279a529. For isolated overhead,
+> DuckDB and colocated alternatives, read the
+> [new overhead report](../overhead-2026-10-22/README.md).
+
 The published PR is runnable as is. PR #39 introduced a mock analytical adapter;
 PR #38 has already replaced it with real Node-host queries and SQLite/PostgreSQL
 connectors. No runtime or harness fix was needed in this verification. This PR
@@ -207,12 +211,12 @@ Implementation references for the measured revision:
 
 - [Benchmark requests](../../scenarios.ts) and
   [public query adapter](../../adapter.ts).
-- [Scope reads, full-scope revalidation, sort and final page check](../../../../../packages/runtime/src/analytical-read.ts).
-- [Typed ordering and object-ID tie-break](../../../../../packages/runtime/src/analytics/order.ts).
+- [Scope reads, full-scope revalidation, sort and final page check](https://github.com/relatehq/relate/blob/279a529/packages/runtime/src/analytical-read.ts).
+- [Typed ordering and object-ID tie-break](https://github.com/relatehq/relate/blob/279a529/packages/runtime/src/analytics/order.ts).
 - [SQLite batch SQL planner](../../../../../connectors/sqlite/src/analytics/plan.ts)
   and [PostgreSQL planner](../../../../../connectors/postgres/src/plan.ts).
-- [Memory-store scan](../../../../../packages/runtime/src/memory.ts), which
-  filters and sorts its collection on each scan.
+- [Memory-store scan](https://github.com/relatehq/relate/blob/279a529/packages/runtime/src/memory.ts),
+  which filters and sorts its collection on each scan.
 
 The three PNG figures are generated directly from the retained compressed JSON,
 with no hand-entered timing values. To regenerate them without rerunning a
