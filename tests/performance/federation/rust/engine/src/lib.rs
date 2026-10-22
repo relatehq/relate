@@ -1,7 +1,16 @@
 //! Experimental, trusted-host SQL runner. Not a public Relate authorization boundary.
 use anyhow::{bail, Context, Result};
 use datafusion::{
-    arrow::json::ArrayWriter,
+    arrow::{
+        array::{ArrayRef, BooleanArray, StringArray, UInt32Array},
+        datatypes::{DataType, Field, Schema},
+        json::ArrayWriter,
+        record_batch::RecordBatch,
+    },
+    catalog::{
+        CatalogProvider, CatalogProviderList, MemoryCatalogProvider, MemoryCatalogProviderList,
+        MemorySchemaProvider,
+    },
     datasource::MemTable,
     execution::session_state::SessionStateBuilder,
     physical_plan::display::DisplayableExecutionPlan,
@@ -58,6 +67,24 @@ pub struct Request {
     pub explain: bool,
     #[serde(default = "timeout")]
     pub timeout_ms: u64,
+    pub candidate_ids: Option<Vec<String>>,
+    #[serde(default)]
+    pub scopes: Vec<ScopeInput>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScopeInput {
+    pub key_count: usize,
+    pub mask_count: usize,
+    pub rows: Vec<ScopeRow>,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScopeRow {
+    pub row_index: u32,
+    pub values: Vec<Option<String>>,
+    pub valid: Vec<bool>,
 }
 fn mode() -> String {
     "federated".into()
@@ -179,6 +206,85 @@ impl Engine {
         // API is only for trusted benchmark SQL. SessionContext SQL is NOT a sandbox.
         tokio::time::timeout(Duration::from_millis(request.timeout_ms), async {
             let start = Instant::now();
+            // A fresh catalog per request is essential: concurrent requests may
+            // have disjoint authorized inputs. Never mutate the shared catalog.
+            let scoped;
+            let ctx = if let Some(ids) = &request.candidate_ids {
+                if ids.len() > 50_000 || request.scopes.len() > 32 {
+                    bail!("scope input exceeds spike capacity");
+                }
+                let catalog_list = Arc::new(MemoryCatalogProviderList::new());
+                let catalog = Arc::new(MemoryCatalogProvider::new());
+                catalog.register_schema("public", Arc::new(MemorySchemaProvider::new()))?;
+                catalog_list.register_catalog("datafusion".into(), catalog);
+                scoped = SessionContext::new_with_state(
+                    SessionStateBuilder::new_from_existing(ctx.state())
+                        .with_catalog_list(catalog_list)
+                        .build(),
+                );
+                for name in ["customers", "events", "invoices", "file_events"] {
+                    scoped.register_table(name, ctx.table_provider(name).await?)?;
+                }
+                let schema = Arc::new(Schema::new(vec![
+                    Field::new("row_index", DataType::UInt32, false),
+                    Field::new("object_id", DataType::Utf8, false),
+                ]));
+                let batch = RecordBatch::try_new(
+                    schema.clone(),
+                    vec![
+                        Arc::new(UInt32Array::from_iter_values(0..ids.len() as u32)),
+                        Arc::new(StringArray::from_iter_values(ids)),
+                    ],
+                )?;
+                scoped.register_table(
+                    "authorized",
+                    Arc::new(MemTable::try_new(schema, vec![vec![batch]])?),
+                )?;
+                for (index, input) in request.scopes.iter().enumerate() {
+                    if input.key_count > 32 || input.mask_count > 32 || input.rows.len() > ids.len()
+                    {
+                        bail!("invalid scope dimensions");
+                    }
+                    let mut seen = std::collections::HashSet::new();
+                    for row in &input.rows {
+                        if row.row_index as usize >= ids.len()
+                            || !seen.insert(row.row_index)
+                            || row.values.len() != input.key_count
+                            || row.valid.len() != input.mask_count
+                        {
+                            bail!("invalid scope row");
+                        }
+                    }
+                    let mut fields = vec![Field::new("row_index", DataType::UInt32, false)];
+                    let mut arrays: Vec<ArrayRef> = vec![Arc::new(UInt32Array::from_iter_values(
+                        input.rows.iter().map(|r| r.row_index),
+                    ))];
+                    for key in 0..input.key_count {
+                        fields.push(Field::new(format!("k{key}"), DataType::Utf8, true));
+                        arrays.push(Arc::new(StringArray::from_iter(
+                            input.rows.iter().map(|r| r.values[key].as_deref()),
+                        )));
+                    }
+                    for mask in 0..input.mask_count {
+                        fields.push(Field::new(format!("m{mask}"), DataType::Boolean, false));
+                        arrays.push(Arc::new(BooleanArray::from_iter(
+                            input.rows.iter().map(|r| Some(r.valid[mask])),
+                        )));
+                    }
+                    let schema = Arc::new(Schema::new(fields));
+                    let batch = RecordBatch::try_new(schema.clone(), arrays)?;
+                    scoped.register_table(
+                        format!("scope_{index}"),
+                        Arc::new(MemTable::try_new(schema, vec![vec![batch]])?),
+                    )?;
+                }
+                &scoped
+            } else {
+                if !request.scopes.is_empty() {
+                    bail!("scopes require candidateIds");
+                }
+                ctx
+            };
             let frame = ctx.sql(&request.sql).await?;
             let physical = frame.create_physical_plan().await?;
             let plan_ms = start.elapsed().as_secs_f64() * 1000.;

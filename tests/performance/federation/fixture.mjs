@@ -8,6 +8,7 @@ import { DuckDBInstance } from '@duckdb/node-api';
 import { postgres } from '@relate/connector-postgres';
 import { customers, events } from '../analytical-properties/seed.ts';
 import { eventFilter, querySql, normalize } from './queries.mjs';
+import { parquetResource } from './multi-adapter.mjs';
 
 export async function openFixture(customerCount, eventCount) {
   if (!process.env.RELATE_TEST_DATABASE_URL)
@@ -158,6 +159,8 @@ export async function openFixture(customerCount, eventCount) {
       },
       records,
       resource: connector.table('events', { schema }),
+      invoiceResource: connector.table('invoices', { schema }),
+      fileResource: parquetResource(dc),
       provenance: {
         customerCount,
         eventCount,

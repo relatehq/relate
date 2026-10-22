@@ -9,6 +9,8 @@ import { openFixture } from './fixture.mjs';
 import { openTransport, binary } from './transports.mjs';
 import { querySql, normalize } from './queries.mjs';
 import { openRelate } from './relate-adapter.mjs';
+import { openMultiRelate } from './multi-adapter.mjs';
+import { assertInstalled } from './register.mjs';
 import { createMemoryStore } from '@relate/runtime';
 
 const { values: args } = parseArgs({
@@ -74,6 +76,7 @@ const report = {
     neonWorkerPool: process.env.UV_THREADPOOL_SIZE ?? 'default (4)',
     transport:
       'UTF-8 JSON, no compression, bounded final outputs; integer counts cast to strings',
+    workloadVersion: 2,
   },
   startup: [],
   plans: [],
@@ -201,6 +204,7 @@ try {
         collectMs: value.collectMs,
         encodeMs: value.encodeMs,
         sourceRows: value.sourceRows,
+        scope: value.scope,
         resultRows: value.rows.length,
         resultSha256: validate(value, expected, scenario),
         maxObservedTimerLagMs: maxLagMs,
@@ -271,40 +275,133 @@ try {
   }
 
   if (!args['skip-relate']) {
-    const store = createMemoryStore();
+    assertInstalled();
 
-    for (const transport of [null, ...transports]) {
-      const start = performance.now();
-      const host = await openRelate(fixture, transport, store);
+    for (const [scenario, open] of [
+      ['ranking-db', openRelate],
+      ['multi', openMultiRelate],
+    ]) {
+      const store = createMemoryStore(),
+        scenarioPaths = [];
+      const variants = [
+        {
+          transport: null,
+          name: scenario === 'ranking-db' ? 'relate-postgres' : 'relate-native',
+        },
+        ...transports.map((transport) => ({
+          transport,
+          name: `relate-${transport.kind}-scan`,
+        })),
+        ...transports.flatMap((transport) =>
+          ['scan', 'federated'].map((mode) => ({
+            transport,
+            scope: true,
+            mode,
+            name: `relate-${transport.kind}-scope-${mode}`,
+          })),
+        ),
+      ];
 
-      publicPaths.push(host);
-      const name = transport
-        ? `relate-${transport.kind}-scan`
-        : 'relate-postgres';
+      for (const variant of variants) {
+        const start = performance.now();
+        let execution;
+        const host = await open(fixture, variant.transport, store, {
+          ...variant,
+          onExecution: (value) => {
+            execution = value;
+          },
+        });
 
-      report.startup.push({
-        kind: name,
-        ms: performance.now() - start,
-        note: 'Relate adoption and host setup; excluded from request timing',
-      });
-      host.name = name;
-      host.pid = process.pid;
-      host.run = () => host.query();
-    }
+        publicPaths.push(host);
+        scenarioPaths.push(host);
+        report.startup.push({
+          kind: variant.name,
+          scenario,
+          ms: performance.now() - start,
+          note: 'Relate adoption and host setup; excluded from request timing',
+        });
+        host.name = variant.name;
+        host.pid = process.pid;
+        host.run = async () => {
+          execution = undefined;
+          const value = await host.query();
 
-    for (let block = -3; block < repetitions; block++) {
-      const offset = (block + 3) % publicPaths.length;
+          if (variant.scope) {
+            assert(
+              execution,
+              'Scope executor must run; never silently benchmark a fallback',
+            );
+            assert.equal(execution.statementCount, 1);
+            const { sql, plan, ...scope } = execution;
 
-      for (const path of [
-        ...publicPaths.slice(offset),
-        ...publicPaths.slice(0, offset),
-      ])
-        await measure(
-          path,
-          'ranking-db',
-          block === -3 ? 'first-of-scenario' : block < 0 ? 'warmup' : 'warm',
-          block,
-        );
+            value.scope = scope;
+          }
+
+          return value;
+        };
+      }
+
+      // Full authorized plan capture, separately from timed executions.
+      for (const mode of ['scan', 'federated']) {
+        let capture;
+        const host = await open(fixture, transports[1], store, {
+          scope: true,
+          mode,
+          explain: true,
+          onExecution: (value) => {
+            capture = value;
+          },
+        });
+
+        try {
+          validate(await host.query(), host.expected, scenario);
+          const { plan, ...details } = capture;
+
+          report.plans.push({
+            scenario: `relate-${scenario}`,
+            mode,
+            ...details,
+            plan: plan
+              .replaceAll(fixture.config.schema, '<fixture-schema>')
+              .replaceAll(fixture.config.eventsPath, '<events.parquet>')
+              .replaceAll(
+                fixture.config.eventsPath.replace(/^\//, ''),
+                '<events.parquet>',
+              ),
+          });
+        } finally {
+          await host.close();
+        }
+      }
+
+      console.log(
+        `Public Relate ${customers}/${events}: ${scenario} (${scenarioPaths.length} paths)`,
+      );
+
+      for (let block = -3; block < repetitions; block++) {
+        const offset = (block + 3) % scenarioPaths.length;
+        const order = [
+          ...scenarioPaths.slice(offset),
+          ...scenarioPaths.slice(0, offset),
+        ];
+
+        if (Math.floor((block + 3) / scenarioPaths.length) % 2) order.reverse();
+
+        for (const path of order)
+          await measure(
+            path,
+            scenario,
+            block === -3 ? 'first-of-scenario' : block < 0 ? 'warmup' : 'warm',
+            block,
+          );
+
+        console.log(`  ${scenario} block ${block} complete`);
+      }
+
+      for (const host of scenarioPaths) {
+        await host.close();
+        publicPaths.splice(publicPaths.indexOf(host), 1);
+      }
     }
   }
 

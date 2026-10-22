@@ -9,8 +9,10 @@ import { createMemoryStore } from '@relate/runtime';
 import { openObjects } from '../analytical-properties/model.ts';
 import { scenarios } from '../analytical-properties/scenarios.ts';
 import { utcTimestamp } from './queries.mjs';
+import { withScopeExecutor } from './scope-executor.mjs';
+import { assertInstalled } from './register.mjs';
 
-const dialect = {
+export const dialect = {
   bind(value) {
     const encoded = encodeAnalyticalValue(value.value, {
       ...value,
@@ -43,8 +45,8 @@ const dialect = {
     return op;
   },
   aggregate(value, argument, filter) {
-    if (!['count', 'max'].includes(value.aggregate))
-      throw new Error('Spike only supports COUNT/MAX');
+    if (!['count', 'max', 'sum'].includes(value.aggregate))
+      throw new Error('Spike only supports COUNT/MAX/SUM');
 
     return `${value.aggregate.toUpperCase()}(${value.distinct ? 'DISTINCT ' : ''}${argument}) FILTER (WHERE ${filter})`;
   },
@@ -54,7 +56,7 @@ const dialect = {
   timestampParameters: 0,
 };
 
-export function datafusionResource(original, transport) {
+export function datafusionResource(original, transport, table = 'events') {
   const selections = new WeakMap(),
     plans = new WeakMap();
   const resource = {
@@ -80,7 +82,7 @@ export function datafusionResource(original, transport) {
 
           const plan = renderAnalyticalQuery(
             query,
-            { table: 'events', columns: selection.columns },
+            { table, columns: selection.columns },
             query.slots,
             dialect,
           );
@@ -150,13 +152,21 @@ export async function openRelate(
   fixture,
   transport,
   store = createMemoryStore(),
+  options = {},
 ) {
+  const sources = new WeakMap();
+  const resource = options.scope
+    ? scopeResource(fixture.resource, sources, 'events')
+    : transport
+      ? datafusionResource(fixture.resource, transport)
+      : fixture.resource;
+
+  if (options.scope) assertInstalled();
+
   const objects = await openObjects(fixture.records, {
     graphId: 'federation-public-benchmark',
     store,
-    resource: transport
-      ? datafusionResource(fixture.resource, transport)
-      : fixture.resource,
+    resource,
     capture: 'disabled',
     freshness: 'cached',
     sourceDelayMs: 0,
@@ -181,7 +191,18 @@ export async function openRelate(
   return {
     expected,
     async query() {
-      const result = await objects.customer.query(request);
+      const result = options.scope
+        ? await withScopeExecutor(
+            {
+              transport,
+              sources,
+              mode: options.mode,
+              explain: options.explain,
+              onExecution: options.onExecution,
+            },
+            () => objects.customer.query(request),
+          )
+        : await objects.customer.query(request);
 
       if (!Array.isArray(result.data)) throw new Error(JSON.stringify(result));
 
@@ -195,5 +216,18 @@ export async function openRelate(
       };
     },
     close: () => objects.app.close(),
+  };
+}
+
+export function scopeResource(original, sources, table) {
+  return {
+    ...original,
+    bindDataset(selection) {
+      const handle = original.bindDataset(selection);
+
+      sources.set(handle, { table, columns: selection.columns });
+
+      return handle;
+    },
   };
 }

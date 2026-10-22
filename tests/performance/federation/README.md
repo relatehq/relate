@@ -25,9 +25,9 @@ From this worktree, with Node, pnpm and Rust installed:
 pnpm build
 node tests/performance/federation/build.mjs
 pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx tests/performance/federation/test.mjs
-pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx tests/performance/federation/run.mjs --customers 100 --events 1000 --repetitions 3 --out benchmark-results/federation-small
-pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx tests/performance/federation/run.mjs --customers 1000 --events 100000 --repetitions 24 --out benchmark-results/federation-medium
-pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx tests/performance/federation/run.mjs --customers 12500 --events 1000000 --repetitions 24 --out benchmark-results/federation-large
+pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/run.mjs --customers 100 --events 1000 --repetitions 3 --out benchmark-results/federation-small
+pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/run.mjs --customers 1000 --events 100000 --repetitions 24 --out benchmark-results/federation-medium
+pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/run.mjs --customers 12500 --events 1000000 --repetitions 24 --out benchmark-results/federation-large
 ```
 
 Use the worktree's disposable **local** PostgreSQL database. The fixture creates
@@ -189,3 +189,93 @@ timed path.
 The [research notes](RESEARCH.md) record the Cube, DataFusion, Spice and
 MetricFlow sources and proposed ownership. The measured report lives in
 [`measurements/REPORT.md`](measurements/REPORT.md).
+
+## Follow-up: one authorized calculation across sources
+
+`scope-executor.mjs` receives the runtime's prepared calculations and all
+materialized authorized candidates **before batching**. It compiles one
+relational query over every required association. It does not call each database
+itself: DataFusion and its federation providers choose remote execution from
+that query. The original slot adapter remains in the matrix. `scope-scan`
+disables the federation optimizer while retaining the same single-query shape,
+isolating the placement change from removal of batching.
+
+```mermaid
+flowchart TD
+  Consumer[Customer.query] --> Auth[Existing Relate preparation, policy and dependency reads]
+  Auth --> Scope[One authorized scope: object IDs, keys and masks]
+  Scope --> Compiler[Compile aggregates and correlations into one relational query]
+  Compiler --> Engine[DataFusion optimizer plus federation providers]
+  Engine --> PG[PostgreSQL remote aggregation]
+  Engine --> File[Parquet local aggregation]
+  PG --> Merge[Join aggregates to request-local Arrow input tables]
+  File --> Merge
+  Merge --> Validate[Existing scalar validation, binding evidence and dependency rechecks]
+  Validate --> Rank[Existing runtime ranking, cursor and final permission recheck]
+```
+
+This is the whole **calculation scope**, not a replacement for all runtime
+orchestration. Candidate authorization, ordinary field reads, revalidation,
+computed filtering, final sorting and pagination still run in Relate. The engine
+returns results for every authorized candidate, not just the first 25. In
+particular, placing `LIMIT 25` before the runtime's revalidation would change
+behavior when an object becomes inaccessible during execution.
+
+The source subqueries aggregate independently before joining; this defines the
+meaning of per-object calculations without multiplying event counts by invoice
+rows. Grouping identical predicates combines COUNT/MAX. Placement into
+PostgreSQL is the federation optimizer's decision. This compiler currently
+accepts string correlation keys, COUNT/MAX/SUM, source-column predicates and
+scalar fallbacks. It explicitly rejects per-object predicate references,
+aggregate formulas and other unsupported types. It is not a general semantic
+compiler.
+
+`register.mjs` is an explicit **benchmark-only Node loading hook**. It injects
+the executor at the built runtime's `computeFields` call. A request-local async
+context opts into the new path; all other calls use the original function. The
+hook checks its exact insertion point and the runner fails if the executor did
+not run. No installed package files or public APIs change. A product integration
+would replace this hook with a typed runtime-owned executor contract.
+
+Each engine request constructs fresh catalog/Arrow tables and reuses only source
+providers. Authorized keys are data, not a huge SQL `VALUES` expression.
+Concurrent requests cannot overwrite each other's scope tables. PostgreSQL may
+aggregate keys outside the authorized population internally; the trusted
+executor joins back to the authorized scope before returning results. This is
+not source-level row security or a public arbitrary-SQL endpoint.
+
+Two end-to-end workloads use the real public consumer:
+
+- `ranking-db`: the existing PostgreSQL event ranking, unchanged.
+- `multi`: file event counts/latest-login plus paid invoice totals from
+  PostgreSQL. The native baseline uses the shipped PostgreSQL connector and a
+  benchmark-owned DuckDB Parquet adapter, with the same runtime batching. The
+  Parquet adapter reads the actual file on each call; no materialization is
+  hidden in setup. It supports the fixture's nullable string columns and does
+  not prove cancellation or connector conformance.
+
+```sh
+pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/scope-test.mjs
+```
+
+The expanded `run.mjs` reruns all original raw SQL/transport/snapshot/burst
+paths, plus ten public-runtime paths for each of the two scenarios: native,
+three slot scan adapters, three scope scan adapters and three scope federation
+adapters. Run small, medium and large into separate directories with the
+commands above. Keep the original archives; follow-up evidence belongs under
+`measurements/whole-scope/`. The full current comparison and interpretation live
+in [the follow-up report](measurements/whole-scope/REPORT.md).
+
+The scope hook is for successful benchmark executions with activity capture
+disabled. It does not implement the production statement queue, diagnostic
+capture, cross-source observation timestamps, or remote cancellation contract.
+The source deadline covers engine execution; abort is checked after awaited
+completion. These remain integration work, not optimized-away runtime
+guarantees.
+
+New files: `register.mjs` (isolated injection), `scope-executor.mjs` (authorized
+scope compiler and result merge), `multi-adapter.mjs` (multi-source public model
+and native file reference), `scope-test.mjs` (parity, denial, masks, isolation,
+evidence and in-flight authorization change). The Rust engine adds request-local
+input tables; `run.mjs` adds the full comparison. Existing implementations
+remain.

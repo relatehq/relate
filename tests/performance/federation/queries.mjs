@@ -6,7 +6,7 @@ export function querySql(scenario, cached = false) {
   if (scenario === 'control') return 'SELECT 1 AS value';
 
   const prefix = cached ? 'cached_' : '';
-  const multi = scenario === 'multi' || scenario === 'selective';
+  const multi = ['multi', 'multi-bulk', 'selective'].includes(scenario);
   const file = multi || scenario === 'ranking-file';
   const selective = scenario === 'selective';
   const keyFilter = selective ? " AND customer = '00000001'" : '';
@@ -28,7 +28,7 @@ export function querySql(scenario, cached = false) {
   FROM ${prefix}customers c LEFT JOIN e ON c.key = e.customer
   ${multi ? 'LEFT JOIN i ON c.key = i.customer' : ''}
   WHERE c.portfolio = 'north'${selective ? " AND c.key = '00000001'" : ''}
-  ORDER BY COALESCE(e.n, 0) DESC, c.key ASC${scenario === 'bulk' ? '' : ' LIMIT 25'}`;
+  ORDER BY COALESCE(e.n, 0) DESC, c.key ASC${['bulk', 'multi-bulk'].includes(scenario) ? '' : ' LIMIT 25'}`;
 }
 
 // The fixture and DataFusion session use UTC. Arrow JSON timestamps without a
