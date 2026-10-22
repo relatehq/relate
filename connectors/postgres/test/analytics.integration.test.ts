@@ -176,6 +176,50 @@ it('executes all portable aggregate families with exact integers and timestamps'
   expect(result.readAt).toMatch(/^\d{4}-.*Z$/);
 });
 
+it('returns exact float64 values when the session default rounds float output', async () => {
+  const { db, schema, columns } = await fixture();
+
+  await db.query(
+    `INSERT INTO "${schema}".events(customer_id, ratio) VALUES ('float', 0.1), ('float', 0.2)`,
+  );
+  // A role, database or pooler default; startup options stand in for all three.
+  const url = new URL(testDatabaseUrl());
+
+  url.searchParams.set('options', '-c extra_float_digits=0');
+  const rounding = new pg.Client({ connectionString: url.toString() });
+
+  await rounding.connect();
+  cleanups.push(() => rounding.end());
+  const session = await rounding.query({
+    text: 'SELECT 0.1::float8 + 0.2::float8 AS sum',
+    rowMode: 'array',
+    types: { getTypeParser: () => (value: string) => value },
+  });
+
+  expect(session.rows).toEqual([['0.3']]);
+  const connection = postgres({
+    connectionId: 'rounding',
+    url: url.toString(),
+  });
+
+  cleanups.push(() => connection.close());
+  const resource = connection
+    .table('events', { schema })
+    .bindDataset({ columns });
+  const result = await connection.analytics.execute(
+    connection.analytics.plan(
+      query(
+        resource,
+        [aggregate('sum', column('ratio', 'float64'), 'float64')],
+        ['float'],
+      ),
+    ),
+    options(),
+  );
+
+  expect(result.rows[0]!.values).toEqual([0.1 + 0.2]);
+});
+
 it('keeps duplicate keys in distinct slots, masks unavailable inputs and contains caller predicates inside correlation', async () => {
   const { connection, resource } = await fixture();
   const count = {

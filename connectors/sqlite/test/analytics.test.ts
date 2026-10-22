@@ -804,6 +804,28 @@ it('orders mixed timestamp precision by instant and keeps timestamp correlation 
     '2026-10-01T00:00:00.123000Z',
     '2026-10-01T00:00:00.123400Z',
   ]);
+
+  db.exec(
+    `INSERT INTO events(customer_id, precise_at) VALUES ('mixed', '2026-10-01T00:00:00.123000Z')`,
+  );
+  const distinct = await connection.analytics.execute(
+    connection.analytics.plan(
+      query(
+        events,
+        [
+          {
+            ...aggregate('count', column('at', 'timestamp', 6), 'int64'),
+            distinct: true,
+          },
+        ],
+        ['mixed'],
+      ),
+    ),
+    options(),
+  );
+
+  // '.123Z' and '.123000Z' are one instant, as in PostgreSQL timestamptz.
+  expect(distinct.rows[0]!.values).toEqual([2n]);
 });
 
 it('enforces a child-local deadline while SQLite blocks without a parent execution timer', async () => {

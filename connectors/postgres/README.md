@@ -56,7 +56,10 @@ timestamps and blank-padded `char` are unsupported: local timestamps have no
 instant without an explicit timezone, and `char` equality ignores trailing
 spaces. Text equality retains exact byte semantics even under nondeterministic
 collations. Use int64 minor units for exact monetary aggregates. No type
-coercion silently narrows a declared column.
+coercion silently narrows a declared column. Integer AVG is exact before one
+final rounding to float64; float64 SUM and AVG add in row order, which a
+parallel plan can change. Each statement sets `extra_float_digits` for its own
+transaction, so role, database or pooler defaults cannot round float64 results.
 
 Plans bind every value with an explicit PostgreSQL type. Built-in types,
 functions, comparison operators and the binary collation are qualified through
@@ -129,5 +132,7 @@ Package unit tests cover planning, parameter limits, opaque handles and client
 lifecycle failures. `*.integration.test.ts` uses the dedicated
 `RELATE_TEST_DATABASE_URL` through the repository integration project, with
 owned temporary schemas. It exercises real aggregates, read-only enforcement,
-cancellation, session cleanup and public Node-host reads. No external dataset or
+cancellation, session cleanup and public Node-host reads. The
+[generated SQL property suite](../../tests/support/sql-properties/README.md)
+compares generated queries with a reference evaluator. No external dataset or
 production credentials are required.

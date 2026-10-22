@@ -115,8 +115,10 @@ export function createRunner(
       await client.connect();
       controller.signal.throwIfAborted();
       await client.query('BEGIN READ ONLY');
+      // Float text output follows the session setting; a role or pooler default
+      // below 1 rounds float8 values. Transaction-local, like the timeout.
       await client.query(
-        "SELECT pg_catalog.set_config('statement_timeout', $1::pg_catalog.text, true)",
+        "SELECT pg_catalog.set_config('statement_timeout', $1::pg_catalog.text, true), pg_catalog.set_config('extra_float_digits', '3', true)",
         [String(options.timeoutMs)],
       );
 

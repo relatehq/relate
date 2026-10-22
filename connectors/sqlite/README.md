@@ -161,9 +161,11 @@ bound with explicit SQLite types. Parameter budgeting counts the exact generated
 placeholders against SQLite's 32,766 limit. Correlation and masks remain outside
 expression predicates; duplicate correlation keys remain separate object slots.
 String comparisons use binary collation. Timestamp comparisons normalize exact
-milliseconds to microseconds, including MIN/MAX. Correlation uses indexed
-equality against both canonical timestamp precisions, leaving the dataset column
-unwrapped.
+milliseconds to microseconds, including MIN/MAX and COUNT(DISTINCT). Float64 SUM
+uses SQLite's compensated summation, and integer AVG divides a sum already
+rounded to float64; both can differ from PostgreSQL in the last digits.
+Correlation uses indexed equality against both canonical timestamp precisions,
+leaving the dataset column unwrapped.
 
 A pool of at most four reusable child processes belongs to each configured
 connection. Every statement opens a fresh read-only database handle and closes

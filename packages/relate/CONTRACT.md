@@ -647,6 +647,13 @@ same codecs own runtime result validation and consumer decoding. Null parameters
 are rejected; SQL null literals have their own restricted syntax. Invalid values
 raise a sanitized error that contains neither the value nor provider details.
 
+Aggregates execute in the backend. `COUNT`, integer `SUM`, and `MIN`/`MAX` of
+integer, boolean, string and timestamp values are identical on every supported
+backend: strings order by UTF-8 bytes and timestamps by instant. `AVG` and
+float64 `SUM` use the backend's floating-point arithmetic. Results can differ
+between backends in the last digits, and can vary with row order or parallel
+execution within one backend.
+
 `relate/consumer` exports `decodeComputed(result)`, `DecodedComputed<R>` and
 `AnalyticalValueError`. Typed results constrain the decoded bag to selected
 declared calculations and caller aliases. The input is a get result or an

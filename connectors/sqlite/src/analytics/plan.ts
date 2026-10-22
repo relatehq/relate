@@ -101,12 +101,13 @@ export function render(
     ].join(', ')})`;
   });
   const aggregates = query.aggregates.map((aggregate, index) => {
+    // Extrema and DISTINCT compare values, so timestamps compare as instants.
     const argument =
       aggregate.argument === '*'
         ? '*'
         : operand(
             aggregate.argument,
-            ['min', 'max'].includes(aggregate.aggregate),
+            ['min', 'max'].includes(aggregate.aggregate) || aggregate.distinct,
           );
     const filter = aggregate.predicate
       ? ` AND ${predicate(aggregate.predicate)}`
