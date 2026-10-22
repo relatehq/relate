@@ -49,6 +49,179 @@ retains fresh evidence rather than changing implementation.
 - **Median / p95:** nearest-rank 50th / 95th percentile of measured warm
   requests. p95 is shown only for the full profile (30 repetitions).
 
+## Visual guide: where the time goes
+
+Read these charts as **costs observed in this workload**, not pass/fail targets:
+we have not set a latency objective. All charts use capture-enabled runs from
+this report's raw files. “PostgreSQL” in the legend means the analytical
+backend; object storage is identified separately.
+
+### A page of results is not always a page of work
+
+![Median latency of ordinary pages, enriched pages and full-scope ranking; ranking rises from about 3.6 seconds to 14.7 seconds when object storage and freshness change.](figures/latency.png)
+
+The left panel uses 10,000 total customers, 8,000 authorized customers and one
+million events. Enriching 25 customers takes about 0.10–0.17 seconds, but
+finding the top 25 requires calculating and checking all 8,000 authorized
+customers: about 2.73–3.04 seconds. `limit: 25` does not limit the ranking
+scope.
+
+The right panel uses 12,500 total / 10,000 authorized customers and 100,000
+events. Changing both storage and freshness raises ranking to about 14.7–14.8
+seconds. This is a useful expensive-path example, not an isolated measurement of
+either PostgreSQL storage or the synthetic refresh delay.
+
+### How the caller asks the question
+
+The benchmark computes October login count and latest login, then optionally
+orders by count. This is the ranking request from `scenarios.ts`, with the
+adapter's explicit selected correlation key (`key`):
+
+```ts
+const parameters = {
+  since: '2026-10-01T00:00:00.000Z',
+  until: '2026-11-01T00:00:00.000Z',
+};
+
+await customer.query({
+  select: ['name', 'key'],
+  where: { portfolio: 'north' },
+  compute: {
+    loginCount: {
+      sql: "SELECT COUNT(*) FROM self.events AS e WHERE e.eventType = 'login' AND e.occurredAt >= $since AND e.occurredAt < $until",
+      parameters,
+    },
+    lastLogin: {
+      sql: "SELECT MAX(e.occurredAt) FROM self.events AS e WHERE e.eventType = 'login' AND e.occurredAt >= $since AND e.occurredAt < $until",
+      parameters,
+    },
+  },
+  orderBy: [{ field: 'loginCount', direction: 'desc' }],
+  limit: 25,
+});
+```
+
+Removing `orderBy` gives the enrichment scenario. Removing both `compute` and
+`orderBy` gives the ordinary-page scenario. The benchmark adapter checks and
+normalizes the returned records for comparison with its independent SQL oracle.
+
+### Steps executed for ranking
+
+This diagram describes the successful default-capacity workload: 12,500 total
+customers, 10,000 admitted, no changing dependencies. Counts are observed API
+work, not inferred network round trips. **Revalidation** means checking that
+access and the data used to calculate a value are still valid before exposing
+it.
+
+```mermaid
+flowchart TD
+  Request["Query: October metrics, order by login count, limit 25"]
+  Prepare["1. Parse expressions, resolve types and check access"]
+  Scan["2. Scan 12,500 members in 125 storage scans"]
+  Admit["3. Read policy and correlation data; admit 10,000 customers"]
+  Batch["4. Build 10 analytical batches of 1,000 customer slots"]
+  Execute["5. Connector plans parameterized SQL and executes 10 statements"]
+  Merge["6. Merge count and latest-login values by customer slot"]
+  Recheck["7. Revalidate all 10,000 admitted customers"]
+  Sort["8. Sort in the runtime by count, with object ID as tie-breaker"]
+  Page["9. Select 25, revalidate that page, project requested values"]
+  Return["Return 25 records and continuation metadata"]
+  Request --> Prepare --> Scan --> Admit --> Batch --> Execute
+  Execute --> Merge --> Recheck --> Sort --> Page --> Return
+```
+
+Enrichment instead reads an ordinary authorized page first and computes metrics
+for that page. Ranking uses the full authorized ordinary-filter scope before
+choosing its page. The runtime owns the final top-25 sort; the analytical
+connector returns aggregates for the supplied customer slots.
+
+### How each analytical batch queries events
+
+A **slot** is one customer's position within a batch, carrying its correlation
+key and flags indicating which calculations are valid. Both expressions share
+the events association, so they can execute in the same statement for this
+workload. This is the logical query shape from the connector planner, not a
+captured SQL replay or an execution plan from the database:
+
+```mermaid
+flowchart TD
+  Keys["Runtime supplies 1,000 slots: position, customer key, validity flags"]
+  Params["Connector creates parameterized keys VALUES table"]
+  Events["Events table with index on customer, type, at"]
+  Join["Join events to supplied customer keys"]
+  Agg["Group by slot; COUNT and MAX with login/date filters"]
+  Left["Left join aggregates back to every supplied slot"]
+  Empty["No matching logins: count 0, latest login null"]
+  Results["Return one aggregate row per slot, ordered by slot"]
+  Keys --> Params --> Join
+  Events --> Join
+  Join --> Agg --> Left --> Results
+  Params --> Left
+  Empty -.-> Left
+```
+
+The join and aggregate filters are generated from the parsed expressions; caller
+text is not interpolated directly into this query shape. The diagrams omit
+failure paths. Actual runs enforce scope, source-call and deadline budgets, and
+withhold or reject values when access or dependencies become invalid.
+
+### Where scaling becomes expensive
+
+![Ranking median and p95 versus authorized customer count, separately for 100,000 and one million events, showing increasing cost at 8,000 customers.](figures/scaling.png)
+
+- **Event-heavy, small customer scope:** SQLite is materially slower for the
+  million-event workload. This includes connector lifecycle and result handling;
+  the chart does not isolate database-server execution.
+- **Large customer scope:** both backends reach seconds of latency. With 8,000
+  admitted customers the runtime performs 18,025 object loads and 50,075
+  identity checks, even though analytical work is batched into eight statements.
+- **Tail latency:** the dotted SQLite point at 8,000 customers / 100,000 events
+  is a 5.27-second p95 against a 2.47-second median. The dotted lines are
+  observed percentiles, not uncertainty bounds or predictions between tested
+  populations.
+
+### Which steps deserve investigation
+
+![Heatmap of all nine recorded stage durations for cached-memory and refreshed PostgreSQL object storage, with candidate reads and dependency work growing sharply on refresh.](figures/stages.png)
+
+This is deliberately a heatmap rather than a stacked latency chart. The runtime
+sums individual stage spans, and those spans can overlap or nest. For example,
+the refresh run records about **73 seconds of summed dependency-read work**
+within an approximately **15-second request**. That is not 73 seconds added to
+request latency; it includes overlapping read work inside other stages.
+
+| Observed cost                                                                | What it suggests checking next                                                   | What this measurement cannot establish      |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------- |
+| Candidate reads: about 2.6 s cached, 11.5–11.6 s with persistence + refresh  | Storage scans, policy/dependency reads, source refresh scheduling                | The isolated cost of storage versus refresh |
+| Revalidation: about 0.76–0.78 s cached, 2.8–3.0 s with persistence + refresh | Repeated dependency reads and identity checks while preserving access guarantees | Whether any check can safely be removed     |
+| Analytical execution: about 0.27–0.41 s summed at 100K events                | Generated SQL replay and database execution plans                                | A database-only overhead ratio              |
+| Queue wait: about 0.04 ms summed                                             | A separate concurrent-load experiment                                            | That queues will remain cheap under load    |
+
+At capacity, each ranking performs **125 scans → 10,000 admitted customers → 10
+analytical statements → 25 returned records**. Across the request it also
+performs **22,525 object loads and 62,575 identity checks**; refresh adds
+**12,500 fetches**. These counters describe different operations and must not be
+added as if they were a single class of database call.
+
+Implementation references for the measured revision:
+
+- [Benchmark requests](../../scenarios.ts) and
+  [public query adapter](../../adapter.ts).
+- [Scope reads, full-scope revalidation, sort and final page check](../../../../../packages/runtime/src/analytical-read.ts).
+- [Typed ordering and object-ID tie-break](../../../../../packages/runtime/src/analytics/order.ts).
+- [SQLite batch SQL planner](../../../../../connectors/sqlite/src/analytics/plan.ts)
+  and [PostgreSQL planner](../../../../../connectors/postgres/src/plan.ts).
+- [Memory-store scan](../../../../../packages/runtime/src/memory.ts), which
+  filters and sorts its collection on each scan.
+
+The three PNG figures are generated directly from the retained compressed JSON,
+with no hand-entered timing values. To regenerate them without rerunning a
+benchmark:
+
+```sh
+uv run tests/performance/analytical-properties/measurements/verification-2026-10-22/plot.py
+```
+
 ## Provenance and reproducibility
 
 Measured published head `279a5294ded42cffc86ef4946cd66153fa9062f0` in a new
