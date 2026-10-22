@@ -22,11 +22,12 @@
   `COALESCE`, numeric literals, ordinary `self` properties and named parameters.
   Runtime resolution requires numeric operands. Dataset columns occur only in
   aggregates or predicates; nested aggregates and subqueries are rejected.
-- `COALESCE(aggregate, non-null literal)` preserves the existing aggregate
-  scalar contract. Other formulas use nullable float64, including integer
-  division. Division by zero returns null on all connectors. Wide integers in
-  formulas may lose precision when converted to float64; standalone aggregates
-  stay exact.
+- Standalone `COALESCE(aggregate, non-null literal)` preserves the existing
+  aggregate scalar contract. Nested `COALESCE` uses float64 operands, including
+  fractional literal fallbacks for integer aggregates. Other formulas use
+  nullable float64, including integer division. Division by zero returns null on
+  all connectors. Wide integers in formulas may lose precision when converted to
+  float64; standalone aggregates stay exact.
 - `DISTINCT` is allowed only for `COUNT(x)`. Aggregate
   `FILTER (WHERE predicate)` combines with the query's `WHERE` predicate;
   neither can widen correlation. Aggregate ordering remains unsupported. Boolean

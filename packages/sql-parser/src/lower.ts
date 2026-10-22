@@ -394,7 +394,10 @@ export function lower(
     };
   }
 
-  function expression(value: unknown): ScalarExpression<SqlAggregate> {
+  function expression(
+    value: unknown,
+    standalone = false,
+  ): ScalarExpression<SqlAggregate> {
     const node = shape(value, [
       'A_Expr',
       'CoalesceExpr',
@@ -442,8 +445,10 @@ export function lower(
 
       if (args.length !== 2) return unsupported();
 
-      // Preserve the established exact scalar contract for COALESCE(aggregate, literal).
+      // Only standalone COALESCE keeps the aggregate's exact scalar type.
+      // Nested calls use float64 operands like the surrounding formula.
       if (
+        standalone &&
         args[0] &&
         typeof args[0] === 'object' &&
         'FuncCall' in args[0] &&
@@ -469,7 +474,7 @@ export function lower(
     return { kind: 'operand', value: resolved };
   }
 
-  const result = expression(target.val);
+  const result = expression(target.val, true);
 
   if (result.kind === 'aggregate') return { association, ...result.value };
 
