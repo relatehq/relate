@@ -30,8 +30,11 @@
   float64; standalone aggregates stay exact.
 - `DISTINCT` is allowed only for `COUNT(x)`. Aggregate
   `FILTER (WHERE predicate)` combines with the query's `WHERE` predicate;
-  neither can widen correlation. Aggregate ordering remains unsupported. Boolean
-  column/literal predicates are lowered to equality with true.
+  neither can widen correlation. Aggregate ordering remains unsupported. Bare
+  boolean columns, parameters and `TRUE`/`FALSE` predicates are lowered to
+  equality with true; other bare constants such as `WHERE 1` are rejected with
+  their source span. The query's `WHERE` is lowered once and shared by every
+  aggregate leaf.
 - The portable result and issue types come from `relate/analytics`. Parser node
   types, driver objects, rewritten SQL and upstream error details never cross
   the public package boundary. Diagnostics contain only fixed messages and

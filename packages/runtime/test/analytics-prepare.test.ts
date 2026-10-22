@@ -371,3 +371,52 @@ it.each([
     prepare(`SELECT ${expression} FROM self.events`),
   ).rejects.toBeInstanceOf(AnalyticalPreparationError);
 });
+
+it('keeps a formula parameter typed by a comparison instead of forcing float64', async () => {
+  const prepared = await prepare(
+    'SELECT SUM(amount) FILTER (WHERE small >= $day) / $day FROM self.events',
+    { day: 3 },
+  );
+
+  expect(prepared.aggregate).toMatchObject({
+    aggregate: 'expression',
+    expression: {
+      right: {
+        kind: 'operand',
+        value: { kind: 'value', value: { type: 'int32', value: 3 } },
+      },
+    },
+  });
+});
+
+it('types a parameter used only in a formula as float64', async () => {
+  const prepared = await prepare(
+    'SELECT SUM(amount) / NULLIF($share, 0) FROM self.events',
+    { share: 0.5 },
+  );
+
+  expect(prepared.aggregate).toMatchObject({
+    expression: {
+      right: {
+        left: { value: { value: { type: 'float64', value: 0.5 } } },
+      },
+    },
+  });
+});
+
+it('reports the nonnumeric aggregate a formula cannot use', async () => {
+  const sql = 'SELECT COALESCE(MAX(preciseAt), MIN(at)) FROM self.events';
+  const error = await prepare(sql).catch((error: unknown) => error);
+
+  expect(error).toBeInstanceOf(AnalyticalPreparationError);
+  expect((error as AnalyticalPreparationError).issues).toEqual([
+    {
+      problem: 'not-supported',
+      message: 'Formulas require numeric aggregates.',
+      at: {
+        start: sql.indexOf('preciseAt'),
+        end: sql.indexOf('preciseAt') + 'preciseAt'.length,
+      },
+    },
+  ]);
+});

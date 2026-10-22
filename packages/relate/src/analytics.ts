@@ -23,6 +23,12 @@ export type {
 } from './analytics/values.js';
 
 export {
+  foldScalarExpression,
+  mapScalarExpression,
+  scalarLeaves,
+} from './analytics/scalar.js';
+
+export {
   renderAnalyticalQuery,
   analyticalParameterBudget,
   quoteSqlIdentifier,

@@ -1,3 +1,4 @@
+import { scalarLeaves } from 'relate/analytics';
 import type {
   Aggregate,
   SqlAggregate,
@@ -222,9 +223,13 @@ export function lower(
     if (
       value &&
       typeof value === 'object' &&
-      ('ColumnRef' in value || 'A_Const' in value)
+      ('ColumnRef' in value || 'ParamRef' in value || 'A_Const' in value)
     ) {
       const left = operand(value);
+
+      // Bare boolean columns, parameters and TRUE/FALSE mean `= TRUE`.
+      if (left.kind === 'literal' && left.literal !== 'boolean')
+        return unsupported(left.at);
 
       return {
         kind: 'compare',
@@ -315,6 +320,13 @@ export function lower(
     'location',
   ]);
 
+  // Lowered once, after the first aggregate call, and shared by every leaf.
+  let where: Predicate | undefined;
+  const lowerWhere = () =>
+    select.whereClause === undefined
+      ? undefined
+      : (where ??= predicate(select.whereClause));
+
   function aggregate(output: unknown): SqlAggregate {
     let fallback: LiteralOperand | undefined;
 
@@ -325,12 +337,13 @@ export function lower(
       ]);
       const args = list(coalesce.args);
 
-      if (args.length !== 2) return unsupported();
+      if (args.length !== 2)
+        return unsupported(source.span(location(coalesce)));
 
       const value = operand(args[1]);
 
       if (value.kind !== 'literal' || value.literal === 'null')
-        return unsupported();
+        return unsupported(source.span(location(coalesce)));
 
       fallback = value;
       output = args[0];
@@ -359,20 +372,22 @@ export function lower(
       (call.agg_star !== undefined && call.agg_star !== true) ||
       (call.agg_distinct !== undefined && call.agg_distinct !== true)
     )
-      return unsupported();
+      return unsupported(source.span(location(call)));
 
     if (
       call.agg_star
         ? name !== 'count' || call.args !== undefined || call.agg_distinct
         : list(call.args).length !== 1
     )
-      return unsupported();
+      return unsupported(source.span(location(call)));
 
-    if (call.agg_distinct && name !== 'count') return unsupported();
+    if (call.agg_distinct && name !== 'count')
+      return unsupported(source.span(location(call)));
 
-    const filters = [select.whereClause, call.agg_filter]
-      .filter((value) => value !== undefined)
-      .map(predicate);
+    const filters = [
+      lowerWhere(),
+      call.agg_filter === undefined ? undefined : predicate(call.agg_filter),
+    ].filter((value) => value !== undefined);
 
     return {
       aggregate: name as Aggregate,
@@ -418,8 +433,9 @@ export function lower(
         'location',
       ]);
       const names = strings(expr.name);
+      const at = source.span(location(expr));
 
-      if (names.length !== 1) return unsupported();
+      if (names.length !== 1) return unsupported(at);
 
       if (expr.kind === 'AEXPR_NULLIF' && names[0] === '=')
         return {
@@ -429,7 +445,7 @@ export function lower(
         };
 
       if (expr.kind !== 'AEXPR_OP' || !['+', '-', '*', '/'].includes(names[0]!))
-        return unsupported();
+        return unsupported(at);
 
       return {
         kind: 'binary',
@@ -443,7 +459,8 @@ export function lower(
       const coalesce = shape(node.CoalesceExpr, ['args', 'location']);
       const args = list(coalesce.args);
 
-      if (args.length !== 2) return unsupported();
+      if (args.length !== 2)
+        return unsupported(source.span(location(coalesce)));
 
       // Only standalone COALESCE keeps the aggregate's exact scalar type.
       // Nested calls use float64 operands like the surrounding formula.
@@ -478,12 +495,8 @@ export function lower(
 
   if (result.kind === 'aggregate') return { association, ...result.value };
 
-  const hasAggregate = (value: ScalarExpression<SqlAggregate>): boolean =>
-    value.kind === 'aggregate' ||
-    (value.kind !== 'operand' &&
-      (hasAggregate(value.left) || hasAggregate(value.right)));
-
-  if (!hasAggregate(result)) return unsupported();
+  if (!scalarLeaves(result).some((leaf) => leaf.kind === 'aggregate'))
+    return unsupported(source.span(location(target)));
 
   return { association, aggregate: 'expression', expression: result };
 }

@@ -1,0 +1,43 @@
+{
+  "name": "parameter-flag-filter",
+  "sql": "SELECT COUNT(*) FILTER (WHERE $include) FROM self.events",
+  "parameters": {
+    "include": true
+  },
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": "*",
+      "distinct": false,
+      "predicate": {
+        "kind": "compare",
+        "op": "=",
+        "left": {
+          "kind": "parameter",
+          "name": "include"
+        },
+        "right": {
+          "kind": "literal",
+          "literal": "boolean",
+          "value": true
+        }
+      }
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "5",
+      "acme_late": "5",
+      "empty": "0",
+      "nulls": "1",
+      "wide": "2"
+    }
+  }
+}

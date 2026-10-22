@@ -45,19 +45,25 @@ export type Predicate =
 
 export type Aggregate = 'count' | 'sum' | 'avg' | 'min' | 'max';
 
-export type ScalarExpression<T> =
-  | { readonly kind: 'aggregate'; readonly value: T }
-  | { readonly kind: 'operand'; readonly value: Operand }
+/** A numeric formula over aggregate leaves `A` and scalar operand leaves `O`. */
+export type ScalarExpression<A, O = Operand> =
+  ScalarLeaf<A, O> | ScalarNode<A, O>;
+
+export type ScalarLeaf<A, O = Operand> =
+  | { readonly kind: 'aggregate'; readonly value: A }
+  | { readonly kind: 'operand'; readonly value: O };
+
+export type ScalarNode<A, O = Operand> =
   | {
       readonly kind: 'binary';
       readonly op: '+' | '-' | '*' | '/';
-      readonly left: ScalarExpression<T>;
-      readonly right: ScalarExpression<T>;
+      readonly left: ScalarExpression<A, O>;
+      readonly right: ScalarExpression<A, O>;
     }
   | {
       readonly kind: 'nullif' | 'coalesce';
-      readonly left: ScalarExpression<T>;
-      readonly right: ScalarExpression<T>;
+      readonly left: ScalarExpression<A, O>;
+      readonly right: ScalarExpression<A, O>;
     };
 
 export type RelateSqlQuery = { readonly association: Name } & (

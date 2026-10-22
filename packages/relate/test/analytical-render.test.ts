@@ -5,10 +5,16 @@ import {
   quoteSqlIdentifier,
   encodeAnalyticalValue,
 } from 'relate/analytics';
-import type { AnalyticalSqlDialect } from 'relate/analytics';
+import type {
+  AnalyticalSqlDialect,
+  ComputedResultType,
+} from 'relate/analytics';
 import type {
   AuthorizedDatasetQuery,
   DatasetResource,
+  ResolvedAggregateLeaf,
+  ResolvedOperand,
+  ResolvedScalarExpression,
 } from 'relate/connectors';
 
 function request(): AuthorizedDatasetQuery {
@@ -228,4 +234,103 @@ it('budgets nested formulas and binds aggregate inputs before projection values'
   expect(() =>
     renderAnalyticalQuery(forged, resource, forged.slots, dialect),
   ).toThrow('Invalid authorized analytical query');
+});
+
+function formula(expression: ResolvedScalarExpression): AuthorizedDatasetQuery {
+  const query = request();
+
+  return {
+    ...query,
+    slots: [{ ...query.slots[0]!, valid: [true] }],
+    aggregates: [
+      {
+        aggregate: 'expression',
+        result: { type: 'float64', nullable: true },
+        expression,
+      },
+    ],
+  };
+}
+
+function countLeaf(): ResolvedScalarExpression {
+  return {
+    kind: 'aggregate',
+    value: {
+      aggregate: 'count',
+      distinct: false,
+      argument: '*',
+      result: { type: 'int64', nullable: false },
+    },
+  };
+}
+
+it('renders formula operators and NULLIF through the dialect', () => {
+  const input = formula({
+    kind: 'nullif',
+    left: { kind: 'binary', op: '/', left: countLeaf(), right: countLeaf() },
+    right: {
+      kind: 'binary',
+      op: '-',
+      left: countLeaf(),
+      right: countLeaf(),
+    },
+  });
+  const plan = renderAnalyticalQuery(input, resource, input.slots, {
+    ...dialect,
+    operator: (op) => `OP(${op})`,
+    nullif: (left, right) => `GUARD(${left}, ${right})`,
+  });
+  const projection = plan.sql.slice(plan.sql.lastIndexOf('SELECT k.slot'));
+
+  expect(projection).toContain(' OP(/) GUARD(');
+  expect(projection).toContain(' OP(-) ');
+  expect(projection).not.toMatch(/NULLIF|\) [-+*/] /);
+});
+
+it('rejects nested formulas and nonnumeric formula leaves', () => {
+  const maximum = (
+    argument: ResolvedOperand,
+    result: ComputedResultType,
+  ): ResolvedScalarExpression => ({
+    kind: 'aggregate',
+    value: { aggregate: 'max', distinct: false, argument, result },
+  });
+  const cases = [
+    formula({
+      kind: 'binary',
+      op: '+',
+      left: countLeaf(),
+      right: {
+        kind: 'aggregate',
+        value: {
+          aggregate: 'expression',
+          result: { type: 'float64', nullable: true },
+          expression: countLeaf(),
+        } as unknown as ResolvedAggregateLeaf,
+      },
+    }),
+    formula(
+      maximum(
+        {
+          kind: 'value',
+          value: { type: 'timestamp', precision: 3, value: null },
+        },
+        { type: 'timestamp', precision: 3, nullable: true },
+      ),
+    ),
+    formula({
+      kind: 'coalesce',
+      left: countLeaf(),
+      right: {
+        kind: 'operand',
+        value: { kind: 'value', value: { type: 'string', value: 'x' } },
+      },
+    }),
+    formula({ kind: 'binary', op: '+', left: countLeaf() } as never),
+  ];
+
+  for (const query of cases)
+    expect(() =>
+      renderAnalyticalQuery(query, resource, query.slots, dialect),
+    ).toThrow('Invalid authorized analytical query');
 });

@@ -405,11 +405,13 @@ A calculation can be one aggregate or a numeric expression over several
 aggregates from the same association, such as
 `SUM(spend) / NULLIF(COUNT(*) FILTER (WHERE converted), 0)`. Resolution visits
 all aggregate arguments, filters and scalar operands before execution,
-collecting one union of authorized columns and ordinary dependencies. Numeric
-parameters outside aggregates are float64. Formula outputs are nullable float64;
-standalone aggregate types are unchanged. The connector evaluates aggregate
-leaves before the formula, including empty-input count defaults and guarded zero
-division.
+collecting one union of authorized columns and ordinary dependencies. A
+parameter used only outside aggregates is float64; one also typed by a
+comparison, such as `small >= $day`, keeps that type and is converted in the
+formula. A nonnumeric formula leaf fails with the source span of its argument.
+Formula outputs are nullable float64; standalone aggregate types are unchanged.
+The connector evaluates aggregate leaves before the formula, including
+empty-input count defaults and guarded zero division.
 
 `authorization/analytics.ts` owns association and column access decisions.
 Hidden associations are absent and resolve like unknown names. Denied referenced

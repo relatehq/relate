@@ -1,4 +1,5 @@
 import { validateAuthorizedDatasetQuery } from './query-validation.js';
+import { foldScalarExpression, scalarLeaves } from './scalar.js';
 import type {
   AuthorizedDatasetQuery,
   ResolvedAggregate,
@@ -109,6 +110,7 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
     ].join(', ')})`;
   });
   const aggregates: string[] = [];
+  const aliases = new Map<ResolvedAggregateLeaf, string>();
   const collectLeaf = (
     aggregate: ResolvedAggregateLeaf,
     index: number,
@@ -125,27 +127,22 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
       : '';
     const alias = `v${aggregates.length}`;
 
+    aliases.set(aggregate, alias);
     aggregates.push(
       `${dialect.aggregate(aggregate, argument, `k.m${index}${filter}`)} AS ${alias}`,
     );
-  };
-  const collect = (value: ResolvedScalarExpression, index: number): void => {
-    if (value.kind === 'aggregate') collectLeaf(value.value, index);
-    else if (value.kind !== 'operand') {
-      collect(value.left, index);
-      collect(value.right, index);
-    }
   };
 
   // Render all aggregate inputs before projection values for positional binds.
   query.aggregates.forEach((value, index) =>
     value.aggregate === 'expression'
-      ? collect(value.expression, index)
+      ? scalarLeaves(value.expression).forEach(
+          (leaf) => leaf.kind === 'aggregate' && collectLeaf(leaf.value, index),
+        )
       : collectLeaf(value, index),
   );
-  let leafIndex = 0;
   const leafProjection = (aggregate: ResolvedAggregateLeaf): string => {
-    let value = `a.v${leafIndex++}`;
+    let value = `a.${aliases.get(aggregate)!}`;
 
     if (aggregate.aggregate === 'count')
       value = `COALESCE(${value}, ${bind({ type: 'int64', value: 0n })})`;
@@ -157,23 +154,29 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
 
     return value;
   };
-  const scalar = (value: ResolvedScalarExpression): string => {
-    if (value.kind === 'aggregate')
-      return `CAST(${leafProjection(value.value)} AS DOUBLE PRECISION)`;
+  const float = (sql: string) => `CAST(${sql} AS DOUBLE PRECISION)`;
+  const nullif = (left: string, right: string) =>
+    dialect.nullif ? dialect.nullif(left, right) : `NULLIF(${left}, ${right})`;
+  const scalar = (value: ResolvedScalarExpression): string =>
+    foldScalarExpression(
+      value,
+      (leaf) =>
+        float(
+          leaf.kind === 'aggregate'
+            ? leafProjection(leaf.value)
+            : operand(leaf.value),
+        ),
+      (node, left, right) => {
+        if (node.kind === 'binary') {
+          // Guard every denominator: all supported engines return NULL for zero division.
+          return `(${left} ${dialect.operator(node.op)} ${node.op === '/' ? nullif(right, float('0')) : right})`;
+        }
 
-    if (value.kind === 'operand')
-      return `CAST(${operand(value.value)} AS DOUBLE PRECISION)`;
-
-    const left = scalar(value.left),
-      right = scalar(value.right);
-
-    if (value.kind === 'binary') {
-      // Guard every denominator: all supported engines return NULL for zero division.
-      return `(${left} ${value.op} ${value.op === '/' ? `NULLIF(${right}, 0)` : right})`;
-    }
-
-    return `${value.kind === 'nullif' ? 'NULLIF' : 'COALESCE'}(${left}, ${right})`;
-  };
+        return node.kind === 'nullif'
+          ? nullif(left, right)
+          : `COALESCE(${left}, ${right})`;
+      },
+    );
   const projection = query.aggregates.map(
     (aggregate, index) =>
       `${aggregate.aggregate === 'expression' ? scalar(aggregate.expression) : leafProjection(aggregate)} AS v${index}`,
@@ -229,6 +232,8 @@ export interface AnalyticalSqlDialect<
     correlation: boolean,
   ): string;
   operator(operator: string): string;
+  /** Replaces `NULLIF`; must render each argument exactly once. */
+  nullif?(left: string, right: string): string;
   aggregate(
     aggregate: ResolvedAggregateLeaf,
     argument: string,
@@ -257,16 +262,16 @@ export function analyticalParameterBudget(
 
     return value.args.reduce((sum, arg) => sum + predicate(arg), 0);
   };
-  const scalar = (value: ResolvedScalarExpression): number => {
-    if (value.kind === 'aggregate') return aggregate(value.value);
-
-    if (value.kind === 'operand') return operand(value.value);
-
-    return scalar(value.left) + scalar(value.right);
-  };
   const aggregate = (value: ResolvedAggregate): number =>
     value.aggregate === 'expression'
-      ? scalar(value.expression)
+      ? foldScalarExpression(
+          value.expression,
+          (leaf) =>
+            leaf.kind === 'aggregate'
+              ? aggregate(leaf.value)
+              : operand(leaf.value),
+          (_, left, right) => left + right,
+        )
       : (value.argument === '*' ? 0 : operand(value.argument)) +
         (value.predicate ? predicate(value.predicate) : 0) +
         (value.aggregate === 'count' || value.fallback ? 1 : 0) +

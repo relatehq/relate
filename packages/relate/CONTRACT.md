@@ -702,9 +702,10 @@ Glossary:
 
 `validateAuthorizedDatasetQuery(query, declaredColumns)` from
 `relate/connectors` checks shared logical query invariants: mapped column names,
-key indexes, slot widths and types, aggregate forms, and predicate
-operators/arity. Empty slots are allowed for parameter budgeting; connectors
-require nonempty executable plans separately. Physical identifier quoting, value
+key indexes, slot widths and types, aggregate forms, predicate operators/arity,
+and formula trees (plain numeric aggregate and operand leaves, no nested
+formulas). Empty slots are allowed for parameter budgeting; connectors require
+nonempty executable plans separately. Physical identifier quoting, value
 encoding, SQL generation and backend execution remain connector-owned.
 
 `relate/connectors` exports `AnalyticalConnector`, `AnalyticalResource`,
@@ -916,7 +917,15 @@ runtime-authorized query structures, never caller SQL, and do not grant access
 or replace runtime authorization. `SqlDataset` holds connector-owned physical
 identifiers. `AnalyticalSqlDialect` supplies scalar binding, comparison,
 aggregate and timestamp syntax; the shared renderer validates operands,
-operators, slots and correlations and owns the grouped join shape.
+operators, slots and correlations and owns the grouped join shape. Formula
+arithmetic also renders through `operator`. A dialect that qualifies operators
+can replace `NULLIF` with an optional `nullif(left, right)` hook, which must
+render each argument once; PostgreSQL uses it so `search_path` cannot pick the
+zero-division guard's `=`.
+
+`foldScalarExpression`, `mapScalarExpression` and `scalarLeaves` are the one
+left-to-right walk over a `ScalarExpression<A, O>` formula, shared by the
+parser, runtime resolution, batching, validation and rendering.
 
 PostgreSQL, SQLite and DuckDB use this renderer. The count-only budget traversal
 counts literals, predicates, fallbacks, slot keys/masks and dialect timestamp
