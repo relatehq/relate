@@ -33,10 +33,12 @@ pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx tests/performance
 Use the worktree's disposable **local** PostgreSQL database. The fixture creates
 and removes only its uniquely named schema and temporary files. It does not
 reset Relate storage. PostgreSQL is required; a missing backend fails the run.
-Rust uses IPv4 for `localhost` and TLS disabled for this local benchmark. No
-remote-deployment claim is made. Lockfile pins DataFusion 54.1, federation
-0.5.5, providers 0.12 and Neon 1.1.1. DataFusion 55.2 requires a newer Rust
-compiler than the installed 1.92.
+Rust uses IPv4 `hostaddr` and TLS disabled for this local benchmark, avoiding a
+failing provider DNS preflight on the tested host. Only localhost/127.0.0.1 and
+simple database/user names are supported; URL-escaped credentials are not
+tested. No remote-deployment claim is made. Lockfile pins DataFusion 54.1,
+federation 0.5.5, providers 0.12 and Neon 1.1.1. DataFusion 55.2 requires a
+newer Rust compiler than the installed 1.92.
 
 `--skip-relate` and `--skip-concurrency` omit those sections explicitly. A
 failed query, incorrect complete result, or setup error exits unsuccessfully.
@@ -171,6 +173,18 @@ flowchart TD
 | `relate-adapter.mjs`          | Experimental connector replacement within the real public query path         |
 | `run.mjs`, `test.mjs`         | Checkpointed measurements and semantic/lifecycle checks                      |
 | `measurements/`               | Retained reports, failures and charts                                        |
+
+Capture the current slot-query plan separately (outside the timed matrix):
+
+```sh
+pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx tests/performance/federation/diagnose.mjs
+uv run tests/performance/federation/measurements/analyze.py
+```
+
+The first command captures all ten generated batches and the first batch's
+physical plan; the second rebuilds the report tables and figures from the
+committed archives. `diagnose.mjs` is follow-up diagnostic evidence, not another
+timed path.
 
 The [research notes](RESEARCH.md) record the Cube, DataFusion, Spice and
 MetricFlow sources and proposed ownership. The measured report lives in

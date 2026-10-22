@@ -1,0 +1,1256 @@
+{
+  "small": {
+    "bulk/child-federated": {
+      "n": 24,
+      "median": 3.7971244999998817,
+      "p95": 4.727583999998387,
+      "planMs": 1.1368545,
+      "collectMs": 2.4629375000000002,
+      "encodeMs": 0.047312
+    },
+    "bulk/child-scan": {
+      "n": 24,
+      "median": 4.265832999999475,
+      "p95": 5.209582999999839,
+      "planMs": 1.4428535,
+      "collectMs": 2.545833,
+      "encodeMs": 0.04825
+    },
+    "bulk/child-snapshot": {
+      "n": 24,
+      "median": 2.0876040000011926,
+      "p95": 2.6474579999994603,
+      "planMs": 1.51925,
+      "collectMs": 0.31145849999999997,
+      "encodeMs": 0.050208
+    },
+    "bulk/http-federated": {
+      "n": 24,
+      "median": 4.303103999999621,
+      "p95": 5.315833999999086,
+      "planMs": 1.2259165,
+      "collectMs": 2.603042,
+      "encodeMs": 0.0499165
+    },
+    "bulk/http-scan": {
+      "n": 24,
+      "median": 4.073082999999315,
+      "p95": 5.362499999999272,
+      "planMs": 1.3386045,
+      "collectMs": 2.226979,
+      "encodeMs": 0.046687
+    },
+    "bulk/native-js": {
+      "n": 24,
+      "median": 1.4827290000002904,
+      "p95": 2.219500000000153,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "bulk/neon-federated": {
+      "n": 24,
+      "median": 4.027188000000024,
+      "p95": 5.055082999999286,
+      "planMs": 1.3961039999999998,
+      "collectMs": 2.567625,
+      "encodeMs": 0.053792
+    },
+    "bulk/neon-scan": {
+      "n": 24,
+      "median": 4.422666999999819,
+      "p95": 5.757166000001234,
+      "planMs": 1.6648749999999999,
+      "collectMs": 2.5331455,
+      "encodeMs": 0.0545
+    },
+    "control/child-federated": {
+      "n": 24,
+      "median": 0.18570799999992005,
+      "p95": 0.2736250000000382,
+      "planMs": 0.11837500000000001,
+      "collectMs": 0.01275,
+      "encodeMs": 0.002125
+    },
+    "control/child-scan": {
+      "n": 24,
+      "median": 0.18316649999997026,
+      "p95": 0.31062500000007276,
+      "planMs": 0.119146,
+      "collectMs": 0.013000000000000001,
+      "encodeMs": 0.002313
+    },
+    "control/child-snapshot": {
+      "n": 24,
+      "median": 0.20172950000005585,
+      "p95": 0.2979169999998703,
+      "planMs": 0.1325415,
+      "collectMs": 0.013167,
+      "encodeMs": 0.002541
+    },
+    "control/http-federated": {
+      "n": 24,
+      "median": 0.5908540000000357,
+      "p95": 0.7737499999998363,
+      "planMs": 0.12258350000000001,
+      "collectMs": 0.01325,
+      "encodeMs": 0.002479
+    },
+    "control/http-scan": {
+      "n": 24,
+      "median": 0.6095829999999296,
+      "p95": 0.7889579999999796,
+      "planMs": 0.124271,
+      "collectMs": 0.0139165,
+      "encodeMs": 0.0025835
+    },
+    "control/native-js": {
+      "n": 24,
+      "median": 0.0038544999999885476,
+      "p95": 0.007999999999924512,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "control/neon-federated": {
+      "n": 24,
+      "median": 0.21887499999991178,
+      "p95": 0.3797499999999445,
+      "planMs": 0.16899999999999998,
+      "collectMs": 0.0168955,
+      "encodeMs": 0.0031875000000000002
+    },
+    "control/neon-scan": {
+      "n": 24,
+      "median": 0.2253954999999337,
+      "p95": 0.33400000000006,
+      "planMs": 0.176021,
+      "collectMs": 0.016396,
+      "encodeMs": 0.0036880000000000003
+    },
+    "multi/child-federated": {
+      "n": 24,
+      "median": 5.336603999999625,
+      "p95": 6.376000000000204,
+      "planMs": 2.4865630000000003,
+      "collectMs": 2.62175,
+      "encodeMs": 0.022229
+    },
+    "multi/child-scan": {
+      "n": 24,
+      "median": 5.239354000000276,
+      "p95": 5.857875000000604,
+      "planMs": 2.721104,
+      "collectMs": 2.4080209999999997,
+      "encodeMs": 0.023625
+    },
+    "multi/child-snapshot": {
+      "n": 24,
+      "median": 3.2611464999999953,
+      "p95": 3.8010409999997137,
+      "planMs": 2.5825625,
+      "collectMs": 0.4696455,
+      "encodeMs": 0.0234585
+    },
+    "multi/http-federated": {
+      "n": 24,
+      "median": 5.878125000000182,
+      "p95": 7.274959000000308,
+      "planMs": 2.5979165,
+      "collectMs": 2.6514165,
+      "encodeMs": 0.022459
+    },
+    "multi/http-scan": {
+      "n": 24,
+      "median": 5.546478999999636,
+      "p95": 6.30883300000005,
+      "planMs": 2.604,
+      "collectMs": 2.2975000000000003,
+      "encodeMs": 0.0226875
+    },
+    "multi/native-js": {
+      "n": 24,
+      "median": 1.5326869999998962,
+      "p95": 2.1392079999995985,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "multi/neon-federated": {
+      "n": 24,
+      "median": 5.875187500000266,
+      "p95": 7.524540999999772,
+      "planMs": 2.9443960000000002,
+      "collectMs": 2.8384795,
+      "encodeMs": 0.024958
+    },
+    "multi/neon-scan": {
+      "n": 24,
+      "median": 5.400062500000331,
+      "p95": 6.22820800000045,
+      "planMs": 2.8952920000000004,
+      "collectMs": 2.4532085,
+      "encodeMs": 0.025729500000000002
+    },
+    "ranking-db/child-federated": {
+      "n": 24,
+      "median": 3.570770499999867,
+      "p95": 4.3223330000000715,
+      "planMs": 1.2888335,
+      "collectMs": 2.2107080000000003,
+      "encodeMs": 0.019021000000000003
+    },
+    "ranking-db/child-scan": {
+      "n": 24,
+      "median": 3.400896000000216,
+      "p95": 4.233749999999873,
+      "planMs": 1.6062715,
+      "collectMs": 1.507521,
+      "encodeMs": 0.021375
+    },
+    "ranking-db/child-snapshot": {
+      "n": 24,
+      "median": 2.2767290000000457,
+      "p95": 2.656833000000006,
+      "planMs": 1.8538335,
+      "collectMs": 0.29087450000000004,
+      "encodeMs": 0.022021
+    },
+    "ranking-db/http-federated": {
+      "n": 24,
+      "median": 3.987291500000083,
+      "p95": 4.873957999999675,
+      "planMs": 1.326187,
+      "collectMs": 2.2405619999999997,
+      "encodeMs": 0.020396
+    },
+    "ranking-db/http-scan": {
+      "n": 24,
+      "median": 4.129916499999922,
+      "p95": 5.3645839999999225,
+      "planMs": 1.5071875,
+      "collectMs": 2.2187085,
+      "encodeMs": 0.020603999999999997
+    },
+    "ranking-db/native-js": {
+      "n": 24,
+      "median": 1.3585834999998951,
+      "p95": 1.9635410000000775,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/neon-federated": {
+      "n": 24,
+      "median": 3.671124999999847,
+      "p95": 4.783874999999853,
+      "planMs": 1.4585625,
+      "collectMs": 2.162792,
+      "encodeMs": 0.0237705
+    },
+    "ranking-db/neon-scan": {
+      "n": 24,
+      "median": 3.8040419999999813,
+      "p95": 4.881958000000168,
+      "planMs": 1.7525,
+      "collectMs": 2.1295420000000003,
+      "encodeMs": 0.024708
+    },
+    "ranking-db/relate-child-scan": {
+      "n": 24,
+      "median": 15.98785399999997,
+      "p95": 24.059707999998864,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/relate-http-scan": {
+      "n": 24,
+      "median": 16.724750500000482,
+      "p95": 19.067125000001397,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/relate-neon-scan": {
+      "n": 24,
+      "median": 15.6635210000004,
+      "p95": 30.40504200000032,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/relate-postgres": {
+      "n": 24,
+      "median": 17.995499500000733,
+      "p95": 23.72516700000051,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-file/child-federated": {
+      "n": 24,
+      "median": 2.59745850000013,
+      "p95": 2.990542000000005,
+      "planMs": 1.8231875,
+      "collectMs": 0.6271665,
+      "encodeMs": 0.0166045
+    },
+    "ranking-file/child-scan": {
+      "n": 24,
+      "median": 2.9157290000000557,
+      "p95": 3.5326669999999467,
+      "planMs": 2.0338960000000004,
+      "collectMs": 0.6875835,
+      "encodeMs": 0.017792000000000002
+    },
+    "ranking-file/child-snapshot": {
+      "n": 24,
+      "median": 2.255916999999954,
+      "p95": 2.9045000000000982,
+      "planMs": 1.770104,
+      "collectMs": 0.309896,
+      "encodeMs": 0.0177495
+    },
+    "ranking-file/http-federated": {
+      "n": 24,
+      "median": 2.9059379999998782,
+      "p95": 3.8161250000002838,
+      "planMs": 1.8569375,
+      "collectMs": 0.5621875,
+      "encodeMs": 0.0161665
+    },
+    "ranking-file/http-scan": {
+      "n": 24,
+      "median": 3.1061869999998635,
+      "p95": 3.5492920000001504,
+      "planMs": 1.8709585,
+      "collectMs": 0.603083,
+      "encodeMs": 0.016375
+    },
+    "ranking-file/native-js": {
+      "n": 24,
+      "median": 1.1832914999999957,
+      "p95": 1.3355000000001382,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-file/neon-federated": {
+      "n": 24,
+      "median": 3.0527294999999413,
+      "p95": 3.518750000000182,
+      "planMs": 2.1956040000000003,
+      "collectMs": 0.7259165,
+      "encodeMs": 0.0207705
+    },
+    "ranking-file/neon-scan": {
+      "n": 24,
+      "median": 3.102771000000075,
+      "p95": 3.3409999999998945,
+      "planMs": 2.166208,
+      "collectMs": 0.7437085,
+      "encodeMs": 0.020666499999999997
+    },
+    "selective/child-federated": {
+      "n": 24,
+      "median": 5.221333500000128,
+      "p95": 5.793875000000298,
+      "planMs": 2.748771,
+      "collectMs": 2.3010624999999996,
+      "encodeMs": 0.0050625
+    },
+    "selective/child-scan": {
+      "n": 24,
+      "median": 5.404333500000121,
+      "p95": 6.353417000000263,
+      "planMs": 2.877417,
+      "collectMs": 2.3280625,
+      "encodeMs": 0.0063125
+    },
+    "selective/child-snapshot": {
+      "n": 24,
+      "median": 3.3920625000000655,
+      "p95": 4.060875000000124,
+      "planMs": 2.9288125000000003,
+      "collectMs": 0.314958,
+      "encodeMs": 0.0057915
+    },
+    "selective/http-federated": {
+      "n": 24,
+      "median": 5.989000000000033,
+      "p95": 6.504208999999719,
+      "planMs": 2.8561249999999996,
+      "collectMs": 2.549854,
+      "encodeMs": 0.0049169999999999995
+    },
+    "selective/http-scan": {
+      "n": 24,
+      "median": 5.853770500000337,
+      "p95": 6.533458999999311,
+      "planMs": 2.8114165,
+      "collectMs": 2.3904585000000003,
+      "encodeMs": 0.0050415
+    },
+    "selective/native-js": {
+      "n": 24,
+      "median": 1.1516459999998006,
+      "p95": 1.3853330000001733,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "selective/neon-federated": {
+      "n": 24,
+      "median": 5.537562499999694,
+      "p95": 6.362957999999708,
+      "planMs": 3.124896,
+      "collectMs": 2.353271,
+      "encodeMs": 0.006541999999999999
+    },
+    "selective/neon-scan": {
+      "n": 24,
+      "median": 5.664291500000218,
+      "p95": 6.498749999999745,
+      "planMs": 3.1730004999999997,
+      "collectMs": 2.38025,
+      "encodeMs": 0.0075415000000000005
+    }
+  },
+  "medium": {
+    "bulk/child-federated": {
+      "n": 24,
+      "median": 17.273417000000336,
+      "p95": 18.042374999999083,
+      "planMs": 1.5168125,
+      "collectMs": 14.4161665,
+      "encodeMs": 0.39149999999999996
+    },
+    "bulk/child-scan": {
+      "n": 24,
+      "median": 21.866250000000946,
+      "p95": 22.51954200000182,
+      "planMs": 1.7415414999999999,
+      "collectMs": 18.5300835,
+      "encodeMs": 0.3989995
+    },
+    "bulk/child-snapshot": {
+      "n": 24,
+      "median": 4.160791999998764,
+      "p95": 4.385207999999693,
+      "planMs": 1.9132085,
+      "collectMs": 0.8757705,
+      "encodeMs": 0.35775
+    },
+    "bulk/http-federated": {
+      "n": 24,
+      "median": 17.96118750000005,
+      "p95": 18.770291000000725,
+      "planMs": 1.4684585,
+      "collectMs": 14.55125,
+      "encodeMs": 0.4069165
+    },
+    "bulk/http-scan": {
+      "n": 24,
+      "median": 22.55762500000037,
+      "p95": 23.198457999998936,
+      "planMs": 1.5855415,
+      "collectMs": 18.8472705,
+      "encodeMs": 0.42291650000000003
+    },
+    "bulk/native-js": {
+      "n": 24,
+      "median": 12.233291500000632,
+      "p95": 13.15270799999962,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "bulk/neon-federated": {
+      "n": 24,
+      "median": 17.275791500000196,
+      "p95": 18.550209000000905,
+      "planMs": 1.588875,
+      "collectMs": 14.3793965,
+      "encodeMs": 0.441521
+    },
+    "bulk/neon-scan": {
+      "n": 24,
+      "median": 21.91083350000008,
+      "p95": 23.056416000001263,
+      "planMs": 1.8023120000000001,
+      "collectMs": 18.671146,
+      "encodeMs": 0.453271
+    },
+    "control/child-federated": {
+      "n": 24,
+      "median": 0.20060450000005403,
+      "p95": 0.25920799999994415,
+      "planMs": 0.12677100000000002,
+      "collectMs": 0.014,
+      "encodeMs": 0.002312
+    },
+    "control/child-scan": {
+      "n": 24,
+      "median": 0.22174999999992906,
+      "p95": 0.32629100000008293,
+      "planMs": 0.1447705,
+      "collectMs": 0.0146875,
+      "encodeMs": 0.002771
+    },
+    "control/child-snapshot": {
+      "n": 24,
+      "median": 0.21710400000006302,
+      "p95": 0.37199999999984357,
+      "planMs": 0.137042,
+      "collectMs": 0.0144165,
+      "encodeMs": 0.0026255000000000002
+    },
+    "control/http-federated": {
+      "n": 24,
+      "median": 0.6105414999999539,
+      "p95": 0.8905419999998685,
+      "planMs": 0.1314375,
+      "collectMs": 0.0143965,
+      "encodeMs": 0.0024795
+    },
+    "control/http-scan": {
+      "n": 24,
+      "median": 0.6465414999997847,
+      "p95": 0.9122079999999642,
+      "planMs": 0.136896,
+      "collectMs": 0.014666,
+      "encodeMs": 0.0027085
+    },
+    "control/native-js": {
+      "n": 24,
+      "median": 0.003958000000011452,
+      "p95": 0.008499999999912689,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "control/neon-federated": {
+      "n": 24,
+      "median": 0.2106665000000021,
+      "p95": 0.41858300000012605,
+      "planMs": 0.161958,
+      "collectMs": 0.017604,
+      "encodeMs": 0.0027505000000000003
+    },
+    "control/neon-scan": {
+      "n": 24,
+      "median": 0.24397899999985384,
+      "p95": 0.34762499999987995,
+      "planMs": 0.1868125,
+      "collectMs": 0.019229,
+      "encodeMs": 0.00375
+    },
+    "multi/child-federated": {
+      "n": 24,
+      "median": 8.089041500000349,
+      "p95": 8.59570800000074,
+      "planMs": 2.7760625,
+      "collectMs": 5.054062500000001,
+      "encodeMs": 0.024646
+    },
+    "multi/child-scan": {
+      "n": 24,
+      "median": 9.481166999999914,
+      "p95": 10.074416000001293,
+      "planMs": 2.9123335,
+      "collectMs": 6.2632715,
+      "encodeMs": 0.024854
+    },
+    "multi/child-snapshot": {
+      "n": 24,
+      "median": 4.514937500000087,
+      "p95": 4.84362499999952,
+      "planMs": 2.794917,
+      "collectMs": 1.439854,
+      "encodeMs": 0.02325
+    },
+    "multi/http-federated": {
+      "n": 24,
+      "median": 8.499750000000859,
+      "p95": 9.270500000000538,
+      "planMs": 2.7625,
+      "collectMs": 5.074771,
+      "encodeMs": 0.0239375
+    },
+    "multi/http-scan": {
+      "n": 24,
+      "median": 9.836625000000822,
+      "p95": 10.326708000000508,
+      "planMs": 2.8599164999999998,
+      "collectMs": 6.152917,
+      "encodeMs": 0.024104
+    },
+    "multi/native-js": {
+      "n": 24,
+      "median": 5.067604000000756,
+      "p95": 6.711999999999534,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "multi/neon-federated": {
+      "n": 24,
+      "median": 8.413541999999325,
+      "p95": 8.939457999998922,
+      "planMs": 3.0700415,
+      "collectMs": 5.142104,
+      "encodeMs": 0.025729000000000002
+    },
+    "multi/neon-scan": {
+      "n": 24,
+      "median": 9.711145500000384,
+      "p95": 10.287749999999505,
+      "planMs": 3.1400414999999997,
+      "collectMs": 6.327291,
+      "encodeMs": 0.026854
+    },
+    "ranking-db/child-federated": {
+      "n": 24,
+      "median": 16.178562000000056,
+      "p95": 16.836957999999868,
+      "planMs": 1.6810625,
+      "collectMs": 14.269417,
+      "encodeMs": 0.026687500000000003
+    },
+    "ranking-db/child-scan": {
+      "n": 24,
+      "median": 20.954811999999947,
+      "p95": 21.491250000000036,
+      "planMs": 1.946396,
+      "collectMs": 18.743584,
+      "encodeMs": 0.0316455
+    },
+    "ranking-db/child-snapshot": {
+      "n": 24,
+      "median": 3.1930624999995416,
+      "p95": 3.4519579999996495,
+      "planMs": 2.159854,
+      "collectMs": 0.8264374999999999,
+      "encodeMs": 0.025354500000000002
+    },
+    "ranking-db/http-federated": {
+      "n": 24,
+      "median": 16.448270500000035,
+      "p95": 16.97841699999981,
+      "planMs": 1.589563,
+      "collectMs": 14.157666500000001,
+      "encodeMs": 0.02575
+    },
+    "ranking-db/http-scan": {
+      "n": 24,
+      "median": 21.427666499999987,
+      "p95": 22.127916999999798,
+      "planMs": 1.787958,
+      "collectMs": 18.972707999999997,
+      "encodeMs": 0.028270999999999998
+    },
+    "ranking-db/native-js": {
+      "n": 24,
+      "median": 11.55368700000031,
+      "p95": 12.151499999999942,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/neon-federated": {
+      "n": 24,
+      "median": 16.09439550000002,
+      "p95": 16.932042000000365,
+      "planMs": 1.804708,
+      "collectMs": 14.1274585,
+      "encodeMs": 0.029083499999999998
+    },
+    "ranking-db/neon-scan": {
+      "n": 24,
+      "median": 21.120958500000143,
+      "p95": 21.45724999999993,
+      "planMs": 2.0155625,
+      "collectMs": 18.908417,
+      "encodeMs": 0.0315835
+    },
+    "ranking-db/relate-child-scan": {
+      "n": 24,
+      "median": 135.12639599999966,
+      "p95": 136.95175000000017,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/relate-http-scan": {
+      "n": 24,
+      "median": 135.92979150000065,
+      "p95": 161.7642080000005,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/relate-neon-scan": {
+      "n": 24,
+      "median": 135.92233300000044,
+      "p95": 138.9677499999998,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/relate-postgres": {
+      "n": 24,
+      "median": 105.30435450000004,
+      "p95": 111.34579200000007,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-file/child-federated": {
+      "n": 24,
+      "median": 4.018916999999874,
+      "p95": 4.6707500000002256,
+      "planMs": 1.9658539999999998,
+      "collectMs": 1.858875,
+      "encodeMs": 0.0175625
+    },
+    "ranking-file/child-scan": {
+      "n": 24,
+      "median": 4.395041499999934,
+      "p95": 4.661959000000024,
+      "planMs": 2.1985,
+      "collectMs": 1.9363329999999999,
+      "encodeMs": 0.019208
+    },
+    "ranking-file/child-snapshot": {
+      "n": 24,
+      "median": 3.311500000000251,
+      "p95": 3.844959000000017,
+      "planMs": 1.9944374999999999,
+      "collectMs": 1.0969795,
+      "encodeMs": 0.018708000000000002
+    },
+    "ranking-file/http-federated": {
+      "n": 24,
+      "median": 4.654292000000169,
+      "p95": 5.197165999999925,
+      "planMs": 2.057375,
+      "collectMs": 1.860042,
+      "encodeMs": 0.0176665
+    },
+    "ranking-file/http-scan": {
+      "n": 24,
+      "median": 4.6394585000002735,
+      "p95": 5.165665999999874,
+      "planMs": 2.0373545,
+      "collectMs": 1.827792,
+      "encodeMs": 0.018021000000000002
+    },
+    "ranking-file/native-js": {
+      "n": 24,
+      "median": 4.396062499999971,
+      "p95": 5.181166000000303,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-file/neon-federated": {
+      "n": 24,
+      "median": 4.398187499999949,
+      "p95": 4.783542000000125,
+      "planMs": 2.289625,
+      "collectMs": 1.936896,
+      "encodeMs": 0.020354
+    },
+    "ranking-file/neon-scan": {
+      "n": 24,
+      "median": 4.42745849999983,
+      "p95": 4.843166999999994,
+      "planMs": 2.339792,
+      "collectMs": 1.9471875,
+      "encodeMs": 0.0208755
+    },
+    "selective/child-federated": {
+      "n": 24,
+      "median": 5.91229149999981,
+      "p95": 6.7117920000000595,
+      "planMs": 2.7415624999999997,
+      "collectMs": 2.919313,
+      "encodeMs": 0.0051459999999999995
+    },
+    "selective/child-scan": {
+      "n": 24,
+      "median": 6.19177050000053,
+      "p95": 6.875165999999808,
+      "planMs": 3.0145,
+      "collectMs": 3.0483335,
+      "encodeMs": 0.0058955
+    },
+    "selective/child-snapshot": {
+      "n": 24,
+      "median": 3.8063120000006165,
+      "p95": 4.363957999999911,
+      "planMs": 2.9627505000000003,
+      "collectMs": 0.6675625,
+      "encodeMs": 0.005520499999999999
+    },
+    "selective/http-federated": {
+      "n": 24,
+      "median": 6.518333499999244,
+      "p95": 7.052459000000454,
+      "planMs": 2.8722085,
+      "collectMs": 3.0508955,
+      "encodeMs": 0.0052085
+    },
+    "selective/http-scan": {
+      "n": 24,
+      "median": 6.467791999999463,
+      "p95": 7.37041599999975,
+      "planMs": 2.841354,
+      "collectMs": 2.9324375,
+      "encodeMs": 0.005479
+    },
+    "selective/native-js": {
+      "n": 24,
+      "median": 1.4017494999998235,
+      "p95": 1.5609589999985474,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "selective/neon-federated": {
+      "n": 24,
+      "median": 6.324437499999476,
+      "p95": 7.360791999999492,
+      "planMs": 3.0943955,
+      "collectMs": 3.0760205000000003,
+      "encodeMs": 0.007187000000000001
+    },
+    "selective/neon-scan": {
+      "n": 24,
+      "median": 6.397270500000559,
+      "p95": 7.489790999999968,
+      "planMs": 3.1491040000000003,
+      "collectMs": 3.0052499999999998,
+      "encodeMs": 0.0079795
+    }
+  },
+  "large": {
+    "bulk/child-federated": {
+      "n": 24,
+      "median": 77.57387500000186,
+      "p95": 78.41324999999779,
+      "planMs": 1.7392295,
+      "collectMs": 60.089416,
+      "encodeMs": 4.3931875
+    },
+    "bulk/child-scan": {
+      "n": 24,
+      "median": 193.98222900000474,
+      "p95": 195.62895800000115,
+      "planMs": 1.8545,
+      "collectMs": 176.72387500000002,
+      "encodeMs": 4.4177705
+    },
+    "bulk/child-snapshot": {
+      "n": 24,
+      "median": 23.494083499994304,
+      "p95": 24.330999999991036,
+      "planMs": 2.2426665,
+      "collectMs": 5.830563,
+      "encodeMs": 4.399
+    },
+    "bulk/http-federated": {
+      "n": 24,
+      "median": 79.0658334999971,
+      "p95": 80.94999999999709,
+      "planMs": 1.69,
+      "collectMs": 60.58464550000001,
+      "encodeMs": 4.3572915000000005
+    },
+    "bulk/http-scan": {
+      "n": 24,
+      "median": 195.18260449999798,
+      "p95": 196.9762919999921,
+      "planMs": 1.8429790000000001,
+      "collectMs": 176.55877049999998,
+      "encodeMs": 4.397354
+    },
+    "bulk/native-js": {
+      "n": 24,
+      "median": 71.75343749999956,
+      "p95": 77.70737499999814,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "bulk/neon-federated": {
+      "n": 24,
+      "median": 76.10216650000075,
+      "p95": 78.69474999999511,
+      "planMs": 1.6975414999999998,
+      "collectMs": 60.798229500000005,
+      "encodeMs": 4.533958
+    },
+    "bulk/neon-scan": {
+      "n": 24,
+      "median": 191.8292079999992,
+      "p95": 194.18187500000204,
+      "planMs": 1.884187,
+      "collectMs": 176.6505835,
+      "encodeMs": 4.537521
+    },
+    "control/child-federated": {
+      "n": 24,
+      "median": 0.19229099999938626,
+      "p95": 0.26858399999946414,
+      "planMs": 0.1237915,
+      "collectMs": 0.0133125,
+      "encodeMs": 0.0022500000000000003
+    },
+    "control/child-scan": {
+      "n": 24,
+      "median": 0.21243700000013632,
+      "p95": 0.2794579999990674,
+      "planMs": 0.138208,
+      "collectMs": 0.014374999999999999,
+      "encodeMs": 0.0024795
+    },
+    "control/child-snapshot": {
+      "n": 24,
+      "median": 0.21599999999943975,
+      "p95": 0.44950000000062573,
+      "planMs": 0.14456249999999998,
+      "collectMs": 0.014062499999999999,
+      "encodeMs": 0.0025
+    },
+    "control/http-federated": {
+      "n": 24,
+      "median": 0.6385414999995191,
+      "p95": 0.9353329999994457,
+      "planMs": 0.1270625,
+      "collectMs": 0.0141875,
+      "encodeMs": 0.0025624999999999997
+    },
+    "control/http-scan": {
+      "n": 24,
+      "median": 0.6052079999999478,
+      "p95": 0.9064589999998134,
+      "planMs": 0.1378335,
+      "collectMs": 0.014083,
+      "encodeMs": 0.0026249999999999997
+    },
+    "control/native-js": {
+      "n": 24,
+      "median": 0.00381300000117335,
+      "p95": 0.0054579999996349216,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "control/neon-federated": {
+      "n": 24,
+      "median": 0.23308349999933853,
+      "p95": 0.4142499999998108,
+      "planMs": 0.1815835,
+      "collectMs": 0.018437000000000002,
+      "encodeMs": 0.0033335
+    },
+    "control/neon-scan": {
+      "n": 24,
+      "median": 0.22445849999985512,
+      "p95": 0.38075000000026193,
+      "planMs": 0.1705835,
+      "collectMs": 0.01925,
+      "encodeMs": 0.0033959999999999997
+    },
+    "multi/child-federated": {
+      "n": 24,
+      "median": 47.14920849999908,
+      "p95": 48.52883300000394,
+      "planMs": 3.1847709999999996,
+      "collectMs": 43.575146,
+      "encodeMs": 0.0317705
+    },
+    "multi/child-scan": {
+      "n": 24,
+      "median": 52.31479149999723,
+      "p95": 54.02974999999424,
+      "planMs": 3.2151045,
+      "collectMs": 48.8147915,
+      "encodeMs": 0.0317295
+    },
+    "multi/child-snapshot": {
+      "n": 24,
+      "median": 13.089395999999397,
+      "p95": 14.186874999999418,
+      "planMs": 3.2946875,
+      "collectMs": 9.4699375,
+      "encodeMs": 0.0300415
+    },
+    "multi/http-federated": {
+      "n": 24,
+      "median": 47.35697950000031,
+      "p95": 49.65149999999994,
+      "planMs": 3.174187,
+      "collectMs": 43.260771000000005,
+      "encodeMs": 0.027520999999999997
+    },
+    "multi/http-scan": {
+      "n": 24,
+      "median": 53.16106249999939,
+      "p95": 54.69075000000157,
+      "planMs": 3.196354,
+      "collectMs": 48.967187499999994,
+      "encodeMs": 0.028790999999999997
+    },
+    "multi/native-js": {
+      "n": 24,
+      "median": 42.57427100000132,
+      "p95": 46.32108299999527,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "multi/neon-federated": {
+      "n": 24,
+      "median": 47.004478999999264,
+      "p95": 48.107708000003186,
+      "planMs": 3.2445000000000004,
+      "collectMs": 43.4860625,
+      "encodeMs": 0.0314795
+    },
+    "multi/neon-scan": {
+      "n": 24,
+      "median": 52.35220850000405,
+      "p95": 53.69408300000214,
+      "planMs": 3.237125,
+      "collectMs": 48.681896,
+      "encodeMs": 0.0333755
+    },
+    "ranking-db/child-federated": {
+      "n": 24,
+      "median": 62.61756249999962,
+      "p95": 64.47475000000122,
+      "planMs": 1.865521,
+      "collectMs": 60.413895999999994,
+      "encodeMs": 0.033125
+    },
+    "ranking-db/child-scan": {
+      "n": 24,
+      "median": 182.2161670000005,
+      "p95": 188.08854200000133,
+      "planMs": 2.0456459999999996,
+      "collectMs": 179.6989165,
+      "encodeMs": 0.032688
+    },
+    "ranking-db/child-snapshot": {
+      "n": 24,
+      "median": 7.958562999999231,
+      "p95": 8.32025000000067,
+      "planMs": 2.5590415,
+      "collectMs": 5.0831669999999995,
+      "encodeMs": 0.0311875
+    },
+    "ranking-db/http-federated": {
+      "n": 24,
+      "median": 63.23029150000002,
+      "p95": 64.97554200000013,
+      "planMs": 1.863604,
+      "collectMs": 60.585562499999995,
+      "encodeMs": 0.031521
+    },
+    "ranking-db/http-scan": {
+      "n": 24,
+      "median": 182.8952294999999,
+      "p95": 186.40770799999882,
+      "planMs": 2.037708,
+      "collectMs": 180.029,
+      "encodeMs": 0.0286035
+    },
+    "ranking-db/native-js": {
+      "n": 24,
+      "median": 68.04262499999822,
+      "p95": 71.06033399999978,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/neon-federated": {
+      "n": 24,
+      "median": 62.61881249999897,
+      "p95": 63.77137500000026,
+      "planMs": 1.8349164999999998,
+      "collectMs": 60.5385415,
+      "encodeMs": 0.033812
+    },
+    "ranking-db/neon-scan": {
+      "n": 24,
+      "median": 182.32954149999932,
+      "p95": 183.83216700000048,
+      "planMs": 2.1032705,
+      "collectMs": 180.0153125,
+      "encodeMs": 0.0340415
+    },
+    "ranking-db/relate-child-scan": {
+      "n": 24,
+      "median": 7867.50454150002,
+      "p95": 12956.847417000099,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/relate-http-scan": {
+      "n": 24,
+      "median": 6219.023562499991,
+      "p95": 13646.654290999984,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/relate-neon-scan": {
+      "n": 24,
+      "median": 6194.7094995000225,
+      "p95": 10982.957291999948,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-db/relate-postgres": {
+      "n": 24,
+      "median": 3835.3074794999848,
+      "p95": 5008.412459000014,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-file/child-federated": {
+      "n": 24,
+      "median": 18.883520999999746,
+      "p95": 19.53662500000064,
+      "planMs": 2.4295415,
+      "collectMs": 16.1291455,
+      "encodeMs": 0.023896
+    },
+    "ranking-file/child-scan": {
+      "n": 24,
+      "median": 18.89245799999844,
+      "p95": 20.267916999997396,
+      "planMs": 2.3676459999999997,
+      "collectMs": 16.167042,
+      "encodeMs": 0.023
+    },
+    "ranking-file/child-snapshot": {
+      "n": 24,
+      "median": 10.400604500002373,
+      "p95": 10.855458999998518,
+      "planMs": 2.335688,
+      "collectMs": 7.707375,
+      "encodeMs": 0.0237085
+    },
+    "ranking-file/http-federated": {
+      "n": 24,
+      "median": 19.520895500001643,
+      "p95": 20.413958999997703,
+      "planMs": 2.3526035,
+      "collectMs": 16.234333499999998,
+      "encodeMs": 0.021166499999999998
+    },
+    "ranking-file/http-scan": {
+      "n": 24,
+      "median": 19.470312499997817,
+      "p95": 19.988875000002736,
+      "planMs": 2.326292,
+      "collectMs": 16.192646,
+      "encodeMs": 0.0211045
+    },
+    "ranking-file/native-js": {
+      "n": 24,
+      "median": 30.639978999995947,
+      "p95": 33.17712500000198,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "ranking-file/neon-federated": {
+      "n": 24,
+      "median": 18.762792000001355,
+      "p95": 19.97095800000534,
+      "planMs": 2.474021,
+      "collectMs": 16.023374500000003,
+      "encodeMs": 0.023687
+    },
+    "ranking-file/neon-scan": {
+      "n": 24,
+      "median": 19.093416499996238,
+      "p95": 20.03870900000038,
+      "planMs": 2.4812295000000004,
+      "collectMs": 16.3228335,
+      "encodeMs": 0.025187
+    },
+    "selective/child-federated": {
+      "n": 24,
+      "median": 16.03485400000136,
+      "p95": 17.09308299999975,
+      "planMs": 3.1474374999999997,
+      "collectMs": 12.645854499999999,
+      "encodeMs": 0.0082295
+    },
+    "selective/child-scan": {
+      "n": 24,
+      "median": 16.188666499998362,
+      "p95": 17.49025000000256,
+      "planMs": 3.297771,
+      "collectMs": 12.788125,
+      "encodeMs": 0.0085625
+    },
+    "selective/child-snapshot": {
+      "n": 24,
+      "median": 7.585000000002765,
+      "p95": 8.28333399999974,
+      "planMs": 3.5909795,
+      "collectMs": 3.7175000000000002,
+      "encodeMs": 0.007813
+    },
+    "selective/http-federated": {
+      "n": 24,
+      "median": 16.61322950000249,
+      "p95": 17.532208000004175,
+      "planMs": 3.147875,
+      "collectMs": 12.802354000000001,
+      "encodeMs": 0.008667000000000001
+    },
+    "selective/http-scan": {
+      "n": 24,
+      "median": 16.782395500002167,
+      "p95": 18.01241700000537,
+      "planMs": 3.2076664999999998,
+      "collectMs": 12.855895499999999,
+      "encodeMs": 0.007875
+    },
+    "selective/native-js": {
+      "n": 24,
+      "median": 3.2540625000001455,
+      "p95": 3.4485830000048736,
+      "planMs": null,
+      "collectMs": null,
+      "encodeMs": null
+    },
+    "selective/neon-federated": {
+      "n": 24,
+      "median": 16.21808299999975,
+      "p95": 17.134541999999783,
+      "planMs": 3.3861455,
+      "collectMs": 12.7989785,
+      "encodeMs": 0.008812500000000001
+    },
+    "selective/neon-scan": {
+      "n": 24,
+      "median": 16.381062500000553,
+      "p95": 17.421082999993814,
+      "planMs": 3.424875,
+      "collectMs": 12.767833,
+      "encodeMs": 0.010333499999999999
+    }
+  }
+}

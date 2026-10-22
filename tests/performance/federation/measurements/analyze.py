@@ -10,12 +10,13 @@ import json
 import math
 from pathlib import Path
 import statistics
+import subprocess
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parent
 runs = {name: json.loads(gzip.decompress((ROOT / f'{name}.json.gz').read_bytes()))
         for name in ['small', 'medium', 'large']}
 summary = {}
@@ -38,8 +39,8 @@ for name, run in runs.items():
             stage_values = [s[stage] for s in samples if stage in s]
             entry[stage] = statistics.median(stage_values) if stage_values else None
         summary[name][f'{scenario}/{path}'] = entry
-        fmt = lambda value: '—' if value is None else f'{value:.2f}'
-        lines += [f'| {scenario} | {path} | {len(values)} | {median:.2f} | {fmt(p95)} | {fmt(entry["planMs"])} | {fmt(entry["collectMs"])} |']
+        fmt = lambda value: '—' if value is None else (f'{value:.4f}' if value < .01 else f'{value:.2f}')
+        lines += [f'| {scenario} | {path} | {len(values)} | {fmt(median)} | {fmt(p95)} | {fmt(entry["planMs"])} | {fmt(entry["collectMs"])} |']
     lines += ['', '### Within-block contrasts', '', 'Positive ratio means the numerator took longer. These are descriptive paired observations, not causal effects.', '',
               '| Scenario | Numerator / denominator | Median per-block ratio | Median per-block difference ms |', '| --- | --- | ---: | ---: |']
     for scenario in ['ranking-db', 'multi']:
@@ -74,7 +75,7 @@ for ax, scenario in zip(axes.flat, ['control','ranking-db','ranking-file','multi
     values = [summary['large'][f'{scenario}/{p}']['median'] for p in paths]
     ax.barh(labels, values, color=colors)
     ax.invert_yaxis(); ax.set_xscale('log'); ax.set_xlabel('Median request ms (log scale)'); ax.set_title(scenario)
-    for i,value in enumerate(values): ax.text(value*1.08,i,f'{value:.2f}',va='center',fontsize=8)
+    for i,value in enumerate(values): ax.text(value*1.08,i,(f'{value:.4f}' if value < .01 else f'{value:.2f}'),va='center',fontsize=8)
     ax.set_xlim(max(min(values)*.5,.0001),max(values)*2)
 fig.suptitle('Whole-query execution: 12,500 customers / 1M events\nLive sources except explicit snapshot; 24 warm requests per path. Native control is a JS constant.', fontsize=14)
 fig.savefig(ROOT/'whole-query.png',dpi=180)
@@ -92,3 +93,5 @@ for ax,(name,run) in zip(axes,runs.items()):
 fig.suptitle('Connector replacement inside the existing public Relate query\nAuthorization, evidence and revalidation retained; DataFusion adapters use scan mode.', fontsize=13)
 fig.savefig(ROOT/'public-runtime.png',dpi=180)
 plt.close(fig)
+
+subprocess.run(['pnpm', 'exec', 'prettier', '--write', str(ROOT/'tables.md'), str(ROOT/'summary.json')], cwd=ROOT.resolve().parents[3], check=True)
