@@ -25,6 +25,7 @@ import type {
   ObjectId,
   ObjectRegistry,
   PropertyNames,
+  ComputedPropertyNames,
   Receipt,
   RelationshipDefinition,
   RelationshipRegistry,
@@ -50,6 +51,8 @@ export type {
   QueryResult,
   ReadOptions,
 } from './operations.js';
+
+export { AnalyticalValueError } from './analytics/values.js';
 
 export { decodeComputed } from './consumer-computed.js';
 export type { DecodedComputed } from './consumer-computed.js';
@@ -257,21 +260,45 @@ type Edges<R extends RelationshipRegistry, O extends ObjectDefinition> = {
 
 type Traversals<R extends RelationshipRegistry, O extends ObjectDefinition> = {
   readonly [E in Edges<R, O> as E['traversal']['name']]: {
-    <K extends PropertyNames<E['target']> = PropertyNames<E['target']>>(
+    <
+      K extends Exclude<
+        PropertyNames<E['target']>,
+        ComputedPropertyNames<E['target']>
+      > = Exclude<
+        PropertyNames<E['target']>,
+        ComputedPropertyNames<E['target']>
+      >,
+    >(
       id: ObjectId<O['id']>,
       options: (E['traversal']['cardinality'] extends 'many'
-        ? CollectionReadOptions<E['target'], K, 'full'>
+        ? Omit<CollectionReadOptions<E['target'], K, 'full'>, 'where'> & {
+            readonly where?: Omit<
+              NonNullable<CollectionReadOptions<E['target']>['where']>,
+              ComputedPropertyNames<E['target']>
+            >;
+          }
         : ReadControlOptions<K, 'full'>) & { readonly evidence: 'full' },
     ): E['traversal']['cardinality'] extends 'many'
       ? QueryResult<ObjectRecord<E['target'], K, 'full'>>
       : Promise<ObjectResult<E['target'], K, 'full'>>;
     <
-      K extends PropertyNames<E['target']> = PropertyNames<E['target']>,
+      K extends Exclude<
+        PropertyNames<E['target']>,
+        ComputedPropertyNames<E['target']>
+      > = Exclude<
+        PropertyNames<E['target']>,
+        ComputedPropertyNames<E['target']>
+      >,
       M extends EvidenceMode = 'compact',
     >(
       id: ObjectId<O['id']>,
       options?: E['traversal']['cardinality'] extends 'many'
-        ? CollectionReadOptions<E['target'], K, M>
+        ? Omit<CollectionReadOptions<E['target'], K, M>, 'where'> & {
+            readonly where?: Omit<
+              NonNullable<CollectionReadOptions<E['target']>['where']>,
+              ComputedPropertyNames<E['target']>
+            >;
+          }
         : ReadControlOptions<K, M>,
     ): E['traversal']['cardinality'] extends 'many'
       ? QueryResult<ObjectRecord<E['target'], K, M | 'compact'>>

@@ -639,22 +639,31 @@ parsing must never round a wide integer through a JavaScript number. No
 parser-specific syntax tree crosses this boundary.
 
 Result encoding validates int32/int64 bounds, finite float64 values, exact
-boolean/string types and canonical UTC timestamp precision. Int64 JSON is always
-a decimal string; scalar decoding returns bigint. Millisecond timestamp decoding
+boolean/string types and canonical UTC timestamp precision. Portable strings
+exclude NUL; canonical int64 strings exclude `'-0'`. Int64 JSON is always a
+decimal string; scalar decoding returns bigint. Millisecond timestamp decoding
 returns Date, while microsecond decoding preserves the canonical string. The
 same codecs own runtime result validation and consumer decoding. Null parameters
 are rejected; SQL null literals have their own restricted syntax. Invalid values
 raise a sanitized error that contains neither the value nor provider details.
 
-`relate/consumer` exports `decodeComputed(result)` and `DecodedComputed<R>`. The
-input is a get result or an individual query record carrying `data` and
-`meta.computed`. The output is a separate object containing only own, present
-computed fields, decoded with those logical types. It does not alter data,
-status, IDs or evidence in the input. Both compact and full metadata are
-supported. Missing/forbidden/unavailable values remain omitted; null remains
-null. A not-found result or absent computed metadata returns an empty object.
-Ordinary fields, including ordinary int64 strings, are not part of the decoded
-bag. Pages are decoded record by record.
+Aggregates execute in the backend. `COUNT`, integer `SUM`, and `MIN`/`MAX` of
+integer, boolean, string and timestamp values are identical on every supported
+backend: strings order by UTF-8 bytes and timestamps by instant. `AVG` and
+float64 `SUM` use the backend's floating-point arithmetic. Results can differ
+between backends in the last digits, and can vary with row order or parallel
+execution within one backend.
+
+`relate/consumer` exports `decodeComputed(result)`, `DecodedComputed<R>` and
+`AnalyticalValueError`. Typed results constrain the decoded bag to selected
+declared calculations and caller aliases. The input is a get result or an
+individual query record carrying `data` and `meta.computed`. The output is a
+separate object containing only own, present computed fields, decoded with those
+logical types. It does not alter data, status, IDs or evidence in the input.
+Both compact and full metadata are supported. Missing/forbidden/unavailable
+values remain omitted; null remains null. A not-found result or absent computed
+metadata returns an empty object. Ordinary fields, including ordinary int64
+strings, are not part of the decoded bag. Pages are decoded record by record.
 
 Malformed present scalars and their type metadata throw `AnalyticalValueError`;
 no partial bag is returned and no value is included in the error. Type entries
@@ -678,6 +687,13 @@ Glossary:
   that object's dependency is unavailable; it must not widen another aggregate.
 - **Plan**: a connector-owned `PreparedPlan`, created from an authorized query.
   It belongs to its resource and binding generation; it is never caller SQL.
+
+`validateAuthorizedDatasetQuery(query, declaredColumns)` from
+`relate/connectors` checks shared logical query invariants: mapped column names,
+key indexes, slot widths and types, aggregate forms, and predicate
+operators/arity. Empty slots are allowed for parameter budgeting; connectors
+require nonempty executable plans separately. Physical identifier quoting, value
+encoding, SQL generation and backend execution remain connector-owned.
 
 `relate/connectors` exports `AnalyticalConnector`, `AnalyticalResource`,
 `AnalyticalConnection`, and their execution types. The SQLite and PostgreSQL
@@ -870,3 +886,12 @@ invent execution time. Observers cannot fail the query or block cleanup. These
 callbacks contain only a stage and duration, never SQL, values, aliases or
 physical connection details. Runtime activity aggregation and Inspector display
 remain implementation work.
+
+Traversal defaults select ordinary properties even when the target declares
+calculations. Traversal selection and filters exclude calculated names in the
+typed facade; explicit calculated requests remain unsupported at runtime.
+
+Analytical connectors may publish `limits.maxConcurrentStatements`. Hosts clamp
+admission to that capacity and coordinate it across runtimes borrowing a
+connection; callers do not configure connector capacity. A missing capability
+limit leaves the host's finite concurrency limit in force.

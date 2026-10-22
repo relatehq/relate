@@ -4,7 +4,7 @@ import {
   optionDescriptions,
   optionSummaries,
   type ReadOperation,
-} from './reads/index.js';
+} from '../reads/index.js';
 
 /** How to call one read operation, independent of graph and actor. */
 export interface OperationContract {

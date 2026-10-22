@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest';
+import { onTestFinished, expect, it, vi } from 'vitest';
 import { bind, defineApp } from 'relate';
 import type { AnalyticalLimits } from 'relate/analytics';
 import type {
@@ -16,12 +16,6 @@ import {
   createAnalyticalConnector,
 } from '../../../tests/support/analytical-connector.js';
 import { testCreation } from '../../../tests/support/activity.js';
-
-const cleanup: (() => Promise<void>)[] = [];
-
-afterEach(async () => {
-  for (const close of cleanup.splice(0).reverse()) await close();
-});
 
 function deferred() {
   let resolve!: () => void;
@@ -117,7 +111,7 @@ async function app(
     }),
   );
 
-  cleanup.push(() => runtime.close());
+  onTestFinished(() => runtime.close());
   const principal = {
     id: 'ana',
     roles: ['reader', 'analyst', 'private'],

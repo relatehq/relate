@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from 'vitest';
+import { onTestFinished, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   bind,
@@ -25,12 +25,6 @@ import {
   analyticalGraphSchema,
   createAnalyticalConnector,
 } from '../../../tests/support/analytical-connector.js';
-
-const cleanup: (() => Promise<void>)[] = [];
-
-afterEach(async () => {
-  for (const close of cleanup.splice(0)) await close();
-});
 
 async function app(options: {
   limits: AnalyticalLimits;
@@ -207,7 +201,7 @@ async function app(options: {
     }),
   );
 
-  cleanup.push(() => runtime.close());
+  onTestFinished(() => runtime.close());
   await runtime.host.adopt(Owner, 'owner-one');
 
   // Make only the authorization dependency stale; the customer remains fresh.
@@ -241,8 +235,8 @@ async function app(options: {
 
 const request = { select: ['count'], stale: 'allow' } as const;
 const exceeded = {
-  code: 'invalid-request',
-  issues: [{ problem: 'not-supported' }],
+  code: 'resource-exhausted',
+  issues: [{ problem: 'limit-exceeded' }],
 };
 
 it.each(['enabled', 'disabled'] as const)(

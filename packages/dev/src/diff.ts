@@ -66,6 +66,10 @@ function displayName(
   ...manifests: readonly (Manifest | null)[]
 ): string {
   for (const manifest of manifests) {
+    const dataset = manifest?.datasets?.find((entry) => entry.id === id);
+
+    if (dataset) return dataset.apiName;
+
     const object = manifest?.objects.find((o) => o.id === id);
 
     if (object) return object.apiName;

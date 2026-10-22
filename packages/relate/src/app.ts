@@ -45,14 +45,24 @@ type BindingOptions<T = SourceBinding> = T extends SourceBinding
     }
   : never;
 
+function isDataset(
+  source: SourceDefinition | DatasetDefinition,
+): source is DatasetDefinition {
+  return 'kind' in source && source.kind === 'dataset';
+}
+
 /** Bind a dataset to a selected analytical resource; unspecified columns retain their names. */
-export function bind<const D extends DatasetDefinition>(
+export function bind<
+  const D extends DatasetDefinition,
+  const C extends Readonly<Record<string, unknown>> = {},
+>(
   dataset: D,
   resource: AnalyticalResource,
   options?: {
-    readonly columns?: Partial<
-      Record<Extract<keyof NoInfer<D>['columns'], string>, string>
-    >;
+    readonly columns?: C & { readonly [K in keyof C]-?: string } & Record<
+        Exclude<keyof C, Extract<keyof NoInfer<D>['columns'], string>>,
+        never
+      >;
   },
 ): DatasetBinding;
 
@@ -90,7 +100,7 @@ export function bind(
     readonly columns?: Readonly<Record<string, string | undefined>>;
   },
 ): Binding {
-  if ('kind' in source) {
+  if (isDataset(source)) {
     if (
       !resource ||
       typeof resource !== 'object' ||
@@ -196,6 +206,8 @@ export interface AppBindings<
   readonly store?: ObservationStore;
   readonly clock?: () => number;
   readonly actionTimeoutMs?: number;
+  /** Maximum operation drain before close rejects and app disposers run. Default 5 seconds. */
+  readonly shutdownTimeoutMs?: number;
   /** Host-owned analytical preparation, execution and admission limits; callers may only tighten deadlines. */
   readonly analytics?: AnalyticalLimits;
   readonly cursorKey?: Uint8Array;

@@ -1,10 +1,14 @@
-import type { LogicalType, ResultType, SourceSpan } from 'relate/analytics';
+import type {
+  LogicalType,
+  ComputedResultType,
+  SourceSpan,
+} from 'relate/analytics';
 import type { ResolvedAggregate, TypedValue } from 'relate/connectors';
 
 export interface AnalyticalProperty {
   readonly id: string;
   readonly name: string;
-  readonly schema?: ResultType;
+  readonly schema?: ComputedResultType;
   readonly calculated: boolean;
   readonly readable: boolean;
 }
@@ -13,7 +17,7 @@ export interface AnalyticalColumn {
   readonly id: string;
   readonly name: string;
   readonly description?: string;
-  readonly schema: ResultType;
+  readonly schema: ComputedResultType;
   readonly readable: boolean;
 }
 

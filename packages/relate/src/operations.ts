@@ -59,6 +59,12 @@ type TypedMeta<M, K extends string> = M extends { fields: unknown }
       readonly fields?: { readonly [N in K]?: FieldEvidence };
     };
 
+type DeclaredComputedMeta<M, K extends string> = M extends unknown
+  ? Omit<M, 'computed'> & {
+      readonly computed?: { readonly [N in K]: ComputedResultType };
+    }
+  : never;
+
 /** Read methods guarantee full only for a required full evidence option. */
 export type ObjectResult<
   O extends ObjectDefinition,
@@ -70,7 +76,10 @@ export type ObjectResult<
       readonly status: 'ok';
       readonly id: ObjectId<O['id']>;
       readonly data: ObjectData<O, K>;
-      readonly meta: TypedMeta<Extract<ReadMeta, { evidence: E }>, K>;
+      readonly meta: DeclaredComputedMeta<
+        TypedMeta<Extract<ReadMeta, { evidence: E }>, K>,
+        Extract<K, ComputedPropertyNames<O>>
+      >;
     };
 
 export type PageOptions<
@@ -204,6 +213,15 @@ export type ComputeOptions<
     >;
 };
 
+type CallerComputedMeta<M, C extends Expressions> = M extends unknown
+  ? Omit<M, 'computed'> & {
+      readonly computed: (M extends { readonly computed?: infer D }
+        ? NonNullable<D>
+        : {}) & { readonly [A in keyof C]: ComputedResultType };
+      readonly fields?: { readonly [A in keyof C]?: FieldEvidence };
+    }
+  : never;
+
 export type WithComputed<R, C extends Expressions> = keyof C extends never
   ? R
   : R extends { readonly data: infer D; readonly meta: infer M }
@@ -211,9 +229,6 @@ export type WithComputed<R, C extends Expressions> = keyof C extends never
         readonly data: D & {
           readonly [A in keyof C]?: string | number | boolean | null;
         };
-        readonly meta: M & {
-          readonly computed: { readonly [A in keyof C]: ComputedResultType };
-          readonly fields?: { readonly [A in keyof C]?: FieldEvidence };
-        };
+        readonly meta: CallerComputedMeta<M, C>;
       }
     : R;

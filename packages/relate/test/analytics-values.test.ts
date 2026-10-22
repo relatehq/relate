@@ -6,7 +6,7 @@ import {
   encodeAnalyticalValue,
   parseAnalyticalValue,
 } from 'relate/analytics';
-import type { LogicalType, ResultType } from 'relate/analytics';
+import type { LogicalType, ComputedResultType } from 'relate/analytics';
 import { scalarCases } from '../../../tests/support/sql-corpus/scalars.js';
 
 it.each(scalarCases)(
@@ -79,6 +79,8 @@ it.each([
   [{ type: 'int64' }, 9007199254740992],
   [{ type: 'int64' }, '1.0'],
   [{ type: 'int64' }, '01'],
+  [{ type: 'int64' }, '-0'],
+  [{ type: 'string' }, 'nul\0key'],
   [{ type: 'int64' }, true],
   [{ type: 'int32' }, 2147483648n],
   [{ type: 'int32' }, -2147483649],
@@ -145,7 +147,7 @@ it('decodes wire values exactly and rejects unknown result types', () => {
     decodeAnalyticalValue('private value', {
       type: 'unknown',
       nullable: false,
-    } as unknown as ResultType),
+    } as unknown as ComputedResultType),
   ).toThrow('Value does not match its analytical type');
 });
 
@@ -156,7 +158,7 @@ it.each([
   { type: 'timestamp', precision: 9, nullable: true },
   { type: 'int64' },
 ])('rejects invalid type metadata even for null %#', (result) => {
-  expect(() => decodeAnalyticalValue(null, result as ResultType)).toThrow(
-    AnalyticalValueError,
-  );
+  expect(() =>
+    decodeAnalyticalValue(null, result as ComputedResultType),
+  ).toThrow(AnalyticalValueError);
 });

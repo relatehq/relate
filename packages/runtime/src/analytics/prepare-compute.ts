@@ -1,10 +1,13 @@
-import type { ResultType, SqlParser } from 'relate/analytics';
-import { prepareExpression } from './prepare.js';
+import type { ComputedResultType, SqlParser } from 'relate/analytics';
+import { prepareExpression } from './prepare-expression.js';
 import { expressionEntries } from './request.js';
 import type { ComputeRequest, PreparationLimits } from './request.js';
 import type { ResolvedCalculation } from './execution-types.js';
-import type { ActorAssociations, ResolvedExpression } from './types.js';
-import { AnalyticalPreparationError } from './types.js';
+import type {
+  ActorAssociations,
+  ResolvedExpression,
+} from './expression-types.js';
+import { AnalyticalPreparationError } from './expression-types.js';
 import { beginTiming } from './timings.js';
 import type { TimingCapture } from './timings.js';
 import { captureCalculations } from './activity.js';
@@ -16,20 +19,20 @@ declare const prepared: unique symbol;
 export interface PreparedCompute {
   readonly [prepared]: true;
   readonly dependencies: readonly string[];
-  readonly results: Readonly<Record<string, ResultType>>;
+  readonly results: Readonly<Record<string, ComputedResultType>>;
   /** All inferred types, including filter/order-only declarations. Never projected. */
-  readonly types: Readonly<Record<string, ResultType>>;
+  readonly types: Readonly<Record<string, ComputedResultType>>;
 }
 
 const handles = new WeakMap<PreparedCompute, readonly ResolvedCalculation[]>();
 
 /** Only the analytics executor can recover private resolved state from a handle. */
-export function preparedFields(handle: PreparedCompute) {
+export function preparedFields(handle: PreparedCompute, consume = true) {
   const fields = handles.get(handle);
 
   if (!fields) throw new Error('Unknown or consumed analytical preparation');
 
-  handles.delete(handle);
+  if (consume) handles.delete(handle);
 
   return fields;
 }

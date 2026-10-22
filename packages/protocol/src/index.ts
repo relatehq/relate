@@ -204,7 +204,8 @@ export interface RequestIssue {
     | 'unknown-property'
     | 'unknown-traversal'
     | 'invalid-cursor'
-    | 'not-supported';
+    | 'not-supported'
+    | 'limit-exceeded';
   readonly message: string;
   /** Names the reader may use instead, when that list is useful. */
   readonly accepted?: readonly string[];
@@ -246,7 +247,11 @@ export class ReadError extends Error {
 
   constructor(
     readonly code:
-      'incomplete' | 'invalid-request' | 'unavailable' | 'runtime-retired',
+      | 'incomplete'
+      | 'invalid-request'
+      | 'unavailable'
+      | 'runtime-retired'
+      | 'resource-exhausted',
     details?: ReadErrorDetails,
   ) {
     super(readErrorMessage(code, details));

@@ -73,7 +73,7 @@ export function postgres(options: PostgresOptions): PostgresConnection {
     return resource;
   };
   const analytics = Object.freeze<AnalyticalConnector>({
-    limits: Object.freeze({ maxParameters: 65535 }),
+    limits: Object.freeze({ maxParameters: 65535, maxConcurrentStatements: 4 }),
     describe(resource, input) {
       const resourceSelection = selected(resource);
 
@@ -103,7 +103,7 @@ export function postgres(options: PostgresOptions): PostgresConnection {
 
       return handle;
     },
-    execute(handle, input) {
+    async execute(handle, input) {
       open();
       const plan = plans.get(handle);
 
@@ -112,7 +112,7 @@ export function postgres(options: PostgresOptions): PostgresConnection {
       if (
         !Number.isSafeInteger(input.timeoutMs) ||
         input.timeoutMs < 1 ||
-        input.timeoutMs > 2147423647
+        input.timeoutMs > 2147483647
       )
         throw new Error('Invalid analytical statement timeout');
 

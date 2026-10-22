@@ -77,22 +77,28 @@ unsupported capabilities, invalid identities and conflicting connection
 instances with the same `connectionId` fail startup before schema inspection.
 Selected source and dataset resources can share one connection object.
 
-Node creates one statement queue per analytical connection, shared by all its
-dataset bindings. Every startup inspects every bound dataset through the
-connector's `describe`, including unused datasets. Each declared column must be
-present and advertise its exact logical type and timestamp precision. A
-non-nullable declaration cannot use a nullable physical column; a nullable
-declaration can use a non-nullable physical column. Inspection does not scan
-rows. Driver failures retain their cause internally and expose a sanitized
-startup message. Schema mismatches identify the declared dataset and column.
+Node creates one statement queue per analytical connection, shared by its
+dataset bindings and by other runtimes borrowing the same connection object. The
+effective concurrency is the lesser of the host setting and the connector
+capability limit. Concurrent hosts sharing a connection must use matching
+effective queue settings; retiring one host cancels only its own work. Every
+startup inspects every bound dataset through the connector's `describe`,
+including unused datasets. Each declared column must be present and advertise
+its exact logical type and timestamp precision. A non-nullable declaration
+cannot use a nullable physical column; a nullable declaration can use a
+non-nullable physical column. Inspection does not scan rows. Driver failures
+retain their cause internally and expose a sanitized startup message. Schema
+mismatches identify the declared dataset and column.
 
 The runtime stays private until these asynchronous checks complete. Failure
 retires its queues and releases app resources; close retires queues before
-waiting for operations and before application disposal. Supplied connections
-remain owned by application setup, so multiple dataset bindings do not cause
-multiple connection closes. Explicit custom source bindings may supply
-`connection` to establish shared ownership; otherwise their keyed connector
-object is their identity for conflict detection.
+waiting for operations and before application disposal. `shutdownTimeoutMs`
+(default 5,000 ms) bounds this drain; expiry rejects close and `startApp` still
+runs registered disposers. Arbitrary JavaScript that ignores cancellation cannot
+be forcibly terminated. Supplied connections remain owned by application setup,
+so multiple dataset bindings do not cause multiple connection closes. Explicit
+custom source bindings may supply `connection` to establish shared ownership;
+otherwise their keyed connector object is their identity for conflict detection.
 
 ```mermaid
 flowchart LR
@@ -107,7 +113,11 @@ flowchart LR
 Analytical `get` and ordinary query pages execute selected declared calculations
 and caller `compute` expressions through the bound connector. Queries with
 computed filters or ordering evaluate the full authorized ordinary-filter scope
-before selecting a page, then recheck that page before returning it.
+before selecting a page, then recheck that page before returning it. Every page
+repeats this entire pass: reading 10,000 matches in pages of 25 can require 400
+passes. Candidate freshness is evaluated at each read instant; revalidation
+checks current freshness and permissions with at most eight independent reads in
+flight.
 
 ## Analytical operation limits
 
@@ -172,20 +182,24 @@ reads. Each concurrent operation has its own budget. A consumer `timeoutMs` can
 shorten the host deadline but cannot extend it. Consumers cannot set host limits
 through read options. Activity capture does not affect enforcement.
 
-Exceeding the source budget rejects with `invalid-request` / `not-supported`,
-with guidance to narrow ordinary filters or adjust host configuration. An
-expired deadline rejects with `unavailable`; runtime retirement rejects with
-`runtime-retired`. These failures cannot return stale fallback or partial
-analytical results. Cancellation reaches provider identity and fetch signals;
-providers must honor those signals to stop their own work. Storage and arbitrary
-provider JavaScript cannot be forcibly interrupted. Analytical connector
-cancellation retains its joined cleanup contract.
+Exceeding source, scan or admission budgets rejects with `resource-exhausted` /
+`limit-exceeded`. A narrower ordinary filter does not reduce the population
+scan; indexed filter pushdown is not implemented. An expired deadline rejects
+with `unavailable`; runtime retirement rejects with `runtime-retired`. These
+failures cannot return stale fallback or partial analytical results.
+Cancellation reaches provider identity and fetch signals; providers must honor
+those signals to stop their own work. Storage and arbitrary provider JavaScript
+cannot be forcibly interrupted. Analytical connector cancellation retains its
+joined cleanup contract.
 
-The defaults are safeguards exercised by the retained
-[scope-first capacity and refresh measurements](../../tests/performance/analytical-properties/README.md#retained-measurements).
-Those runs cover 10,000 admitted candidates and 100,000 events with synthetic
-source behavior. They are not evidence that every provider or policy shape
-finishes within a minute; deployments still need their own capacity validation.
+The defaults are finite safeguards, not a promise of capacity or latency.
+Deployments must validate their own provider, policy and data shape; historical
+local measurements are summarized in the
+[benchmark guide](../../tests/performance/analytical-properties/README.md#historical-measurements).
+
+Binding evidence uses a per-runtime HMAC revision. Physical table, connection
+and column names cannot be confirmed by hashing guesses. Revisions remain stable
+within a runtime and change on restart, invalidating its analytical cursors.
 
 ```mermaid
 flowchart LR
@@ -401,3 +415,19 @@ deadline, queued rows are reported as dropped with reason `shutdown`. Borrowed
 stores remain open; close the runtime before closing its store. `startApp` then
 runs registered disposal callbacks. Operation capture is best effort and is
 separate from the feed's atomic publication guarantees.
+
+## Binding ownership
+
+`bindings.ts` validates source and dataset bindings, checks physical schemas and
+constructs runtime analytical bindings with a per-host revision secret.
+`connection-queues.ts` owns shared connection queues and host-specific leases;
+retiring one host cancels only its work. `runtime.ts` coordinates startup and
+shutdown through these interfaces.
+
+```mermaid
+flowchart LR
+  Runtime[Node runtime] --> Bindings[Source and dataset bindings]
+  Bindings --> Queues[Connection queue leases]
+  Bindings --> Connectors[Connector capabilities]
+  Queues --> Queue[Runtime statement queue]
+```

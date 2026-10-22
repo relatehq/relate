@@ -28,6 +28,7 @@ function client(overrides: Partial<StatementClient> = {}): StatementClient {
         : sql.includes('pg_cancel_backend')
           ? [['t']]
           : [],
+    cancel: async () => {},
     end: async () => {},
     destroy: () => {},
     ...overrides,
@@ -157,7 +158,9 @@ it('joins a control request started during primary cleanup and prevents late pub
   const runner = createRunner(settings, (purpose) =>
     purpose === 'control'
       ? client({
-          query: () => controlQuery.promise,
+          cancel: async () => {
+            await controlQuery.promise;
+          },
           end: async () => {
             controlClosed = true;
           },

@@ -2,16 +2,16 @@ export { createStatementQueue, AnalyticalBusyError } from './queue.js';
 export { resolveAnalyticalLimits } from './limits.js';
 export type { StatementQueue, StatementQueueOptions } from './queue.js';
 
-export { prepareExpression } from './prepare.js';
-export { AnalyticalPreparationError } from './types.js';
+export { prepareExpression } from './prepare-expression.js';
+export { AnalyticalPreparationError } from './expression-types.js';
 
 export type {
   ActorAssociations,
   AnalyticalAssociation,
   ResolvedExpression,
-} from './types.js';
+} from './expression-types.js';
 
-export { computeFields } from './execute.js';
+export { computeFields, validatePreparedCapacity } from './execute.js';
 export { AnalyticalIncompleteError } from './execution-types.js';
 
 export type {
@@ -36,9 +36,9 @@ export {
   prepareCompute,
   preparedBindingRevisions,
   authorizeDeclaration,
-} from './prepared.js';
+} from './prepare-compute.js';
 
-export type { PreparedCompute } from './prepared.js';
+export type { PreparedCompute } from './prepare-compute.js';
 
 export type {
   ComputeRequest,
@@ -50,3 +50,5 @@ export { revalidateFields } from './revalidate.js';
 
 export { prepareComputedOrder, computedFilterOperators } from './order.js';
 export type { ComputedPosition } from './order.js';
+
+export type { CalculationCapture } from './activity.js';

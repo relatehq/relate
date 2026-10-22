@@ -32,6 +32,8 @@ export function bindings(
   keyed: SourceResource<ApplicationSourceConnector>,
 ) {
   bind(Events, resource);
+  // @ts-expect-error A present physical column mapping must be a string.
+  bind(Events, resource, { columns: { customerId: undefined } });
   bind(Events, resource, { columns: { customerId: 'customer_id' } });
   // @ts-expect-error mapping names belong to the declared dataset, with no inference widening
   bind(Events, resource, { columns: { customer_id: 'customerId' } });

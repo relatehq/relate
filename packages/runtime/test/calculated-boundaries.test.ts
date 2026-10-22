@@ -157,7 +157,6 @@ function setup(
 }
 
 it.each([
-  ['default selection', {}],
   ['explicit selection', { select: ['label', 'total'] }],
   ['filter', { select: ['label'], where: { total: { gt: '1' } } }],
   [
@@ -191,25 +190,28 @@ it.each([
   },
 );
 
-it('keeps explicitly selected ordinary traversal fields available', async () => {
-  const { runtime, fetch, actor, adopt } = setup(async () => undefined);
+it.each([undefined, ['label'] as const])(
+  'keeps ordinary traversal fields available with selection %s',
+  async (select) => {
+    const { runtime, fetch, actor, adopt } = setup(async () => undefined);
 
-  try {
-    const { parentId } = await adopt();
-    const result = await runtime.traverse(
-      actor,
-      'parent',
-      parentId,
-      'children',
-      { select: ['label'] },
-    );
+    try {
+      const { parentId } = await adopt();
+      const result = await runtime.traverse(
+        actor,
+        'parent',
+        parentId,
+        'children',
+        select ? { select } : {},
+      );
 
-    expect(result).toMatchObject({ data: [{ data: { label: 'ordinary' } }] });
-    expect(JSON.stringify(result)).not.toContain('child.total');
-  } finally {
-    await runtime.drainActivity(1000);
-  }
-});
+      expect(result).toMatchObject({ data: [{ data: { label: 'ordinary' } }] });
+      expect(JSON.stringify(result)).not.toContain('child.total');
+    } finally {
+      await runtime.drainActivity(1000);
+    }
+  },
+);
 
 it('does not include unreadable calculated fields in default selection', async () => {
   const { runtime, actor, adopt } = setup(async () => undefined, true);

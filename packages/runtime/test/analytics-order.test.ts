@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { prepareComputedOrder } from '../src/analytics/index.js';
 import type { ComputedField } from '../src/analytics/index.js';
-import type { AnalyticalScalar, ResultType } from 'relate/analytics';
+import type { AnalyticalScalar, ComputedResultType } from 'relate/analytics';
 
 function fields(value: AnalyticalScalar): Record<string, ComputedField> {
   return {
@@ -91,7 +91,7 @@ it.each([
 ] as const)('rejects incompatible %j bounds %j', (type, value) => {
   expect(() =>
     prepareComputedOrder({
-      types: { value: type as ResultType },
+      types: { value: type as ComputedResultType },
       where: { value },
       orderBy: [],
     }),

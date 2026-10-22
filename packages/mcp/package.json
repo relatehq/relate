@@ -16,7 +16,8 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.3.1",
-    "@relate/node": "workspace:*"
+    "@relate/node": "workspace:*",
+    "@relate/connector-sqlite": "workspace:*"
   },
   "files": [
     "dist",

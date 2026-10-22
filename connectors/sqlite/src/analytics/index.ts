@@ -34,7 +34,7 @@ export function createAnalytics(settings: {
     return selected;
   };
   const analytics = Object.freeze<AnalyticalConnector>({
-    limits: Object.freeze({ maxParameters: 32766 }),
+    limits: Object.freeze({ maxParameters: 32766, maxConcurrentStatements: 4 }),
     async describe(handle, options) {
       return (await runner.run(
         { kind: 'describe', resource: resource(handle) },

@@ -103,7 +103,7 @@ try {
 import assert from 'node:assert/strict';
 import { isAppDefinition, defineDataset, defineAccess, computed } from 'relate';
 import { z } from 'zod';
-import { SourceAccessDenied, DatasetExecutionError } from 'relate/connectors';
+import { SourceAccessDenied, DatasetExecutionError, validateAuthorizedDatasetQuery } from 'relate/connectors';
 import { app } from './built/app.types.js';
 import { encodeAnalyticalValue, decodeAnalyticalValue } from 'relate/analytics';
 assert.equal(encodeAnalyticalValue(9007199254740993n, { type: 'int64', nullable: false }), '9007199254740993');
@@ -119,6 +119,11 @@ assert.ok(Object.isFrozen(Events.columns));
 const calculation = computed({ id: 'customer.count', sql: 'SELECT COUNT(*) FROM self.events' });
 assert.equal(calculation.origin.kind, 'computed');
 assert.ok(Object.isFrozen(calculation.origin));
+validateAuthorizedDatasetQuery({
+  resource: {}, keys: [{ type: { type: 'string' } }],
+  correlation: [{ column: 'customerId', key: 0 }], slots: [],
+  aggregates: [{ aggregate: 'count', argument: '*', distinct: false, result: { type: 'int64', nullable: false } }],
+}, ['customerId']);
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
 const failure = new DatasetExecutionError('execution-failed', { retryable: true, cause: new Error('private driver detail') });
 assert.equal(failure.code, 'execution-failed');
@@ -274,7 +279,7 @@ import { z } from 'zod';
 import { defineAccess, defineGraph, defineObject, defineSource, source, objectId, from } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime, createMemoryStore } from '@relate/runtime';
-import { SourceAccessDenied, DatasetExecutionError } from 'relate/connectors';
+import { SourceAccessDenied, DatasetExecutionError, validateAuthorizedDatasetQuery } from 'relate/connectors';
 import { createPostgresStore } from '@relate/postgres';
 import { assertFields } from 'relate';
 import { ReadError } from '@relate/protocol';
@@ -321,6 +326,11 @@ assert.equal(detailed.meta.fields.name.retentionDurability, 'volatile');
 const store = createPostgresStore({ connectionString: 'postgresql://unused@127.0.0.1:1/unused' });
 await store.close();
 assert.equal(new ReadError('incomplete').code, 'incomplete');
+validateAuthorizedDatasetQuery({
+  resource: {}, keys: [{ type: { type: 'string' } }],
+  correlation: [{ column: 'customerId', key: 0 }], slots: [],
+  aggregates: [{ aggregate: 'count', argument: '*', distinct: false, result: { type: 'int64', nullable: false } }],
+}, ['customerId']);
 assert.equal(new SourceAccessDenied().name, 'SourceAccessDenied');
 const failure = new DatasetExecutionError('execution-failed', { retryable: true, cause: new Error('private driver detail') });
 assert.equal(failure.code, 'execution-failed');

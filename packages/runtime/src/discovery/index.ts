@@ -12,13 +12,13 @@ import {
   readableObject,
   readableProperties,
   type Principal,
-} from './authorization/index.js';
-import { actionAllowed } from './actions/index.js';
-import { availableTraversals } from './traversal/index.js';
+} from '../authorization/index.js';
+import { actionAllowed } from '../actions/index.js';
+import { availableTraversals } from '../traversal/index.js';
 import { sdkDescription } from './contracts.js';
-import { schemaText, filterOperators } from './reads/index.js';
+import { schemaText, filterOperators } from '../reads/index.js';
 import type { SqlParser, AnalyticalLimits } from 'relate/analytics';
-import { analyticalDiscovery } from './analytical-discovery.js';
+import { analyticalDiscovery } from './analytics.js';
 
 type ManifestObject = Manifest['objects'][number];
 
@@ -227,3 +227,6 @@ export function createDiscovery(
     describeAction: (definitionId: string) => describeAction(definitionId),
   });
 }
+
+export { operationContracts } from './contracts.js';
+export type { OperationContract, OperationContracts } from './contracts.js';

@@ -193,3 +193,9 @@ kinds or versions while advancing their checkpoint.
 when no entry matched, unlike `Page<T>`. `ActivityError` codes are `unsupported`
 (never an empty history), `unavailable`, `invalid-request`, `invalid-cursor` and
 `cursor-expired`.
+
+Analytical population, admission and source-call budget overruns use
+`ReadError('resource-exhausted')` with `limit-exceeded` issues. They distinguish
+finite host capacity from malformed requests and unsupported operations. Scan
+budgets count visited membership, including rejected objects, so budget failure
+is not a count of objects visible to the actor.

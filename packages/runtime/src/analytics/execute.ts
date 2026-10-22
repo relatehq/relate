@@ -12,8 +12,8 @@ import type {
 } from './execution-types.js';
 import type { TimingCapture } from './timings.js';
 import { beginTiming, recordTiming } from './timings.js';
-import { preparedFields } from './prepared.js';
-import type { PreparedCompute } from './prepared.js';
+import { preparedFields } from './prepare-compute.js';
+import type { PreparedCompute } from './prepare-compute.js';
 import { captureCalculations } from './activity.js';
 import type { CalculationCapture } from './activity.js';
 
@@ -213,4 +213,19 @@ export async function computeFields(
   const fields = preparedFields(prepared);
 
   return executeResolvedFields({ ...execution, fields });
+}
+
+/** Pure connector capacity validation, independent of candidate data or visibility. */
+export function validatePreparedCapacity(
+  prepared: PreparedCompute,
+  binding: (id: string) => AnalyticalBinding,
+  maxSlots: number,
+): void {
+  planBatches({
+    fields: preparedFields(prepared, false),
+    rows: [],
+    binding,
+    maxSlots,
+    preflight: true,
+  });
 }
