@@ -64,3 +64,5 @@ pnpm exec dotenvx run -f .env -- vitest run \
 Multi-dataset grain, composite correlations, batch/page-size equivalence,
 revocation, limits, cancellation and malformed driver results have separate
 focused contracts; these case files do not claim to replace those tests.
+[Generated SQL properties](../sql-properties/README.md) compare many generated
+queries with a reference evaluator on both backends.
