@@ -7,13 +7,13 @@ and the impression log in a DuckDB warehouse. Advertisers and campaigns are
 adopted into Relate; impressions remain dataset rows that Relate aggregates per
 campaign.
 
-| Term                 | Meaning here                                                                |
-| -------------------- | --------------------------------------------------------------------------- |
-| Dataset              | `Impressions`: typed columns of the DuckDB `impressions` table              |
-| Association          | `Campaign.impressions`: matches `campaignId` to `Campaign.externalId`       |
-| Declared calculation | `served`, `clicks`, `spendMicros`: reusable SQL with stable property IDs    |
-| Caller expression    | `compute.servedInWindow`: SQL and parameters supplied for one read          |
-| Reference            | `Campaign.advertiser`: the campaign's Salesforce Account ID as an object ID |
+| Term                 | Meaning here                                                                    |
+| -------------------- | ------------------------------------------------------------------------------- |
+| Dataset              | `Impressions`: typed columns of the DuckDB `impressions` table                  |
+| Association          | `Campaign.impressions`: matches `campaignId` to `Campaign.externalId`           |
+| Declared calculation | `served`, `clicks`, `ctr`, `spendMicros`: reusable SQL with stable property IDs |
+| Caller expression    | `compute.servedInWindow`: SQL and parameters supplied for one read              |
+| Reference            | `Campaign.advertiser`: the campaign's Salesforce Account ID as an object ID     |
 
 ## Run
 
@@ -47,15 +47,15 @@ flowchart LR
 
 Seeded data, as Ana (team `emea`):
 
-| Advertiser         | Campaign         | `served` | `clicks` | `spendMicros` (Fin only) |
-| ------------------ | ---------------- | -------- | -------- | ------------------------ |
-| Brightwater Travel | City Breaks      | `'40'`   | `'6'`    | `'100000'`               |
-| Kestrel Running    | Trail Launch     | `'50'`   | `'4'`    | `'150000'`               |
-| Brightwater Travel | Autumn Escapes   | `'25'`   | `'1'`    | `'45000'`                |
-| Kestrel Running    | Retargeting Test | `'0'`    | `'0'`    | `'0'`                    |
+| Advertiser         | Campaign         | `served` | `clicks` | `ctr`  | `spendMicros` (Fin only) |
+| ------------------ | ---------------- | -------- | -------- | ------ | ------------------------ |
+| Brightwater Travel | City Breaks      | `'40'`   | `'6'`    | `0.15` | `'100000'`               |
+| Kestrel Running    | Trail Launch     | `'50'`   | `'4'`    | `0.08` | `'150000'`               |
+| Brightwater Travel | Autumn Escapes   | `'25'`   | `'1'`    | `0.04` | `'45000'`                |
+| Kestrel Running    | Retargeting Test | `'0'`    | `'0'`    | `null` | `'0'`                    |
 
 Harbor Bank's Savings Push belongs to team `apac` and is never returned. Counts
-are JSON strings because their type is `int64`.
+are JSON strings because their type is `int64`; `ctr` is a nullable `float64`.
 
 In the Playground as Ana:
 
@@ -92,24 +92,39 @@ actor sees. Media cost is `financial`; device IDs are `identifying` and need the
 withheld as forbidden for both. Neither a caller expression nor a declared
 property grants access to its inputs.
 
-## Click-through rate (not yet supported)
+## Click-through rate
 
-The metric an ad team asks for first is click-through rate (CTR): clicks divided
-by impressions. It needs arithmetic over two aggregates, which today's
-analytical SQL subset rejects:
+Click-through rate (CTR) is clicks divided by impressions: arithmetic over two
+aggregates of the same dataset. The declared `ctr` property uses one formula:
 
 ```ts
-// src/queries.ts
-export const clickThroughRate = {
+ctr: computed({
+  id: 'adnetwork.campaign.ctr',
+  access: ordinary,
   sql: 'SELECT COUNT(*) FILTER (WHERE i.clicked = TRUE) * 1.0 / NULLIF(COUNT(*), 0) FROM self.impressions i',
-};
-// ReadError invalid-request: compute.ctr.sql is outside the analytical subset.
+}),
 ```
 
-`test/app.test.ts` keeps the expected result (City Breaks `0.15`, Trail Launch
-`0.08`, Autumn Escapes `0.04`, Retargeting Test `null`) as an expected-failure
-acceptance test. Until then, select `served` and `clicks` and divide in the
-caller.
+Formulas return a nullable `float64`. `NULLIF` turns a zero denominator into
+null, so Retargeting Test, which has served nothing, has `ctr: null` and sorts
+last. Callers can write their own formula with parameters, for example video
+CTR:
+
+```ts
+return graph.objects.Campaign.query({
+  select: ['name', 'ctr'],
+  compute: {
+    videoCtr: {
+      sql: 'SELECT COUNT(*) FILTER (WHERE i.clicked = TRUE) * 1.0 / NULLIF(COUNT(*), 0) FROM self.impressions i WHERE i.placement = $placement',
+      parameters: { placement: 'video' },
+    },
+  },
+  orderBy: [{ field: 'ctr', direction: 'desc' }],
+});
+```
+
+Only City Breaks has a video click (1 of 13 video impressions). Each formula
+reads one dataset; combining datasets in one expression is not supported.
 
 ## Code map
 
@@ -120,9 +135,9 @@ caller.
 | `src/salesforce.ts` | In-process Salesforce stand-in for the real connector                       |
 | `src/data.ts`       | Reproducible advertisers, campaigns and generated impressions               |
 | `src/seed.ts`       | Explicit advertiser and campaign adoption; no impression adoption           |
-| `src/queries.ts`    | Caller expressions, including the planned CTR expression                    |
+| `src/queries.ts`    | Caller expressions, including caller CTR formulas                           |
 | `relate.config.ts`  | App and seed exports for the Inspector                                      |
-| `test/app.test.ts`  | Results, team scope, column access, caller filters and the CTR acceptance   |
+| `test/app.test.ts`  | Results, team scope, column access, caller filters and both CTR forms       |
 
 For execution budgets and failure semantics, see the
 [application guide](../../apps/docs/content/runtime/application.md) and

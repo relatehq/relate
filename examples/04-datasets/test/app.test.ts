@@ -5,6 +5,7 @@ import { actors } from '../src/graph.js';
 import { seed } from '../src/seed.js';
 import {
   clickThroughRate,
+  placementCtr,
   reach,
   servedInWindow,
   videoClicks,
@@ -116,35 +117,32 @@ it('withholds reach because device IDs require the privacy role', async () => {
   }
 });
 
-it('rejects click-through rate as one expression today', async () => {
-  const runtime = await startSeeded();
-
-  await expect(
-    runtime.as(actors.ana).objects.Campaign.query({
-      select: ['name'],
-      compute: { ctr: clickThroughRate },
-    }),
-  ).rejects.toMatchObject({
-    code: 'invalid-request',
-    issues: [{ path: ['compute', 'ctr', 'sql'], problem: 'not-supported' }],
-  });
-});
-
-// Acceptance test for arithmetic over aggregates. Remove `.fails` and the
-// rejection test above when click-through rate is supported.
-it.fails('computes click-through rate per campaign', async () => {
+it('computes click-through rate as a declared property and a caller expression', async () => {
   const runtime = await startSeeded();
   const page = await runtime.as(actors.ana).objects.Campaign.query({
-    select: ['name'],
-    compute: { ctr: clickThroughRate },
+    select: ['name', 'ctr'],
+    compute: { callerCtr: clickThroughRate },
     orderBy: [{ field: 'ctr', direction: 'desc' }],
   });
 
   // Null sorts last: Retargeting Test has served no impressions.
   expect(page.data.map((row) => row.data)).toEqual([
-    { name: 'City Breaks', ctr: 0.15 },
-    { name: 'Trail Launch', ctr: 0.08 },
-    { name: 'Autumn Escapes', ctr: 0.04 },
-    { name: 'Retargeting Test', ctr: null },
+    { name: 'City Breaks', ctr: 0.15, callerCtr: 0.15 },
+    { name: 'Trail Launch', ctr: 0.08, callerCtr: 0.08 },
+    { name: 'Autumn Escapes', ctr: 0.04, callerCtr: 0.04 },
+    { name: 'Retargeting Test', ctr: null, callerCtr: null },
+  ]);
+});
+
+it('filters on a parameterized click-through rate', async () => {
+  const runtime = await startSeeded();
+  const page = await runtime.as(actors.ana).objects.Campaign.query({
+    select: ['name'],
+    compute: { videoCtr: placementCtr },
+    where: { videoCtr: { gt: 0 } },
+  });
+
+  expect(page.data.map((row) => row.data)).toEqual([
+    { name: 'City Breaks', videoCtr: 1 / 13 },
   ]);
 });

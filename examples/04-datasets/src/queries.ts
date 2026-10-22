@@ -18,10 +18,14 @@ export const reach = {
   sql: 'SELECT COUNT(DISTINCT i.deviceId) FROM self.impressions i',
 } as const;
 
-/**
- * Not supported yet: click-through rate needs arithmetic over two aggregates.
- * `test/app.test.ts` keeps this as an expected-failure acceptance test.
- */
+/** Caller form of the declared `ctr`: clicks per impression for a chosen placement. */
+export const placementCtr = {
+  sql: `SELECT COUNT(*) FILTER (WHERE i.clicked = TRUE) * 1.0 / NULLIF(COUNT(*), 0)
+    FROM self.impressions i WHERE i.placement = $placement`,
+  parameters: { placement: 'video' },
+} as const;
+
+/** The declared `ctr` written as a caller expression. */
 export const clickThroughRate = {
   sql: 'SELECT COUNT(*) FILTER (WHERE i.clicked = TRUE) * 1.0 / NULLIF(COUNT(*), 0) FROM self.impressions i',
 } as const;

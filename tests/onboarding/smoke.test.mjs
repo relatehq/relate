@@ -87,7 +87,7 @@ test(
 for (const [name, principal, object, field, expected] of [
   ['native-objects', 'ada', 'Todo', 'title', ['Try Relate']],
   ['connected-sources', 'ana', 'Customer', 'name', ['Mothlight']],
-  ['datasets', 'ana', 'Campaign', 'clicks', ['0', '1', '4', '6']],
+  ['datasets', 'ana', 'Campaign', 'ctr', [0.04, 0.08, 0.15, null]],
   ['persistence', 'ana', 'Customer', 'name', ['Mothlight']],
 ]) {
   test(

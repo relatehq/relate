@@ -159,6 +159,12 @@ export const Campaign = defineObject({
       access: ordinary,
       sql: 'SELECT COUNT(*) FROM self.impressions i WHERE i.clicked = TRUE',
     }),
+    // Formulas over aggregates return nullable float64; no impressions gives null.
+    ctr: computed({
+      id: 'adnetwork.campaign.ctr',
+      access: ordinary,
+      sql: 'SELECT COUNT(*) FILTER (WHERE i.clicked = TRUE) * 1.0 / NULLIF(COUNT(*), 0) FROM self.impressions i',
+    }),
     spendMicros: computed({
       id: 'adnetwork.campaign.spend-micros',
       access: financial,
