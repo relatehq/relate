@@ -8,8 +8,7 @@ const examples = {
   'todo-notes': { directory: '01-todo-notes', projects: ['packages/node'] },
   'customer-workspace': {
     directory: '02-customer-workspace',
-    projects: ['packages/cli', 'connectors/sqlite'],
-    client: true,
+    projects: ['packages/node', 'connectors/sqlite'],
   },
   'customer-events': {
     directory: '04-customer-events',
@@ -24,20 +23,14 @@ const [name, ...args] = process.argv.slice(2);
 const example = examples[name];
 const verbose = args.includes('--verbose');
 const walkthrough = args.includes('--walkthrough');
-const browserApp = args.includes('--app');
-const inspector = !walkthrough && !browserApp;
+const inspector = !walkthrough;
 const forwarded = args.filter(
-  (arg) => !['--verbose', '--walkthrough', '--app', '--'].includes(arg),
+  (arg) => !['--verbose', '--walkthrough', '--'].includes(arg),
 );
 
-if (
-  !example ||
-  (walkthrough && (browserApp || name === 'customer-workspace')) ||
-  (browserApp && name !== 'customer-workspace') ||
-  forwarded.some((arg) => arg !== '--no-open')
-) {
+if (!example || forwarded.some((arg) => arg !== '--no-open')) {
   console.error(
-    'Usage: node scripts/examples/run.mjs <todo-notes|customer-workspace|postgres|customer-events> [--walkthrough|--app] [--verbose] [--no-open]',
+    'Usage: node scripts/examples/run.mjs <todo-notes|customer-workspace|postgres|customer-events> [--walkthrough] [--verbose] [--no-open]',
   );
   process.exitCode = 1;
 } else {
@@ -54,7 +47,7 @@ if (
         ]),
       ],
     ],
-    ...(inspector || example.client
+    ...(inspector
       ? [
           [
             process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
@@ -99,7 +92,6 @@ if (
       ],
       {
         cwd: root,
-        env: { ...process.env, RELATE_EXAMPLE_VERBOSE: verbose ? '1' : '0' },
       },
     );
   }

@@ -32,9 +32,8 @@ typed queries without external services.
 Then run `pnpm example:customer-workspace` for the
 [business example](../../../examples/02-customer-workspace): explore a CRM
 customer and SQLite invoices in the Inspector, switch roles, and add a review.
-The custom browser application is available as
-`pnpm example:customer-workspace:app`. Neither app requires credentials or a
-database server.
+Use `pnpm example:customer-workspace:walkthrough` for scripted SDK calls.
+Neither app requires credentials or a database server.
 
 The third example, `pnpm example:postgres`, demonstrates persistent storage and
 a seeded Inspector with a configured Postgres database. Its `:walkthrough`

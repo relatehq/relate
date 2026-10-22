@@ -29,141 +29,20 @@ test(
 );
 
 test(
-  'browser demo serves its UI, enforces roles, replays receipts and shuts down',
+  'customer workspace walkthrough prints role reads and review replay',
   { timeout: 120000 },
   async () => {
-    const child = spawn(
-      process.execPath,
-      [launcher, 'customer-workspace', '--app', '--no-open'],
-      { stdio: ['ignore', 'pipe', 'pipe'] },
-    );
-    const closed = once(child, 'close');
-    let output = '';
+    const { stdout } = await execute(process.execPath, [
+      launcher,
+      'customer-workspace',
+      '--walkthrough',
+    ]);
 
-    child.stdout.on('data', (chunk) => {
-      output += chunk;
-    });
-    child.stderr.on('data', (chunk) => {
-      output += chunk;
-    });
-    let url;
-    let inspector;
-
-    try {
-      const deadline = Date.now() + 90000;
-
-      while (!url && Date.now() < deadline) {
-        url = /Ready: (http:\/\/127\.0\.0\.1:\d+)/.exec(output)?.[1];
-
-        if (child.exitCode !== null) assert.fail(output);
-
-        if (!url) await delay(50);
-      }
-
-      assert.ok(url, output);
-      assert.doesNotMatch(output, /transforming|built in|Relate dev\n/);
-      const page = await fetch(url);
-
-      assert.equal(page.status, 200);
-      assert.match(await page.text(), /Customer workspace/);
-      const config = await (await fetch(`${url}/config`)).json();
-
-      inspector = new URL(config.inspectorUrl).origin;
-      assert.equal((await fetch(inspector)).status, 200);
-      const request = async (body) => {
-        const response = await fetch(`${url}/api`, {
-          method: 'POST',
-          headers: { Origin: url, 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-
-        assert.equal(response.status, 200);
-
-        return response.json();
-      };
-      const ana = await request({ operation: 'read', actor: 'ana' });
-      const fin = await request({ operation: 'read', actor: 'fin' });
-
-      assert.equal(
-        fin.invoices.data[0].meta.fields.totalMinor.status,
-        'forbidden',
-      );
-      assert.deepEqual(
-        ana.invoices.data
-          .map((invoice) => invoice.data.totalMinor)
-          .sort((a, b) => a - b),
-        [125000, 480000],
-      );
-      const review = {
-        operation: 'review',
-        actor: 'ana',
-        note: 'Onboarding check',
-        idempotencyKey: 'smoke-review',
-      };
-      const receipt = await request(review);
-
-      assert.equal(receipt.state, 'succeeded');
-      assert.deepEqual(await request(review), receipt);
-
-      // A second workspace must borrow the inspector without stopping its owner.
-      const borrowed = spawn(
-        process.execPath,
-        [launcher, 'customer-workspace', '--app', '--no-open'],
-        {
-          stdio: ['ignore', 'pipe', 'pipe'],
-        },
-      );
-      const borrowedClosed = once(borrowed, 'close');
-      let borrowedOutput = '';
-
-      borrowed.stdout.on('data', (chunk) => {
-        borrowedOutput += chunk;
-      });
-      borrowed.stderr.on('data', (chunk) => {
-        borrowedOutput += chunk;
-      });
-
-      try {
-        const deadline = Date.now() + 60000;
-
-        while (
-          !borrowedOutput.includes('the borrowed inspector stays running') &&
-          Date.now() < deadline
-        ) {
-          if (borrowed.exitCode !== null) assert.fail(borrowedOutput);
-
-          await delay(50);
-        }
-
-        assert.match(borrowedOutput, /the borrowed inspector stays running/);
-        assert.doesNotMatch(
-          borrowedOutput,
-          /Relate dev is already running|Config\s|PID\s/,
-        );
-      } finally {
-        borrowed.kill('SIGHUP');
-        const timer = setTimeout(() => borrowed.kill('SIGKILL'), 15000);
-        const [code] = await borrowedClosed;
-
-        clearTimeout(timer);
-        assert.equal(code, 130, borrowedOutput);
-      }
-
-      assert.equal((await fetch(inspector)).status, 200);
-    } finally {
-      child.kill('SIGINT');
-      const timer = setTimeout(() => child.kill('SIGKILL'), 15000);
-      const [code] = await closed;
-
-      clearTimeout(timer);
-      assert.equal(code, 130, output);
-    }
-
-    await assert.rejects(fetch(url));
-
-    if (output.includes('the borrowed inspector stays running'))
-      assert.equal((await fetch(inspector)).status, 200);
-    else await assert.rejects(fetch(inspector));
+    assert.match(stdout, /"actor": "ana"/);
+    assert.match(stdout, /"actor": "fin"/);
+    assert.match(stdout, /Review receipt:/);
+    assert.match(stdout, /Retried receipt:/);
+    assert.match(stdout, /Created review:/);
   },
 );
 

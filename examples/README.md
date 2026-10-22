@@ -26,12 +26,12 @@ config.
 The scripted SDK walkthroughs remain available separately:
 
 - `pnpm example:todo-notes:walkthrough`
+- `pnpm example:customer-workspace:walkthrough`
 - `pnpm example:postgres:walkthrough`
 - `pnpm example:customer-events:walkthrough`
 
-These print results and exit. The custom customer-workspace browser application
-is available with `pnpm example:customer-workspace:app`. It has its own runtime,
-separate from the Inspector.
+These print results and exit. Each walkthrough starts its own runtime separate
+from any running Inspector.
 
 Start with 01 to read the smallest app, or 02 to explore a complete business
 scenario in the browser. Examples 01, 02 and 04 use isolated **in-memory Relate

@@ -1,35 +1,42 @@
-import { spawn } from 'node:child_process';
-import { startServer } from './server.js';
-import { startInspector } from './inspector.js';
-import { runWorkspace } from './launcher.js';
+import { startApp } from '@relate/node';
+import { app, actors } from './app.js';
+import { seed } from './seed.js';
 
-process.exitCode = await runWorkspace({
-  inspector: startInspector(),
-  startApplication: startServer,
-  signals: process,
-  reportError: (error) => console.error(error),
-  forceExit: (code) => process.exit(code),
-  onReady(application, reused) {
+const relate = await startApp(app);
+
+try {
+  const { customerId } = await seed(relate);
+
+  for (const actor of [actors.ana, actors.fin]) {
+    const { objects } = relate.as(actor);
+
     console.log(
-      `\nReady: ${application.url}\nState resets when you stop. Press Ctrl+C to close the app${reused ? '; the borrowed inspector stays running' : ' and inspector'}.\n`,
+      JSON.stringify(
+        {
+          actor: actor.id,
+          customer: await objects.Customer.get(customerId),
+          invoices: await objects.Customer.traverse.invoices(customerId),
+        },
+        null,
+        2,
+      ),
     );
+  }
 
-    if (!process.argv.includes('--no-open')) {
-      const command =
-        process.platform === 'darwin'
-          ? 'open'
-          : process.platform === 'win32'
-            ? 'explorer.exe'
-            : 'xdg-open';
-      const browser = spawn(command, [application.url], {
-        stdio: 'ignore',
-        detached: true,
-      });
+  const ana = relate.as(actors.ana);
+  const request = {
+    input: { customer: customerId, note: 'Follow up Friday' },
+    idempotencyKey: 'review-1',
+  };
+  const receipt = await ana.actions.addAccountReview(request);
+  const replay = await ana.actions.addAccountReview(request);
 
-      browser.on('error', () =>
-        console.log('Open the application URL above in your browser.'),
-      );
-      browser.unref();
-    }
-  },
-});
+  console.log('Review receipt:', receipt);
+  console.log('Retried receipt:', replay);
+  console.log(
+    'Created review:',
+    await ana.objects.AccountReview.get(receipt.output.reviewId),
+  );
+} finally {
+  await relate.close();
+}

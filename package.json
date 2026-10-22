@@ -47,7 +47,7 @@
     "example:todo-notes:walkthrough": "node scripts/examples/run.mjs todo-notes --walkthrough",
     "example:postgres:walkthrough": "node scripts/examples/run.mjs postgres --walkthrough",
     "example:customer-events:walkthrough": "node scripts/examples/run.mjs customer-events --walkthrough",
-    "example:customer-workspace:app": "node scripts/examples/run.mjs customer-workspace --app"
+    "example:customer-workspace:walkthrough": "node scripts/examples/run.mjs customer-workspace --walkthrough"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

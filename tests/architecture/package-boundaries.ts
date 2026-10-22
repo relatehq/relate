@@ -38,7 +38,6 @@ export const packagePolicies: Record<
       'relate',
       'relate/connectors',
       '@relate/node',
-      '@relate/protocol',
       '@relate/connector-sqlite',
       '@relate/dev-crm-simulator',
       'zod',

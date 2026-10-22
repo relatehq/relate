@@ -37,8 +37,7 @@ pnpm example:customer-workspace
 Each default example command opens a seeded Inspector. Run
 `pnpm example:todo-notes` for owner-only todos with notes, or
 `pnpm example:customer-events` for customers with event datasets. Add
-`:walkthrough` to either command for the scripted terminal demo. The custom
-customer UI is available with `pnpm example:customer-workspace:app`. The
+`:walkthrough` to either command for the scripted terminal demo. The
 [examples](examples/README.md) explain what each application teaches.
 
 Preparation runs quietly; add `--verbose` to see build logs. Build failures and
@@ -46,26 +45,14 @@ runtime errors are always shown.
 
 Each example launcher loads the root `.env` if present. Add `ANTHROPIC_API_KEY`
 there to enable the inspector's built-in agent, then restart the example. The
-browser demo and seeded graph also work without a key.
+seeded graph and Playground also work without a key.
 
 The Inspector opens with a seeded customer from an HTTP CRM, invoices from a
 SQLite database and Relate-owned account reviews. Explore the graph and use the
 Playground as Ana or Fin.
 
-For the custom browser UI, run `pnpm example:customer-workspace:app` and try:
-
-1. As **Ana**, an account manager, you see Mothlight's invoices, amounts and
-   currency. Customer revenue is withheld.
-2. Switch to **Fin** in finance. Customer revenue appears, but invoice amounts
-   and currency are withheld.
-3. As Ana, add a review, then click **Retry last submission**. You get the same
-   receipt back and no duplicate review.
-4. Rename the customer in the CRM and click **Refresh from sources**.
-5. Open **Inspect model** to see the graph. It redraws when you edit
-   `src/graph.ts`.
-
-Expand **See what Relate did** to see the exact SDK calls and the evidence
-returned with each read.
+Run `pnpm example:customer-workspace:walkthrough` for a scripted SDK example of
+role-based reads, review creation and receipt replay.
 
 ## Why
 

@@ -1,12 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
-import { Server } from 'node:http';
-import { ActionError } from '@relate/protocol';
+import { describe, expect, it } from 'vitest';
 import { startApp } from '@relate/node';
 import workspaceApp, { seed } from '../relate.config.js';
-import { actors, startWorkspace } from '../src/app.js';
-import { startServer } from '../src/server.js';
+import { actors } from '../src/app.js';
 
-describe('interactive customer workspace', () => {
+describe('customer workspace', () => {
   it('seeds the config runtime with repeatable customer and invoice membership', async () => {
     const relate = await startApp(workspaceApp);
 
@@ -43,189 +40,38 @@ describe('interactive customer workspace', () => {
       await relate.close();
     }
   });
-  it('reads SQLite invoices, enforces roles, replays reviews and refreshes the HTTP source', async () => {
-    const app = await startWorkspace();
+  it('enforces review permissions and replays the committed receipt', async () => {
+    const relate = await startApp(workspaceApp);
 
     try {
-      const ana = await app.read('ana');
-      const fin = await app.read('fin');
+      const { customerId } = await seed(relate);
+      const ana = relate.as(actors.ana);
+      const fin = relate.as(actors.fin);
+      const request = {
+        input: { customer: customerId, note: 'Follow up Friday' },
+        idempotencyKey: 'review-1',
+      };
 
-      expect(ana.customer).toMatchObject({
-        status: 'ok',
-        data: { name: 'Mothlight' },
-      });
-      expect(ana.invoices.data).toHaveLength(2);
-      expect(fin.invoices.data).toHaveLength(2);
       expect(
-        ana.customer.status === 'ok' && ana.customer.data.revenue,
-      ).toBeUndefined();
-      expect(fin.customer).toMatchObject({
-        status: 'ok',
+        await ana.objects.Customer.get(customerId, { select: ['revenue'] }),
+      ).toMatchObject({
+        meta: { fields: { revenue: { status: 'forbidden' } } },
+      });
+      expect(await fin.objects.Customer.get(customerId)).toMatchObject({
         data: { revenue: 2000000 },
       });
-      expect(
-        ana.invoices.data.every((invoice) => invoice.data.currency === 'GBP'),
-      ).toBe(true);
-
-      for (const invoice of fin.invoices.data) {
-        expect(invoice.data.status).toBeDefined();
-        expect(invoice.data.currency).toBeUndefined();
-        expect(invoice.meta.fields?.currency).toEqual({ status: 'forbidden' });
-      }
-
-      expect(fin.invoices.data[0]?.meta.fields?.totalMinor).toEqual({
-        status: 'forbidden',
-      });
-      expect(
-        fin.invoices.data.every(
-          (invoice) => invoice.data.totalMinor === undefined,
-        ),
-      ).toBe(true);
-      expect(
-        ana.invoices.data
-          .map((invoice) => invoice.data.totalMinor)
-          .sort((a, b) => a! - b!),
-      ).toEqual([125000, 480000]);
-      await expect(
-        app.review('fin', 'Not permitted', 'denied'),
-      ).rejects.toThrow();
-      const receipt = await app.review('ana', 'Follow up Friday', 'review-1');
+      await expect(fin.actions.addAccountReview(request)).rejects.toThrow();
+      const receipt = await ana.actions.addAccountReview(request);
 
       expect(receipt.state).toBe('succeeded');
-      expect(await app.review('ana', 'Follow up Friday', 'review-1')).toEqual(
-        receipt,
-      );
-      const reviewed = await app.read('ana');
-
-      expect(reviewed.reviews.data).toHaveLength(1);
-      expect(reviewed.reviews.data[0]?.data.note).toBe('Follow up Friday');
-      await app.rename('Mothlight Studio');
-      expect((await app.read('ana', true)).customer).toMatchObject({
-        status: 'ok',
-        data: { name: 'Mothlight Studio' },
+      expect(await ana.actions.addAccountReview(request)).toEqual(receipt);
+      expect(
+        await ana.objects.AccountReview.get(receipt.output.reviewId),
+      ).toMatchObject({
+        data: { note: 'Follow up Friday', author: 'ana' },
       });
     } finally {
-      await app.close();
+      await relate.close();
     }
   });
-  it('serves the app and restricts demo operations to same-origin validated requests', async () => {
-    const app = await startServer('http://127.0.0.1:4318/#token=example');
-
-    try {
-      expect(await (await fetch(app.url)).text()).toContain(
-        'Customer workspace',
-      );
-      const request = (body: unknown, origin = app.url) =>
-        fetch(`${app.url}/api`, {
-          method: 'POST',
-          headers: { Origin: origin, 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-
-      expect(
-        (
-          await request(
-            { operation: 'read', actor: 'ana' },
-            'https://elsewhere.example',
-          )
-        ).status,
-      ).toBe(403);
-      expect(
-        (await request({ operation: 'read', actor: 'admin' })).status,
-      ).toBe(400);
-      const result = await (
-        await request({ operation: 'read', actor: 'ana' })
-      ).json();
-
-      expect(result.invoices.data).toHaveLength(2);
-      expect(
-        (
-          await request({
-            operation: 'review',
-            actor: 'fin',
-            note: 'No',
-            idempotencyKey: 'denied',
-          })
-        ).status,
-      ).toBe(403);
-    } finally {
-      await app.close();
-    }
-  });
-});
-
-it('uses typed error statuses and logs unexpected failures without returning details', async () => {
-  const read = vi
-    .fn()
-    .mockRejectedValue(new TypeError('private connector detail'));
-  const workspace = {
-    read,
-    review: vi.fn().mockRejectedValue(new ActionError('unavailable')),
-    rename: vi.fn(),
-    close: vi.fn(),
-  };
-  const reportError = vi.fn();
-  const app = await startServer('http://127.0.0.1:4318/#token=test', {
-    workspaceFactory: async () => workspace,
-    reportError,
-  });
-
-  try {
-    const request = (body: unknown) =>
-      fetch(`${app.url}/api`, {
-        method: 'POST',
-        headers: { Origin: app.url, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-    const failed = await request({ operation: 'read', actor: 'ana' });
-
-    expect(failed.status).toBe(500);
-    expect(await failed.text()).not.toContain('private connector detail');
-    expect(reportError).toHaveBeenCalledWith(expect.any(TypeError));
-    const unavailable = await request({
-      operation: 'review',
-      actor: 'ana',
-      note: 'Review',
-      idempotencyKey: 'key',
-    });
-
-    expect(unavailable.status).toBe(503);
-    read.mockRejectedValue(new SyntaxError('application bug'));
-    expect((await request({ operation: 'read', actor: 'ana' })).status).toBe(
-      500,
-    );
-  } finally {
-    await app.close();
-  }
-});
-
-it('cleans the workspace after a server-close error and shares repeated close calls', async () => {
-  const closeWorkspace = vi.fn(async () => {});
-  const workspace = {
-    read: vi.fn(),
-    review: vi.fn(),
-    rename: vi.fn(),
-    close: closeWorkspace,
-  };
-  const app = await startServer('http://127.0.0.1:4318/#token=test', {
-    workspaceFactory: async () => workspace,
-  });
-  const closeServer = Server.prototype.close;
-  const failure = new Error('Server close failed');
-  const mockedClose = vi
-    .spyOn(Server.prototype, 'close')
-    .mockImplementationOnce(function (this: Server, callback) {
-      // Actually close the listener, then inject its reported failure.
-      return closeServer.call(this, () => callback?.(failure));
-    });
-
-  try {
-    const first = app.close();
-
-    expect(app.close()).toBe(first);
-    await expect(first).rejects.toThrow('Server close failed');
-    expect(closeWorkspace).toHaveBeenCalledOnce();
-  } finally {
-    mockedClose.mockRestore();
-  }
 });
