@@ -28,6 +28,16 @@ for (const name of ['load', 'scan', 'resolve', 'beginFetch', 'accept']) {
   };
 }
 
+store.loadMany = (scope, objectIds) => {
+  if (counting) {
+    counts.loadMany = (counts.loadMany ?? 0) + 1;
+    counts.objectsBatchLoaded =
+      (counts.objectsBatchLoaded ?? 0) + objectIds.length;
+  }
+
+  return underlying.loadMany(scope, objectIds);
+};
+
 try {
   engine = await openTransport('child', fixture.config);
   let execution;
