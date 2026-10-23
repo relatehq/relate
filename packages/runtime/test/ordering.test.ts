@@ -1,5 +1,10 @@
 import { expect, it } from 'vitest';
-import { compareObservation, OrderingConflict } from '@relate/runtime/storage';
+import fc from 'fast-check';
+import {
+  compareObjectIds,
+  compareObservation,
+  OrderingConflict,
+} from '@relate/runtime/storage';
 import type { Observation } from '@relate/runtime/storage';
 
 const observation = (
@@ -43,4 +48,23 @@ it('prefers comparable provider versions and rejects ambiguous evidence', () => 
   expect(() =>
     compareObservation(observation('1'), observation('1', 'B')),
   ).toThrow(OrderingConflict);
+});
+
+it('orders object IDs by UTF-8 bytes, including astral and lone surrogate units', () => {
+  const unit = fc.oneof(
+    fc.constantFrom('a', 'b', '\uffff', '\ud800', '\udc00', '\u{1f600}'),
+    fc.integer({ min: 0, max: 0xffff }).map((n) => String.fromCharCode(n)),
+  );
+  const id = fc.string({ unit, maxLength: 6 });
+
+  fc.assert(
+    fc.property(id, id, (a, b) => {
+      expect(compareObjectIds(a, b)).toBe(
+        Buffer.compare(Buffer.from(a), Buffer.from(b)),
+      );
+    }),
+    { numRuns: 20_000 },
+  );
+  expect(compareObjectIds('\uffff', '\u{1f600}')).toBe(-1);
+  expect(compareObjectIds('\ud800', '\ud800\udc00')).toBe(-1);
 });

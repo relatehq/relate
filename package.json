@@ -42,6 +42,8 @@
     "bench:analytical:run": "node --import tsx tests/performance/analytical-properties/run.ts",
     "test:salesforce:live": "pnpm build && tsx tests/integration/salesforce.live.ts",
     "example:datasets": "node scripts/examples/run.mjs datasets",
+    "bench:profile": "pnpm build && pnpm bench:profile:run",
+    "bench:profile:run": "node --import tsx tests/performance/analytical-properties/profile.ts",
     "bench:overhead": "pnpm build && pnpm bench:overhead:run",
     "bench:overhead:run": "node --import tsx tests/performance/analytical-properties/overhead/run.ts",
     "example:native-objects:walkthrough": "node scripts/examples/run.mjs native-objects --walkthrough",

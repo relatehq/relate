@@ -59,6 +59,7 @@ policy denial. Native records already used property IDs.
 | `install(graphId, definitionRevision)` | Atomically pin a graph instance to its revision. Repeating the same installation succeeds. A different revision rejects without replacing the installed revision.                                                                                                                                                     |
 | `beginFetch()`                         | Allocate a unique, increasing integer encoded as a decimal string. Tokens must be comparable across every client sharing retained data, including after reconnect/restart for persistent stores. Gaps are allowed. Allocate before source I/O; do not use response arrival time.                                      |
 | `load(scope, objectId)`                | Return the latest accepted whole object in precisely this scope and revision, or `undefined` if absent/mismatched. Operational failures reject; they must not masquerade as absence.                                                                                                                                  |
+| `loadMany(scope, objectIds)`           | Batched `load` for at most 100 IDs in one storage call: a `Map` from object ID to the same whole object `load` would return. Omit absent/mismatched IDs; reject more than 100 IDs. Operational failures reject the whole batch.                                                                                       |
 | `resolve(scope, sourceRecordId)`       | Return an existing identity and its latest observation in the exact scope/revision, or `undefined`. Never adopt, fetch, or create an alias. Preserve tombstones; the runtime decides readability. Failures reject.                                                                                                    |
 | `scan(scope, { after, limit })`        | Enumerate adopted identities (including tombstones) in the exact scope/revision, ordered lexically by opaque `objectId`. `after` is exclusive. Return at most `limit` independent snapshots and `hasMore`; reject limits outside integer 1–100. Never fetch, adopt, filter by caller access, or skip unknown records. |
 | `accept(scope, input)`                 | Atomically check installation and membership, compare ordering, and retain the winning whole observation and identity. Return `{ object, acceptance, change? }`, including the current winner when the incoming observation loses. `change` is present exactly when this acceptance changed business state.           |
@@ -114,9 +115,9 @@ changes as an adapter feature, while the memory store retains only the latest
 observation.
 
 Inputs and returned objects must not expose mutable references to retained
-state. Load, resolution, scan and acceptance results are independent snapshots.
-Reads after a successful acceptance must observe that write or a later accepted
-winner.
+state. Load, batched load, resolution, scan and acceptance results are
+independent snapshots. Reads after a successful acceptance must observe that
+write or a later accepted winner.
 
 ## Failure and lifecycle
 

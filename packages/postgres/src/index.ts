@@ -198,6 +198,28 @@ export function createPostgresStore(
 
       return result.rows[0] ? rowObject(result.rows[0]) : undefined;
     },
+    async loadMany(scope, objectIds) {
+      if (objectIds.length > 100) throw new Error('Invalid load batch');
+
+      const objects = new Map<string, StoredObject>();
+
+      if (!objectIds.length) return objects;
+
+      const result = await pool.query(
+        `SELECT o.object_key,o.provider_key,o.observation FROM relate.objects o
+        JOIN relate.graphs g USING (graph_id)
+        WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.resource_id=$7 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND o.object_key=ANY($8::text[]) AND g.definition_revision=$9`,
+        [...scopeValues(scope), [...objectIds], scope.definitionRevision],
+      );
+
+      for (const row of result.rows) {
+        const object = rowObject(row);
+
+        objects.set(object.objectId, object);
+      }
+
+      return objects;
+    },
     async provenance(scope, objectId) {
       const result = await pool.query(
         `SELECT o.adopted_by_kind,o.adopted_by_id,o.adopted_at FROM relate.objects o

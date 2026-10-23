@@ -116,9 +116,10 @@ export function createRecordFinalizer(options: {
   const revalidate = async (
     record: FullObjectRecord,
     previous = computed.rows.get(record.id)!,
+    reader = read,
   ): Promise<RevalidatedRecord | undefined> => {
     signal.throwIfAborted();
-    const { result: current, recheckAuthorization } = await read(record.id);
+    const { result: current, recheckAuthorization } = await reader(record.id);
 
     signal.throwIfAborted();
 

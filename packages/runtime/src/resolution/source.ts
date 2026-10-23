@@ -186,6 +186,8 @@ export function createSourceOperations(options: {
     captureAuthorization?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
     execution?: ReadExecution,
+    /** A snapshot of this object from this scope, already read by the caller. */
+    snapshot?: StoredObject,
   ): Promise<ReadResult> {
     execution?.signal.throwIfAborted();
     validateReadRequest(
@@ -211,7 +213,7 @@ export function createSourceOperations(options: {
     let stored: StoredObject | undefined;
 
     try {
-      stored = await store.load(scope, objectId);
+      stored = snapshot ?? (await store.load(scope, objectId));
     } catch {
       throw new ReadError('unavailable');
     }
