@@ -47,6 +47,7 @@ physical schema names are written to reports.
 | `--freshness`             | `cached`, `refresh`                           | `cached` |
 | `--customers`, `--events` | Select matching workloads within the profile  | All      |
 | `--source-delay-ms`       | Nonnegative integer; synthetic fetch delay    | `0`      |
+| `--repetitions`           | Positive integer; overrides the profile value | Profile  |
 
 | Profile  | Customer populations | Events per population | Warmups | Measured repetitions |
 | -------- | -------------------- | --------------------- | ------- | -------------------- |
@@ -103,6 +104,21 @@ flowchart LR
   Activity --> Report
 ```
 
+## CPU profile
+
+`pnpm bench:profile` profiles one warm request after a validated warmup, in a
+separate process from latency samples. It writes `profile.cpuprofile.gz` (open
+in Chrome DevTools after decompressing) and `summary.json` with the request's
+counters and self time grouped by function and by owning package file.
+
+```sh
+pnpm bench:profile:run --backend postgres --store memory --scenario ranking \
+  --customers 12500 --events 1000000 --out benchmark-results/profile
+```
+
+Sampling adds overhead: never compare its elapsed time with `run.ts` samples.
+The profile covers Node CPU only; database work appears as idle time.
+
 ## Measurements and interpretation
 
 `results.json` records configuration, workload/schema versions, commit and dirty
@@ -141,6 +157,12 @@ than a transactional pair. Default outputs are ignored under
 reports even on failure.
 
 ## Historical measurements
+
+The
+[23 October indexed memory-store lookups](measurements/object-lookup-2026-10-23/README.md)
+report compares this harness before and after indexing memory-store loads and
+scans: ranking 10,000 authorized of 12,500 customers over 1M events fell from
+3,595 to 784 ms with the memory store; the PostgreSQL store was unchanged.
 
 The
 [22 October verification of head 279a529](measurements/verification-2026-10-22/README.md)
