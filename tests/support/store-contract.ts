@@ -258,6 +258,7 @@ export function storeContract(
       await store.accept(scope, {
         attribution: testAttribution(),
         sourceRecordId: 'record-7',
+        adopt: false,
         observation: observation(await store.beginFetch(), 'Grace'),
       });
       const expected = [...adopted].sort();
@@ -265,7 +266,10 @@ export function storeContract(
       let after: string | undefined;
 
       for (;;) {
-        const page = await store.scan(scope, { limit: 7, after });
+        const page = await store.scan(scope, {
+          limit: 7,
+          ...(after === undefined ? {} : { after }),
+        });
 
         scanned.push(
           ...page.objects.map((o) => ({
