@@ -237,7 +237,9 @@ export function createAnalyticalReads(options: AnalyticalReadDependencies) {
           read: readWith(options.read),
         });
         // One batched store load per 100 records; each record is still re-read
-        // and re-authorized individually from that snapshot.
+        // and re-authorized individually from that snapshot. A batch loads when
+        // its first record is checked and starts the next one, so store calls
+        // overlap the checks instead of pausing every 100 records.
         const revalidateBatches = async <T>(
           items: readonly T[],
           id: (item: T) => string,
@@ -246,25 +248,41 @@ export function createAnalyticalReads(options: AnalyticalReadDependencies) {
             read: ReturnType<typeof readWith>,
           ) => Promise<RevalidatedRecord | undefined>,
         ) => {
-          const output: (RevalidatedRecord | undefined)[] = [];
+          const batches = new Map<
+            number,
+            Promise<ReturnType<typeof readWith>>
+          >();
+          const batch = (start: number) => {
+            let loaded = batches.get(start);
 
-          for (let offset = 0; offset < items.length; offset += 100) {
-            controller.signal.throwIfAborted();
-            const batch = items.slice(offset, offset + 100);
-            const read = readWith(
-              await options.readBatch({ objectType: type, ids: batch.map(id) }),
-            );
+            if (!loaded) {
+              loaded = options
+                .readBatch({
+                  objectType: type,
+                  ids: items.slice(start, start + 100).map(id),
+                })
+                .then(readWith);
+              // A prefetch that fails surfaces when its batch is awaited.
+              loaded.catch(() => {});
+              batches.set(start, loaded);
+              batches.delete(start - 200);
+            }
 
-            output.push(
-              ...(await mapReads(
-                batch,
-                (item) => check(item, read),
-                controller.signal,
-              )),
-            );
-          }
+            return loaded;
+          };
 
-          return output;
+          return mapReads(
+            items.map((item, index) => ({ item, index })),
+            async ({ item, index }) => {
+              const start = index - (index % 100);
+              const read = batch(start);
+
+              if (start + 100 < items.length) batch(start + 100);
+
+              return check(item, await read);
+            },
+            controller.signal,
+          );
         };
         const validated = (
           await measure('revalidation', () =>
