@@ -1,0 +1,2220 @@
+{
+  "small": {
+    "bulk/child-federated": {
+      "n": 24,
+      "median": 3.9502294999992955,
+      "p95": 4.997833999999784,
+      "planMs": 1.4764375,
+      "collectMs": 2.2753125,
+      "encodeMs": 0.052375,
+      "maxObservedTimerLagMs": 0.2929584999992585,
+      "rssBytes": 63930368.0
+    },
+    "bulk/child-scan": {
+      "n": 24,
+      "median": 4.008270999999695,
+      "p95": 5.078166999999667,
+      "planMs": 1.636229,
+      "collectMs": 2.1190835,
+      "encodeMs": 0.0524165,
+      "maxObservedTimerLagMs": 0.2915624999995998,
+      "rssBytes": 63930368.0
+    },
+    "bulk/child-snapshot": {
+      "n": 24,
+      "median": 2.582979499999965,
+      "p95": 2.8677499999994325,
+      "planMs": 1.899041,
+      "collectMs": 0.37516649999999996,
+      "encodeMs": 0.0558955,
+      "maxObservedTimerLagMs": 0.296708499999113,
+      "rssBytes": 63930368.0
+    },
+    "bulk/http-federated": {
+      "n": 24,
+      "median": 4.635270500000843,
+      "p95": 5.716875000000073,
+      "planMs": 1.395979,
+      "collectMs": 2.2883335000000002,
+      "encodeMs": 0.055084,
+      "maxObservedTimerLagMs": 0.3758749999997235,
+      "rssBytes": 62504960.0
+    },
+    "bulk/http-scan": {
+      "n": 24,
+      "median": 4.264353999999912,
+      "p95": 5.677874999999403,
+      "planMs": 1.5782295,
+      "collectMs": 1.7744375,
+      "encodeMs": 0.0534585,
+      "maxObservedTimerLagMs": 0.39581249999991996,
+      "rssBytes": 62504960.0
+    },
+    "bulk/native-js": {
+      "n": 24,
+      "median": 1.6720624999998108,
+      "p95": 2.1757920000000013,
+      "maxObservedTimerLagMs": 0,
+      "rssBytes": 433504256.0
+    },
+    "bulk/neon-federated": {
+      "n": 24,
+      "median": 4.083625000000211,
+      "p95": 5.212832999999591,
+      "planMs": 1.6148544999999999,
+      "collectMs": 2.3556874999999997,
+      "encodeMs": 0.0575,
+      "maxObservedTimerLagMs": 0.2866874999990614,
+      "rssBytes": 434675712.0
+    },
+    "bulk/neon-scan": {
+      "n": 24,
+      "median": 4.127520499999264,
+      "p95": 5.334708999998838,
+      "planMs": 1.7479375,
+      "collectMs": 2.1832085,
+      "encodeMs": 0.0570205,
+      "maxObservedTimerLagMs": 0.2902704999996786,
+      "rssBytes": 431628288.0
+    },
+    "control/child-federated": {
+      "n": 24,
+      "median": 0.22210400000000163,
+      "p95": 0.39216700000008586,
+      "planMs": 0.137729,
+      "collectMs": 0.013896,
+      "encodeMs": 0.0026665,
+      "rssBytes": 39288832.0
+    },
+    "control/child-scan": {
+      "n": 24,
+      "median": 0.2507500000000391,
+      "p95": 0.43445900000006077,
+      "planMs": 0.1568125,
+      "collectMs": 0.0142715,
+      "encodeMs": 0.0030210000000000002,
+      "rssBytes": 39288832.0
+    },
+    "control/child-snapshot": {
+      "n": 24,
+      "median": 0.2605624999998781,
+      "p95": 0.5045000000000073,
+      "planMs": 0.1610415,
+      "collectMs": 0.014416499999999999,
+      "encodeMs": 0.0034790000000000003,
+      "rssBytes": 39288832.0
+    },
+    "control/http-federated": {
+      "n": 24,
+      "median": 0.7106670000000008,
+      "p95": 0.839958999999908,
+      "planMs": 0.13989600000000002,
+      "collectMs": 0.013854499999999999,
+      "encodeMs": 0.0031045,
+      "rssBytes": 34684928.0
+    },
+    "control/http-scan": {
+      "n": 24,
+      "median": 0.7500834999999597,
+      "p95": 1.0739999999999554,
+      "planMs": 0.146729,
+      "collectMs": 0.01375,
+      "encodeMs": 0.0033959999999999997,
+      "rssBytes": 34684928.0
+    },
+    "control/native-js": {
+      "n": 24,
+      "median": 0.005270499999937783,
+      "p95": 0.01274999999998272,
+      "rssBytes": 337444864.0
+    },
+    "control/neon-federated": {
+      "n": 24,
+      "median": 0.25724999999994225,
+      "p95": 0.4102500000001328,
+      "planMs": 0.1973125,
+      "collectMs": 0.0185,
+      "encodeMs": 0.004417,
+      "rssBytes": 337436672.0
+    },
+    "control/neon-scan": {
+      "n": 24,
+      "median": 0.3103125000000091,
+      "p95": 0.42045900000016445,
+      "planMs": 0.2421665,
+      "collectMs": 0.01925,
+      "encodeMs": 0.0052499999999999995,
+      "rssBytes": 337436672.0
+    },
+    "multi/child-federated": {
+      "n": 24,
+      "median": 5.903396000000157,
+      "p95": 6.421875,
+      "planMs": 2.714625,
+      "collectMs": 2.929583,
+      "encodeMs": 0.024624999999999998,
+      "maxObservedTimerLagMs": 0.30383349999965503,
+      "rssBytes": 62652416.0
+    },
+    "multi/child-scan": {
+      "n": 24,
+      "median": 5.894770999999764,
+      "p95": 6.324207999999999,
+      "planMs": 3.0080415,
+      "collectMs": 2.6375835,
+      "encodeMs": 0.025937500000000002,
+      "maxObservedTimerLagMs": 0.3045000000001892,
+      "rssBytes": 62652416.0
+    },
+    "multi/child-snapshot": {
+      "n": 24,
+      "median": 3.5365414999996574,
+      "p95": 3.9930420000000595,
+      "planMs": 2.7501875,
+      "collectMs": 0.531771,
+      "encodeMs": 0.028999999999999998,
+      "maxObservedTimerLagMs": 0.299895999999535,
+      "rssBytes": 62701568.0
+    },
+    "multi/http-federated": {
+      "n": 24,
+      "median": 6.414249999999811,
+      "p95": 6.935875000000124,
+      "planMs": 2.8712085,
+      "collectMs": 2.8705625,
+      "encodeMs": 0.0248335,
+      "maxObservedTimerLagMs": 0.5008330000000569,
+      "rssBytes": 61521920.0
+    },
+    "multi/http-scan": {
+      "n": 24,
+      "median": 6.404103999999734,
+      "p95": 7.214249999999993,
+      "planMs": 2.91175,
+      "collectMs": 2.6684165,
+      "encodeMs": 0.023354,
+      "maxObservedTimerLagMs": 0.4567289999999957,
+      "rssBytes": 61521920.0
+    },
+    "multi/native-js": {
+      "n": 24,
+      "median": 1.645104000000174,
+      "p95": 1.8829999999998108,
+      "maxObservedTimerLagMs": 0,
+      "rssBytes": 422559744.0
+    },
+    "multi/neon-federated": {
+      "n": 24,
+      "median": 6.120333500000015,
+      "p95": 6.954625000000306,
+      "planMs": 3.0441044999999995,
+      "collectMs": 2.9449794999999996,
+      "encodeMs": 0.025750000000000002,
+      "maxObservedTimerLagMs": 0.290353999999752,
+      "rssBytes": 425771008.0
+    },
+    "multi/neon-scan": {
+      "n": 24,
+      "median": 6.189916500000436,
+      "p95": 6.511375000000044,
+      "planMs": 3.150771,
+      "collectMs": 2.848354,
+      "encodeMs": 0.026042,
+      "maxObservedTimerLagMs": 0.2912500000002183,
+      "rssBytes": 422387712.0
+    },
+    "multi/relate-child-scan": {
+      "n": 24,
+      "median": 21.915729000000283,
+      "p95": 23.32220899999811,
+      "maxObservedTimerLagMs": 1.012021000000459,
+      "rssBytes": 540303360.0
+    },
+    "multi/relate-child-scope-federated": {
+      "n": 24,
+      "median": 13.479021000001012,
+      "p95": 14.535166999998182,
+      "maxObservedTimerLagMs": 0.8105624999989232,
+      "rssBytes": 540508160.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.5524579999982961,
+        "engineMs": 7.23047950000182,
+        "mergeMs": 0.16843799999878684,
+        "planMs": 3.210771,
+        "collectMs": 3.456583,
+        "encodeMs": 0.052271
+      },
+      "runtimeOutsideScopeMs": 5.673604999999952
+    },
+    "multi/relate-child-scope-scan": {
+      "n": 24,
+      "median": 13.194375500001115,
+      "p95": 14.853750000002037,
+      "maxObservedTimerLagMs": 0.7318334999981744,
+      "rssBytes": 540327936.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.5477915000010398,
+        "engineMs": 6.7661669999997684,
+        "mergeMs": 0.16135399999984656,
+        "planMs": 3.2321455,
+        "collectMs": 3.0004165,
+        "encodeMs": 0.0491875
+      },
+      "runtimeOutsideScopeMs": 5.4953740000000835
+    },
+    "multi/relate-http-scan": {
+      "n": 24,
+      "median": 21.76331200000095,
+      "p95": 22.989958999998635,
+      "maxObservedTimerLagMs": 1.3303124999983993,
+      "rssBytes": 541114368.0
+    },
+    "multi/relate-http-scope-federated": {
+      "n": 24,
+      "median": 13.455312000000049,
+      "p95": 15.149042000000918,
+      "maxObservedTimerLagMs": 1.0588334999993094,
+      "rssBytes": 540377088.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.5397919999977603,
+        "engineMs": 6.976312500000859,
+        "mergeMs": 0.17095850000077917,
+        "planMs": 3.2462085,
+        "collectMs": 2.730875,
+        "encodeMs": 0.051771000000000005
+      },
+      "runtimeOutsideScopeMs": 5.596063000000868
+    },
+    "multi/relate-http-scope-scan": {
+      "n": 24,
+      "median": 13.822437500000888,
+      "p95": 16.058625000001484,
+      "maxObservedTimerLagMs": 1.0277289999994537,
+      "rssBytes": 541106176.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.5489584999995714,
+        "engineMs": 7.512333499998931,
+        "mergeMs": 0.17556250000052387,
+        "planMs": 3.298667,
+        "collectMs": 3.2487705,
+        "encodeMs": 0.0465415
+      },
+      "runtimeOutsideScopeMs": 5.568021000004592
+    },
+    "multi/relate-native": {
+      "n": 24,
+      "median": 19.665625000001455,
+      "p95": 22.29308300000048,
+      "maxObservedTimerLagMs": 1.149854500001311,
+      "rssBytes": 540590080.0
+    },
+    "multi/relate-neon-scan": {
+      "n": 24,
+      "median": 14.77716700000019,
+      "p95": 15.88354099999924,
+      "maxObservedTimerLagMs": 0.9843125000006694,
+      "rssBytes": 541032448.0
+    },
+    "multi/relate-neon-scope-federated": {
+      "n": 24,
+      "median": 13.356770500000493,
+      "p95": 14.612375000000611,
+      "maxObservedTimerLagMs": 0.7765619999991031,
+      "rssBytes": 540844032.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.5596665000011853,
+        "engineMs": 7.172146000000794,
+        "mergeMs": 0.17089599999962957,
+        "planMs": 3.239,
+        "collectMs": 3.4678335000000002,
+        "encodeMs": 0.0518955
+      },
+      "runtimeOutsideScopeMs": 5.653520500001832
+    },
+    "multi/relate-neon-scope-scan": {
+      "n": 24,
+      "median": 13.115937499998836,
+      "p95": 14.481374999999389,
+      "maxObservedTimerLagMs": 0.7237084999978833,
+      "rssBytes": 540516352.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.5480625000000146,
+        "engineMs": 6.999312500000087,
+        "mergeMs": 0.16777099999853817,
+        "planMs": 3.346083,
+        "collectMs": 3.3682920000000003,
+        "encodeMs": 0.051541500000000004
+      },
+      "runtimeOutsideScopeMs": 5.478354500000933
+    },
+    "ranking-db/child-federated": {
+      "n": 24,
+      "median": 3.517791999999872,
+      "p95": 4.864041999999927,
+      "planMs": 1.522396,
+      "collectMs": 1.7031040000000002,
+      "encodeMs": 0.0248125,
+      "maxObservedTimerLagMs": 0.2895624999999882,
+      "rssBytes": 54730752.0
+    },
+    "ranking-db/child-scan": {
+      "n": 24,
+      "median": 4.13777099999993,
+      "p95": 5.241166999999905,
+      "planMs": 1.9515215000000001,
+      "collectMs": 2.2110205,
+      "encodeMs": 0.024334,
+      "maxObservedTimerLagMs": 0.2947919999998021,
+      "rssBytes": 54730752.0
+    },
+    "ranking-db/child-snapshot": {
+      "n": 24,
+      "median": 2.63652100000013,
+      "p95": 3.1019999999998618,
+      "planMs": 2.1055,
+      "collectMs": 0.3534165,
+      "encodeMs": 0.024521,
+      "maxObservedTimerLagMs": 0.2976249999999254,
+      "rssBytes": 54730752.0
+    },
+    "ranking-db/http-federated": {
+      "n": 24,
+      "median": 4.752791499999944,
+      "p95": 5.44379200000003,
+      "planMs": 1.5784995,
+      "collectMs": 2.5917915000000002,
+      "encodeMs": 0.024396,
+      "maxObservedTimerLagMs": 0.30214599999999336,
+      "rssBytes": 51904512.0
+    },
+    "ranking-db/http-scan": {
+      "n": 24,
+      "median": 4.547437500000115,
+      "p95": 5.535958999999821,
+      "planMs": 1.7084165,
+      "collectMs": 1.9985215000000003,
+      "encodeMs": 0.0223745,
+      "maxObservedTimerLagMs": 0.28825000000006185,
+      "rssBytes": 51904512.0
+    },
+    "ranking-db/native-js": {
+      "n": 24,
+      "median": 1.165937500000041,
+      "p95": 1.9837499999998727,
+      "rssBytes": 369762304.0
+    },
+    "ranking-db/neon-federated": {
+      "n": 24,
+      "median": 3.6332709999999224,
+      "p95": 5.217791999999918,
+      "planMs": 1.7265205,
+      "collectMs": 1.6072085,
+      "encodeMs": 0.027416500000000003,
+      "maxObservedTimerLagMs": 0.2897295000000213,
+      "rssBytes": 369508352.0
+    },
+    "ranking-db/neon-scan": {
+      "n": 24,
+      "median": 4.338833000000136,
+      "p95": 5.105958999999984,
+      "planMs": 1.9156460000000002,
+      "collectMs": 2.480417,
+      "encodeMs": 0.027354,
+      "maxObservedTimerLagMs": 0.2883124999998472,
+      "rssBytes": 369639424.0
+    },
+    "ranking-db/relate-child-scan": {
+      "n": 24,
+      "median": 15.79108350000024,
+      "p95": 16.96033399999942,
+      "maxObservedTimerLagMs": 0.6263124999995853,
+      "rssBytes": 531177472.0
+    },
+    "ranking-db/relate-child-scope-federated": {
+      "n": 24,
+      "median": 10.26612550000118,
+      "p95": 11.42883299999994,
+      "maxObservedTimerLagMs": 0.43558349999966595,
+      "rssBytes": 532955136.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.36431249999986903,
+        "engineMs": 4.740291999999499,
+        "mergeMs": 0.2539999999999054,
+        "planMs": 1.6447289999999999,
+        "collectMs": 2.7652495,
+        "encodeMs": 0.0434165
+      },
+      "runtimeOutsideScopeMs": 4.839373999999225
+    },
+    "ranking-db/relate-child-scope-scan": {
+      "n": 24,
+      "median": 10.58729200000107,
+      "p95": 12.606458000000202,
+      "maxObservedTimerLagMs": 0.444604000000254,
+      "rssBytes": 532955136.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.36735399999997753,
+        "engineMs": 5.135333000000173,
+        "mergeMs": 0.2503954999992857,
+        "planMs": 1.9259789999999999,
+        "collectMs": 2.7470835000000005,
+        "encodeMs": 0.0461455
+      },
+      "runtimeOutsideScopeMs": 4.819228999999723
+    },
+    "ranking-db/relate-http-scan": {
+      "n": 24,
+      "median": 16.43866650000018,
+      "p95": 17.442791000001307,
+      "maxObservedTimerLagMs": 0.944999999999709,
+      "rssBytes": 531177472.0
+    },
+    "ranking-db/relate-http-scope-federated": {
+      "n": 24,
+      "median": 10.629416499999934,
+      "p95": 12.034708999999566,
+      "maxObservedTimerLagMs": 0.6912709999996878,
+      "rssBytes": 532955136.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.3694789999999557,
+        "engineMs": 5.291395999999622,
+        "mergeMs": 0.25266649999957735,
+        "planMs": 1.7401665,
+        "collectMs": 2.8128130000000002,
+        "encodeMs": 0.046
+      },
+      "runtimeOutsideScopeMs": 4.921770500001912
+    },
+    "ranking-db/relate-http-scope-scan": {
+      "n": 24,
+      "median": 10.778666500000327,
+      "p95": 12.226666000000478,
+      "maxObservedTimerLagMs": 0.9427294999995866,
+      "rssBytes": 532955136.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.3729585000010047,
+        "engineMs": 5.334375000000364,
+        "mergeMs": 0.25127100000008795,
+        "planMs": 1.8685835000000002,
+        "collectMs": 2.5125415,
+        "encodeMs": 0.0435835
+      },
+      "runtimeOutsideScopeMs": 4.934438499999487
+    },
+    "ranking-db/relate-neon-scan": {
+      "n": 24,
+      "median": 15.441604499999812,
+      "p95": 17.47729100000106,
+      "maxObservedTimerLagMs": 0.6101250000001528,
+      "rssBytes": 532701184.0
+    },
+    "ranking-db/relate-neon-scope-federated": {
+      "n": 24,
+      "median": 10.498312499998974,
+      "p95": 11.284041000000798,
+      "maxObservedTimerLagMs": 0.6784379999999146,
+      "rssBytes": 532955136.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.36391699999967386,
+        "engineMs": 4.904979500000081,
+        "mergeMs": 0.24637500000062573,
+        "planMs": 1.7837915,
+        "collectMs": 2.7957915,
+        "encodeMs": 0.047396
+      },
+      "runtimeOutsideScopeMs": 4.902395500002058
+    },
+    "ranking-db/relate-neon-scope-scan": {
+      "n": 24,
+      "median": 10.146812499999214,
+      "p95": 10.941749999999956,
+      "maxObservedTimerLagMs": 0.5169999999998254,
+      "rssBytes": 531169280.0,
+      "scope": {
+        "candidateCount": 80.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 0.37404200000037235,
+        "engineMs": 4.694645999999921,
+        "mergeMs": 0.2547500000000582,
+        "planMs": 1.9603959999999998,
+        "collectMs": 2.6487705,
+        "encodeMs": 0.0476465
+      },
+      "runtimeOutsideScopeMs": 4.848187499998858
+    },
+    "ranking-db/relate-postgres": {
+      "n": 24,
+      "median": 19.505270499998915,
+      "p95": 22.748459000000366,
+      "maxObservedTimerLagMs": 0.857916999999361,
+      "rssBytes": 532955136.0
+    },
+    "ranking-file/child-federated": {
+      "n": 24,
+      "median": 3.1499790000000303,
+      "p95": 3.4580000000000837,
+      "planMs": 2.161,
+      "collectMs": 0.7575205,
+      "encodeMs": 0.019625,
+      "maxObservedTimerLagMs": 0.29824950000011086,
+      "rssBytes": 59957248.0
+    },
+    "ranking-file/child-scan": {
+      "n": 24,
+      "median": 3.1792500000001382,
+      "p95": 3.7152500000001965,
+      "planMs": 2.174458,
+      "collectMs": 0.8379795000000001,
+      "encodeMs": 0.0205625,
+      "maxObservedTimerLagMs": 0.29279200000019046,
+      "rssBytes": 59957248.0
+    },
+    "ranking-file/child-snapshot": {
+      "n": 24,
+      "median": 2.673083500000075,
+      "p95": 3.159042000000227,
+      "planMs": 2.0795415,
+      "collectMs": 0.3806665,
+      "encodeMs": 0.020604499999999998,
+      "maxObservedTimerLagMs": 0.30408299999976407,
+      "rssBytes": 59957248.0
+    },
+    "ranking-file/http-federated": {
+      "n": 24,
+      "median": 3.728021000000126,
+      "p95": 4.126083999999992,
+      "planMs": 2.259125,
+      "collectMs": 0.738875,
+      "encodeMs": 0.018729,
+      "maxObservedTimerLagMs": 0.4806464999999207,
+      "rssBytes": 58818560.0
+    },
+    "ranking-file/http-scan": {
+      "n": 24,
+      "median": 3.689937500000042,
+      "p95": 4.158208000000286,
+      "planMs": 2.1650625000000003,
+      "collectMs": 0.775604,
+      "encodeMs": 0.018646,
+      "maxObservedTimerLagMs": 0.5244165000001431,
+      "rssBytes": 58802176.0
+    },
+    "ranking-file/native-js": {
+      "n": 24,
+      "median": 1.2935420000001159,
+      "p95": 1.4041669999996884,
+      "rssBytes": 413614080.0
+    },
+    "ranking-file/neon-federated": {
+      "n": 24,
+      "median": 3.525812999999971,
+      "p95": 3.8768340000001444,
+      "planMs": 2.506896,
+      "collectMs": 0.854792,
+      "encodeMs": 0.021542000000000002,
+      "maxObservedTimerLagMs": 0.2926249999998163,
+      "rssBytes": 414760960.0
+    },
+    "ranking-file/neon-scan": {
+      "n": 24,
+      "median": 3.4311250000000655,
+      "p95": 3.7436659999998483,
+      "planMs": 2.4547705,
+      "collectMs": 0.8425215,
+      "encodeMs": 0.021187499999999998,
+      "maxObservedTimerLagMs": 0.28900000000021464,
+      "rssBytes": 414777344.0
+    },
+    "selective/child-federated": {
+      "n": 24,
+      "median": 5.278916499999923,
+      "p95": 6.231707999999344,
+      "planMs": 3.106771,
+      "collectMs": 1.9981250000000002,
+      "encodeMs": 0.006938,
+      "maxObservedTimerLagMs": 0.30141649999995934,
+      "rssBytes": 63586304.0
+    },
+    "selective/child-scan": {
+      "n": 24,
+      "median": 5.60766650000005,
+      "p95": 6.660625000000437,
+      "planMs": 3.2954795,
+      "collectMs": 2.120875,
+      "encodeMs": 0.0087295,
+      "maxObservedTimerLagMs": 0.30256250000002183,
+      "rssBytes": 63586304.0
+    },
+    "selective/child-snapshot": {
+      "n": 24,
+      "median": 3.881854000000203,
+      "p95": 4.231042000000343,
+      "planMs": 3.3344795,
+      "collectMs": 0.3675205,
+      "encodeMs": 0.007458,
+      "maxObservedTimerLagMs": 0.3021665000005669,
+      "rssBytes": 63586304.0
+    },
+    "selective/http-federated": {
+      "n": 24,
+      "median": 6.324437000000216,
+      "p95": 6.9901669999999285,
+      "planMs": 3.263458,
+      "collectMs": 2.0829785000000003,
+      "encodeMs": 0.0071665,
+      "maxObservedTimerLagMs": 0.5177084999995714,
+      "rssBytes": 62193664.0
+    },
+    "selective/http-scan": {
+      "n": 24,
+      "median": 5.848000500001035,
+      "p95": 6.534083000000464,
+      "planMs": 3.2110835,
+      "collectMs": 1.802271,
+      "encodeMs": 0.007208,
+      "maxObservedTimerLagMs": 0.46266649999961373,
+      "rssBytes": 62193664.0
+    },
+    "selective/native-js": {
+      "n": 24,
+      "median": 1.1849160000006123,
+      "p95": 1.5909579999997732,
+      "maxObservedTimerLagMs": 0,
+      "rssBytes": 428163072.0
+    },
+    "selective/neon-federated": {
+      "n": 24,
+      "median": 5.618854499999543,
+      "p95": 6.930957999999919,
+      "planMs": 3.410646,
+      "collectMs": 1.883958,
+      "encodeMs": 0.0080205,
+      "maxObservedTimerLagMs": 0.2953539999998611,
+      "rssBytes": 428154880.0
+    },
+    "selective/neon-scan": {
+      "n": 24,
+      "median": 5.763270500000544,
+      "p95": 6.788333000000421,
+      "planMs": 3.4219790000000003,
+      "collectMs": 2.283271,
+      "encodeMs": 0.0087915,
+      "maxObservedTimerLagMs": 0.2928124999998545,
+      "rssBytes": 429080576.0
+    }
+  },
+  "medium": {
+    "bulk/child-federated": {
+      "n": 24,
+      "median": 18.08549950000088,
+      "p95": 18.59070900000006,
+      "planMs": 1.675687,
+      "collectMs": 14.8513125,
+      "encodeMs": 0.40183349999999995,
+      "maxObservedTimerLagMs": 0.30033350000030623,
+      "rssBytes": 85475328.0
+    },
+    "bulk/child-scan": {
+      "n": 24,
+      "median": 22.737521000000925,
+      "p95": 24.395709000000352,
+      "planMs": 1.8344165000000001,
+      "collectMs": 19.280458000000003,
+      "encodeMs": 0.41975,
+      "maxObservedTimerLagMs": 0.31085449999955017,
+      "rssBytes": 85475328.0
+    },
+    "bulk/child-snapshot": {
+      "n": 24,
+      "median": 4.451687500000844,
+      "p95": 4.7416249999987485,
+      "planMs": 2.0924585,
+      "collectMs": 0.9076664999999999,
+      "encodeMs": 0.36054200000000003,
+      "maxObservedTimerLagMs": 0.31216700000004494,
+      "rssBytes": 85475328.0
+    },
+    "bulk/http-federated": {
+      "n": 24,
+      "median": 18.562520500001483,
+      "p95": 19.14533400000073,
+      "planMs": 1.658708,
+      "collectMs": 14.697375000000001,
+      "encodeMs": 0.42799950000000003,
+      "maxObservedTimerLagMs": 0.4935840000016469,
+      "rssBytes": 73269248.0
+    },
+    "bulk/http-scan": {
+      "n": 24,
+      "median": 23.41595850000158,
+      "p95": 24.072667000000365,
+      "planMs": 1.8068755,
+      "collectMs": 19.4325625,
+      "encodeMs": 0.416521,
+      "maxObservedTimerLagMs": 0.5306250000012369,
+      "rssBytes": 73269248.0
+    },
+    "bulk/native-js": {
+      "n": 24,
+      "median": 12.179229500000474,
+      "p95": 13.198500000002241,
+      "maxObservedTimerLagMs": 0.689229499997964,
+      "rssBytes": 498155520.0
+    },
+    "bulk/neon-federated": {
+      "n": 24,
+      "median": 17.995374999998603,
+      "p95": 18.590125000000626,
+      "planMs": 1.7492915,
+      "collectMs": 14.865396,
+      "encodeMs": 0.4596035,
+      "maxObservedTimerLagMs": 0.30649999999968713,
+      "rssBytes": 499949568.0
+    },
+    "bulk/neon-scan": {
+      "n": 24,
+      "median": 22.620625000000473,
+      "p95": 23.269875000001775,
+      "planMs": 1.8937295,
+      "collectMs": 19.263521,
+      "encodeMs": 0.4554375,
+      "maxObservedTimerLagMs": 0.3059999999986758,
+      "rssBytes": 502087680.0
+    },
+    "control/child-federated": {
+      "n": 24,
+      "median": 0.24035449999996672,
+      "p95": 0.36225000000013097,
+      "planMs": 0.14756249999999999,
+      "collectMs": 0.0139375,
+      "encodeMs": 0.0030625,
+      "rssBytes": 50003968.0
+    },
+    "control/child-scan": {
+      "n": 24,
+      "median": 0.26518749999991087,
+      "p95": 0.43791600000031394,
+      "planMs": 0.174104,
+      "collectMs": 0.015375000000000002,
+      "encodeMs": 0.0038125,
+      "rssBytes": 50003968.0
+    },
+    "control/child-snapshot": {
+      "n": 24,
+      "median": 0.2583959999997205,
+      "p95": 0.4159999999997126,
+      "planMs": 0.16020900000000002,
+      "collectMs": 0.0146455,
+      "encodeMs": 0.003854,
+      "rssBytes": 50003968.0
+    },
+    "control/http-federated": {
+      "n": 24,
+      "median": 0.7291040000000066,
+      "p95": 0.9194999999999709,
+      "planMs": 0.16310449999999999,
+      "collectMs": 0.0151875,
+      "encodeMs": 0.003458,
+      "rssBytes": 35135488.0
+    },
+    "control/http-scan": {
+      "n": 24,
+      "median": 0.6875414999999521,
+      "p95": 1.0733329999998205,
+      "planMs": 0.14833400000000002,
+      "collectMs": 0.013625,
+      "encodeMs": 0.0031869999999999997,
+      "rssBytes": 35135488.0
+    },
+    "control/native-js": {
+      "n": 24,
+      "median": 0.004562499999792635,
+      "p95": 0.00820800000019517,
+      "rssBytes": 424230912.0
+    },
+    "control/neon-federated": {
+      "n": 24,
+      "median": 0.2638125000000855,
+      "p95": 0.4165000000002692,
+      "planMs": 0.210042,
+      "collectMs": 0.0173335,
+      "encodeMs": 0.004125,
+      "rssBytes": 424230912.0
+    },
+    "control/neon-scan": {
+      "n": 24,
+      "median": 0.2892500000000382,
+      "p95": 0.4082499999999527,
+      "planMs": 0.229792,
+      "collectMs": 0.018542,
+      "encodeMs": 0.0047495,
+      "rssBytes": 424230912.0
+    },
+    "multi/child-federated": {
+      "n": 24,
+      "median": 8.574125000000095,
+      "p95": 9.1940829999985,
+      "planMs": 3.0008749999999997,
+      "collectMs": 5.3221455,
+      "encodeMs": 0.024979,
+      "maxObservedTimerLagMs": 0.3091455000003407,
+      "rssBytes": 82665472.0
+    },
+    "multi/child-scan": {
+      "n": 24,
+      "median": 9.919208500000423,
+      "p95": 10.441709000000628,
+      "planMs": 3.1825835,
+      "collectMs": 6.411854,
+      "encodeMs": 0.0256245,
+      "maxObservedTimerLagMs": 0.314104000000043,
+      "rssBytes": 82690048.0
+    },
+    "multi/child-snapshot": {
+      "n": 24,
+      "median": 4.729812499999753,
+      "p95": 5.048375000000306,
+      "planMs": 2.9913955,
+      "collectMs": 1.442479,
+      "encodeMs": 0.025104500000000002,
+      "maxObservedTimerLagMs": 0.30618800000047486,
+      "rssBytes": 82698240.0
+    },
+    "multi/http-federated": {
+      "n": 24,
+      "median": 9.350250499999675,
+      "p95": 9.81195900000057,
+      "planMs": 3.067104,
+      "collectMs": 5.406124999999999,
+      "encodeMs": 0.025500500000000002,
+      "maxObservedTimerLagMs": 0.4771455000009155,
+      "rssBytes": 70533120.0
+    },
+    "multi/http-scan": {
+      "n": 24,
+      "median": 10.392375499999616,
+      "p95": 10.926124999999956,
+      "planMs": 3.081979,
+      "collectMs": 6.4423960000000005,
+      "encodeMs": 0.0246045,
+      "maxObservedTimerLagMs": 0.5199369999991177,
+      "rssBytes": 70524928.0
+    },
+    "multi/native-js": {
+      "n": 24,
+      "median": 5.267166499999803,
+      "p95": 6.4276669999999285,
+      "maxObservedTimerLagMs": 0.0,
+      "rssBytes": 500604928.0
+    },
+    "multi/neon-federated": {
+      "n": 24,
+      "median": 8.898750000000291,
+      "p95": 9.790334000001167,
+      "planMs": 3.1932704999999997,
+      "collectMs": 5.4683545,
+      "encodeMs": 0.027625,
+      "maxObservedTimerLagMs": 0.2981454999999187,
+      "rssBytes": 498802688.0
+    },
+    "multi/neon-scan": {
+      "n": 24,
+      "median": 10.054270499999802,
+      "p95": 10.336040999998659,
+      "planMs": 3.227542,
+      "collectMs": 6.5247915,
+      "encodeMs": 0.030333,
+      "maxObservedTimerLagMs": 0.2930209999994986,
+      "rssBytes": 500891648.0
+    },
+    "multi/relate-child-scan": {
+      "n": 24,
+      "median": 139.61081300000296,
+      "p95": 141.67908300000272,
+      "maxObservedTimerLagMs": 18.683062499996595,
+      "rssBytes": 617496576.0
+    },
+    "multi/relate-child-scope-federated": {
+      "n": 24,
+      "median": 59.12579199999527,
+      "p95": 62.58287500000006,
+      "maxObservedTimerLagMs": 18.02518749999581,
+      "rssBytes": 612016128.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 4.5744789999989734,
+        "engineMs": 14.274521000003006,
+        "mergeMs": 1.2931244999963383,
+        "planMs": 3.305937,
+        "collectMs": 8.5259795,
+        "encodeMs": 0.341312
+      },
+      "runtimeOutsideScopeMs": 38.827917000002344
+    },
+    "multi/relate-child-scope-scan": {
+      "n": 24,
+      "median": 59.73102050000307,
+      "p95": 75.56087500000285,
+      "maxObservedTimerLagMs": 17.764375000002474,
+      "rssBytes": 617496576.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 4.673562500000116,
+        "engineMs": 16.373374999999214,
+        "mergeMs": 1.284833499998058,
+        "planMs": 3.309313,
+        "collectMs": 9.7113955,
+        "encodeMs": 0.3388955
+      },
+      "runtimeOutsideScopeMs": 37.817811999993864
+    },
+    "multi/relate-http-scan": {
+      "n": 24,
+      "median": 138.29320850000295,
+      "p95": 140.21229199999652,
+      "maxObservedTimerLagMs": 19.15337449999788,
+      "rssBytes": 613556224.0
+    },
+    "multi/relate-http-scope-federated": {
+      "n": 24,
+      "median": 59.1384169999983,
+      "p95": 65.17575000000215,
+      "maxObservedTimerLagMs": 18.656999999999243,
+      "rssBytes": 609599488.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 4.8717710000019,
+        "engineMs": 13.660312499996508,
+        "mergeMs": 1.2748334999996587,
+        "planMs": 3.3299585,
+        "collectMs": 7.3988545000000006,
+        "encodeMs": 0.34416650000000004
+      },
+      "runtimeOutsideScopeMs": 38.10027099999206
+    },
+    "multi/relate-http-scope-scan": {
+      "n": 24,
+      "median": 59.53166699999929,
+      "p95": 63.90966600000684,
+      "maxObservedTimerLagMs": 18.08660349999991,
+      "rssBytes": 609599488.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 4.556062000003294,
+        "engineMs": 14.233124500002305,
+        "mergeMs": 1.3269165000019711,
+        "planMs": 3.3754584999999997,
+        "collectMs": 7.919604,
+        "encodeMs": 0.3339585
+      },
+      "runtimeOutsideScopeMs": 38.071790499998315
+    },
+    "multi/relate-native": {
+      "n": 24,
+      "median": 69.14768750000076,
+      "p95": 73.78712499999529,
+      "maxObservedTimerLagMs": 19.06506250000166,
+      "rssBytes": 611328000.0
+    },
+    "multi/relate-neon-scan": {
+      "n": 24,
+      "median": 94.66450000000259,
+      "p95": 97.1642920000013,
+      "maxObservedTimerLagMs": 18.87724999999773,
+      "rssBytes": 616595456.0
+    },
+    "multi/relate-neon-scope-federated": {
+      "n": 24,
+      "median": 58.87299999999959,
+      "p95": 64.32416699999885,
+      "maxObservedTimerLagMs": 17.900791500000196,
+      "rssBytes": 613556224.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 4.558166499999061,
+        "engineMs": 15.020520999998553,
+        "mergeMs": 1.1862289999990026,
+        "planMs": 3.416521,
+        "collectMs": 9.501729,
+        "encodeMs": 0.3682705
+      },
+      "runtimeOutsideScopeMs": 38.25481250000303
+    },
+    "multi/relate-neon-scope-scan": {
+      "n": 24,
+      "median": 60.42256300000372,
+      "p95": 64.82824999999866,
+      "maxObservedTimerLagMs": 17.972874999999476,
+      "rssBytes": 613556224.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 4.498895500004437,
+        "engineMs": 16.814666999998735,
+        "mergeMs": 1.2101040000015928,
+        "planMs": 3.4801455,
+        "collectMs": 11.2054165,
+        "encodeMs": 0.36974999999999997
+      },
+      "runtimeOutsideScopeMs": 38.20666649999475
+    },
+    "ranking-db/child-federated": {
+      "n": 24,
+      "median": 16.613978999999745,
+      "p95": 17.109332999999424,
+      "planMs": 1.8263745,
+      "collectMs": 14.492792,
+      "encodeMs": 0.0289585,
+      "maxObservedTimerLagMs": 0.3148959999998624,
+      "rssBytes": 71811072.0
+    },
+    "ranking-db/child-scan": {
+      "n": 24,
+      "median": 21.493582999999944,
+      "p95": 21.92570799999976,
+      "planMs": 2.0610215,
+      "collectMs": 19.0940415,
+      "encodeMs": 0.0276255,
+      "maxObservedTimerLagMs": 0.3195420000001832,
+      "rssBytes": 71811072.0
+    },
+    "ranking-db/child-snapshot": {
+      "n": 24,
+      "median": 3.415625000000091,
+      "p95": 3.674792000000707,
+      "planMs": 2.2895835,
+      "collectMs": 0.8747915,
+      "encodeMs": 0.026583,
+      "maxObservedTimerLagMs": 0.30943750000051296,
+      "rssBytes": 71811072.0
+    },
+    "ranking-db/http-federated": {
+      "n": 24,
+      "median": 16.85262499999999,
+      "p95": 17.328749999999673,
+      "planMs": 1.8289374999999999,
+      "collectMs": 14.335708,
+      "encodeMs": 0.026958500000000003,
+      "maxObservedTimerLagMs": 0.5413125000004584,
+      "rssBytes": 58867712.0
+    },
+    "ranking-db/http-scan": {
+      "n": 24,
+      "median": 21.99352050000016,
+      "p95": 22.484666999999718,
+      "planMs": 2.0161045,
+      "collectMs": 19.1548125,
+      "encodeMs": 0.032770999999999995,
+      "maxObservedTimerLagMs": 0.28614599999991697,
+      "rssBytes": 58867712.0
+    },
+    "ranking-db/native-js": {
+      "n": 24,
+      "median": 12.076750000000175,
+      "p95": 12.818000000000211,
+      "maxObservedTimerLagMs": 0.6675000000000182,
+      "rssBytes": 457007104.0
+    },
+    "ranking-db/neon-federated": {
+      "n": 24,
+      "median": 16.72875050000016,
+      "p95": 17.121000000000095,
+      "planMs": 1.8652505000000001,
+      "collectMs": 14.656250499999999,
+      "encodeMs": 0.0306455,
+      "maxObservedTimerLagMs": 0.30441700000028504,
+      "rssBytes": 455688192.0
+    },
+    "ranking-db/neon-scan": {
+      "n": 24,
+      "median": 21.422291500000483,
+      "p95": 21.82591599999978,
+      "planMs": 2.0340625,
+      "collectMs": 19.2152085,
+      "encodeMs": 0.0309165,
+      "maxObservedTimerLagMs": 0.30462549999992916,
+      "rssBytes": 456769536.0
+    },
+    "ranking-db/relate-child-scan": {
+      "n": 24,
+      "median": 114.58191699999952,
+      "p95": 119.95629200000258,
+      "maxObservedTimerLagMs": 16.589374999997744,
+      "rssBytes": 621846528.0
+    },
+    "ranking-db/relate-child-scope-federated": {
+      "n": 24,
+      "median": 58.83010450000074,
+      "p95": 60.78158299999632,
+      "maxObservedTimerLagMs": 16.57300050000049,
+      "rssBytes": 620511232.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 3.133625499998743,
+        "engineMs": 18.159146000001783,
+        "mergeMs": 2.367603999999119,
+        "planMs": 1.8650205,
+        "collectMs": 14.279562499999999,
+        "encodeMs": 0.31343750000000004
+      },
+      "runtimeOutsideScopeMs": 34.99645800000508
+    },
+    "ranking-db/relate-child-scope-scan": {
+      "n": 24,
+      "median": 63.1200415000003,
+      "p95": 65.03304199999548,
+      "maxObservedTimerLagMs": 16.352208500000415,
+      "rssBytes": 621846528.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 3.1348335000002407,
+        "engineMs": 22.528167000000394,
+        "mergeMs": 2.368020999998407,
+        "planMs": 1.9950415000000001,
+        "collectMs": 18.6980625,
+        "encodeMs": 0.319167
+      },
+      "runtimeOutsideScopeMs": 35.050687999999354
+    },
+    "ranking-db/relate-http-scan": {
+      "n": 24,
+      "median": 115.808791999998,
+      "p95": 120.68037499999627,
+      "maxObservedTimerLagMs": 17.100187500000175,
+      "rssBytes": 621846528.0
+    },
+    "ranking-db/relate-http-scope-federated": {
+      "n": 24,
+      "median": 59.32335400000011,
+      "p95": 60.551666999999725,
+      "maxObservedTimerLagMs": 16.677021000001332,
+      "rssBytes": 621314048.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 3.311874999999418,
+        "engineMs": 18.33197900000232,
+        "mergeMs": 2.3152919999993173,
+        "planMs": 1.8230835,
+        "collectMs": 14.216396,
+        "encodeMs": 0.3188335
+      },
+      "runtimeOutsideScopeMs": 34.93920849999995
+    },
+    "ranking-db/relate-http-scope-scan": {
+      "n": 24,
+      "median": 63.227436999997735,
+      "p95": 64.79508400000486,
+      "maxObservedTimerLagMs": 16.225541499999963,
+      "rssBytes": 621420544.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 3.089666500000021,
+        "engineMs": 22.912271000001056,
+        "mergeMs": 2.356083500002569,
+        "planMs": 2.0447500000000005,
+        "collectMs": 18.627375,
+        "encodeMs": 0.3086875
+      },
+      "runtimeOutsideScopeMs": 34.905791999997746
+    },
+    "ranking-db/relate-neon-scan": {
+      "n": 24,
+      "median": 115.16493800000535,
+      "p95": 117.69229199999972,
+      "maxObservedTimerLagMs": 16.66943750000064,
+      "rssBytes": 624156672.0
+    },
+    "ranking-db/relate-neon-scope-federated": {
+      "n": 24,
+      "median": 57.81183299999975,
+      "p95": 60.24983300000167,
+      "maxObservedTimerLagMs": 16.27502050000112,
+      "rssBytes": 624181248.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 3.26695849999669,
+        "engineMs": 17.500895500001207,
+        "mergeMs": 2.250312499998472,
+        "planMs": 1.8768335,
+        "collectMs": 14.2290625,
+        "encodeMs": 0.337333
+      },
+      "runtimeOutsideScopeMs": 34.60208349999448
+    },
+    "ranking-db/relate-neon-scope-scan": {
+      "n": 24,
+      "median": 62.96283350000158,
+      "p95": 65.81254199999967,
+      "maxObservedTimerLagMs": 16.07758350000222,
+      "rssBytes": 624181248.0,
+      "scope": {
+        "candidateCount": 800.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 3.3647705000003043,
+        "engineMs": 22.112896000000546,
+        "mergeMs": 2.3850005000003875,
+        "planMs": 2.0468335,
+        "collectMs": 18.704895999999998,
+        "encodeMs": 0.345417
+      },
+      "runtimeOutsideScopeMs": 35.00524999999834
+    },
+    "ranking-db/relate-postgres": {
+      "n": 24,
+      "median": 84.06531249999898,
+      "p95": 103.19645799999853,
+      "maxObservedTimerLagMs": 16.5189790000004,
+      "rssBytes": 621314048.0
+    },
+    "ranking-file/child-federated": {
+      "n": 24,
+      "median": 4.3236665000003995,
+      "p95": 4.751957999998922,
+      "planMs": 2.169875,
+      "collectMs": 1.9688955000000004,
+      "encodeMs": 0.0193125,
+      "maxObservedTimerLagMs": 0.29166649999933725,
+      "rssBytes": 80936960.0
+    },
+    "ranking-file/child-scan": {
+      "n": 24,
+      "median": 4.537124999999833,
+      "p95": 4.922167000000627,
+      "planMs": 2.2873125,
+      "collectMs": 2.0177085000000003,
+      "encodeMs": 0.0205,
+      "maxObservedTimerLagMs": 0.2995419999997466,
+      "rssBytes": 80936960.0
+    },
+    "ranking-file/child-snapshot": {
+      "n": 24,
+      "median": 3.5610420000002705,
+      "p95": 4.1571250000015425,
+      "planMs": 2.1396665,
+      "collectMs": 1.160854,
+      "encodeMs": 0.020083,
+      "maxObservedTimerLagMs": 0.30206300000008923,
+      "rssBytes": 80936960.0
+    },
+    "ranking-file/http-federated": {
+      "n": 24,
+      "median": 4.954979500000263,
+      "p95": 5.645791000000827,
+      "planMs": 2.2455415,
+      "collectMs": 1.978208,
+      "encodeMs": 0.018604000000000002,
+      "maxObservedTimerLagMs": 0.49666650000062873,
+      "rssBytes": 69353472.0
+    },
+    "ranking-file/http-scan": {
+      "n": 24,
+      "median": 4.943978500000412,
+      "p95": 5.196708999999828,
+      "planMs": 2.2545840000000004,
+      "collectMs": 1.9687919999999997,
+      "encodeMs": 0.018396,
+      "maxObservedTimerLagMs": 0.5049789999993664,
+      "rssBytes": 69353472.0
+    },
+    "ranking-file/native-js": {
+      "n": 24,
+      "median": 4.533979000000727,
+      "p95": 4.84545799999978,
+      "maxObservedTimerLagMs": 0.6171249999997599,
+      "rssBytes": 497803264.0
+    },
+    "ranking-file/neon-federated": {
+      "n": 24,
+      "median": 4.493792000001122,
+      "p95": 5.171999999998661,
+      "planMs": 2.3183540000000002,
+      "collectMs": 2.0264375,
+      "encodeMs": 0.021354,
+      "maxObservedTimerLagMs": 0.28897899999947185,
+      "rssBytes": 500924416.0
+    },
+    "ranking-file/neon-scan": {
+      "n": 24,
+      "median": 4.598417000000154,
+      "p95": 4.9724999999998545,
+      "planMs": 2.4368749999999997,
+      "collectMs": 2.007292,
+      "encodeMs": 0.020770999999999998,
+      "maxObservedTimerLagMs": 0.2892294999992373,
+      "rssBytes": 498786304.0
+    },
+    "selective/child-federated": {
+      "n": 24,
+      "median": 6.661103999998886,
+      "p95": 7.244416999999885,
+      "planMs": 3.085854,
+      "collectMs": 3.4255210000000003,
+      "encodeMs": 0.007353999999999999,
+      "maxObservedTimerLagMs": 0.3039374999998472,
+      "rssBytes": 83722240.0
+    },
+    "selective/child-scan": {
+      "n": 24,
+      "median": 6.566938000000846,
+      "p95": 7.621708000000581,
+      "planMs": 3.2936045,
+      "collectMs": 3.3821875,
+      "encodeMs": 0.0076875,
+      "maxObservedTimerLagMs": 0.3015000000004875,
+      "rssBytes": 83722240.0
+    },
+    "selective/child-snapshot": {
+      "n": 24,
+      "median": 4.346896000000015,
+      "p95": 4.584084000000075,
+      "planMs": 3.421354,
+      "collectMs": 0.705604,
+      "encodeMs": 0.0078125,
+      "maxObservedTimerLagMs": 0.3031664999998611,
+      "rssBytes": 83722240.0
+    },
+    "selective/http-federated": {
+      "n": 24,
+      "median": 7.4254790000004505,
+      "p95": 8.178583000000799,
+      "planMs": 3.1979379999999997,
+      "collectMs": 3.5242915000000004,
+      "encodeMs": 0.00725,
+      "maxObservedTimerLagMs": 0.53833350000059,
+      "rssBytes": 71680000.0
+    },
+    "selective/http-scan": {
+      "n": 24,
+      "median": 7.085354499999994,
+      "p95": 8.11633299999994,
+      "planMs": 3.1728119999999995,
+      "collectMs": 3.229875,
+      "encodeMs": 0.007729499999999999,
+      "maxObservedTimerLagMs": 0.5473749999991924,
+      "rssBytes": 71680000.0
+    },
+    "selective/native-js": {
+      "n": 24,
+      "median": 1.4979995000003328,
+      "p95": 1.7732500000001892,
+      "maxObservedTimerLagMs": 0.0,
+      "rssBytes": 503660544.0
+    },
+    "selective/neon-federated": {
+      "n": 24,
+      "median": 6.895770999999513,
+      "p95": 7.464625000000524,
+      "planMs": 3.3516665000000003,
+      "collectMs": 3.4773125,
+      "encodeMs": 0.00825,
+      "maxObservedTimerLagMs": 0.2948754999997618,
+      "rssBytes": 504930304.0
+    },
+    "selective/neon-scan": {
+      "n": 24,
+      "median": 6.711354500000198,
+      "p95": 7.544458000000304,
+      "planMs": 3.4494585,
+      "collectMs": 3.3617295,
+      "encodeMs": 0.0083755,
+      "maxObservedTimerLagMs": 0.29314549999890005,
+      "rssBytes": 502702080.0
+    }
+  },
+  "large": {
+    "bulk/child-federated": {
+      "n": 24,
+      "median": 78.13802099999157,
+      "p95": 79.75783299999603,
+      "planMs": 1.750062,
+      "collectMs": 60.692521,
+      "encodeMs": 4.397624500000001,
+      "maxObservedTimerLagMs": 0.3130834999974468,
+      "rssBytes": 206520320.0
+    },
+    "bulk/child-scan": {
+      "n": 24,
+      "median": 195.24902100000327,
+      "p95": 196.80125000000407,
+      "planMs": 1.8740834999999998,
+      "collectMs": 177.7135835,
+      "encodeMs": 4.4646875,
+      "maxObservedTimerLagMs": 0.31979199999477714,
+      "rssBytes": 206520320.0
+    },
+    "bulk/child-snapshot": {
+      "n": 24,
+      "median": 23.893457999998645,
+      "p95": 24.233749999999418,
+      "planMs": 2.2512915,
+      "collectMs": 5.921125,
+      "encodeMs": 4.292875,
+      "maxObservedTimerLagMs": 0.32052049999765586,
+      "rssBytes": 206520320.0
+    },
+    "bulk/http-federated": {
+      "n": 24,
+      "median": 79.58114550000028,
+      "p95": 80.63845800000126,
+      "planMs": 1.7356665,
+      "collectMs": 60.973208,
+      "encodeMs": 4.3224165,
+      "maxObservedTimerLagMs": 0.6135415000026114,
+      "rssBytes": 107970560.0
+    },
+    "bulk/http-scan": {
+      "n": 24,
+      "median": 195.61716650000017,
+      "p95": 198.08504200000607,
+      "planMs": 1.877292,
+      "collectMs": 177.083708,
+      "encodeMs": 4.4637285,
+      "maxObservedTimerLagMs": 0.4580210000058287,
+      "rssBytes": 107970560.0
+    },
+    "bulk/native-js": {
+      "n": 24,
+      "median": 73.29068749998987,
+      "p95": 76.05991700000595,
+      "maxObservedTimerLagMs": 1.7282290000002831,
+      "rssBytes": 679944192.0
+    },
+    "bulk/neon-federated": {
+      "n": 24,
+      "median": 76.20158349999838,
+      "p95": 77.23720800000592,
+      "planMs": 1.7884375,
+      "collectMs": 60.736999999999995,
+      "encodeMs": 4.635999999999999,
+      "maxObservedTimerLagMs": 0.31031249999796273,
+      "rssBytes": 680148992.0
+    },
+    "bulk/neon-scan": {
+      "n": 24,
+      "median": 193.2855204999978,
+      "p95": 194.94187500000407,
+      "planMs": 1.886563,
+      "collectMs": 177.58612499999998,
+      "encodeMs": 4.5637705,
+      "maxObservedTimerLagMs": 0.31245850000777864,
+      "rssBytes": 678559744.0
+    },
+    "control/child-federated": {
+      "n": 24,
+      "median": 0.22912499999983993,
+      "p95": 0.34020799999962037,
+      "planMs": 0.14708349999999998,
+      "collectMs": 0.014125,
+      "encodeMs": 0.0029165000000000003,
+      "rssBytes": 133955584.0
+    },
+    "control/child-scan": {
+      "n": 24,
+      "median": 0.2875835000004372,
+      "p95": 0.3986249999998108,
+      "planMs": 0.1949585,
+      "collectMs": 0.015791,
+      "encodeMs": 0.0036040000000000004,
+      "rssBytes": 133955584.0
+    },
+    "control/child-snapshot": {
+      "n": 24,
+      "median": 0.2602080000006026,
+      "p95": 0.42779200000040873,
+      "planMs": 0.168104,
+      "collectMs": 0.014604,
+      "encodeMs": 0.003542,
+      "rssBytes": 133955584.0
+    },
+    "control/http-federated": {
+      "n": 24,
+      "median": 0.7151039999998829,
+      "p95": 0.9741659999999683,
+      "planMs": 0.157646,
+      "collectMs": 0.016146,
+      "encodeMs": 0.0032085,
+      "rssBytes": 35323904.0
+    },
+    "control/http-scan": {
+      "n": 24,
+      "median": 0.7071044999993319,
+      "p95": 1.0378340000006574,
+      "planMs": 0.15962500000000002,
+      "collectMs": 0.0164585,
+      "encodeMs": 0.0034790000000000003,
+      "rssBytes": 35323904.0
+    },
+    "control/native-js": {
+      "n": 24,
+      "median": 0.004978999999366351,
+      "p95": 0.006416000000172062,
+      "rssBytes": 919175168.0
+    },
+    "control/neon-federated": {
+      "n": 24,
+      "median": 0.26587500000005093,
+      "p95": 0.4264579999999114,
+      "planMs": 0.2066875,
+      "collectMs": 0.020083,
+      "encodeMs": 0.004875,
+      "rssBytes": 919166976.0
+    },
+    "control/neon-scan": {
+      "n": 24,
+      "median": 0.3521875000005821,
+      "p95": 0.42316700000083074,
+      "planMs": 0.28364599999999995,
+      "collectMs": 0.0216875,
+      "encodeMs": 0.006604499999999999,
+      "rssBytes": 919175168.0
+    },
+    "multi/child-federated": {
+      "n": 24,
+      "median": 46.65862500000003,
+      "p95": 47.93420799999876,
+      "planMs": 3.2912500000000002,
+      "collectMs": 42.995521,
+      "encodeMs": 0.0296875,
+      "maxObservedTimerLagMs": 0.32085400000141817,
+      "rssBytes": 185884672.0
+    },
+    "multi/child-scan": {
+      "n": 24,
+      "median": 52.90399999999863,
+      "p95": 55.41566700000112,
+      "planMs": 3.2616455,
+      "collectMs": 49.288375,
+      "encodeMs": 0.031979,
+      "maxObservedTimerLagMs": 0.32539600000018254,
+      "rssBytes": 185884672.0
+    },
+    "multi/child-snapshot": {
+      "n": 24,
+      "median": 13.244834000000992,
+      "p95": 13.593582999994396,
+      "planMs": 3.258771,
+      "collectMs": 9.507396,
+      "encodeMs": 0.030937,
+      "maxObservedTimerLagMs": 0.31837500000256114,
+      "rssBytes": 185892864.0
+    },
+    "multi/http-federated": {
+      "n": 24,
+      "median": 47.50410449999981,
+      "p95": 48.640417000002344,
+      "planMs": 3.285271,
+      "collectMs": 43.2055215,
+      "encodeMs": 0.028228999999999997,
+      "maxObservedTimerLagMs": 0.5287500000013097,
+      "rssBytes": 89800704.0
+    },
+    "multi/http-scan": {
+      "n": 24,
+      "median": 53.48416649999854,
+      "p95": 54.57583400000294,
+      "planMs": 3.323146,
+      "collectMs": 49.1872705,
+      "encodeMs": 0.0275415,
+      "maxObservedTimerLagMs": 0.5089584999986982,
+      "rssBytes": 89808896.0
+    },
+    "multi/native-js": {
+      "n": 24,
+      "median": 42.001978500000405,
+      "p95": 46.94379199999821,
+      "maxObservedTimerLagMs": 8.027646000002278,
+      "rssBytes": 619520000.0
+    },
+    "multi/neon-federated": {
+      "n": 24,
+      "median": 46.844561999998405,
+      "p95": 47.69800000000396,
+      "planMs": 3.3208745000000004,
+      "collectMs": 43.144687,
+      "encodeMs": 0.034020499999999995,
+      "maxObservedTimerLagMs": 0.30783299999893643,
+      "rssBytes": 623468544.0
+    },
+    "multi/neon-scan": {
+      "n": 24,
+      "median": 52.88612450000437,
+      "p95": 54.47750000000087,
+      "planMs": 3.3152505000000003,
+      "collectMs": 49.2795005,
+      "encodeMs": 0.0335,
+      "maxObservedTimerLagMs": 0.3136044999992009,
+      "rssBytes": 623869952.0
+    },
+    "multi/relate-child-scan": {
+      "n": 24,
+      "median": 2293.1812915000482,
+      "p95": 2429.873375000083,
+      "maxObservedTimerLagMs": 237.93427099997643,
+      "rssBytes": 1340211200.0
+    },
+    "multi/relate-child-scope-federated": {
+      "n": 24,
+      "median": 606.8668329999782,
+      "p95": 676.8182500000112,
+      "maxObservedTimerLagMs": 237.53172899998026,
+      "rssBytes": 1346920448.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 60.506729000015184,
+        "engineMs": 77.44412549998378,
+        "mergeMs": 12.482021000003442,
+        "planMs": 4.071896000000001,
+        "collectMs": 47.427749999999996,
+        "encodeMs": 3.6862915000000003
+      },
+      "runtimeOutsideScopeMs": 449.52314500004286
+    },
+    "multi/relate-child-scope-scan": {
+      "n": 24,
+      "median": 624.7758330000215,
+      "p95": 745.6195420000004,
+      "maxObservedTimerLagMs": 239.6579999999958,
+      "rssBytes": 1350131712.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 61.347229499951936,
+        "engineMs": 97.54283350007609,
+        "mergeMs": 12.958562499959953,
+        "planMs": 4.165041499999999,
+        "collectMs": 67.3105205,
+        "encodeMs": 3.6308124999999998
+      },
+      "runtimeOutsideScopeMs": 453.3793124999502
+    },
+    "multi/relate-http-scan": {
+      "n": 24,
+      "median": 1319.2831879999721,
+      "p95": 1514.2334160000319,
+      "maxObservedTimerLagMs": 239.9762500000652,
+      "rssBytes": 1344544768.0
+    },
+    "multi/relate-http-scope-federated": {
+      "n": 24,
+      "median": 615.4144579999847,
+      "p95": 690.8867080000928,
+      "maxObservedTimerLagMs": 235.08170849998714,
+      "rssBytes": 1353457664.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 60.61662450002041,
+        "engineMs": 76.19877099996665,
+        "mergeMs": 13.678499999979977,
+        "planMs": 4.096228999999999,
+        "collectMs": 46.64812500000001,
+        "encodeMs": 3.6383539999999996
+      },
+      "runtimeOutsideScopeMs": 460.25062599999364
+    },
+    "multi/relate-http-scope-scan": {
+      "n": 24,
+      "median": 601.858750000014,
+      "p95": 751.4813749999739,
+      "maxObservedTimerLagMs": 237.3526670000283,
+      "rssBytes": 1355177984.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 59.730687500035856,
+        "engineMs": 80.610041500011,
+        "mergeMs": 12.23589599999832,
+        "planMs": 4.216042,
+        "collectMs": 51.463978999999995,
+        "encodeMs": 3.6746875
+      },
+      "runtimeOutsideScopeMs": 447.23824949999107
+    },
+    "multi/relate-native": {
+      "n": 24,
+      "median": 808.4423750000424,
+      "p95": 861.6242500001099,
+      "maxObservedTimerLagMs": 238.42172899999423,
+      "rssBytes": 1350762496.0
+    },
+    "multi/relate-neon-scan": {
+      "n": 24,
+      "median": 1396.4562920000171,
+      "p95": 1488.0697499999078,
+      "maxObservedTimerLagMs": 241.40497900004266,
+      "rssBytes": 1351073792.0
+    },
+    "multi/relate-neon-scope-federated": {
+      "n": 24,
+      "median": 611.2542290000129,
+      "p95": 725.1664170000004,
+      "maxObservedTimerLagMs": 241.3344999999972,
+      "rssBytes": 1347780608.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 63.54383300000336,
+        "engineMs": 72.88741650001612,
+        "mergeMs": 14.14779149997048,
+        "planMs": 4.186187500000001,
+        "collectMs": 47.651458500000004,
+        "encodeMs": 3.8289584999999997
+      },
+      "runtimeOutsideScopeMs": 456.23749949998455
+    },
+    "multi/relate-neon-scope-scan": {
+      "n": 24,
+      "median": 616.241666499991,
+      "p95": 746.6985420000274,
+      "maxObservedTimerLagMs": 239.1537084999727,
+      "rssBytes": 1352949760.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 2.0,
+        "statementCount": 1.0,
+        "prepareMs": 61.998666499974206,
+        "engineMs": 75.9942705000285,
+        "mergeMs": 13.442396000027657,
+        "planMs": 4.182396,
+        "collectMs": 51.3543125,
+        "encodeMs": 3.7826874999999998
+      },
+      "runtimeOutsideScopeMs": 454.5782299999264
+    },
+    "ranking-db/child-federated": {
+      "n": 24,
+      "median": 62.86610400000063,
+      "p95": 64.32770800000071,
+      "planMs": 1.926479,
+      "collectMs": 60.698792000000005,
+      "encodeMs": 0.031229,
+      "maxObservedTimerLagMs": 0.31925000000046566,
+      "rssBytes": 165412864.0
+    },
+    "ranking-db/child-scan": {
+      "n": 24,
+      "median": 179.3003119999994,
+      "p95": 182.29029199999968,
+      "planMs": 2.071771,
+      "collectMs": 176.89127100000002,
+      "encodeMs": 0.0331045,
+      "maxObservedTimerLagMs": 0.3265210000008665,
+      "rssBytes": 165593088.0
+    },
+    "ranking-db/child-snapshot": {
+      "n": 24,
+      "median": 8.010896000001594,
+      "p95": 9.138958999999886,
+      "planMs": 2.588396,
+      "collectMs": 5.1411455,
+      "encodeMs": 0.0293125,
+      "maxObservedTimerLagMs": 0.3226874999991196,
+      "rssBytes": 165658624.0
+    },
+    "ranking-db/http-federated": {
+      "n": 24,
+      "median": 63.35345799999959,
+      "p95": 64.97454199999993,
+      "planMs": 1.8688955,
+      "collectMs": 60.6713955,
+      "encodeMs": 0.028395999999999998,
+      "maxObservedTimerLagMs": 0.561604499997884,
+      "rssBytes": 68534272.0
+    },
+    "ranking-db/http-scan": {
+      "n": 24,
+      "median": 180.31722900000022,
+      "p95": 185.23354199999994,
+      "planMs": 2.0991255,
+      "collectMs": 177.293854,
+      "encodeMs": 0.0299165,
+      "maxObservedTimerLagMs": 0.5892704999987473,
+      "rssBytes": 68534272.0
+    },
+    "ranking-db/native-js": {
+      "n": 24,
+      "median": 68.42939549999937,
+      "p95": 70.63387500000317,
+      "maxObservedTimerLagMs": 1.6746249999996508,
+      "rssBytes": 633274368.0
+    },
+    "ranking-db/neon-federated": {
+      "n": 24,
+      "median": 62.80029199999899,
+      "p95": 63.92766699999993,
+      "planMs": 1.9355835,
+      "collectMs": 60.6998755,
+      "encodeMs": 0.034666499999999996,
+      "maxObservedTimerLagMs": 0.310895999999957,
+      "rssBytes": 633569280.0
+    },
+    "ranking-db/neon-scan": {
+      "n": 24,
+      "median": 179.88491650000014,
+      "p95": 183.1168749999997,
+      "planMs": 2.126354,
+      "collectMs": 177.3297915,
+      "encodeMs": 0.0303125,
+      "maxObservedTimerLagMs": 0.3161664999988716,
+      "rssBytes": 633274368.0
+    },
+    "ranking-db/relate-child-scan": {
+      "n": 24,
+      "median": 4651.336354000028,
+      "p95": 5429.929541000049,
+      "maxObservedTimerLagMs": 267.3382294999901,
+      "rssBytes": 1181859840.0
+    },
+    "ranking-db/relate-child-scope-federated": {
+      "n": 24,
+      "median": 573.5058959999878,
+      "p95": 618.3923749999958,
+      "maxObservedTimerLagMs": 213.81585399998585,
+      "rssBytes": 1096253440.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 40.30108350003138,
+        "engineMs": 88.02541650000785,
+        "mergeMs": 28.157708499988075,
+        "planMs": 2.2464375,
+        "collectMs": 67.7682295,
+        "encodeMs": 3.9060625
+      },
+      "runtimeOutsideScopeMs": 417.3633124999469
+    },
+    "ranking-db/relate-child-scope-scan": {
+      "n": 24,
+      "median": 702.3116039999877,
+      "p95": 797.3990409999969,
+      "maxObservedTimerLagMs": 216.4385000000184,
+      "rssBytes": 1152606208.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 41.94933299999684,
+        "engineMs": 201.2435625000071,
+        "mergeMs": 27.65960450001876,
+        "planMs": 2.4321665,
+        "collectMs": 180.48054150000002,
+        "encodeMs": 3.6138335
+      },
+      "runtimeOutsideScopeMs": 421.8844795000041
+    },
+    "ranking-db/relate-http-scan": {
+      "n": 24,
+      "median": 3448.8883334999846,
+      "p95": 3873.594375000015,
+      "maxObservedTimerLagMs": 254.95570849999785,
+      "rssBytes": 1179238400.0
+    },
+    "ranking-db/relate-http-scope-federated": {
+      "n": 24,
+      "median": 580.6255420000234,
+      "p95": 634.3543750000536,
+      "maxObservedTimerLagMs": 215.15743749999092,
+      "rssBytes": 1159012352.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 40.22860450000735,
+        "engineMs": 90.4805204999866,
+        "mergeMs": 28.29572900001949,
+        "planMs": 2.239354,
+        "collectMs": 69.073917,
+        "encodeMs": 3.9215005000000005
+      },
+      "runtimeOutsideScopeMs": 421.58860450003704
+    },
+    "ranking-db/relate-http-scope-scan": {
+      "n": 24,
+      "median": 684.7126245000109,
+      "p95": 734.4144169999636,
+      "maxObservedTimerLagMs": 212.76270849999855,
+      "rssBytes": 1094778880.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 40.12208300002385,
+        "engineMs": 199.2679375000007,
+        "mergeMs": 27.614562499977183,
+        "planMs": 2.4178335,
+        "collectMs": 178.3893955,
+        "encodeMs": 3.546646
+      },
+      "runtimeOutsideScopeMs": 417.46539649998886
+    },
+    "ranking-db/relate-neon-scan": {
+      "n": 24,
+      "median": 3524.4376665000163,
+      "p95": 3784.2169170000125,
+      "maxObservedTimerLagMs": 218.38922899999307,
+      "rssBytes": 1174380544.0
+    },
+    "ranking-db/relate-neon-scope-federated": {
+      "n": 24,
+      "median": 577.749166499998,
+      "p95": 653.1910419999913,
+      "maxObservedTimerLagMs": 214.22004200000083,
+      "rssBytes": 1176215552.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 41.03756249998696,
+        "engineMs": 86.50718749999942,
+        "mergeMs": 28.79312500002561,
+        "planMs": 2.3014375,
+        "collectMs": 69.05447899999999,
+        "encodeMs": 3.9715625
+      },
+      "runtimeOutsideScopeMs": 420.140999500014
+    },
+    "ranking-db/relate-neon-scope-scan": {
+      "n": 24,
+      "median": 731.252999999997,
+      "p95": 871.9725410000246,
+      "maxObservedTimerLagMs": 252.68912549997913,
+      "rssBytes": 1182785536.0,
+      "scope": {
+        "candidateCount": 10000.0,
+        "associationCount": 1.0,
+        "statementCount": 1.0,
+        "prepareMs": 45.87227100000018,
+        "engineMs": 196.48037550001754,
+        "mergeMs": 28.46922899998026,
+        "planMs": 2.4787500000000002,
+        "collectMs": 179.0219375,
+        "encodeMs": 3.6645835
+      },
+      "runtimeOutsideScopeMs": 461.24575050000567
+    },
+    "ranking-db/relate-postgres": {
+      "n": 24,
+      "median": 689.7822500000038,
+      "p95": 814.7785830000066,
+      "maxObservedTimerLagMs": 255.81725000000733,
+      "rssBytes": 1157906432.0
+    },
+    "ranking-file/child-federated": {
+      "n": 24,
+      "median": 19.747542000004614,
+      "p95": 20.819499999997788,
+      "planMs": 2.537521,
+      "collectMs": 16.938271,
+      "encodeMs": 0.024688,
+      "maxObservedTimerLagMs": 0.31995849999657366,
+      "rssBytes": 183836672.0
+    },
+    "ranking-file/child-scan": {
+      "n": 24,
+      "median": 19.747082999994745,
+      "p95": 21.869207999996434,
+      "planMs": 2.4492494999999996,
+      "collectMs": 16.834833,
+      "encodeMs": 0.024625,
+      "maxObservedTimerLagMs": 0.3203539999994973,
+      "rssBytes": 183836672.0
+    },
+    "ranking-file/child-snapshot": {
+      "n": 24,
+      "median": 10.693562999997084,
+      "p95": 10.981665999999677,
+      "planMs": 2.505021,
+      "collectMs": 7.8525625,
+      "encodeMs": 0.0241045,
+      "maxObservedTimerLagMs": 0.3162499999998545,
+      "rssBytes": 183877632.0
+    },
+    "ranking-file/http-federated": {
+      "n": 24,
+      "median": 20.652437500000815,
+      "p95": 21.30379100000573,
+      "planMs": 2.5178335,
+      "collectMs": 17.064687,
+      "encodeMs": 0.024125,
+      "maxObservedTimerLagMs": 0.5332290000042121,
+      "rssBytes": 87851008.0
+    },
+    "ranking-file/http-scan": {
+      "n": 24,
+      "median": 20.38145849999637,
+      "p95": 21.645416999999725,
+      "planMs": 2.508917,
+      "collectMs": 16.9702085,
+      "encodeMs": 0.0228125,
+      "maxObservedTimerLagMs": 0.6020209999987856,
+      "rssBytes": 87851008.0
+    },
+    "ranking-file/native-js": {
+      "n": 24,
+      "median": 31.09989599999608,
+      "p95": 35.15595899999607,
+      "maxObservedTimerLagMs": 1.536207999997714,
+      "rssBytes": 615882752.0
+    },
+    "ranking-file/neon-federated": {
+      "n": 24,
+      "median": 19.841041499999847,
+      "p95": 20.229125000005297,
+      "planMs": 2.5369159999999997,
+      "collectMs": 17.0292915,
+      "encodeMs": 0.027604,
+      "maxObservedTimerLagMs": 0.30500000000029104,
+      "rssBytes": 617734144.0
+    },
+    "ranking-file/neon-scan": {
+      "n": 24,
+      "median": 19.790062499996566,
+      "p95": 20.451208999998926,
+      "planMs": 2.564667,
+      "collectMs": 16.975563,
+      "encodeMs": 0.028332999999999997,
+      "maxObservedTimerLagMs": 0.3045414999978675,
+      "rssBytes": 615874560.0
+    },
+    "selective/child-federated": {
+      "n": 24,
+      "median": 16.581354500001908,
+      "p95": 17.744417000001704,
+      "planMs": 3.290896,
+      "collectMs": 13.060542000000002,
+      "encodeMs": 0.008875000000000001,
+      "maxObservedTimerLagMs": 0.3047705000026326,
+      "rssBytes": 189202432.0
+    },
+    "selective/child-scan": {
+      "n": 24,
+      "median": 16.764687999999296,
+      "p95": 17.77599999999802,
+      "planMs": 3.3765,
+      "collectMs": 13.129228999999999,
+      "encodeMs": 0.0096045,
+      "maxObservedTimerLagMs": 0.3086250000014843,
+      "rssBytes": 189202432.0
+    },
+    "selective/child-snapshot": {
+      "n": 24,
+      "median": 7.684354000000894,
+      "p95": 7.93908399999782,
+      "planMs": 3.6621875,
+      "collectMs": 3.762521,
+      "encodeMs": 0.008542000000000001,
+      "maxObservedTimerLagMs": 0.30585449999853154,
+      "rssBytes": 189202432.0
+    },
+    "selective/http-federated": {
+      "n": 24,
+      "median": 17.325666500000807,
+      "p95": 18.532333000002836,
+      "planMs": 3.3709585,
+      "collectMs": 13.184000000000001,
+      "encodeMs": 0.0087915,
+      "maxObservedTimerLagMs": 0.5048744999985502,
+      "rssBytes": 90603520.0
+    },
+    "selective/http-scan": {
+      "n": 24,
+      "median": 17.33087500000329,
+      "p95": 18.39074999999866,
+      "planMs": 3.3549795,
+      "collectMs": 13.2265,
+      "encodeMs": 0.008438,
+      "maxObservedTimerLagMs": 0.5079584999984945,
+      "rssBytes": 90603520.0
+    },
+    "selective/native-js": {
+      "n": 24,
+      "median": 3.324770499999431,
+      "p95": 3.621040999998513,
+      "maxObservedTimerLagMs": 0.021124999999301508,
+      "rssBytes": 639565824.0
+    },
+    "selective/neon-federated": {
+      "n": 24,
+      "median": 16.954312999998365,
+      "p95": 17.989624999994703,
+      "planMs": 3.4595415000000003,
+      "collectMs": 13.429270500000001,
+      "encodeMs": 0.009417,
+      "maxObservedTimerLagMs": 0.2970209999984945,
+      "rssBytes": 641056768.0
+    },
+    "selective/neon-scan": {
+      "n": 24,
+      "median": 16.808625000001484,
+      "p95": 18.461957999999868,
+      "planMs": 3.4809790000000005,
+      "collectMs": 13.212520999999999,
+      "encodeMs": 0.009542,
+      "maxObservedTimerLagMs": 0.2980420000021695,
+      "rssBytes": 641794048.0
+    }
+  }
+}

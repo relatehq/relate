@@ -1,0 +1,13 @@
+{
+  "note": "Artifacts built before all final runs; unchanged throughout. The executable hash also appears in every run metadata record. Binaries are generated and are not committed.",
+  "artifacts": {
+    "tests/performance/federation/engine.node": {
+      "sha256": "def9d69216e5083a8fcd52deb510ad78ffee93ebfcd5cbb3f57b9c8753f081ac",
+      "mtimeNs": 1792700964784162485
+    },
+    "tests/performance/federation/rust/target/release/federation-engine": {
+      "sha256": "66d7730ea17a09dd2e41a40d3a38646fe345853c889ab68f2efa58241c1651c0",
+      "mtimeNs": 1792700964682014354
+    }
+  }
+}

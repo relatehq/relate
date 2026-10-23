@@ -1,0 +1,353 @@
+{
+  "commit": "2ba046bfb949e14f3b0a1ae7d035f8827849527d",
+  "fixture": {
+    "customerCount": 12500,
+    "eventCount": 1000000,
+    "invoiceCount": 200000,
+    "seed": 42,
+    "inputSha256": "c905410945623cfdbcb7cbb6325aa0b0567d674107d2d20b4abb6bb0d9849f21",
+    "postgresVersion": "18.6 (Debian 18.6-1.pgdg13+2)",
+    "sqliteVersion": "3.53.4"
+  },
+  "node": "v26.9.0",
+  "elapsedMs": 610.8564589999987,
+  "scope": {
+    "candidateCount": 10000,
+    "associationCount": 1,
+    "statementCount": 1,
+    "prepareMs": 43.78633400000035,
+    "engineMs": 85.62516599999981,
+    "mergeMs": 31.541957999999795,
+    "planMs": 2.488167,
+    "collectMs": 60.679207999999996,
+    "encodeMs": 3.9387909999999997
+  },
+  "counts": {
+    "scan": 125,
+    "loadMany": 101,
+    "objectsBatchLoaded": 10025
+  },
+  "top": [
+    {
+      "functionName": "post",
+      "scriptId": "190",
+      "url": "node:inspector",
+      "lineNumber": 115,
+      "columnNumber": 6,
+      "selfMs": 95.804
+    },
+    {
+      "functionName": "(idle)",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": 0,
+      "columnNumber": -1,
+      "selfMs": 78.77000000000002
+    },
+    {
+      "functionName": "readObject",
+      "scriptId": "370",
+      "url": "file://<repo>/packages/runtime/dist/resolution/source.js",
+      "lineNumber": 85,
+      "columnNumber": 29,
+      "selfMs": 41.38999999999999
+    },
+    {
+      "functionName": "structuredClone",
+      "scriptId": "29",
+      "url": "node:internal/worker/js_transferable",
+      "lineNumber": 101,
+      "columnNumber": 24,
+      "selfMs": 35.800000000000004
+    },
+    {
+      "functionName": "(garbage collector)",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": 0,
+      "columnNumber": -1,
+      "selfMs": 31.923000000000005
+    },
+    {
+      "functionName": "readObject",
+      "scriptId": "370",
+      "url": "file://<repo>/packages/runtime/dist/resolution/source.js",
+      "lineNumber": 85,
+      "columnNumber": 29,
+      "selfMs": 24.197999999999997
+    },
+    {
+      "functionName": "structuredClone",
+      "scriptId": "29",
+      "url": "node:internal/worker/js_transferable",
+      "lineNumber": 101,
+      "columnNumber": 24,
+      "selfMs": 23.233999999999998
+    },
+    {
+      "functionName": "structuredClone",
+      "scriptId": "29",
+      "url": "node:internal/worker/js_transferable",
+      "lineNumber": 101,
+      "columnNumber": 24,
+      "selfMs": 19.63
+    },
+    {
+      "functionName": "structuredClone",
+      "scriptId": "29",
+      "url": "node:internal/worker/js_transferable",
+      "lineNumber": 101,
+      "columnNumber": 24,
+      "selfMs": 17.236
+    },
+    {
+      "functionName": "processTicksAndRejections",
+      "scriptId": "33",
+      "url": "node:internal/process/task_queues",
+      "lineNumber": 72,
+      "columnNumber": 34,
+      "selfMs": 13.974999999999998
+    },
+    {
+      "functionName": "",
+      "scriptId": "328",
+      "url": "file://<repo>/packages/runtime/dist/analytics/revalidate.js",
+      "lineNumber": 3,
+      "columnNumber": 57,
+      "selfMs": 11.829
+    },
+    {
+      "functionName": "canonicalTimestamp",
+      "scriptId": "202",
+      "url": "file://<repo>/packages/relate/dist/analytics/values.js",
+      "lineNumber": 31,
+      "columnNumber": 34,
+      "selfMs": 10.529
+    },
+    {
+      "functionName": "scalarCompare",
+      "scriptId": "329",
+      "url": "file://<repo>/packages/runtime/dist/analytics/order.js",
+      "lineNumber": 36,
+      "columnNumber": 26,
+      "selfMs": 9.822000000000001
+    },
+    {
+      "functionName": "(program)",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": 0,
+      "columnNumber": -1,
+      "selfMs": 9.238999999999999
+    },
+    {
+      "functionName": "canonicalJson",
+      "scriptId": "221",
+      "url": "file://<repo>/packages/relate/dist/model.js",
+      "lineNumber": 176,
+      "columnNumber": 29,
+      "selfMs": 9.101
+    },
+    {
+      "functionName": "",
+      "scriptId": "373",
+      "url": "file://<repo>/packages/runtime/dist/resolution/refresh.js",
+      "lineNumber": 10,
+      "columnNumber": 58,
+      "selfMs": 8.83
+    },
+    {
+      "functionName": "",
+      "scriptId": "373",
+      "url": "file://<repo>/packages/runtime/dist/resolution/refresh.js",
+      "lineNumber": 10,
+      "columnNumber": 58,
+      "selfMs": 8.808
+    },
+    {
+      "functionName": "",
+      "scriptId": "342",
+      "url": "file://<repo>/packages/runtime/dist/analytical-reads/record.js",
+      "lineNumber": 11,
+      "columnNumber": 58,
+      "selfMs": 7.5729999999999995
+    },
+    {
+      "functionName": "",
+      "scriptId": "200",
+      "url": "file://<repo>/packages/runtime/dist/analytics/batch.js",
+      "lineNumber": 31,
+      "columnNumber": 26,
+      "selfMs": 7.547
+    },
+    {
+      "functionName": "utcTimestamp",
+      "scriptId": "218",
+      "url": "file://<repo>/tests/performance/federation/queries.mjs",
+      "lineNumber": 36,
+      "columnNumber": 28,
+      "selfMs": 7.3389999999999995
+    },
+    {
+      "functionName": "",
+      "scriptId": "200",
+      "url": "file://<repo>/packages/runtime/dist/analytics/batch.js",
+      "lineNumber": 33,
+      "columnNumber": 46,
+      "selfMs": 6.281
+    },
+    {
+      "functionName": "runMicrotasks",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": 0,
+      "columnNumber": -1,
+      "selfMs": 6.242999999999999
+    },
+    {
+      "functionName": "project",
+      "scriptId": "335",
+      "url": "file://<repo>/packages/runtime/dist/reads/project.js",
+      "lineNumber": 3,
+      "columnNumber": 23,
+      "selfMs": 6.167999999999999
+    },
+    {
+      "functionName": "mergeBatch",
+      "scriptId": "216",
+      "url": "file://<repo>/packages/runtime/dist/analytics/merge.js",
+      "lineNumber": 17,
+      "columnNumber": 26,
+      "selfMs": 5.6049999999999995
+    },
+    {
+      "functionName": "structuredClone",
+      "scriptId": "0",
+      "url": "",
+      "lineNumber": 0,
+      "columnNumber": -1,
+      "selfMs": 5.074
+    },
+    {
+      "functionName": "project",
+      "scriptId": "335",
+      "url": "file://<repo>/packages/runtime/dist/reads/project.js",
+      "lineNumber": 3,
+      "columnNumber": 23,
+      "selfMs": 4.99
+    },
+    {
+      "functionName": "requestIssues",
+      "scriptId": "332",
+      "url": "file://<repo>/packages/runtime/dist/reads/options.js",
+      "lineNumber": 300,
+      "columnNumber": 29,
+      "selfMs": 4.969
+    },
+    {
+      "functionName": "requestIssues",
+      "scriptId": "332",
+      "url": "file://<repo>/packages/runtime/dist/reads/options.js",
+      "lineNumber": 300,
+      "columnNumber": 29,
+      "selfMs": 4.942
+    },
+    {
+      "functionName": "readCandidate",
+      "scriptId": "362",
+      "url": "file://<repo>/packages/runtime/dist/queries/query.js",
+      "lineNumber": 66,
+      "columnNumber": 30,
+      "selfMs": 4.801
+    },
+    {
+      "functionName": "",
+      "scriptId": "362",
+      "url": "file://<repo>/packages/runtime/dist/queries/query.js",
+      "lineNumber": 12,
+      "columnNumber": 11,
+      "selfMs": 4.465
+    },
+    {
+      "functionName": "",
+      "scriptId": "196",
+      "url": "file://<repo>/packages/runtime/dist/analytical-reads/read.js",
+      "lineNumber": 118,
+      "columnNumber": 49,
+      "selfMs": 3.9189999999999996
+    },
+    {
+      "functionName": "planBatches",
+      "scriptId": "200",
+      "url": "file://<repo>/packages/runtime/dist/analytics/batch.js",
+      "lineNumber": 89,
+      "columnNumber": 27,
+      "selfMs": 3.8
+    },
+    {
+      "functionName": "captureCandidate",
+      "scriptId": "196",
+      "url": "file://<repo>/packages/runtime/dist/analytical-reads/read.js",
+      "lineNumber": 93,
+      "columnNumber": 42,
+      "selfMs": 3.787
+    },
+    {
+      "functionName": "project",
+      "scriptId": "335",
+      "url": "file://<repo>/packages/runtime/dist/reads/project.js",
+      "lineNumber": 3,
+      "columnNumber": 23,
+      "selfMs": 3.7619999999999996
+    },
+    {
+      "functionName": "query",
+      "scriptId": "422",
+      "url": "file://<repo>/tests/performance/federation/transports.mjs",
+      "lineNumber": 96,
+      "columnNumber": 15,
+      "selfMs": 3.753
+    },
+    {
+      "functionName": "",
+      "scriptId": "332",
+      "url": "file://<repo>/packages/runtime/dist/reads/options.js",
+      "lineNumber": 307,
+      "columnNumber": 32,
+      "selfMs": 3.735
+    },
+    {
+      "functionName": "revalidateFields",
+      "scriptId": "328",
+      "url": "file://<repo>/packages/runtime/dist/analytics/revalidate.js",
+      "lineNumber": 2,
+      "columnNumber": 32,
+      "selfMs": 3.455
+    },
+    {
+      "functionName": "actorAssociations",
+      "scriptId": "321",
+      "url": "file://<repo>/packages/runtime/dist/authorization/analytics.js",
+      "lineNumber": 50,
+      "columnNumber": 33,
+      "selfMs": 3.136
+    },
+    {
+      "functionName": "",
+      "scriptId": "328",
+      "url": "file://<repo>/packages/runtime/dist/analytics/revalidate.js",
+      "lineNumber": 10,
+      "columnNumber": 31,
+      "selfMs": 2.7439999999999998
+    },
+    {
+      "functionName": "accountAllowed",
+      "scriptId": "370",
+      "url": "file://<repo>/packages/runtime/dist/resolution/source.js",
+      "lineNumber": 34,
+      "columnNumber": 33,
+      "selfMs": 2.542
+    }
+  ],
+  "note": "One separate profiled warm request. Sampling and counters add overhead; never mix this duration with primary benchmark samples. Node CPU only; the child engine and PostgreSQL are outside this profile. Frame lines refer to built JS, not TypeScript source."
+}
