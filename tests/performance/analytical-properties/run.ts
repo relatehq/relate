@@ -128,7 +128,7 @@ export async function measureScenario(
   return samples;
 }
 
-export async function runWorkload(input: Config) {
+export function resolveConfig(input: Config) {
   const config = {
     backend: 'sqlite' as const,
     objectStore: 'memory' as const,
@@ -155,7 +155,11 @@ export async function runWorkload(input: Config) {
     );
   }
 
-  const started = performance.now();
+  return config;
+}
+
+/** Seeded backend, adopted objects and oracle; setup is outside every timing. */
+export async function openWorkload(config: ReturnType<typeof resolveConfig>) {
   const records = customers(config.customers);
   const backend = await openBackend(
     config.backend,
@@ -164,6 +168,21 @@ export async function runWorkload(input: Config) {
   let backing: Awaited<ReturnType<typeof openStore>> | undefined;
   let objects: Awaited<ReturnType<typeof openObjects>> | undefined;
   let reference: ReturnType<typeof openReference> | undefined;
+  const close = async () => {
+    try {
+      reference?.close();
+    } finally {
+      try {
+        await objects?.app.close();
+      } finally {
+        try {
+          await backing?.close();
+        } finally {
+          await backend.close();
+        }
+      }
+    }
+  };
 
   try {
     const graphId = `analytical-benchmark-${randomUUID()}`;
@@ -180,7 +199,25 @@ export async function runWorkload(input: Config) {
       objects.ids,
       events(config.customers, config.events, config.seed),
     );
-    const adapter = createAdapter(objects);
+
+    return {
+      adapter: createAdapter(objects),
+      reference,
+      backendVersion: backend.version,
+      close,
+    };
+  } catch (error) {
+    await close();
+    throw error;
+  }
+}
+
+export async function runWorkload(input: Config) {
+  const config = resolveConfig(input);
+  const started = performance.now();
+  const workload = await openWorkload(config);
+
+  try {
     const setupMs = performance.now() - started;
     const samples: Sample[] = [];
 
@@ -189,33 +226,21 @@ export async function runWorkload(input: Config) {
         ...(await measureScenario(
           scenario,
           config,
-          () => reference!.query(scenario),
-          (trace) => adapter.query(scenarios[scenario], trace),
+          () => workload.reference.query(scenario),
+          (trace) => workload.adapter.query(scenarios[scenario], trace),
         )),
       );
 
     return {
       config,
       setupMs,
-      backendVersion: backend.version,
-      sqliteVersion: reference.version,
+      backendVersion: workload.backendVersion,
+      sqliteVersion: workload.reference.version,
       samples,
       summary: summarizeSamples(samples),
     };
   } finally {
-    try {
-      reference?.close();
-    } finally {
-      try {
-        await objects?.app.close();
-      } finally {
-        try {
-          await backing?.close();
-        } finally {
-          await backend.close();
-        }
-      }
-    }
+    await workload.close();
   }
 }
 
@@ -302,6 +327,7 @@ async function main() {
       'source-delay-ms': { type: 'string', default: '0' },
       customers: { type: 'string' },
       events: { type: 'string' },
+      repetitions: { type: 'string' },
     },
   });
 
@@ -326,6 +352,12 @@ async function main() {
   assert(
     ['cached', 'refresh'].includes(values.freshness),
     'freshness must be cached or refresh',
+  );
+  assert(
+    values.repetitions === undefined ||
+      (Number.isSafeInteger(Number(values.repetitions)) &&
+        Number(values.repetitions) > 0),
+    'repetitions must be a positive integer',
   );
   const output = resolve(values.out);
   const metadata = {
@@ -378,6 +410,9 @@ async function main() {
     backends.flatMap((backend) =>
       captures.map((capture): Config => ({
         ...config,
+        ...(values.repetitions === undefined
+          ? {}
+          : { repetitions: Number(values.repetitions) }),
         backend,
         capture,
         objectStore: values.store as 'memory' | 'postgres',

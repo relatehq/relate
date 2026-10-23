@@ -115,6 +115,18 @@ export function createAnalyticalReads(options: AnalyticalReadDependencies) {
         prepared.dependencies,
         controls.maxAgeMs!,
       );
+      const readWith =
+        (reader: AnalyticalReadDependencies['read']) => (id: string) =>
+          measure('dependencyReads', () =>
+            reader({
+              attempt,
+              principal,
+              objectType: type,
+              id,
+              request: { ...controls, refresh: false, stale: 'allow' },
+              execution,
+            }),
+          );
 
       try {
         controller.signal.throwIfAborted();
@@ -222,24 +234,62 @@ export function createAnalyticalReads(options: AnalyticalReadDependencies) {
             actorAssociations(options.manifest, principal, object),
           filter,
           ...(summary ? { summary } : {}),
-          read: (id) =>
-            measure('dependencyReads', () =>
-              options.read({
-                attempt,
-                principal,
-                objectType: type,
-                id,
-                request: { ...controls, refresh: false, stale: 'allow' },
-                execution,
-              }),
-            ),
+          read: readWith(options.read),
         });
+        // One batched store load per 100 records; each record is still re-read
+        // and re-authorized individually from that snapshot. A batch loads when
+        // its first record is checked and starts the next one, so store calls
+        // overlap the checks instead of pausing every 100 records.
+        const revalidateBatches = async <T>(
+          items: readonly T[],
+          id: (item: T) => string,
+          check: (
+            item: T,
+            read: ReturnType<typeof readWith>,
+          ) => Promise<RevalidatedRecord | undefined>,
+        ) => {
+          const batches = new Map<
+            number,
+            Promise<ReturnType<typeof readWith>>
+          >();
+          const batch = (start: number) => {
+            let loaded = batches.get(start);
+
+            if (!loaded) {
+              loaded = options
+                .readBatch({
+                  objectType: type,
+                  ids: items.slice(start, start + 100).map(id),
+                })
+                .then(readWith);
+              // A prefetch that fails surfaces when its batch is awaited.
+              loaded.catch(() => {});
+              batches.set(start, loaded);
+              batches.delete(start - 200);
+            }
+
+            return loaded;
+          };
+
+          return mapReads(
+            items.map((item, index) => ({ item, index })),
+            async ({ item, index }) => {
+              const start = index - (index % 100);
+              const read = batch(start);
+
+              if (start + 100 < items.length) batch(start + 100);
+
+              return check(item, await read);
+            },
+            controller.signal,
+          );
+        };
         const validated = (
           await measure('revalidation', () =>
-            mapReads(
+            revalidateBatches(
               page.data,
-              (record) => revalidate(record),
-              controller.signal,
+              (record) => record.id,
+              (record, read) => revalidate(record, undefined, read),
             ),
           )
         ).filter((row): row is RevalidatedRecord => row !== undefined);
@@ -261,10 +311,11 @@ export function createAnalyticalReads(options: AnalyticalReadDependencies) {
           const chosen = ranked.chosen;
 
           const final = await measure('revalidation', () =>
-            mapReads(
+            revalidateBatches(
               chosen,
-              (entry) => revalidate(entry.row.record, entry.row.fields),
-              controller.signal,
+              (entry) => entry.row.record.id,
+              (entry, read) =>
+                revalidate(entry.row.record, entry.row.fields, read),
             ),
           );
 

@@ -1,13 +1,20 @@
 import type { ReadExecution } from './reads/index.js';
 import { createAnalyticalReads } from './analytical-reads/index.js';
-import type { AnalyticalReadOptions } from './analytical-reads/index.js';
+import type {
+  AnalyticalReadOptions,
+  OrdinaryReadInput,
+} from './analytical-reads/index.js';
 import {
   createNativeOperations,
   nativeEvidence,
   createActionExecutor,
 } from './actions/index.js';
 import type { ActionHandler } from './actions/index.js';
-import type { NativeTransaction, StorageScope } from './storage.js';
+import type {
+  NativeTransaction,
+  StorageScope,
+  StoredObject,
+} from './storage.js';
 import { createGraphQuery, createQueryCursors } from './queries/index.js';
 import { createTraversal, traversalsFrom } from './traversal/index.js';
 import {
@@ -34,7 +41,7 @@ import {
 import { createHash } from 'node:crypto';
 import { canonicalJson, validateManifest } from 'relate/model';
 import type { CompiledModel } from 'relate/model';
-import { ActivityError } from '@relate/protocol';
+import { ActivityError, ReadError } from '@relate/protocol';
 import type {
   ActivityObjectRef,
   ActivityReader,
@@ -246,6 +253,7 @@ export function createRuntime(options: RuntimeOptions) {
     captureAuthorization?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
     execution?: ReadExecution,
+    snapshot?: StoredObject,
   ): Promise<ReadResult> {
     execution?.signal.throwIfAborted();
     const object = manifest.objects.find((o) => o.id === objectDefinitionId);
@@ -289,6 +297,7 @@ export function createRuntime(options: RuntimeOptions) {
         captureAuthorization,
         transaction,
         execution,
+        snapshot,
       );
 
     return native.read(
@@ -321,33 +330,57 @@ export function createRuntime(options: RuntimeOptions) {
     cursors: queryCursors,
   });
 
-  const analyticalReads = createAnalyticalReads({
-    manifest,
-    cursors: queryCursors,
-    read: async ({
+  const ordinaryRead = async (
+    {
       attempt,
       principal,
       objectType,
       id,
       request,
       execution,
-    }) => {
-      let recheckAuthorization = async () => false;
-      const result = await readObject(
-        attempt,
-        principal,
-        objectType,
-        id,
-        request,
-        undefined,
-        (check) => {
-          recheckAuthorization = check;
-        },
-        undefined,
-        execution,
-      );
+    }: OrdinaryReadInput,
+    snapshot?: StoredObject,
+  ) => {
+    let recheckAuthorization = async () => false;
+    const result = await readObject(
+      attempt,
+      principal,
+      objectType,
+      id,
+      request,
+      undefined,
+      (check) => {
+        recheckAuthorization = check;
+      },
+      undefined,
+      execution,
+      snapshot,
+    );
 
-      return { result, recheckAuthorization };
+    return { result, recheckAuthorization };
+  };
+  const analyticalReads = createAnalyticalReads({
+    manifest,
+    cursors: queryCursors,
+    read: (input) => ordinaryRead(input),
+    readBatch: async ({ objectType, ids }) => {
+      const object = manifest.objects.find((o) => o.id === objectType);
+      let snapshots: ReadonlyMap<string, StoredObject> = new Map();
+
+      if (object?.sourceDefinitionId && ids.length) {
+        await install();
+
+        try {
+          snapshots = await store.loadMany(
+            scopeFor(objectType, object.sourceDefinitionId),
+            ids,
+          );
+        } catch {
+          throw new ReadError('unavailable');
+        }
+      }
+
+      return (input) => ordinaryRead(input, snapshots.get(input.id));
     },
     query: ({ attempt, principal, objectType, request, context }) =>
       query(
@@ -370,7 +403,28 @@ export function createRuntime(options: RuntimeOptions) {
     store,
     clock,
     scopeFor,
-    read: readObject,
+    read: (
+      attempt,
+      principal,
+      type,
+      id,
+      request,
+      requiredReference,
+      captureAuthorization,
+      snapshot,
+    ) =>
+      readObject(
+        attempt,
+        principal,
+        type,
+        id,
+        request,
+        requiredReference,
+        captureAuthorization,
+        undefined,
+        undefined,
+        snapshot,
+      ),
     ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
   });
 

@@ -57,6 +57,7 @@ const roots: Record<string, string> = {
   'memory.ts': 'memory',
   'native-memory.ts': 'memory',
   'memory-activity.ts': 'memory',
+  'memory-order.ts': 'memory',
 };
 const folders = new Set([
   'analytical-reads',

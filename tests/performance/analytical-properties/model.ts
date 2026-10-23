@@ -157,6 +157,12 @@ export async function openObjects(records: Customer[], options: ObjectOptions) {
 
       return underlying.load(...args);
     },
+    async loadMany(scope, objectIds) {
+      count('batchedLoads');
+      count('objectsBatchLoaded', objectIds.length);
+
+      return underlying.loadMany(scope, objectIds);
+    },
     async resolve(...args) {
       count('sourceResolutions');
 
@@ -275,6 +281,8 @@ export async function openObjects(records: Customer[], options: ObjectOptions) {
         'membershipScans',
         'candidatesScanned',
         'objectLoads',
+        'batchedLoads',
+        'objectsBatchLoaded',
         'sourceResolutions',
         'sourceFetches',
         'sourceIdentifications',

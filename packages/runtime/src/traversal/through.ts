@@ -8,7 +8,7 @@ import type {
 } from '@relate/protocol';
 import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
-import { compareObjectIds, scanBatch } from '../storage.js';
+import { compareObjectIds, scanMembers } from '../storage.js';
 import {
   cursorCodec,
   predicateMatcher,
@@ -58,13 +58,6 @@ export function createThroughTraversal(options: TraversalOptions) {
     graphId: options.graphId,
     definitionRevision: options.revision,
   };
-
-  const scanner =
-    (object: Manifest['objects'][number]) =>
-    (input: { after?: string; limit: number }) =>
-      object.sourceDefinitionId
-        ? store.scan(scopeFor(object.id, object.sourceDefinitionId), input)
-        : store.native!.scan(nativeScope, object.id, input);
 
   return async (
     attempt: OperationScope,
@@ -211,7 +204,16 @@ export function createThroughTraversal(options: TraversalOptions) {
     // repeated passes across target pages. Preserve distinct target ordering,
     // source freshness, and final authorization of both junction and destination.
     while (passing && scanned < 100) {
-      const batch = await scanBatch(scanner(owner), afterLink, 100 - scanned);
+      const source = owner.sourceDefinitionId;
+      // Link reads start from source junction snapshots.
+      const batch = await scanMembers(
+        source
+          ? (input) => store.scan(scopeFor(owner.id, source), input)
+          : undefined,
+        (input) => store.native!.scan(nativeScope, owner.id, input),
+        afterLink,
+        100 - scanned,
+      );
 
       scanned += batch.ids.length;
       passing = batch.hasMore;
@@ -219,8 +221,17 @@ export function createThroughTraversal(options: TraversalOptions) {
       for (let i = 0; i < batch.ids.length; i += 8) {
         const links = batch.ids.slice(i, i + 8);
         const members = await Promise.all(
-          links.map((link) =>
-            read(attempt, principal, owner.id, link, linkRequest),
+          links.map((link, j) =>
+            read(
+              attempt,
+              principal,
+              owner.id,
+              link,
+              linkRequest,
+              undefined,
+              undefined,
+              batch.snapshots?.[i + j],
+            ),
           ),
         );
 
