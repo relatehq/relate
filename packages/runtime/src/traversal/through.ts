@@ -59,13 +59,6 @@ export function createThroughTraversal(options: TraversalOptions) {
     definitionRevision: options.revision,
   };
 
-  const scanner =
-    (object: Manifest['objects'][number]) =>
-    (input: { after?: string; limit: number }) =>
-      object.sourceDefinitionId
-        ? store.scan(scopeFor(object.id, object.sourceDefinitionId), input)
-        : store.native!.scan(nativeScope, object.id, input);
-
   return async (
     attempt: OperationScope,
     principal: Principal,
@@ -211,11 +204,22 @@ export function createThroughTraversal(options: TraversalOptions) {
     // repeated passes across target pages. Preserve distinct target ordering,
     // source freshness, and final authorization of both junction and destination.
     while (passing && scanned < 100) {
-      const batch = await scanBatch<{ readonly objectId: string }>(
-        scanner(owner),
-        afterLink,
-        100 - scanned,
-      );
+      const source = owner.sourceDefinitionId;
+      // Source junction scans return whole snapshots; link reads start from them.
+      const sourceBatch = source
+        ? await scanBatch(
+            (input) => store.scan(scopeFor(owner.id, source), input),
+            afterLink,
+            100 - scanned,
+          )
+        : undefined;
+      const batch =
+        sourceBatch ??
+        (await scanBatch(
+          (input) => store.native!.scan(nativeScope, owner.id, input),
+          afterLink,
+          100 - scanned,
+        ));
 
       scanned += batch.ids.length;
       passing = batch.hasMore;
@@ -223,8 +227,17 @@ export function createThroughTraversal(options: TraversalOptions) {
       for (let i = 0; i < batch.ids.length; i += 8) {
         const links = batch.ids.slice(i, i + 8);
         const members = await Promise.all(
-          links.map((link) =>
-            read(attempt, principal, owner.id, link, linkRequest),
+          links.map((link, j) =>
+            read(
+              attempt,
+              principal,
+              owner.id,
+              link,
+              linkRequest,
+              undefined,
+              undefined,
+              sourceBatch?.objects[i + j],
+            ),
           ),
         );
 

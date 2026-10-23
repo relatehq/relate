@@ -151,6 +151,28 @@ export function throughTraversalContract(
       };
     }
 
+    it('starts junction reads from the scan and reloads only links on the page', async () => {
+      const t = await setup();
+      const p = await t.playlist('morning');
+
+      await t.playlist('evening');
+      const a = await t.song('alpha');
+      const b = await t.song('beta');
+      const first = await t.link('a1', 'morning', 'alpha');
+      const second = await t.link('b1', 'morning', 'beta');
+      const other = await t.link('a2', 'evening', 'alpha');
+      const load = vi.spyOn(t.store, 'load');
+      const page = await t.objects.Playlist.traverse.songs(p, {
+        select: ['title'],
+      });
+      const loads = (objectId: string) =>
+        load.mock.calls.filter(([, id]) => id === objectId).length;
+
+      expect(page.data.map((row) => row.id)).toEqual([a, b].sort());
+      // Only the final link recheck loads a junction; other playlists' links never load.
+      expect([loads(first), loads(second), loads(other)]).toEqual([1, 1, 0]);
+    });
+
     it('returns distinct destination pages and lazy iteration in both directions, retaining entry metadata separately', async () => {
       const t = await setup();
       const p = await t.playlist('morning');

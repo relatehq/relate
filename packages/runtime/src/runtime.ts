@@ -403,7 +403,28 @@ export function createRuntime(options: RuntimeOptions) {
     store,
     clock,
     scopeFor,
-    read: readObject,
+    read: (
+      attempt,
+      principal,
+      type,
+      id,
+      request,
+      requiredReference,
+      captureAuthorization,
+      snapshot,
+    ) =>
+      readObject(
+        attempt,
+        principal,
+        type,
+        id,
+        request,
+        requiredReference,
+        captureAuthorization,
+        undefined,
+        undefined,
+        snapshot,
+      ),
     ...(options.cursorKey ? { cursorKey: options.cursorKey } : {}),
   });
 
