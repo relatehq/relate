@@ -115,6 +115,18 @@ export function createAnalyticalReads(options: AnalyticalReadDependencies) {
         prepared.dependencies,
         controls.maxAgeMs!,
       );
+      const readWith =
+        (reader: AnalyticalReadDependencies['read']) => (id: string) =>
+          measure('dependencyReads', () =>
+            reader({
+              attempt,
+              principal,
+              objectType: type,
+              id,
+              request: { ...controls, refresh: false, stale: 'allow' },
+              execution,
+            }),
+          );
 
       try {
         controller.signal.throwIfAborted();
@@ -222,24 +234,44 @@ export function createAnalyticalReads(options: AnalyticalReadDependencies) {
             actorAssociations(options.manifest, principal, object),
           filter,
           ...(summary ? { summary } : {}),
-          read: (id) =>
-            measure('dependencyReads', () =>
-              options.read({
-                attempt,
-                principal,
-                objectType: type,
-                id,
-                request: { ...controls, refresh: false, stale: 'allow' },
-                execution,
-              }),
-            ),
+          read: readWith(options.read),
         });
+        // One batched store load per 100 records; each record is still re-read
+        // and re-authorized individually from that snapshot.
+        const revalidateBatches = async <T>(
+          items: readonly T[],
+          id: (item: T) => string,
+          check: (
+            item: T,
+            read: ReturnType<typeof readWith>,
+          ) => Promise<RevalidatedRecord | undefined>,
+        ) => {
+          const output: (RevalidatedRecord | undefined)[] = [];
+
+          for (let offset = 0; offset < items.length; offset += 100) {
+            controller.signal.throwIfAborted();
+            const batch = items.slice(offset, offset + 100);
+            const read = readWith(
+              await options.readBatch({ objectType: type, ids: batch.map(id) }),
+            );
+
+            output.push(
+              ...(await mapReads(
+                batch,
+                (item) => check(item, read),
+                controller.signal,
+              )),
+            );
+          }
+
+          return output;
+        };
         const validated = (
           await measure('revalidation', () =>
-            mapReads(
+            revalidateBatches(
               page.data,
-              (record) => revalidate(record),
-              controller.signal,
+              (record) => record.id,
+              (record, read) => revalidate(record, undefined, read),
             ),
           )
         ).filter((row): row is RevalidatedRecord => row !== undefined);
@@ -261,10 +293,11 @@ export function createAnalyticalReads(options: AnalyticalReadDependencies) {
           const chosen = ranked.chosen;
 
           const final = await measure('revalidation', () =>
-            mapReads(
+            revalidateBatches(
               chosen,
-              (entry) => revalidate(entry.row.record, entry.row.fields),
-              controller.signal,
+              (entry) => entry.row.record.id,
+              (entry, read) =>
+                revalidate(entry.row.record, entry.row.fields, read),
             ),
           );
 

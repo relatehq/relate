@@ -113,8 +113,8 @@ export function compareObjectIds(a: string, b: string): number {
     : Math.sign(a.length - b.length);
 }
 
-type ScanBatch = {
-  readonly objects: readonly { readonly objectId: string }[];
+type ScanBatch<T extends { readonly objectId: string }> = {
+  readonly objects: readonly T[];
   readonly hasMore: boolean;
 };
 
@@ -125,15 +125,16 @@ type ScanBatch = {
  * protocol (oversized, nonadvancing or empty-but-unfinished batches) is
  * `incomplete`. Tokens are encrypted with a fresh nonce, so scan positions are
  * compared here: different token strings cannot detect a repeated boundary.
+ * `objects` are the scanned snapshots, parallel to `ids`.
  */
-export async function scanBatch(
+export async function scanBatch<T extends { readonly objectId: string }>(
   scan: (input: {
     after?: string;
     limit: number;
-  }) => Promise<ScanBatch | undefined>,
+  }) => Promise<ScanBatch<T> | undefined>,
   after: string | undefined,
   limit: number,
-): Promise<{ ids: string[]; hasMore: boolean }> {
+): Promise<{ ids: string[]; objects: readonly T[]; hasMore: boolean }> {
   let batch;
 
   try {
@@ -163,7 +164,7 @@ export async function scanBatch(
     ids.push((after = objectId));
   }
 
-  return { ids, hasMore: batch.hasMore };
+  return { ids, objects: batch.objects, hasMore: batch.hasMore };
 }
 
 export class NativeConflict extends Error {}

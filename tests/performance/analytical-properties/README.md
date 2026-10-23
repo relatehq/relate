@@ -124,11 +124,12 @@ The profile covers Node CPU only; database work appears as idle time.
 `results.json` records configuration, workload/schema versions, commit and dirty
 status, machine resources, Node/backend versions, raw samples and summaries.
 Each sample records request spans, runtime stage aggregates and actual counters:
-scanned/admitted candidates, storage scans/loads/resolutions, source fetches,
-provider identity checks and their combined source-call count, planned batches,
-executed statements, computed slots, captured operations and activity drops.
-Storage counters count API calls, not inferred database round trips. Server-only
-execution time and generated-SQL replay remain unavailable.
+scanned/admitted candidates, storage scans/loads/resolutions, batched loads and
+the objects they requested, source fetches, provider identity checks and their
+combined source-call count, planned batches, executed statements, computed
+slots, captured operations and activity drops. Storage counters count API calls,
+not inferred database round trips. Server-only execution time and generated-SQL
+replay remain unavailable.
 
 Activity capture follows the real host enablement path. Enabled samples collect
 stage summaries from the storage append boundary. After stopping the request

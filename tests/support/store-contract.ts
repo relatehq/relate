@@ -303,6 +303,63 @@ export function storeContract(
       expect(await store.load(scope, absent)).toBeUndefined();
     });
 
+    it('loads batches of scoped identities as isolated snapshots keyed by object ID', async () => {
+      const saved = await Promise.all(
+        ['one', 'two', 'three'].map(async (sourceRecordId) =>
+          store.accept(scope, {
+            attribution: testAttribution(),
+            sourceRecordId,
+            adopt: true,
+            observation: observation(await store.beginFetch(), sourceRecordId),
+          }),
+        ),
+      );
+      const [first, second, third] = saved.map((r) => r.object);
+      const absent = `${first!.objectId}~`;
+      const loaded = await store.loadMany(scope, [
+        third!.objectId,
+        absent,
+        first!.objectId,
+      ]);
+
+      expect([...loaded.keys()].sort()).toEqual(
+        [first!.objectId, third!.objectId].sort(),
+      );
+      expect(loaded.get(first!.objectId)).toEqual(first);
+      expect(loaded.get(third!.objectId)).toEqual(third);
+      expect(loaded.has(second!.objectId)).toBe(false);
+      loaded.get(first!.objectId)!.observation.values['person.name'] =
+        'mutation';
+      expect(await store.load(scope, first!.objectId)).toEqual(first);
+      expect((await store.loadMany(scope, [])).size).toBe(0);
+
+      for (const field of [
+        'graphId',
+        'definitionRevision',
+        'objectDefinitionId',
+        'sourceDefinitionId',
+        'connectionId',
+        'resourceId',
+        'providerAccountId',
+        'partition',
+      ] as const) {
+        expect(
+          (
+            await store.loadMany({ ...scope, [field]: 'other' }, [
+              first!.objectId,
+            ])
+          ).size,
+        ).toBe(0);
+      }
+
+      await expect(
+        store.loadMany(
+          scope,
+          Array.from({ length: 101 }, () => first!.objectId),
+        ),
+      ).rejects.toThrow();
+    });
+
     it('allocates ordered tokens and one identity for concurrent adoptions', async () => {
       const tokens = await Promise.all(
         Array.from({ length: 10 }, () => store.beginFetch()),

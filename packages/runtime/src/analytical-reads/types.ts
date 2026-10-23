@@ -21,6 +21,15 @@ export interface AnalyticalReadOptions {
   readonly signal: AbortSignal;
 }
 
+export interface OrdinaryReadInput {
+  readonly attempt: OperationScope;
+  readonly principal: Principal;
+  readonly objectType: string;
+  readonly id: string;
+  readonly request: ReadRequest;
+  readonly execution?: ReadExecution;
+}
+
 /** The authorization check stays deferred until the caller is ready to publish. */
 export interface OrdinaryReadResult {
   readonly result: FullObjectResult;
@@ -32,14 +41,16 @@ export interface AnalyticalReadDependencies {
   readonly cursors: QueryCursors;
   readonly analytics?: AnalyticalReadOptions;
   clock(): number;
-  read(input: {
-    readonly attempt: OperationScope;
-    readonly principal: Principal;
+  read(input: OrdinaryReadInput): Promise<OrdinaryReadResult>;
+  /**
+   * Load up to 100 objects in one store call and return an ordinary `read`
+   * that starts from those snapshots. Every read still refreshes, authorizes
+   * and projects as `read` does; IDs the batch did not load fall back to it.
+   */
+  readBatch(input: {
     readonly objectType: string;
-    readonly id: string;
-    readonly request: ReadRequest;
-    readonly execution?: ReadExecution;
-  }): Promise<OrdinaryReadResult>;
+    readonly ids: readonly string[];
+  }): Promise<(input: OrdinaryReadInput) => Promise<OrdinaryReadResult>>;
   query(input: {
     readonly attempt: OperationScope;
     readonly principal: Principal;

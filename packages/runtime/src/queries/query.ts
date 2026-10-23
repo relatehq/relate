@@ -17,6 +17,7 @@ import type {
 import type {
   ObservationStore,
   StorageScope,
+  StoredObject,
   NativeScope,
   NativeTransaction,
 } from '../storage.js';
@@ -72,6 +73,7 @@ export function createGraphQuery(options: {
     capture?: (check: () => Promise<boolean>) => void,
     transaction?: NativeTransaction,
     execution?: ReadExecution,
+    snapshot?: StoredObject,
   ): Promise<ReadResult>;
 }) {
   const { manifest, store, clock } = options;
@@ -192,7 +194,7 @@ export function createGraphQuery(options: {
       throw new ReadError('unavailable');
 
     const filter = predicateMatcher(predicates, readRequest, clock);
-    const readCandidate = async (id: string) => {
+    const readCandidate = async (id: string, snapshot?: StoredObject) => {
       context?.signal?.throwIfAborted();
       let allowed = async () => false;
       const endRead = context?.beginDependencyRead?.();
@@ -216,6 +218,7 @@ export function createGraphQuery(options: {
           },
           transaction,
           context?.execution,
+          snapshot,
         );
       } finally {
         endRead?.();
@@ -240,19 +243,27 @@ export function createGraphQuery(options: {
     // they may become matches. Keep authorized reads and final predicate checks.
     while (more && scanned < 100 && pending.length < limit) {
       context?.signal?.throwIfAborted();
-      const batch = await scanBatch(
-        (scan) =>
-          object.sourceDefinitionId
-            ? store.scan(
-                options.scopeFor(type, object.sourceDefinitionId),
-                scan,
-              )
-            : transaction
+      const take = Math.min(100 - scanned, limit - pending.length);
+      const source = object.sourceDefinitionId;
+      // Source scans return whole snapshots; candidate reads start from them
+      // instead of loading each scanned ID again.
+      const sourceBatch = source
+        ? await scanBatch(
+            (scan) => store.scan(options.scopeFor(type, source), scan),
+            after,
+            take,
+          )
+        : undefined;
+      const batch =
+        sourceBatch ??
+        (await scanBatch(
+          (scan) =>
+            transaction
               ? transaction.scan(type, scan)
               : store.native!.scan(options.scope, type, scan),
-        after,
-        Math.min(100 - scanned, limit - pending.length),
-      );
+          after,
+          take,
+        ));
 
       more = batch.hasMore;
 
@@ -264,8 +275,14 @@ export function createGraphQuery(options: {
 
       // Transactions share one connection; independent reads can overlap. Each
       // candidate is evaluated as soon as its read settles, while evidence is fresh.
-      const evaluate = async (id: string) => {
-        const { result, allowed } = await readCandidate(id);
+      const evaluate = async ({
+        id,
+        snapshot,
+      }: {
+        id: string;
+        snapshot: StoredObject | undefined;
+      }) => {
+        const { result, allowed } = await readCandidate(id, snapshot);
 
         if (result.status !== 'ok') return undefined;
 
@@ -280,7 +297,10 @@ export function createGraphQuery(options: {
         };
       };
       const evaluated = await mapReads(
-        batch.ids,
+        batch.ids.map((id, index) => ({
+          id,
+          snapshot: sourceBatch?.objects[index],
+        })),
         evaluate,
         context?.signal,
         transaction ? 1 : 8,

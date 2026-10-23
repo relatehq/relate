@@ -80,6 +80,21 @@ export function createMemoryStore(
 
       return object && structuredClone(object);
     },
+    async loadMany(scope, objectIds) {
+      if (objectIds.length > 100) throw new Error('Invalid load batch');
+
+      const objects = new Map<string, StoredObject>();
+
+      if (!installed(scope)) return objects;
+
+      for (const objectId of objectIds) {
+        const object = find(scope, objectId);
+
+        if (object) objects.set(objectId, structuredClone(object));
+      }
+
+      return objects;
+    },
     async provenance(scope, objectId) {
       if (!installed(scope) || !find(scope, objectId)) return undefined;
 
