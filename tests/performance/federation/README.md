@@ -25,7 +25,7 @@ From this worktree, with Node, pnpm and Rust installed:
 pnpm build
 node tests/performance/federation/build.mjs
 pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx tests/performance/federation/test.mjs
-pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/run.mjs --customers 100 --events 1000 --repetitions 3 --out benchmark-results/federation-small
+pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/run.mjs --customers 100 --events 1000 --repetitions 24 --out benchmark-results/federation-small
 pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/run.mjs --customers 1000 --events 100000 --repetitions 24 --out benchmark-results/federation-medium
 pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/run.mjs --customers 12500 --events 1000000 --repetitions 24 --out benchmark-results/federation-large
 ```
@@ -184,9 +184,9 @@ uv run tests/performance/federation/measurements/analyze.py
 ```
 
 The first command captures all ten generated batches and the first batch's
-physical plan; the second rebuilds the report tables and figures from the
-committed archives. `diagnose.mjs` is follow-up diagnostic evidence, not another
-timed path.
+physical plan (gzip `diagnostic.json` into `measurements/slot-plan.json.gz`);
+the second rebuilds the report tables and figures from the committed archives.
+`diagnose.mjs` is follow-up diagnostic evidence, not another timed path.
 
 The [research notes](RESEARCH.md) record the Cube, DataFusion, Spice and
 MetricFlow sources and proposed ownership. The measured report lives in
@@ -264,9 +264,9 @@ The expanded `run.mjs` reruns all original raw SQL/transport/snapshot/burst
 paths, plus ten public-runtime paths for each of the two scenarios: native,
 three slot scan adapters, three scope scan adapters and three scope federation
 adapters. Run small, medium and large into separate directories with the
-commands above. Keep the original archives; follow-up evidence belongs under
-`measurements/whole-scope/`. The full current comparison and interpretation live
-in [the follow-up report](measurements/whole-scope/REPORT.md).
+commands above, gzip each `results.json` into `measurements/<size>.json.gz`, and
+replace the previous archives. The comparison and interpretation live in
+[the report](measurements/REPORT.md).
 
 The scope hook is for successful benchmark executions with activity capture
 disabled. It does not implement the production statement queue, diagnostic
@@ -287,7 +287,7 @@ performance matrix has finished (profiling must not compete with timed runs):
 
 ```sh
 pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/profile.mjs
-uv run tests/performance/federation/measurements/whole-scope/analyze.py
+uv run tests/performance/federation/measurements/analyze.py
 ```
 
 The profile includes only Node, not the child engine or PostgreSQL. It adds

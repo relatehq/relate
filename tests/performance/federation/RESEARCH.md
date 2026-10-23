@@ -94,8 +94,8 @@ federation.execute(authorizedRelationalPlan, {
 
 ## Follow-up implementation
 
-The [whole-scope follow-up](measurements/whole-scope/REPORT.md) now exercises an
-executor before connector batching, with real runtime-prepared authorization
-inputs and multi-dataset source plans. It retains runtime candidate reads,
-revalidation and final ranking. Fully relational object-policy planning remains
-an architectural proposal; the spike does not replace that part of the runtime.
+The [measured report](measurements/REPORT.md) exercises an executor before
+connector batching, with real runtime-prepared authorization inputs and
+multi-dataset source plans. It retains runtime candidate reads, revalidation and
+final ranking. Fully relational object-policy planning remains an architectural
+proposal; the spike does not replace that part of the runtime.

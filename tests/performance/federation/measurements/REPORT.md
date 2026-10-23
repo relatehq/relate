@@ -1,79 +1,145 @@
-# DataFusion federation spike — 22 October 2026
+# DataFusion federation spike — 23 October 2026
 
-> **Follow-up:**
-> [Authorized whole-scope federation and a fresh full comparison](whole-scope/REPORT.md).
-> The report below preserves the first experiment. Its public-runtime timings
-> used separate frozen clocks with a shared observation store, which can trigger
-> incidental refreshes. Use the follow-up's aligned-clock, zero-refresh-checked
-> results for end-to-end comparisons. The original raw SQL results are
-> unaffected by this clock issue, and are also rerun in the follow-up.
+Can DataFusion execute Relate calculations across databases and files, and where
+should it plug into the runtime? This spike builds the same Rust engine behind
+three Node boundaries, measures raw multi-source SQL, and runs the real public
+`Customer.query()` through ten execution paths. No shipped API or runtime
+default changes.
 
-DataFusion works as a federation engine across SQLite, PostgreSQL and Parquet.
-The strongest measured benefit comes from deciding **where aggregation
-happens**, not from choosing Neon instead of a local process. Replacing Relate's
-current connector with DataFusion scan execution does not deliver an end-to-end
-speedup.
+All numbers here come from one run after merging the indexed memory store (#49).
+Earlier measurements were taken while the memory store searched its whole
+population for every object lookup, which dominated large public requests; they
+have been removed rather than kept as a baseline.
 
 ## Vocabulary
 
-| Term         | Plain meaning                                                                           |
-| ------------ | --------------------------------------------------------------------------------------- |
-| Federation   | One query joins data held in separate sources                                           |
-| Pushdown     | A source performs a filter or aggregate before sending rows back                        |
-| Scan mode    | Source filters/projections may run remotely, but DataFusion performs aggregates locally |
-| Arrow        | Typed columns held in memory as batches rather than individual JavaScript objects       |
-| Snapshot     | A loaded copy of source rows; later source changes do not appear automatically          |
-| Transport    | The Node/Rust boundary: addon, pipe or HTTP                                             |
-| Slot         | One authorized object's keys and calculation masks in a Relate batch                    |
-| Revalidation | Relate checks that access and dependencies still permit publishing results              |
-| p95          | 95% of the recorded warm requests finish at or below this value                         |
+| Term             | Meaning                                                                                                  | Example                                                |
+| ---------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Federation       | One query joins data held in separate sources                                                            | SQLite customers + PostgreSQL invoices + Parquet       |
+| Pushdown         | A source performs a filter or aggregate before sending rows back                                         | PostgreSQL runs `GROUP BY customer`                    |
+| Scan mode        | Source filters/projections may run remotely; DataFusion aggregates locally                               | `query({ mode: 'scan', sql })`                         |
+| Federated mode   | The federation optimizer may delegate whole SQL subplans to a source                                     | `query({ mode: 'federated', sql })`                    |
+| Transport        | The Node/Rust boundary for the same engine                                                               | Neon addon, JSON-lines child, loopback HTTP            |
+| Slot             | One authorized object's keys and calculation masks inside a Relate connector batch                       | `{ slot: 0, k0: '00009452', m0: true }`                |
+| Slot scan        | Connector replacement: the runtime emits separate batches, each executed by DataFusion in scan mode      | ten batches of 1,000 slots                             |
+| Authorized scope | Every customer the runtime allows, with typed correlation values and per-calculation validity masks      | `{ rowIndex: 0, values: ['00000001'], valid: [true] }` |
+| Scope scan       | One query over the whole authorized scope, with local DataFusion aggregation                             | `relate-child-scope-scan`                              |
+| Scope federation | The same single query with the federation optimizer able to push source subqueries                       | `relate-child-scope-federated`                         |
+| Revalidation     | Re-read object access and dependencies before publishing calculated values                               | revoked customer is dropped from the page              |
+| Snapshot         | A loaded copy of source rows; later source changes do not appear automatically                           | `query('snapshot')`, then `cached_events`              |
+| Native reference | Existing PostgreSQL connector (plus a benchmark DuckDB Parquet reader for `multi`) with runtime batching | `relate-postgres`, `relate-native`                     |
+| p95              | 95% of the recorded warm requests finish at or below this value                                          | 24 samples → 23rd-fastest                              |
 
-## Read this first
+## Findings and recommendation
 
-- **Keep the shared Rust engine and prototype an out-of-process integration.**
-  For an embedded Node deployment, start with a persistent child and add bounded
-  parallel admission or a small pool. Use the standalone service when shared
-  deployment and independent scaling are requirements. Those are proposed next
-  steps, not an adopted product architecture.
-- **Keep source pushdown as an explicit planning option.** At 1M events it cuts
-  the database-ranking path from about 182 ms to 63 ms, approximately 2.9×. Neon
-  and the child have the same rounded median in that comparison.
-- **Do not replace the current PostgreSQL connector on these results.** The
-  narrow adapter preserves Relate runtime work but cannot federate its VALUES
-  slot input with the pinned upstream planner; scan mode repeats expensive
-  reads.
-- **Treat specialized native execution as a serious alternative.** It wins at
-  smaller sizes and on the three-source workload. DataFusion wins the large
-  Parquet ranking workload and has a modest observed advantage on large database
-  ranking. There is no universal winner.
-- **A snapshot is a separate architecture choice.** Its faster queries move
-  source reads into an explicit load step and introduce staleness/refresh
-  obligations.
+**Whole-scope federation is now a real end-to-end win, and the old connector
+replacement is clearly the wrong integration point.** At 12,500 customers / 1M
+events (10,000 authorized):
 
-For terms and executable commands, see the [harness README](../README.md).
-[Research notes](../RESEARCH.md) link the inspected Cube, DataFusion, Spice,
-MetricFlow and Neon sources. [Full tables](tables.md) contain every scenario,
-paired within-block contrast, burst result and archive hash.
+| Query                                  | Native reference | Old slot scan (3 transports) | Scope federation (3 transports) | Paired ratio vs native |
+| -------------------------------------- | ---------------: | ---------------------------: | ------------------------------: | ---------------------: |
+| `ranking-db` (PostgreSQL events)       |           690 ms |               3,449–4,651 ms |                      574–581 ms |              0.84–0.86 |
+| `multi` (Parquet events + PG invoices) |           808 ms |               1,319–2,293 ms |                      607–615 ms |              0.75–0.77 |
 
-## What was actually built
+- **Integrate before batching.** Giving DataFusion the whole authorized scope
+  removes the slot path's repeated full-table reads: it is 5–8× faster than slot
+  scan for database ranking and 14–16% faster than the shipped PostgreSQL
+  connector.
+- **Pushdown matters for database sources.** For `ranking-db`, federation cuts
+  the engine request from 197–201 ms (scope scan) to 87–91 ms. For `multi`, the
+  Parquet aggregation stays local, so scope scan and scope federation are within
+  noise (paired ratio 0.97–1.03); the gain over native comes from one combined
+  engine query.
+- **Runtime work outside the engine is still the largest share** — about 420 ms,
+  or 72–73% of a large scope-federated request — but it is now hundreds of
+  milliseconds, not seconds. The next leads are object cloning and per-object
+  reads (see [CPU profile](#remaining-runtime-cost-cpu-profile)).
+- **Choose the transport for deployment, not speed.** Neon, child and HTTP stay
+  within ~1.5% of each other on scope-federated public requests. A persistent
+  child remains the practical next integration candidate once it has bounded
+  parallel admission.
+- **Keep native execution as baseline and option.** Native JS still wins the raw
+  single-customer `selective` query (3.3 ms vs 16.6–17.3 ms) and the raw
+  three-source query (42 ms vs 47 ms).
+- **A snapshot is a separate architecture choice.** Its 8–13 ms reads move a 303
+  ms load and staleness obligations elsewhere.
 
-| Implementation                  | Concrete boundary                                                    | What executes                                                                                                                    |
-| ------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Neon addon                      | `await addon.query(handle, json)`                                    | Same Rust engine inside Node; task/Promise runs work off the JS thread                                                           |
-| Persistent child                | One JSON request per stdin line, one response per stdout line        | Same engine in an independently killable process; requests queued serially                                                       |
-| Standalone service              | `POST /query` on an ephemeral loopback port                          | Same executable with HTTP entry point, concurrent request tasks                                                                  |
-| Relate adapter                  | Existing `AnalyticalConnector.plan/execute` contract                 | Public `Customer.query()` retains authorization, evidence, batching, revalidation and ranking; only analytical execution changes |
-| Native reference implementation | Node PostgreSQL/SQLite drivers, DuckDB Parquet reader, JS merge/sort | Source-side aggregation on every request; no Relate evidence/revalidation                                                        |
-| Arrow snapshot                  | Explicit `query('snapshot')`, then `cached_*` tables                 | Local in-memory query after loading all sources                                                                                  |
+These are observations on one developer machine, not production guarantees.
 
-All adapters are kept in this PR. No shipped package API or production query
-behavior changes. The executor accepts trusted benchmark SQL and registers fixed
-fixture tables; it is not a general public SQL endpoint or a finished Relate
-connector. The service is independently launchable but measured only on
-loopback.
+## Full public-runtime comparison
+
+Warm medians in milliseconds, 24 samples per cell. Small = 100 customers / 1,000
+events; medium = 1,000 / 100,000; large = 12,500 / 1,000,000. Authorized
+populations are 80, 800 and 10,000. `multi` has one invoice per five events.
+
+| Query      | Size   | Native | Neon scope federation | Child scope federation | HTTP scope federation |
+| ---------- | ------ | -----: | --------------------: | ---------------------: | --------------------: |
+| ranking-db | small  |  19.51 |                 10.50 |                  10.27 |                 10.63 |
+| ranking-db | medium |  84.07 |                 57.81 |                  58.83 |                 59.32 |
+| ranking-db | large  | 689.78 |                577.75 |                 573.51 |                580.63 |
+| multi      | small  |  19.67 |                 13.36 |                  13.48 |                 13.46 |
+| multi      | medium |  69.15 |                 58.87 |                  59.13 |                 59.14 |
+| multi      | large  | 808.44 |                611.25 |                 606.87 |                615.41 |
+
+All ten paths at the large size:
+
+| Path                   | Ranking median | Ranking p95 | Multi median | Multi p95 |
+| ---------------------- | -------------: | ----------: | -----------: | --------: |
+| Native reference       |         689.78 |      814.78 |       808.44 |    861.62 |
+| neon: slot scan        |       3,524.44 |    3,784.22 |     1,396.46 |  1,488.07 |
+| child: slot scan       |       4,651.34 |    5,429.93 |     2,293.18 |  2,429.87 |
+| http: slot scan        |       3,448.89 |    3,873.59 |     1,319.28 |  1,514.23 |
+| neon: scope scan       |         731.25 |      871.97 |       616.24 |    746.70 |
+| child: scope scan      |         702.31 |      797.40 |       624.78 |    745.62 |
+| http: scope scan       |         684.71 |      734.41 |       601.86 |    751.48 |
+| neon: scope federated  |         577.75 |      653.19 |       611.25 |    725.17 |
+| child: scope federated |         573.51 |      618.39 |       606.87 |    676.82 |
+| http: scope federated  |         580.63 |      634.35 |       615.41 |    690.89 |
+
+The child slot path is slowest because its serial worker queues the ten batch
+requests; that is this implementation's admission policy, not a pipe limit.
+
+![All public-runtime paths at each size; median bars and p95 ticks.](public-comparison.png)
+
+## Engine benefit versus remaining runtime cost
+
+| Query      | Boundary | Full request | Scope compiler | Engine request | Result merge | Runtime outside scope |
+| ---------- | -------- | -----------: | -------------: | -------------: | -----------: | --------------------: |
+| ranking-db | neon     |       577.75 |          40.97 |          86.48 |        28.77 |                420.13 |
+| ranking-db | child    |       573.51 |          40.33 |          88.04 |        28.23 |                417.36 |
+| ranking-db | http     |       580.63 |          40.22 |          90.49 |        28.27 |                421.60 |
+| multi      | neon     |       611.25 |          63.52 |          72.87 |        14.07 |                456.23 |
+| multi      | child    |       606.87 |          60.54 |          77.38 |        12.54 |                449.46 |
+| multi      | http     |       615.41 |          60.59 |          76.16 |        13.66 |                460.28 |
+
+Medians of separate spans; they need not sum to the median total. Engine
+planning/collection/encoding are nested inside the engine request. Outside-scope
+time includes candidate authorization, ordinary field reads, materialization,
+revalidation, sorting and projection. [Full tables](tables.md) include every
+span, paired within-block contrasts, p95, timer lag, setup, RSS and all raw SQL
+workloads.
+
+![Large-request component timings.](scope-breakdown.png)
+
+The median largest observed timer delay on large scope-federated requests is
+about 214–215 ms (native: similar). Moving the engine off the JS thread does not
+remove the remaining Node work. The timer probe only measures delayed ticks it
+observes; it is not a complete event-loop profile.
+
+## What was built
+
+| Implementation   | Concrete boundary                                                    | What executes                                                                   |
+| ---------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Neon addon       | `await addon.query(handle, json)`                                    | Same Rust engine inside Node; task/Promise runs work off the JS thread          |
+| Persistent child | One JSON request per stdin line, one response per stdout line        | Same engine in an independently killable process; requests queued serially      |
+| HTTP service     | `POST /query` on an ephemeral loopback port                          | Same executable with an HTTP entry point and concurrent request tasks           |
+| Slot adapter     | Existing `AnalyticalConnector.plan/execute` contract                 | Runtime batches → DataFusion scan mode per batch                                |
+| Scope executor   | Benchmark-only hook at the runtime's `computeFields` call            | One engine query over the whole authorized scope, before batching               |
+| Native reference | Node PostgreSQL/SQLite drivers, DuckDB Parquet reader, JS merge/sort | Source-side aggregation on every request (raw); shipped connector (public path) |
+| Arrow snapshot   | Explicit `query('snapshot')`, then `cached_*` tables                 | Local in-memory query after loading all sources                                 |
 
 ```js
-const engine = await openTransport('child', fixture.config);
+const engine = await openTransport('child', fixture.config); // or 'neon', 'http'
 const response = await engine.query({
   mode: 'federated',
   sql: querySql('multi'),
@@ -95,106 +161,74 @@ flowchart LR
   Local --> Result[Final rows encoded as JSON]
 ```
 
-## Large workload: whole-query latency
+The executor accepts trusted benchmark SQL and registers fixed fixture tables;
+it is not a public SQL endpoint or a finished Relate connector.
 
-12,500 customers, of which 10,000 are in the allowed portfolio; 1M events;
-200,000 invoices. All paths read live sources on each call except the explicit
-snapshot. Table values are warm medians in milliseconds; each has 24 samples.
+## Why the slot adapter is slow
 
-| Query        | Native JS | Neon pushdown | Child pushdown | HTTP pushdown | Child scan | Child snapshot |
-| ------------ | --------- | ------------- | -------------- | ------------- | ---------- | -------------- |
-| ranking-db   | 68.04     | 62.62         | 62.62          | 63.23         | 182.22     | 7.96           |
-| ranking-file | 30.64     | 18.76         | 18.88          | 19.52         | 18.89      | 10.40          |
-| multi        | 42.57     | 47.00         | 47.15          | 47.36         | 52.31      | 13.09          |
-| selective    | 3.25      | 16.22         | 16.03          | 16.61         | 16.19      | 7.59           |
-| bulk         | 71.75     | 76.10         | 77.57          | 79.07         | 193.98     | 23.49          |
-
-![Latency across all whole-query paths, on a logarithmic scale.](whole-query.png)
-
-DataFusion keeps grouped intermediate rows in Arrow until the final result; the
-native baseline converts those grouped rows into JavaScript before merging. That
-is part of this whole-query comparison and may contribute to its results; we
-have not isolated its causal cost.
-
-The native baseline is a working, query-specific application implementation. It
-pushes grouped SQL to PostgreSQL, uses DuckDB to group the Parquet file, then
-joins and ranks in JavaScript. It does not include a general relational planner.
-Native control returns a JS constant, so its timing is not an equivalent SQL
-baseline.
-
-## Why pushdown helps
-
-The plan captures show different work at the PostgreSQL boundary. In scan mode,
-DataFusion asks for matching rows and performs aggregation locally:
+The pinned federation planner rejects the `VALUES` relation in generated slot
+SQL, so the adapter explicitly uses scan mode, with no timed fallback. The
+untimed [slot-plan capture](slot-plan.json.gz) (`diagnose.mjs`) records **ten
+batches of 1,000 slots**; each batch reads every event with no pushed filter:
 
 ```sql
-SELECT customer, "at" FROM events
-WHERE type = 'login'
-  AND "at" >= TIMESTAMP '2026-10-01 00:00:00'
-  AND "at" < TIMESTAMP '2026-11-01 00:00:00';
+SELECT events.customer, events.type, events."at" FROM events;
 ```
 
-Federated mode delegates the group operation:
+The whole-scope executor replaces those ten requests with one query whose
+authorized inputs are request-local Arrow tables, not `VALUES`:
 
 ```sql
-SELECT customer, COUNT(*) AS n, MAX("at") AS last_login
-FROM events
-WHERE type = 'login'
-  AND "at" >= TIMESTAMP '2026-10-01 00:00:00'
-  AND "at" < TIMESTAMP '2026-11-01 00:00:00'
-GROUP BY customer;
-```
-
-These readable excerpts omit generated aliases; the exact SQL and physical plan
-are retained under `plans` in every raw result archive. The federated plan
-returns roughly 12,500 aggregate rows from PostgreSQL. The SQLite customer
-filter, local cross-source join and final top-25 ranking still execute. An added
-optimizer rule does not eliminate cross-source data transfer.
-
-The three-source query first aggregates events and invoices independently, then
-joins those results to customers. That preserves the intended counts and sums
-without multiplying each event by each invoice:
-
-```sql
-WITH e AS (
-  SELECT customer, COUNT(*) n FROM file_events
-  WHERE type = 'login' AND "at" >= '2026-10-01T00:00:00.000Z'
-    AND "at" < '2026-11-01T00:00:00.000Z'
+SELECT a.row_index,
+       CASE WHEN s.m0 THEN CAST(COALESCE(e.n, 0) AS VARCHAR) END AS login_count,
+       CASE WHEN s.m1 THEN e.last_login END AS last_login
+FROM authorized a
+LEFT JOIN scope_0 s ON s.row_index = a.row_index
+LEFT JOIN (
+  SELECT customer, COUNT(*) AS n, MAX(at) AS last_login
+  FROM events
+  WHERE type = 'login'
+    AND at >= TIMESTAMP '2026-10-01 00:00:00'
+    AND at < TIMESTAMP '2026-11-01 00:00:00'
   GROUP BY customer
-), i AS (
-  SELECT customer, SUM(amount) paid FROM invoices
-  WHERE paid = true GROUP BY customer
-)
-SELECT c.key, e.n, i.paid
-FROM customers c
-LEFT JOIN e ON c.key = e.customer
-LEFT JOIN i ON c.key = i.customer
-WHERE c.portfolio = 'north';
+) e ON e.customer = s.k0
+ORDER BY a.row_index;
 ```
 
-The actual benchmark also returns names/latest-login, coalesces empty
-aggregates, orders and limits. That final work is included in timings.
-PostgreSQL invoice aggregation can be pushed down; Parquet aggregation remains
-local. This explains why enabling federation helps less here than on the
-database-events workload.
+With federation the grouped subquery runs in PostgreSQL and returns about 12,500
+rows to join with 10,000 authorized inputs. With federation disabled the same
+query reads about 542,200 matching events once and aggregates in DataFusion.
+Exact generated SQL and physical plans are retained under `plans` in each
+archive (`scenario: relate-ranking-db` or `relate-multi`).
 
-## Does this improve Relate today?
+For `multi`, event counts/latest-login come from Parquet and paid invoice totals
+from PostgreSQL in one DataFusion request. Each many-side is grouped
+independently before joining, so invoices cannot multiply events. The database
+grouping is delegated; file grouping and the cross-source joins run in
+DataFusion.
 
-| Customers / events | PostgreSQL | Neon scan | Child scan | HTTP scan |
-| ------------------ | ---------- | --------- | ---------- | --------- |
-| 100 / 1,000        | 18.00      | 15.66     | 15.99      | 16.72     |
-| 1,000 / 100,000    | 105.30     | 135.92    | 135.13     | 135.93    |
-| 12,500 / 1,000,000 | 3835.31    | 6194.71   | 7867.50    | 6219.02   |
+```mermaid
+flowchart TD
+  Query[Public Customer.query] --> Auth[Existing Relate preparation and authorized object reads]
+  Auth --> Compile[Compile full calculation scope]
+  Compile --> Engine[DataFusion plus federation optimizer]
+  Engine --> PG[PostgreSQL grouped query]
+  Engine --> File[Parquet scan and aggregate]
+  PG --> Join[Join with authorized Arrow inputs]
+  File --> Join
+  Join --> Validate[Existing result decoding, binding evidence and dependency rechecks]
+  Validate --> Page[Existing filtering, rank, cursor and final permission recheck]
+```
 
-![Full public Relate ranking latency with the current PostgreSQL connector and each DataFusion scan adapter.](public-runtime.png)
+This does not move every part of `Customer.query()` into DataFusion. It returns
+all computed candidates; the runtime revalidates them and chooses the final
+page. Moving `LIMIT 25` ahead of those checks could omit a replacement customer
+when a higher-ranked customer loses access during execution; the spike tests
+that revocation case.
 
-The large-run p95 values were **5,008 ms** for PostgreSQL, **10,983 ms** for
-Neon, **12,957 ms** for the child, and **13,647 ms** for HTTP. Those wide tails
-matter: these developer-machine observations do not establish predictable
-production latency or a statistically general transport ranking.
+## Boundary exercised by the spike
 
-These are the real public Node-host query and the same benchmark model used by
-the existing analytical suite. Both calculations are requested:
+The consumer still calls the existing API:
 
 ```ts
 Customer.query({
@@ -206,51 +240,104 @@ Customer.query({
 });
 ```
 
-The population, seed, time window and authorization policy reuse the existing
-harness. This fresh run disables activity capture and uses cached memory
-storage, so the
-[older overhead report](../../analytical-properties/measurements/overhead-2026-10-22/README.md)
-is historical context rather than the denominator for a speedup claim. That
-report already identified candidate collection and revalidation as large costs.
+After preparation and authorization, the benchmark executor sends one trusted
+engine request:
 
-The whole-query numbers omit those runtime responsibilities. Comparing a ~63 ms
-federated SQL request to a multi-second Relate request is an **architecture
-gap**, not a measured secure replacement or an engine-only speedup.
-
-```mermaid
-flowchart TD
-  Request[Full public Relate query] --> Candidates[Enumerate and authorize object scope]
-  Candidates --> Slots[Prepare authorized slot batches]
-  Slots --> PG[Current PostgreSQL connector]
-  Slots --> DF[Spike DataFusion scan adapter]
-  PG --> Validate[Merge and revalidate dependencies / access]
-  DF --> Validate
-  Validate --> Rank[Rank and return final 25]
+```js
+await engine.query({
+  mode: 'federated',
+  sql: generatedSql,
+  candidateIds: ['customer-object-id'],
+  scopes: [
+    {
+      keyCount: 1,
+      maskCount: 2,
+      rows: [{ rowIndex: 0, values: ['00000001'], valid: [true, true] }],
+    },
+  ],
+});
 ```
 
-The pinned federation planner rejects `VALUES` in the generated slot relation.
-The adapter therefore **explicitly uses scan mode**, with no timed fallback.
-This is a real integration limitation, recorded in the development-failure
-archive. The untimed [slot-plan capture](slot-plan.json.gz), reproduced with
-`diagnose.mjs`, records **ten batches of 1,000 slots**. Its first batch reads
-all 1M source events, with no pushed filter:
+`rowIndex` ties a result to the exact authorized object; a shared customer key
+does not merge object identities. The two booleans say whether each calculation
+is valid for that object. This is a benchmark shape, not an exported API or a
+token an untrusted caller can construct. A product integration would replace the
+loader hook with a typed runtime-owned executor contract.
+
+## Original raw SQL alternatives
+
+These include source reads and engine work but **exclude Relate authorization,
+evidence, revalidation and object-store work**, and break ties by source key.
+They are not interchangeable with public-request latencies. Large-size warm
+medians, milliseconds:
+
+| Query        | Native JS | Neon federation | Child federation | HTTP federation | Child scan | Child snapshot |
+| ------------ | --------: | --------------: | ---------------: | --------------: | ---------: | -------------: |
+| ranking-db   |     68.43 |           62.80 |            62.87 |           63.35 |     179.30 |           8.01 |
+| ranking-file |     31.10 |           19.84 |            19.75 |           20.65 |      19.75 |          10.69 |
+| multi        |     42.00 |           46.84 |            46.66 |           47.50 |      52.90 |          13.24 |
+| selective    |      3.32 |           16.95 |            16.58 |           17.33 |      16.76 |           7.68 |
+| bulk         |     73.29 |           76.20 |            78.14 |           79.58 |     195.25 |          23.89 |
+
+![Raw SQL ranking and multi-source alternatives at 1M events.](raw-comparison.png)
+
+Pushdown is the main raw-SQL lever: database ranking falls from 179 ms (scan) to
+63 ms (federated), about 2.9×. Scan mode asks PostgreSQL for matching rows:
 
 ```sql
-SELECT events.customer, events.type, events."at" FROM events;
+SELECT customer, "at" FROM events
+WHERE type = 'login'
+  AND "at" >= TIMESTAMP '2026-10-01 00:00:00'
+  AND "at" < TIMESTAMP '2026-11-01 00:00:00';
 ```
 
-The ten batch requests repeat that query shape with different authorized keys.
-The exact first-batch physical plan and all generated slot SQL are retained.
-This explains a concrete source of repeated work in the connector replacement.
-An optimizer-aware authorized relation, rather than the current opaque batch
-shape alone, is the promising next spike.
+Federated mode delegates the grouping:
 
-## Ergonomics and deployment
+```sql
+SELECT customer, COUNT(*) AS n, MAX("at") AS last_login
+FROM events
+WHERE type = 'login'
+  AND "at" >= TIMESTAMP '2026-10-01 00:00:00'
+  AND "at" < TIMESTAMP '2026-11-01 00:00:00'
+GROUP BY customer;
+```
+
+The native baseline is a query-specific application: grouped SQL in PostgreSQL,
+DuckDB over Parquet, then a JavaScript join and sort. It has no general planner.
+Native `control` returns a JS constant, so it is not an equivalent SQL baseline.
+
+## Remaining runtime cost: CPU profile
+
+A separately profiled warm child-federation request at the large size took **611
+ms** (engine request 87 ms). It made **125 membership scans and 101 batched
+loads covering 10,025 objects, with zero single-object loads** and zero
+fetches/accepts. These are diagnostic values, not benchmark samples: profiling
+adds overhead.
+
+| Self time (named frames)                                       |   ms |
+| -------------------------------------------------------------- | ---: |
+| Profiler control (`node:inspector post`)                       | 95.8 |
+| `structuredClone` (four frames)                                | 95.8 |
+| `readObject` — `packages/runtime/src/resolution/source.ts:179` | 65.6 |
+| Garbage collector                                              | 31.9 |
+| `canonicalTimestamp`, `scalarCompare`, `canonicalJson`         | 29.4 |
+
+The clones come from the memory store returning copies of each stored object
+(`packages/runtime/src/memory.ts:81`, `:120`, `:148`) and from request snapshots
+in `queries/query.ts:147` and `analytical-reads/prepare.ts`. The next runtime
+leads are fewer defensive copies on read paths and cheaper per-object
+`readObject` work for 10,000 candidates. The checks themselves must remain. See
+the [retained summary](profile-summary.json) and the
+[full Node profile](node.cpuprofile.gz) (decompress and open in DevTools; frame
+lines refer to built JavaScript). The profile ran at `2ba046b`, which differs
+from the measured commit only by counting `loadMany` in `profile.mjs`.
+
+## Integration ergonomics
 
 | Concern                 | Neon                                                                  | Persistent child                                                    | HTTP service                                                                      |
 | ----------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Caller experience       | Async Promise, JS handle                                              | Async Promise, process framing                                      | Async fetch, independently hosted process                                         |
-| Single-request speed    | Similar to child for meaningful queries                               | Similar to Neon in pushdown workloads                               | Small observed local HTTP cost; WAN not measured                                  |
+| Public-request speed    | Within ~1.5% of the others (scope federation)                         | Same; slowest for slot batches due to its serial queue              | Same; loopback only, WAN not measured                                             |
 | Failure boundary        | Native crash can kill Node                                            | Child kill is isolated from Node                                    | Service kill is isolated from Node                                                |
 | Parallel admission here | Node worker pool, four default slots                                  | One serial worker                                                   | Concurrent Tokio requests                                                         |
 | Packaging               | Per-platform `.node` artifact plus Node loader                        | Per-platform executable                                             | Executable plus deployment/connection configuration                               |
@@ -258,132 +345,116 @@ shape alone, is the promising next spike.
 | Production gaps         | Prebuild matrix, cancellation, explicit drain, worker-pool contention | Supervision, request IDs, bounded queue, concurrent worker strategy | Authentication/TLS, quotas, routing, cancellation propagation, service operations |
 
 | Run    | Neon startup ms | Child startup ms | HTTP startup ms |
-| ------ | --------------- | ---------------- | --------------- |
-| small  | 19.77           | 22.75            | 22.43           |
-| medium | 24.21           | 26.46            | 24.60           |
-| large  | 22.57           | 25.51            | 24.21           |
+| ------ | --------------: | ---------------: | --------------: |
+| small  |           25.62 |            23.83 |           22.02 |
+| medium |          215.79 |           279.29 |          130.92 |
+| large  |           21.37 |            23.49 |           21.85 |
 
-Startup includes schema discovery and pool creation. Each value is one observed
-startup with uncontrolled OS caches, not a cold-start distribution. The addon
-observation includes first module loading. Source fixture construction and
-Relate adoption are separate raw fields.
+Startup includes schema discovery and pool creation. Each value is one
+observation with uncontrolled OS caches, not a cold-start distribution; the
+medium outlier is not explained by this run.
 
-The release addon and executable are each approximately 140 MiB on this macOS
-arm64 build. The last engine edit rebuilt/linked in roughly 28 seconds with
-existing dependency artifacts. No clean-cache successful build timing was
-collected. Rust dependencies remain isolated from ordinary pnpm install/build.
+The release addon and executable are each about 140 MiB on macOS arm64. Rust
+dependencies stay isolated from ordinary pnpm install/build. DataFusion 54.1 /
+federation 0.5.5 / providers 0.12 / Neon 1.1.1 are pinned; DataFusion 55.2
+requires a newer Rust compiler than 1.92 and is not measured.
 
-Pinned DataFusion 54.1 / federation 0.5.5 / providers 0.12 / Neon 1.1.1 are a
-working combination on Rust 1.92 and Node 26.9. DataFusion 55.2 required a newer
-Rust compiler; the experiment does not claim results for it.
+## Burst concurrency (raw SQL)
 
-## Burst concurrency and responsiveness
+Five waves of four arrivals per transport/mode, 20 requests each, at the large
+size. Short bursts including validation between waves; fixed path order after
+the sequential matrix. They do not exercise the public runtime.
 
 | Path            | Requests/sec | Request median ms | Request p95 ms |
-| --------------- | ------------ | ----------------- | -------------- |
-| neon-scan       | 14.00        | 255.72            | 296.65         |
-| neon-federated  | 19.24        | 191.73            | 229.29         |
-| child-scan      | 7.90         | 305.24            | 523.54         |
-| child-federated | 10.53        | 250.12            | 407.94         |
-| http-scan       | 12.62        | 281.30            | 328.53         |
-| http-federated  | 26.64        | 144.66            | 155.17         |
+| --------------- | -----------: | ----------------: | -------------: |
+| neon-scan       |        23.91 |            155.77 |         177.88 |
+| neon-federated  |        40.51 |             80.47 |         128.06 |
+| child-scan      |        18.03 |            157.04 |         217.76 |
+| child-federated |        20.06 |            112.87 |         183.66 |
+| http-scan       |        24.83 |            139.68 |         162.38 |
+| http-federated  |        40.84 |             78.80 |         155.94 |
 
-Five waves of four arrivals per transport/mode, 20 requests total. These are
-short bursts including validation between waves, not a sustained capacity test.
-They run in fixed path order after the sequential matrix; their relative
-throughput is not an order-balanced comparison. The child's serial queue is part
-of this implementation, not an inherent pipe limit. A production child design
-needs multiplexing or a pool before comparing equal admission policies.
-Likewise, Neon's shared Node worker pool deserves contention tests with other
-native work.
-
-Timer-delay observations are retained per sample, but a short request can finish
-without a timer tick; null does not mean no blocking. The native baseline
-performs SQLite reads and JS merges on the event loop. Neon uses off-thread
-tasks; JSON serialization/decoding still takes place in Node.
+The child's serial queue is this implementation's policy; a production child
+needs multiplexing or a pool before comparing equal admission.
 
 ## Snapshot cost and freshness
 
 | Run    | Load all four tables ms | Ranking read ms | Three-source read ms |
-| ------ | ----------------------- | --------------- | -------------------- |
-| small  | 3.77                    | 2.28            | 3.26                 |
-| medium | 34.64                   | 3.19            | 4.51                 |
-| large  | 309.63                  | 7.96            | 13.09                |
+| ------ | ----------------------: | --------------: | -------------------: |
+| small  |                    4.21 |            2.64 |                 3.54 |
+| medium |                   34.71 |            3.42 |                 4.73 |
+| large  |                  303.26 |            8.01 |                13.24 |
 
-The snapshot loads customers, both copies of events (PostgreSQL and Parquet),
-and invoices into Arrow tables once. This intentionally over-copies the sources
-needed by any single workload. It does not cache final query answers. Query
-timings exclude load time and do not include refresh/invalidation. Values become
-stale as soon as the source changes; this spike has no concurrent source
-mutation.
+The snapshot loads customers, both event copies and invoices into Arrow once. It
+does not cache answers, excludes refresh/invalidation, and becomes stale as soon
+as a source changes; this spike has no concurrent source mutation.
 
-RSS fields are after-request process observations, not peaks. Node includes the
-fixture, oracle, native driver and addon; the child includes snapshot tables;
-HTTP does not. PostgreSQL server memory and filesystem caches are excluded.
-These populations cannot establish a fair memory-efficiency winner.
+## Prototype limits
 
-## Correctness, failures and reproducibility
+- String correlation keys; COUNT/MAX/SUM and scalar fallbacks; source-column
+  predicates. No per-object predicate operands or aggregate arithmetic.
+  Unsupported expressions fail; there is no silent fallback.
+- Activity capture disabled. No production queue/admission, canonical error
+  mapping, remote cancellation, cross-source snapshot consistency or independent
+  per-source observation timestamps.
+- PostgreSQL may aggregate keys outside the authorized population internally;
+  the trusted executor joins back to the authorized scope before returning. Not
+  source-level row security.
+- The native Parquet adapter is a narrow benchmark reader, not the shipped
+  DuckDB connector. The Rust PostgreSQL provider uses `hostaddr` to avoid a
+  failing DNS preflight on loopback.
+- No WAN, object storage, concurrent writes, distributed snapshots, spill
+  pressure or cross-platform addon matrix. RSS is after-request, over unequal
+  process populations; do not rank memory efficiency.
 
-- Environment: Apple M2 Max, 64 GiB RAM, macOS arm64, Node 26.9.0, Rust 1.92.0,
-  PostgreSQL 18.6, SQLite 3.53.4. Four DataFusion partitions and four Tokio
-  workers; local PostgreSQL pools capped at four connections per engine.
-- Source frozen at `40e31b7`; all three retained performance runs began from a
-  clean worktree. Raw metadata includes full commit, source hashes, binary hash,
-  input hash, versions, hardware and timestamps.
-- Independent SQLite SQL validates every complete output after the request
-  clock, including bulk rows. Public paths share adopted object IDs and use
-  Relate's object-ID tiebreak; whole-query paths use source-key tiebreak. Random
-  adopted IDs can change which tied rows appear across fresh runs.
-- Three sizes × 1,404 first/warmup/warm samples = 4,212 sequential observations;
-  3,744 are warm measurements. Additional burst experiments validate 360
-  requests. All completed with zero failures or result mismatches.
-- Tests cover all three transports, both execution modes, native baseline, empty
-  results, null amounts, denied portfolios, tied ranks, time boundaries,
-  snapshots, malformed query recovery, explicit deadlines, four simultaneous
-  requests, large integers represented as strings, process kill/restart and all
-  public adapters. Deadline response does not prove remote statement
-  cancellation.
-- The oracle caught a real timezone-decoding problem: Arrow JSON omitted a zone
-  and Node initially interpreted UTC data in local time across a DST boundary.
-  The fixture is explicitly UTC and decoding now preserves that contract.
-- Other retained failures: mixed DataFusion minor versions, PostgreSQL provider
-  DNS preflight, provider discovery/returned-batch schema mismatch during
-  snapshot construction, unsupported ordinary-property ordering in public
-  queries, unsupported `VALUES` federation, and DuckDB's reserved `at`
-  identifier.
-- The provider DNS preflight failed even on loopback. The local-only spike uses
-  PostgreSQL `hostaddr` and still establishes/verifies the actual connection.
-  This is a narrow environment workaround, not general connection handling.
-- Validation: benchmark integration suite; release Rust build; Rust formatting;
-  focused ESLint/Prettier; package/runtime boundary checks; development policy.
-  Final CI status is recorded in the PR. No full repository suite result is
-  implied by the focused benchmark checks.
+## Measurement controls
 
-Sources are immutable during runs, PostgreSQL is local, and Parquet is on local
-storage. No WAN, object-store access, concurrent writes, distributed snapshots,
-spill pressure, production authorization equivalence, or cross-platform addon
-matrix is established. JSON limits generic type fidelity; the adapter only
-supports this workload's types and COUNT/MAX. A production service must receive
-authorized plans and enforce bounded execution, not expose this trusted raw-SQL
-runner.
+- Fixed deterministic input; every complete output is checked against an
+  independent SQLite oracle after the request clock stops. Raw SQL ties use
+  source-key order, public requests use object-ID order; compare result hashes
+  within those groups only.
+- Path order rotates and reverses each cycle. One first-of-scenario and two
+  warmups per path are recorded separately and excluded from tables.
+- Public paths share one adopted memory store, object IDs and frozen fixture
+  clock. Every timed public request asserts **zero source refreshes**.
+- 24 warm repeats permit descriptive nearest-rank p95, not statistical
+  significance. No CI timing gate.
+
+## Validation and provenance
+
+- **5,508 sequential samples** (4,896 warm) across three sizes plus **360 burst
+  requests**. Zero failures or result mismatches; every public sample reports
+  zero source refreshes.
+- Both integration suites pass on Neon, child and HTTP: native/slot/scope
+  parity, both optimizer modes, denied object/dataset access before engine work,
+  duplicate keys with distinct masks, request-table isolation under concurrent
+  arrivals, malformed inputs/results, empty populations, unsupported per-object
+  predicates, retained binding/dependency evidence, and a permission change
+  during execution.
+- Repository-wide `pnpm check` passed after the merge; see the
+  [validation log](validation.log).
+- Measured source `85137b70577876d7be488bea379cbdc8a6c808d2`, clean at the start
+  of all three runs. Source/input/result hashes, timing samples and physical
+  plans are retained in [small](small.json.gz), [medium](medium.json.gz) and
+  [large](large.json.gz). [Artifact hashes](artifacts.json) identify the shared
+  executable and addon (unchanged by the merge).
+- Apple M2 Max, 12 logical CPUs, 64 GiB RAM, Darwin 25.6.0 arm64; Node 26.9.0,
+  Rust 1.92.0, PostgreSQL 18.6, SQLite 3.53.4. Four engine threads/partitions,
+  four-connection PostgreSQL pool; child requests serial.
+
+Reproduce with the [harness README](../README.md); `uv run analyze.py` rebuilds
+[tables](tables.md), [summary](summary.json) and charts from the archives.
 
 ## Next concrete work
 
-1. Define an authorized object-relation contract that can carry candidate keys,
-   readable fields, binding revisions and evidence requirements into one plan.
-   Keep final runtime revalidation until equivalent behavior is demonstrated.
-2. Implement/verify source capability rules and source-side aggregation
-   selection. Preserve the native PostgreSQL path when it already performs best.
-   Use physical plans and actual transferred-row/byte counters, rather than an
-   engine label.
-3. Add bounded parallel child admission and compare equal concurrency policies
-   before choosing between addon, embedded process and shared service
-   deployment.
-4. Add Arrow IPC for large intermediate results only if profiles justify it;
-   retain JSON for small final responses when its cost is immaterial.
-5. Test policy changes, revocation, timestamp/decimal edge cases, cancellations
-   that stop backend work, network delay, source failure and memory/spill
-   limits.
-
-The spike supports further work on an optimizer-visible federated query path. It
-does not support replacing today's connector solely to make Relate faster.
+1. Define a typed runtime-owned executor contract at the pre-batching point,
+   carrying candidate keys, masks, binding revisions and evidence requirements.
+   Keep final revalidation until equivalent behavior is demonstrated.
+2. Reduce the remaining ~420 ms outside the engine: defensive clones in the
+   memory store and query snapshots, and per-candidate `readObject` work.
+3. Source capability rules for pushdown selection, verified from physical plans
+   and transferred-row counters rather than an engine label.
+4. Bounded parallel child admission, then compare equal concurrency policies
+   before choosing addon, embedded process or shared service.
+5. Policy changes, timestamp/decimal edge cases, backend cancellation, network
+   delay, source failure and memory/spill limits.
