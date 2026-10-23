@@ -21,7 +21,7 @@ import type {
   NativeScope,
   NativeTransaction,
 } from '../storage.js';
-import { scanBatch } from '../storage.js';
+import { scanMembers } from '../storage.js';
 import {
   allowsField,
   allowsObject,
@@ -245,25 +245,18 @@ export function createGraphQuery(options: {
       context?.signal?.throwIfAborted();
       const take = Math.min(100 - scanned, limit - pending.length);
       const source = object.sourceDefinitionId;
-      // Source scans return whole snapshots; candidate reads start from them
-      // instead of loading each scanned ID again.
-      const sourceBatch = source
-        ? await scanBatch(
-            (scan) => store.scan(options.scopeFor(type, source), scan),
-            after,
-            take,
-          )
-        : undefined;
-      const batch =
-        sourceBatch ??
-        (await scanBatch(
-          (scan) =>
-            transaction
-              ? transaction.scan(type, scan)
-              : store.native!.scan(options.scope, type, scan),
-          after,
-          take,
-        ));
+      // Candidate reads start from source scan snapshots.
+      const batch = await scanMembers(
+        source
+          ? (scan) => store.scan(options.scopeFor(type, source), scan)
+          : undefined,
+        (scan) =>
+          transaction
+            ? transaction.scan(type, scan)
+            : store.native!.scan(options.scope, type, scan),
+        after,
+        take,
+      );
 
       more = batch.hasMore;
 
@@ -299,7 +292,7 @@ export function createGraphQuery(options: {
       const evaluated = await mapReads(
         batch.ids.map((id, index) => ({
           id,
-          snapshot: sourceBatch?.objects[index],
+          snapshot: batch.snapshots?.[index],
         })),
         evaluate,
         context?.signal,

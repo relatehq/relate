@@ -353,6 +353,12 @@ async function main() {
     ['cached', 'refresh'].includes(values.freshness),
     'freshness must be cached or refresh',
   );
+  assert(
+    values.repetitions === undefined ||
+      (Number.isSafeInteger(Number(values.repetitions)) &&
+        Number(values.repetitions) > 0),
+    'repetitions must be a positive integer',
+  );
   const output = resolve(values.out);
   const metadata = {
     schemaVersion: 3,

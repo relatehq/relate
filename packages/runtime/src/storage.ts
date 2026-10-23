@@ -1,4 +1,5 @@
 import { ReadError } from '@relate/protocol';
+import type { StoredObject } from 'relate/storage';
 
 /** Activity record contracts adapters persist; transport-safe protocol types. */
 export { ActivityError } from '@relate/protocol';
@@ -106,11 +107,9 @@ export function compareObjectIds(a: string, b: string): number {
           : 1;
   }
 
-  if (a.length === b.length) return 0;
-
-  return length > 0 && surrogate(a.charCodeAt(length - 1))
-    ? Buffer.compare(Buffer.from(a), Buffer.from(b))
-    : Math.sign(a.length - b.length);
+  // A proper prefix sorts first in UTF-8 too: even when the prefix ends in a
+  // lone high surrogate (U+FFFD, 0xEF...), the longer string's pair starts 0xF0.
+  return Math.sign(a.length - b.length);
 }
 
 type ScanBatch<T extends { readonly objectId: string }> = {
@@ -165,6 +164,40 @@ export async function scanBatch<T extends { readonly objectId: string }>(
   }
 
   return { ids, objects: batch.objects, hasMore: batch.hasMore };
+}
+
+/**
+ * One membership batch of an object type: its source scan when it has a source,
+ * otherwise its native scan. Source scans also return their whole snapshots, so
+ * member reads can start from them instead of loading each ID again.
+ */
+export async function scanMembers(
+  source:
+    | ((input: {
+        after?: string;
+        limit: number;
+      }) => Promise<ScanBatch<StoredObject> | undefined>)
+    | undefined,
+  native: (input: {
+    after?: string;
+    limit: number;
+  }) => Promise<ScanBatch<{ readonly objectId: string }> | undefined>,
+  after: string | undefined,
+  limit: number,
+): Promise<{
+  ids: string[];
+  hasMore: boolean;
+  snapshots?: readonly StoredObject[];
+}> {
+  if (!source) {
+    const { ids, hasMore } = await scanBatch(native, after, limit);
+
+    return { ids, hasMore };
+  }
+
+  const { ids, objects, hasMore } = await scanBatch(source, after, limit);
+
+  return { ids, hasMore, snapshots: objects };
 }
 
 export class NativeConflict extends Error {}

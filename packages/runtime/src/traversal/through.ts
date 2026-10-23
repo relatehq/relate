@@ -8,7 +8,7 @@ import type {
 } from '@relate/protocol';
 import { allowsField } from '../authorization/index.js';
 import type { Principal } from '../authorization/index.js';
-import { compareObjectIds, scanBatch } from '../storage.js';
+import { compareObjectIds, scanMembers } from '../storage.js';
 import {
   cursorCodec,
   predicateMatcher,
@@ -205,21 +205,15 @@ export function createThroughTraversal(options: TraversalOptions) {
     // source freshness, and final authorization of both junction and destination.
     while (passing && scanned < 100) {
       const source = owner.sourceDefinitionId;
-      // Source junction scans return whole snapshots; link reads start from them.
-      const sourceBatch = source
-        ? await scanBatch(
-            (input) => store.scan(scopeFor(owner.id, source), input),
-            afterLink,
-            100 - scanned,
-          )
-        : undefined;
-      const batch =
-        sourceBatch ??
-        (await scanBatch(
-          (input) => store.native!.scan(nativeScope, owner.id, input),
-          afterLink,
-          100 - scanned,
-        ));
+      // Link reads start from source junction snapshots.
+      const batch = await scanMembers(
+        source
+          ? (input) => store.scan(scopeFor(owner.id, source), input)
+          : undefined,
+        (input) => store.native!.scan(nativeScope, owner.id, input),
+        afterLink,
+        100 - scanned,
+      );
 
       scanned += batch.ids.length;
       passing = batch.hasMore;
@@ -236,7 +230,7 @@ export function createThroughTraversal(options: TraversalOptions) {
               linkRequest,
               undefined,
               undefined,
-              sourceBatch?.objects[i + j],
+              batch.snapshots?.[i + j],
             ),
           ),
         );
