@@ -21,3 +21,6 @@ in the pull request.
   dependency revalidation, connector contracts, ownership and work budgets);
   includes a reading guide and execution diagrams. Detailed contracts remain
   proposed; not implemented.
+- [2026-10-23: Media agency agent benchmark](./2026-10-23-media-agency-benchmark.md)
+  — systems, arms, tiers and action approach agreed; detailed contracts
+  proposed; not implemented.
