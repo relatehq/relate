@@ -54,6 +54,8 @@ Playground as Ana or Fin.
 Run `pnpm example:connected-sources:walkthrough` for a scripted SDK example of
 role-based reads, review creation and receipt replay.
 
+https://github.com/user-attachments/assets/14790e70-5f1f-4072-b517-471cc6c906b2
+
 ## Why
 
 Most real work touches more than one system. Before anyone can review an
