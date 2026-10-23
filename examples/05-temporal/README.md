@@ -191,6 +191,7 @@ Temporal as a source connector or runtime dependency to core Relate packages.
    checked Temporal's official workflow and testing guidance.
 2. Created `feat/temporal-workflow-poc` using `pnpm worktree:create` from
    `origin/main` (`72d2c3d`); isolated databases/dependencies via the helper.
+   Later merged `main` at `56eaae2` and reran validation.
 3. Implemented the public-API application and deterministic workflow separately.
 4. Ran real-server experiments, checked Postgres results and replayed histories.
 5. Added manual commands and documented limitations; validation evidence is in

@@ -1,27 +1,27 @@
-# Spike validation — 2026-10-22
+# Spike validation — 2026-10-23
 
 Local developer-machine evidence, not production capacity or an adoption
-decision. Base: `origin/main` at `72d2c3d`. Node 26.9.0, pnpm 12.9.1, Temporal
-TypeScript SDK 1.24.0. Downloaded development server reported Temporal CLI 1.9.1
-/ Server 1.32.0. Relate uses the worktree's isolated Postgres databases.
+decision. Base: branch merged with `origin/main` at `56eaae2` (first run
+2026-10-22 on `72d2c3d`; rerun after the merge). Node 26.9.0, pnpm 12.9.1,
+Temporal TypeScript SDK 1.24.0. Downloaded development server reported Temporal
+CLI 1.9.1 / Server 1.32.0. Relate uses the worktree's isolated Postgres
+databases.
 
-| Check                                                               | Observed result                                                                                                                          |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm check` (sequential final run)                                 | Passed: format, lint, typecheck, boundaries, 187 test files / 2,673 tests passed / 1 skipped, installed-tarball and MCP packaging checks |
-| `pnpm install --frozen-lockfile`                                    | Passed, including explicit optional build-script policy                                                                                  |
-| `pnpm example:temporal:test`                                        | Passed; real Temporal server, 5 scenarios, enclosing test also counted: 6 passed, 0 failed                                               |
-| Final focused rerun after workflow signal/phase cleanup             | Same 6 passed, 0 failed                                                                                                                  |
-| `pnpm exec tsc --noEmit -p tsconfig.tests.json`                     | Passed                                                                                                                                   |
-| `pnpm exec dotenvx run -f .env -- pnpm test:onboarding`             | 15 passed, 0 skipped                                                                                                                     |
-| CLI subprocess smoke with SDK local server                          | `start`, `decide approve`, `result`: approved; second start with same ID rejected; Worker exited on SIGINT                               |
-| `pnpm exec vitest run --project unit packages/cli/test/dev.test.ts` | All 12 passed in isolated rerun                                                                                                          |
+| Check                                                   | Observed result                                                                                                                          |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm check` (sequential, after merging `main`)         | Passed: format, lint, typecheck, boundaries, 187 test files / 2,683 tests passed / 1 skipped, installed-tarball and MCP packaging checks |
+| `pnpm install --frozen-lockfile`                        | Passed; lockfile unchanged by the merge                                                                                                  |
+| `pnpm example:temporal:test`                            | Passed; real Temporal server, 5 scenarios, enclosing test also counted: 6 passed, 0 failed                                               |
+| `pnpm exec tsc --noEmit -p tsconfig.tests.json`         | Passed                                                                                                                                   |
+| `pnpm exec dotenvx run -f .env -- pnpm test:onboarding` | 15 passed, 0 skipped                                                                                                                     |
+| CLI subprocess smoke with SDK local server              | `start`, `decide approve`, `result`: approved; second start with same ID rejected; Worker exited on SIGINT                               |
 
 The machine-readable [scenario results](evidence/scenarios.json) are extracted
 from the final experiment's actual output. The test source contains the
 assertions and reproduces them; this file is not a substitute for executing the
 tests.
 
-## Validation corrections
+## Validation corrections (first run, 2026-10-22)
 
 - Initial install reported `ERR_PNPM_IGNORED_BUILDS` for optional `@swc/core`
   and `protobufjs` postinstall scripts. Explicitly disabled them in workspace
@@ -43,7 +43,7 @@ Tests  3 failed | 2670 passed | 1 skipped (2674)
 
 The CLI suite passed alone afterward. Full validation was then rerun without
 concurrent onboarding/build commands and passed in full, as recorded in the
-table above.
+first run. The post-merge run above was sequential and passed first time.
 
 ## What these results do not prove
 
