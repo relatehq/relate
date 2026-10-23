@@ -94,6 +94,14 @@ export interface ObservationStore {
     scope: StorageScope,
     objectId: string,
   ): Promise<StoredObject | undefined>;
+  /**
+   * Batched `load` of at most 100 IDs: isolated snapshots keyed by object ID.
+   * IDs absent in this exact scope are omitted.
+   */
+  loadMany(
+    scope: StorageScope,
+    objectIds: readonly string[],
+  ): Promise<ReadonlyMap<string, StoredObject>>;
   /** Lookup only: resolve an existing source identity in the exact scope. Never adopts. */
   resolve(
     scope: StorageScope,

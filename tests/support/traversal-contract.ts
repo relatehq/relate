@@ -574,6 +574,27 @@ export function traversalContract(
         relate.as(ana).objects.Customer.traverse.invoices(north),
       ).rejects.toMatchObject({ code: 'unavailable', message: 'unavailable' });
     });
+    it('starts owner reads from the membership scan and reloads only members', async () => {
+      const customer = await relate.host.adopt(Customer, 'north');
+      const first = await adoptInvoice('inv_1');
+      const second = await adoptInvoice('inv_2');
+
+      await relate.host.adopt(Customer, 'south');
+      const other = await adoptInvoice('south_inv', 'south');
+      const load = vi.spyOn(backing.store, 'load');
+      const page = await relate
+        .as(ana)
+        .objects.Customer.traverse.invoices(customer, { select: ['status'] });
+      const loads = (objectId: string) =>
+        load.mock.calls.filter(([, id]) => id === objectId).length;
+
+      expect(page.data.map((row) => row.id).sort()).toEqual(
+        [first, second].sort(),
+      );
+      // Only the final link recheck loads a member; scanned non-members never load.
+      expect([loads(first), loads(second), loads(other)]).toEqual([1, 1, 0]);
+    });
+
     it('iterates to-many traversal lazily across pages and retains selected field evidence', async () => {
       const north = await relate.host.adopt(Customer, 'north');
       const ids = await Promise.all(
@@ -662,8 +683,10 @@ export function traversalContract(
       const load = backing.store.load;
       let secondLoads = 0;
 
+      // The scan supplies first reads, so the second member's first load is its
+      // final link check: expire the first member's authorization there.
       vi.spyOn(backing.store, 'load').mockImplementation(async (scope, id) => {
-        if (id === ids[1] && ++secondLoads === 2) now += 10_001;
+        if (id === ids[1] && ++secondLoads === 1) now += 10_001;
 
         return load(scope, id);
       });

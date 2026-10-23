@@ -240,6 +240,126 @@ export function storeContract(
         await expect(store.scan(scope, { limit })).rejects.toThrow();
     });
 
+    it('pages large populations in object ID order across updates and absent continuations', async () => {
+      const adopted: string[] = [];
+
+      for (let i = 0; i < 40; i++)
+        adopted.push(
+          (
+            await store.accept(scope, {
+              attribution: testAttribution(),
+              sourceRecordId: `record-${i}`,
+              adopt: true,
+              observation: observation(await store.beginFetch()),
+            })
+          ).object.objectId,
+        );
+
+      await store.accept(scope, {
+        attribution: testAttribution(),
+        sourceRecordId: 'record-7',
+        adopt: false,
+        observation: observation(await store.beginFetch(), 'Grace'),
+      });
+      const expected = [...adopted].sort();
+      const scanned: { objectId: string; name: unknown }[] = [];
+      let after: string | undefined;
+
+      for (;;) {
+        const page = await store.scan(scope, {
+          limit: 7,
+          ...(after === undefined ? {} : { after }),
+        });
+
+        scanned.push(
+          ...page.objects.map((o) => ({
+            objectId: o.objectId,
+            name: o.observation.values['person.name'],
+          })),
+        );
+        after = page.objects.at(-1)?.objectId;
+
+        if (!page.hasMore) break;
+      }
+
+      expect(scanned.map((o) => o.objectId)).toEqual(expected);
+      expect(scanned.find((o) => o.objectId === adopted[7])?.name).toBe(
+        'Grace',
+      );
+      expect(
+        (await store.load(scope, adopted[7]!))?.observation.values[
+          'person.name'
+        ],
+      ).toBe('Grace');
+
+      // A continuation need not be a member: resume after its sort position.
+      const absent = `${expected[19]!}~`;
+
+      expect(
+        (await store.scan(scope, { limit: 3, after: absent })).objects.map(
+          (o) => o.objectId,
+        ),
+      ).toEqual(expected.slice(20, 23));
+      expect(await store.load(scope, absent)).toBeUndefined();
+    });
+
+    it('loads batches of scoped identities as isolated snapshots keyed by object ID', async () => {
+      const saved = await Promise.all(
+        ['one', 'two', 'three'].map(async (sourceRecordId) =>
+          store.accept(scope, {
+            attribution: testAttribution(),
+            sourceRecordId,
+            adopt: true,
+            observation: observation(await store.beginFetch(), sourceRecordId),
+          }),
+        ),
+      );
+      const [first, second, third] = saved.map((r) => r.object);
+      const absent = `${first!.objectId}~`;
+      const loaded = await store.loadMany(scope, [
+        third!.objectId,
+        absent,
+        first!.objectId,
+      ]);
+
+      expect([...loaded.keys()].sort()).toEqual(
+        [first!.objectId, third!.objectId].sort(),
+      );
+      expect(loaded.get(first!.objectId)).toEqual(first);
+      expect(loaded.get(third!.objectId)).toEqual(third);
+      expect(loaded.has(second!.objectId)).toBe(false);
+      loaded.get(first!.objectId)!.observation.values['person.name'] =
+        'mutation';
+      expect(await store.load(scope, first!.objectId)).toEqual(first);
+      expect((await store.loadMany(scope, [])).size).toBe(0);
+
+      for (const field of [
+        'graphId',
+        'definitionRevision',
+        'objectDefinitionId',
+        'sourceDefinitionId',
+        'connectionId',
+        'resourceId',
+        'providerAccountId',
+        'partition',
+      ] as const) {
+        expect(
+          (
+            await store.loadMany({ ...scope, [field]: 'other' }, [
+              first!.objectId,
+            ])
+          ).size,
+        ).toBe(0);
+      }
+
+      await expect(
+        store.loadMany(
+          scope,
+          Array.from({ length: 101 }, () => first!.objectId),
+        ),
+      ).rejects.toThrow();
+    });
+
     it('allocates ordered tokens and one identity for concurrent adoptions', async () => {
       const tokens = await Promise.all(
         Array.from({ length: 10 }, () => store.beginFetch()),

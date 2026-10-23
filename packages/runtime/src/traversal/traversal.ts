@@ -9,7 +9,11 @@ import type {
   FullObjectResult as ObjectResult,
   FullPageResult as PageResult,
 } from '@relate/protocol';
-import type { ObservationStore, StorageScope } from '../storage.js';
+import type {
+  ObservationStore,
+  StorageScope,
+  StoredObject,
+} from '../storage.js';
 import { scanBatch } from '../storage.js';
 import {
   allowsField,
@@ -53,6 +57,8 @@ export interface TraversalOptions {
     request?: ReadControls,
     requiredReference?: string,
     captureAuthorization?: (check: () => Promise<boolean>) => void,
+    /** A snapshot of this object from its scope, already read by the caller. */
+    snapshot?: StoredObject,
   ): Promise<ReadResult>;
 }
 
@@ -297,6 +303,7 @@ export function createTraversal(options: TraversalOptions) {
     async function member(
       objectId: string,
       capture?: (check: () => Promise<boolean>) => void,
+      snapshot?: StoredObject,
     ): Promise<Available | undefined> {
       const target = await read(
         attempt,
@@ -306,6 +313,7 @@ export function createTraversal(options: TraversalOptions) {
         { ...readRequest, select: needed, requireComplete: false },
         via.name,
         capture,
+        snapshot,
       );
 
       if (target.status !== 'ok') return undefined;
@@ -335,10 +343,11 @@ export function createTraversal(options: TraversalOptions) {
 
       more = batch.hasMore;
 
-      for (const candidate of batch.ids) {
+      // Owner scans return whole snapshots; first reads start from them.
+      for (const [index, candidate] of batch.ids.entries()) {
         after = candidate;
         scanned++;
-        const result = await member(candidate);
+        const result = await member(candidate, undefined, batch.objects[index]);
         const at = clock();
 
         if (result && filter.matches(candidate, result, at))
