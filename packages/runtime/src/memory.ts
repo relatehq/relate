@@ -12,6 +12,7 @@ import {
   compareObjectIds,
   sourceChangeDraft,
 } from './storage.js';
+import { startAfter } from './memory-order.js';
 import { compareObservation } from './observations/ordering.js';
 import { describeAcceptedChange } from './observations/changes.js';
 import { createMemoryActivity } from './memory-activity.js';
@@ -28,24 +29,14 @@ export interface MemoryStoreOptions {
 /** One scope's adopted objects, indexed for each lookup the store serves. */
 interface Population {
   readonly bySource: Map<string, StoredObject>;
-  readonly sourceByObject: Map<string, string>;
-  /** Object IDs in ascending storage order; identities are never removed. */
+  readonly byObject: Map<string, StoredObject>;
+  /**
+   * Adopted object IDs; identities are never removed. Adoption appends and the
+   * next scan sorts, so bulk adoption stays linear instead of shifting a
+   * sorted array once per random ID.
+   */
   readonly order: string[];
-}
-
-/** First index whose object ID sorts after `after`, or 0 without a continuation. */
-function startAfter(order: readonly string[], after: string | undefined) {
-  let low = 0;
-  let high = after === undefined ? 0 : order.length;
-
-  while (low < high) {
-    const middle = (low + high) >>> 1;
-
-    if (compareObjectIds(order[middle]!, after!) > 0) high = middle;
-    else low = middle + 1;
-  }
-
-  return low;
+  sorted: boolean;
 }
 
 /** Isolated, process-local retention. Reuse the instance to share state between runtimes. */
@@ -64,14 +55,8 @@ export function createMemoryStore(
       : createMemoryActivity(options.activity);
   const installed = (scope: { graphId: string; definitionRevision: string }) =>
     graphs.get(scope.graphId) === scope.definitionRevision;
-  const find = (scope: StorageScope, objectId: string) => {
-    const population = scopes.get(scopeKey(scope));
-    const sourceRecordId = population?.sourceByObject.get(objectId);
-
-    return sourceRecordId === undefined
-      ? undefined
-      : population!.bySource.get(sourceRecordId);
-  };
+  const find = (scope: StorageScope, objectId: string) =>
+    scopes.get(scopeKey(scope))?.byObject.get(objectId);
 
   return {
     durability: 'volatile',
@@ -130,10 +115,19 @@ export function createMemoryStore(
 
       if (!population) return { objects: [], hasMore: false };
 
-      const start = startAfter(population.order, after || undefined);
+      if (!population.sorted) {
+        population.order.sort(compareObjectIds);
+        population.sorted = true;
+      }
+
+      const start = startAfter(
+        population.order,
+        after || undefined,
+        (objectId) => objectId,
+      );
       const candidates = population.order
         .slice(start, start + limit + 1)
-        .map((objectId) => find(scope, objectId)!);
+        .map((objectId) => population.byObject.get(objectId)!);
 
       return {
         objects: structuredClone(candidates.slice(0, limit)),
@@ -150,8 +144,9 @@ export function createMemoryStore(
       const key = scopeKey(scope);
       const population = scopes.get(key) ?? {
         bySource: new Map<string, StoredObject>(),
-        sourceByObject: new Map<string, string>(),
+        byObject: new Map<string, StoredObject>(),
         order: [],
+        sorted: true,
       };
       const previous = population.bySource.get(input.sourceRecordId);
 
@@ -212,15 +207,12 @@ export function createMemoryStore(
           actor: structuredClone(input.attribution.actor),
           at: input.attribution.occurredAt,
         });
-        population.sourceByObject.set(object.objectId, input.sourceRecordId);
-        population.order.splice(
-          startAfter(population.order, object.objectId),
-          0,
-          object.objectId,
-        );
+        population.order.push(object.objectId);
+        population.sorted = false;
       }
 
       population.bySource.set(input.sourceRecordId, object);
+      population.byObject.set(object.objectId, object);
       scopes.set(key, population);
       publish();
 

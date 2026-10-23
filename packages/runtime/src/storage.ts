@@ -106,6 +106,8 @@ export function compareObjectIds(a: string, b: string): number {
           : 1;
   }
 
+  if (a.length === b.length) return 0;
+
   return length > 0 && surrogate(a.charCodeAt(length - 1))
     ? Buffer.compare(Buffer.from(a), Buffer.from(b))
     : Math.sign(a.length - b.length);

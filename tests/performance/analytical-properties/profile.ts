@@ -4,6 +4,7 @@ import { Session } from 'node:inspector/promises';
 import type { Profiler } from 'node:inspector';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { gzipSync } from 'node:zlib';
 import { gitMetadata, openWorkload, resolveConfig } from './run.js';
@@ -90,7 +91,7 @@ async function main() {
 
   assert(['sqlite', 'postgres', 'duckdb'].includes(values.backend));
   assert(['memory', 'postgres'].includes(values.store));
-  assert(values.scenario in scenarios, 'Unknown scenario');
+  assert(Object.hasOwn(scenarios, values.scenario), 'Unknown scenario');
   const scenario = values.scenario as Scenario;
   const config = resolveConfig({
     customers: Number(values.customers),
@@ -168,7 +169,12 @@ async function main() {
   }
 }
 
-main().catch((error: unknown) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+) {
+  main().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

@@ -12,6 +12,7 @@ import {
   compareObjectIds,
   validateFeedDraft,
 } from './storage.js';
+import { startAfter } from './memory-order.js';
 
 /** Private transaction snapshots; observation refreshes are independently retained. */
 export function createNativeMemoryStore(
@@ -31,9 +32,18 @@ export function createNativeMemoryStore(
   const recordKey = (type: string, id: string) => JSON.stringify([type, id]);
   const invocationKey = (action: string, key: string) =>
     JSON.stringify([action, key]);
+  // Each record map's records of one type in object ID order, built on the
+  // first scan and dropped when that type changes. Transactions clone the
+  // record map, so a committed map's cache is never shared with a draft.
+  const ordered = new WeakMap<
+    Map<string, NativeRecord>,
+    Map<string, NativeRecord[]>
+  >();
+  const invalidate = (records: Map<string, NativeRecord>, type: string) =>
+    ordered.get(records)?.delete(type);
 
   function scan(
-    records: Iterable<NativeRecord>,
+    records: Map<string, NativeRecord> | undefined,
     type: string,
     options: NativeScanOptions,
   ) {
@@ -44,21 +54,27 @@ export function createNativeMemoryStore(
     )
       throw new Error('Invalid scan limit');
 
-    const matches: NativeRecord[] = [];
+    if (!records) return { objects: [], hasMore: false };
 
-    for (const r of records)
-      if (
-        r.objectDefinitionId === type &&
-        (options.after === undefined ||
-          compareObjectIds(r.objectId, options.after) > 0)
-      )
-        matches.push(r);
+    let byType = ordered.get(records);
 
-    matches.sort((a, b) => compareObjectIds(a.objectId, b.objectId));
+    if (!byType) ordered.set(records, (byType = new Map()));
+
+    let matches = byType.get(type);
+
+    if (!matches) {
+      matches = [...records.values()]
+        .filter((r) => r.objectDefinitionId === type)
+        .sort((a, b) => compareObjectIds(a.objectId, b.objectId));
+      byType.set(type, matches);
+    }
+
+    const start = startAfter(matches, options.after, (r) => r.objectId);
+    const page = matches.slice(start, start + options.limit + 1);
 
     return {
-      objects: structuredClone(matches.slice(0, options.limit)),
-      hasMore: matches.length > options.limit,
+      objects: structuredClone(page.slice(0, options.limit)),
+      hasMore: page.length > options.limit,
     };
   }
 
@@ -66,11 +82,7 @@ export function createNativeMemoryStore(
     async scan(scope, type, options) {
       if (!installed(scope)) return { objects: [], hasMore: false };
 
-      return scan(
-        graphs.get(scope.graphId)?.records.values() ?? [],
-        type,
-        options,
-      );
+      return scan(graphs.get(scope.graphId)?.records, type, options);
     },
     async loadInvocation(scope, action, key) {
       if (!installed(scope)) return undefined;
@@ -145,7 +157,7 @@ export function createNativeMemoryStore(
           async scan(type, options) {
             check();
 
-            return scan(state.records.values(), type, options);
+            return scan(state.records, type, options);
           },
           async savepoint(operation) {
             check();
@@ -183,12 +195,14 @@ export function createNativeMemoryStore(
             if (state.records.has(key)) throw new NativeConflict();
 
             state.records.set(key, structuredClone(record));
+            invalidate(state.records, record.objectDefinitionId);
             state.creations.set(key, {
               actor: { kind: creation.actor.kind, id: creation.actor.id },
               invocationId: creation.invocationId,
             });
             recordUndo(() => {
               state.records.delete(key);
+              invalidate(state.records, record.objectDefinitionId);
               state.creations.delete(key);
             });
           },
