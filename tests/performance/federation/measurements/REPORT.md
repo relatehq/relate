@@ -370,9 +370,9 @@ the full single-object path (`resolution/source.ts:179`).
 | --- | ------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Revalidate in ranked order until the page is full      | `analytical-reads/read.ts:287–318`                           | ~26 re-reads instead of 10,025; merges steps 3 and 5. Largest expected win, and removes most store round trips on PostgreSQL                       |
 | 2   | Verify each source account once per request            | `resolution/source.ts:95`, `observations/fetch.ts:36`        | 62,575 `identify()` calls (~6 per candidate), each with its own timer. Instant here; a network `identify()` would make one ranking 62k round trips |
-| 3   | Prepare the read plan once per request, not per object | `resolution/source.ts:193–274`                               | Request validation, manifest/source lookups, policy, `select`/`visible` lists and `createAuthorization` are recomputed 20,000 times                |
-| 4   | Stop defensive copies on read paths                    | `memory.ts:81`, `:120`, `:148`; `analytics/revalidate.ts:70` | `structuredClone` is the largest named cost in the profile (~96 ms, 14%); read-only snapshots avoid it                                             |
-| 5   | Larger scan pages for full-scope ranking               | `analytical-reads/query.ts:66`                               | 125 sequential pages of 100; 1,000 per page (or streaming) means ~13 round trips on the PostgreSQL store, at higher per-page memory                |
+| 3   | Larger scan pages for full-scope ranking               | `analytical-reads/query.ts:66`                               | 125 sequential pages of 100; 1,000 per page (or streaming) means ~13 round trips on the PostgreSQL store, at higher per-page memory                |
+| 4   | Prepare the read plan once per request, not per object | `resolution/source.ts:193–274`                               | Request validation, manifest/source lookups, policy, `select`/`visible` lists and `createAuthorization` are recomputed 20,000 times                |
+| 5   | Stop defensive copies on read paths                    | `memory.ts:81`, `:120`, `:148`; `analytics/revalidate.ts:70` | `structuredClone` is the largest named cost in the profile (~96 ms, 14%); read-only snapshots avoid it                                             |
 
 Sketch for #1 (not agreed):
 
@@ -397,7 +397,7 @@ preserves today's answer, including the in-flight revocation case this spike
 tests. The paging contract (`exhausted`, cursor) needs agreement before
 implementation.
 
-Recommended order: 1 and 2, then 5, then 3 and 4. Re-measure after each with
+Recommended order is the numbering above. Re-measure after each with
 `bench:analytical` (both stores) and this federation matrix. Later: per-object
 evidence hashing (`canonicalJson`, `canonicalTimestamp`, ~30 ms) and not
 recomputing the whole scope for every next page.

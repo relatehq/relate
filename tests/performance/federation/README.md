@@ -15,9 +15,9 @@ The next work is in the core engine, before adopting DataFusion:
    10,000 candidates.
 2. Verify each source account once per request (62,575 `identify()` calls
    today).
-3. Prepare the read plan once per request, not per object.
-4. Stop defensive `structuredClone` copies on read paths.
-5. Larger scan pages for full-scope ranking (125 sequential pages of 100).
+3. Larger scan pages for full-scope ranking (125 sequential pages of 100).
+4. Prepare the read plan once per request, not per object.
+5. Stop defensive `structuredClone` copies on read paths.
 
 Details, code locations and the memory/PostgreSQL store baseline:
 [core engine work](measurements/REPORT.md#core-engine-work-before-datafusion).
