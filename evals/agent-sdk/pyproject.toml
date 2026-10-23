@@ -1,0 +1,29 @@
+[project]
+name = "relate-agent-evals"
+version = "0.1.0"
+description = "Standalone, state-graded Relate SDK agent evaluations on Inspect AI"
+requires-python = ">=3.11,<3.14"
+dependencies = ["inspect-ai==0.3.283", "openai>=3.4,<4", "anthropic>=2,<3"]
+
+[project.scripts]
+relate-eval = "relate_eval.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["relate_eval"]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "ruff>=0.14,<1"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

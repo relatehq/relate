@@ -1,0 +1,60 @@
+name: Agent eval harness
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'evals/agent-sdk/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/agent-evals.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'evals/agent-sdk/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/agent-evals.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.9'
+          python-version: '3.13'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Install and prepare standalone harness
+        working-directory: evals/agent-sdk
+        run: |
+          uv sync --locked
+          npm ci
+          npm run prepare:sdk
+          docker build -t relate-agent-eval:local .local/prepared
+      - name: Harness and isolation regressions
+        working-directory: evals/agent-sdk
+        env:
+          RELATE_EVAL_INTEGRATION: '1'
+        run: |
+          uv run ruff check relate_eval tests
+          uv run ruff format --check relate_eval tests
+          uv run pytest -q
+      - name: All reference tasks, no provider credentials
+        working-directory: evals/agent-sdk
+        run: uv run relate-eval run --oracle --output .local/ci-oracle
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-eval-oracle
+          path: evals/agent-sdk/.local/ci-oracle/
+          include-hidden-files: true
+          if-no-files-found: ignore
