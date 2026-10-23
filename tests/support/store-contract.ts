@@ -240,6 +240,65 @@ export function storeContract(
         await expect(store.scan(scope, { limit })).rejects.toThrow();
     });
 
+    it('pages large populations in object ID order across updates and absent continuations', async () => {
+      const adopted: string[] = [];
+
+      for (let i = 0; i < 40; i++)
+        adopted.push(
+          (
+            await store.accept(scope, {
+              attribution: testAttribution(),
+              sourceRecordId: `record-${i}`,
+              adopt: true,
+              observation: observation(await store.beginFetch()),
+            })
+          ).object.objectId,
+        );
+
+      await store.accept(scope, {
+        attribution: testAttribution(),
+        sourceRecordId: 'record-7',
+        observation: observation(await store.beginFetch(), 'Grace'),
+      });
+      const expected = [...adopted].sort();
+      const scanned: { objectId: string; name: unknown }[] = [];
+      let after: string | undefined;
+
+      for (;;) {
+        const page = await store.scan(scope, { limit: 7, after });
+
+        scanned.push(
+          ...page.objects.map((o) => ({
+            objectId: o.objectId,
+            name: o.observation.values['person.name'],
+          })),
+        );
+        after = page.objects.at(-1)?.objectId;
+
+        if (!page.hasMore) break;
+      }
+
+      expect(scanned.map((o) => o.objectId)).toEqual(expected);
+      expect(scanned.find((o) => o.objectId === adopted[7])?.name).toBe(
+        'Grace',
+      );
+      expect(
+        (await store.load(scope, adopted[7]!))?.observation.values[
+          'person.name'
+        ],
+      ).toBe('Grace');
+
+      // A continuation need not be a member: resume after its sort position.
+      const absent = `${expected[19]!}~`;
+
+      expect(
+        (await store.scan(scope, { limit: 3, after: absent })).objects.map(
+          (o) => o.objectId,
+        ),
+      ).toEqual(expected.slice(20, 23));
+      expect(await store.load(scope, absent)).toBeUndefined();
+    });
+
     it('allocates ordered tokens and one identity for concurrent adoptions', async () => {
       const tokens = await Promise.all(
         Array.from({ length: 10 }, () => store.beginFetch()),

@@ -25,12 +25,35 @@ export interface MemoryStoreOptions {
   readonly activity?: false | MemoryActivityLimits;
 }
 
+/** One scope's adopted objects, indexed for each lookup the store serves. */
+interface Population {
+  readonly bySource: Map<string, StoredObject>;
+  readonly sourceByObject: Map<string, string>;
+  /** Object IDs in ascending storage order; identities are never removed. */
+  readonly order: string[];
+}
+
+/** First index whose object ID sorts after `after`, or 0 without a continuation. */
+function startAfter(order: readonly string[], after: string | undefined) {
+  let low = 0;
+  let high = after === undefined ? 0 : order.length;
+
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+
+    if (compareObjectIds(order[middle]!, after!) > 0) high = middle;
+    else low = middle + 1;
+  }
+
+  return low;
+}
+
 /** Isolated, process-local retention. Reuse the instance to share state between runtimes. */
 export function createMemoryStore(
   options: MemoryStoreOptions = {},
 ): ObservationStore {
   const graphs = new Map<string, string>();
-  const scopes = new Map<string, Map<string, StoredObject>>();
+  const scopes = new Map<string, Population>();
   // Adoption provenance lives with the identity, never with activity retention.
   const adoptions = new Map<string, { actor: OperationActor; at: number }>();
   let token = 0n;
@@ -41,10 +64,14 @@ export function createMemoryStore(
       : createMemoryActivity(options.activity);
   const installed = (scope: { graphId: string; definitionRevision: string }) =>
     graphs.get(scope.graphId) === scope.definitionRevision;
-  const find = (scope: StorageScope, objectId: string) =>
-    [...(scopes.get(scopeKey(scope))?.values() ?? [])].find(
-      (candidate) => candidate.objectId === objectId,
-    );
+  const find = (scope: StorageScope, objectId: string) => {
+    const population = scopes.get(scopeKey(scope));
+    const sourceRecordId = population?.sourceByObject.get(objectId);
+
+    return sourceRecordId === undefined
+      ? undefined
+      : population!.bySource.get(sourceRecordId);
+  };
 
   return {
     durability: 'volatile',
@@ -88,7 +115,7 @@ export function createMemoryStore(
       if (graphs.get(scope.graphId) !== scope.definitionRevision)
         return undefined;
 
-      const object = scopes.get(scopeKey(scope))?.get(sourceRecordId);
+      const object = scopes.get(scopeKey(scope))?.bySource.get(sourceRecordId);
 
       return object && structuredClone(object);
     },
@@ -99,10 +126,14 @@ export function createMemoryStore(
       if (graphs.get(scope.graphId) !== scope.definitionRevision)
         return { objects: [], hasMore: false };
 
-      const candidates = [...(scopes.get(scopeKey(scope))?.values() ?? [])]
-        .filter((o) => !after || compareObjectIds(o.objectId, after) > 0)
-        .sort((a, b) => compareObjectIds(a.objectId, b.objectId))
-        .slice(0, limit + 1);
+      const population = scopes.get(scopeKey(scope));
+
+      if (!population) return { objects: [], hasMore: false };
+
+      const start = startAfter(population.order, after || undefined);
+      const candidates = population.order
+        .slice(start, start + limit + 1)
+        .map((objectId) => find(scope, objectId)!);
 
       return {
         objects: structuredClone(candidates.slice(0, limit)),
@@ -117,8 +148,12 @@ export function createMemoryStore(
         });
 
       const key = scopeKey(scope);
-      const objects = scopes.get(key) ?? new Map<string, StoredObject>();
-      const previous = objects.get(input.sourceRecordId);
+      const population = scopes.get(key) ?? {
+        bySource: new Map<string, StoredObject>(),
+        sourceByObject: new Map<string, string>(),
+        order: [],
+      };
+      const previous = population.bySource.get(input.sourceRecordId);
 
       if (
         (!previous && !input.adopt) ||
@@ -172,14 +207,21 @@ export function createMemoryStore(
         ...(change ? { change } : {}),
       };
 
-      if (!previous)
+      if (!previous) {
         adoptions.set(canonicalJson([key, object.objectId]), {
           actor: structuredClone(input.attribution.actor),
           at: input.attribution.occurredAt,
         });
+        population.sourceByObject.set(object.objectId, input.sourceRecordId);
+        population.order.splice(
+          startAfter(population.order, object.objectId),
+          0,
+          object.objectId,
+        );
+      }
 
-      objects.set(input.sourceRecordId, object);
-      scopes.set(key, objects);
+      population.bySource.set(input.sourceRecordId, object);
+      scopes.set(key, population);
       publish();
 
       return result;

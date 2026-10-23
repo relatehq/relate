@@ -89,7 +89,26 @@ export type { ActivityCursor } from './activity-store.js';
 
 /** Scan order for opaque object IDs: UTF-8 bytewise, matching Postgres COLLATE "C". */
 export function compareObjectIds(a: string, b: string): number {
-  return Buffer.compare(Buffer.from(a), Buffer.from(b));
+  const length = Math.min(a.length, b.length);
+  const surrogate = (unit: number) => unit >= 0xd800 && unit <= 0xdfff;
+
+  // Outside surrogates, UTF-16 code unit order is UTF-8 byte order. Avoid
+  // allocating two buffers per comparison in scans and sorted traversals.
+  for (let i = 0; i < length; i++) {
+    const left = a.charCodeAt(i);
+    const right = b.charCodeAt(i);
+
+    if (left !== right)
+      return surrogate(left) || surrogate(right)
+        ? Buffer.compare(Buffer.from(a), Buffer.from(b))
+        : left < right
+          ? -1
+          : 1;
+  }
+
+  return length > 0 && surrogate(a.charCodeAt(length - 1))
+    ? Buffer.compare(Buffer.from(a), Buffer.from(b))
+    : Math.sign(a.length - b.length);
 }
 
 type ScanBatch = {
