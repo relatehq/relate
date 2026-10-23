@@ -58,3 +58,11 @@ separation. Tests of each example itself live in its own `test/` folder.
 The exploratory application under `dev/fixtures/customer-graph` includes
 proposed APIs as well as implemented behavior. Use these examples for runnable
 public APIs.
+
+## Workflow execution spike
+
+[Temporal integration POC](05-temporal) demonstrates using Relate reads and
+actions inside durable workflow Activities, with approval signals, retry
+idempotency and access checks after a wait. It uses Postgres and a real local
+Temporal server, with separate manual commands and an opt-in experiment:
+`pnpm example:temporal:test`. It does not start Inspector or change Relate core.

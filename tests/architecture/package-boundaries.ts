@@ -197,6 +197,21 @@ export const packagePolicies: Record<
       '@fontsource/dm-mono/500.css',
     ],
   },
+  'examples/05-temporal': {
+    imports: [
+      'relate',
+      '@relate/node',
+      '@relate/postgres',
+      'zod',
+      '@temporalio/activity',
+      '@temporalio/client',
+      '@temporalio/common',
+      '@temporalio/testing',
+      '@temporalio/worker',
+      '@temporalio/workflow',
+    ],
+    builtins: true,
+  },
   'examples/01-native-objects': {
     imports: ['relate', '@relate/node', 'zod'],
     builtins: true,
