@@ -6,10 +6,13 @@ three Node boundaries, measures raw multi-source SQL, and runs the real public
 `Customer.query()` through ten execution paths. No shipped API or runtime
 default changes.
 
-All numbers here come from one run after merging the indexed memory store (#49).
-Earlier measurements were taken while the memory store searched its whole
-population for every object lookup, which dominated large public requests; they
-have been removed rather than kept as a baseline.
+All federation numbers come from one matrix run after merging the indexed memory
+store (#49); the runtime baseline in
+[core engine work](#core-engine-work-before-datafusion) is a separate run of the
+analytical harness on the same code. Earlier measurements were taken while the
+memory store searched its whole population for every object lookup, which
+dominated large public requests; they have been removed rather than kept as a
+baseline.
 
 ## Vocabulary
 
@@ -42,18 +45,20 @@ events (10,000 authorized):
 | `multi` (Parquet events + PG invoices) |           808 ms |               1,319–2,293 ms |                      607–615 ms |              0.75–0.77 |
 
 - **Integrate before batching.** Giving DataFusion the whole authorized scope
-  removes the slot path's repeated full-table reads: it is 5–8× faster than slot
+  removes the slot path's repeated full-table reads: it is 6–8× faster than slot
   scan for database ranking and 14–16% faster than the shipped PostgreSQL
   connector.
 - **Pushdown matters for database sources.** For `ranking-db`, federation cuts
-  the engine request from 197–201 ms (scope scan) to 87–91 ms. For `multi`, the
-  Parquet aggregation stays local, so scope scan and scope federation are within
-  noise (paired ratio 0.97–1.03); the gain over native comes from one combined
-  engine query.
-- **Runtime work outside the engine is still the largest share** — about 420 ms,
-  or 72–73% of a large scope-federated request — but it is now hundreds of
-  milliseconds, not seconds. The next leads are object cloning and per-object
-  reads (see [CPU profile](#remaining-runtime-cost-cpu-profile)).
+  the engine request from 196.5–201.2 ms (scope scan) to 86.5–90.5 ms. For
+  `multi`, the Parquet aggregation stays local, so scope scan and scope
+  federation are within noise (paired ratio 0.97–1.03); the gain over native
+  comes from one combined engine query.
+- **Relate's own runtime is now the bottleneck, not the calculation engine.**
+  About 420 ms (72–73%) of a large scope-federated request is outside the
+  engine; DataFusion saves about 110 ms over the shipped connector. With the
+  PostgreSQL object store the same ranking takes 1,006 ms. Do the
+  [core engine work](#core-engine-work-before-datafusion) first; DataFusion
+  remains the plan for cross-source calculations.
 - **Choose the transport for deployment, not speed.** Neon, child and HTTP stay
   within ~1.5% of each other on scope-federated public requests. A persistent
   child remains the practical next integration candidate once it has bounded
@@ -105,12 +110,12 @@ requests; that is this implementation's admission policy, not a pipe limit.
 
 | Query      | Boundary | Full request | Scope compiler | Engine request | Result merge | Runtime outside scope |
 | ---------- | -------- | -----------: | -------------: | -------------: | -----------: | --------------------: |
-| ranking-db | neon     |       577.75 |          40.97 |          86.48 |        28.77 |                420.13 |
-| ranking-db | child    |       573.51 |          40.33 |          88.04 |        28.23 |                417.36 |
-| ranking-db | http     |       580.63 |          40.22 |          90.49 |        28.27 |                421.60 |
-| multi      | neon     |       611.25 |          63.52 |          72.87 |        14.07 |                456.23 |
-| multi      | child    |       606.87 |          60.54 |          77.38 |        12.54 |                449.46 |
-| multi      | http     |       615.41 |          60.59 |          76.16 |        13.66 |                460.28 |
+| ranking-db | neon     |       577.75 |          41.04 |          86.51 |        28.79 |                420.14 |
+| ranking-db | child    |       573.51 |          40.30 |          88.03 |        28.16 |                417.36 |
+| ranking-db | http     |       580.63 |          40.23 |          90.48 |        28.30 |                421.59 |
+| multi      | neon     |       611.25 |          63.54 |          72.89 |        14.15 |                456.24 |
+| multi      | child    |       606.87 |          60.51 |          77.44 |        12.48 |                449.52 |
+| multi      | http     |       615.41 |          60.62 |          76.20 |        13.68 |                460.25 |
 
 Medians of separate spans; they need not sum to the median total. Engine
 planning/collection/encoding are nested inside the engine request. Outside-scope
@@ -332,6 +337,71 @@ the [retained summary](profile-summary.json) and the
 lines refer to built JavaScript). The profile ran at `2ba046b`, which differs
 from the measured commit only by counting `loadMany` in `profile.mjs`.
 
+## Core engine work before DataFusion
+
+DataFusion's gain on a single-source query (about 110 ms) is smaller than the
+runtime work around it. These runtime changes come first; each removes repeated
+work rather than speeding up an engine. Gains below are estimates from the
+profile and call counts, not measurements.
+
+Same large ranking through the analytical harness, both object stores, same
+commit (`730e34a`), 24 warm samples each, [archives](runtime-baseline/):
+
+| Object store |   Median |      p95 | Scans | Objects batch-loaded | `identify()` calls |
+| ------------ | -------: | -------: | ----: | -------------------: | -----------------: |
+| Memory       |   653 ms |   732 ms |   125 |               10,025 |             62,575 |
+| PostgreSQL   | 1,006 ms | 1,042 ms |   125 |               10,025 |             62,575 |
+
+What one full-scope ranking does today
+(`packages/runtime/src/analytical-reads/read.ts`):
+
+```text
+1. Candidate collection: read + authorize all 10,000 objects   (125 scan pages of 100)
+2. Compute: one engine query (or 10 connector batches)
+3. Revalidate ALL 10,000: re-read + re-authorize each one     (101 loadMany calls)  read.ts:287
+4. rankPage: sort, keep 25                                                         read.ts:301
+5. Revalidate those 25 again                                                       read.ts:313
+```
+
+Every candidate is read and authorized twice to return 25 rows; each read runs
+the full single-object path (`resolution/source.ts:179`).
+
+| #   | Change                                                 | Where                                                        | Why                                                                                                                                                |
+| --- | ------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Revalidate in ranked order until the page is full      | `analytical-reads/read.ts:287–318`                           | ~26 re-reads instead of 10,025; merges steps 3 and 5. Largest expected win, and removes most store round trips on PostgreSQL                       |
+| 2   | Verify each source account once per request            | `resolution/source.ts:95`, `observations/fetch.ts:36`        | 62,575 `identify()` calls (~6 per candidate), each with its own timer. Instant here; a network `identify()` would make one ranking 62k round trips |
+| 3   | Prepare the read plan once per request, not per object | `resolution/source.ts:193–274`                               | Request validation, manifest/source lookups, policy, `select`/`visible` lists and `createAuthorization` are recomputed 20,000 times                |
+| 4   | Stop defensive copies on read paths                    | `memory.ts:81`, `:120`, `:148`; `analytics/revalidate.ts:70` | `structuredClone` is the largest named cost in the profile (~96 ms, 14%); read-only snapshots avoid it                                             |
+| 5   | Larger scan pages for full-scope ranking               | `analytical-reads/query.ts:66`                               | 125 sequential pages of 100; 1,000 per page (or streaming) means ~13 round trips on the PostgreSQL store, at higher per-page memory                |
+
+Sketch for #1 (not agreed):
+
+```ts
+const queue = rankedByComputedPosition(computedRows); // no revalidation yet
+const page = [];
+while (page.length < limit + 1 && queue.size) {
+  // +1 decides `exhausted`
+  const row = await revalidate(queue.pop());
+  if (!row) continue; // lost access: next one moves up
+  if (fieldsChanged(row)) {
+    reinsertIfStillMatches(queue, row);
+    continue;
+  }
+  page.push(row);
+}
+```
+
+Revalidation can only make a computed field unavailable or forbidden, never
+change its value (`analytics/revalidate.ts`), so re-inserting changed rows
+preserves today's answer, including the in-flight revocation case this spike
+tests. The paging contract (`exhausted`, cursor) needs agreement before
+implementation.
+
+Recommended order: 1 and 2, then 5, then 3 and 4. Re-measure after each with
+`bench:analytical` (both stores) and this federation matrix. Later: per-object
+evidence hashing (`canonicalJson`, `canonicalTimestamp`, ~30 ms) and not
+recomputing the whole scope for every next page.
+
 ## Integration ergonomics
 
 | Concern                 | Neon                                                                  | Persistent child                                                    | HTTP service                                                                      |
@@ -431,11 +501,14 @@ as a source changes; this spike has no concurrent source mutation.
   arrivals, malformed inputs/results, empty populations, unsupported per-object
   predicates, retained binding/dependency evidence, and a permission change
   during execution.
-- Repository-wide `pnpm check` passed after the merge; see the
+- Repository-wide `pnpm check` passed at the current branch head; see the
   [validation log](validation.log).
 - Measured source `85137b70577876d7be488bea379cbdc8a6c808d2`, clean at the start
-  of all three runs. Source/input/result hashes, timing samples and physical
-  plans are retained in [small](small.json.gz), [medium](medium.json.gz) and
+  of all three runs. The branch head `730e34a` adds a later `main` merge that
+  changes only documentation (`README.md`, `specs/`); no runtime, connector or
+  benchmark code differs. The runtime baseline archives were measured at
+  `730e34a`. Source/input/result hashes, timing samples and physical plans are
+  retained in [small](small.json.gz), [medium](medium.json.gz) and
   [large](large.json.gz). [Artifact hashes](artifacts.json) identify the shared
   executable and addon (unchanged by the merge).
 - Apple M2 Max, 12 logical CPUs, 64 GiB RAM, Darwin 25.6.0 arm64; Node 26.9.0,
@@ -447,14 +520,15 @@ Reproduce with the [harness README](../README.md); `uv run analyze.py` rebuilds
 
 ## Next concrete work
 
+First, the [core engine work](#core-engine-work-before-datafusion). Then, for
+DataFusion:
+
 1. Define a typed runtime-owned executor contract at the pre-batching point,
    carrying candidate keys, masks, binding revisions and evidence requirements.
    Keep final revalidation until equivalent behavior is demonstrated.
-2. Reduce the remaining ~420 ms outside the engine: defensive clones in the
-   memory store and query snapshots, and per-candidate `readObject` work.
-3. Source capability rules for pushdown selection, verified from physical plans
+2. Source capability rules for pushdown selection, verified from physical plans
    and transferred-row counters rather than an engine label.
-4. Bounded parallel child admission, then compare equal concurrency policies
+3. Bounded parallel child admission, then compare equal concurrency policies
    before choosing addon, embedded process or shared service.
-5. Policy changes, timestamp/decimal edge cases, backend cancellation, network
+4. Policy changes, timestamp/decimal edge cases, backend cancellation, network
    delay, source failure and memory/spill limits.

@@ -4,6 +4,25 @@ Experimental implementations and repeatable measurements for joining Relate data
 across databases and files. This does not enable federation in the shipped
 product.
 
+## Status
+
+Whole-scope federation is faster end to end than the shipped PostgreSQL
+connector (574–581 ms vs 690 ms for the large ranking), but the Relate runtime
+around the engine now costs more than DataFusion saves (about 420 ms vs 110 ms).
+The next work is in the core engine, before adopting DataFusion:
+
+1. Revalidate in ranked order until the page is full, instead of re-reading all
+   10,000 candidates.
+2. Verify each source account once per request (62,575 `identify()` calls
+   today).
+3. Prepare the read plan once per request, not per object.
+4. Stop defensive `structuredClone` copies on read paths.
+5. Larger scan pages for full-scope ranking (125 sequential pages of 100).
+
+Details, code locations and the memory/PostgreSQL store baseline:
+[core engine work](measurements/REPORT.md#core-engine-work-before-datafusion).
+Full measurements: [report](measurements/REPORT.md).
+
 ## Vocabulary
 
 | Term           | Meaning                                                                      | Example                                                           |
@@ -289,6 +308,18 @@ performance matrix has finished (profiling must not compete with timed runs):
 pnpm exec dotenvx run -f .env -- node --expose-gc --import tsx --import ./tests/performance/federation/register.mjs tests/performance/federation/profile.mjs
 uv run tests/performance/federation/measurements/analyze.py
 ```
+
+Runtime baseline for the core engine work (analytical harness, both object
+stores, after the timed matrix):
+
+```sh
+pnpm exec dotenvx run -f .env -- pnpm bench:analytical:run --profile capacity --customers 12500 --events 1000000 --backend postgres --store memory --capture disabled --repetitions 24 --out benchmark-results/memstore-now
+pnpm exec dotenvx run -f .env -- pnpm bench:analytical:run --profile capacity --customers 12500 --events 1000000 --backend postgres --store postgres --capture disabled --repetitions 24 --out benchmark-results/pgstore-now
+```
+
+Gzip each `results.json` into `measurements/runtime-baseline/`. Use 24
+repetitions: the PostgreSQL store's first few warm samples are still settling
+(1.4–1.7 s before ~1.0 s).
 
 The profile includes only Node, not the child engine or PostgreSQL. It adds
 sampling overhead and its duration is not a primary benchmark sample. The new
