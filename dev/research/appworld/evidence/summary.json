@@ -1,0 +1,4223 @@
+{
+  "configs": {
+    "capability-pilot": {
+      "model": "qwen3.6:27b",
+      "tasks": ["82e2fac_1"],
+      "conditions": ["raw"],
+      "seeds": [11],
+      "run": "capability-pilot",
+      "steps": 12,
+      "context": 24576,
+      "output_chars": 14000,
+      "generated_budget": 14000,
+      "runner_sha256": "14774d5818da18b8246a2828bea14a8eb4e5faf098ecef6e4cc9ee8c0346f7fd",
+      "ollama": {
+        "version": "0.34.2"
+      }
+    },
+    "adapter-pilot": {
+      "model": "qwen3.6:27b",
+      "tasks": ["82e2fac_1"],
+      "conditions": ["compact"],
+      "seeds": [11],
+      "run": "adapter-pilot",
+      "steps": 16,
+      "context": 24576,
+      "output_chars": 14000,
+      "generated_budget": 14000,
+      "runner_sha256": "86b9179fefb90e4e00769266767ed8aa2a0e67855422632c92d3af7621b72921",
+      "ollama": {
+        "version": "0.34.2"
+      }
+    },
+    "small-model-pilot": {
+      "model": "qwen3:8b",
+      "tasks": ["82e2fac_2"],
+      "conditions": ["raw", "compact"],
+      "seeds": [11],
+      "run": "small-model-pilot",
+      "steps": 16,
+      "context": 24576,
+      "output_chars": 14000,
+      "generated_budget": 14000,
+      "source_sha256": {
+        "runner.py": "be2f8ae995e420f2ddc0be92d26e2e5c235858dfff8764a132589b23ea9e11d3",
+        "graph.mjs": "219e677897542a7f7aea88ab40953c57efcb3eef928ac59ba6c27c90f6ae0a58"
+      },
+      "ollama": {
+        "version": "0.34.2"
+      }
+    },
+    "gemma-pilot": {
+      "model": "gemma4:latest",
+      "think": "false",
+      "tasks": ["82e2fac_1"],
+      "conditions": ["raw", "compact"],
+      "seeds": [11],
+      "run": "gemma-pilot",
+      "steps": 16,
+      "context": 24576,
+      "output_chars": 14000,
+      "generated_budget": 14000,
+      "source_sha256": {
+        "runner.py": "fe696ffa2e2db2f4321c4dc9f713a468153d6c5611672d77dba544d14e508b19",
+        "graph.mjs": "456df9672e8b951cca8a63fe2b247f9caaf52753e188e7f749f27f06e5004454",
+        "acquire.py": "2d678418c10e52fd42dff51a29c6de53a69b3e203dad927f281a8ee07edfc099"
+      },
+      "ollama": {
+        "version": "0.34.2"
+      }
+    },
+    "controlled-v1": {
+      "model": "qwen3.6:27b",
+      "think": "false",
+      "tasks": ["82e2fac_3", "d0b1f43_1"],
+      "conditions": ["raw", "static", "flat", "full", "compact"],
+      "seeds": [11],
+      "run": "controlled-v1",
+      "steps": 18,
+      "context": 16384,
+      "output_chars": 14000,
+      "generated_budget": 14000,
+      "source_sha256": {
+        "runner.py": "69438970e233a296bba2732bdd4e2f4ea056df8d09bd97e1cf28cc0a45b3bd99",
+        "graph.mjs": "bde81687ffae9b702d849c501662954139997c5045145465d7b309d03dfa4c6b",
+        "acquire.py": "2d678418c10e52fd42dff51a29c6de53a69b3e203dad927f281a8ee07edfc099"
+      },
+      "ollama": {
+        "version": "0.40.1"
+      }
+    },
+    "authenticated-v1": {
+      "model": "qwen3.6:27b",
+      "bootstrap": true,
+      "think": "false",
+      "tasks": ["82e2fac_3", "d0b1f43_1"],
+      "conditions": ["raw", "static", "flat", "full", "compact"],
+      "seeds": [11, 29],
+      "run": "authenticated-v1",
+      "steps": 14,
+      "context": 16384,
+      "output_chars": 14000,
+      "generated_budget": 14000,
+      "source_sha256": {
+        "runner.py": "55eddd14b37b380cf6d1a6e04e765e194e87e9094ce5ff310841da1be9d1e9c3",
+        "graph.mjs": "bde81687ffae9b702d849c501662954139997c5045145465d7b309d03dfa4c6b",
+        "acquire.py": "2d678418c10e52fd42dff51a29c6de53a69b3e203dad927f281a8ee07edfc099"
+      },
+      "ollama": {
+        "version": "0.40.1"
+      }
+    },
+    "covered-v1": {
+      "model": "qwen3.6:27b",
+      "bootstrap": true,
+      "think": "false",
+      "tasks": ["e7a10f8_1", "d0b1f43_1"],
+      "conditions": ["raw", "static", "flat", "full", "compact"],
+      "seeds": [11],
+      "run": "covered-v1",
+      "steps": 14,
+      "context": 16384,
+      "output_chars": 14000,
+      "generated_budget": 14000,
+      "source_sha256": {
+        "runner.py": "55eddd14b37b380cf6d1a6e04e765e194e87e9094ce5ff310841da1be9d1e9c3",
+        "graph.mjs": "bde81687ffae9b702d849c501662954139997c5045145465d7b309d03dfa4c6b",
+        "acquire.py": "2d678418c10e52fd42dff51a29c6de53a69b3e203dad927f281a8ee07edfc099"
+      },
+      "ollama": {
+        "version": "0.40.1"
+      }
+    },
+    "interface-docs-v2": {
+      "model": "qwen3.6:27b",
+      "clarify_interface": true,
+      "bootstrap": true,
+      "think": "false",
+      "tasks": ["d0b1f43_1"],
+      "conditions": ["flat", "compact"],
+      "seeds": [11],
+      "run": "interface-docs-v2",
+      "steps": 14,
+      "context": 16384,
+      "output_chars": 14000,
+      "generated_budget": 14000,
+      "source_sha256": {
+        "runner.py": "c30216c0561e8d08bce18b3c855b656e84e77f5d9b6848f97a597e5cd43c13cb",
+        "graph.mjs": "f4524631c160e983a804063dd99417fc1c18625a1569c3c7dee9bf615cb676fb",
+        "acquire.py": "52bd5c797681169a93e9475bb92cf0bd82bba9e295d0c6cf0dde6b536517191c"
+      },
+      "ollama": {
+        "version": "0.40.1"
+      }
+    }
+  },
+  "coverage": {
+    "capability-pilot": {
+      "expected": 1,
+      "finished": 1,
+      "complete": true,
+      "missing": []
+    },
+    "adapter-pilot": {
+      "expected": 1,
+      "finished": 1,
+      "complete": true,
+      "missing": []
+    },
+    "small-model-pilot": {
+      "expected": 2,
+      "finished": 2,
+      "complete": true,
+      "missing": []
+    },
+    "gemma-pilot": {
+      "expected": 2,
+      "finished": 2,
+      "complete": true,
+      "missing": []
+    },
+    "controlled-v1": {
+      "expected": 10,
+      "finished": 1,
+      "complete": false,
+      "missing": [
+        ["82e2fac_3", "compact", 11],
+        ["82e2fac_3", "flat", 11],
+        ["82e2fac_3", "full", 11],
+        ["82e2fac_3", "static", 11],
+        ["d0b1f43_1", "compact", 11],
+        ["d0b1f43_1", "flat", 11],
+        ["d0b1f43_1", "full", 11],
+        ["d0b1f43_1", "raw", 11],
+        ["d0b1f43_1", "static", 11]
+      ]
+    },
+    "authenticated-v1": {
+      "expected": 20,
+      "finished": 3,
+      "complete": false,
+      "missing": [
+        ["82e2fac_3", "compact", 11],
+        ["82e2fac_3", "compact", 29],
+        ["82e2fac_3", "flat", 29],
+        ["82e2fac_3", "full", 11],
+        ["82e2fac_3", "full", 29],
+        ["82e2fac_3", "raw", 29],
+        ["82e2fac_3", "static", 29],
+        ["d0b1f43_1", "compact", 11],
+        ["d0b1f43_1", "compact", 29],
+        ["d0b1f43_1", "flat", 11],
+        ["d0b1f43_1", "flat", 29],
+        ["d0b1f43_1", "full", 11],
+        ["d0b1f43_1", "full", 29],
+        ["d0b1f43_1", "raw", 11],
+        ["d0b1f43_1", "raw", 29],
+        ["d0b1f43_1", "static", 11],
+        ["d0b1f43_1", "static", 29]
+      ]
+    },
+    "covered-v1": {
+      "expected": 10,
+      "finished": 10,
+      "complete": true,
+      "missing": []
+    },
+    "interface-docs-v2": {
+      "expected": 2,
+      "finished": 2,
+      "complete": true,
+      "missing": []
+    }
+  },
+  "episodes": [
+    {
+      "task_id": "82e2fac_1",
+      "condition": "raw",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "completed": true,
+      "steps": 12,
+      "prompt_tokens": 53398,
+      "generated_tokens": 939,
+      "source_calls": 68,
+      "output_chars": 18897,
+      "research_calls": [],
+      "seconds": 252.11783849983476,
+      "error": null,
+      "run": "capability-pilot",
+      "execution_errors": 1,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 249.561241957,
+      "prompt_cached_tokens": 45345,
+      "trace_sha256": "5cc0ac50923ce2ae13654c2222e3f1e687982f512c636dd549659594d4d47c19"
+    },
+    {
+      "task_id": "82e2fac_1",
+      "condition": "compact",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "completed": true,
+      "steps": 9,
+      "prompt_tokens": 36789,
+      "generated_tokens": 491,
+      "source_calls": 65,
+      "output_chars": 28473,
+      "research_calls": [
+        {
+          "op": "load",
+          "source_calls": 59,
+          "seconds": 0.7519543748348951
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.00594145804643631
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.006863082991912961
+        }
+      ],
+      "seconds": 254.88292170781642,
+      "error": null,
+      "run": "adapter-pilot",
+      "execution_errors": 1,
+      "truncated_outputs": 1,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 3,
+      "inference_seconds": 252.18966445700002,
+      "prompt_cached_tokens": 27485,
+      "trace_sha256": "21340d64e16fcbbef07f2494ff98a55340fe77140d7a96a5e4694025d5a9157e"
+    },
+    {
+      "task_id": "82e2fac_2",
+      "condition": "compact",
+      "seed": 11,
+      "model": "qwen3:8b",
+      "success": false,
+      "completed": false,
+      "steps": 16,
+      "prompt_tokens": 36213,
+      "generated_tokens": 2022,
+      "source_calls": 14,
+      "host_poll_calls": 0,
+      "output_chars": 5676,
+      "research_calls": [
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.11015429091639817,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.001445916946977377,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.001324209151789546,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.0013564580585807562,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.001807832857593894,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.0017212079837918282,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.0018997921142727137,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.0010342919267714024,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.0011514159850776196,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.0011624591425061226,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.000967083964496851,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.0010759581346064806,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.0020556251984089613,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "load",
+          "source_calls": 1,
+          "seconds": 0.0023787079844623804,
+          "response_bytes": null,
+          "kind": null,
+          "select": null
+        }
+      ],
+      "seconds": 97.06941387499683,
+      "error": null,
+      "run": "small-model-pilot",
+      "execution_errors": 16,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 14,
+      "inference_seconds": 96.47959787500001,
+      "prompt_cached_tokens": 32255,
+      "trace_sha256": "044eca71b8f9d8b4b2a57401dc699e8f587d54aa2965a5f1b0ca3b1bf70ce369"
+    },
+    {
+      "task_id": "82e2fac_2",
+      "condition": "raw",
+      "seed": 11,
+      "model": "qwen3:8b",
+      "success": false,
+      "completed": false,
+      "steps": 16,
+      "prompt_tokens": 20052,
+      "generated_tokens": 1053,
+      "source_calls": 0,
+      "host_poll_calls": 0,
+      "output_chars": 258,
+      "research_calls": [],
+      "seconds": 61.60418487503193,
+      "error": null,
+      "run": "small-model-pilot",
+      "execution_errors": 2,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 59.832193459,
+      "prompt_cached_tokens": 18327,
+      "trace_sha256": "a274cb5aa6ade094f8d6b42324eabf04e6f9e4a45c3fba5e535593b1eaa45fca"
+    },
+    {
+      "task_id": "82e2fac_1",
+      "condition": "compact",
+      "seed": 11,
+      "model": "gemma4:latest",
+      "success": null,
+      "completed": false,
+      "steps": 0,
+      "prompt_tokens": 0,
+      "generated_tokens": 0,
+      "source_calls": 0,
+      "host_poll_calls": 0,
+      "output_chars": 0,
+      "research_calls": [],
+      "seconds": 0.2664912499021739,
+      "error": "ConnectionError: HTTPConnectionPool(host='localhost', port=11434): Max retries exceeded with url: /api/chat (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=11434): Failed to establish a new connection: [Errno 61] Connection refused\"))",
+      "run": "gemma-pilot",
+      "execution_errors": 0,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 0,
+      "prompt_cached_tokens": 0,
+      "trace_sha256": null
+    },
+    {
+      "task_id": "82e2fac_1",
+      "condition": "raw",
+      "seed": 11,
+      "model": "gemma4:latest",
+      "success": null,
+      "completed": false,
+      "steps": 0,
+      "prompt_tokens": 0,
+      "generated_tokens": 0,
+      "source_calls": 0,
+      "host_poll_calls": 0,
+      "output_chars": 0,
+      "research_calls": [],
+      "seconds": 20.929995000129566,
+      "error": "ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+      "run": "gemma-pilot",
+      "execution_errors": 0,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 0,
+      "prompt_cached_tokens": 0,
+      "trace_sha256": null
+    },
+    {
+      "task_id": "82e2fac_3",
+      "condition": "raw",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 13,
+      "prompt_tokens": 41727,
+      "generated_tokens": 1229,
+      "source_calls": 28,
+      "host_poll_calls": 0,
+      "output_chars": 14004,
+      "research_calls": [],
+      "seconds": 317.21999195800163,
+      "error": null,
+      "run": "controlled-v1",
+      "agent_api_categories": {
+        "supervisor": 3,
+        "documentation": 5,
+        "application": 20
+      },
+      "execution_errors": 2,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 314.64511008299996,
+      "prompt_cached_tokens": 35704,
+      "trace_sha256": "c61ddcdf3667595fff69de49d5dbe1d7b049528f7b916e565b315b6937ee16de"
+    },
+    {
+      "task_id": "82e2fac_3",
+      "condition": "flat",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 7,
+      "prompt_tokens": 31782,
+      "generated_tokens": 633,
+      "source_calls": 42,
+      "setup_calls": 4,
+      "agent_source_calls": 38,
+      "host_poll_calls": 0,
+      "output_chars": 14215,
+      "research_calls": [],
+      "seconds": 168.84154049982317,
+      "error": null,
+      "run": "authenticated-v1",
+      "agent_api_categories": {
+        "documentation": 2,
+        "application": 35,
+        "supervisor": 1
+      },
+      "execution_errors": 1,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 168.22019391499998,
+      "prompt_cached_tokens": 25357,
+      "trace_sha256": "a8e1e1eaf19c7743594b748ba245b269972e1eaf846335a44374dc796a18d4e9"
+    },
+    {
+      "task_id": "82e2fac_3",
+      "condition": "raw",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 5,
+      "prompt_tokens": 21462,
+      "generated_tokens": 354,
+      "source_calls": 23,
+      "setup_calls": 4,
+      "agent_source_calls": 19,
+      "host_poll_calls": 0,
+      "output_chars": 17473,
+      "research_calls": [],
+      "seconds": 148.50094162509777,
+      "error": null,
+      "run": "authenticated-v1",
+      "agent_api_categories": {
+        "documentation": 1,
+        "application": 17,
+        "supervisor": 1
+      },
+      "execution_errors": 0,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 146.54359062400002,
+      "prompt_cached_tokens": 14342,
+      "trace_sha256": "f3153675a66eed6159e22fd6cf870e046b6a951892fa8b23458ce5700f5ed018"
+    },
+    {
+      "task_id": "82e2fac_3",
+      "condition": "static",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 6,
+      "prompt_tokens": 22024,
+      "generated_tokens": 701,
+      "source_calls": 25,
+      "setup_calls": 4,
+      "agent_source_calls": 21,
+      "host_poll_calls": 0,
+      "output_chars": 12265,
+      "research_calls": [],
+      "seconds": 183.44552933401428,
+      "error": null,
+      "run": "authenticated-v1",
+      "agent_api_categories": {
+        "documentation": 1,
+        "application": 19,
+        "supervisor": 1
+      },
+      "execution_errors": 0,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 183.02722595800003,
+      "prompt_cached_tokens": 16721,
+      "trace_sha256": "8b20ab8fa4f8837c481a639fd0d3665db2bf965905afbe259ca19ad68dd66bae"
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "compact",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 5,
+      "prompt_tokens": 31483,
+      "generated_tokens": 724,
+      "source_calls": 18,
+      "setup_calls": 4,
+      "agent_source_calls": 14,
+      "host_poll_calls": 0,
+      "output_chars": 43840,
+      "research_calls": [
+        {
+          "op": "load",
+          "source_calls": 13,
+          "seconds": 0.23990770801901817,
+          "response_bytes": 172,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.010857250075787306,
+          "response_bytes": 5289,
+          "kind": "Person",
+          "select": ["sourceId", "name", "relationshipsJson"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.042232375126332045,
+          "response_bytes": 23778,
+          "kind": "Person",
+          "select": ["sourceId", "sender", "receiver", "amount", "createdAt"]
+        }
+      ],
+      "seconds": 248.64990812493488,
+      "error": null,
+      "run": "covered-v1",
+      "agent_api_categories": {
+        "application": 13,
+        "supervisor": 1
+      },
+      "execution_errors": 0,
+      "truncated_outputs": 1,
+      "projected_research_calls": 2,
+      "attempted_traversal": true,
+      "used_traversal": true,
+      "failed_research_calls": 0,
+      "inference_seconds": 247.99571066700003,
+      "prompt_cached_tokens": 18940,
+      "trace_sha256": "3476a878a7dd5f18344d57023b8c8dfc78700e03a8e0a1bd966697c246393691"
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "flat",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 7,
+      "prompt_tokens": 21203,
+      "generated_tokens": 2141,
+      "source_calls": 31,
+      "setup_calls": 4,
+      "agent_source_calls": 27,
+      "host_poll_calls": 0,
+      "output_chars": 6052,
+      "research_calls": [
+        {
+          "op": "load",
+          "source_calls": 13,
+          "seconds": 0.2318435839843005,
+          "response_bytes": 172,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0005453750491142273,
+          "response_bytes": 4041,
+          "kind": "Person",
+          "select": ["sourceId", "name", "relationshipsJson"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0009614590089768171,
+          "response_bytes": 41223,
+          "kind": "Transaction",
+          "select": ["sourceId", "sender", "receiver", "amount", "createdAt"]
+        },
+        {
+          "op": "load",
+          "source_calls": 13,
+          "seconds": 0.234258082928136,
+          "response_bytes": 172,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0009638748597353697,
+          "response_bytes": 4041,
+          "kind": "Person",
+          "select": ["sourceId", "name", "relationshipsJson"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0006959578022360802,
+          "response_bytes": 4041,
+          "kind": "Person",
+          "select": ["sourceId", "name", "relationshipsJson"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0008756672032177448,
+          "response_bytes": 41223,
+          "kind": "Transaction",
+          "select": ["sourceId", "sender", "receiver", "amount", "createdAt"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0015243750531226397,
+          "response_bytes": 41223,
+          "kind": "Transaction",
+          "select": ["sourceId", "sender", "receiver", "amount", "createdAt"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0004267080221325159,
+          "response_bytes": 4041,
+          "kind": "Person",
+          "select": ["sourceId", "name", "relationshipsJson"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0006363329011946917,
+          "response_bytes": 41223,
+          "kind": "Transaction",
+          "select": ["sourceId", "sender", "receiver", "amount", "createdAt"]
+        }
+      ],
+      "seconds": 391.91637291712686,
+      "error": null,
+      "run": "covered-v1",
+      "agent_api_categories": {
+        "application": 26,
+        "supervisor": 1
+      },
+      "execution_errors": 0,
+      "truncated_outputs": 0,
+      "projected_research_calls": 8,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 391.001789083,
+      "prompt_cached_tokens": 15026,
+      "trace_sha256": "2e886b14d1fc20bf67cc84d02a9115d19b267480691f62f55529f1b6db7407ba"
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "full",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 7,
+      "prompt_tokens": 38104,
+      "generated_tokens": 1364,
+      "source_calls": 18,
+      "setup_calls": 4,
+      "agent_source_calls": 14,
+      "host_poll_calls": 0,
+      "output_chars": 47960,
+      "research_calls": [
+        {
+          "op": "load",
+          "source_calls": 13,
+          "seconds": 0.3504175408743322,
+          "response_bytes": 172,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.005011457949876785,
+          "response_bytes": 28737,
+          "kind": "Person",
+          "select": ["sourceId", "name", "relationshipsJson"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.004469957901164889,
+          "response_bytes": 28666,
+          "kind": "Person",
+          "select": ["sourceId", "name", "relationshipsJson"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0010537500493228436,
+          "response_bytes": 13512,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.028979709139093757,
+          "response_bytes": 160794,
+          "kind": "Person",
+          "select": ["sourceId", "sender", "receiver", "amount", "createdAt"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.026248499983921647,
+          "response_bytes": 161232,
+          "kind": "Person",
+          "select": ["sourceId", "sender", "receiver", "amount", "createdAt"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.027971291914582253,
+          "response_bytes": 161232,
+          "kind": "Person",
+          "select": ["sourceId", "sender", "receiver", "amount", "createdAt"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.003385082818567753,
+          "response_bytes": 28666,
+          "kind": "Person",
+          "select": ["sourceId", "name", "relationshipsJson"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.02779766684398055,
+          "response_bytes": 160794,
+          "kind": "Person",
+          "select": ["sourceId", "sender", "receiver", "amount", "createdAt"]
+        }
+      ],
+      "seconds": 326.33006812492386,
+      "error": null,
+      "run": "covered-v1",
+      "agent_api_categories": {
+        "application": 13,
+        "supervisor": 1
+      },
+      "execution_errors": 0,
+      "truncated_outputs": 1,
+      "projected_research_calls": 8,
+      "attempted_traversal": true,
+      "used_traversal": true,
+      "failed_research_calls": 0,
+      "inference_seconds": 325.355121041,
+      "prompt_cached_tokens": 28306,
+      "trace_sha256": "435dc0edcf9d3c5478a831022f3d20e785e008c457cae0b1592b9ea7854211a8"
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "raw",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": false,
+      "termination": "completed",
+      "completed": true,
+      "steps": 14,
+      "prompt_tokens": 72193,
+      "generated_tokens": 1909,
+      "source_calls": 28,
+      "setup_calls": 4,
+      "agent_source_calls": 24,
+      "host_poll_calls": 0,
+      "output_chars": 21958,
+      "research_calls": [],
+      "seconds": 372.66255879192613,
+      "error": null,
+      "run": "covered-v1",
+      "agent_api_categories": {
+        "documentation": 4,
+        "application": 19,
+        "supervisor": 1
+      },
+      "execution_errors": 1,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 372.058000832,
+      "prompt_cached_tokens": 62053,
+      "trace_sha256": "011a9a961374a3bfdf9cb583ae76bcacc86b69d935e11b123411816f3ef57736"
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "static",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 11,
+      "prompt_tokens": 48397,
+      "generated_tokens": 1203,
+      "source_calls": 19,
+      "setup_calls": 4,
+      "agent_source_calls": 15,
+      "host_poll_calls": 0,
+      "output_chars": 18246,
+      "research_calls": [],
+      "seconds": 270.71990275010467,
+      "error": null,
+      "run": "covered-v1",
+      "agent_api_categories": {
+        "documentation": 5,
+        "application": 9,
+        "supervisor": 1
+      },
+      "execution_errors": 1,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 269.984139251,
+      "prompt_cached_tokens": 40949,
+      "trace_sha256": "36db8ae1f59265ad663e6338d6d466c3f18e3181c59cc8014ec6b84696597b67"
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "compact",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 4,
+      "prompt_tokens": 5794,
+      "generated_tokens": 726,
+      "source_calls": 34,
+      "setup_calls": 4,
+      "agent_source_calls": 30,
+      "host_poll_calls": 0,
+      "output_chars": 1530,
+      "research_calls": [
+        {
+          "op": "load",
+          "source_calls": 29,
+          "seconds": 0.05765754193998873,
+          "response_bytes": 128,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0038325421046465635,
+          "response_bytes": 823,
+          "kind": "Playlist",
+          "select": ["sourceId", "title"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.001180875115096569,
+          "response_bytes": 823,
+          "kind": "Playlist",
+          "select": ["sourceId", "title"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.006530917016789317,
+          "response_bytes": 1021,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.0003279580269008875,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00019512511789798737,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00016391696408391,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00013366690836846828,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00010324991308152676,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00010170787572860718,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.002573541831225157,
+          "response_bytes": 1479,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00012374995276331902,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00012454180978238583,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00015137484297156334,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 9.312503971159458e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00010487507097423077,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.020782843232155e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.88751819729805e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.745902985334396e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.079200051724911e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.002521541900932789,
+          "response_bytes": 1479,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.195910438895226e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.999998681247234e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.283384911715984e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.404200732707977e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.891600787639618e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.954185664653778e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.595789454877377e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.520794704556465e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.266706623136997e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0020713750272989273,
+          "response_bytes": 1173,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.845794945955276e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 9.583402425050735e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00010520778596401215,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.995800115168095e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00010175001807510853,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.766601629555225e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.224990986287594e-5,
+          "response_bytes": 201,
+          "kind": "Song",
+          "select": ["duration"]
+        }
+      ],
+      "seconds": 129.09154104208574,
+      "error": null,
+      "run": "covered-v1",
+      "agent_api_categories": {
+        "application": 29,
+        "supervisor": 1
+      },
+      "execution_errors": 0,
+      "truncated_outputs": 0,
+      "projected_research_calls": 37,
+      "attempted_traversal": true,
+      "used_traversal": true,
+      "failed_research_calls": 0,
+      "inference_seconds": 128.7022425,
+      "prompt_cached_tokens": 4530,
+      "trace_sha256": "c4ba02cee0416f30b51ac4ba35308cdc713dda9e2e1b927647f20bf5c0cc9a80"
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "flat",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 7,
+      "prompt_tokens": 28722,
+      "generated_tokens": 638,
+      "source_calls": 34,
+      "setup_calls": 4,
+      "agent_source_calls": 30,
+      "host_poll_calls": 0,
+      "output_chars": 14349,
+      "research_calls": [
+        {
+          "op": "load",
+          "source_calls": 29,
+          "seconds": 0.08009033394046128,
+          "response_bytes": 128,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0010003750212490559,
+          "response_bytes": 615,
+          "kind": "Playlist",
+          "select": ["sourceId", "title"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00032462505623698235,
+          "response_bytes": null,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0004140420351177454,
+          "response_bytes": 5217,
+          "kind": "Membership",
+          "select": ["playlist", "song"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.00048287492245435715,
+          "response_bytes": 2819,
+          "kind": "Song",
+          "select": ["sourceId", "duration"]
+        }
+      ],
+      "seconds": 264.31497250008397,
+      "error": null,
+      "run": "covered-v1",
+      "agent_api_categories": {
+        "application": 29,
+        "supervisor": 1
+      },
+      "execution_errors": 1,
+      "truncated_outputs": 0,
+      "projected_research_calls": 4,
+      "attempted_traversal": true,
+      "used_traversal": false,
+      "failed_research_calls": 1,
+      "inference_seconds": 263.890817,
+      "prompt_cached_tokens": 19759,
+      "trace_sha256": "515e928c2906b39a63dc2cb915adad98946b100aa890e3319f2da613f60659e5"
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "full",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 7,
+      "prompt_tokens": 15563,
+      "generated_tokens": 1598,
+      "source_calls": 34,
+      "setup_calls": 4,
+      "agent_source_calls": 30,
+      "host_poll_calls": 0,
+      "output_chars": 3534,
+      "research_calls": [
+        {
+          "op": "load",
+          "source_calls": 29,
+          "seconds": 0.0697311251424253,
+          "response_bytes": 128,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.002788583980873227,
+          "response_bytes": 3579,
+          "kind": "Playlist",
+          "select": ["sourceId", "title"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0007842499762773514,
+          "response_bytes": 3571,
+          "kind": "Playlist",
+          "select": ["sourceId", "title"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0062785830814391375,
+          "response_bytes": 3439,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0002162919845432043,
+          "response_bytes": null,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0011197079438716173,
+          "response_bytes": 3579,
+          "kind": "Playlist",
+          "select": ["sourceId", "title"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.003029374871402979,
+          "response_bytes": 3444,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0011365830432623625,
+          "response_bytes": 3571,
+          "kind": "Playlist",
+          "select": ["sourceId", "title"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.006721416022628546,
+          "response_bytes": 3439,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0009318329393863678,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0016850000247359276,
+          "response_bytes": 3571,
+          "kind": "Playlist",
+          "select": ["sourceId", "title"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.006664915941655636,
+          "response_bytes": 3439,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0002571670338511467,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00022570788860321045,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00020616687834262848,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0003825831227004528,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00027891690842807293,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0002852499019354582,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0026771249249577522,
+          "response_bytes": 5115,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00029458291828632355,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00034791696816682816,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0002672090195119381,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0003224578686058521,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0002232920378446579,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00022716703824698925,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00021670782007277012,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00020291609689593315,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00020100013352930546,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0018762920517474413,
+          "response_bytes": 5115,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00026129186153411865,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0002857500221580267,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00023287511430680752,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00024737510830163956,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00022037513554096222,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0002704588696360588,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00026762508787214756,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00026558293029665947,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.000253874808549881,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0016734590753912926,
+          "response_bytes": 4001,
+          "kind": "Playlist",
+          "select": ["song"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00022279098629951477,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00021779187954962254,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00021299999207258224,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.0002126661129295826,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00020262505859136581,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00019729207269847393,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.00021399999968707561,
+          "response_bytes": 603,
+          "kind": "Membership",
+          "select": ["duration"]
+        }
+      ],
+      "seconds": 355.8407410827931,
+      "error": null,
+      "run": "covered-v1",
+      "agent_api_categories": {
+        "application": 29,
+        "supervisor": 1
+      },
+      "execution_errors": 1,
+      "truncated_outputs": 0,
+      "projected_research_calls": 45,
+      "attempted_traversal": true,
+      "used_traversal": true,
+      "failed_research_calls": 1,
+      "inference_seconds": 355.31783741600003,
+      "prompt_cached_tokens": 11597,
+      "trace_sha256": "be2ba0b88ca34eab26c9b046b9bace6f9c63177255d537f05b7cae4fa2304919"
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "raw",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 9,
+      "prompt_tokens": 37880,
+      "generated_tokens": 1021,
+      "source_calls": 40,
+      "setup_calls": 4,
+      "agent_source_calls": 36,
+      "host_poll_calls": 0,
+      "output_chars": 15196,
+      "research_calls": [],
+      "seconds": 286.9299225420691,
+      "error": null,
+      "run": "covered-v1",
+      "agent_api_categories": {
+        "documentation": 4,
+        "application": 31,
+        "supervisor": 1
+      },
+      "execution_errors": 0,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 284.866950667,
+      "prompt_cached_tokens": 31302,
+      "trace_sha256": "5c50d7d78874cf994c07e1fca7590b51a490691c01f04148891567fafa2d289f"
+    },
+    {
+      "task_id": "e7a10f8_1",
+      "condition": "static",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 9,
+      "prompt_tokens": 38909,
+      "generated_tokens": 1263,
+      "source_calls": 40,
+      "setup_calls": 4,
+      "agent_source_calls": 36,
+      "host_poll_calls": 0,
+      "output_chars": 14512,
+      "research_calls": [],
+      "seconds": 283.72957091615535,
+      "error": null,
+      "run": "covered-v1",
+      "agent_api_categories": {
+        "documentation": 4,
+        "application": 31,
+        "supervisor": 1
+      },
+      "execution_errors": 0,
+      "truncated_outputs": 0,
+      "projected_research_calls": 0,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 283.185795585,
+      "prompt_cached_tokens": 32311,
+      "trace_sha256": "04ccc9d6994ba46ef0346c58b03c262f961bd29470112347025859772f0edd8c"
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "compact",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 4,
+      "prompt_tokens": 7480,
+      "generated_tokens": 787,
+      "source_calls": 18,
+      "setup_calls": 4,
+      "agent_source_calls": 14,
+      "host_poll_calls": 0,
+      "output_chars": 1940,
+      "research_calls": [
+        {
+          "op": "load",
+          "source_calls": 13,
+          "seconds": 0.23372150002978742,
+          "response_bytes": 172,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.004447874845936894,
+          "response_bytes": 4729,
+          "kind": "Person",
+          "select": ["sourceId", "relationshipsJson"]
+        },
+        {
+          "op": "traverse",
+          "source_calls": 0,
+          "seconds": 0.028377499897032976,
+          "response_bytes": 19554,
+          "kind": "Person",
+          "select": ["sourceId", "receiver", "amount", "createdAt"]
+        }
+      ],
+      "seconds": 142.7406372500118,
+      "error": null,
+      "run": "interface-docs-v2",
+      "agent_api_categories": {
+        "application": 13,
+        "supervisor": 1
+      },
+      "execution_errors": 0,
+      "truncated_outputs": 0,
+      "projected_research_calls": 2,
+      "attempted_traversal": true,
+      "used_traversal": true,
+      "failed_research_calls": 0,
+      "inference_seconds": 142.192558875,
+      "prompt_cached_tokens": 4519,
+      "trace_sha256": "2be168ff500bc16f0c64de9f835cc2fff779853f784baaed740aa88596c2e6b8"
+    },
+    {
+      "task_id": "d0b1f43_1",
+      "condition": "flat",
+      "seed": 11,
+      "model": "qwen3.6:27b",
+      "success": true,
+      "termination": "completed",
+      "completed": true,
+      "steps": 8,
+      "prompt_tokens": 28164,
+      "generated_tokens": 1426,
+      "source_calls": 18,
+      "setup_calls": 4,
+      "agent_source_calls": 14,
+      "host_poll_calls": 0,
+      "output_chars": 7387,
+      "research_calls": [
+        {
+          "op": "load",
+          "source_calls": 13,
+          "seconds": 0.2501402909401804,
+          "response_bytes": 172,
+          "kind": null,
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.00105479103513062,
+          "response_bytes": 2568,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.00037058303132653236,
+          "response_bytes": 2568,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00020337477326393127,
+          "response_bytes": 167,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.324999362230301e-5,
+          "response_bytes": 170,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 9.958283044397831e-5,
+          "response_bytes": 165,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 9.00421291589737e-5,
+          "response_bytes": 166,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.837498560547829e-5,
+          "response_bytes": 166,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.316702976822853e-5,
+          "response_bytes": 166,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.712484173476696e-5,
+          "response_bytes": 167,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.133403465151787e-5,
+          "response_bytes": 168,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.716706462204456e-5,
+          "response_bytes": 172,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.812485374510288e-5,
+          "response_bytes": 167,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.6042026951909065e-5,
+          "response_bytes": 169,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 9.295903146266937e-5,
+          "response_bytes": 166,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.850002005696297e-5,
+          "response_bytes": 169,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.316687747836113e-5,
+          "response_bytes": 174,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.9082951843738556e-5,
+          "response_bytes": 172,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.0584011003375053e-5,
+          "response_bytes": 168,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.554183058440685e-5,
+          "response_bytes": 170,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.654207102954388e-5,
+          "response_bytes": 168,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.441609442234039e-5,
+          "response_bytes": 164,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.52498609572649e-5,
+          "response_bytes": 171,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.391597419977188e-5,
+          "response_bytes": 165,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.537489101290703e-5,
+          "response_bytes": 164,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.4499913454055786e-5,
+          "response_bytes": 166,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.416603431105614e-5,
+          "response_bytes": 166,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00021654204465448856,
+          "response_bytes": 167,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 9.29578673094511e-5,
+          "response_bytes": 170,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.562509901821613e-5,
+          "response_bytes": 165,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.8833975344896317e-5,
+          "response_bytes": 166,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.470790296792984e-5,
+          "response_bytes": 166,
+          "kind": "Person",
+          "select": ["sourceId"]
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00022849999368190765,
+          "response_bytes": 258,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.691707625985146e-5,
+          "response_bytes": 271,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.183283403515816e-5,
+          "response_bytes": 268,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.24579081684351e-5,
+          "response_bytes": 272,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.508392885327339e-5,
+          "response_bytes": 273,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.0006153748836368322,
+          "response_bytes": 5097,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00011116615496575832,
+          "response_bytes": 258,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.000134957954287529,
+          "response_bytes": 271,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.766601629555225e-5,
+          "response_bytes": 268,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.783296026289463e-5,
+          "response_bytes": 272,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.7500164732337e-5,
+          "response_bytes": 273,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.4541975259780884e-5,
+          "response_bytes": 268,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.9125094190239906e-5,
+          "response_bytes": 269,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.8999983593821526e-5,
+          "response_bytes": 269,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.1665975004434586e-5,
+          "response_bytes": 276,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.741588443517685e-5,
+          "response_bytes": 271,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.537489101290703e-5,
+          "response_bytes": 270,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.824988380074501e-5,
+          "response_bytes": 283,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.604101948440075e-5,
+          "response_bytes": 270,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.2208004742860794e-5,
+          "response_bytes": 280,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.354212433099747e-5,
+          "response_bytes": 278,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.7208042815327644e-5,
+          "response_bytes": 271,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.8207974284887314e-5,
+          "response_bytes": 273,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.591598942875862e-5,
+          "response_bytes": 273,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.437503568828106e-5,
+          "response_bytes": 268,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.2082974687218666e-5,
+          "response_bytes": 287,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.6250101402401924e-5,
+          "response_bytes": 279,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.866679854691029e-5,
+          "response_bytes": 278,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.791592411696911e-5,
+          "response_bytes": 268,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00010737497359514236,
+          "response_bytes": 282,
+          "kind": "Person",
+          "select": null
+        },
+        {
+          "op": "list",
+          "source_calls": 0,
+          "seconds": 0.001764416927471757,
+          "response_bytes": 58104,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00016941595822572708,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00013062497600913048,
+          "response_bytes": 388,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00010283291339874268,
+          "response_bytes": 404,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.987518958747387e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.504209108650684e-5,
+          "response_bytes": 387,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.866586722433567e-5,
+          "response_bytes": 381,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.162499241530895e-5,
+          "response_bytes": 399,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.600011304020882e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.695797830820084e-5,
+          "response_bytes": 398,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.362500764429569e-5,
+          "response_bytes": 402,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.866594776511192e-5,
+          "response_bytes": 404,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.129204459488392e-5,
+          "response_bytes": 383,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.33338126540184e-5,
+          "response_bytes": 393,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.279217682778835e-5,
+          "response_bytes": 392,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.5250169932842255e-5,
+          "response_bytes": 407,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.954100146889687e-5,
+          "response_bytes": 410,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.054117016494274e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.883405588567257e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.970786929130554e-5,
+          "response_bytes": 395,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.7624966353178024e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.458294905722141e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.858399137854576e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.845896132290363e-5,
+          "response_bytes": 389,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.570791058242321e-5,
+          "response_bytes": 382,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.812508217990398e-5,
+          "response_bytes": 407,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.899997919797897e-5,
+          "response_bytes": 403,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.82497988641262e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 9.620795026421547e-5,
+          "response_bytes": 397,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.487515151500702e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.599988020956516e-5,
+          "response_bytes": 383,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.720889359712601e-5,
+          "response_bytes": 380,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.500002928078175e-5,
+          "response_bytes": 381,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.104182779788971e-5,
+          "response_bytes": 394,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.679197005927563e-5,
+          "response_bytes": 407,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.837506175041199e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.629184983670712e-5,
+          "response_bytes": 390,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.345791138708591e-5,
+          "response_bytes": 405,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00011845817789435387,
+          "response_bytes": 388,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.687501445412636e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.345783524215221e-5,
+          "response_bytes": 396,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.879113011062145e-5,
+          "response_bytes": 397,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00012800004333257675,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.687516674399376e-5,
+          "response_bytes": 387,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.154194802045822e-5,
+          "response_bytes": 388,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.645801477134228e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.591598503291607e-5,
+          "response_bytes": 391,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.262492388486862e-5,
+          "response_bytes": 415,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.175017915666103e-5,
+          "response_bytes": 396,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.295810453593731e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.179208867251873e-5,
+          "response_bytes": 392,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 9.479094296693802e-5,
+          "response_bytes": 396,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.387499161064625e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.1374856159091e-5,
+          "response_bytes": 382,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.208289414644241e-5,
+          "response_bytes": 408,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.5541982874274254e-5,
+          "response_bytes": 405,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.483308970928192e-5,
+          "response_bytes": 407,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.462501525878906e-5,
+          "response_bytes": 383,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00011229189112782478,
+          "response_bytes": 388,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.745809853076935e-5,
+          "response_bytes": 382,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.449990905821323e-5,
+          "response_bytes": 380,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.783287972211838e-5,
+          "response_bytes": 388,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.758305244147778e-5,
+          "response_bytes": 391,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.874999962747097e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00010120891965925694,
+          "response_bytes": 381,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 0.00014633405953645706,
+          "response_bytes": 394,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.804196164011955e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.699996396899223e-5,
+          "response_bytes": 395,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.116709068417549e-5,
+          "response_bytes": 412,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 9.608292020857334e-5,
+          "response_bytes": 396,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.708300836384296e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.075001925230026e-5,
+          "response_bytes": 408,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.070904105901718e-5,
+          "response_bytes": 381,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.650000482797623e-5,
+          "response_bytes": 407,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.054093733429909e-5,
+          "response_bytes": 389,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.429183900356293e-5,
+          "response_bytes": 390,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.833393566310406e-5,
+          "response_bytes": 383,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 9.891693480312824e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.883296348154545e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.258379340171814e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.2082974687218666e-5,
+          "response_bytes": 403,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.975001163780689e-5,
+          "response_bytes": 394,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.379187546670437e-5,
+          "response_bytes": 397,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.950002767145634e-5,
+          "response_bytes": 407,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.537504330277443e-5,
+          "response_bytes": 398,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.437519237399101e-5,
+          "response_bytes": 381,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.037500523030758e-5,
+          "response_bytes": 395,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.02920413762331e-5,
+          "response_bytes": 379,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.829202614724636e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.108389839529991e-5,
+          "response_bytes": 398,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.020892083644867e-5,
+          "response_bytes": 395,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.687501884996891e-5,
+          "response_bytes": 391,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.7042034566402435e-5,
+          "response_bytes": 408,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.350005812942982e-5,
+          "response_bytes": 387,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.154210910201073e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.3250154703855515e-5,
+          "response_bytes": 389,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.8833975344896317e-5,
+          "response_bytes": 403,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.1999854147434235e-5,
+          "response_bytes": 383,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.987504169344902e-5,
+          "response_bytes": 383,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.9499951526522636e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.783288411796093e-5,
+          "response_bytes": 389,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.8917176425457e-5,
+          "response_bytes": 382,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.0082959458231926e-5,
+          "response_bytes": 391,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.6125071346759796e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.7833116948604584e-5,
+          "response_bytes": 394,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.6291079595685005e-5,
+          "response_bytes": 388,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.0874816477298737e-5,
+          "response_bytes": 404,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.100007936358452e-5,
+          "response_bytes": 394,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.0375085771083832e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.600004129111767e-5,
+          "response_bytes": 380,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.1666051149368286e-5,
+          "response_bytes": 399,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.5250169932842255e-5,
+          "response_bytes": 401,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.041590727865696e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.954115815460682e-5,
+          "response_bytes": 390,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.054210148751736e-5,
+          "response_bytes": 389,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.724987618625164e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.13327943533659e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.254095256328583e-5,
+          "response_bytes": 401,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.254188388586044e-5,
+          "response_bytes": 389,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.375004209578037e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.583410918712616e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.8125086575746536e-5,
+          "response_bytes": 382,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.700004890561104e-5,
+          "response_bytes": 395,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.779097460210323e-5,
+          "response_bytes": 391,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.983406350016594e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.4250086173415184e-5,
+          "response_bytes": 387,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.16669063270092e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.541703335940838e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.595813177525997e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 4.1165854781866074e-5,
+          "response_bytes": 405,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.404099985957146e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.529099144041538e-5,
+          "response_bytes": 413,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.3999945521354675e-5,
+          "response_bytes": 389,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.358387716114521e-5,
+          "response_bytes": 388,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.9916870668530464e-5,
+          "response_bytes": 394,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.908403545618057e-5,
+          "response_bytes": 382,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.2084214985370636e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.370914004743099e-5,
+          "response_bytes": 391,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.295802839100361e-5,
+          "response_bytes": 388,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.24159986525774e-5,
+          "response_bytes": 380,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.9582991525530815e-5,
+          "response_bytes": 389,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.3791096433997154e-5,
+          "response_bytes": 381,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.4333824664354324e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.904103793203831e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.395795546472073e-5,
+          "response_bytes": 403,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.358402945101261e-5,
+          "response_bytes": 405,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.866695523262024e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 7.562502287328243e-5,
+          "response_bytes": 389,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.4584117606282234e-5,
+          "response_bytes": 382,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.425000563263893e-5,
+          "response_bytes": 391,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.837506614625454e-5,
+          "response_bytes": 405,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.24159986525774e-5,
+          "response_bytes": 383,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.237486377358437e-5,
+          "response_bytes": 392,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.5040931329131126e-5,
+          "response_bytes": 417,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.787478923797607e-5,
+          "response_bytes": 408,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.154179573059082e-5,
+          "response_bytes": 382,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.645801477134228e-5,
+          "response_bytes": 396,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.30419235676527e-5,
+          "response_bytes": 397,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.92090655118227e-5,
+          "response_bytes": 391,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.400017835199833e-5,
+          "response_bytes": 382,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.3916824981570244e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.725002847611904e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 8.358387276530266e-5,
+          "response_bytes": 388,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.4791104048490524e-5,
+          "response_bytes": 408,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.450006574392319e-5,
+          "response_bytes": 394,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.9833982959389687e-5,
+          "response_bytes": 404,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.2208080887794495e-5,
+          "response_bytes": 380,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.3165946155786514e-5,
+          "response_bytes": 383,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.77499158680439e-5,
+          "response_bytes": 383,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.77499158680439e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.758390761911869e-5,
+          "response_bytes": 391,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.9833982959389687e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.825003609061241e-5,
+          "response_bytes": 386,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.433289334177971e-5,
+          "response_bytes": 387,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.616690032184124e-5,
+          "response_bytes": 391,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 6.458302959799767e-5,
+          "response_bytes": 385,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.0958944484591484e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 5.283416248857975e-5,
+          "response_bytes": 380,
+          "kind": "Transaction",
+          "select": null
+        },
+        {
+          "op": "get",
+          "source_calls": 0,
+          "seconds": 3.724987618625164e-5,
+          "response_bytes": 384,
+          "kind": "Transaction",
+          "select": null
+        }
+      ],
+      "seconds": 246.30885454197414,
+      "error": null,
+      "run": "interface-docs-v2",
+      "agent_api_categories": {
+        "application": 13,
+        "supervisor": 1
+      },
+      "execution_errors": 0,
+      "truncated_outputs": 0,
+      "projected_research_calls": 31,
+      "attempted_traversal": false,
+      "used_traversal": false,
+      "failed_research_calls": 0,
+      "inference_seconds": 244.29456137600002,
+      "prompt_cached_tokens": 21050,
+      "trace_sha256": "a196d3e371884d28d779b66cdcf7d7856a51ff416194d49211ae9a30df1b1e30"
+    }
+  ],
+  "aggregate": [
+    {
+      "run": "capability-pilot",
+      "model": "qwen3.6:27b",
+      "condition": "raw",
+      "completed_episodes": 1,
+      "valid_episodes": 1,
+      "infrastructure_errors": 0,
+      "successes": 1,
+      "mean_steps": 12,
+      "mean_prompt_tokens": 53398,
+      "mean_generated_tokens": 939,
+      "mean_source_calls": 68,
+      "mean_agent_source_calls": 68,
+      "mean_seconds": 252.11783849983476,
+      "research_operations": {}
+    },
+    {
+      "run": "adapter-pilot",
+      "model": "qwen3.6:27b",
+      "condition": "compact",
+      "completed_episodes": 1,
+      "valid_episodes": 1,
+      "infrastructure_errors": 0,
+      "successes": 1,
+      "mean_steps": 9,
+      "mean_prompt_tokens": 36789,
+      "mean_generated_tokens": 491,
+      "mean_source_calls": 65,
+      "mean_agent_source_calls": 65,
+      "mean_seconds": 254.88292170781642,
+      "research_operations": {
+        "load": 1,
+        "list": 2
+      }
+    },
+    {
+      "run": "small-model-pilot",
+      "model": "qwen3:8b",
+      "condition": "compact",
+      "completed_episodes": 1,
+      "valid_episodes": 1,
+      "infrastructure_errors": 0,
+      "successes": 0,
+      "mean_steps": 16,
+      "mean_prompt_tokens": 36213,
+      "mean_generated_tokens": 2022,
+      "mean_source_calls": 14,
+      "mean_agent_source_calls": 14,
+      "mean_seconds": 97.06941387499683,
+      "research_operations": {
+        "load": 14
+      }
+    },
+    {
+      "run": "small-model-pilot",
+      "model": "qwen3:8b",
+      "condition": "raw",
+      "completed_episodes": 1,
+      "valid_episodes": 1,
+      "infrastructure_errors": 0,
+      "successes": 0,
+      "mean_steps": 16,
+      "mean_prompt_tokens": 20052,
+      "mean_generated_tokens": 1053,
+      "mean_source_calls": 0,
+      "mean_agent_source_calls": 0,
+      "mean_seconds": 61.60418487503193,
+      "research_operations": {}
+    },
+    {
+      "run": "gemma-pilot",
+      "model": "gemma4:latest",
+      "condition": "compact",
+      "completed_episodes": 1,
+      "valid_episodes": 0,
+      "infrastructure_errors": 1,
+      "successes": 0,
+      "mean_steps": null,
+      "mean_prompt_tokens": null,
+      "mean_generated_tokens": null,
+      "mean_source_calls": null,
+      "mean_agent_source_calls": null,
+      "mean_seconds": null,
+      "research_operations": {}
+    },
+    {
+      "run": "gemma-pilot",
+      "model": "gemma4:latest",
+      "condition": "raw",
+      "completed_episodes": 1,
+      "valid_episodes": 0,
+      "infrastructure_errors": 1,
+      "successes": 0,
+      "mean_steps": null,
+      "mean_prompt_tokens": null,
+      "mean_generated_tokens": null,
+      "mean_source_calls": null,
+      "mean_agent_source_calls": null,
+      "mean_seconds": null,
+      "research_operations": {}
+    },
+    {
+      "run": "controlled-v1",
+      "model": "qwen3.6:27b",
+      "condition": "raw",
+      "completed_episodes": 1,
+      "valid_episodes": 1,
+      "infrastructure_errors": 0,
+      "successes": 1,
+      "mean_steps": 13,
+      "mean_prompt_tokens": 41727,
+      "mean_generated_tokens": 1229,
+      "mean_source_calls": 28,
+      "mean_agent_source_calls": 28,
+      "mean_seconds": 317.21999195800163,
+      "research_operations": {}
+    },
+    {
+      "run": "authenticated-v1",
+      "model": "qwen3.6:27b",
+      "condition": "flat",
+      "completed_episodes": 1,
+      "valid_episodes": 1,
+      "infrastructure_errors": 0,
+      "successes": 1,
+      "mean_steps": 7,
+      "mean_prompt_tokens": 31782,
+      "mean_generated_tokens": 633,
+      "mean_source_calls": 42,
+      "mean_agent_source_calls": 38,
+      "mean_seconds": 168.84154049982317,
+      "research_operations": {}
+    },
+    {
+      "run": "authenticated-v1",
+      "model": "qwen3.6:27b",
+      "condition": "raw",
+      "completed_episodes": 1,
+      "valid_episodes": 1,
+      "infrastructure_errors": 0,
+      "successes": 1,
+      "mean_steps": 5,
+      "mean_prompt_tokens": 21462,
+      "mean_generated_tokens": 354,
+      "mean_source_calls": 23,
+      "mean_agent_source_calls": 19,
+      "mean_seconds": 148.50094162509777,
+      "research_operations": {}
+    },
+    {
+      "run": "authenticated-v1",
+      "model": "qwen3.6:27b",
+      "condition": "static",
+      "completed_episodes": 1,
+      "valid_episodes": 1,
+      "infrastructure_errors": 0,
+      "successes": 1,
+      "mean_steps": 6,
+      "mean_prompt_tokens": 22024,
+      "mean_generated_tokens": 701,
+      "mean_source_calls": 25,
+      "mean_agent_source_calls": 21,
+      "mean_seconds": 183.44552933401428,
+      "research_operations": {}
+    },
+    {
+      "run": "covered-v1",
+      "model": "qwen3.6:27b",
+      "condition": "compact",
+      "completed_episodes": 2,
+      "valid_episodes": 2,
+      "infrastructure_errors": 0,
+      "successes": 2,
+      "mean_steps": 4.5,
+      "mean_prompt_tokens": 18638.5,
+      "mean_generated_tokens": 725,
+      "mean_source_calls": 26,
+      "mean_agent_source_calls": 22,
+      "mean_seconds": 188.8707245835103,
+      "research_operations": {
+        "load": 2,
+        "list": 3,
+        "traverse": 5,
+        "get": 31
+      }
+    },
+    {
+      "run": "covered-v1",
+      "model": "qwen3.6:27b",
+      "condition": "flat",
+      "completed_episodes": 2,
+      "valid_episodes": 2,
+      "infrastructure_errors": 0,
+      "successes": 2,
+      "mean_steps": 7,
+      "mean_prompt_tokens": 24962.5,
+      "mean_generated_tokens": 1389.5,
+      "mean_source_calls": 32.5,
+      "mean_agent_source_calls": 28.5,
+      "mean_seconds": 328.1156727086054,
+      "research_operations": {
+        "load": 3,
+        "list": 11,
+        "traverse": 1
+      }
+    },
+    {
+      "run": "covered-v1",
+      "model": "qwen3.6:27b",
+      "condition": "full",
+      "completed_episodes": 2,
+      "valid_episodes": 2,
+      "infrastructure_errors": 0,
+      "successes": 2,
+      "mean_steps": 7,
+      "mean_prompt_tokens": 26833.5,
+      "mean_generated_tokens": 1481,
+      "mean_source_calls": 26,
+      "mean_agent_source_calls": 22,
+      "mean_seconds": 341.0854046038585,
+      "research_operations": {
+        "load": 2,
+        "list": 9,
+        "traverse": 44
+      }
+    },
+    {
+      "run": "covered-v1",
+      "model": "qwen3.6:27b",
+      "condition": "raw",
+      "completed_episodes": 2,
+      "valid_episodes": 2,
+      "infrastructure_errors": 0,
+      "successes": 1,
+      "mean_steps": 11.5,
+      "mean_prompt_tokens": 55036.5,
+      "mean_generated_tokens": 1465,
+      "mean_source_calls": 34,
+      "mean_agent_source_calls": 30,
+      "mean_seconds": 329.7962406669976,
+      "research_operations": {}
+    },
+    {
+      "run": "covered-v1",
+      "model": "qwen3.6:27b",
+      "condition": "static",
+      "completed_episodes": 2,
+      "valid_episodes": 2,
+      "infrastructure_errors": 0,
+      "successes": 2,
+      "mean_steps": 10,
+      "mean_prompt_tokens": 43653,
+      "mean_generated_tokens": 1233,
+      "mean_source_calls": 29.5,
+      "mean_agent_source_calls": 25.5,
+      "mean_seconds": 277.22473683313,
+      "research_operations": {}
+    },
+    {
+      "run": "interface-docs-v2",
+      "model": "qwen3.6:27b",
+      "condition": "compact",
+      "completed_episodes": 1,
+      "valid_episodes": 1,
+      "infrastructure_errors": 0,
+      "successes": 1,
+      "mean_steps": 4,
+      "mean_prompt_tokens": 7480,
+      "mean_generated_tokens": 787,
+      "mean_source_calls": 18,
+      "mean_agent_source_calls": 14,
+      "mean_seconds": 142.7406372500118,
+      "research_operations": {
+        "load": 1,
+        "list": 1,
+        "traverse": 1
+      }
+    },
+    {
+      "run": "interface-docs-v2",
+      "model": "qwen3.6:27b",
+      "condition": "flat",
+      "completed_episodes": 1,
+      "valid_episodes": 1,
+      "infrastructure_errors": 0,
+      "successes": 1,
+      "mean_steps": 8,
+      "mean_prompt_tokens": 28164,
+      "mean_generated_tokens": 1426,
+      "mean_source_calls": 18,
+      "mean_agent_source_calls": 14,
+      "mean_seconds": 246.30885454197414,
+      "research_operations": {
+        "load": 1,
+        "list": 4,
+        "get": 236
+      }
+    }
+  ]
+}

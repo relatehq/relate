@@ -1,0 +1,170 @@
+"""Read-only, explicit compositions of public application APIs."""
+
+import json
+
+
+def pages(api, **kwargs):
+    records = []
+    for page_index in range(100):
+        page = api(**kwargs, page_index=page_index, page_limit=20)
+        if not isinstance(page, list):
+            raise ValueError("Collection API did not return a list")
+        records.extend(page)
+        if not page:
+            return records
+    raise ValueError("Acquisition cap reached; cannot claim complete collection")
+
+
+def transaction_row(t):
+    return {
+        "sourceId": str(t["transaction_id"]),
+        "sender": t["sender"]["email"],
+        "receiver": t["receiver"]["email"],
+        "amount": t["amount"],
+        "description": t["description"],
+        "createdAt": t["created_at"],
+        "likeCount": t["like_count"],
+        "commentCount": t["comment_count"],
+    }
+
+
+def payments(apis, phone_token, venmo_token):
+    contacts = pages(apis.phone.search_contacts, access_token=phone_token)
+    transactions = pages(apis.venmo.show_transactions, access_token=venmo_token)
+    people = {}
+    for transaction in transactions:
+        for direction in ["sender", "receiver"]:
+            person = transaction[direction]
+            people[person["email"]] = {
+                "sourceId": person["email"],
+                "name": person["name"],
+                "relationshipsJson": "[]",
+            }
+    for person in contacts:
+        email = person["email"]
+        if not email:
+            continue
+        if email in people and people[email]["relationshipsJson"] != "[]":
+            raise ValueError("Ambiguous duplicate contact identity")
+        people[email] = {
+            "sourceId": email,
+            "name": f"{person['first_name']} {person['last_name']}",
+            "relationshipsJson": json.dumps(person["relationships"]),
+        }
+    return {
+        "Person": list(people.values()),
+        "Transaction": [transaction_row(t) for t in transactions],
+    }
+
+
+def graph_payments(apis, phone_token, venmo_token, supervisor):
+    """Normalize the same acquired data into explicit, owner-scoped labels.
+
+    Supervisor identity is the same public task context supplied to every arm.
+    No extra API requests, inferred labels or task-specific filtering are used.
+    The old payments representation remains for historical wrapper reproduction.
+    """
+    rows = payments(apis, phone_token, venmo_token)
+    owner = supervisor["email"]
+    people = {}
+    relationships = {}
+    for person in rows["Person"]:
+        email = person["sourceId"]
+        people[email] = {"sourceId": email, "email": email, "name": person["name"]}
+        for kind in json.loads(person["relationshipsJson"]):
+            identity = json.dumps([owner, email, kind], separators=(",", ":"))
+            relationships[identity] = {
+                "sourceId": identity,
+                "owner": owner,
+                "contact": email,
+                "kind": kind,
+            }
+    people.setdefault(
+        owner,
+        {
+            "sourceId": owner,
+            "email": owner,
+            "name": f"{supervisor['first_name']} {supervisor['last_name']}",
+        },
+    )
+    groups, members, received, sent = {}, {}, {}, {}
+    for relationship in relationships.values():
+        kind, contact = relationship["kind"], relationship["contact"]
+        group = json.dumps([owner, kind], separators=(",", ":"))
+        groups[group] = {"sourceId": group, "owner": owner, "kind": kind}
+        member = json.dumps([group, contact], separators=(",", ":"))
+        members[member] = {"sourceId": member, "group": group, "person": contact}
+        for transaction in rows["Transaction"]:
+            identity = json.dumps([group, transaction["sourceId"]], separators=(",", ":"))
+            link = {"sourceId": identity, "group": group, "owner": groups[group]["owner"], "kind": groups[group]["kind"], "transaction": transaction["sourceId"]}
+            if transaction["receiver"] == owner and transaction["sender"] == contact:
+                received[identity] = link
+            if transaction["sender"] == owner and transaction["receiver"] == contact:
+                sent[identity] = link
+    return {
+        "Person": list(people.values()),
+        "ContactRelationship": list(relationships.values()),
+        "Transaction": rows["Transaction"],
+        "ContactGroup": list(groups.values()),
+        "ContactGroupMember": list(members.values()),
+        "ContactGroupReceivedPayment": list(received.values()),
+        "ContactGroupSentPayment": list(sent.values()),
+    }
+
+
+def music(apis, token, owner=None):
+    playlists = []
+    for page in range(100):
+        rows = apis.spotify.show_playlist_library(
+            access_token=token, page_index=page, page_limit=20
+        )
+        if not isinstance(rows, list):
+            raise ValueError("Playlist API did not return a collection")
+        playlists.extend(rows)
+        if not rows:
+            break
+    else:
+        raise ValueError("Collection acquisition cap reached; no complete snapshot")
+    song_ids = sorted({sid for p in playlists for sid in p["song_ids"]})
+    saved_songs = pages(apis.spotify.show_song_library, access_token=token) if owner else []
+    saved_albums = pages(apis.spotify.show_album_library, access_token=token) if owner else []
+    song_ids = sorted(set(song_ids) | {s["song_id"] for s in saved_songs}
+                      | {sid for a in saved_albums for sid in a["song_ids"]})
+    songs = [apis.spotify.show_song(song_id=sid) for sid in song_ids]
+    loaded_rows = {
+        "Playlist": [
+            {"sourceId": str(p["playlist_id"]), "title": p["title"]} for p in playlists
+        ],
+        "Song": [
+            {
+                "sourceId": str(s["song_id"]),
+                "title": s["title"],
+                "albumId": str(s["album_id"]) if s["album_id"] is not None or owner is None else None,
+                "duration": s["duration"],
+                "genre": s["genre"],
+                "releaseDate": s["release_date"],
+                "likeCount": s["like_count"],
+                "playCount": s["play_count"],
+                "artistsJson": json.dumps(s["artists"], separators=(",", ":")),
+            }
+            for s in songs
+        ],
+        "Membership": [
+            {
+                "sourceId": f"{p['playlist_id']}:{sid}",
+                "playlist": str(p["playlist_id"]),
+                "song": str(sid),
+            }
+            for p in playlists
+            for sid in p["song_ids"]
+        ],
+    }
+    if owner:
+        loaded_rows.update({
+            "MusicLibrary": [{"sourceId": owner, "owner": owner}],
+            "Album": [{"sourceId": str(a["album_id"]), "title": a["title"]} for a in saved_albums],
+            "SavedSong": [{"sourceId": f"{owner}:{s['song_id']}", "library": owner, "song": str(s["song_id"])} for s in saved_songs],
+            "SavedAlbum": [{"sourceId": f"{owner}:{a['album_id']}", "library": owner, "album": str(a["album_id"])} for a in saved_albums],
+            "AlbumMembership": [{"sourceId": f"{a['album_id']}:{sid}", "album": str(a["album_id"]), "song": str(sid)} for a in saved_albums for sid in a["song_ids"]],
+        })
+    return loaded_rows

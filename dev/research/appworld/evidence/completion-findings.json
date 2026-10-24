@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Write answer-check failures: 7/12 \u2192 0/12",
+    "text": "Every new write episode submitted without an unnecessary answer. The baseline includes incomplete submissions as well as incorrect answer values; this measures evaluator answer checks, not just unwanted summaries."
+  },
+  {
+    "title": "Official success: 6/18 \u2192 9/18",
+    "text": "Compare only raw Python, raw TypeScript and SDK at 28 turns. New scores are 3/6, 2/6 and 4/6. Static notes are retired; historical results remain separate. Fresh stochastic runs do not prove a causal accuracy improvement."
+  },
+  {
+    "title": "Write success: 1/12 \u2192 5/12",
+    "text": "Raw Python passes 2/4 writes, raw TS 1/4, SDK 2/4. All seven remaining write failures concern world state. None of the retained baseline writes had correct state and only an answer failure."
+  },
+  {
+    "title": "The SDK still needs the right selection",
+    "text": "afc0fce_1__sdk__0 changed 25 date-filtered incoming transactions without checking the contact group. It recovered redeclaration errors and completed correctly, but failed world-state checks. afc0fce_2__sdk__1 similarly omitted the friend constraint."
+  },
+  {
+    "title": "A successful SDK write uses the relationship data",
+    "text": "afc0fce_2__sdk__0 fetched sender Person objects, checked relationshipsJson, applied both actions and completed at turn 13. It passed, although its inferred current-user identity and date-window shortcuts are not robust guarantees."
+  },
+  {
+    "title": "All 18 episodes completed and scored",
+    "text": "About 10.0 minutes of summed episode wall time and $0.1753 estimated model cost. The read control scored 4/6 versus 5/6 before. No SDK or execution changes beyond retiring static from the default method list; no per-turn reminders."
+  }
+]

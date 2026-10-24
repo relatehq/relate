@@ -1,0 +1,32 @@
+{
+  "evaluated_commit": "8a14a4eec94d1e140926ff4e68cf50d1c4684ea1",
+  "post_evaluation_fix_commit": "14eca547377b480210986c31cf2d1d905227ca3d",
+  "model_attempts": 138,
+  "model_reruns": 0,
+  "model_requests_with_usage": 1141,
+  "python_research_tests": 60,
+  "node_research_tests": 15,
+  "original_preflight_instances": 69,
+  "personal_rating_preflight_instances": 69,
+  "node_quota_reset_regression": "passed; complete request history retained",
+  "live_spotify_smoke": "all 14 mutations, refresh, creation/deletion, personal-rating readback and receipt replay passed",
+  "packaging": "passed after fixes",
+  "initial_full_check": "997 tests passed before frozen batch",
+  "final_full_check": {
+    "passed": false,
+    "tests_passed": 996,
+    "tests_failed": 1,
+    "unchanged_test": "packages/node/test/sqlite.test.ts:70",
+    "failure": "AssertionError: expected { status: 'ok', \u2026(3) } to match object { status: 'not-found' }",
+    "focused_reproduction": "same assertion failure",
+    "core_files_changed": false
+  },
+  "explorer_attempts_verified": 138,
+  "provider_credentials_absent": true,
+  "text_files_scanned": 1388,
+  "source_sha256_after_fixes": {
+    "music-model.mjs": "1fedd2d463e267afd47023275dc67b72e83038760c796d64d8903d2f2b677443",
+    "music_acquire.py": "ed3fd5d1c9f11d08a1298819a7c7837039b389ce55dbfe7a048e8bc7adb676a2",
+    "sdk_runner.py": "9ae2ac80f52c6e37d23679069a56c178a69b2628957ba516688302fc540b5434"
+  }
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "title": "The SDK advantage survives the shared-Node comparison",
+    "text": "SDK-only passed 13/18 versus original APIs in TypeScript 3/18, a 55.6 percentage-point success-rate difference on this sample. Both use the same Node REPL and common prompt rules. Language alone does not explain this gap; the intervention still includes pre-acquisition, normalized collections and authored semantics."
+  },
+  {
+    "title": "Static notes remain a useful separate ablation",
+    "text": "Python with notes passed 6/18; raw Python passed 1/18. Notes provide interpretation guidance without a graph or pre-acquired records. The practical comparison remains original APIs versus the Relate system; these exploratory counts do not establish a general ranking across languages or tasks."
+  },
+  {
+    "title": "Successful paths include both traversal and ordinary queries",
+    "text": "The longest-playlist SDK repeat 0 passed in six turns using Playlist.traverse.songs; its raw-TS counterpart took twelve. The outgoing-payment SDK repeat 0 passed using Person and Transaction queries and canonical references, without named traversal. Do not attribute every SDK pass to relationship navigation."
+  },
+  {
+    "title": "The SDK still permits wrong interpretation and incorrect submission",
+    "text": "The bidirectional-payment SDK repeat 0 subtracted incoming and outgoing amounts instead of totaling them. Incoming-payment repeat 1 filtered the coworker receiver rather than sender. Both submitted and failed. Incoming-payment repeat 0 also confused an awaited query page with an iterable handle and exhausted the turn budget."
+  },
+  {
+    "title": "Status-only cells and execution errors still consume turns",
+    "text": "The strict audit found 198 of 882 cells consisting only of a literal status print. Raw TS recorded 17 redeclaration errors and 9 authorization errors; SDK recorded 10 redeclaration errors. These are observed symptoms, not a causal attribution. Exact per-episode diagnostics accompany the report."
+  },
+  {
+    "title": "Count acquisition and accuracy alongside speed",
+    "text": "SDK episodes averaged 15.1s and 30,991 input tokens, versus raw TS 22.7s and 56,403. SDK acquisition averaged 56.8 original API calls before the first agent turn. The dataset is preloaded locally; this is not a production-service latency or acquisition-reuse benchmark."
+  },
+  {
+    "title": "One episode recovered from a named SDK request error",
+    "text": "Outgoing-payment SDK repeat 2 requested limit: 1000 and received a ReadError identifying limit and the accepted range 1\u2013100. It changed the limit to 100, recovered from subsequent REPL redeclaration errors, and passed in 11 turns. This is an observed recovery, not an isolated causal test of the new error design."
+  },
+  {
+    "title": "Next: same acquired data, plain TypeScript arrays",
+    "text": "Keep raw TS as the practical baseline. Add a flat-snapshot TS arm with the same acquired rows and scope semantics as the SDK. That separates the value of preparation and modeling from SDK query/traversal ergonomics. Then expand independent task families; this run contains six training instances across only three families."
+  }
+]

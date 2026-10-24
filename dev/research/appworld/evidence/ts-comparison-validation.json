@@ -1,0 +1,43 @@
+{
+  "run": "sdk-nano-uniform-ts-v1",
+  "frozen_head": "4425a28661edc8f90134814733a179b14acc8437",
+  "sdk_main": "60f0ff2",
+  "sdk_feature_pr": 18,
+  "episodes_expected": 72,
+  "episodes_scored": 72,
+  "infrastructure_errors": 0,
+  "source_hashes_verified": {
+    "sdk_runner.py": "d7f199cf04d2f270d8bcbe06d22db6f5e372f4abecd695fdb0818259d00d7f1c",
+    "sdk-repl.mjs": "aafeef99a7fd478821a23506168bbe6a0f1e17203a269660360fe0fe4734fdee",
+    "sdk-graph.mjs": "b332f0d68ad2088b8958cc6485c0d6a6ab90ce7fc4692cf11ce1e2793b5a55c0",
+    "acquire.py": "88ac8573fa9d6021037438d15261e72d5d6263273908fc37c717128594f6eefe",
+    "runner.py": "c30216c0561e8d08bce18b3c855b656e84e77f5d9b6848f97a597e5cd43c13cb",
+    "prompts.py": "8e8e63a8a591fba8b16197132dc00d95bc41724adec9b284d5e99a4e9d2669eb"
+  },
+  "initial_prompt_exact_match": true,
+  "shared_prompt_rules_verified": true,
+  "completion_instruction_once": true,
+  "per_turn_completion_feedback": false,
+  "raw_ts_no_acquisition_or_snapshot_fetches": true,
+  "metric_sums_verified": true,
+  "protected_archive_roundtrip_files": 1105,
+  "archive_bytes": 5306043,
+  "archive_sha256": "c00b50f6480b877ec8e6184a21dcc88fe9eebce6ae624a51219b68dadbc2b773",
+  "public_secret_scan": "authorized provider key absent; no simulated gmail addresses or JWTs in new public JSON; local explorer redacts JWTs and excludes provider continuation payloads",
+  "checks": {
+    "research_node_tests": 9,
+    "research_python_tests": 17,
+    "raw_ts_api_parity_and_evaluator_persistence": "passed",
+    "sdk_evaluator_persistence": "passed",
+    "python_lint": "passed",
+    "html_javascript_syntax": "passed",
+    "focused_formatting": "passed",
+    "browser": "passed: raw-TS successes; SDK failure and added-task filters; full trajectory-ID search; per-turn token chart and next-cell navigation; frozen prompts source; final totals and visual layout"
+  },
+  "explorer_episodes": 138,
+  "repository_wide_check": "not run; scoped research/report change, no package implementation changes",
+  "runtime": {
+    "node": "v26.9.0",
+    "python": "3.11.6"
+  }
+}

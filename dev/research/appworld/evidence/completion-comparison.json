@@ -1,0 +1,5025 @@
+{
+  "baseline": "sdk-nano-writes-28-v1",
+  "candidate": "sdk-nano-no-answer-v1",
+  "config_difference_fields": [
+    "conditions",
+    "git_head",
+    "prompts",
+    "run",
+    "source_sha256"
+  ],
+  "package_source_identical": true,
+  "execution_change": "Default conditions exclude static; otherwise execution identical",
+  "prompt_change": "Explicit no-answer completion example only",
+  "aggregate": [
+    {
+      "run": "sdk-nano-writes-28-v1",
+      "condition": "raw",
+      "episodes": 6,
+      "success": 2,
+      "write_success": 0,
+      "correct_write_state": 0,
+      "answer_only_failures": 0,
+      "write_answer_failures": 1,
+      "completed": 6,
+      "mean_turns": 19,
+      "mean_seconds": 32.04854260423841,
+      "mean_input_tokens": 97583.66666666667,
+      "mean_output_tokens": 2439.3333333333335,
+      "seconds": 192.2912556254305,
+      "estimated_usd": 0.058280519999999995
+    },
+    {
+      "run": "sdk-nano-writes-28-v1",
+      "condition": "raw_ts",
+      "episodes": 6,
+      "success": 2,
+      "write_success": 1,
+      "correct_write_state": 1,
+      "answer_only_failures": 0,
+      "write_answer_failures": 2,
+      "completed": 4,
+      "mean_turns": 21.5,
+      "mean_seconds": 37.401279555439636,
+      "mean_input_tokens": 121823.66666666667,
+      "mean_output_tokens": 2842.8333333333335,
+      "seconds": 224.40767733263783,
+      "estimated_usd": 0.06850677
+    },
+    {
+      "run": "sdk-nano-writes-28-v1",
+      "condition": "sdk",
+      "episodes": 6,
+      "success": 2,
+      "write_success": 0,
+      "correct_write_state": 0,
+      "answer_only_failures": 0,
+      "write_answer_failures": 4,
+      "completed": 6,
+      "mean_turns": 14,
+      "mean_seconds": 29.242008888822358,
+      "mean_input_tokens": 80286.83333333333,
+      "mean_output_tokens": 2318.3333333333335,
+      "seconds": 175.45205333293416,
+      "estimated_usd": 0.04880498
+    },
+    {
+      "run": "sdk-nano-no-answer-v1",
+      "condition": "raw",
+      "episodes": 6,
+      "success": 3,
+      "write_success": 2,
+      "correct_write_state": 2,
+      "answer_only_failures": 0,
+      "write_answer_failures": 0,
+      "completed": 6,
+      "mean_turns": 18.5,
+      "mean_seconds": 30.020013763802126,
+      "mean_input_tokens": 95556.16666666667,
+      "mean_output_tokens": 2131.5,
+      "seconds": 180.12008258281276,
+      "estimated_usd": 0.052847569999999996
+    },
+    {
+      "run": "sdk-nano-no-answer-v1",
+      "condition": "raw_ts",
+      "episodes": 6,
+      "success": 2,
+      "write_success": 1,
+      "correct_write_state": 1,
+      "answer_only_failures": 0,
+      "write_answer_failures": 0,
+      "completed": 6,
+      "mean_turns": 22,
+      "mean_seconds": 40.65331165985359,
+      "mean_input_tokens": 131795.83333333334,
+      "mean_output_tokens": 3196.8333333333335,
+      "seconds": 243.91986995912157,
+      "estimated_usd": 0.07064069
+    },
+    {
+      "run": "sdk-nano-no-answer-v1",
+      "condition": "sdk",
+      "episodes": 6,
+      "success": 4,
+      "write_success": 2,
+      "correct_write_state": 2,
+      "answer_only_failures": 0,
+      "write_answer_failures": 0,
+      "completed": 6,
+      "mean_turns": 13.166666666666666,
+      "mean_seconds": 29.28655038184176,
+      "mean_input_tokens": 76813.66666666667,
+      "mean_output_tokens": 2711.5,
+      "seconds": 175.71930229105055,
+      "estimated_usd": 0.05184833
+    }
+  ],
+  "episodes": {
+    "sdk-nano-writes-28-v1": [
+      {
+        "task_id": "afc0fce_1",
+        "condition": "raw",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 19,
+        "seconds": 35.21883212518878,
+        "prompt_tokens": 103610,
+        "cached_tokens": 74496,
+        "generated_tokens": 2489,
+        "model_seconds": 32.792645544046536,
+        "setup_seconds": 1.5014337091706693,
+        "acquisition_seconds": 0,
+        "source_calls": 70,
+        "acquisition_calls": 0,
+        "agent_source_calls": 66,
+        "estimated_usd": 0.01042397,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_1__raw__0",
+        "like_attempts": 25,
+        "evaluation_passed_checks": 7,
+        "evaluation_failed_checks": 2,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 25,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 5,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 17,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 25,
+            "comment_attempts": 25
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 5,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 51533,
+        "post_14_output_tokens": 1006,
+        "post_14_model_seconds": 10.239874750142917,
+        "post_14_execution_seconds": 0.36313458415679634,
+        "post_14_estimated_usd": 0.00379962,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_1",
+        "condition": "raw",
+        "repeat": 1,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 16,
+        "seconds": 27.37369962502271,
+        "prompt_tokens": 73727,
+        "cached_tokens": 52736,
+        "generated_tokens": 1965,
+        "model_seconds": 26.64575070911087,
+        "setup_seconds": 0.08226633397862315,
+        "acquisition_seconds": 0,
+        "source_calls": 65,
+        "acquisition_calls": 0,
+        "agent_source_calls": 61,
+        "estimated_usd": 0.0077091699999999996,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_1__raw__1",
+        "like_attempts": 25,
+        "evaluation_passed_checks": 6,
+        "evaluation_failed_checks": 3,
+        "failure_categories": ["answer", "world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 25,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 3,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 15,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 25,
+            "comment_attempts": 25
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 2,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 14352,
+        "post_14_output_tokens": 373,
+        "post_14_model_seconds": 5.013830374926329,
+        "post_14_execution_seconds": 0.2176060420460999,
+        "post_14_estimated_usd": 0.0012630500000000002,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_1",
+        "condition": "raw_ts",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 20,
+        "seconds": 43.39943045889959,
+        "prompt_tokens": 109120,
+        "cached_tokens": 83584,
+        "generated_tokens": 3715,
+        "model_seconds": 42.00520262378268,
+        "setup_seconds": 0.3244257918559015,
+        "acquisition_seconds": 0,
+        "source_calls": 92,
+        "acquisition_calls": 0,
+        "agent_source_calls": 88,
+        "estimated_usd": 0.01142263,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_1__raw_ts__0",
+        "like_attempts": 25,
+        "evaluation_passed_checks": 7,
+        "evaluation_failed_checks": 2,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 25,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 2,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 18,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 25,
+            "comment_attempts": 25
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 6,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 49550,
+        "post_14_output_tokens": 1648,
+        "post_14_model_seconds": 17.593402998987585,
+        "post_14_execution_seconds": 0.3202572502195835,
+        "post_14_estimated_usd": 0.00427464,
+        "redeclaration_error_turns": 3,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_1",
+        "condition": "raw_ts",
+        "repeat": 1,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 15,
+        "seconds": 22.92973941587843,
+        "prompt_tokens": 71701,
+        "cached_tokens": 45952,
+        "generated_tokens": 1872,
+        "model_seconds": 21.970694998279214,
+        "setup_seconds": 0.2967574999202043,
+        "acquisition_seconds": 0,
+        "source_calls": 34,
+        "acquisition_calls": 0,
+        "agent_source_calls": 30,
+        "estimated_usd": 0.008408839999999999,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_1__raw_ts__1",
+        "like_attempts": 9,
+        "evaluation_passed_checks": 9,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": true,
+        "comment_attempts": 9,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 2,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 14,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 9,
+            "comment_attempts": 9
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 1,
+        "succeeded_after_turn_14": true,
+        "post_14_input_tokens": 7812,
+        "post_14_output_tokens": 96,
+        "post_14_model_seconds": 1.4228074999991804,
+        "post_14_execution_seconds": 0.005629542050883174,
+        "post_14_estimated_usd": 0.00046128000000000006,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_1",
+        "condition": "sdk",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 20,
+        "seconds": 39.56551379081793,
+        "prompt_tokens": 142206,
+        "cached_tokens": 116352,
+        "generated_tokens": 3315,
+        "model_seconds": 37.731177834561095,
+        "setup_seconds": 0.7545299998018891,
+        "acquisition_seconds": 0.42613108293153346,
+        "source_calls": 170,
+        "acquisition_calls": 65,
+        "agent_source_calls": 101,
+        "estimated_usd": 0.01164159,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_1__sdk__0",
+        "like_attempts": 25,
+        "evaluation_passed_checks": 6,
+        "evaluation_failed_checks": 3,
+        "failure_categories": ["answer", "world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 25,
+        "action_error_turns": 2,
+        "literal_status_only_turns": 2,
+        "sdk_action_mention_turns": 9,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 15,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 1,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 24,
+            "comment_attempts": 25
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 6,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 63679,
+        "post_14_output_tokens": 954,
+        "post_14_model_seconds": 11.16401212499477,
+        "post_14_execution_seconds": 0.4797040424309671,
+        "post_14_estimated_usd": 0.0034681399999999998,
+        "redeclaration_error_turns": 4,
+        "non_iterable_error_turns": 1,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_1",
+        "condition": "sdk",
+        "repeat": 1,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 11,
+        "seconds": 20.178673916030675,
+        "prompt_tokens": 56003,
+        "cached_tokens": 37248,
+        "generated_tokens": 1704,
+        "model_seconds": 18.916899918112904,
+        "setup_seconds": 0.7316973330453038,
+        "acquisition_seconds": 0.4129958748817444,
+        "source_calls": 90,
+        "acquisition_calls": 65,
+        "agent_source_calls": 21,
+        "estimated_usd": 0.00662596,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_1__sdk__1",
+        "like_attempts": 5,
+        "evaluation_passed_checks": 6,
+        "evaluation_failed_checks": 3,
+        "failure_categories": ["answer", "world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 5,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 1,
+        "sdk_action_mention_turns": 2,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 9,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 5,
+            "comment_attempts": 5
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 0,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 0,
+        "post_14_output_tokens": 0,
+        "post_14_model_seconds": 0,
+        "post_14_execution_seconds": 0,
+        "post_14_estimated_usd": 0,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "raw",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 19,
+        "seconds": 30.515038875164464,
+        "prompt_tokens": 116603,
+        "cached_tokens": 82688,
+        "generated_tokens": 2092,
+        "model_seconds": 29.416702585760504,
+        "setup_seconds": 0.08096945798024535,
+        "acquisition_seconds": 0,
+        "source_calls": 85,
+        "acquisition_calls": 0,
+        "agent_source_calls": 81,
+        "estimated_usd": 0.01105176,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_2__raw__0",
+        "like_attempts": 34,
+        "evaluation_passed_checks": 7,
+        "evaluation_failed_checks": 2,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 34,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 3,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 13,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 20,
+            "comment_attempts": 20
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 14,
+            "comment_attempts": 14
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 5,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 52447,
+        "post_14_output_tokens": 414,
+        "post_14_model_seconds": 9.065654041711241,
+        "post_14_execution_seconds": 0.22701479285024107,
+        "post_14_estimated_usd": 0.0040949,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "raw",
+        "repeat": 1,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 19,
+        "seconds": 44.47899662517011,
+        "prompt_tokens": 113566,
+        "cached_tokens": 87424,
+        "generated_tokens": 4546,
+        "model_seconds": 43.362895250087604,
+        "setup_seconds": 0.079982333118096,
+        "acquisition_seconds": 0,
+        "source_calls": 91,
+        "acquisition_calls": 0,
+        "agent_source_calls": 87,
+        "estimated_usd": 0.01265938,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_2__raw__1",
+        "like_attempts": 34,
+        "evaluation_passed_checks": 7,
+        "evaluation_failed_checks": 2,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 34,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 3,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 16,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 34,
+            "comment_attempts": 34
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 5,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 51990,
+        "post_14_output_tokens": 1444,
+        "post_14_model_seconds": 12.928712082793936,
+        "post_14_execution_seconds": 0.4579265001229942,
+        "post_14_estimated_usd": 0.00406988,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "raw_ts",
+        "repeat": 0,
+        "success": false,
+        "completed": false,
+        "termination": "step-budget",
+        "steps": 28,
+        "seconds": 48.740339583018795,
+        "prompt_tokens": 202771,
+        "cached_tokens": 168960,
+        "generated_tokens": 3660,
+        "model_seconds": 47.52309270808473,
+        "setup_seconds": 0.29736774996854365,
+        "acquisition_seconds": 0,
+        "source_calls": 38,
+        "acquisition_calls": 0,
+        "agent_source_calls": 34,
+        "estimated_usd": 0.014716400000000001,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_2__raw_ts__0",
+        "like_attempts": 10,
+        "evaluation_passed_checks": 6,
+        "evaluation_failed_checks": 3,
+        "failure_categories": ["answer", "world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 10,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 3,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 28,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 21,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 22,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 23,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 24,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 25,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 26,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 27,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 28,
+            "like_attempts": 10,
+            "comment_attempts": 10
+          }
+        ],
+        "used_turns_after_14": 14,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 149224,
+        "post_14_output_tokens": 1627,
+        "post_14_model_seconds": 22.017780584748834,
+        "post_14_execution_seconds": 0.32070187479257584,
+        "post_14_estimated_usd": 0.007963030000000001,
+        "redeclaration_error_turns": 5,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "raw_ts",
+        "repeat": 1,
+        "success": false,
+        "completed": false,
+        "termination": "step-budget",
+        "steps": 28,
+        "seconds": 47.45365908299573,
+        "prompt_tokens": 149655,
+        "cached_tokens": 114432,
+        "generated_tokens": 3813,
+        "model_seconds": 45.59313499904238,
+        "setup_seconds": 0.3723144168034196,
+        "acquisition_seconds": 0,
+        "source_calls": 129,
+        "acquisition_calls": 0,
+        "agent_source_calls": 125,
+        "estimated_usd": 0.014099490000000001,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_2__raw_ts__1",
+        "like_attempts": 34,
+        "evaluation_passed_checks": 6,
+        "evaluation_failed_checks": 3,
+        "failure_categories": ["answer", "world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 34,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 9,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 28,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 21,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 22,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 23,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 24,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 25,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 26,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 27,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 28,
+            "like_attempts": 34,
+            "comment_attempts": 34
+          }
+        ],
+        "used_turns_after_14": 14,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 104131,
+        "post_14_output_tokens": 2582,
+        "post_14_model_seconds": 28.021239748923108,
+        "post_14_execution_seconds": 0.908405336085707,
+        "post_14_estimated_usd": 0.008916420000000001,
+        "redeclaration_error_turns": 3,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "sdk",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 18,
+        "seconds": 41.14438287517987,
+        "prompt_tokens": 130903,
+        "cached_tokens": 104832,
+        "generated_tokens": 3749,
+        "model_seconds": 39.104078624397516,
+        "setup_seconds": 0.7008955411147326,
+        "acquisition_seconds": 0.3819667501375079,
+        "source_calls": 185,
+        "acquisition_calls": 44,
+        "agent_source_calls": 137,
+        "estimated_usd": 0.01199709,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_2__sdk__0",
+        "like_attempts": 34,
+        "evaluation_passed_checks": 6,
+        "evaluation_failed_checks": 3,
+        "failure_categories": ["answer", "world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 34,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 3,
+        "sdk_action_mention_turns": 6,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 17,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 34,
+            "comment_attempts": 34
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 4,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 50525,
+        "post_14_output_tokens": 1335,
+        "post_14_model_seconds": 12.321741916937754,
+        "post_14_execution_seconds": 0.6024359588045627,
+        "post_14_estimated_usd": 0.00357151,
+        "redeclaration_error_turns": 4,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "sdk",
+        "repeat": 1,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 12,
+        "seconds": 24.745446250075474,
+        "prompt_tokens": 56116,
+        "cached_tokens": 39168,
+        "generated_tokens": 2243,
+        "model_seconds": 22.909648961387575,
+        "setup_seconds": 0.7164069588761777,
+        "acquisition_seconds": 0.393444332992658,
+        "source_calls": 185,
+        "acquisition_calls": 44,
+        "agent_source_calls": 137,
+        "estimated_usd": 0.00697671,
+        "trajectory_id": "sdk-nano-writes-28-v1/afc0fce_2__sdk__1",
+        "like_attempts": 34,
+        "evaluation_passed_checks": 6,
+        "evaluation_failed_checks": 3,
+        "failure_categories": ["answer", "world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 34,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 1,
+        "sdk_action_mention_turns": 2,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 11,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 34,
+            "comment_attempts": 34
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 0,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 0,
+        "post_14_output_tokens": 0,
+        "post_14_model_seconds": 0,
+        "post_14_execution_seconds": 0,
+        "post_14_estimated_usd": 0,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 1,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "raw",
+        "repeat": 0,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 21,
+        "seconds": 28.66095304186456,
+        "prompt_tokens": 101655,
+        "cached_tokens": 77440,
+        "generated_tokens": 1746,
+        "model_seconds": 27.912843791069463,
+        "setup_seconds": 0.07525637489743531,
+        "acquisition_seconds": 0,
+        "source_calls": 21,
+        "acquisition_calls": 0,
+        "agent_source_calls": 17,
+        "estimated_usd": 0.0085743,
+        "trajectory_id": "sdk-nano-writes-28-v1/d0b1f43_1__raw__0",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 2,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 4,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 21,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 7,
+        "succeeded_after_turn_14": true,
+        "post_14_input_tokens": 53950,
+        "post_14_output_tokens": 650,
+        "post_14_model_seconds": 10.046296915970743,
+        "post_14_execution_seconds": 0.21266408311203122,
+        "post_14_estimated_usd": 0.0034233,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "raw",
+        "repeat": 1,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 20,
+        "seconds": 26.043735333019868,
+        "prompt_tokens": 76341,
+        "cached_tokens": 53632,
+        "generated_tokens": 1798,
+        "model_seconds": 25.529462167993188,
+        "setup_seconds": 0.07744579203426838,
+        "acquisition_seconds": 0,
+        "source_calls": 19,
+        "acquisition_calls": 0,
+        "agent_source_calls": 15,
+        "estimated_usd": 0.00786194,
+        "trajectory_id": "sdk-nano-writes-28-v1/d0b1f43_1__raw__1",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 2,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 7,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 6,
+        "succeeded_after_turn_14": true,
+        "post_14_input_tokens": 40080,
+        "post_14_output_tokens": 740,
+        "post_14_model_seconds": 9.222939624683931,
+        "post_14_execution_seconds": 0.15024499990977347,
+        "post_14_estimated_usd": 0.0027202000000000003,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "raw_ts",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 17,
+        "seconds": 29.643420499982312,
+        "prompt_tokens": 91618,
+        "cached_tokens": 59264,
+        "generated_tokens": 2013,
+        "model_seconds": 28.71456524822861,
+        "setup_seconds": 0.3626106248702854,
+        "acquisition_seconds": 0,
+        "source_calls": 13,
+        "acquisition_calls": 0,
+        "agent_source_calls": 9,
+        "estimated_usd": 0.01017233,
+        "trajectory_id": "sdk-nano-writes-28-v1/d0b1f43_1__raw_ts__0",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 1,
+        "evaluation_failed_checks": 1,
+        "failure_categories": ["answer"],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 5,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 3,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 40098,
+        "post_14_output_tokens": 427,
+        "post_14_model_seconds": 5.24008912499994,
+        "post_14_execution_seconds": 0.06546854204498231,
+        "post_14_estimated_usd": 0.0026781500000000002,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "raw_ts",
+        "repeat": 1,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 21,
+        "seconds": 32.24108829186298,
+        "prompt_tokens": 106077,
+        "cached_tokens": 77824,
+        "generated_tokens": 1984,
+        "model_seconds": 31.526398962829262,
+        "setup_seconds": 0.29362020804546773,
+        "acquisition_seconds": 0,
+        "source_calls": 16,
+        "acquisition_calls": 0,
+        "agent_source_calls": 12,
+        "estimated_usd": 0.00968708,
+        "trajectory_id": "sdk-nano-writes-28-v1/d0b1f43_1__raw_ts__1",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 2,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 5,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 21,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 7,
+        "succeeded_after_turn_14": true,
+        "post_14_input_tokens": 51520,
+        "post_14_output_tokens": 957,
+        "post_14_model_seconds": 12.792649377137423,
+        "post_14_execution_seconds": 0.09763341583311558,
+        "post_14_estimated_usd": 0.00368969,
+        "redeclaration_error_turns": 1,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "sdk",
+        "repeat": 0,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 9,
+        "seconds": 24.012236958835274,
+        "prompt_tokens": 39048,
+        "cached_tokens": 24960,
+        "generated_tokens": 1270,
+        "model_seconds": 23.00184087571688,
+        "setup_seconds": 0.6197139588184655,
+        "acquisition_seconds": 0.2975424169562757,
+        "source_calls": 62,
+        "acquisition_calls": 57,
+        "agent_source_calls": 1,
+        "estimated_usd": 0.0049043,
+        "trajectory_id": "sdk-nano-writes-28-v1/d0b1f43_1__sdk__0",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 2,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 1,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 0,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 0,
+        "post_14_output_tokens": 0,
+        "post_14_model_seconds": 0,
+        "post_14_execution_seconds": 0,
+        "post_14_estimated_usd": 0,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "sdk",
+        "repeat": 1,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 14,
+        "seconds": 25.80579954199493,
+        "prompt_tokens": 57445,
+        "cached_tokens": 38144,
+        "generated_tokens": 1629,
+        "model_seconds": 24.79469058266841,
+        "setup_seconds": 0.669745207997039,
+        "acquisition_seconds": 0.2820302089676261,
+        "source_calls": 62,
+        "acquisition_calls": 57,
+        "agent_source_calls": 1,
+        "estimated_usd": 0.00665933,
+        "trajectory_id": "sdk-nano-writes-28-v1/d0b1f43_1__sdk__1",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 2,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 4,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 0,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 0,
+        "post_14_output_tokens": 0,
+        "post_14_model_seconds": 0,
+        "post_14_execution_seconds": 0,
+        "post_14_estimated_usd": 0,
+        "redeclaration_error_turns": 1,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      }
+    ],
+    "sdk-nano-no-answer-v1": [
+      {
+        "task_id": "afc0fce_1",
+        "condition": "raw",
+        "repeat": 0,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 20,
+        "seconds": 32.75741262501106,
+        "prompt_tokens": 114209,
+        "cached_tokens": 89088,
+        "generated_tokens": 2033,
+        "model_seconds": 30.23444120818749,
+        "setup_seconds": 1.5069047079887241,
+        "acquisition_seconds": 0,
+        "source_calls": 35,
+        "acquisition_calls": 0,
+        "agent_source_calls": 31,
+        "estimated_usd": 0.009347210000000002,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_1__raw__0",
+        "like_attempts": 9,
+        "evaluation_passed_checks": 9,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": true,
+        "comment_attempts": 9,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 3,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 16,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 9,
+            "comment_attempts": 9
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 6,
+        "succeeded_after_turn_14": true,
+        "post_14_input_tokens": 50954,
+        "post_14_output_tokens": 652,
+        "post_14_model_seconds": 9.474037332925946,
+        "post_14_execution_seconds": 0.20097029395401478,
+        "post_14_estimated_usd": 0.0029418,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_1",
+        "condition": "raw",
+        "repeat": 1,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 22,
+        "seconds": 35.09115341701545,
+        "prompt_tokens": 114443,
+        "cached_tokens": 88320,
+        "generated_tokens": 2323,
+        "model_seconds": 34.22748324810527,
+        "setup_seconds": 0.07971062511205673,
+        "acquisition_seconds": 0,
+        "source_calls": 45,
+        "acquisition_calls": 0,
+        "agent_source_calls": 41,
+        "estimated_usd": 0.00989475,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_1__raw__1",
+        "like_attempts": 9,
+        "evaluation_passed_checks": 9,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": true,
+        "comment_attempts": 9,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 5,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 21,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 21,
+            "like_attempts": 9,
+            "comment_attempts": 9
+          },
+          {
+            "turn": 22,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 8,
+        "succeeded_after_turn_14": true,
+        "post_14_input_tokens": 61184,
+        "post_14_output_tokens": 1337,
+        "post_14_model_seconds": 15.933207914698869,
+        "post_14_execution_seconds": 0.2334235841408372,
+        "post_14_estimated_usd": 0.00469205,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_1",
+        "condition": "raw_ts",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 25,
+        "seconds": 44.006046999944374,
+        "prompt_tokens": 164218,
+        "cached_tokens": 135296,
+        "generated_tokens": 3507,
+        "model_seconds": 42.71607003756799,
+        "setup_seconds": 0.3198398328386247,
+        "acquisition_seconds": 0,
+        "source_calls": 67,
+        "acquisition_calls": 0,
+        "agent_source_calls": 63,
+        "estimated_usd": 0.012874070000000001,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_1__raw_ts__0",
+        "like_attempts": 25,
+        "evaluation_passed_checks": 7,
+        "evaluation_failed_checks": 2,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 25,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 4,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 24,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 21,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 22,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 23,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 24,
+            "like_attempts": 25,
+            "comment_attempts": 25
+          },
+          {
+            "turn": 25,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 11,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 105709,
+        "post_14_output_tokens": 1945,
+        "post_14_model_seconds": 21.629064622800797,
+        "post_14_execution_seconds": 0.4227595836855471,
+        "post_14_estimated_usd": 0.006822970000000001,
+        "redeclaration_error_turns": 3,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_1",
+        "condition": "raw_ts",
+        "repeat": 1,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 23,
+        "seconds": 43.189269334077835,
+        "prompt_tokens": 121578,
+        "cached_tokens": 93440,
+        "generated_tokens": 3839,
+        "model_seconds": 42.044165294617414,
+        "setup_seconds": 0.36567695904523134,
+        "acquisition_seconds": 0,
+        "source_calls": 39,
+        "acquisition_calls": 0,
+        "agent_source_calls": 35,
+        "estimated_usd": 0.01229515,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_1__raw_ts__1",
+        "like_attempts": 9,
+        "evaluation_passed_checks": 9,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": true,
+        "comment_attempts": 9,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 5,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 22,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 21,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 22,
+            "like_attempts": 9,
+            "comment_attempts": 9
+          },
+          {
+            "turn": 23,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 9,
+        "succeeded_after_turn_14": true,
+        "post_14_input_tokens": 73459,
+        "post_14_output_tokens": 2821,
+        "post_14_model_seconds": 25.40465841908008,
+        "post_14_execution_seconds": 0.40773025061935186,
+        "post_14_estimated_usd": 0.00685933,
+        "redeclaration_error_turns": 2,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_1",
+        "condition": "sdk",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 12,
+        "seconds": 28.5024411669001,
+        "prompt_tokens": 56781,
+        "cached_tokens": 40576,
+        "generated_tokens": 2517,
+        "model_seconds": 26.670096749905497,
+        "setup_seconds": 0.71763158403337,
+        "acquisition_seconds": 0.40319804195314646,
+        "source_calls": 170,
+        "acquisition_calls": 65,
+        "agent_source_calls": 101,
+        "estimated_usd": 0.00719877,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_1__sdk__0",
+        "like_attempts": 25,
+        "evaluation_passed_checks": 7,
+        "evaluation_failed_checks": 2,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 25,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 2,
+        "sdk_action_mention_turns": 4,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 11,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 25,
+            "comment_attempts": 25
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 0,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 0,
+        "post_14_output_tokens": 0,
+        "post_14_model_seconds": 0,
+        "post_14_execution_seconds": 0,
+        "post_14_estimated_usd": 0,
+        "redeclaration_error_turns": 2,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_1",
+        "condition": "sdk",
+        "repeat": 1,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 21,
+        "seconds": 51.773253791965544,
+        "prompt_tokens": 132548,
+        "cached_tokens": 104064,
+        "generated_tokens": 5027,
+        "model_seconds": 50.333964626537636,
+        "setup_seconds": 0.7478867920581251,
+        "acquisition_seconds": 0.4211371671408415,
+        "source_calls": 106,
+        "acquisition_calls": 65,
+        "agent_source_calls": 37,
+        "estimated_usd": 0.014061829999999999,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_1__sdk__1",
+        "like_attempts": 9,
+        "evaluation_passed_checks": 9,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": true,
+        "comment_attempts": 9,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 5,
+        "sdk_action_mention_turns": 3,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 20,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 9,
+            "comment_attempts": 9
+          },
+          {
+            "turn": 21,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 7,
+        "succeeded_after_turn_14": true,
+        "post_14_input_tokens": 76103,
+        "post_14_output_tokens": 2457,
+        "post_14_model_seconds": 22.86155250063166,
+        "post_14_execution_seconds": 0.2074234988540411,
+        "post_14_estimated_usd": 0.006241930000000001,
+        "redeclaration_error_turns": 4,
+        "non_iterable_error_turns": 1,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "raw",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 20,
+        "seconds": 31.553634082898498,
+        "prompt_tokens": 97119,
+        "cached_tokens": 76800,
+        "generated_tokens": 2490,
+        "model_seconds": 30.511051122331992,
+        "setup_seconds": 0.07811179105192423,
+        "acquisition_seconds": 0,
+        "source_calls": 116,
+        "acquisition_calls": 0,
+        "agent_source_calls": 112,
+        "estimated_usd": 0.008712300000000001,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_2__raw__0",
+        "like_attempts": 29,
+        "evaluation_passed_checks": 7,
+        "evaluation_failed_checks": 2,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 29,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 8,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 15,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 29,
+            "comment_attempts": 29
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 6,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 42688,
+        "post_14_output_tokens": 667,
+        "post_14_model_seconds": 8.575211249757558,
+        "post_14_execution_seconds": 0.3356077498756349,
+        "post_14_estimated_usd": 0.0024132699999999995,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "raw",
+        "repeat": 1,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 15,
+        "seconds": 29.43819212494418,
+        "prompt_tokens": 101031,
+        "cached_tokens": 78720,
+        "generated_tokens": 2537,
+        "model_seconds": 27.912999080959707,
+        "setup_seconds": 0.07982624997384846,
+        "acquisition_seconds": 0,
+        "source_calls": 95,
+        "acquisition_calls": 0,
+        "agent_source_calls": 91,
+        "estimated_usd": 0.00920785,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_2__raw__1",
+        "like_attempts": 34,
+        "evaluation_passed_checks": 7,
+        "evaluation_failed_checks": 2,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 34,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 3,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 14,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 34,
+            "comment_attempts": 34
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 1,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 11625,
+        "post_14_output_tokens": 33,
+        "post_14_model_seconds": 0.7923267919104546,
+        "post_14_execution_seconds": 0.008689374895766377,
+        "post_14_estimated_usd": 0.00040785,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "raw_ts",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 22,
+        "seconds": 42.73318916698918,
+        "prompt_tokens": 148095,
+        "cached_tokens": 119040,
+        "generated_tokens": 3403,
+        "model_seconds": 41.23968612519093,
+        "setup_seconds": 0.3768693341407925,
+        "acquisition_seconds": 0,
+        "source_calls": 86,
+        "acquisition_calls": 0,
+        "agent_source_calls": 82,
+        "estimated_usd": 0.01244555,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_2__raw_ts__0",
+        "like_attempts": 34,
+        "evaluation_passed_checks": 7,
+        "evaluation_failed_checks": 2,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 34,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 4,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 21,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 21,
+            "like_attempts": 34,
+            "comment_attempts": 34
+          },
+          {
+            "turn": 22,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 8,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 80509,
+        "post_14_output_tokens": 1799,
+        "post_14_model_seconds": 18.743543749907985,
+        "post_14_execution_seconds": 0.5238526673056185,
+        "post_14_estimated_usd": 0.0056324700000000005,
+        "redeclaration_error_turns": 4,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "raw_ts",
+        "repeat": 1,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 23,
+        "seconds": 42.11088279099204,
+        "prompt_tokens": 116705,
+        "cached_tokens": 88960,
+        "generated_tokens": 3351,
+        "model_seconds": 41.28933900152333,
+        "setup_seconds": 0.30440808297134936,
+        "acquisition_seconds": 0,
+        "source_calls": 13,
+        "acquisition_calls": 0,
+        "agent_source_calls": 9,
+        "estimated_usd": 0.011516950000000003,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_2__raw_ts__1",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 4,
+        "evaluation_failed_checks": 5,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 4,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 21,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 22,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 23,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 9,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 63682,
+        "post_14_output_tokens": 1395,
+        "post_14_model_seconds": 18.38543700124137,
+        "post_14_execution_seconds": 0.1078962895553559,
+        "post_14_estimated_usd": 0.004780309999999999,
+        "redeclaration_error_turns": 4,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "sdk",
+        "repeat": 0,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 13,
+        "seconds": 24.595160665921867,
+        "prompt_tokens": 53566,
+        "cached_tokens": 30336,
+        "generated_tokens": 2215,
+        "model_seconds": 23.30527179292403,
+        "setup_seconds": 0.6968342908658087,
+        "acquisition_seconds": 0.37631074991077185,
+        "source_calls": 97,
+        "acquisition_calls": 44,
+        "agent_source_calls": 49,
+        "estimated_usd": 0.008021470000000001,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_2__sdk__0",
+        "like_attempts": 12,
+        "evaluation_passed_checks": 9,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": true,
+        "comment_attempts": 12,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 4,
+        "sdk_action_mention_turns": 1,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 12,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 12,
+            "comment_attempts": 12
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 0,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 0,
+        "post_14_output_tokens": 0,
+        "post_14_model_seconds": 0,
+        "post_14_execution_seconds": 0,
+        "post_14_estimated_usd": 0,
+        "redeclaration_error_turns": 1,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "afc0fce_2",
+        "condition": "sdk",
+        "repeat": 1,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 11,
+        "seconds": 27.315978625090793,
+        "prompt_tokens": 70985,
+        "cached_tokens": 52864,
+        "generated_tokens": 2616,
+        "model_seconds": 25.471631210064515,
+        "setup_seconds": 0.7681503749918193,
+        "acquisition_seconds": 0.3839380410499871,
+        "source_calls": 185,
+        "acquisition_calls": 44,
+        "agent_source_calls": 137,
+        "estimated_usd": 0.00795148,
+        "trajectory_id": "sdk-nano-no-answer-v1/afc0fce_2__sdk__1",
+        "like_attempts": 34,
+        "evaluation_passed_checks": 7,
+        "evaluation_failed_checks": 2,
+        "failure_categories": ["world-state"],
+        "write_state_checks_passed": false,
+        "comment_attempts": 34,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 0,
+        "sdk_action_mention_turns": 4,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": 10,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 34,
+            "comment_attempts": 34
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 0,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 0,
+        "post_14_output_tokens": 0,
+        "post_14_model_seconds": 0,
+        "post_14_execution_seconds": 0,
+        "post_14_estimated_usd": 0,
+        "redeclaration_error_turns": 3,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "raw",
+        "repeat": 0,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 17,
+        "seconds": 25.314924250124022,
+        "prompt_tokens": 74084,
+        "cached_tokens": 49664,
+        "generated_tokens": 1829,
+        "model_seconds": 24.8315430409275,
+        "setup_seconds": 0.07959825010038912,
+        "acquisition_seconds": 0,
+        "source_calls": 15,
+        "acquisition_calls": 0,
+        "agent_source_calls": 11,
+        "estimated_usd": 0.00816353,
+        "trajectory_id": "sdk-nano-no-answer-v1/d0b1f43_1__raw__0",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 1,
+        "evaluation_failed_checks": 1,
+        "failure_categories": ["answer"],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 3,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 3,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 19403,
+        "post_14_output_tokens": 255,
+        "post_14_model_seconds": 4.034788666758686,
+        "post_14_execution_seconds": 0.02258387510664761,
+        "post_14_estimated_usd": 0.0012732700000000002,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "raw",
+        "repeat": 1,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 17,
+        "seconds": 25.96476608281955,
+        "prompt_tokens": 72451,
+        "cached_tokens": 49664,
+        "generated_tokens": 1577,
+        "model_seconds": 25.27567504136823,
+        "setup_seconds": 0.14289958286099136,
+        "acquisition_seconds": 0,
+        "source_calls": 17,
+        "acquisition_calls": 0,
+        "agent_source_calls": 13,
+        "estimated_usd": 0.00752193,
+        "trajectory_id": "sdk-nano-no-answer-v1/d0b1f43_1__raw__1",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 2,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 2,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 3,
+        "succeeded_after_turn_14": true,
+        "post_14_input_tokens": 20110,
+        "post_14_output_tokens": 625,
+        "post_14_model_seconds": 6.094868041807786,
+        "post_14_execution_seconds": 0.0751617078203708,
+        "post_14_estimated_usd": 0.00187717,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "raw_ts",
+        "repeat": 0,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 15,
+        "seconds": 25.76672491710633,
+        "prompt_tokens": 67800,
+        "cached_tokens": 48640,
+        "generated_tokens": 1886,
+        "model_seconds": 25.102269960334525,
+        "setup_seconds": 0.302931500133127,
+        "acquisition_seconds": 0,
+        "source_calls": 16,
+        "acquisition_calls": 0,
+        "agent_source_calls": 12,
+        "estimated_usd": 0.007162300000000002,
+        "trajectory_id": "sdk-nano-no-answer-v1/d0b1f43_1__raw_ts__0",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 2,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 2,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 1,
+        "succeeded_after_turn_14": true,
+        "post_14_input_tokens": 7170,
+        "post_14_output_tokens": 55,
+        "post_14_model_seconds": 1.134244792163372,
+        "post_14_execution_seconds": 0.005489292088896036,
+        "post_14_estimated_usd": 0.00046594999999999997,
+        "redeclaration_error_turns": 0,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "raw_ts",
+        "repeat": 1,
+        "success": false,
+        "completed": true,
+        "termination": "completed",
+        "steps": 24,
+        "seconds": 46.11375675001182,
+        "prompt_tokens": 172379,
+        "cached_tokens": 134016,
+        "generated_tokens": 3195,
+        "model_seconds": 45.22990891546942,
+        "setup_seconds": 0.29729762487113476,
+        "acquisition_seconds": 0,
+        "source_calls": 19,
+        "acquisition_calls": 0,
+        "agent_source_calls": 15,
+        "estimated_usd": 0.01434667,
+        "trajectory_id": "sdk-nano-no-answer-v1/d0b1f43_1__raw_ts__1",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 1,
+        "evaluation_failed_checks": 1,
+        "failure_categories": ["answer"],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 4,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 12,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 13,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 14,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 15,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 16,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 17,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 18,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 19,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 20,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 21,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 22,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 23,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 24,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 10,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 121025,
+        "post_14_output_tokens": 1771,
+        "post_14_model_seconds": 19.60250808368437,
+        "post_14_execution_seconds": 0.20362541638314724,
+        "post_14_estimated_usd": 0.00757203,
+        "redeclaration_error_turns": 6,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "sdk",
+        "repeat": 0,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 11,
+        "seconds": 22.631541083101183,
+        "prompt_tokens": 50992,
+        "cached_tokens": 33792,
+        "generated_tokens": 1923,
+        "model_seconds": 21.62828454328701,
+        "setup_seconds": 0.6726539579685777,
+        "acquisition_seconds": 0.28685833397321403,
+        "source_calls": 62,
+        "acquisition_calls": 57,
+        "agent_source_calls": 1,
+        "estimated_usd": 0.00651959,
+        "trajectory_id": "sdk-nano-no-answer-v1/d0b1f43_1__sdk__0",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 2,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 1,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 0,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 0,
+        "post_14_output_tokens": 0,
+        "post_14_model_seconds": 0,
+        "post_14_execution_seconds": 0,
+        "post_14_estimated_usd": 0,
+        "redeclaration_error_turns": 2,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 0
+      },
+      {
+        "task_id": "d0b1f43_1",
+        "condition": "sdk",
+        "repeat": 1,
+        "success": true,
+        "completed": true,
+        "termination": "completed",
+        "steps": 11,
+        "seconds": 20.900926958071068,
+        "prompt_tokens": 96010,
+        "cached_tokens": 75392,
+        "generated_tokens": 1971,
+        "model_seconds": 19.941903167869896,
+        "setup_seconds": 0.5864322499837726,
+        "acquisition_seconds": 0.27176737505942583,
+        "source_calls": 62,
+        "acquisition_calls": 57,
+        "agent_source_calls": 1,
+        "estimated_usd": 0.008095189999999999,
+        "trajectory_id": "sdk-nano-no-answer-v1/d0b1f43_1__sdk__1",
+        "like_attempts": 0,
+        "evaluation_passed_checks": 2,
+        "evaluation_failed_checks": 0,
+        "failure_categories": [],
+        "write_state_checks_passed": null,
+        "comment_attempts": 0,
+        "action_error_turns": 0,
+        "literal_status_only_turns": 1,
+        "sdk_action_mention_turns": 0,
+        "notes": "API counts are attempts in the original request tracker, not proof of successful mutations. Literal-only print detection is conservative and syntactic.",
+        "error_category": null,
+        "resolved_models": ["gpt-5.4-nano-2026-03-17"],
+        "first_mutation_turn": null,
+        "mutation_turns": [
+          {
+            "turn": 1,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 2,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 3,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 4,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 5,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 6,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 7,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 8,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 9,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 10,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          },
+          {
+            "turn": 11,
+            "like_attempts": 0,
+            "comment_attempts": 0
+          }
+        ],
+        "used_turns_after_14": 0,
+        "succeeded_after_turn_14": false,
+        "post_14_input_tokens": 0,
+        "post_14_output_tokens": 0,
+        "post_14_model_seconds": 0,
+        "post_14_execution_seconds": 0,
+        "post_14_estimated_usd": 0,
+        "redeclaration_error_turns": 2,
+        "non_iterable_error_turns": 0,
+        "output_truncation_turns": 1
+      }
+    ]
+  }
+}

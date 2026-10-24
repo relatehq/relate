@@ -1,0 +1,42 @@
+{
+  "upstream_main": "1556498",
+  "primary_code_revision": "2bb7982",
+  "primary_and_followup_sources": [
+    {
+      "run": "sdk-mini-main-v3",
+      "source_hashes_verified": true
+    },
+    {
+      "run": "sdk-mini-completion-feedback-v1",
+      "source_hashes_verified": true
+    },
+    {
+      "run": "sdk-nano-tool-pilot-v2",
+      "source_hashes_verified": true
+    }
+  ],
+  "archive": {
+    "files_verified": 550,
+    "bytes": 2816101,
+    "sha256": "3c95f228dd79976156b0569ae7fb0759535668a858e9ba6818966d27412d4e80",
+    "round_trip_exact": true
+  },
+  "checks": {
+    "research_node_tests": 9,
+    "research_python_tests": 13,
+    "appworld_persistence_smoke": true,
+    "unit_tests": 683,
+    "integration_tests": 190,
+    "typecheck": true,
+    "package_boundaries": "23 packages, 141 modules",
+    "lint": true,
+    "format": true,
+    "installed_package_smoke": true
+  },
+  "public_evidence_audit": {
+    "credential_literal_absent": true,
+    "raw_benchmark_emails_absent": true,
+    "local_home_paths_absent": true
+  },
+  "scope": "Main SDK code is frozen in source snapshots. The final runner adds an opt-in completion-feedback flag; production packages are unchanged by the research follow-up."
+}

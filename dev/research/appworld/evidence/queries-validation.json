@@ -1,0 +1,20 @@
+{
+  "candidate": "sdk-nano-queries-v1",
+  "episodes": 36,
+  "comparison_episodes": 54,
+  "sdk_matches_merged_main": true,
+  "query_update_graph_descriptions_and_expanded_tasks": true,
+  "exact_initial_messages_and_acquisition_call_counts_unchanged": true,
+  "all_episodes_scored": true,
+  "metric_sums_verified": true,
+  "source_hashes_and_exact_prompts_verified": true,
+  "archive_files_roundtripped": 1745,
+  "archive_sha256": "f3a4365fd33e778c2b0045148e1232ba65954d0651af6be01db4b3a3c34eb629",
+  "explorer_episodes": 258,
+  "secret_redaction_verified": true,
+  "python_harness_tests": "18 passed",
+  "node_tests": "11 passed",
+  "original_appworld_write_smoke": "passed",
+  "full_repository_check": "pnpm check passed: 90 files / 945 tests, Postgres integration and installed-package checks",
+  "browser_checks": "Result table, totals, failed-SDK filter, full trajectory IDs, paired-case navigation and no console errors verified"
+}

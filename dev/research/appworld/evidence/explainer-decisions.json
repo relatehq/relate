@@ -1,0 +1,101 @@
+{
+  "evaluated_main": "cd1a789e89208746d77b7ab85395af8e3bcf94e6",
+  "integration_main": "084e6b95f467015c150bcd7b9487fdb4a865c304",
+  "episodes": 336,
+  "model_calls": 4780,
+  "known_estimated_usd": 2.97014927,
+  "requests_without_usage": 0,
+  "sdk_promotions": ["datetime"],
+  "research_controls_retained": ["snapshot_ts"],
+  "failed_holdout": ["filters"],
+  "screening_rejections": [
+    "actions",
+    "errors",
+    "collections",
+    "relationships",
+    "coverage"
+  ],
+  "phases": {
+    "screen": {
+      "actions": {
+        "eligible": true,
+        "gate": false
+      },
+      "errors": {
+        "eligible": true,
+        "gate": false
+      },
+      "collections": {
+        "eligible": true,
+        "gate": false
+      },
+      "datetime": {
+        "eligible": true,
+        "gate": true
+      },
+      "relationships": {
+        "eligible": true,
+        "gate": false
+      },
+      "filters": {
+        "eligible": true,
+        "gate": true
+      },
+      "coverage": {
+        "eligible": true,
+        "gate": false
+      },
+      "snapshot_ts": {
+        "eligible": true,
+        "gate": true
+      }
+    },
+    "confirm": {
+      "datetime": {
+        "eligible": true,
+        "gate": true
+      },
+      "filters": {
+        "eligible": true,
+        "gate": true
+      },
+      "snapshot_ts": {
+        "eligible": true,
+        "gate": true
+      }
+    },
+    "holdout": {
+      "datetime": {
+        "eligible": true,
+        "gate": true
+      },
+      "filters": {
+        "eligible": true,
+        "gate": false
+      },
+      "snapshot_ts": {
+        "eligible": true,
+        "gate": true
+      }
+    }
+  },
+  "promotion_prs": {
+    "datetime": "https://github.com/relatehq/relate/pull/26"
+  },
+  "promotion_commit": "f88d0cd",
+  "promotion_validation": {
+    "pnpm_check": {
+      "exit": 0,
+      "tests_passed": 992,
+      "log_sha256": "6a43528f0134046050564e23974167a8e253393b8d502bc11ecd194844f29cb9"
+    },
+    "docs_check": {
+      "exit": 0,
+      "log_sha256": "3d47add8680c6d35cfdc33edbb9ebbeb2297187d7188b1b728cbe42e96334ace"
+    },
+    "research_pnpm_check_tests": 975,
+    "research_python_tests": 40,
+    "research_node_tests": 13,
+    "probe_pnpm_check_tests": 981
+  }
+}
