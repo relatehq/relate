@@ -88,8 +88,8 @@ const teams = await http('crm', {
 });
 const lines = await sql(
   'plans',
-  `SELECT * FROM plan_lines WHERE client_code = ANY($1) AND channel = 'social'`,
-  [codes],
+  `SELECT * FROM plan_lines WHERE client_code IN (SELECT value FROM json_each(?)) AND channel = 'social'`,
+  [JSON.stringify(codes)],
 );
 // …page through Meta campaigns per ad account, fetch today's insights, read warehouse,
 // parse TikTok names, convert currencies, compute pacing, notice etl_runs is stale
@@ -232,7 +232,7 @@ flowchart TB
   W --> PTtd[TTD projection] --> STtd[TTD simulator<br/>HTTP]
   W --> PGa[Google Ads projection] --> SGa[Google Ads simulator<br/>HTTP]
   W --> PCrm[CRM projection] --> SCrm[Salesforce-shaped simulator<br/>HTTP]
-  W --> PPlan[Plans projection] --> DPlan[(Postgres: plans)]
+  W --> PPlan[Plans projection] --> DPlan[(SQLite: plans)]
   W --> PFin[Finance projection] --> DFin[(SQLite: finance)]
   W --> PWh[Warehouse projection] --> DWh[(DuckDB: warehouse)]
   SMeta & STik & STtd & SGa --> ML[Mutation log]
@@ -302,11 +302,11 @@ export type FaultScript = Array<{
 
 ### Databases
 
-| Database             | Engine   | Tables (main)                                                                                                     | Pitfalls kept                                                                           |
-| -------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Plans / order system | Postgres | `clients_ref(client_code, sf_account_id)`, `media_plans`, `plan_lines`, `insertion_orders`                        | Nullable platform ID columns; budgets in minor units of the plan currency               |
-| Finance              | SQLite   | `vendor_invoices`, `vendor_invoice_lines`, `client_billings`, `disputes`                                          | Months in UTC; invoice currency may differ from account currency                        |
-| Warehouse            | DuckDB   | `delivery_daily_ad`, `delivery_daily_campaign`, `site_conversions`, `brand_safety_events`, `fx_daily`, `etl_runs` | Account-local dates; spend in account currency micros; T-1 load; TikTok stale since T-3 |
+| Database             | Engine | Tables (main)                                                                                                     | Pitfalls kept                                                                           |
+| -------------------- | ------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Plans / order system | SQLite | `clients_ref(client_code, sf_account_id)`, `media_plans`, `plan_lines`, `insertion_orders`                        | Nullable platform ID columns; budgets in minor units of the plan currency               |
+| Finance              | SQLite | `vendor_invoices`, `vendor_invoice_lines`, `client_billings`, `disputes`                                          | Months in UTC; invoice currency may differ from account currency                        |
+| Warehouse            | DuckDB | `delivery_daily_ad`, `delivery_daily_campaign`, `site_conversions`, `brand_safety_events`, `fx_daily`, `etl_runs` | Account-local dates; spend in account currency micros; T-1 load; TikTok stale since T-3 |
 
 ```sql
 -- plans: plan_lines (excerpt)
@@ -317,8 +317,8 @@ CREATE TABLE plan_lines (
   channel          text NOT NULL,              -- 'social' | 'programmatic' | 'search'
   platform         text NOT NULL,              -- 'meta' | 'tiktok' | 'ttd' | 'google_ads'
   tactic           text NOT NULL,              -- 'PROSP' | 'RTG' | 'BRAND'
-  budget_minor     bigint NOT NULL,
-  currency         char(3) NOT NULL,
+  budget_minor     integer NOT NULL,
+  currency         text NOT NULL,
   flight_start     date NOT NULL,
   flight_end       date NOT NULL,
   meta_campaign_id    text,                    -- one of these four is set, or none (seam)
@@ -463,7 +463,7 @@ flowchart LR
 | Object / dataset       | Source                                     | Notable properties                                                                     |
 | ---------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------- |
 | `Client`               | CRM `Account` (Salesforce connector)       | `code`, `team`, `currency`, `feePct` (commercial group)                                |
-| `PlanLine`             | Postgres `plan_lines`                      | `budgetMinor`, `flight*`, references to each platform campaign; `pacingPct` (declared) |
+| `PlanLine`             | SQLite `plan_lines`                        | `budgetMinor`, `flight*`, references to each platform campaign; `pacingPct` (declared) |
 | `MetaCampaign` etc.    | Platform simulators (benchmark connectors) | `externalId`, `status`, `budget`, `accountCurrency`, `accountTimezone`, `spendToday`   |
 | `MetaAdSet`, `MetaAd`… | Platform simulators                        | `status`, parent reference                                                             |
 | `GadsBudget`           | Google Ads simulator                       | `amountMicros`, `sharedWith` (reverse relationship)                                    |
@@ -535,8 +535,8 @@ export const PlanLine = defineObject({
 
 - **CRM:** `@relate/connector-salesforce` against the benchmark's
   Salesforce-shaped simulator.
-- **Plans / finance / warehouse:** `@relate/connector-postgres`,
-  `@relate/connector-sqlite`, `@relate/connector-duckdb`.
+- **Plans / finance / warehouse:** `@relate/connector-sqlite` (two files),
+  `@relate/connector-duckdb`.
 - **Platforms:** four benchmark-owned `SourceConnector`s (like
   `examples/02-connected-sources/src/crm-connector.ts`), one per simulator. They
   fetch one record by ID, map 401/403 to `SourceAccessDenied`, and for campaigns
@@ -800,7 +800,7 @@ benchmarks/media-agency/
 
 ```sh
 pnpm bench:agency:generate --tier M --seed 7          # world + snapshots
-pnpm bench:agency:run --stage pilot                   # needs ANTHROPIC_API_KEY, RELATE_BENCH_DATABASE_URL
+pnpm bench:agency:run --stage pilot                   # needs ANTHROPIC_API_KEY; no database or Docker
 pnpm bench:agency:run --tier M --arm relate --model claude-sonnet-5-5 --task 'pacing.*' -k 5
 pnpm bench:agency:report --out results/2026-11-…/
 ```
@@ -819,7 +819,7 @@ pnpm bench:agency:report --out results/2026-11-…/
 
 | #   | Question                                                                                                                                     | Settled by                  | Current lean                                                                         |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------ |
-| Q1  | Plans in Postgres needs a database URL; keep it (realistic) or use SQLite so the benchmark runs with no database like the examples?          | Owner                       | Postgres, with `RELATE_BENCH_DATABASE_URL`; mirrors a real order system              |
+| Q1  | Plans in Postgres or SQLite?                                                                                                                 | Owner                       | **Settled 2026-10-23:** SQLite, so the benchmark needs no database or Docker         |
 | Q2  | Can the CRM simulator reuse `dev/salesforce` tooling under the boundary policy, or does the benchmark own its stand-in?                      | Phase 1, boundary check     | Own stand-in if reuse needs a policy exception                                       |
 | Q3  | Can a declared calculation convert currency using a second dataset (`fx_daily`), or must conversion happen in agent code?                    | Phase 3 against current API | If not supported, convert in code and record as a gap                                |
 | Q4  | Should the journal/reconcile helper become an SDK feature?                                                                                   | After Main results          | Decide from how often `duplicate-write` and `partial-unreported` differ between arms |
