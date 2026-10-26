@@ -140,6 +140,7 @@ export const packagePolicies: Record<
     imports: [
       'next',
       'next/navigation',
+      'next/script',
       'react',
       '@fumadocs/mdx-remote',
       'typedoc',
