@@ -7,6 +7,8 @@ packages:
   - dev/salesforce
 allowBuilds:
   esbuild: true
+  '@swc/core': false
+  protobufjs: false
 # CodeMirror extensions must share one state/view/language instance.
 overrides:
   '@codemirror/state': 6.7.6
