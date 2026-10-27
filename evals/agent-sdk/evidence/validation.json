@@ -1,0 +1,353 @@
+{
+  "date": "2026-10-22",
+  "suite_version": "1.0.0",
+  "sdk_base_commit": "72d2c3d28c29709d55e107ad5cde1807760682fb",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "python": "3.13.7",
+  "node": "v26.9.0",
+  "validation": {
+    "repository": {
+      "command": "pnpm check",
+      "passed": true,
+      "test_files": 187,
+      "passed_tests": 2673,
+      "skipped_tests": 1,
+      "packaging_passed": true
+    },
+    "harness": {
+      "command": "RELATE_EVAL_INTEGRATION=1 uv run pytest -q",
+      "passed": true,
+      "passed_tests": 22
+    },
+    "oracle": {
+      "command": "uv run relate-eval run --oracle --output .local/oracle-final",
+      "passed": 84,
+      "planned": 84
+    },
+    "image_retention": {
+      "retained_image": "sha256:2629b4ac916465d5fabdc9f895ef2735854c641766c20ed30d39b9198c3efa7e",
+      "retained_tag": "relate-agent-eval:run-0481a5615ffd4b6295ce64a54928e66c",
+      "moving_tag_rebuilt": true,
+      "old_image_session_passed": true
+    },
+    "viewer": {
+      "verified": true,
+      "method": "Opened Inspect viewer in Chrome; inspected sample scores and transcripts"
+    }
+  },
+  "reporting": {
+    "sha256": "066a907cdc470c77a207a137e362bd3f664ef91b3a50531de3ec4fa8201c026d",
+    "note": "Derived reports regenerated from unchanged original Inspect logs using checks/report.py, including corrected cache-token accounting."
+  },
+  "runs": [
+    {
+      "name": "oracle-final",
+      "complete": true,
+      "agents": [
+        {
+          "agent": "oracle",
+          "slice": "all",
+          "planned": 84,
+          "scored": 84,
+          "passed": 84,
+          "incorrect": 0,
+          "errors": 0,
+          "missing": 0,
+          "success_over_planned": 1.0,
+          "success_over_scored": 1.0,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "reliability": {
+            "1": {
+              "eligible_tasks": 84,
+              "pass_at_k": 1.0,
+              "pass_power_k": 1.0
+            },
+            "2": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            },
+            "3": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "live-smoke",
+      "complete": false,
+      "agents": [
+        {
+          "agent": "haiku",
+          "slice": "all",
+          "planned": 16,
+          "scored": 0,
+          "passed": 0,
+          "incorrect": 0,
+          "errors": 0,
+          "missing": 16,
+          "success_over_planned": 0.0,
+          "success_over_scored": null,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "reliability": {
+            "1": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            },
+            "2": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            },
+            "3": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            }
+          }
+        },
+        {
+          "agent": "nano",
+          "slice": "all",
+          "planned": 16,
+          "scored": 0,
+          "passed": 0,
+          "incorrect": 0,
+          "errors": 0,
+          "missing": 16,
+          "success_over_planned": 0.0,
+          "success_over_scored": null,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "reliability": {
+            "1": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            },
+            "2": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            },
+            "3": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "live-smoke-v2",
+      "complete": false,
+      "agents": [
+        {
+          "agent": "haiku",
+          "slice": "all",
+          "planned": 16,
+          "scored": 0,
+          "passed": 0,
+          "incorrect": 0,
+          "errors": 0,
+          "missing": 16,
+          "success_over_planned": 0.0,
+          "success_over_scored": null,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "reliability": {
+            "1": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            },
+            "2": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            },
+            "3": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            }
+          }
+        },
+        {
+          "agent": "nano",
+          "slice": "all",
+          "planned": 16,
+          "scored": 16,
+          "passed": 1,
+          "incorrect": 15,
+          "errors": 0,
+          "missing": 0,
+          "success_over_planned": 0.0625,
+          "success_over_scored": 0.0625,
+          "input_tokens": 450313,
+          "output_tokens": 12741,
+          "reliability": {
+            "1": {
+              "eligible_tasks": 8,
+              "pass_at_k": 0.0625,
+              "pass_power_k": 0.0625
+            },
+            "2": {
+              "eligible_tasks": 8,
+              "pass_at_k": 0.125,
+              "pass_power_k": 0.0
+            },
+            "3": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "live-smoke-v3",
+      "complete": false,
+      "agents": [
+        {
+          "agent": "haiku",
+          "slice": "all",
+          "planned": 16,
+          "scored": 9,
+          "passed": 8,
+          "incorrect": 1,
+          "errors": 7,
+          "missing": 0,
+          "success_over_planned": 0.5,
+          "success_over_scored": 0.8888888888888888,
+          "input_tokens": 289999,
+          "output_tokens": 11456,
+          "reliability": {
+            "1": {
+              "eligible_tasks": 1,
+              "pass_at_k": 1.0,
+              "pass_power_k": 1.0
+            },
+            "2": {
+              "eligible_tasks": 1,
+              "pass_at_k": 1.0,
+              "pass_power_k": 1.0
+            },
+            "3": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            }
+          }
+        },
+        {
+          "agent": "nano",
+          "slice": "all",
+          "planned": 16,
+          "scored": 16,
+          "passed": 1,
+          "incorrect": 15,
+          "errors": 0,
+          "missing": 0,
+          "success_over_planned": 0.0625,
+          "success_over_scored": 0.0625,
+          "input_tokens": 432017,
+          "output_tokens": 11057,
+          "reliability": {
+            "1": {
+              "eligible_tasks": 8,
+              "pass_at_k": 0.0625,
+              "pass_power_k": 0.0625
+            },
+            "2": {
+              "eligible_tasks": 8,
+              "pass_at_k": 0.125,
+              "pass_power_k": 0.0
+            },
+            "3": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "live-smoke-final",
+      "complete": true,
+      "agents": [
+        {
+          "agent": "haiku",
+          "slice": "all",
+          "planned": 16,
+          "scored": 16,
+          "passed": 11,
+          "incorrect": 5,
+          "errors": 0,
+          "missing": 0,
+          "success_over_planned": 0.6875,
+          "success_over_scored": 0.6875,
+          "input_tokens": 609934,
+          "output_tokens": 20092,
+          "reliability": {
+            "1": {
+              "eligible_tasks": 8,
+              "pass_at_k": 0.6875,
+              "pass_power_k": 0.6875
+            },
+            "2": {
+              "eligible_tasks": 8,
+              "pass_at_k": 0.875,
+              "pass_power_k": 0.5
+            },
+            "3": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            }
+          }
+        },
+        {
+          "agent": "nano",
+          "slice": "all",
+          "planned": 16,
+          "scored": 16,
+          "passed": 0,
+          "incorrect": 16,
+          "errors": 0,
+          "missing": 0,
+          "success_over_planned": 0.0,
+          "success_over_scored": 0.0,
+          "input_tokens": 495573,
+          "output_tokens": 13649,
+          "reliability": {
+            "1": {
+              "eligible_tasks": 8,
+              "pass_at_k": 0.0,
+              "pass_power_k": 0.0
+            },
+            "2": {
+              "eligible_tasks": 8,
+              "pass_at_k": 0.0,
+              "pass_power_k": 0.0
+            },
+            "3": {
+              "eligible_tasks": 0,
+              "pass_at_k": null,
+              "pass_power_k": null
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

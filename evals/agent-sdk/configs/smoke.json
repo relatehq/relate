@@ -1,0 +1,22 @@
+{
+  "agents": [
+    { "name": "nano", "model": "openai/gpt-5.4-nano" },
+    { "name": "haiku", "model": "anthropic/claude-haiku-5-5" }
+  ],
+  "epochs": 2,
+  "concurrency": 2,
+  "selection": {
+    "seeds": [11],
+    "families": [
+      "count-all-tickets",
+      "traverse-through",
+      "cursor-page",
+      "recover-read-error",
+      "restricted-field",
+      "create-review",
+      "idempotent-retry",
+      "cross-domain-workflow"
+    ]
+  },
+  "limits": { "max_cells": 16, "max_operations": 200, "cell_timeout": 20 }
+}

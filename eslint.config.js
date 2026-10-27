@@ -27,6 +27,8 @@ export default [
       '**/coverage/**',
       '**/playwright-report/**',
       '**/test-results/**',
+      'evals/agent-sdk/.venv/**',
+      'evals/agent-sdk/.local/**',
     ],
   },
   {

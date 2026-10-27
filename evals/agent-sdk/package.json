@@ -1,0 +1,13 @@
+{
+  "name": "relate-agent-eval-environment",
+  "version": "0.0.0-dev.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:sdk": "node environment/prepare.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.27.0",
+    "typescript": "6.0.3"
+  }
+}

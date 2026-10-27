@@ -16,3 +16,10 @@ apps/docs/out/
 apps/docs/public/assets/brand/
 apps/docs/content/reference/api/
 apps/docs/lib/generated-reference.json
+
+# Standalone agent-eval environments and generated run evidence.
+evals/agent-sdk/.venv/
+evals/agent-sdk/.local/
+evals/agent-sdk/.pytest_cache/
+evals/agent-sdk/.ruff_cache/
+evals/agent-sdk/uv.lock

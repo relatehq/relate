@@ -1,0 +1,10 @@
+{
+  "agents": [
+    { "name": "nano", "model": "openai/gpt-5.4-nano" },
+    { "name": "haiku", "model": "anthropic/claude-haiku-5-5" }
+  ],
+  "epochs": 3,
+  "concurrency": 2,
+  "selection": { "seeds": [11, 29, 47] },
+  "limits": { "max_cells": 24, "max_operations": 400, "cell_timeout": 20 }
+}
