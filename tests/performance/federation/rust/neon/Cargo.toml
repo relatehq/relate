@@ -1,0 +1,13 @@
+[package]
+name = "relate-federation-neon"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+relate-federation-spike = { path = "../engine" }
+neon = "=1.1.1"
+serde_json = "1"

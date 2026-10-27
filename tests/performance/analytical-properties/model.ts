@@ -129,13 +129,15 @@ export interface ObjectOptions {
   capture: 'enabled' | 'disabled';
   freshness: 'cached' | 'refresh';
   sourceDelayMs: number;
+  /** Shared frozen time for hosts that intentionally share one benchmark store. */
+  now?: number;
 }
 
 export async function openObjects(records: Customer[], options: ObjectOptions) {
   const model = createModel();
   const byKey = new Map(records.map((row) => [row.key, row]));
   let active: Trace | undefined;
-  let now = Date.now();
+  let now = options.now ?? Date.now();
   const count = (name: string, amount = 1) => {
     if (active) active.counters[name] = (active.counters[name] ?? 0) + amount;
   };

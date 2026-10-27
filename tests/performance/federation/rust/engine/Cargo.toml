@@ -1,0 +1,20 @@
+[package]
+name = "relate-federation-spike"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1"
+datafusion = { version = "=54.1.0", default-features = false, features = ["parquet", "sql"] }
+datafusion-federation = "=0.5.5"
+datafusion-table-providers = { version = "=0.12.0", features = ["sqlite-bundled", "sqlite-federation", "postgres-federation"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+url = "2"
+
+[[bin]]
+name = "federation-engine"
+path = "src/main.rs"
