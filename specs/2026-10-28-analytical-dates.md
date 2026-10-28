@@ -4,9 +4,9 @@
 | --------------------------------------------------------------------------- | --------------------------------------- |
 | Date logical type for dataset columns and analytical values                 | Agreed 2026-10-28                       |
 | Ships before the media benchmark freezes its physical `DATE` tables         | Agreed 2026-10-28; no ISO-text fallback |
-| [Wire and calendar rules](#wire-values)                                     | Proposed after review                   |
-| [Consumer value type](#consumer-value-type) (`string`, never `Date`)        | Proposed                                |
-| [Connector behavior](#connector-behavior), including SQLite `__relate_date` | Proposed                                |
+| [Wire and calendar rules](#wire-values)                                     | Agreed after review 2026-10-28          |
+| [Consumer value type](#consumer-value-type) (`string`, never `Date`)        | Agreed after review 2026-10-28          |
+| [Connector behavior](#connector-behavior), including SQLite `__relate_date` | Agreed after review 2026-10-28          |
 | Implementation                                                              | Not implemented                         |
 
 ## Problem
@@ -19,7 +19,9 @@ deliveries on those dates without treating them as UTC instants. Today
 (`packages/relate/src/compiler/dataset-types.ts:47`).
 
 This spec adds analytical dates only. Date functions, timezone conversion and
-dates on ordinary object properties are out of scope.
+dates on ordinary object properties are out of scope. This feature lands and
+passes its acceptance tests independently of reference-dataset joins. The
+reference-dataset implementation then adds date-key lookup integration tests.
 
 ## Glossary
 
@@ -78,8 +80,8 @@ ordinary-property `ScalarSchema.format`
 ## Expressions
 
 ```sql
--- Allowed
-SELECT MIN(d.date), MAX(d.date), COUNT(d.date) FROM datasets.Delivery d
+-- Allowed: one result expression per computed alias.
+SELECT MIN(d.date) FROM self.delivery d
 WHERE d.date >= $from AND d.date < $to
 
 -- Rejected at preparation
@@ -89,6 +91,9 @@ d.date = d.label       -- date vs string
 d.date = d.loadedAt    -- date vs timestamp
 ```
 
+- Separate computed aliases may use `MAX(d.date)` or `COUNT(d.date)` in place of
+  `MIN(d.date)` above. The base remains `self.<association>`; this feature does
+  not add multiple SQL result columns or `FROM datasets.<Name>`.
 - `MIN`/`MAX` return `date`; `COUNT` stays `int64`. `SUM`, `AVG` and arithmetic
   on dates fail preparation.
 - `eq`, `in`, `gt`, `gte`, `lt`, `lte` are allowed: `date` joins the orderable
@@ -98,7 +103,8 @@ d.date = d.loadedAt    -- date vs timestamp
   `packages/node/src/bindings.ts:32`), so no implicit date/string or
   date/timestamp coercion exists in predicates or join keys.
 - Named parameters take their type from the date operand they are compared with
-  or joined to, the same as timestamps. The wire value is a JSON string:
+  or, once reference joins land, joined to, the same as timestamps. The wire
+  value is a JSON string:
 
 ```json
 { "sql": "… WHERE d.date >= $from", "parameters": { "from": "2026-10-01" } }
@@ -166,18 +172,54 @@ The shared renderer gets a date hook beside the timestamp one
 
 ```ts
 // packages/relate/src/analytics/render.ts, AnalyticalSqlDialect
-date(value: string, bind: Bind): string;   // new: renders canonical YYYY-MM-DD text
+date(value: string, bind: (value: TypedValue) => string): string;   // new: renders canonical YYYY-MM-DD text
 readonly dateParameters: number;           // new: bound parameters the hook adds
 
 // renderer, next to :152
 if (aggregate.result.type === 'date') value = dialect.date(value, bind);
 ```
 
-| Backend  | Physical check                                                                             | Binding                                                                                         | Result rendering (`dialect.date`)                                                                                                                                                                                                  |
-| -------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DuckDB   | `DATE` → `[{ type: 'date' }]` (`connectors/duckdb/src/schema.ts:38`)                       | `CAST(? AS DATE)`                                                                               | `strftime(value, '%Y-%m-%d')`; reject infinity and years outside 0–9999                                                                                                                                                            |
-| Postgres | oid `1082` → `[{ type: 'date' }]` (`connectors/postgres/src/schema.ts:55`)                 | `$n::date`; map `0000-` to `0001-… BC` as for timestamps (`connectors/postgres/src/plan.ts:25`) | `CASE WHEN NOT isfinite(v) THEN 'infinity' ELSE to_char(v, 'YYYY-MM-DDAD') END`; decode maps `0001-…BC` back to `0000-` (`connectors/postgres/src/results.ts:42`). Rendering as text keeps the `pg` driver from creating a `Date`. |
-| SQLite   | `TEXT`-affinity columns may declare `date` (`connectors/sqlite/src/analytics/child.ts:43`) | `CAST(? AS TEXT)` (`connectors/sqlite/src/analytics/plan.ts:32`)                                | Identity: the stored value is already the canonical text and is checked by `__relate_date`                                                                                                                                         |
+| Backend  | Physical check                                                                             | Binding                                                                                         | Result rendering (`dialect.date`)                                                                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DuckDB   | `DATE` → `[{ type: 'date' }]` (`connectors/duckdb/src/schema.ts:38`)                       | `CAST(? AS DATE)`                                                                               | `strftime(value, '%Y-%m-%d')`; reject infinity and years outside 0–9999                                                                                                                                          |
+| Postgres | oid `1082` → `[{ type: 'date' }]` (`connectors/postgres/src/schema.ts:55`)                 | `$n::date`; map `0000-` to `0001-… BC` as for timestamps (`connectors/postgres/src/plan.ts:25`) | Guard the portable date range before casting to `timestamp without time zone`, then format as text; see below. Decode strips `AD` and maps `0001-…BC` back to `0000-` (`connectors/postgres/src/results.ts:42`). |
+| SQLite   | `TEXT`-affinity columns may declare `date` (`connectors/sqlite/src/analytics/child.ts:43`) | `CAST(? AS TEXT)` (`connectors/sqlite/src/analytics/plan.ts:32`)                                | Identity: the stored value is already the canonical text and is checked by `__relate_date`                                                                                                                       |
+
+### Postgres date rendering
+
+The proposed date hook in `connectors/postgres/src/plan.ts`, beside `timestamp`
+at line 83, must check the portable range **before** converting the value to a
+timestamp. PostgreSQL `DATE` supports finite values beyond the range of its
+timestamp types. Formatting those values without a guard throws an execution
+error instead of returning text for `invalid-result` validation.
+
+```sql
+-- Proposed rendering for aggregate result v; fixed connector-owned syntax.
+-- :invalid and :format denote numbered parameters allocated by bind().
+CASE
+  WHEN v OPERATOR(pg_catalog.<) DATE '0001-01-01 BC'
+    OR v OPERATOR(pg_catalog.>) DATE '9999-12-31'
+  THEN :invalid
+  ELSE pg_catalog.to_char(CAST(v AS pg_catalog.timestamp), :format)
+END
+```
+
+- Bind `:invalid` as the string `'invalid-date'` and `:format` as the string
+  `'YYYY-MM-DDAD'`; `dateParameters` is `2`. The fixed range bounds are SQL date
+  literals. Both infinities and out-of-range finite dates take the invalid
+  branch. The decoder rejects the sentinel as `invalid-result`; null stays null.
+- `pg_catalog.timestamp` is `timestamp without time zone`. The explicit cast
+  prevents `to_char` from implicitly using `timestamptz` and changing the day.
+  With session timezone `Pacific/Apia`, formatting `DATE '2011-12-30'` directly
+  produces `2011-12-31AD`; the explicit cast preserves `2011-12-30AD`.
+- Extend the existing timestamp era decoding to dates: strip `AD`, map year
+  `0001` with `BC` to ISO year `0000`, and validate the resulting canonical
+  string. Text projection keeps the `pg` driver from constructing a `Date`.
+
+PostgreSQL documents the
+[timestamp overloads of `to_char`](https://www.postgresql.org/docs/18/functions-formatting.html)
+and the
+[different date and timestamp ranges](https://www.postgresql.org/docs/18/datatype-datetime.html).
 
 ### SQLite `__relate_date`
 
@@ -188,11 +230,13 @@ beside `__relate_instant` (`connectors/sqlite/src/analytics/child.ts:149`):
 
 ```ts
 // connectors/sqlite/src/analytics/child.ts
+// Extend the existing import of canonicalTimestamp from relate/analytics.
+import { canonicalDate } from 'relate/analytics';
+
 database.function('__relate_date', { deterministic: true }, (value) => {
   if (value === null) return null;
-  if (typeof value !== 'string' || !isCanonicalDate(value))
-    throw new Error('invalid date'); // sanitized; reported as execution-failed
-  return value;
+  if (typeof value !== 'string') throw new Error('invalid date'); // sanitized; reported as execution-failed
+  return canonicalDate(value); // throws AnalyticalValueError on malformed text
 });
 ```
 
@@ -205,17 +249,17 @@ return type === 'string' || type === 'timestamp' || type === 'date'
 ```
 
 - The renderer wraps every date column reference in `__relate_date`: predicates,
-  `GROUP BY`, `MIN`/`MAX` arguments and the reference-dataset key subquery. So a
-  malformed row fails the value instead of comparing as text or dropping out of
-  a lookup.
+  `MIN`/`MAX` and `COUNT` arguments. A malformed participating value fails the
+  statement instead of comparing as text. When reference joins land, their key
+  grouping and equality must also use this wrapper.
 - Canonical dates sort correctly as binary text, so ordering needs nothing
   beyond the check.
 - A thrown function error fails the statement. The connector reports it as
   `execution-failed`, never `invalid-result`, and keeps the input value out of
   diagnostics.
-- `isCanonicalDate` is a copy kept in the connector, as the SQLite child does
-  not import `relate` analytics code today. The cross-backend corpus checks that
-  it agrees with `canonicalDate`.
+- Reuse `canonicalDate` from `relate/analytics`; the SQLite child already
+  imports `canonicalTimestamp` from that entry point at line 1. There is no
+  connector-local copy of the calendar validator.
 
 ### Failure mapping
 
@@ -238,8 +282,8 @@ convention. A currency conversion cannot infer that from the storage type.
 - No date properties on ordinary objects. Associations correlate dataset columns
   with ordinary properties through `analyticalSchemaType`
   (`packages/relate/src/model/datasets.ts:78`), which never returns `date`, so a
-  date column cannot be an association key. Date joins use dataset columns or
-  typed parameters.
+  date column cannot be an association key. Future reference-dataset date joins
+  use dataset columns or typed parameters.
 - Deferred: date arithmetic, truncation, timezone functions, as-of joins.
 - The benchmark uses physical `DATE`
   (`specs/2026-10-23-media-agency-benchmark.md:351`, `:361`). The ISO-text
@@ -273,15 +317,32 @@ convention. A currency conversion cannot infer that from the storage type.
 
 1. All backends round-trip `2024-02-29`, `0000-01-01` and `9999-12-31`
    identically under `TZ=Pacific/Kiritimati` and `TZ=America/Adak` and with a
-   non-UTC database session timezone. `2026-02-29`, `infinity` and years outside
-   0–9999 fail as in [Failure mapping](#failure-mapping).
+   non-UTC database session timezone. Postgres also preserves `2011-12-30` under
+   session timezone `Pacific/Apia`. Test null and year-zero leap day
+   `0000-02-29`. `2026-02-29`, both infinities and years outside 0–9999 fail as
+   in [Failure mapping](#failure-mapping); Postgres result tests include
+   `5874897-12-31` to prove the range guard runs before the timestamp cast.
 2. Date parameters, nullable columns, equality/range predicates, `MIN`/`MAX`,
    computed filters/order and cursor continuation have executable tests.
-3. Full-key lookup grouping and equality agree across backends, and malformed
-   SQLite text (`'2026-1-01'`, `'2026-10-01 '`) fails with `execution-failed`.
-   Date/string and date/timestamp comparisons fail preparation.
+3. Date equality and range predicates agree across backends. Malformed
+   participating SQLite text (`'2026-1-01'`, `'2026-10-01 '`) fails with
+   `execution-failed`. Date/string and date/timestamp comparisons fail
+   preparation.
 4. Consumer `computed` values are typed `string` and are never `Date`.
 5. Manifest validation, discovery, protocol encoding, Inspector and public docs
    recognize the type. `ScalarSchema.format` is unchanged.
 6. Owning package tests, `pnpm check:boundaries`, `pnpm test:packaging` and
    `pnpm check` pass.
+
+## Follow-on acceptance with reference datasets
+
+These checks belong to the
+[reference-dataset implementation](./2026-10-28-reference-datasets.md) and do
+not block completion of the date type:
+
+- Full-key date lookup grouping and equality agree across all three backends.
+- SQLite wraps date keys in `__relate_date` in both the reference key grouping
+  subquery and join equality. Malformed participating keys fail with
+  `execution-failed`, rather than silently becoming missing matches.
+- Date/string and date/timestamp join keys fail preparation; date parameters
+  infer their type from reference keys and require canonical text.
