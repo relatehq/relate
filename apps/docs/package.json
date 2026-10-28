@@ -9,7 +9,7 @@
     "beautiful-mermaid": "1.1.3",
     "fumadocs-core": "16.16.2",
     "fumadocs-ui": "16.16.2",
-    "next": "16.4.0",
+    "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "rehype-raw": "7.0.0"
