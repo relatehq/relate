@@ -1,5 +1,7 @@
 """Canonical STATE-Bench tools with agency model calls and retained usage."""
 import json
+import os
+import uuid
 from pathlib import Path
 from state_bench.agents.base import BaseAgent, AgentTurnResponse, AgentToolCallRequest
 
@@ -37,8 +39,11 @@ def messages_for(conversation, continuations):
 
 
 class AgencyAgent(BaseAgent):
-    def __init__(self, client, system_prompt, tools, tool_handlers, runtime_context=None, **kwargs):
+    def __init__(self, client, system_prompt, tools, tool_handlers, runtime_context=None, agent_reasoning_effort="medium", **kwargs):
         super().__init__(runtime_context=runtime_context)
+        if agent_reasoning_effort != "medium":
+            raise ValueError("Agency Luna configuration requires medium reasoning")
+        self.trace_id = uuid.uuid4().hex
         self.client = client
         self.continuations = {}
 
@@ -47,10 +52,10 @@ class AgencyAgent(BaseAgent):
         payload = {"system": system_prompt, "messages": messages_for(conversation, self.continuations),
                    "tools": [{k: t[k] for k in ("name", "description", "parameters") if k in t} for t in tools]}
         context = self.runtime_context
-        if context and context.output_dir:
-            directory = Path(context.output_dir) / "agency-traces"
+        if os.environ.get("AGENCY_TRACE_DIR"):
+            directory = Path(os.environ["AGENCY_TRACE_DIR"])
             directory.mkdir(parents=True, exist_ok=True)
-            payload["transcript"] = str(directory / f"{context.task_id}-{context.run_idx}.jsonl")
+            payload["transcript"] = str(directory / f"{context.task_id if context else 'unknown'}-{self.trace_id}.jsonl")
         reply = self.client.generate(payload)
         usage = reply["usage"]
         self.add_token_usage(input_tokens=usage["inputTokens"] + usage["cacheReadTokens"] + usage["cacheWriteTokens"],
