@@ -122,6 +122,7 @@ export function createActionExecutor(options: {
   fetchForAdoption(
     type: string,
     sourceRecordId: string,
+    signal?: AbortSignal,
   ): Promise<{ scope: StorageScope; observation: Observation }>;
 }) {
   const { manifest, store } = options;
@@ -287,7 +288,7 @@ export function createActionExecutor(options: {
 
           deadline = createActionDeadline(transaction, options.timeoutMs);
 
-          return deadline.run(async (transaction, check) => {
+          return deadline.run(async (transaction, check, signal) => {
             const existing = await transaction.claim(action.id, key);
 
             if (existing) {
@@ -577,7 +578,11 @@ export function createActionExecutor(options: {
                         throw new ActionError('denied');
 
                       const { scope, observation } =
-                        await options.fetchForAdoption(type, sourceRecordId);
+                        await options.fetchForAdoption(
+                          type,
+                          sourceRecordId,
+                          signal,
+                        );
                       const staged = await overlay.stage(
                         scope,
                         sourceRecordId,

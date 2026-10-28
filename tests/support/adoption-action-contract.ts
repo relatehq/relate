@@ -135,6 +135,9 @@ interface PlatformRecord {
   /** A new record's ID is served before the read API can return it. */
   visible: boolean;
   invalid?: boolean;
+  /** The read API never answers; only an abort ends the fetch. */
+  hang?: boolean;
+  aborted?: boolean;
 }
 
 /** A test-owned ad platform: creates records and serves them by ID. */
@@ -175,9 +178,17 @@ function createPlatform() {
     },
     connector: {
       identify: async () => account,
-      fetch: async (id: string) => {
+      fetch: async (id: string, options?: { signal?: AbortSignal }) => {
         fetches++;
         const record = records.get(id);
+
+        if (record?.hang)
+          return new Promise<never>((_, reject) => {
+            options?.signal?.addEventListener('abort', () => {
+              record.aborted = true;
+              reject(options.signal!.reason);
+            });
+          });
 
         if (account !== 'adv_42') throw new SourceAccessDenied();
 
@@ -540,6 +551,29 @@ export function adoptionActionContract(
       resume();
       await new Promise((resolve) => setTimeout(resolve, 20));
       await expect(late).rejects.toBeDefined();
+      expect(await members()).toEqual([]);
+      await relate.close();
+    });
+
+    it('aborts an in-flight adoption fetch when the action deadline expires', async () => {
+      const externalId = platform.create('slow', 1);
+
+      platform.records.get(externalId)!.hang = true;
+      const relate = app(
+        async ({ objects }) => {
+          const { id } = await objects.AdGroup.adopt(externalId);
+
+          return { groupId: id };
+        },
+        { actionTimeoutMs: 200 },
+      );
+
+      await expect(
+        relate.as(ana).actions.launch(request()),
+      ).rejects.toMatchObject({ code: 'unavailable' });
+      // Well before the 3 s connector bound: the deadline cancelled the fetch.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(platform.records.get(externalId)!.aborted).toBe(true);
       expect(await members()).toEqual([]);
       await relate.close();
     });

@@ -450,12 +450,56 @@ export function createSourceOperations(options: {
   }
 
   /**
-   * Fetch and map one source record for an action adoption through the
-   * object's configured binding, without retaining it. The caller stages it.
+   * Fetch and map one source record through the object's configured binding,
+   * without retaining it. Shared by host and action adoption.
+   */
+  async function fetchObservation(
+    object: Manifest['objects'][number],
+    sourceRecordId: string,
+    signal?: AbortSignal,
+  ): Promise<Observation> {
+    const sourceDefinitionId = object.sourceDefinitionId!;
+    const binding = sources[sourceDefinitionId]!;
+
+    await install();
+
+    if (
+      !(await accountAllowed(
+        sourceDefinitionId,
+        {},
+        signal && { signal, beforeSourceCall: () => {} },
+      ))
+    )
+      throw new SourceAccessDenied();
+
+    const token = await store.beginFetch(),
+      observedAt = clock();
+    const fetched = await boundedFetch(
+      binding.connector,
+      sourceRecordId,
+      3_000,
+      binding.providerAccountId ?? null,
+      signal,
+    );
+
+    return observation(
+      fetched,
+      manifest.sources.find((s) => s.id === sourceDefinitionId)!,
+      object,
+      sourceRecordId,
+      token,
+      observedAt,
+    );
+  }
+
+  /**
+   * Fetch and map one source record for an action adoption, without retaining
+   * it. The caller stages it; `signal` aborts the fetch at the action deadline.
    */
   async function fetchForAdoption(
     objectDefinitionId: string,
     sourceRecordId: string,
+    signal?: AbortSignal,
   ): Promise<{ scope: StorageScope; observation: Observation }> {
     const object = manifest.objects.find((o) => o.id === objectDefinitionId);
 
@@ -464,36 +508,13 @@ export function createSourceOperations(options: {
     if (typeof sourceRecordId !== 'string' || !sourceRecordId.trim())
       throw new ActionError('invalid');
 
-    await install();
-
-    const sourceDefinitionId = object.sourceDefinitionId;
-    const binding = sources[sourceDefinitionId]!;
-
     try {
-      if (!(await accountAllowed(sourceDefinitionId)))
-        throw new SourceAccessDenied();
-
-      const token = await store.beginFetch(),
-        observedAt = clock();
-      const fetched = await boundedFetch(
-        binding.connector,
-        sourceRecordId,
-        3_000,
-        binding.providerAccountId ?? null,
-      );
-      const incoming = observation(
-        fetched,
-        manifest.sources.find((s) => s.id === sourceDefinitionId)!,
-        object,
-        sourceRecordId,
-        token,
-        observedAt,
-      );
+      const incoming = await fetchObservation(object, sourceRecordId, signal);
 
       if (incoming.state !== 'present') throw new ActionError('not-found');
 
       return {
-        scope: scopeFor(objectDefinitionId, sourceDefinitionId),
+        scope: scopeFor(objectDefinitionId, object.sourceDefinitionId),
         observation: incoming,
       };
     } catch (error) {
@@ -522,27 +543,7 @@ export function createSourceOperations(options: {
       )
         throw new InvalidAdoptionTarget();
 
-      await install();
-
-      if (!(await accountAllowed(object.sourceDefinitionId)))
-        throw new SourceAccessDenied();
-
-      const token = await store.beginFetch(),
-        observedAt = clock();
-      const fetched = await boundedFetch(
-        sources[object.sourceDefinitionId]!.connector,
-        sourceRecordId,
-        3_000,
-        sources[object.sourceDefinitionId]!.providerAccountId ?? null,
-      );
-      const incoming = observation(
-        fetched,
-        manifest.sources.find((s) => s.id === object.sourceDefinitionId)!,
-        object,
-        sourceRecordId,
-        token,
-        observedAt,
-      );
+      const incoming = await fetchObservation(object, sourceRecordId);
 
       if (incoming.state === 'deleted')
         throw new Error('Cannot adopt a deleted source record');

@@ -44,14 +44,16 @@ export function createAuthorization(options: {
   const { manifest, principal, clock } = options;
   const fresh = (stored: StoredObject, maxAgeMs: number) => {
     const { observedAt } = stored.observation;
-
-    options.captureEvidence?.(observedAt, maxAgeMs);
-
-    return (
+    const ok =
       stored.observation.state === 'present' &&
       clock() >= observedAt &&
-      clock() - observedAt <= maxAgeMs
-    );
+      clock() - observedAt <= maxAgeMs;
+
+    // Only evidence that passed bounds a later decision; a failed check must
+    // not make an otherwise valid invocation's final freshness check fail.
+    if (ok) options.captureEvidence?.(observedAt, maxAgeMs);
+
+    return ok;
   };
   // Request-local only. A stricter bound refreshes and replaces earlier evidence,
   // so a later denial cannot leave a looser cached permission usable.

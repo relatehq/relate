@@ -388,9 +388,10 @@ created instead of creating another one. If a newer, identical copy of the
 record was saved while the action ran, the action still succeeds.
 
 Before committing, Relate rechecks every adopted object's read policy, including
-objects not returned by the handler. If evidence used by an earlier check
-expires while a later check runs, the action rejects with `unavailable`. Retry
-with the same idempotency key so the handler can validate fresh evidence.
+objects not returned by the handler. If the action adopted anything and evidence
+used by an earlier check expires while a later check runs, the action rejects
+with `unavailable`. Retry with the same idempotency key so the handler can
+validate fresh evidence.
 
 **Keep waits short.** The whole handler, including visibility polling, runs
 while the graph's action lock is held: a handler that polls for five seconds

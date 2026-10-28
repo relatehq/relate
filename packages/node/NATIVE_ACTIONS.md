@@ -399,11 +399,12 @@ implementAction(
 - After the handler, final validation rechecks input, output, created records
   and every pending adoption (present and readable). If a refresh replaced an
   observation during validation, it validates once more; a view that still moves
-  aborts with `unavailable`. A final local check also rejects evidence that
-  expired during a later validation, including source dependencies of native
-  policies and adoptions that are not returned or referenced. This check does no
-  source I/O. Then the overlay is sealed and each entry is accepted on the
-  transaction's connection, before the receipt is saved.
+  aborts with `unavailable`. When the invocation adopted at least one record, a
+  final local check also rejects evidence that expired during a later
+  validation, including source dependencies of native policies and adoptions
+  that are not returned or referenced. This check does no source I/O. Then the
+  overlay is sealed and each entry is accepted on the transaction's connection,
+  before the receipt is saved.
 - A newer committed observation with different content, a deletion, or a policy
   change aborts with retryable `unavailable`. A newer identical observation
   (same view) commits as `unchanged` with no source feed entry.
