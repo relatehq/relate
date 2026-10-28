@@ -168,9 +168,9 @@ calculations before serving. DuckDB requires compatible physical types and
 nullability; close any writer before starting its read-only connector.
 
 [Choose a connector](./connections.md#analytical-dataset-connectors) for SQLite,
-PostgreSQL or DuckDB. Each connector README owns its physical type mapping,
-configuration and lifecycle details. Packages are currently used from this
-repository, not published npm releases.
+PostgreSQL, DuckDB or DataFusion. Each connector README owns its physical type
+mapping, configuration and lifecycle details. Packages are currently used from
+this repository, not published npm releases.
 
 ## Read calculated values
 

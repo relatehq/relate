@@ -151,7 +151,10 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
         };
       },
       (node, left, right) => ({
-        sql: `(SELECT ${checked.node(node.op, { sql: 'z.l', type: left.type }, { sql: 'z.r', type: right.type }, node.type.type)} FROM (SELECT ${left.sql} AS l, ${right.sql} AS r${checked.fence ?? ''}) AS z)`,
+        sql:
+          checked.nodeBinding === 'inline'
+            ? checked.node(node.op, left, right, node.type.type)
+            : `(SELECT ${checked.node(node.op, { sql: 'z.l', type: left.type }, { sql: 'z.r', type: right.type }, node.type.type)} FROM (SELECT ${left.sql} AS l, ${right.sql} AS r${checked.fence ?? ''}) AS z)`,
         type: node.type.type,
       }),
     );
@@ -184,7 +187,11 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
         plainType === 'float64')
     ) {
       const input: CheckedInput = arithmetic
-        ? { ...row(argument), placeholder: true, bound: true }
+        ? {
+            ...row(argument),
+            placeholder: true,
+            bound: checked.nodeBinding !== 'inline',
+          }
         : {
             sql: checked.operand(
               operand(argument as ResolvedOperand),
@@ -378,6 +385,9 @@ export interface CheckedAccumulation {
  * nulls, so a failure survives later operations and cancellation.
  */
 export interface CheckedArithmeticDialect {
+  /** Inline function nodes must reference each child exactly once. Default binds
+   * children in scalar subqueries for dialects that reuse child expressions. */
+  readonly nodeBinding?: 'inline';
   /** A numeric operand in the dialect's checked representation for its type. */
   operand(sql: string, type: 'int32' | 'int64' | 'float64'): string;
   /** One node over bound child columns, each safe to reference repeatedly. */

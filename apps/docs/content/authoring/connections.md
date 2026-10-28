@@ -22,7 +22,8 @@ Packages are currently used from a repository checkout, not installed from npm.
 
 [Datasets and Calculations](./datasets.md) covers declarations, associations,
 policies and binding. These connectors execute authorized aggregate plans over
-existing tables; their READMEs describe supported physical types and lifecycle.
+existing tables or files; their READMEs describe supported physical types and
+lifecycle.
 
 | Connector                                               | Resource selection                                   | Capabilities and setup                                                                                           |
 | ------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -30,9 +31,32 @@ existing tables; their READMEs describe supported physical types and lifecycle.
 | [PostgreSQL](../../../../connectors/postgres/README.md) | `analytics.table('events', { schema: 'reporting' })` | Analytical datasets; separate from the `@relate/postgres` persistence adapter                                    |
 | [DuckDB](../../../../connectors/duckdb/README.md)       | `warehouse.table('events')`                          | Analytical datasets in an existing local DuckDB file; native binary is opt-in through `@relate/connector-duckdb` |
 
-PostgreSQL and DuckDB do not implement keyed source reads. Bind each dataset
-with `bind(Events, connection.table('events'))`; optional `columns` mappings
-translate logical column names to physical names.
+| [DataFusion](../../../../connectors/datafusion/README.md) |
+`lake.parquet('/data/events.parquet')` | Local or S3 Parquet; explicit Rust
+build and custom table-provider extension point |
+
+DataFusion is an opt-in execution adapter for local or S3 Parquet:
+
+```ts
+import { datafusion } from '@relate/connector-datafusion';
+const lake = datafusion({ connectionId: 'events-lake' });
+// Register lake.close() with onDispose in application setup.
+const events = lake.parquet('/absolute/path/events.parquet');
+// bind(Events, events) uses the ordinary dataset binding API.
+```
+
+Build its native executable with `pnpm build:datafusion` in the repository. The
+[DataFusion connector guide](../../../../connectors/datafusion/README.md)
+explains installed-package builds, S3 configuration, schema requirements,
+process limits, and custom Rust table providers. Run `pnpm example:datafusion`
+for a local S3 walkthrough that combines DataFusion and SQLite calculations.
+Relate retains authorization, preparation and result processing; DataFusion
+optimizes and executes only its assigned analytical statements.
+
+PostgreSQL, DuckDB and DataFusion do not implement keyed source reads. Bind each
+dataset with `bind(Events, resource)`, selecting a table or Parquet resource as
+shown above; optional `columns` mappings translate logical column names to
+physical names.
 
 ## Systems, Resources, Sources, and Bindings
 

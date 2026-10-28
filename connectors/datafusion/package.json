@@ -1,0 +1,35 @@
+{
+  "name": "@relate/connector-datafusion",
+  "version": "0.0.0-dev.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Replaceable DataFusion execution for Relate analytical datasets.",
+  "engines": {
+    "node": "^22.16.0 || ^24 || ^26"
+  },
+  "dependencies": {
+    "relate": "workspace:*"
+  },
+  "files": [
+    "dist",
+    "engine/src",
+    "engine/Cargo.toml",
+    "engine/Cargo.lock",
+    "README.md",
+    "engine/examples"
+  ],
+  "scripts": {
+    "build:engine": "cargo build --locked --manifest-path engine/Cargo.toml --bins --examples",
+    "test:engine": "cargo test --locked --manifest-path engine/Cargo.toml"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

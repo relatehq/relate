@@ -19,6 +19,7 @@ const packages = [
   'connectors/sqlite',
   'connectors/postgres',
   'connectors/duckdb',
+  'connectors/datafusion',
   'connectors/stripe',
   'connectors/salesforce',
   'apps/inspector',
@@ -337,6 +338,50 @@ writer.closeSync(); db.closeSync();`,
   process.stdout.write(
     (await execFile(process.execPath, ['duckdb-smoke.mjs'], { cwd: consumer }))
       .stdout,
+  );
+  // Compile the packed native source, reusing only the local build cache.
+  const nativeTarget = resolve(root, 'connectors/datafusion/engine/target');
+
+  await execFile(
+    'cargo',
+    [
+      'build',
+      '--locked',
+      '--manifest-path',
+      join(
+        consumer,
+        'node_modules/@relate/connector-datafusion/engine/Cargo.toml',
+      ),
+      '--example',
+      'custom-provider',
+    ],
+    {
+      cwd: consumer,
+      env: { ...process.env, CARGO_TARGET_DIR: nativeTarget },
+      maxBuffer: 4 * 1024 * 1024,
+    },
+  );
+  await writeFile(
+    join(consumer, 'datafusion-smoke.mjs'),
+    `
+import assert from 'node:assert/strict';
+import { datafusion } from '@relate/connector-datafusion';
+const connection = datafusion({ connectionId: 'packed', enginePath: ${JSON.stringify(join(nativeTarget, 'debug/examples/custom-provider'))} });
+try {
+  const resource = connection.custom('demo-events', { customerId: 'acme' }).bindDataset({ columns: { customerId: 'customerId', amount: 'amount' } });
+  const plan = connection.analytics.plan({ resource, keys: [{ type: { type: 'string' } }], correlation: [{ column: 'customerId', key: 0 }], slots: [{ values: [{ type: 'string', value: 'acme' }], valid: [true] }], aggregates: [{ aggregate: 'sum', argument: { kind: 'column', column: 'amount', type: { type: 'int64' } }, distinct: false, result: { type: 'int64', nullable: true } }] });
+  const result = await connection.analytics.execute(plan, { signal: new AbortController().signal, timeoutMs: 5000 });
+  assert.equal(result.rows[0].values[0], 9007199254740995n);
+  console.log('Installed DataFusion connector executes with its packed Rust custom-provider extension.');
+} finally { await connection.close(); }
+`,
+  );
+  process.stdout.write(
+    (
+      await execFile(process.execPath, ['datafusion-smoke.mjs'], {
+        cwd: consumer,
+      })
+    ).stdout,
   );
   const program = `
 import assert from 'node:assert/strict';

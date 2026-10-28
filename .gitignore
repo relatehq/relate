@@ -13,3 +13,6 @@ benchmark-results/
 
 # Rendered launch film (hosted on GitHub as an uploaded attachment, not committed)
 assets/video/
+
+# Rust backend build artifacts
+**/target/

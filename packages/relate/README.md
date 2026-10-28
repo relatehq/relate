@@ -428,6 +428,14 @@ and `execute(plan, { signal, timeoutMs })` returns portable values by object
 slot. Physical names and generated SQL remain connector-owned. See the
 [connector contract](./CONTRACT.md#analytical-connector-boundary).
 
+The shared `renderAnalyticalQuery` helper supports a dialect-owned
+`checked.nodeBinding: 'inline'` option for checked functions that reference each
+child exactly once. Its default binds children in scalar subqueries. This lets
+execution adapters support their engine's syntax without changing authorization
+or the portable query model. See the
+[DataFusion adapter](../../connectors/datafusion/README.md) for an
+implementation and custom table-provider extension point.
+
 ## Analytical dataset declarations
 
 `defineDataset` declares rows without an object identity. Each column owns its

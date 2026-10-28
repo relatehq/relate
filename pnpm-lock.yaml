@@ -183,6 +183,9 @@ importers:
       '@relate/cli':
         specifier: workspace:*
         version: link:packages/cli
+      '@relate/connector-datafusion':
+        specifier: workspace:*
+        version: link:connectors/datafusion
       '@relate/connector-duckdb':
         specifier: workspace:*
         version: link:connectors/duckdb
@@ -407,6 +410,12 @@ importers:
 
   apps/www: {}
 
+  connectors/datafusion:
+    dependencies:
+      relate:
+        specifier: workspace:*
+        version: link:../../packages/relate
+
   connectors/duckdb:
     dependencies:
       '@duckdb/node-api':
@@ -523,6 +532,27 @@ importers:
       '@relate/connector-salesforce':
         specifier: workspace:*
         version: link:../../connectors/salesforce
+      '@relate/connector-sqlite':
+        specifier: workspace:*
+        version: link:../../connectors/sqlite
+      '@relate/node':
+        specifier: workspace:*
+        version: link:../../packages/node
+      relate:
+        specifier: workspace:*
+        version: link:../../packages/relate
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
+  examples/05-datafusion:
+    dependencies:
+      '@duckdb/node-api':
+        specifier: 1.5.6-r.1
+        version: 1.5.6-r.1
+      '@relate/connector-datafusion':
+        specifier: workspace:*
+        version: link:../../connectors/datafusion
       '@relate/connector-sqlite':
         specifier: workspace:*
         version: link:../../connectors/sqlite

@@ -10,21 +10,21 @@
   },
   "scripts": {
     "packages": "pnpm -r list --depth -1",
-    "build": "tsc -b packages/protocol packages/relate packages/sql-parser packages/runtime packages/postgres packages/node packages/mcp connectors/sqlite connectors/postgres connectors/duckdb connectors/stripe connectors/salesforce apps/inspector/tsconfig.server.json packages/dev packages/cli && pnpm --filter @relate/inspector build:client",
+    "build": "tsc -b packages/protocol packages/relate packages/sql-parser packages/runtime packages/postgres packages/node packages/mcp connectors/sqlite connectors/postgres connectors/duckdb connectors/datafusion connectors/stripe connectors/salesforce apps/inspector/tsconfig.server.json packages/dev packages/cli && pnpm --filter @relate/inspector build:client",
     "docs:dev": "pnpm --filter @relate/docs dev",
     "docs:build": "pnpm --filter @relate/docs build",
     "docs:check": "pnpm exec vitest run --project unit apps/docs/test/validation.test.ts && pnpm docs:build && node --import tsx apps/docs/scripts/check.ts",
     "example:native-objects": "node scripts/examples/run.mjs native-objects",
     "example:persistence": "node scripts/examples/run.mjs persistence",
-    "check": "pnpm check:development && pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && pnpm test:packaging",
+    "check": "pnpm check:development && pnpm format:check && pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm build:datafusion && pnpm --filter @relate/connector-datafusion test:engine && pnpm test && pnpm test:packaging",
     "typecheck": "pnpm build && tsc --noEmit -p tsconfig.tests.json",
     "check:boundaries": "node --import tsx tests/boundaries.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "pnpm lint:fix && prettier --write .",
     "format:check": "prettier --check .",
-    "test": "pnpm build && dotenvx run -f .env -- vitest run",
-    "test:unit": "pnpm build && vitest run --project unit",
+    "test": "pnpm build:datafusion && pnpm build && dotenvx run -f .env -- vitest run",
+    "test:unit": "pnpm build:datafusion && pnpm build && vitest run --project unit",
     "test:integration": "pnpm build && dotenvx run -f .env -- vitest run --project integration",
     "test:packaging": "pnpm build && node tests/packaging/verify.mjs && pnpm --filter @relate/mcp test:packaging",
     "test:release": "node --test scripts/releases/release.test.mjs",
@@ -48,7 +48,10 @@
     "bench:overhead:run": "node --import tsx tests/performance/analytical-properties/overhead/run.ts",
     "example:native-objects:walkthrough": "node scripts/examples/run.mjs native-objects --walkthrough",
     "example:persistence:walkthrough": "node scripts/examples/run.mjs persistence --walkthrough",
-    "example:connected-sources:walkthrough": "node scripts/examples/run.mjs connected-sources --walkthrough"
+    "example:connected-sources:walkthrough": "node scripts/examples/run.mjs connected-sources --walkthrough",
+    "build:datafusion": "pnpm --filter @relate/connector-datafusion build:engine",
+    "test:datafusion": "pnpm build:datafusion && pnpm --filter @relate/connector-datafusion test:engine && pnpm build && pnpm exec vitest run --project unit connectors/datafusion/test",
+    "example:datafusion": "pnpm build:datafusion && pnpm build && node examples/05-datafusion/run-local.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",
@@ -82,6 +85,7 @@
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "vitest": "5.0.3",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@relate/connector-datafusion": "workspace:*"
   }
 }
