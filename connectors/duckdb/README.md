@@ -60,10 +60,11 @@ interpreted as UTC. TIMESTAMPTZ, TIMESTAMP_NS, DECIMAL, FLOAT and unsigned
 integers are currently unsupported. Integers remain exact and microsecond
 timestamps never pass through JavaScript Date. String comparisons use binary
 collation. Checked row arithmetic widens integer nodes to `HUGEINT`; integer
-sums accumulate in `HUGEINT`; an out-of-range node or total fails only that
-cell. Double operations never raise and are checked with `isfinite`. Float64
-values bind as round-trip text, because the driver would bind an integral number
-such as `1e308` as `BIGINT`.
+sums accumulate in `HUGEINT`; integer averages divide that exact total before
+converting the quotient and remainder to `DOUBLE`. An out-of-range node or total
+fails only that cell. Double operations never raise and are checked with
+`isfinite`. Float64 values bind as round-trip text, because the driver would
+bind an integral number such as `1e308` as `BIGINT`.
 
 ## Execution and lifecycle
 

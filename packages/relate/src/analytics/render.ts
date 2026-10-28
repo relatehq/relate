@@ -187,10 +187,11 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
               plainType as 'int32' | 'int64' | 'float64',
             ),
             type: plainType === 'float64' ? 'float64' : 'int64',
-            placeholder: false,
+            // Non-finite source floats must not disappear during accumulation.
+            placeholder: plainType === 'float64',
           };
       // A failed row is a placeholder in the accumulation and a set flag here.
-      const flag = arithmetic
+      const flag = input.placeholder
         ? generated(checked.flag(checked.failed(input.sql, input.type), filter))
         : undefined;
       const accumulation = checked.accumulate(
@@ -332,13 +333,13 @@ export type CheckedType = 'int64' | 'float64';
 export interface CheckedInput {
   readonly sql: string;
   readonly type: CheckedType;
-  /** True for row arithmetic, whose value may be the failure placeholder. */
+  /** True when the value may be a failure placeholder or non-finite input. */
   readonly placeholder: boolean;
 }
 
 /**
- * Transform an input row value with any placeholder treated as null. A plain
- * operand is repeated inline; row arithmetic is bound once in a subquery.
+ * Transform an input row value with failures treated as null. Inputs requiring
+ * checks are bound once in a subquery; other operands are repeated inline.
  */
 export function checkedValue(
   input: CheckedInput,
@@ -374,7 +375,7 @@ export interface CheckedArithmeticDialect {
     right: { readonly sql: string; readonly type: CheckedType },
     result: CheckedType,
   ): string;
-  /** Boolean SQL, true only for the failure placeholder (null for null). */
+  /** Boolean SQL for failure placeholders or non-finite inputs (null for null). */
   failed(sql: string, type: CheckedType): string;
   /** An aggregate yielding 1 when the condition held on any filtered row. */
   flag(condition: string, filter: string): string;

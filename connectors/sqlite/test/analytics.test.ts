@@ -408,7 +408,11 @@ it('keeps the correlation index usable for the normal string-key query', () => {
   const generated = render(input, { table: 'events', columns }, input.slots);
   const rows = db
     .prepare(`EXPLAIN QUERY PLAN ${generated.sql}`)
-    .all(...generated.values);
+    .all(
+      Object.fromEntries(
+        generated.values.map((value, i) => [`?${i + 1}`, value]),
+      ),
+    );
 
   expect(rows.map((row) => row.detail).join(' ')).toMatch(
     /SEARCH d USING (?:COVERING )?INDEX events_customer/,
@@ -791,7 +795,9 @@ it('orders mixed timestamp precision by instant and keeps timestamp correlation 
   db.function('__relate_instant', { deterministic: true }, (value) => value);
   const explanation = db
     .prepare(`EXPLAIN QUERY PLAN ${plan.sql}`)
-    .all(...plan.values);
+    .all(
+      Object.fromEntries(plan.values.map((value, i) => [`?${i + 1}`, value])),
+    );
 
   expect(JSON.stringify(explanation)).toContain('instants_at');
   const result = await connection.analytics.execute(

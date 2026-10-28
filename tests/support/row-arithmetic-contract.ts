@@ -503,6 +503,90 @@ export function rowArithmeticContract(
       });
     });
 
+    it('divides exact integer totals before rounding averages to float64', async () => {
+      const result = await compute(
+        [
+          ['positive', 9007199254740993n, null, null, null, null],
+          ['positive', 0n, null, null, null, null],
+          ['positive', 0n, null, null, null, null],
+          ['negative', -9007199254740993n, null, null, null, null],
+          ['negative', 0n, null, null, null, null],
+          ['negative', 0n, null, null, null, null],
+          ['cancel', M, null, null, null, null],
+          ['cancel', 1n, null, null, null, null],
+          ['cancel', -M, null, null, null, null],
+          ['minimum', -M - 1n, null, null, null, null],
+          ['minimum', -M - 1n, null, null, null, null],
+          ['maximum', M, null, null, null, null],
+          ['maximum', M, null, null, null, null],
+          ['nulls', null, null, null, null, null],
+        ],
+        {
+          plain: sql('AVG(a)'),
+          row: sql('AVG(a + 0)'),
+        },
+        { empty: 1 },
+      );
+
+      for (const [id, value] of Object.entries({
+        positive: 3002399751580331,
+        negative: -3002399751580331,
+        cancel: 1 / 3,
+        minimum: Number(-M - 1n),
+        maximum: Number(M),
+        nulls: null,
+        empty: null,
+      }))
+        expect(result[id]).toEqual({ plain: { value }, row: { value } });
+    });
+
+    it('preserves child failures through nulls and both branches of a row node', async () => {
+      const result = await compute([['bad', M, null, null, 1e308, null]], {
+        integerNull: sql('SUM((a + 1) + b)'),
+        floatNull: sql('SUM((x * 10.0) + y)'),
+        promotedNull: sql('SUM((a + 1) * y)'),
+        both: sql('SUM((a + 1) * (a + 1))'),
+        healthy: sql('COUNT(*)'),
+      });
+
+      expect(result.bad).toEqual({
+        integerNull: failed,
+        floatNull: failed,
+        promotedNull: failed,
+        both: failed,
+        healthy: { value: '1' },
+      });
+    });
+
+    it('retains non-finite input failures beside null operands and finite siblings', async () => {
+      const result = await compute(
+        [
+          ['bad', 1n, null, null, Infinity, null],
+          ['bad', 1n, null, null, -Infinity, null],
+          ['fine', 1n, null, null, 2, 3],
+        ],
+        {
+          row: sql('SUM(x + y)'),
+          plain: sql('SUM(x)'),
+          average: sql('AVG(x)'),
+          healthy: sql('COUNT(*)'),
+        },
+      );
+
+      expect(result.bad).toEqual({
+        row: failed,
+        plain: failed,
+        average: failed,
+        healthy: { value: '2' },
+      });
+      expect(result.fine).toEqual({
+        row: { value: 5 },
+        plain: { value: 2 },
+        average: { value: 2 },
+        healthy: { value: '1' },
+      });
+    });
+
     it('keeps a bad row visible in every aggregate, formula and fallback', async () => {
       const result = await compute(
         [

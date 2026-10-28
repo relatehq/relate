@@ -115,7 +115,13 @@ export const checked: CheckedArithmeticDialect = {
       return floatAccumulation(aggregate === 'avg', input, filter);
 
     if (aggregate === 'avg')
-      return { columns: [call('avg')], value: ([v]) => `CAST(${v} AS DOUBLE)` };
+      return {
+        columns: [call('sum'), call('count')],
+        // Divide the exact HUGEINT total first; AVG(HUGEINT) converts the total
+        // to DOUBLE before dividing and can lose integer bits that affect it.
+        value: ([sum, count]) =>
+          `CASE WHEN ${count} = 0 THEN NULL ELSE CAST(CAST(${sum} // ${count} AS BIGINT) AS DOUBLE) + CAST(${sum} % ${count} AS DOUBLE) / CAST(${count} AS DOUBLE) END`,
+      };
 
     // HUGEINT sums are exact; only the final total must fit int64.
     return {

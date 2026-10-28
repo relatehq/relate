@@ -66,7 +66,11 @@ function execute(plan: SqlitePlan): DatasetExecution {
   const statement = database!.prepare(plan.sql);
 
   statement.setReadBigInts(true);
-  const raw = statement.all(...plan.values);
+  // Minimum supported Node versions treat ?NNN as named parameters; passing
+  // them positionally fails with "column index out of range" on those versions.
+  const raw = statement.all(
+    Object.fromEntries(plan.values.map((value, i) => [`?${i + 1}`, value])),
+  );
 
   if (raw.length !== plan.slots) throw new InvalidResult();
 
