@@ -22,5 +22,7 @@ in the pull request.
   includes a reading guide and execution diagrams. Detailed contracts remain
   proposed; not implemented.
 - [2026-10-23: Media agency agent benchmark](./2026-10-23-media-agency-benchmark.md)
-  — systems, arms, tiers and action approach agreed; detailed contracts
-  proposed; not implemented.
+  — systems, arms, tiers and action approach agreed; action adoption with atomic
+  local commits required before the benchmark (2026-10-28). Other detailed
+  contracts proposed; prerequisite and benchmark not implemented. Currency
+  conversion via keyed reference datasets agreed (2026-10-28).

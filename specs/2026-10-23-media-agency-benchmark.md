@@ -1,16 +1,21 @@
 # 2026-10-23: Media agency agent benchmark
 
 **Status:** direction agreed in conversation on 2026-10-23 (systems, public
-location, action approach, three arms, three data tiers). Detailed contracts
-below are proposed; nothing is implemented. [Decisions](#decisions) lists what
-is agreed, [Open questions](#open-questions) what is not.
+location, action approach, three arms, three data tiers). Action-level adoption
+was agreed as a required prerequisite on 2026-10-28: implement it before the
+benchmark, including the pilot. The benchmark and this prerequisite are not
+implemented. Other detailed contracts below remain proposed.
+[Decisions](#decisions) lists what is agreed, [Open questions](#open-questions)
+what is not.
 
 **Reading guide.** [Outcome](#outcome) and [In one example](#in-one-example)
 explain what the benchmark shows. [The world](#the-world) and
 [Systems](#systems-and-simulators) define the fictional business and how each
 system is mocked. [Arms](#arms) defines what the agent gets with and without
-Relate. [Relate graph](#relate-graph) is the Relate-side build. [Tasks](#tasks),
-[Grading](#grading-and-metrics) and [Runs](#run-plan) define the measurement.
+Relate. [Relate graph](#relate-graph) is the Relate-side build;
+[Action adoption prerequisite](#action-adoption-prerequisite-d13) defines the
+SDK work required first. [Tasks](#tasks), [Grading](#grading-and-metrics) and
+[Runs](#run-plan) define the measurement.
 [Layout](#repository-layout-and-ownership) and [Delivery](#delivery) are the
 build plan.
 
@@ -39,23 +44,26 @@ of vendor APIs. They are realistic in shape and pitfalls, not complete.
 
 ## Glossary
 
-| Term                   | Meaning                                                                                                                           | Tiny example                                                             |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| **World**              | One seeded, generated truth of the agency: clients, plans, campaigns, delivery, invoices. Everything else derives from it.        | `generateWorld({ seed: 7, tier: 'M' })`                                  |
-| **Projection**         | The world rendered into one system's native shape, with that system's quirks.                                                     | Meta spend `"412.37"` (GBP string); TTD spend `412370000` (USD micros)   |
-| **Seam**               | A deliberate realistic mismatch between systems that an agent must handle.                                                        | Plan line has no TikTok ID; only the naming convention links them        |
-| **Simulator**          | An in-process HTTP server that serves one platform's projection with a vendor-shaped API, and logs every write.                   | `GET /v21.0/act_1001/campaigns?after=…`                                  |
-| **Arm**                | One way of giving the agent access to the systems.                                                                                | `baseline-tools`, `baseline-code`, `relate`                              |
-| **Handbook**           | The agency's written rules and conventions, given identically to every arm.                                                       | "Pacing = spend to date ÷ (budget × elapsed share of flight)"            |
-| **Principal**          | The person the agent acts for. Decides what may be seen and done.                                                                 | `priya` (planner, retail team)                                           |
-| **Task**               | A prompt, a principal, an answer schema and a deterministic checker.                                                              | `pacing.over-today`                                                      |
-| **Oracle**             | A function that computes a task's expected answer directly from the world, not from any system.                                   | `oracle(world) → { campaigns: [...] }`                                   |
-| **Reference solution** | A hand-written script per arm that solves the task through that arm's tools; proves the task is solvable and the oracle is right. | `tasks/pacing/over-today.solve.baseline.ts`                              |
-| **End state**          | The simulators' mutation logs after an action task; graded against expected and forbidden changes.                                | `{ meta: [{ op: 'update', id: '2384…', status: 'PAUSED' }] }`            |
-| **Fault script**       | A deterministic, per-task list of injected failures.                                                                              | `[{ system: 'meta', on: 'first-write', fault: 'timeout-after-commit' }]` |
-| **pass@1 / pass^k**    | Share of single runs that pass / share of tasks that pass on all _k_ repeated runs.                                               | pass^5 = 0.62 → 62% of tasks passed five out of five                     |
-| **Adoption** (Relate)  | Giving an existing source record a Relate object ID so it is part of the graph. A host operation today.                           | `await relate.host.adopt(MetaCampaign, '2384001')`                       |
-| **Dataset** (Relate)   | Typed rows in a SQL table that have no Relate identity; aggregated per object.                                                    | `Delivery` rows in DuckDB, summed into `MetaCampaign.spendToDate`        |
+| Term                    | Meaning                                                                                                                                                           | Tiny example                                                             |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **World**               | One seeded, generated truth of the agency: clients, plans, campaigns, delivery, invoices. Everything else derives from it.                                        | `generateWorld({ seed: 7, tier: 'M' })`                                  |
+| **Projection**          | The world rendered into one system's native shape, with that system's quirks.                                                                                     | Meta spend `"412.37"` (GBP string); TTD spend `412370000` (USD micros)   |
+| **Seam**                | A deliberate realistic mismatch between systems that an agent must handle.                                                                                        | Plan line has no TikTok ID; only the naming convention links them        |
+| **Simulator**           | An in-process HTTP server that serves one platform's projection with a vendor-shaped API, and logs every write.                                                   | `GET /v21.0/act_1001/campaigns?after=…`                                  |
+| **Arm**                 | One way of giving the agent access to the systems.                                                                                                                | `baseline-tools`, `baseline-code`, `relate`                              |
+| **Handbook**            | The agency's written rules and conventions, given identically to every arm.                                                                                       | "Pacing = spend to date ÷ (budget × elapsed share of flight)"            |
+| **Principal**           | The person the agent acts for. Decides what may be seen and done.                                                                                                 | `priya` (planner, retail team)                                           |
+| **Task**                | A prompt, a principal, an answer schema and a deterministic checker.                                                                                              | `pacing.over-today`                                                      |
+| **Oracle**              | A function that computes a task's expected answer directly from the world, not from any system.                                                                   | `oracle(world) → { campaigns: [...] }`                                   |
+| **Reference solution**  | A hand-written script per arm that solves the task through that arm's tools; proves the task is solvable and the oracle is right.                                 | `tasks/pacing/over-today.solve.baseline.ts`                              |
+| **End state**           | The simulators' mutation logs after an action task; graded against expected and forbidden changes.                                                                | `{ meta: [{ op: 'update', id: '2384…', status: 'PAUSED' }] }`            |
+| **Fault script**        | A deterministic, per-task list of injected failures.                                                                                                              | `[{ system: 'meta', on: 'first-write', fault: 'timeout-after-commit' }]` |
+| **pass@1 / pass^k**     | Share of single runs that pass / share of tasks that pass on all _k_ repeated runs.                                                                               | pass^5 = 0.62 → 62% of tasks passed five out of five                     |
+| **Adoption** (Relate)   | Registering a source record in the graph, assigning or reusing its Relate ID, and retaining an observation. Host-only today; action support is a prerequisite.    | Proposed: `await objects.TikTokAdGroup.adopt('tt_123')`                  |
+| **Observation**         | A record fetched from a source, its mapped properties, and time/version evidence.                                                                                 | TikTok ad group `tt_123`, observed budget `500`                          |
+| **Atomic local commit** | Saving an action's new membership, observations, native writes and success receipt together, or rolling back its pending changes. External writes are outside it. | Failed action rolls back its new adoption; TikTok record remains         |
+| **External recovery**   | Finding whether a platform write happened after a response was lost, before deciding whether another write is safe.                                               | Recover `tt_123` after a create timeout; do not blindly create again     |
+| **Dataset** (Relate)    | Typed rows in a SQL table that have no Relate identity; aggregated per object.                                                                                    | `Delivery` rows in DuckDB, summed into `MetaCampaign.spendToDate`        |
 
 ## In one example
 
@@ -116,20 +124,22 @@ TikTok caveat present; tokens; wall time; tool calls; mistakes (for example
 
 ## Decisions
 
-| #   | Decision                                                                                                                                    | Status            |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| D1  | Fictional mid-size independent agency, "Northlight Media", ~40 clients at tier M                                                            | Agreed 2026-10-23 |
-| D2  | Eight systems: CRM, plan/order system, Meta, TikTok, DSP (Trade Desk-shaped), Google Ads, warehouse, finance. More may be added later.      | Agreed 2026-10-23 |
-| D3  | Lives in the public `relate` repository                                                                                                     | Agreed 2026-10-23 |
-| D4  | Actions use Relate action handlers that write to the simulators directly (option C); end state is graded in both arms the same way          | Agreed 2026-10-23 |
-| D5  | Three arms: `baseline-tools`, `baseline-code`, `relate`                                                                                     | Agreed 2026-10-23 |
-| D6  | Baselines get only an authenticated `http` helper per HTTP system and raw `sql` per database, plus docs; no hand-written typed clients      | Agreed 2026-10-23 |
-| D7  | Tiers S, M, L as sized in [Scale tiers](#scale-tiers)                                                                                       | Agreed 2026-10-23 |
-| D8  | Simulator write endpoints behave like the vendors: no idempotency keys; deterministic fault scripts inject lost responses on specific tasks | Proposed          |
-| D9  | All arms receive the same handbook; the difference measured is structure, not information                                                   | Proposed          |
-| D10 | The Relate graph is frozen before the task catalogue is written, and its declared calculations are limited to metrics the handbook defines  | Proposed          |
-| D11 | Every task has an oracle and a reference solution for `baseline-code` and `relate`; both must pass before a task enters the catalogue       | Proposed          |
-| D12 | Benchmark owns its own agent loop over the Messages API, so token accounting and budgets are identical across arms                          | Proposed          |
+| #   | Decision                                                                                                                                                                                                          | Status                                          |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| D1  | Fictional mid-size independent agency, "Northlight Media", ~40 clients at tier M                                                                                                                                  | Agreed 2026-10-23                               |
+| D2  | Eight systems: CRM, plan/order system, Meta, TikTok, DSP (Trade Desk-shaped), Google Ads, warehouse, finance. More may be added later.                                                                            | Agreed 2026-10-23                               |
+| D3  | Lives in the public `relate` repository                                                                                                                                                                           | Agreed 2026-10-23                               |
+| D4  | Actions use Relate action handlers that write to the simulators directly (option C); end state is graded in both arms the same way                                                                                | Agreed 2026-10-23                               |
+| D5  | Three arms: `baseline-tools`, `baseline-code`, `relate`                                                                                                                                                           | Agreed 2026-10-23                               |
+| D6  | Baselines get only an authenticated `http` helper per HTTP system and raw `sql` per database, plus docs; no hand-written typed clients                                                                            | Agreed 2026-10-23                               |
+| D7  | Tiers S, M, L as sized in [Scale tiers](#scale-tiers)                                                                                                                                                             | Agreed 2026-10-23                               |
+| D8  | Simulator write endpoints behave like the vendors: no idempotency keys; deterministic fault scripts inject lost responses on specific tasks                                                                       | Proposed                                        |
+| D9  | All arms receive the same handbook; the difference measured is structure, not information                                                                                                                         | Proposed                                        |
+| D10 | The Relate graph is frozen before the task catalogue is written, and its declared calculations are limited to metrics the handbook defines                                                                        | Proposed                                        |
+| D11 | Every task has an oracle and a reference solution for `baseline-code` and `relate`; both must pass before a task enters the catalogue                                                                             | Proposed                                        |
+| D12 | Benchmark owns its own agent loop over the Messages API, so token accounting and budgets are identical across arms                                                                                                | Proposed                                        |
+| D13 | Implement action-level `adopts` and `objects.Type.adopt(sourceRecordId)` before benchmark implementation/runs. Action adoption participates in the local transaction; include create-and-read tasks in the pilot. | Agreed 2026-10-28; prerequisite not implemented |
+| D14 | Keyed reference datasets: a dataset may declare `key` and be registered without an object association; expressions may `JOIN` it only by equality on every key column. Used for currency conversion               | Agreed 2026-10-28; not implemented              |
 
 ## The world
 
@@ -247,13 +257,13 @@ Each simulator implements the subset of endpoints the tasks need, in the
 vendor's shape: path style, pagination style, error envelope, units and update
 semantics. Versions in paths are cosmetic.
 
-| System                | Read endpoints (subset)                                                                                                                                     | Write endpoints                                                                                 | Shape pitfalls kept                                                                                   |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Meta (Marketing API)  | `GET /v21.0/me/adaccounts`, `GET /v21.0/act_{id}/campaigns`, `…/adsets`, `…/ads`, `GET /v21.0/{id}/insights?time_range=…&level=…`                           | `POST /v21.0/{id}` with `status`, `daily_budget` / `lifetime_budget` (minor units)              | Cursor paging (`paging.cursors.after`), `fields=` required, spend as decimal string, account timezone |
-| TikTok (Business API) | `GET /open_api/v1.3/advertiser/info/`, `…/campaign/get/`, `…/adgroup/get/`, `…/ad/get/`, `GET …/report/integrated/get/`                                     | `POST …/campaign/status/update/`, `POST …/adgroup/update/` (budget decimal)                     | HTTP 200 with `code != 0` on error, page-number paging, `page_size` ≤ 1000                            |
-| TTD-shaped DSP        | `POST /v3/advertiser/query/partner`, `POST /v3/campaign/query/advertiser`, `POST /v3/adgroup/query/campaign`, `POST /v3/delivery/query` (simplified report) | `PUT /v3/campaign` and `PUT /v3/adgroup` (**full object replace**)                              | `PageStartIndex` paging, money as `{ Amount, CurrencyCode }`, PUT clobbers omitted fields             |
-| Google Ads            | `POST /v18/customers/{cid}/googleAds:search` (GAQL subset), `GET /v18/customers:listAccessibleCustomers`                                                    | `POST /v18/customers/{cid}/campaigns:mutate`, `…/campaignBudgets:mutate`, `…/adGroupAds:mutate` | GAQL, `cost_micros`, `nextPageToken`, shared budgets                                                  |
-| CRM (Salesforce)      | `GET /services/data/v62.0/query?q=SOQL` (SOQL subset), `GET …/sobjects/{type}/{id}`                                                                         | — (read-only in v1)                                                                             | `nextRecordsUrl` paging, `IsDeleted` merged records, custom `__c` fields                              |
+| System                | Read endpoints (subset)                                                                                                                                     | Write endpoints                                                                                       | Shape pitfalls kept                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Meta (Marketing API)  | `GET /v21.0/me/adaccounts`, `GET /v21.0/act_{id}/campaigns`, `…/adsets`, `…/ads`, `GET /v21.0/{id}/insights?time_range=…&level=…`                           | `POST /v21.0/{id}` with `status`, `daily_budget` / `lifetime_budget` (minor units)                    | Cursor paging (`paging.cursors.after`), `fields=` required, spend as decimal string, account timezone |
+| TikTok (Business API) | `GET /open_api/v1.3/advertiser/info/`, `…/campaign/get/`, `…/adgroup/get/`, `…/ad/get/`, `GET …/report/integrated/get/`                                     | `POST …/campaign/status/update/`, `POST …/adgroup/update/` (budget decimal), `POST …/adgroup/create/` | HTTP 200 with `code != 0` on error, page-number paging, `page_size` ≤ 1000                            |
+| TTD-shaped DSP        | `POST /v3/advertiser/query/partner`, `POST /v3/campaign/query/advertiser`, `POST /v3/adgroup/query/campaign`, `POST /v3/delivery/query` (simplified report) | `PUT /v3/campaign` and `PUT /v3/adgroup` (**full object replace**)                                    | `PageStartIndex` paging, money as `{ Amount, CurrencyCode }`, PUT clobbers omitted fields             |
+| Google Ads            | `POST /v18/customers/{cid}/googleAds:search` (GAQL subset), `GET /v18/customers:listAccessibleCustomers`                                                    | `POST /v18/customers/{cid}/campaigns:mutate`, `…/campaignBudgets:mutate`, `…/adGroupAds:mutate`       | GAQL, `cost_micros`, `nextPageToken`, shared budgets                                                  |
+| CRM (Salesforce)      | `GET /services/data/v62.0/query?q=SOQL` (SOQL subset), `GET …/sobjects/{type}/{id}`                                                                         | — (read-only in v1)                                                                                   | `nextRecordsUrl` paging, `IsDeleted` merged records, custom `__c` fields                              |
 
 Common simulator contract:
 
@@ -526,7 +536,7 @@ export const PlanLine = defineObject({
       id: 'agency.plan-line.budget-minor',
       access: ordinary,
     }),
-    // pacingPct: computed(...) — handbook definition; see open question Q3 on currency
+    // pacingPct: computed(...) — converts with a full-key join to the Fx reference dataset (D14)
   },
 });
 ```
@@ -543,15 +553,205 @@ export const PlanLine = defineObject({
   fold today's partial-day insights into the record as `spendToday`. This is
   connector code we write once and count in the build effort.
 
+### Action adoption prerequisite (D13)
+
+**Required before the benchmark is implemented or run, including the pilot.**
+This is a public SDK/runtime feature, not a benchmark-only helper. Today an
+action can create native objects but cannot adopt a platform record. Creating an
+ad group in TikTok therefore cannot produce a usable Relate reference from the
+handler. D13 replaces the earlier decision to exclude create-type tasks.
+
+#### Public API and behavior
+
+Keep native `creates` and add an optional `adopts` declaration, defaulting to an
+empty list. The following is the agreed API shape, not executable today:
+
+```ts
+const LaunchAdGroup = defineAction({
+  id: 'launch-ad-group',
+  input: z.object({
+    campaign: referenceInput(TikTokCampaign),
+    name: z.string(),
+    budget: z.number(), // decimal amount in the campaign account's currency
+  }),
+  output: z.object({ adGroupId: referenceInput(TikTokAdGroup) }),
+  creates: [],
+  adopts: [TikTokAdGroup],
+  errors: { notFound: z.object({}) },
+});
+
+implementAction(
+  graph,
+  LaunchAdGroup,
+  async ({ input, objects, idempotencyId, fail }) => {
+    const campaign = await objects.TikTokCampaign.get(input.campaign, {
+      select: ['externalId'],
+    });
+    if (campaign.status !== 'ok') return fail('notFound', {});
+
+    // Benchmark integration helper: validate the launch rules, then create
+    // or recover the external record using the same bound provider account.
+    const response = await createOrRecoverAdGroup({
+      operationId: idempotencyId,
+      campaignId: campaign.data.externalId,
+      name: input.name,
+      budget: input.budget,
+    });
+
+    const { id } = await objects.TikTokAdGroup.adopt(response.adgroup_id);
+    return { adGroupId: id };
+  },
+);
+```
+
+The handler method returns `Promise<{ readonly id: ObjectId<O['id']> }>` for its
+target object definition `O`, matching native `.create()`'s result shape. This
+minimal sketch isolates adoption. The benchmark implementation must also declare
+and write its `MediaChange` audit object in the same transaction and apply the
+activation-role and launch rules before calling the platform.
+
+- `adopts` accepts only registered source object definitions. `.adopt()` is
+  available only on declared targets, enforced both by types and at runtime.
+- Adoption fetches and maps the record through its configured source binding. It
+  cannot override the graph, connection, resource or provider account.
+- The action's execute policy and source-account checks apply. Admission and
+  output-reference validation must enforce the caller's applicable object
+  access; adoption must not grant read access or persist unauthorized new
+  membership. Validate business rules before any external write as well.
+- Reads and native references within the handler can use a pending adopted ID. A
+  subsequent consumer can read it after the action commits, subject to normal
+  authorization and freshness rules.
+- Repeated adoption reuses the committed ID for the same scoped source identity.
+  Concurrent action and host ingestion must converge on one identity.
+- Activity/provenance attributes adoption to the action actor and invocation.
+  Re-adoption does not replace the original adoption provenance.
+
+#### Transaction and recovery contract
+
+```mermaid
+sequenceDiagram
+  participant A as Action handler
+  participant P as Platform simulator
+  participant R as Relate transaction
+  A->>P: Create or recover external ad group
+  P-->>A: Platform record ID
+  A->>R: adopt(platform record ID)
+  R->>P: Fetch through configured source binding
+  P-->>R: Source record
+  R-->>A: Pending Relate ID
+  A->>R: Optional reads and native writes using ID
+  alt Handler and final validation succeed
+    R->>R: Commit membership, observation, native writes, receipt and feed
+  else Handler, timeout or validation fails
+    R->>R: Roll back this action's pending local changes
+    Note over A,P: External record remains; recover before retrying creation
+  end
+```
+
+| Case                                                               | Required result                                                                                                                                                  |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Action succeeds                                                    | New adoption, accepted observation, native writes, success receipt and corresponding durable feed entries commit atomically.                                     |
+| Handler throws, calls `fail`, times out, or returns invalid output | Roll back its pending adoption and native writes. Declared-failure receipts follow the existing failure contract; their references must resolve after rollback.  |
+| Record was already adopted                                         | Preserve existing membership and committed observation if this action rolls back.                                                                                |
+| Host ingestion independently adopts or refreshes the same record   | Resolve identity/order conflicts without duplicates or undoing independently committed ingestion.                                                                |
+| External creation succeeds, local work fails                       | External record remains. No automatic external deletion or claim of cross-system rollback.                                                                       |
+| External creation result is unknown                                | Preserve uncertainty in the integration journal; recover through documented platform reads or report an unresolved outcome. Never blindly create another record. |
+| New platform record is not yet fetchable                           | Do not report successful adoption or return a usable reference prematurely. Retry/recover within bounded execution, or report failure/uncertainty accurately.    |
+
+This supersedes the earlier suggestion that action adoption commit immediately
+and survive handler failure. `host.adopt()` remains an independent trusted
+ingestion operation; its existing semantics do not make it safe to call as a
+substitute for transactional handler adoption.
+
+`idempotencyId` identifies the logical external operation; it does not by itself
+deduplicate platform creation. The benchmark's journal is integration code,
+outside the local action rollback boundary. A journal alone cannot close the gap
+between external creation and saving its response. Recovery must use only the
+same documented platform capabilities available to the baselines, never hidden
+world state or simulator mutation logs. Ambiguous outcomes remain ambiguous. Do
+not claim that the SDK guarantees exactly-once external writes.
+
+#### Compatibility with future sync
+
+Action adoption and future sync must use the same scoped identity and
+observation acceptance rules. A later source observation updates the same
+object; adoption does not create a permanent local property override. For
+example, adopting `tt_123` at budget `500` must allow a newer source observation
+at budget `600` to update it while preserving its committed Relate ID.
+
+Automatic discovery/sync and a public API for ingesting already-fetched records
+are deferred. Avoid coupling this prerequisite to those features. Future ingest
+should reuse identity, mapping, authorization and ordering rules without a
+mandatory duplicate fetch. This benchmark still adopts its initial population at
+setup and adopts action-created records during execution.
+
+#### Research basis (reviewed 2026-10-28)
+
+These are precedents and design reasoning, not claims that Relate implements the
+same internals or that Palantir exposes an `adopt()` API.
+
+- [Palantir action webhooks](https://www.palantir.com/docs/foundry/action-types/webhooks)
+  support external writeback before Ontology changes and using response values
+  in subsequent rules. They explicitly allow external success followed by local
+  failure. This supports the external-create-then-adopt sequence.
+- [Palantir action consistency](https://www.palantir.com/docs/foundry/action-types/consistency-guarantees)
+  gives local edits atomic commits while excluding external calls. Its default
+  retry policy avoids repeating actions with external calls. This informs the
+  local transaction boundary and separate external recovery requirement.
+- [Palantir Ontology edits](https://www.palantir.com/docs/foundry/functions/edits-overview)
+  declare affected types and provide provenance used by actions, supporting an
+  explicit, enforced `adopts` declaration.
+- [Palantir edit/source conflict resolution](https://www.palantir.com/docs/foundry/object-edits/how-edits-applied)
+  distinguishes user edits from datasource updates. Relate adoption should
+  retain source observations without introducing a user-edit override layer.
+- [Crossplane import](https://docs.crossplane.io/latest/guides/import-existing-resources/)
+  separates local and external identity and supports observing imported
+  resources without modifying them. Its
+  [creation recovery documentation](https://docs.crossplane.io/latest/managed-resources/managed-resources/#creation-annotations)
+  illustrates why a lost external ID cannot justify a blind create retry.
+- [Terraform import identity](https://developer.hashicorp.com/terraform/language/import)
+  supports provider identity scoped by attributes such as account and region,
+  reinforcing reuse of Relate's full source identity scope.
+
+#### Implementation ownership and completion gate
+
+| Area                                                                              | Required change                                                                                                                                                      |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/relate/src/actions.ts` and owning compilation/manifest contracts        | Add `adopts`, typed handler capability and declaration validation. Keep native `creates` restricted to native objects.                                               |
+| `packages/node/src/runtime.ts`                                                    | Bind declared handler adoption to the invocation's runtime capability.                                                                                               |
+| `packages/runtime/src/actions/`, `resolution/`, and observation/storage contracts | Share source validation and acceptance logic; stage adoption in the action transaction with reads, authorization, deadlines, rollback and provenance.                |
+| `packages/relate/src/storage.ts`, runtime memory store and `packages/postgres/`   | Extend storage operations to support atomic source adoption with native action writes, receipt and feed; preserve host ingestion and concurrent identity guarantees. |
+| Owning package tests, shared storage acceptance tests, public docs and examples   | Prove the public contract on memory and Postgres; document external recovery limits. Package tests must not depend on benchmark fixtures.                            |
+
+Phase 0 is complete only when the public API is implemented, documented and
+verified for:
+
+1. Allowed/undeclared targets, source/native type restrictions and branded IDs.
+2. Create externally → adopt → read/reference within the handler → return a
+   readable typed ID after commit, through the public application path.
+3. Rollback on thrown error, declared failure, invalid output and timeout,
+   including a caught adoption error; no leaked new membership or adoption feed.
+4. Stable committed identity on repeats, concurrent action/host adoption and
+   refresh ordering; existing membership/provenance survive failed actions.
+5. Principal and provider-account isolation, inaccessible records, and output
+   authorization rechecks, without leaking IDs or data.
+6. External success followed by local failure, lost create response, delayed
+   source visibility and restart/retry recovery, without duplicate business
+   effects or false success. Integration tests must retain unresolved outcomes
+   where recovery cannot establish what happened.
+7. Memory/Postgres parity, focused owning-package checks, boundary checks,
+   packaging checks and the repository validation required by `AGENTS.md`.
+
 ### Actions (D4)
 
-| Action                 | Input                                    | Simulator call                                                    | Business failures                                      |
-| ---------------------- | ---------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------ |
-| `setCampaignStatus`    | platform campaign, `ACTIVE`/`PAUSED`     | Meta `POST /{id}`, TikTok `status/update`, TTD `PUT`, GAds mutate | `lineEnded`, `notFound`                                |
-| `setAdStatus`          | platform ad(s), status                   | Same, ad level                                                    | `lineEnded`                                            |
-| `setCampaignBudget`    | platform campaign, absolute budget minor | Budget write (GAds: `campaignBudgets:mutate`)                     | `exceedsDailyChangeLimit`, `sharedBudget`, `lineEnded` |
-| `shiftBudget`          | from campaign, to campaign, amount minor | Two budget writes                                                 | as above; `partialApplied` (see below)                 |
-| `recordInvoiceDispute` | vendor invoice, reason, amount           | — (native only)                                                   | `notFinance`                                           |
+| Action                 | Input                                             | Simulator call                                                    | Business failures                                                                                    |
+| ---------------------- | ------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `setCampaignStatus`    | platform campaign, `ACTIVE`/`PAUSED`              | Meta `POST /{id}`, TikTok `status/update`, TTD `PUT`, GAds mutate | `lineEnded`, `notFound`                                                                              |
+| `setAdStatus`          | platform ad(s), status                            | Same, ad level                                                    | `lineEnded`                                                                                          |
+| `setCampaignBudget`    | platform campaign, absolute budget minor          | Budget write (GAds: `campaignBudgets:mutate`)                     | `exceedsDailyChangeLimit`, `sharedBudget`, `lineEnded`                                               |
+| `shiftBudget`          | from campaign, to campaign, amount minor          | Two budget writes                                                 | as above; `partialApplied` (see below)                                                               |
+| `launchAdGroup`        | TikTok campaign, name, budget in account currency | Create TikTok ad group, then adopt through the handler            | `notFound`; launch validation and unresolved external outcome contract finalized before graph freeze |
+| `recordInvoiceDispute` | vendor invoice, reason, amount                    | — (native only)                                                   | `notFinance`                                                                                         |
 
 ```ts
 // src/relate/actions/set-campaign-budget.server.ts (sketch)
@@ -605,21 +805,170 @@ finding.
 ### Setup (not counted in agent latency)
 
 The harness starts simulators and databases, creates the Relate runtime, and
-adopts every source record in the world (Relate has no source queries or sync
-yet). Adoption time is reported separately per tier.
+adopts every initial source record in the world (Relate has no source queries or
+sync yet). Initial adoption time is reported separately per tier. Adoption of
+action-created records happens inside the measured action; it must not be moved
+to setup or an out-of-band harness hook.
 
 ### Relate gaps this benchmark will hit
 
-These are reported in the results, not fixed for the benchmark.
+These remaining gaps are reported in the results. Action-level adoption is
+instead a required SDK prerequisite (D13), not an excluded capability.
 
-| Gap (README "Not yet")                        | Effect here                                                                         |
-| --------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Direct source queries and sync                | Everything adopted at setup; anything created later is invisible to the graph       |
-| One object enriched from several sources      | Four platform campaign objects, no unified `Campaign`; agent unions them in code    |
-| Graph-wide aggregates                         | Totals across clients or platforms summed in JS                                     |
-| Ordinary-property sorting and indexed filters | Filtering source properties may fetch many records; expect latency growth at tier L |
-| Handlers cannot adopt new source records      | No "create campaign / ad group" actions in v1; listed as excluded tasks             |
-| Datasets are SQL-only                         | Today's spend comes from the platform connector as a source field, not a dataset    |
+| Gap (README "Not yet")                        | Effect here                                                                                                                                   |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Direct source queries and sync                | Initial population adopted at setup; action-created records explicitly adopted; unrelated external creations are not automatically discovered |
+| One object enriched from several sources      | Four platform campaign objects, no unified `Campaign`; agent unions them in code                                                              |
+| Graph-wide aggregates                         | Totals across clients or platforms summed in JS                                                                                               |
+| Ordinary-property sorting and indexed filters | Filtering source properties may fetch many records; expect latency growth at tier L                                                           |
+| Datasets are SQL-only                         | Today's spend comes from the platform connector as a source field, not a dataset                                                              |
+
+### Currency conversion: keyed reference datasets (Q3, D14)
+
+**Problem.** Pacing and spend-vs-plan need spend in the plan line's currency.
+Delivery rows are in the ad account's currency (different for ~25% of accounts
+at tier M), and the rate depends on the delivery date. Today a calculation reads
+one dataset and cannot join: `apps/docs/content/authoring/datasets.md` says
+"Joins, subqueries and multiple datasets in one expression are unsupported."
+
+**Decision (agreed 2026-10-28).** A dataset may declare a `key` and be
+registered in the graph without an object association. An expression may join
+such a **reference dataset** only by equality on every key column. A full-key
+equality join matches at most one row, so it never multiplies rows; joins that
+could still repeat rows remain rejected. This follows Malloy, Looker, Cube,
+Databricks metric views, Snowflake semantic views and dbt MetricFlow, which all
+model a rate table as a standalone keyed table joined many-to-one from the fact
+table.
+
+**Glossary additions.**
+
+| Term                  | Meaning                                                             | Example                                                               |
+| --------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Key**               | Columns that identify at most one row of a dataset                  | `key: ['date', 'from', 'to']`                                         |
+| **Reference dataset** | A keyed dataset registered in the graph, not tied to any object     | `Fx` daily exchange rates                                             |
+| **Full-key join**     | `JOIN` whose `ON` binds every key column with `=`, and nothing else | `ON f.date = d.date AND f.from = d.currency AND f.to = self.currency` |
+
+**Authoring.**
+
+```ts
+export const Fx = defineDataset({
+  id: 'warehouse.fx-daily',
+  description: 'Daily closing rate from one currency to another.',
+  key: ['date', 'from', 'to'], // NEW: makes it joinable; at most one row per key
+  columns: {
+    date: { id: 'fx.date', schema: z.iso.date(), access: ordinary },
+    from: { id: 'fx.from', schema: z.string(), access: ordinary },
+    to: { id: 'fx.to', schema: z.string(), access: ordinary },
+    rate: { id: 'fx.rate', schema: z.float64(), access: ordinary },
+  },
+});
+
+const PlanLine = defineObject({
+  id: 'agency.plan-line',
+  membership: source(planLines),
+  properties: {
+    // …
+    currency: from(planLines.fields.currency, {
+      id: 'agency.plan-line.currency',
+    }),
+    spendMinor: computed({
+      id: 'agency.plan-line.spend-minor',
+      access: ordinary,
+      sql: `SELECT SUM(d.spendMicros * f.rate) / 10000
+            FROM self.delivery d
+            JOIN fx f ON f.date = d.date AND f.from = d.currency AND f.to = self.currency`,
+    }),
+  },
+  datasets: {
+    delivery: {
+      id: 'agency.plan-line.delivery',
+      dataset: Delivery,
+      on: [{ column: 'platformCampaignId', property: 'metaCampaignId' }],
+    },
+  },
+});
+
+export const graph = defineGraph({
+  // …
+  datasets: { Delivery, Fx }, // Fx registered once, associated with no object
+  policies: {
+    // …
+    Fx: {}, // reference datasets carry their own column groups and policy
+  },
+});
+```
+
+Agents write the same join in caller expressions:
+
+```ts
+await relate.PlanLine.query({
+  compute: {
+    spendOct: {
+      sql: `SELECT SUM(d.spendMicros * f.rate) / 10000 FROM self.delivery d
+            JOIN fx f ON f.date = d.date AND f.from = d.currency AND f.to = self.currency
+            WHERE d.date >= $from`,
+      parameters: { from: '2026-10-01' },
+    },
+  },
+});
+```
+
+Discovery lists reference datasets with their key and visible columns.
+
+**Validation rules.**
+
+| Rule        | Accepted                                                                               | Rejected                                                                   |
+| ----------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Join target | A keyed reference dataset registered in the graph                                      | Associations (`self.x`), unkeyed datasets, physical table names            |
+| `ON` clause | `=` on every key column, each bound to a fact-row column, `self` property or parameter | Missing key column, `<`/`>`/`OR`/functions, extra predicates (use `WHERE`) |
+| Join kind   | `JOIN` / `LEFT JOIN` (both treated as lookups; see missing rows)                       | `RIGHT`/`FULL`/`CROSS`, subqueries, CTEs, `GROUP BY`                       |
+| Count       | Several reference joins per expression, each on the base association                   | Joins chained through another reference dataset (v1)                       |
+| Types       | Matching logical types on each `ON` pair                                               | Mismatched types (compile diagnostic)                                      |
+| Connection  | Reference dataset bound to the same connection as the base dataset                     | Cross-connection joins (startup diagnostic); federation is separate work   |
+
+**Execution (DuckDB sketch).** The existing correlated-aggregate plan gains a
+per-read, key-deduplicated reference relation and two guard aggregates:
+
+```sql
+WITH keys(slot, k0, p_currency) AS (VALUES (0, 'm_2384001', 'GBP'), (1, 'm_2384002', 'EUR')),
+fx_k AS (
+  SELECT date, "from", "to", ANY_VALUE(rate) AS rate, COUNT(*) AS n
+  FROM fx_daily GROUP BY ALL
+)
+SELECT k.slot,
+  SUM(d.spend_micros * f.rate) / 10000       AS value,
+  COUNT(*) FILTER (WHERE f.rate IS NULL)     AS ref_missing,
+  MAX(f.n)                                   AS ref_max_n
+FROM keys k
+JOIN delivery_daily_campaign d ON d.platform_campaign_id = k.k0
+LEFT JOIN fx_k f ON f.date = d.date AND f."from" = d.currency AND f."to" = k.p_currency
+GROUP BY k.slot;
+```
+
+**Semantics.**
+
+| Situation                                  | Result                                                                                                                        |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Source violates the declared key (`n > 1`) | Value omitted with reason `reference-key-not-unique`; never a silently duplicated rate                                        |
+| No matching reference row                  | Value `null` with reason `reference-missing` and the affected row count; never a silent under-count from `SUM` skipping nulls |
+| Caller cannot read a referenced column     | Value omitted as `denied`, as for any dataset column; a calculation never grants access to its inputs                         |
+| Evidence                                   | Computed metadata lists the base and each reference dataset as inputs, each with its own freshness                            |
+
+**Ownership.**
+
+| Area                                        | Change                                                                                       |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `packages/relate` (authoring, compiler)     | `key` on `defineDataset`; unassociated graph datasets; full-key join validation; diagnostics |
+| `packages/sql-parser`                       | Accept `JOIN … ON` against reference datasets only                                           |
+| `packages/runtime`                          | Reference column authorization; key-violation and missing-row outcomes; multi-input evidence |
+| `connectors/duckdb`, `sqlite`, `postgres`   | Plan generation for the deduplicated reference relation and guard aggregates                 |
+| `packages/protocol` (discovery)             | Reference datasets with key and columns                                                      |
+| `specs/2026-10-18-analytical-properties.md` | Amend "no joins" to "no joins except full-key joins to reference datasets"                   |
+| `apps/docs/content/authoring/datasets.md`   | "Reference datasets" section                                                                 |
+
+**Benchmark use.** Pilot currency tasks run with agent-side conversion if D14
+has not landed; tasks carry the `currency` seam tag so the difference is
+visible. Main runs use reference datasets once implemented.
 
 ## Tasks
 
@@ -671,6 +1020,19 @@ submit_answer({
 Each template draws its parameters (client, platform, window) from the world
 with the task's seeded RNG, so the same task id asks a different but equivalent
 question per tier.
+
+The existing Action allocation includes TikTok ad-group creation; it is no
+longer excluded. Include create → read and lost-create-response/recovery
+coverage among the 20 pilot tasks. Follow-up reads must use the returned
+identity, and all arms must have documented access to the same create/read and
+recovery capabilities. Keep the proposed total at ~80 by selecting these within
+the Action allocation rather than silently increasing the run count.
+
+Grade the created platform record, account/campaign, properties and duplicate
+business effects equally across arms. Validate the Relate output reference
+against that record as an additional SDK integration check; do not require
+baselines to return a Relate ID. The oracle must match generated records by
+expected business properties rather than guess a newly assigned platform ID.
 
 ### Validity checks (before a task enters the catalogue)
 
@@ -807,26 +1169,36 @@ pnpm bench:agency:report --out results/2026-11-…/
 
 ## Delivery
 
-| Phase | Builds                                                                                            | Done when                                                     |
-| ----- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 1     | World generator, projections, simulators, databases, handbook and docs (tier S)                   | Deterministic snapshots; simulator contract tests pass        |
-| 2     | Harness, baseline arms, 20 pilot tasks with oracles and `baseline-code` reference solutions       | Pilot runs end to end on `baseline-*`                         |
-| 3     | Relate graph (frozen), connectors, actions, journal; `relate` reference solutions for pilot tasks | All 20 pilot tasks pass reference solutions in both code arms |
-| 4     | Pilot run, cost estimate, fixes                                                                   | Pilot report reviewed; Main budget approved                   |
-| 5     | Remaining 60 tasks, tiers M and L, Main and Scale runs, report                                    | Published results and transcripts                             |
+| Phase | Builds                                                                                              | Done when                                                                 |
+| ----- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 0     | Implement public action adoption (D13), transactional storage support, docs and acceptance coverage | All prerequisite completion criteria pass before Phase 1 or any pilot run |
+| 1     | World generator, projections, simulators, databases, handbook and docs (tier S)                     | Deterministic snapshots; simulator contract tests pass                    |
+| 2     | Harness, baseline arms, 20 pilot tasks with oracles and `baseline-code` reference solutions         | Pilot runs end to end on `baseline-*`                                     |
+| 3     | Relate graph (frozen), connectors, actions, journal; `relate` reference solutions for pilot tasks   | All 20 pilot tasks pass reference solutions in both code arms             |
+| 4     | Pilot run, cost estimate, fixes                                                                     | Pilot report reviewed; Main budget approved                               |
+| 5     | Remaining 60 tasks, tiers M and L, Main and Scale runs, report                                      | Published results and transcripts                                         |
 
 ## Open questions
 
-| #   | Question                                                                                                                                     | Settled by                  | Current lean                                                                         |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------ |
-| Q1  | Plans in Postgres or SQLite?                                                                                                                 | Owner                       | **Settled 2026-10-23:** SQLite, so the benchmark needs no database or Docker         |
-| Q2  | Can the CRM simulator reuse `dev/salesforce` tooling under the boundary policy, or does the benchmark own its stand-in?                      | Phase 1, boundary check     | Own stand-in if reuse needs a policy exception                                       |
-| Q3  | Can a declared calculation convert currency using a second dataset (`fx_daily`), or must conversion happen in agent code?                    | Phase 3 against current API | If not supported, convert in code and record as a gap                                |
-| Q4  | Should the journal/reconcile helper become an SDK feature?                                                                                   | After Main results          | Decide from how often `duplicate-write` and `partial-unreported` differ between arms |
-| Q5  | Include one non-Anthropic model?                                                                                                             | Before Main                 | Optional; harness keeps the model adapter thin so it is cheap to add                 |
-| Q6  | Where do published results live: in the repo under `benchmarks/media-agency/results/`, or as release assets with only summaries in the repo? | Before first publish        | Summaries in repo, full transcripts as release assets (size)                         |
-| Q7  | Create-type actions (new ad group) need handlers to adopt new source records; worth adding to Relate before Main, or kept as a reported gap? | Owner, after Phase 3        | Reported gap in v1                                                                   |
+| #   | Question                                                                                                                                     | Settled by              | Current lean                                                                                                                                                |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1  | Plans in Postgres or SQLite?                                                                                                                 | Owner                   | **Settled 2026-10-23:** SQLite, so the benchmark needs no database or Docker                                                                                |
+| Q2  | Can the CRM simulator reuse `dev/salesforce` tooling under the boundary policy, or does the benchmark own its stand-in?                      | Phase 1, boundary check | Own stand-in if reuse needs a policy exception                                                                                                              |
+| Q3  | How is spend converted to the plan currency inside Relate?                                                                                   | Owner                   | **Settled 2026-10-28:** keyed reference datasets with full-key joins (D14); see [Currency conversion](#currency-conversion-keyed-reference-datasets-q3-d14) |
+| Q4  | Should the journal/reconcile helper become an SDK feature?                                                                                   | After Main results      | Decide from how often `duplicate-write` and `partial-unreported` differ between arms                                                                        |
+| Q5  | Include one non-Anthropic model?                                                                                                             | Before Main             | Optional; harness keeps the model adapter thin so it is cheap to add                                                                                        |
+| Q6  | Where do published results live: in the repo under `benchmarks/media-agency/results/`, or as release assets with only summaries in the repo? | Before first publish    | Summaries in repo, full transcripts as release assets (size)                                                                                                |
+| Q7  | Create-type actions require handler adoption: implement before the benchmark or report a gap?                                                | Owner                   | **Settled 2026-10-28:** implement first as Phase 0 (D13); include create tasks in the pilot.                                                                |
+| Q8  | Should reference joins support "latest rate on or before this date" (`ASOF JOIN`) in v1, for days without a rate?                            | Owner, before D14 build | Open                                                                                                                                                        |
 
 ## Revision notes
 
 - 2026-10-23: first version, from the design conversation.
+- 2026-10-28: require option 1 action adoption before the benchmark; record the
+  API, atomic local transaction boundary, external recovery limits, sync
+  compatibility, primary-source research and implementation acceptance gate.
+  Replace the create-task exclusion with TikTok ad-group creation and pilot
+  coverage; resolve Q7 and add Phase 0.
+- 2026-10-28: settle Q3 with keyed reference datasets and full-key joins (D14),
+  after comparing Malloy, Looker, Cube, Databricks metric views, Snowflake
+  semantic views, dbt MetricFlow, Power BI and Palantir; add Q8 (as-of joins).
