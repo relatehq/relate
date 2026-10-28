@@ -23,7 +23,19 @@ def evaluation_client():
 
 run_batch.build_user_sim_client = evaluation_client
 run_batch.build_locked_judge_client = evaluation_client
-sys.argv.extend(["--agent-class", "AgencyAgent", "--agent-client-class", "AgencyClient",
+arm = "baseline-tools"
+if "--agency-arm" in sys.argv:
+    index = sys.argv.index("--agency-arm")
+    arm = sys.argv[index + 1]
+    del sys.argv[index:index + 2]
+if arm not in {"baseline-tools", "relate"}:
+    raise ValueError("Unknown agency arm")
+executor_image = None
+if arm == "relate":
+    executor_image = subprocess.check_output(["docker", "image", "inspect",
+        os.environ.get("AGENCY_EXECUTOR_IMAGE", "relate-agency:v2-14b8ca0"), "--format", "{{.Id}}"], text=True).strip()
+    os.environ["AGENCY_EXECUTOR_IMAGE"] = executor_image
+sys.argv.extend(["--agent-class", "AgencyRelateAgent" if arm == "relate" else "AgencyAgent", "--agent-client-class", "AgencyClient",
                  "--agent-model-name", "gpt-6-luna", "--agent-model-reasoning-level", "medium"])
 # Freeze selection and source hashes before any paid requests. A new directory is
 # required so retries cannot replace failed attempts in an earlier denominator.
@@ -39,7 +51,8 @@ domain = option("--domain")
 selection = option("--tasks")
 task_ids = selection.split(",") if selection else load_split_task_ids(domain, option("--split", "all"), "train_test")
 manifest = {
-    "benchmark": "STATE-Bench", "arm": "baseline-tools", "domain": domain,
+    "benchmark": "STATE-Bench", "arm": arm, "domain": domain,
+    "executorImage": executor_image,
     "model": "gpt-6-luna", "reasoning": "medium", "maxOutputTokens": 8192,
     "evaluationModel": "gpt-5.4", "evaluationTransport": "openai",
     "tasks": task_ids, "runs": int(option("--num-runs", "1")),
