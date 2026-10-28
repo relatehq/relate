@@ -94,7 +94,7 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
 
     // DATE outlives the timestamp range, so guard before the cast. The explicit
     // timestamp without time zone keeps to_char from shifting the day.
-    return `CASE WHEN ${value} OPERATOR(pg_catalog.<) DATE '0001-01-01 BC' OR ${value} OPERATOR(pg_catalog.>) DATE '9999-12-31' THEN ${invalid} ELSE pg_catalog.to_char(CAST(${value} AS pg_catalog.timestamp), ${format}) END`;
+    return `CASE WHEN ${value} OPERATOR(pg_catalog.<) '0001-01-01 BC'::pg_catalog.date OR ${value} OPERATOR(pg_catalog.>) '9999-12-31'::pg_catalog.date THEN ${invalid} ELSE pg_catalog.to_char(CAST(${value} AS pg_catalog.timestamp), ${format}) END`;
   },
   dateParameters: 2,
   checked,

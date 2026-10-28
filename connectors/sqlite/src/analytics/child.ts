@@ -40,7 +40,7 @@ function inspect(resource: SelectedDataset): PhysicalSchema {
       type,
     )
       ? [{ type: 'boolean' }, { type: 'int32' }, { type: 'int64' }]
-      : /CHAR|CLOB|TEXT|DATETIME|TIMESTAMP/.test(type)
+      : /CHAR|CLOB|TEXT|DATE|TIMESTAMP/.test(type)
         ? [
             { type: 'string' },
             { type: 'timestamp', precision: 3 },
@@ -167,13 +167,9 @@ process.on('message', (request: ChildRequest) => {
       );
       // A TEXT check cannot prove dates, so every participating value is checked.
       // The thrown error is sanitized and reported as execution-failed.
-      database.function('__relate_date', { deterministic: true }, (value) => {
-        if (value === null) return null;
-
-        if (typeof value !== 'string') throw new Error('invalid date');
-
-        return canonicalDate(value);
-      });
+      database.function('__relate_date', { deterministic: true }, (value) =>
+        value === null ? null : canonicalDate(value),
+      );
       process.send?.({ kind: 'ready' } satisfies ChildResponse);
     } else {
       const value =

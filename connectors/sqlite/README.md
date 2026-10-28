@@ -150,11 +150,12 @@ return {
 `startApp` checks every declared column against `PRAGMA table_info`. INTEGER
 supports boolean, int32 and int64; BOOLEAN declarations use the same portable
 values. TEXT supports strings, canonical UTC millisecond/microsecond timestamps
-and canonical `YYYY-MM-DD` dates; DATETIME and TIMESTAMP declarations support
-the same canonical text representations. REAL supports float64. NUMERIC/DECIMAL
-and BLOB are unsupported. Non-null declarations require `NOT NULL` as reported
-by SQLite. Inspection checks affinity and nullability, without scanning rows,
-and uses a five-second statement deadline after process startup.
+and canonical `YYYY-MM-DD` dates; DATE, DATETIME and TIMESTAMP declarations
+support the same canonical text representations. REAL supports float64.
+NUMERIC/DECIMAL and BLOB are unsupported. Non-null declarations require
+`NOT NULL` as reported by SQLite. Inspection checks affinity and nullability,
+without scanning rows, and uses a five-second statement deadline after process
+startup.
 
 The connection's `analytics` capability accepts opaque resources and authorized,
 typed query structures. It never accepts caller SQL text. Planning generates one

@@ -54,11 +54,13 @@ function integer64(value: unknown): bigint {
   return value;
 }
 
+const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
 /**
  * Validate a calendar date as exact `YYYY-MM-DD` text. This is a pure string
  * check: JavaScript Date would roll invalid days over and shift by timezone.
  */
-export function canonicalDate(value: string): string {
+export function canonicalDate(value: unknown): string {
   const match =
     typeof value === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
 
@@ -68,11 +70,11 @@ export function canonicalDate(value: string): string {
     month = Number(match[2]),
     day = Number(match[3]);
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const last = month === 2 && leap ? 29 : MONTH_DAYS[month - 1];
 
-  if (month < 1 || month > 12 || day < 1 || day > days[month - 1]!) invalid();
+  if (!last || day < 1 || day > last) invalid();
 
-  return value;
+  return match[0];
 }
 
 /** Normalize an ISO instant without rounding or discarding fractional digits. */
@@ -208,11 +210,8 @@ export function encodeAnalyticalValue(
 
       return value;
     }
-    case 'date': {
-      if (typeof value !== 'string') invalid();
-
+    case 'date':
       return canonicalDate(value);
-    }
     default:
       return invalid();
   }

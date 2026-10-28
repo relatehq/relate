@@ -233,6 +233,15 @@ export function analyticalDatesContract(
             first: sql('MIN(d.day)'),
             last: sql('MAX(d.day)'),
             counted: sql('COUNT(d.day)'),
+            // Year-zero parameters bind without shifting: 0000-02-29 is 1 BC on Postgres.
+            fromLeapZero: {
+              sql: sql('COUNT(*)', 'd.day >= $from'),
+              parameters: { from: '0000-02-29' },
+            },
+            beforeYearOne: {
+              sql: sql('COUNT(*)', 'd.day < $to'),
+              parameters: { to: '0001-01-01' },
+            },
           },
         );
 
@@ -241,12 +250,16 @@ export function analyticalDatesContract(
             first: { value: day },
             last: { value: day },
             counted: { value: '1' },
+            fromLeapZero: { value: day === '0000-01-01' ? '0' : '1' },
+            beforeYearOne: { value: day.startsWith('0000-') ? '1' : '0' },
           });
 
         expect(result.none).toEqual({
           first: { value: null },
           last: { value: null },
           counted: { value: '0' },
+          fromLeapZero: { value: '0' },
+          beforeYearOne: { value: '0' },
         });
       });
 

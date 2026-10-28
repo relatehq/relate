@@ -115,10 +115,12 @@ it('describes declared affinity/nullability and maps physical identifiers withou
   const { connection, resource, db } = fixture();
 
   db.exec('ALTER TABLE events ADD COLUMN unsupported NUMERIC');
+  db.exec('ALTER TABLE events ADD COLUMN day DATE');
   const selected = connection.table('events').bindDataset({
     columns: {
       key: 'CUSTOMER_ID',
       numeric: 'unsupported',
+      day: 'day',
       missing: 'absent',
     },
   });
@@ -135,6 +137,12 @@ it('describes declared affinity/nullability and maps physical identifiers withou
     databaseType: 'TEXT',
   });
   expect(schema.columns.numeric!.supportedTypes).toEqual([]);
+  // DATE has NUMERIC affinity like DATETIME, but stores canonical dates as TEXT.
+  expect(schema.columns.day).toEqual({
+    ...schema.columns.key,
+    nullable: true,
+    databaseType: 'DATE',
+  });
   expect(schema.columns).not.toHaveProperty('missing');
   expect(
     (await connection.analytics.describe(resource, options())).columns.amount!
