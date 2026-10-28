@@ -120,3 +120,19 @@ branch. Both commands accept `--dry-run`.
 
 Delete worktrees with `worktree:delete`, not `git worktree remove`, so their
 databases do not accumulate.
+
+## DataFusion backend development
+
+The opt-in DataFusion connector includes Rust source, pinned DataFusion 54.1.0
+and a Cargo lockfile. Use Rust 1.92 or later. `pnpm build` builds TypeScript;
+`pnpm build:datafusion` explicitly builds the native engine and provider
+examples. `pnpm check` builds and tests the native engine before running all
+repository tests. To iterate: `pnpm test:datafusion`.
+`cargo fmt --manifest-path connectors/datafusion/engine/Cargo.toml --check`
+checks Rust formatting.
+
+The package smoke suite builds the packed Rust source, so `pnpm test:packaging`
+also requires Rust. For local object-storage verification, install `uv` and run
+`pnpm example:datafusion`; the command owns and cleans up its Moto emulator.
+Neither importing `@relate/node` nor installing the connector builds a binary
+implicitly. See [the connector guide](connectors/datafusion/README.md).

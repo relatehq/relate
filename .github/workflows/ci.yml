@@ -45,6 +45,17 @@ jobs:
           check-latest: true
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@1.92.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: connectors/datafusion/engine
+      - run: pnpm build:datafusion
+      - if: matrix.node == '26'
+        run: pnpm --filter @relate/connector-datafusion test:engine
+      - if: matrix.node == '26'
+        uses: astral-sh/setup-uv@v6
+      - if: matrix.node == '26'
+        run: pnpm example:datafusion
       - run: pnpm test:onboarding
       - if: matrix.node == '26'
         run: |

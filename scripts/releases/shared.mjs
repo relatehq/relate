@@ -12,6 +12,7 @@ export const packedPackages = [
   'connectors/sqlite',
   'connectors/postgres',
   'connectors/duckdb',
+  'connectors/datafusion',
   'connectors/stripe',
 ];
 

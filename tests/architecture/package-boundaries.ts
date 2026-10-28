@@ -16,6 +16,10 @@ export const packagePolicies: Record<
     imports: ['@relate/connector-salesforce', 'zod'],
     builtins: true,
   },
+  'connectors/datafusion': {
+    imports: ['relate/connectors', 'relate/analytics'],
+    builtins: ['node:path', 'node:url', 'node:child_process'],
+  },
   'connectors/duckdb': {
     imports: ['relate/connectors', 'relate/analytics', '@duckdb/node-api'],
     builtins: ['node:path', 'node:child_process'],
@@ -205,6 +209,17 @@ export const packagePolicies: Record<
   'dev/simulators/crm': {
     imports: ['hono', '@hono/node-server'],
     builtins: ['node:events', 'node:http'],
+  },
+  'examples/05-datafusion': {
+    imports: [
+      'relate',
+      '@relate/node',
+      '@relate/connector-datafusion',
+      '@relate/connector-sqlite',
+      '@duckdb/node-api',
+      'zod',
+    ],
+    builtins: true,
   },
   'examples/04-datasets': {
     imports: [

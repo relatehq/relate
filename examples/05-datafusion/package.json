@@ -1,0 +1,14 @@
+{
+  "name": "@relate/example-datafusion",
+  "version": "0.0.0-dev.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "relate": "workspace:*",
+    "@relate/node": "workspace:*",
+    "@relate/connector-datafusion": "workspace:*",
+    "@relate/connector-sqlite": "workspace:*",
+    "@duckdb/node-api": "1.5.6-r.1",
+    "zod": "4.6.5"
+  }
+}
