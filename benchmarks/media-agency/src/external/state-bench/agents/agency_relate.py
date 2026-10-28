@@ -21,7 +21,7 @@ class RelateBridge:
         target = "/workspace/benchmarks/media-agency/src/external/state-bench/executor-bridge.ts"
         image = os.environ["AGENCY_EXECUTOR_IMAGE"]
         self.process = subprocess.Popen([
-            "docker", "run", "--rm", "-i", "--name", self.name,
+            "docker", "run", "-i", "--name", self.name,
             "--network", "none", "--read-only", "--cap-drop", "ALL",
             "--security-opt", "no-new-privileges", "--pids-limit", "64", "--memory", "512m",
             "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
@@ -63,13 +63,23 @@ class RelateBridge:
 
     def close(self):
         if self.process.stdin and not self.process.stdin.closed:
-            self.process.stdin.close()
-        subprocess.run(["docker", "rm", "-f", self.name], capture_output=True, timeout=20)
+            try:
+                self.process.stdin.close()
+            except BrokenPipeError:
+                pass
         try:
-            self.process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.process.kill()
-            self.process.wait()
+            result = subprocess.run(["docker", "rm", "-f", self.name], capture_output=True, text=True, timeout=20)
+            if result.returncode and "No such container" not in result.stderr:
+                raise RuntimeError("Executor cleanup failed: " + result.stderr)
+        finally:
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
+            finally:
+                self.process.stdout.close()
+                self.process.stderr.close()
 
 
 class AgencyRelateAgent(AgencyAgent):
