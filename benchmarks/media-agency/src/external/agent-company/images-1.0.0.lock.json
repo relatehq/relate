@@ -1,0 +1,1058 @@
+{
+  "upstream": "98b68ef82a47690c316f42fddb05baafaab56851",
+  "createdAt": "2026-10-28T22:17:30.661014+00:00",
+  "platform": "linux/amd64",
+  "images": {
+    "admin-arrange-meeting-rooms": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-arrange-meeting-rooms-image:1.0.0",
+      "digest": "sha256:d15e40d7003a25caadc3922a3a4aff6d424052d01abc288fb73afc9becf55e73",
+      "reference": "ghcr.io/theagentcompany/admin-arrange-meeting-rooms-image@sha256:d15e40d7003a25caadc3922a3a4aff6d424052d01abc288fb73afc9becf55e73"
+    },
+    "admin-ask-for-meeting-feedback": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-ask-for-meeting-feedback-image:1.0.0",
+      "digest": "sha256:23fc4701d8b23fcef5b715def56ac2bfe69c0e1e56a785276dc38fbc107ab326",
+      "reference": "ghcr.io/theagentcompany/admin-ask-for-meeting-feedback-image@sha256:23fc4701d8b23fcef5b715def56ac2bfe69c0e1e56a785276dc38fbc107ab326"
+    },
+    "admin-ask-for-upgrade-reimbursement": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-ask-for-upgrade-reimbursement-image:1.0.0",
+      "digest": "sha256:ba0dde02e4dfab887c955dcee3988625ac7f1f5b27825d82cf7fa9067fdd50a6",
+      "reference": "ghcr.io/theagentcompany/admin-ask-for-upgrade-reimbursement-image@sha256:ba0dde02e4dfab887c955dcee3988625ac7f1f5b27825d82cf7fa9067fdd50a6"
+    },
+    "admin-check-employees-budget-and-reply": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-check-employees-budget-and-reply-image:1.0.0",
+      "digest": "sha256:6587142983ae9d9211aad00a8fc817262688329eb2590a28ad4edce88cb37444",
+      "reference": "ghcr.io/theagentcompany/admin-check-employees-budget-and-reply-image@sha256:6587142983ae9d9211aad00a8fc817262688329eb2590a28ad4edce88cb37444"
+    },
+    "admin-check-employees-budget-and-reply-2": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-check-employees-budget-and-reply-2-image:1.0.0",
+      "digest": "sha256:5d4238c12783787b8cb4a56d832d0809408d20006fcf62a106530e4a763661f3",
+      "reference": "ghcr.io/theagentcompany/admin-check-employees-budget-and-reply-2-image@sha256:5d4238c12783787b8cb4a56d832d0809408d20006fcf62a106530e4a763661f3"
+    },
+    "admin-check-employees-budget-and-reply-and-record": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-check-employees-budget-and-reply-and-record-image:1.0.0",
+      "digest": "sha256:4e461c13ab93d01b39bcac53e96793f6eb58c8795e3454cf4fce14457687386e",
+      "reference": "ghcr.io/theagentcompany/admin-check-employees-budget-and-reply-and-record-image@sha256:4e461c13ab93d01b39bcac53e96793f6eb58c8795e3454cf4fce14457687386e"
+    },
+    "admin-collect-requests-and-compute-total-price": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-collect-requests-and-compute-total-price-image:1.0.0",
+      "digest": "sha256:f9cf2183f43a7e96cc9ccfe53a7306c1e1a8452a36568eacb9253e1c030750e6",
+      "reference": "ghcr.io/theagentcompany/admin-collect-requests-and-compute-total-price-image@sha256:f9cf2183f43a7e96cc9ccfe53a7306c1e1a8452a36568eacb9253e1c030750e6"
+    },
+    "admin-employee-info-reconciliation": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-employee-info-reconciliation-image:1.0.0",
+      "digest": "sha256:3ca44290d4378e5af8c5e5942be6c70f5396296ba1a1dacc9637c89d79b5f3cf",
+      "reference": "ghcr.io/theagentcompany/admin-employee-info-reconciliation-image@sha256:3ca44290d4378e5af8c5e5942be6c70f5396296ba1a1dacc9637c89d79b5f3cf"
+    },
+    "admin-get-best-vendor-quote": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-get-best-vendor-quote-image:1.0.0",
+      "digest": "sha256:2a8a82b475275342c4854d11fd0504aa7d5bcd5762bc0232a16b3efc086a6dec",
+      "reference": "ghcr.io/theagentcompany/admin-get-best-vendor-quote-image@sha256:2a8a82b475275342c4854d11fd0504aa7d5bcd5762bc0232a16b3efc086a6dec"
+    },
+    "admin-make-spreadsheet": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-make-spreadsheet-image:1.0.0",
+      "digest": "sha256:5a2e1db9ae2e1b33f2f60f12830e390d4a1046c94668cc38125f6b39c838e6f7",
+      "reference": "ghcr.io/theagentcompany/admin-make-spreadsheet-image@sha256:5a2e1db9ae2e1b33f2f60f12830e390d4a1046c94668cc38125f6b39c838e6f7"
+    },
+    "admin-mass-forms-filling": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-mass-forms-filling-image:1.0.0",
+      "digest": "sha256:27b79e453bfdf4a63b45551222517aff21dd32d251f4e76d2e74fe8bcbd141a8",
+      "reference": "ghcr.io/theagentcompany/admin-mass-forms-filling-image@sha256:27b79e453bfdf4a63b45551222517aff21dd32d251f4e76d2e74fe8bcbd141a8"
+    },
+    "admin-read-survey-and-summarise": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-read-survey-and-summarise-image:1.0.0",
+      "digest": "sha256:ca469568aee1d2387f0adbe991405d62c8b64c2a2fcefac7133aac8563555b8d",
+      "reference": "ghcr.io/theagentcompany/admin-read-survey-and-summarise-image@sha256:ca469568aee1d2387f0adbe991405d62c8b64c2a2fcefac7133aac8563555b8d"
+    },
+    "admin-remove-pages-pdf": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-remove-pages-pdf-image:1.0.0",
+      "digest": "sha256:15a08f8bf8cf1adb4d42b6d57020862da2c0d75d33458c0ab6cbb348456be81c",
+      "reference": "ghcr.io/theagentcompany/admin-remove-pages-pdf-image@sha256:15a08f8bf8cf1adb4d42b6d57020862da2c0d75d33458c0ab6cbb348456be81c"
+    },
+    "admin-translate-sales-chat": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-translate-sales-chat-image:1.0.0",
+      "digest": "sha256:22ae069e7122356b9007b9e905e6ba997798ccbc50412188f9e11dbad9f92559",
+      "reference": "ghcr.io/theagentcompany/admin-translate-sales-chat-image@sha256:22ae069e7122356b9007b9e905e6ba997798ccbc50412188f9e11dbad9f92559"
+    },
+    "admin-watch-video": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/admin-watch-video-image:1.0.0",
+      "digest": "sha256:c28230e5b820684853377d191c7c2a5f36f5bc174018f46b8df5cff41ad46ef0",
+      "reference": "ghcr.io/theagentcompany/admin-watch-video-image@sha256:c28230e5b820684853377d191c7c2a5f36f5bc174018f46b8df5cff41ad46ef0"
+    },
+    "bm-classify-nationality": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/bm-classify-nationality-image:1.0.0",
+      "digest": "sha256:7c3b3d8fc48485bbf9a0fa54754d4f3a56f1f3e67cd81ba71e3797e84f4a090c",
+      "reference": "ghcr.io/theagentcompany/bm-classify-nationality-image@sha256:7c3b3d8fc48485bbf9a0fa54754d4f3a56f1f3e67cd81ba71e3797e84f4a090c"
+    },
+    "ds-answer-numerical-data-question": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-answer-numerical-data-question-image:1.0.0",
+      "digest": "sha256:d901e68eb2aedc7ae953ee6ecb6c912492af6c16d2cc917fb6ad6028d1b5ce9f",
+      "reference": "ghcr.io/theagentcompany/ds-answer-numerical-data-question-image@sha256:d901e68eb2aedc7ae953ee6ecb6c912492af6c16d2cc917fb6ad6028d1b5ce9f"
+    },
+    "ds-answer-spreadsheet-questions": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-answer-spreadsheet-questions-image:1.0.0",
+      "digest": "sha256:39a0f643eec12cf668168b858da91ad99dc28d46dd978a91ff79a635e4d4ee00",
+      "reference": "ghcr.io/theagentcompany/ds-answer-spreadsheet-questions-image@sha256:39a0f643eec12cf668168b858da91ad99dc28d46dd978a91ff79a635e4d4ee00"
+    },
+    "ds-calculate-spreadsheet-stats": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-calculate-spreadsheet-stats-image:1.0.0",
+      "digest": "sha256:1fc73ce6ed1894990ce9e54526b2a84969f0acbdfeaa05e675c79d32ce723029",
+      "reference": "ghcr.io/theagentcompany/ds-calculate-spreadsheet-stats-image@sha256:1fc73ce6ed1894990ce9e54526b2a84969f0acbdfeaa05e675c79d32ce723029"
+    },
+    "ds-coffee-shop-database-management": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-coffee-shop-database-management-image:1.0.0",
+      "digest": "sha256:9183d6a18a7115ba3280d4760e3029f7907a35308826b9db8c1c22ea1180c045",
+      "reference": "ghcr.io/theagentcompany/ds-coffee-shop-database-management-image@sha256:9183d6a18a7115ba3280d4760e3029f7907a35308826b9db8c1c22ea1180c045"
+    },
+    "ds-find-meeting-spreadsheet": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-find-meeting-spreadsheet-image:1.0.0",
+      "digest": "sha256:294930dd16f8755677dde2de00aa6cbd4d91c1480519f633d5909555f9357e8a",
+      "reference": "ghcr.io/theagentcompany/ds-find-meeting-spreadsheet-image@sha256:294930dd16f8755677dde2de00aa6cbd4d91c1480519f633d5909555f9357e8a"
+    },
+    "ds-fix-table-values-and-missing-answers": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-fix-table-values-and-missing-answers-image:1.0.0",
+      "digest": "sha256:479f7dca8abac55979eed4f189de2874aa812cfdaa0286588114ac9028c4d404",
+      "reference": "ghcr.io/theagentcompany/ds-fix-table-values-and-missing-answers-image@sha256:479f7dca8abac55979eed4f189de2874aa812cfdaa0286588114ac9028c4d404"
+    },
+    "ds-format-excel-sheets": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-format-excel-sheets-image:1.0.0",
+      "digest": "sha256:7302b06ca0d2695099b6111e29520e7ff7e18257a1a66de9d6ab9755386a7032",
+      "reference": "ghcr.io/theagentcompany/ds-format-excel-sheets-image@sha256:7302b06ca0d2695099b6111e29520e7ff7e18257a1a66de9d6ab9755386a7032"
+    },
+    "ds-janusgraph-exercise": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-janusgraph-exercise-image:1.0.0",
+      "digest": "sha256:6a8c3852d7d512e9dd50be599a0f9fdd56c17b30621056bad9127c9a8a6a7285",
+      "reference": "ghcr.io/theagentcompany/ds-janusgraph-exercise-image@sha256:6a8c3852d7d512e9dd50be599a0f9fdd56c17b30621056bad9127c9a8a6a7285"
+    },
+    "ds-merge-multiple-sheets": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-merge-multiple-sheets-image:1.0.0",
+      "digest": "sha256:6a34456cead8f061855b6410a0d1d3055a0674eedec60deb7ddc7483eca78676",
+      "reference": "ghcr.io/theagentcompany/ds-merge-multiple-sheets-image@sha256:6a34456cead8f061855b6410a0d1d3055a0674eedec60deb7ddc7483eca78676"
+    },
+    "ds-organise-report-sus-data": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-organise-report-sus-data-image:1.0.0",
+      "digest": "sha256:fe3cb5a0b8e9b7527a0672d3f60e2e80661faad71e6d364c443976af965ad8d1",
+      "reference": "ghcr.io/theagentcompany/ds-organise-report-sus-data-image@sha256:fe3cb5a0b8e9b7527a0672d3f60e2e80661faad71e6d364c443976af965ad8d1"
+    },
+    "ds-predictive-modeling": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-predictive-modeling-image:1.0.0",
+      "digest": "sha256:a96392915f8d18034ee624d880a9ec7f854cf23d177427b61cedced705edf534",
+      "reference": "ghcr.io/theagentcompany/ds-predictive-modeling-image@sha256:a96392915f8d18034ee624d880a9ec7f854cf23d177427b61cedced705edf534"
+    },
+    "ds-sql-exercise": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-sql-exercise-image:1.0.0",
+      "digest": "sha256:71e6089255fbd6119c6d6e7bc82d0653bcc5bde2d0b523a399121c1405b0d5d3",
+      "reference": "ghcr.io/theagentcompany/ds-sql-exercise-image@sha256:71e6089255fbd6119c6d6e7bc82d0653bcc5bde2d0b523a399121c1405b0d5d3"
+    },
+    "ds-stock-analysis-slides": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-stock-analysis-slides-image:1.0.0",
+      "digest": "sha256:800fbf01704d0e216de628ee4c91bbe360785ea2ee31f953342915badff47fc4",
+      "reference": "ghcr.io/theagentcompany/ds-stock-analysis-slides-image@sha256:800fbf01704d0e216de628ee4c91bbe360785ea2ee31f953342915badff47fc4"
+    },
+    "ds-visualize-data-in-pie-and-bar-chart": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ds-visualize-data-in-pie-and-bar-chart-image:1.0.0",
+      "digest": "sha256:e87d72f07bdce811f3e9164af81ea449a34c5f1a31b94d3e973c1142a1d3fca1",
+      "reference": "ghcr.io/theagentcompany/ds-visualize-data-in-pie-and-bar-chart-image@sha256:e87d72f07bdce811f3e9164af81ea449a34c5f1a31b94d3e973c1142a1d3fca1"
+    },
+    "example": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/example-image:1.0.0",
+      "digest": "sha256:3c3e259498bd593941e6a2c68979be7a535d4c057ae4932da8c63cb3ab920208",
+      "reference": "ghcr.io/theagentcompany/example-image@sha256:3c3e259498bd593941e6a2c68979be7a535d4c057ae4932da8c63cb3ab920208"
+    },
+    "finance-apply-tax-credit": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-apply-tax-credit-image:1.0.0",
+      "digest": "sha256:e4c1eeb85b858faa4fb40184eb6fedbdc9543ea8bb73811cf858f17d9d20b139",
+      "reference": "ghcr.io/theagentcompany/finance-apply-tax-credit-image@sha256:e4c1eeb85b858faa4fb40184eb6fedbdc9543ea8bb73811cf858f17d9d20b139"
+    },
+    "finance-budget-variance": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-budget-variance-image:1.0.0",
+      "digest": "sha256:e84e39d663c67d208eec7077d48783eb846c1fd90433275d53cec202066ab33d",
+      "reference": "ghcr.io/theagentcompany/finance-budget-variance-image@sha256:e84e39d663c67d208eec7077d48783eb846c1fd90433275d53cec202066ab33d"
+    },
+    "finance-check-attendance-payroll": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-check-attendance-payroll-image:1.0.0",
+      "digest": "sha256:c49642d7a6cb2941dcf5b60c47f6d78abf2b66dc3110e60cd5622f1732d087cb",
+      "reference": "ghcr.io/theagentcompany/finance-check-attendance-payroll-image@sha256:c49642d7a6cb2941dcf5b60c47f6d78abf2b66dc3110e60cd5622f1732d087cb"
+    },
+    "finance-create-10k-income-report": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-create-10k-income-report-image:1.0.0",
+      "digest": "sha256:abe938b19545d028e80e7b5f5bd3fa811d7525baa937f06e5d2554d796459d83",
+      "reference": "ghcr.io/theagentcompany/finance-create-10k-income-report-image@sha256:abe938b19545d028e80e7b5f5bd3fa811d7525baa937f06e5d2554d796459d83"
+    },
+    "finance-expense-validation": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-expense-validation-image:1.0.0",
+      "digest": "sha256:85dcf1185524a7ea378f5d1629d8ac6233fc31320e0badfabf6f89ae7eafc9d9",
+      "reference": "ghcr.io/theagentcompany/finance-expense-validation-image@sha256:85dcf1185524a7ea378f5d1629d8ac6233fc31320e0badfabf6f89ae7eafc9d9"
+    },
+    "finance-find-signatories": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-find-signatories-image:1.0.0",
+      "digest": "sha256:f05245a7029b5b3baefc854fe1f493c6cbf5c2333bf6002c58371c51506f0417",
+      "reference": "ghcr.io/theagentcompany/finance-find-signatories-image@sha256:f05245a7029b5b3baefc854fe1f493c6cbf5c2333bf6002c58371c51506f0417"
+    },
+    "finance-invoice-matching": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-invoice-matching-image:1.0.0",
+      "digest": "sha256:b4bab5526f0c84d1683cd6bb187c8f575c2b372d153c0c4200ea158c2c414efe",
+      "reference": "ghcr.io/theagentcompany/finance-invoice-matching-image@sha256:b4bab5526f0c84d1683cd6bb187c8f575c2b372d153c0c4200ea158c2c414efe"
+    },
+    "finance-nonqualified-bill-ask-for-reimburse": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-nonqualified-bill-ask-for-reimburse-image:1.0.0",
+      "digest": "sha256:87e57dfd1cd705dfc6656281470a2b32c57fc4ac47af11f69857cb8957806465",
+      "reference": "ghcr.io/theagentcompany/finance-nonqualified-bill-ask-for-reimburse-image@sha256:87e57dfd1cd705dfc6656281470a2b32c57fc4ac47af11f69857cb8957806465"
+    },
+    "finance-qualified-bill-ask-for-reimburse": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-qualified-bill-ask-for-reimburse-image:1.0.0",
+      "digest": "sha256:e12479f21307e419c0777caca78bcf0ec2e9e2978cd5695f418fb2173866bbfb",
+      "reference": "ghcr.io/theagentcompany/finance-qualified-bill-ask-for-reimburse-image@sha256:e12479f21307e419c0777caca78bcf0ec2e9e2978cd5695f418fb2173866bbfb"
+    },
+    "finance-r-d-activities": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-r-d-activities-image:1.0.0",
+      "digest": "sha256:c9b1d55c3b4f97c2a178d0974a06b7c17515e3f5b2002e943d5413b383174937",
+      "reference": "ghcr.io/theagentcompany/finance-r-d-activities-image@sha256:c9b1d55c3b4f97c2a178d0974a06b7c17515e3f5b2002e943d5413b383174937"
+    },
+    "finance-revenue-reconciliation": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-revenue-reconciliation-image:1.0.0",
+      "digest": "sha256:e0257a2555630233a4ffaa6667e225194ebd8ab8a81da123644ec0188b0cca35",
+      "reference": "ghcr.io/theagentcompany/finance-revenue-reconciliation-image@sha256:e0257a2555630233a4ffaa6667e225194ebd8ab8a81da123644ec0188b0cca35"
+    },
+    "finance-substantial-presence-test": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/finance-substantial-presence-test-image:1.0.0",
+      "digest": "sha256:13fd641ef756c2edf399e1528bda947a2c707101a748f404cca0602e20a2aad7",
+      "reference": "ghcr.io/theagentcompany/finance-substantial-presence-test-image@sha256:13fd641ef756c2edf399e1528bda947a2c707101a748f404cca0602e20a2aad7"
+    },
+    "hr-analyze-outing-bills": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-analyze-outing-bills-image:1.0.0",
+      "digest": "sha256:8b8bc157be1dbe3c8de98b2b654779478483bd58d5a2a3c5fb6726a11dcf16bf",
+      "reference": "ghcr.io/theagentcompany/hr-analyze-outing-bills-image@sha256:8b8bc157be1dbe3c8de98b2b654779478483bd58d5a2a3c5fb6726a11dcf16bf"
+    },
+    "hr-check-attendance-multiple-days": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-check-attendance-multiple-days-image:1.0.0",
+      "digest": "sha256:18dd001db89a1e3a522b4ae8875499a1b18aa2d026b458a08a31dde64f2176fc",
+      "reference": "ghcr.io/theagentcompany/hr-check-attendance-multiple-days-image@sha256:18dd001db89a1e3a522b4ae8875499a1b18aa2d026b458a08a31dde64f2176fc"
+    },
+    "hr-check-attendance-multiple-days-department": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-check-attendance-multiple-days-department-image:1.0.0",
+      "digest": "sha256:7915a0488e2f47f86d1ac7f4ccc9d99f970eafe83eb13cffaa77333b9a3f243a",
+      "reference": "ghcr.io/theagentcompany/hr-check-attendance-multiple-days-department-image@sha256:7915a0488e2f47f86d1ac7f4ccc9d99f970eafe83eb13cffaa77333b9a3f243a"
+    },
+    "hr-check-attendance-multiple-days-department-with-chat": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-check-attendance-multiple-days-department-with-chat-image:1.0.0",
+      "digest": "sha256:cb39eadb7013abbe8c260b74b491786994fc397b4310b1c5c9d0021f0c29ca09",
+      "reference": "ghcr.io/theagentcompany/hr-check-attendance-multiple-days-department-with-chat-image@sha256:cb39eadb7013abbe8c260b74b491786994fc397b4310b1c5c9d0021f0c29ca09"
+    },
+    "hr-check-attendance-one-day": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-check-attendance-one-day-image:1.0.0",
+      "digest": "sha256:6f8104994603aa3502fbcb372f5011e909eecea6ba3538f26341808d0b5dfd43",
+      "reference": "ghcr.io/theagentcompany/hr-check-attendance-one-day-image@sha256:6f8104994603aa3502fbcb372f5011e909eecea6ba3538f26341808d0b5dfd43"
+    },
+    "hr-check-for-invalid-passwords-and-ask-for-valid-passwords": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-check-for-invalid-passwords-and-ask-for-valid-passwords-image:1.0.0",
+      "digest": "sha256:4b48f47202cf4831f8cb572f0ee3a7d8375e2c84a6e5c74f18aa665aaabf7652",
+      "reference": "ghcr.io/theagentcompany/hr-check-for-invalid-passwords-and-ask-for-valid-passwords-image@sha256:4b48f47202cf4831f8cb572f0ee3a7d8375e2c84a6e5c74f18aa665aaabf7652"
+    },
+    "hr-collect-feedbacks": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-collect-feedbacks-image:1.0.0",
+      "digest": "sha256:feea1e450586282b55fcd96b44eb94b75fab506476d044e242cc2e7124e34a25",
+      "reference": "ghcr.io/theagentcompany/hr-collect-feedbacks-image@sha256:feea1e450586282b55fcd96b44eb94b75fab506476d044e242cc2e7124e34a25"
+    },
+    "hr-collect-multiple-valid-passwords": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-collect-multiple-valid-passwords-image:1.0.0",
+      "digest": "sha256:b33aaae8139ea2eba9364b8d5fddca24f340b2252e366463353d5fb382d222b0",
+      "reference": "ghcr.io/theagentcompany/hr-collect-multiple-valid-passwords-image@sha256:b33aaae8139ea2eba9364b8d5fddca24f340b2252e366463353d5fb382d222b0"
+    },
+    "hr-create-career-ladder": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-create-career-ladder-image:1.0.0",
+      "digest": "sha256:4df67526b9c8cf7c4fc337416f16a3403fc4a542e6ec1530b8b3159bd848e0b2",
+      "reference": "ghcr.io/theagentcompany/hr-create-career-ladder-image@sha256:4df67526b9c8cf7c4fc337416f16a3403fc4a542e6ec1530b8b3159bd848e0b2"
+    },
+    "hr-create-employee-manual": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-create-employee-manual-image:1.0.0",
+      "digest": "sha256:d73cfc135cd42248703374283958425be97cc06ef2562ca8213453d4e234e8ad",
+      "reference": "ghcr.io/theagentcompany/hr-create-employee-manual-image@sha256:d73cfc135cd42248703374283958425be97cc06ef2562ca8213453d4e234e8ad"
+    },
+    "hr-delete-and-insert-user": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-delete-and-insert-user-image:1.0.0",
+      "digest": "sha256:2cc284428778e33e1bcb0760aec1ad16c77b3096d098bba6158f7b7be05a14a9",
+      "reference": "ghcr.io/theagentcompany/hr-delete-and-insert-user-image@sha256:2cc284428778e33e1bcb0760aec1ad16c77b3096d098bba6158f7b7be05a14a9"
+    },
+    "hr-get-valid-password": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-get-valid-password-image:1.0.0",
+      "digest": "sha256:a266201604aba32b97c7db1dcd5ea6e32385007df9d0e38345d8d19ebc7d3546",
+      "reference": "ghcr.io/theagentcompany/hr-get-valid-password-image@sha256:a266201604aba32b97c7db1dcd5ea6e32385007df9d0e38345d8d19ebc7d3546"
+    },
+    "hr-green-card-consultation": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-green-card-consultation-image:1.0.0",
+      "digest": "sha256:d722140acd6161542094dbe6028681b69b13c1292b264cfae6de1a8c3c99de70",
+      "reference": "ghcr.io/theagentcompany/hr-green-card-consultation-image@sha256:d722140acd6161542094dbe6028681b69b13c1292b264cfae6de1a8c3c99de70"
+    },
+    "hr-internal-tooling-slides": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-internal-tooling-slides-image:1.0.0",
+      "digest": "sha256:0eeca6bbf92ea73c5afc721adfb8985b1060c360ad406cdffe3230420286130d",
+      "reference": "ghcr.io/theagentcompany/hr-internal-tooling-slides-image@sha256:0eeca6bbf92ea73c5afc721adfb8985b1060c360ad406cdffe3230420286130d"
+    },
+    "hr-make-slides-introduce-leadership": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-make-slides-introduce-leadership-image:1.0.0",
+      "digest": "sha256:10db29cd07900f8d3419b6b53ff2cbabbc1ad8201bfc4224bc5933a56b577745",
+      "reference": "ghcr.io/theagentcompany/hr-make-slides-introduce-leadership-image@sha256:10db29cd07900f8d3419b6b53ff2cbabbc1ad8201bfc4224bc5933a56b577745"
+    },
+    "hr-mass-survey": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-mass-survey-image:1.0.0",
+      "digest": "sha256:a4042248503b1d37769243740d46baad779c13bc7b71b741f45dded4b781bac0",
+      "reference": "ghcr.io/theagentcompany/hr-mass-survey-image@sha256:a4042248503b1d37769243740d46baad779c13bc7b71b741f45dded4b781bac0"
+    },
+    "hr-massive-resume-screening": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-massive-resume-screening-image:1.0.0",
+      "digest": "sha256:6f8f5d6e24c1771d5d1ad90dee77d90ebd5f859304217b645dae3ebbba308770",
+      "reference": "ghcr.io/theagentcompany/hr-massive-resume-screening-image@sha256:6f8f5d6e24c1771d5d1ad90dee77d90ebd5f859304217b645dae3ebbba308770"
+    },
+    "hr-new-grad-job-description": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-new-grad-job-description-image:1.0.0",
+      "digest": "sha256:4c540d2bf5c85b081526dffda69bd7534e8e88767c564b59274e2f77e18c17cd",
+      "reference": "ghcr.io/theagentcompany/hr-new-grad-job-description-image@sha256:4c540d2bf5c85b081526dffda69bd7534e8e88767c564b59274e2f77e18c17cd"
+    },
+    "hr-new-grad-job-description-2": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-new-grad-job-description-2-image:1.0.0",
+      "digest": "sha256:0069044982209a709d3136c1c2f1eb5790e76fd4ccef75e53b083f3b4be06424",
+      "reference": "ghcr.io/theagentcompany/hr-new-grad-job-description-2-image@sha256:0069044982209a709d3136c1c2f1eb5790e76fd4ccef75e53b083f3b4be06424"
+    },
+    "hr-new-grad-job-description-3": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-new-grad-job-description-3-image:1.0.0",
+      "digest": "sha256:c91ab7c4a0cbb16f329cbdc60962229ad9504ecae9587943bb6088de29b11a73",
+      "reference": "ghcr.io/theagentcompany/hr-new-grad-job-description-3-image@sha256:c91ab7c4a0cbb16f329cbdc60962229ad9504ecae9587943bb6088de29b11a73"
+    },
+    "hr-organize-talent-info": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-organize-talent-info-image:1.0.0",
+      "digest": "sha256:48edef52c5f8ae5cd456bdb776e3e3979571f586d57cdc957e7aefbab98b77b6",
+      "reference": "ghcr.io/theagentcompany/hr-organize-talent-info-image@sha256:48edef52c5f8ae5cd456bdb776e3e3979571f586d57cdc957e7aefbab98b77b6"
+    },
+    "hr-pick-interviewer-1": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-pick-interviewer-1-image:1.0.0",
+      "digest": "sha256:d14cd29c74b7b4df68f12f707cb8db05eb55ea55dd3826dfe035c9ae7bb30c36",
+      "reference": "ghcr.io/theagentcompany/hr-pick-interviewer-1-image@sha256:d14cd29c74b7b4df68f12f707cb8db05eb55ea55dd3826dfe035c9ae7bb30c36"
+    },
+    "hr-pick-interviewer-2": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-pick-interviewer-2-image:1.0.0",
+      "digest": "sha256:7b350c0a59a42f52122f8aeac8ae7d5b1f2500b884f50370f5762f280fdf08f0",
+      "reference": "ghcr.io/theagentcompany/hr-pick-interviewer-2-image@sha256:7b350c0a59a42f52122f8aeac8ae7d5b1f2500b884f50370f5762f280fdf08f0"
+    },
+    "hr-pick-interviewer-3": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-pick-interviewer-3-image:1.0.0",
+      "digest": "sha256:c2f3aa20f1a1596d7977ef2aaec9c0c3160df4bcd523272beebd128d61c7e389",
+      "reference": "ghcr.io/theagentcompany/hr-pick-interviewer-3-image@sha256:c2f3aa20f1a1596d7977ef2aaec9c0c3160df4bcd523272beebd128d61c7e389"
+    },
+    "hr-populate-salary-increase-memo": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-populate-salary-increase-memo-image:1.0.0",
+      "digest": "sha256:8465c85a48997b71940e6ee39cba27d8d9790a86867fac514dd20db3156d37a4",
+      "reference": "ghcr.io/theagentcompany/hr-populate-salary-increase-memo-image@sha256:8465c85a48997b71940e6ee39cba27d8d9790a86867fac514dd20db3156d37a4"
+    },
+    "hr-resume-categorization": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-resume-categorization-image:1.0.0",
+      "digest": "sha256:0da0e8299a0152892685f99f8671832f5657b4407d4b7429addeae8d818d8102",
+      "reference": "ghcr.io/theagentcompany/hr-resume-categorization-image@sha256:0da0e8299a0152892685f99f8671832f5657b4407d4b7429addeae8d818d8102"
+    },
+    "hr-resume-screening": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-resume-screening-image:1.0.0",
+      "digest": "sha256:e06dc684d67b16bce5ccef87e84ddc9012095cc600c0c2aa4351eb6a05672f37",
+      "reference": "ghcr.io/theagentcompany/hr-resume-screening-image@sha256:e06dc684d67b16bce5ccef87e84ddc9012095cc600c0c2aa4351eb6a05672f37"
+    },
+    "hr-salary-analysis": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-salary-analysis-image:1.0.0",
+      "digest": "sha256:36f6db35a76a8cb5a7c75f27fdfbca3317fc17b27b927ce83c44c5b5e938692d",
+      "reference": "ghcr.io/theagentcompany/hr-salary-analysis-image@sha256:36f6db35a76a8cb5a7c75f27fdfbca3317fc17b27b927ce83c44c5b5e938692d"
+    },
+    "hr-transfer-group": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/hr-transfer-group-image:1.0.0",
+      "digest": "sha256:912a61c1bed5102410fc9e9c1a027fa408dfb26de2a43191b574d72268eb5ab3",
+      "reference": "ghcr.io/theagentcompany/hr-transfer-group-image@sha256:912a61c1bed5102410fc9e9c1a027fa408dfb26de2a43191b574d72268eb5ab3"
+    },
+    "ml-generate-gradcam": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ml-generate-gradcam-image:1.0.0",
+      "digest": "sha256:f856a210a549f22851feed6240859985610fec62277291bb1dc33ca751b7f39b",
+      "reference": "ghcr.io/theagentcompany/ml-generate-gradcam-image@sha256:f856a210a549f22851feed6240859985610fec62277291bb1dc33ca751b7f39b"
+    },
+    "ml-grade-exam": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/ml-grade-exam-image:1.0.0",
+      "digest": "sha256:5f11d232bf618cb1e3c0ffb6a6e88cfc762f2a4a8fc1fec90233f46547a2aeea",
+      "reference": "ghcr.io/theagentcompany/ml-grade-exam-image@sha256:5f11d232bf618cb1e3c0ffb6a6e88cfc762f2a4a8fc1fec90233f46547a2aeea"
+    },
+    "pm-add-new-moderator": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-add-new-moderator-image:1.0.0",
+      "digest": "sha256:7a50efa926a7d8d30b7ecd8a6855a146f533ac8f5457bf260ff9786995b96f5d",
+      "reference": "ghcr.io/theagentcompany/pm-add-new-moderator-image@sha256:7a50efa926a7d8d30b7ecd8a6855a146f533ac8f5457bf260ff9786995b96f5d"
+    },
+    "pm-ask-for-issue-and-create-in-gitlab": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-ask-for-issue-and-create-in-gitlab-image:1.0.0",
+      "digest": "sha256:25383e59a666b3e217ee9c0b280fd15c3c7a925922b4d40b5abf1ce7c4df2b14",
+      "reference": "ghcr.io/theagentcompany/pm-ask-for-issue-and-create-in-gitlab-image@sha256:25383e59a666b3e217ee9c0b280fd15c3c7a925922b4d40b5abf1ce7c4df2b14"
+    },
+    "pm-ask-issue-assignee-for-issue-status-and-update-in-plane": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-ask-issue-assignee-for-issue-status-and-update-in-plane-image:1.0.0",
+      "digest": "sha256:ed276a3917ac2d7889fe3c5726ee96e5a2a46e018fe4692f679c3331404fe528",
+      "reference": "ghcr.io/theagentcompany/pm-ask-issue-assignee-for-issue-status-and-update-in-plane-image@sha256:ed276a3917ac2d7889fe3c5726ee96e5a2a46e018fe4692f679c3331404fe528"
+    },
+    "pm-assign-issues": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-assign-issues-image:1.0.0",
+      "digest": "sha256:6e033ad43737e63bedd224788813003574f0c10edbf64b3b436c7ed4e0f1b9a7",
+      "reference": "ghcr.io/theagentcompany/pm-assign-issues-image@sha256:6e033ad43737e63bedd224788813003574f0c10edbf64b3b436c7ed4e0f1b9a7"
+    },
+    "pm-change-channel-ownership": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-change-channel-ownership-image:1.0.0",
+      "digest": "sha256:60db5648569e139109661be45551691165afc6604367f0bcab5dfeb8368201dc",
+      "reference": "ghcr.io/theagentcompany/pm-change-channel-ownership-image@sha256:60db5648569e139109661be45551691165afc6604367f0bcab5dfeb8368201dc"
+    },
+    "pm-check-backlog-update-issues": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-check-backlog-update-issues-image:1.0.0",
+      "digest": "sha256:9595d887ea30be98ab2f90d3bce8a0b3d50bd7e8497b05870e9d0abe3969de4c",
+      "reference": "ghcr.io/theagentcompany/pm-check-backlog-update-issues-image@sha256:9595d887ea30be98ab2f90d3bce8a0b3d50bd7e8497b05870e9d0abe3969de4c"
+    },
+    "pm-copy-plane-issues-to-gitlab": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-copy-plane-issues-to-gitlab-image:1.0.0",
+      "digest": "sha256:53aa98b3c39cb9a11c5cc5d539ea03a1b4e2633de829743949bb0d5616ba2f3c",
+      "reference": "ghcr.io/theagentcompany/pm-copy-plane-issues-to-gitlab-image@sha256:53aa98b3c39cb9a11c5cc5d539ea03a1b4e2633de829743949bb0d5616ba2f3c"
+    },
+    "pm-create-channel-message": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-create-channel-message-image:1.0.0",
+      "digest": "sha256:bc3d2773f33abd3285376a1a121545cd153a63f97541b50452f72cc3d1bd1cf3",
+      "reference": "ghcr.io/theagentcompany/pm-create-channel-message-image@sha256:bc3d2773f33abd3285376a1a121545cd153a63f97541b50452f72cc3d1bd1cf3"
+    },
+    "pm-create-channel-message-medium": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-create-channel-message-medium-image:1.0.0",
+      "digest": "sha256:fbffa8a9e60f51e6b5e0953f6c3829d5749bcc7f7d456088ce2fd2a79ca3547c",
+      "reference": "ghcr.io/theagentcompany/pm-create-channel-message-medium-image@sha256:fbffa8a9e60f51e6b5e0953f6c3829d5749bcc7f7d456088ce2fd2a79ca3547c"
+    },
+    "pm-create-channel-new-leader": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-create-channel-new-leader-image:1.0.0",
+      "digest": "sha256:7a241f2a154dfc291905817c1de8796f2e7ec8a867deef74605cb6471d669fdc",
+      "reference": "ghcr.io/theagentcompany/pm-create-channel-new-leader-image@sha256:7a241f2a154dfc291905817c1de8796f2e7ec8a867deef74605cb6471d669fdc"
+    },
+    "pm-create-plane-issue": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-create-plane-issue-image:1.0.0",
+      "digest": "sha256:0c3b107314c1eb5e91481e416a64fbdaaafe23bf7b9c32aadbcc4c9e6ab686e4",
+      "reference": "ghcr.io/theagentcompany/pm-create-plane-issue-image@sha256:0c3b107314c1eb5e91481e416a64fbdaaafe23bf7b9c32aadbcc4c9e6ab686e4"
+    },
+    "pm-create-teammate-channel-from-spreadsheet": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-create-teammate-channel-from-spreadsheet-image:1.0.0",
+      "digest": "sha256:50b710b7cb2b55e3b28d727582deda6127b96e86e10229b04593c07400161bb8",
+      "reference": "ghcr.io/theagentcompany/pm-create-teammate-channel-from-spreadsheet-image@sha256:50b710b7cb2b55e3b28d727582deda6127b96e86e10229b04593c07400161bb8"
+    },
+    "pm-distribute-information": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-distribute-information-image:1.0.0",
+      "digest": "sha256:2db5bd05ea663fc3f3293f8170e0b0654e8eaed749f6b95dd8b4e5fbc7270b2e",
+      "reference": "ghcr.io/theagentcompany/pm-distribute-information-image@sha256:2db5bd05ea663fc3f3293f8170e0b0654e8eaed749f6b95dd8b4e5fbc7270b2e"
+    },
+    "pm-monitor-new-bug-issues": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-monitor-new-bug-issues-image:1.0.0",
+      "digest": "sha256:2ad588612036c9fd3ab4a2e4c2a77a0ed42e938de73f1bd4fae876c80c029c83",
+      "reference": "ghcr.io/theagentcompany/pm-monitor-new-bug-issues-image@sha256:2ad588612036c9fd3ab4a2e4c2a77a0ed42e938de73f1bd4fae876c80c029c83"
+    },
+    "pm-monthly-attendance-slides": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-monthly-attendance-slides-image:1.0.0",
+      "digest": "sha256:608f2aecc92b9cea37ed7156b3389a73943612bef987267bc971d9e231558204",
+      "reference": "ghcr.io/theagentcompany/pm-monthly-attendance-slides-image@sha256:608f2aecc92b9cea37ed7156b3389a73943612bef987267bc971d9e231558204"
+    },
+    "pm-plan-personnel-for-new-project": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-plan-personnel-for-new-project-image:1.0.0",
+      "digest": "sha256:59a01cb9a16d546e2d8b80d73e62eb01771b5c7d2e06d0f35b87505458a445f8",
+      "reference": "ghcr.io/theagentcompany/pm-plan-personnel-for-new-project-image@sha256:59a01cb9a16d546e2d8b80d73e62eb01771b5c7d2e06d0f35b87505458a445f8"
+    },
+    "pm-prepare-meeting-with-customers": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-prepare-meeting-with-customers-image:1.0.0",
+      "digest": "sha256:43f5c477d4716ae295cb84436055a7d0e871d2e06756f170a842d22dcb35d32a",
+      "reference": "ghcr.io/theagentcompany/pm-prepare-meeting-with-customers-image@sha256:43f5c477d4716ae295cb84436055a7d0e871d2e06756f170a842d22dcb35d32a"
+    },
+    "pm-present-engineer-group-members": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-present-engineer-group-members-image:1.0.0",
+      "digest": "sha256:35d284458bbb60ffbaff634717b369879d554fe738cab79d0e03fe38d1a5f9a1",
+      "reference": "ghcr.io/theagentcompany/pm-present-engineer-group-members-image@sha256:35d284458bbb60ffbaff634717b369879d554fe738cab79d0e03fe38d1a5f9a1"
+    },
+    "pm-present-gitlab-info-as-ppt": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-present-gitlab-info-as-ppt-image:1.0.0",
+      "digest": "sha256:a8c9f9e775b44c8bf9af3542668294cb8b6f578568af3f9888322b1ebf000d16",
+      "reference": "ghcr.io/theagentcompany/pm-present-gitlab-info-as-ppt-image@sha256:a8c9f9e775b44c8bf9af3542668294cb8b6f578568af3f9888322b1ebf000d16"
+    },
+    "pm-projects-analytics": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-projects-analytics-image:1.0.0",
+      "digest": "sha256:da284cbf3f850d87c75e9cc88021fe9ecbac9f133ee091e1a3b4b2041ddbfb6f",
+      "reference": "ghcr.io/theagentcompany/pm-projects-analytics-image@sha256:da284cbf3f850d87c75e9cc88021fe9ecbac9f133ee091e1a3b4b2041ddbfb6f"
+    },
+    "pm-schedule-meeting-1": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-schedule-meeting-1-image:1.0.0",
+      "digest": "sha256:1cb3262415c9334c32383873068fe77e05992e1b8b62a7a0541067630000c887",
+      "reference": "ghcr.io/theagentcompany/pm-schedule-meeting-1-image@sha256:1cb3262415c9334c32383873068fe77e05992e1b8b62a7a0541067630000c887"
+    },
+    "pm-schedule-meeting-2": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-schedule-meeting-2-image:1.0.0",
+      "digest": "sha256:1c6365af355602d3461a3c24e424a4bbdc444906f70e4c9c13d2f322d58ce1e5",
+      "reference": "ghcr.io/theagentcompany/pm-schedule-meeting-2-image@sha256:1c6365af355602d3461a3c24e424a4bbdc444906f70e4c9c13d2f322d58ce1e5"
+    },
+    "pm-send-hello-message": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-send-hello-message-image:1.0.0",
+      "digest": "sha256:29b9529158b893facf14562cf29d7c288a4421a6549fc04788df917a0a3bb7f9",
+      "reference": "ghcr.io/theagentcompany/pm-send-hello-message-image@sha256:29b9529158b893facf14562cf29d7c288a4421a6549fc04788df917a0a3bb7f9"
+    },
+    "pm-send-notification-to-corresponding-user": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-send-notification-to-corresponding-user-image:1.0.0",
+      "digest": "sha256:d3357c90ccadcfee364336e8b289134ea21bc5b538e388407bc587c8871de132",
+      "reference": "ghcr.io/theagentcompany/pm-send-notification-to-corresponding-user-image@sha256:d3357c90ccadcfee364336e8b289134ea21bc5b538e388407bc587c8871de132"
+    },
+    "pm-update-gitlab-issue-from-plane-status": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-update-gitlab-issue-from-plane-status-image:1.0.0",
+      "digest": "sha256:e0ce8162d6f89f72cfdd763904abc57edc93e74b4473698ac0b79f1ad9aca8df",
+      "reference": "ghcr.io/theagentcompany/pm-update-gitlab-issue-from-plane-status-image@sha256:e0ce8162d6f89f72cfdd763904abc57edc93e74b4473698ac0b79f1ad9aca8df"
+    },
+    "pm-update-plane-issue-from-gitlab-status": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-update-plane-issue-from-gitlab-status-image:1.0.0",
+      "digest": "sha256:3fd37ec018b59cd7000e8072b0e7bc05369d0ae47f7c47734ab02a8fc4689673",
+      "reference": "ghcr.io/theagentcompany/pm-update-plane-issue-from-gitlab-status-image@sha256:3fd37ec018b59cd7000e8072b0e7bc05369d0ae47f7c47734ab02a8fc4689673"
+    },
+    "pm-update-project-milestones": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-update-project-milestones-image:1.0.0",
+      "digest": "sha256:08b2402742e846b26ef4f5be7b50a2d0e646ddedff9fd1f1fdf570a3729ce62d",
+      "reference": "ghcr.io/theagentcompany/pm-update-project-milestones-image@sha256:08b2402742e846b26ef4f5be7b50a2d0e646ddedff9fd1f1fdf570a3729ce62d"
+    },
+    "pm-update-sprint-cycles": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/pm-update-sprint-cycles-image:1.0.0",
+      "digest": "sha256:71559a6e0ed06bfdfaf596f3f8ec0b5e8cc1fd4f993c529452806e370ceb6caf",
+      "reference": "ghcr.io/theagentcompany/pm-update-sprint-cycles-image@sha256:71559a6e0ed06bfdfaf596f3f8ec0b5e8cc1fd4f993c529452806e370ceb6caf"
+    },
+    "qa-escalate-emergency": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/qa-escalate-emergency-image:1.0.0",
+      "digest": "sha256:e04d863075856cf30611d6338c2d5e5e2b430d47d064f92fd49dd6c3d5289bec",
+      "reference": "ghcr.io/theagentcompany/qa-escalate-emergency-image@sha256:e04d863075856cf30611d6338c2d5e5e2b430d47d064f92fd49dd6c3d5289bec"
+    },
+    "qa-update-issue-status-according-to-colleagues": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/qa-update-issue-status-according-to-colleagues-image:1.0.0",
+      "digest": "sha256:19156525aa1ed44df815924bd89a20da4fd016057b4f670c923bd4dd2a471c01",
+      "reference": "ghcr.io/theagentcompany/qa-update-issue-status-according-to-colleagues-image@sha256:19156525aa1ed44df815924bd89a20da4fd016057b4f670c923bd4dd2a471c01"
+    },
+    "research-answer-questions-on-paper": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/research-answer-questions-on-paper-image:1.0.0",
+      "digest": "sha256:6a355f689667c7ddb0cfe87ef16b2fac7727030b116b1633fce7dae5c66be851",
+      "reference": "ghcr.io/theagentcompany/research-answer-questions-on-paper-image@sha256:6a355f689667c7ddb0cfe87ef16b2fac7727030b116b1633fce7dae5c66be851"
+    },
+    "research-reproduce-figures": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/research-reproduce-figures-image:1.0.0",
+      "digest": "sha256:263e3fb3d9924f50ef6ec2b42ac141e81816c662d7551afbebd7103afcccc4d9",
+      "reference": "ghcr.io/theagentcompany/research-reproduce-figures-image@sha256:263e3fb3d9924f50ef6ec2b42ac141e81816c662d7551afbebd7103afcccc4d9"
+    },
+    "sde-add-all-repos-to-docs": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-add-all-repos-to-docs-image:1.0.0",
+      "digest": "sha256:bdbe44d3a965b5597c79ea10d97e7958ac3c216d942e5667b633493484b95f34",
+      "reference": "ghcr.io/theagentcompany/sde-add-all-repos-to-docs-image@sha256:bdbe44d3a965b5597c79ea10d97e7958ac3c216d942e5667b633493484b95f34"
+    },
+    "sde-add-one-gitlab-pipeline": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-add-one-gitlab-pipeline-image:1.0.0",
+      "digest": "sha256:ab304ecd76118ee64efb3c7f2bf1da9c8acf2b422a53d014035982ee268ba076",
+      "reference": "ghcr.io/theagentcompany/sde-add-one-gitlab-pipeline-image@sha256:ab304ecd76118ee64efb3c7f2bf1da9c8acf2b422a53d014035982ee268ba076"
+    },
+    "sde-add-wiki-page": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-add-wiki-page-image:1.0.0",
+      "digest": "sha256:e53f1638e2166b3d79e288cb48b4859cff5d37bba6b2fe2e9cc9185970ef52da",
+      "reference": "ghcr.io/theagentcompany/sde-add-wiki-page-image@sha256:e53f1638e2166b3d79e288cb48b4859cff5d37bba6b2fe2e9cc9185970ef52da"
+    },
+    "sde-change-branch-policy": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-change-branch-policy-image:1.0.0",
+      "digest": "sha256:bd3a535796c7503b05a32b92336c35d0258fea77ce1a69b6841715f1518a0288",
+      "reference": "ghcr.io/theagentcompany/sde-change-branch-policy-image@sha256:bd3a535796c7503b05a32b92336c35d0258fea77ce1a69b6841715f1518a0288"
+    },
+    "sde-change-license-easy": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-change-license-easy-image:1.0.0",
+      "digest": "sha256:81158a5a55d9b577becdfa47313537c6f20b9ed8a130e9940ff88acc223e0b66",
+      "reference": "ghcr.io/theagentcompany/sde-change-license-easy-image@sha256:81158a5a55d9b577becdfa47313537c6f20b9ed8a130e9940ff88acc223e0b66"
+    },
+    "sde-change-license-hard": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-change-license-hard-image:1.0.0",
+      "digest": "sha256:5ac3b37f36f700ba4ab923ab77e74d65e85175f37e2a00cb061db1991e827b18",
+      "reference": "ghcr.io/theagentcompany/sde-change-license-hard-image@sha256:5ac3b37f36f700ba4ab923ab77e74d65e85175f37e2a00cb061db1991e827b18"
+    },
+    "sde-check-and-run-unit-test": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-check-and-run-unit-test-image:1.0.0",
+      "digest": "sha256:64f5536083d3c2dc3dc2338c9161e9bac82b86b7c03cd0738de17a48312c0c53",
+      "reference": "ghcr.io/theagentcompany/sde-check-and-run-unit-test-image@sha256:64f5536083d3c2dc3dc2338c9161e9bac82b86b7c03cd0738de17a48312c0c53"
+    },
+    "sde-check-high-priority-issue": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-check-high-priority-issue-image:1.0.0",
+      "digest": "sha256:dcab6852e4d430ed65db144dde416696120071c58e8d986fd173143337139066",
+      "reference": "ghcr.io/theagentcompany/sde-check-high-priority-issue-image@sha256:dcab6852e4d430ed65db144dde416696120071c58e8d986fd173143337139066"
+    },
+    "sde-close-all-gitlab-issues": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-close-all-gitlab-issues-image:1.0.0",
+      "digest": "sha256:53e1652f743e0fb4a8a771c834cc534c05488858cc344051d419af60a6fed391",
+      "reference": "ghcr.io/theagentcompany/sde-close-all-gitlab-issues-image@sha256:53e1652f743e0fb4a8a771c834cc534c05488858cc344051d419af60a6fed391"
+    },
+    "sde-close-all-issue-on-all-project-under-tac-workspace": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-close-all-issue-on-all-project-under-tac-workspace-image:1.0.0",
+      "digest": "sha256:6e016a596efafea26bc8e898a4033d0d66408a7c8319fef9d0fc8b6286e44185",
+      "reference": "ghcr.io/theagentcompany/sde-close-all-issue-on-all-project-under-tac-workspace-image@sha256:6e016a596efafea26bc8e898a4033d0d66408a7c8319fef9d0fc8b6286e44185"
+    },
+    "sde-close-all-prs": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-close-all-prs-image:1.0.0",
+      "digest": "sha256:3667c6b880c3162add3517b62f4ff625dd685f2bb94a640f35af4517c237b274",
+      "reference": "ghcr.io/theagentcompany/sde-close-all-prs-image@sha256:3667c6b880c3162add3517b62f4ff625dd685f2bb94a640f35af4517c237b274"
+    },
+    "sde-close-an-issue": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-close-an-issue-image:1.0.0",
+      "digest": "sha256:94f54c4d57fd75a894aebd60319e5e326d5abe55a4380d0104eb73fe1ad10dce",
+      "reference": "ghcr.io/theagentcompany/sde-close-an-issue-image@sha256:94f54c4d57fd75a894aebd60319e5e326d5abe55a4380d0104eb73fe1ad10dce"
+    },
+    "sde-collect-open-issues": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-collect-open-issues-image:1.0.0",
+      "digest": "sha256:f349ebd948cbc724490edee65cd24f892e2456c033239860e56acacb689c8295",
+      "reference": "ghcr.io/theagentcompany/sde-collect-open-issues-image@sha256:f349ebd948cbc724490edee65cd24f892e2456c033239860e56acacb689c8295"
+    },
+    "sde-copilot-arena-server-easy-add-suffix": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-copilot-arena-server-easy-add-suffix-image:1.0.0",
+      "digest": "sha256:94e8fba822ebba56aac446f80008de00c8eaa2cb918d1a07b8869b61fd129b85",
+      "reference": "ghcr.io/theagentcompany/sde-copilot-arena-server-easy-add-suffix-image@sha256:94e8fba822ebba56aac446f80008de00c8eaa2cb918d1a07b8869b61fd129b85"
+    },
+    "sde-copilot-arena-server-new-endpoint": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-copilot-arena-server-new-endpoint-image:1.0.0",
+      "digest": "sha256:3d29111f8a4a5ce1a4449cc30c080284bba2c0d5d85572461958576dfb8925ac",
+      "reference": "ghcr.io/theagentcompany/sde-copilot-arena-server-new-endpoint-image@sha256:3d29111f8a4a5ce1a4449cc30c080284bba2c0d5d85572461958576dfb8925ac"
+    },
+    "sde-copilot-arena-server-setup": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-copilot-arena-server-setup-image:1.0.0",
+      "digest": "sha256:391d327e495ccf057b109a19df8243b67c6cc0c1e68aac38b458235203c07d62",
+      "reference": "ghcr.io/theagentcompany/sde-copilot-arena-server-setup-image@sha256:391d327e495ccf057b109a19df8243b67c6cc0c1e68aac38b458235203c07d62"
+    },
+    "sde-copy-issues-to-plane": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-copy-issues-to-plane-image:1.0.0",
+      "digest": "sha256:d0e8a22a4ee75e4cc93872f70c80cb6a99560091627bfffbf289bb098ea7bd4d",
+      "reference": "ghcr.io/theagentcompany/sde-copy-issues-to-plane-image@sha256:d0e8a22a4ee75e4cc93872f70c80cb6a99560091627bfffbf289bb098ea7bd4d"
+    },
+    "sde-copy-table-from-pdf-to-xlsx": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-copy-table-from-pdf-to-xlsx-image:1.0.0",
+      "digest": "sha256:d81d86be60d38ce2bfca765879c5e68704ea0fd56e1697f2b6f102484eefeb64",
+      "reference": "ghcr.io/theagentcompany/sde-copy-table-from-pdf-to-xlsx-image@sha256:d81d86be60d38ce2bfca765879c5e68704ea0fd56e1697f2b6f102484eefeb64"
+    },
+    "sde-create-commit-table-for-all-gitlab-users": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-create-commit-table-for-all-gitlab-users-image:1.0.0",
+      "digest": "sha256:d5059a8df1eed6d3dbf5bb17c66066dbcfafc94150167fde6db7b110d3158620",
+      "reference": "ghcr.io/theagentcompany/sde-create-commit-table-for-all-gitlab-users-image@sha256:d5059a8df1eed6d3dbf5bb17c66066dbcfafc94150167fde6db7b110d3158620"
+    },
+    "sde-create-new-characters": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-create-new-characters-image:1.0.0",
+      "digest": "sha256:6698623b61fa6f014cb3c4ff44220698ec70c6da420c5daa1fe2f055f8fde543",
+      "reference": "ghcr.io/theagentcompany/sde-create-new-characters-image@sha256:6698623b61fa6f014cb3c4ff44220698ec70c6da420c5daa1fe2f055f8fde543"
+    },
+    "sde-create-new-gitlab-project-logo": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-create-new-gitlab-project-logo-image:1.0.0",
+      "digest": "sha256:d22d9d89a38a52c65316cb071c6ef9fa428fdb4bd9dd543dc648c358504d8c07",
+      "reference": "ghcr.io/theagentcompany/sde-create-new-gitlab-project-logo-image@sha256:d22d9d89a38a52c65316cb071c6ef9fa428fdb4bd9dd543dc648c358504d8c07"
+    },
+    "sde-create-new-release": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-create-new-release-image:1.0.0",
+      "digest": "sha256:3a03b2ee9848737e47e0493b488a8052fb87bc90748c177499d24db92977e703",
+      "reference": "ghcr.io/theagentcompany/sde-create-new-release-image@sha256:3a03b2ee9848737e47e0493b488a8052fb87bc90748c177499d24db92977e703"
+    },
+    "sde-create-new-repo": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-create-new-repo-image:1.0.0",
+      "digest": "sha256:488348e852bc749fd8aa6387fb89a49e55a1c53f08eda140c041a30605a0b74f",
+      "reference": "ghcr.io/theagentcompany/sde-create-new-repo-image@sha256:488348e852bc749fd8aa6387fb89a49e55a1c53f08eda140c041a30605a0b74f"
+    },
+    "sde-create-sqlite-database": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-create-sqlite-database-image:1.0.0",
+      "digest": "sha256:161cb819fae291733df96e03c7b851e8755cab0f202c7f29b4e144f3856d6da6",
+      "reference": "ghcr.io/theagentcompany/sde-create-sqlite-database-image@sha256:161cb819fae291733df96e03c7b851e8755cab0f202c7f29b4e144f3856d6da6"
+    },
+    "sde-debug-crashed-server": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-debug-crashed-server-image:1.0.0",
+      "digest": "sha256:b12c5ce6d332135c04057dcb1a87ac5d5bfde810a530f517a0d29bfd72b14a3b",
+      "reference": "ghcr.io/theagentcompany/sde-debug-crashed-server-image@sha256:b12c5ce6d332135c04057dcb1a87ac5d5bfde810a530f517a0d29bfd72b14a3b"
+    },
+    "sde-delete-all-project-under-plane": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-delete-all-project-under-plane-image:1.0.0",
+      "digest": "sha256:c05569bca109af28897991d23b58cf88466a28825a7612e060fb43acb84dd13a",
+      "reference": "ghcr.io/theagentcompany/sde-delete-all-project-under-plane-image@sha256:c05569bca109af28897991d23b58cf88466a28825a7612e060fb43acb84dd13a"
+    },
+    "sde-delete-all-repos": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-delete-all-repos-image:1.0.0",
+      "digest": "sha256:4466469c387133b21ef1320bea1b0f9fe378a9844da9783a4d6cfa985651be98",
+      "reference": "ghcr.io/theagentcompany/sde-delete-all-repos-image@sha256:4466469c387133b21ef1320bea1b0f9fe378a9844da9783a4d6cfa985651be98"
+    },
+    "sde-delete-stale-branch": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-delete-stale-branch-image:1.0.0",
+      "digest": "sha256:09af53d2f634f133f8b7e89aa0e75dae1a78c711589b229df88d61a115279d2b",
+      "reference": "ghcr.io/theagentcompany/sde-delete-stale-branch-image@sha256:09af53d2f634f133f8b7e89aa0e75dae1a78c711589b229df88d61a115279d2b"
+    },
+    "sde-dependency-change-1": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-dependency-change-1-image:1.0.0",
+      "digest": "sha256:4db26e3e8f39fde2aa88253a870ff961c9164d66e15e9f21a488a9db7fc23740",
+      "reference": "ghcr.io/theagentcompany/sde-dependency-change-1-image@sha256:4db26e3e8f39fde2aa88253a870ff961c9164d66e15e9f21a488a9db7fc23740"
+    },
+    "sde-find-answer-in-codebase-1": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-find-answer-in-codebase-1-image:1.0.0",
+      "digest": "sha256:28eee907e6ab0b647c9c48d86f4148476b649dc70383f7a9c9a6bae820fd7ccf",
+      "reference": "ghcr.io/theagentcompany/sde-find-answer-in-codebase-1-image@sha256:28eee907e6ab0b647c9c48d86f4148476b649dc70383f7a9c9a6bae820fd7ccf"
+    },
+    "sde-find-answer-in-codebase-2": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-find-answer-in-codebase-2-image:1.0.0",
+      "digest": "sha256:aa1e97cee9eb9a7388ae528ad6c62f965a272e3834a9f149344d823e906ba25f",
+      "reference": "ghcr.io/theagentcompany/sde-find-answer-in-codebase-2-image@sha256:aa1e97cee9eb9a7388ae528ad6c62f965a272e3834a9f149344d823e906ba25f"
+    },
+    "sde-find-answer-in-codebase-3": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-find-answer-in-codebase-3-image:1.0.0",
+      "digest": "sha256:d0d8837768e20a24bd98e1fd9c4fe9bd72c6b871a9483335d99895fde164f7b2",
+      "reference": "ghcr.io/theagentcompany/sde-find-answer-in-codebase-3-image@sha256:d0d8837768e20a24bd98e1fd9c4fe9bd72c6b871a9483335d99895fde164f7b2"
+    },
+    "sde-find-api": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-find-api-image:1.0.0",
+      "digest": "sha256:501394818804b6b827d92e5e34c162171b0f83d1552932a3d84a792b05bcd438",
+      "reference": "ghcr.io/theagentcompany/sde-find-api-image@sha256:501394818804b6b827d92e5e34c162171b0f83d1552932a3d84a792b05bcd438"
+    },
+    "sde-fix-factual-mistake": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-fix-factual-mistake-image:1.0.0",
+      "digest": "sha256:4a4799171c5d62af433c9c6b8d57369b83b7d91053a9628f1b14d49f03c1aa11",
+      "reference": "ghcr.io/theagentcompany/sde-fix-factual-mistake-image@sha256:4a4799171c5d62af433c9c6b8d57369b83b7d91053a9628f1b14d49f03c1aa11"
+    },
+    "sde-fix-rising-wave-datatype": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-fix-rising-wave-datatype-image:1.0.0",
+      "digest": "sha256:998bdc654cefbaaa3713c989d82553d1edbcafe0ea721ba5aafab6c6f27d1453",
+      "reference": "ghcr.io/theagentcompany/sde-fix-rising-wave-datatype-image@sha256:998bdc654cefbaaa3713c989d82553d1edbcafe0ea721ba5aafab6c6f27d1453"
+    },
+    "sde-implement-buffer-pool-manager-bustub": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-implement-buffer-pool-manager-bustub-image:1.0.0",
+      "digest": "sha256:8e7d4713322d3dd4ffce265f60d7a165ea48206683c3b18c8b61f57bb7f0667f",
+      "reference": "ghcr.io/theagentcompany/sde-implement-buffer-pool-manager-bustub-image@sha256:8e7d4713322d3dd4ffce265f60d7a165ea48206683c3b18c8b61f57bb7f0667f"
+    },
+    "sde-implement-covering-index-in-janusgraph": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-implement-covering-index-in-janusgraph-image:1.0.0",
+      "digest": "sha256:ce83db23b13a1a0ab64c33d69fe94684d4d4bce3180ade65527cce4abdd48051",
+      "reference": "ghcr.io/theagentcompany/sde-implement-covering-index-in-janusgraph-image@sha256:ce83db23b13a1a0ab64c33d69fe94684d4d4bce3180ade65527cce4abdd48051"
+    },
+    "sde-implement-hyperloglog": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-implement-hyperloglog-image:1.0.0",
+      "digest": "sha256:72a120097d3452b31e9da931b8ba10df292ce11a04c663c23affea0669895aed",
+      "reference": "ghcr.io/theagentcompany/sde-implement-hyperloglog-image@sha256:72a120097d3452b31e9da931b8ba10df292ce11a04c663c23affea0669895aed"
+    },
+    "sde-implement-raft-in-go": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-implement-raft-in-go-image:1.0.0",
+      "digest": "sha256:8fce9edcbd6dd7b1dc505bfa30c314deab6a06e18a8f61d4d17d064a33b085c3",
+      "reference": "ghcr.io/theagentcompany/sde-implement-raft-in-go-image@sha256:8fce9edcbd6dd7b1dc505bfa30c314deab6a06e18a8f61d4d17d064a33b085c3"
+    },
+    "sde-install-go": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-install-go-image:1.0.0",
+      "digest": "sha256:f9add7df86aaa19328819cd3adc1bf2104cbd0fa56390fd756e6c881083d28f6",
+      "reference": "ghcr.io/theagentcompany/sde-install-go-image@sha256:f9add7df86aaa19328819cd3adc1bf2104cbd0fa56390fd756e6c881083d28f6"
+    },
+    "sde-install-openjdk": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-install-openjdk-image:1.0.0",
+      "digest": "sha256:8035ae8f95945f1faf173a5b173750e8f556a73fd2acbb7d52ecf271a3ae8d98",
+      "reference": "ghcr.io/theagentcompany/sde-install-openjdk-image@sha256:8035ae8f95945f1faf173a5b173750e8f556a73fd2acbb7d52ecf271a3ae8d98"
+    },
+    "sde-issue-label-management": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-issue-label-management-image:1.0.0",
+      "digest": "sha256:f11d8274bc8d3c16ee1d42145eb1708616250abb6357204dbc745254f0fda842",
+      "reference": "ghcr.io/theagentcompany/sde-issue-label-management-image@sha256:f11d8274bc8d3c16ee1d42145eb1708616250abb6357204dbc745254f0fda842"
+    },
+    "sde-migrate-package-manager": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-migrate-package-manager-image:1.0.0",
+      "digest": "sha256:baf7bf0fc5572f3168e689b91b2c07fd09567bb6f4baf5a8908b68e6f237ce14",
+      "reference": "ghcr.io/theagentcompany/sde-migrate-package-manager-image@sha256:baf7bf0fc5572f3168e689b91b2c07fd09567bb6f4baf5a8908b68e6f237ce14"
+    },
+    "sde-milestone-meeting": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-milestone-meeting-image:1.0.0",
+      "digest": "sha256:b8be5c3befc75faeb5f54330f126fd6fc89c93219a810e7517d577e175439463",
+      "reference": "ghcr.io/theagentcompany/sde-milestone-meeting-image@sha256:b8be5c3befc75faeb5f54330f126fd6fc89c93219a810e7517d577e175439463"
+    },
+    "sde-move-bustub-wiki": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-move-bustub-wiki-image:1.0.0",
+      "digest": "sha256:09ce0e5f7ff904ac5fe99418df6d1ae78dd7777e75f234d0bdc3d9a8bfb77b60",
+      "reference": "ghcr.io/theagentcompany/sde-move-bustub-wiki-image@sha256:09ce0e5f7ff904ac5fe99418df6d1ae78dd7777e75f234d0bdc3d9a8bfb77b60"
+    },
+    "sde-move-page-to-cloud": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-move-page-to-cloud-image:1.0.0",
+      "digest": "sha256:1f0ef12ac2294d3f1d07d44d813bb15b8a6913cdabd127e941b17fe87aea9715",
+      "reference": "ghcr.io/theagentcompany/sde-move-page-to-cloud-image@sha256:1f0ef12ac2294d3f1d07d44d813bb15b8a6913cdabd127e941b17fe87aea9715"
+    },
+    "sde-pitch-idea-to-manager": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-pitch-idea-to-manager-image:1.0.0",
+      "digest": "sha256:c0273ac69ad714379fb8716dbbdfcaee426ae59c1bfe594cc512092990e34d63",
+      "reference": "ghcr.io/theagentcompany/sde-pitch-idea-to-manager-image@sha256:c0273ac69ad714379fb8716dbbdfcaee426ae59c1bfe594cc512092990e34d63"
+    },
+    "sde-reply-community-issue-by-asking-npc": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-reply-community-issue-by-asking-npc-image:1.0.0",
+      "digest": "sha256:2ec2d9a27ea2cff41f3f2a8b230ba2bc0615fd02fef53234190bf76af5e54ff0",
+      "reference": "ghcr.io/theagentcompany/sde-reply-community-issue-by-asking-npc-image@sha256:2ec2d9a27ea2cff41f3f2a8b230ba2bc0615fd02fef53234190bf76af5e54ff0"
+    },
+    "sde-reply-community-issue-with-fixed-reply": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-reply-community-issue-with-fixed-reply-image:1.0.0",
+      "digest": "sha256:ddfb7f4cdfd39275b7c6bb4bca52d2b3939d26f66ee37f818ac1e3bf899be306",
+      "reference": "ghcr.io/theagentcompany/sde-reply-community-issue-with-fixed-reply-image@sha256:ddfb7f4cdfd39275b7c6bb4bca52d2b3939d26f66ee37f818ac1e3bf899be306"
+    },
+    "sde-repo_profile_pic": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-repo_profile_pic-image:1.0.0",
+      "digest": "sha256:f4d6676ba4f430eff298121e21431591aa22838112385f044b7bd7015a2d1151",
+      "reference": "ghcr.io/theagentcompany/sde-repo_profile_pic-image@sha256:f4d6676ba4f430eff298121e21431591aa22838112385f044b7bd7015a2d1151"
+    },
+    "sde-report-agent-repos": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-report-agent-repos-image:1.0.0",
+      "digest": "sha256:e973b57421e30ec82faaa32a60647c9b9f894ea8866046c88becb0dc4b3afae4",
+      "reference": "ghcr.io/theagentcompany/sde-report-agent-repos-image@sha256:e973b57421e30ec82faaa32a60647c9b9f894ea8866046c88becb0dc4b3afae4"
+    },
+    "sde-report-unit-test-coverage-to-plane": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-report-unit-test-coverage-to-plane-image:1.0.0",
+      "digest": "sha256:2ef198e213d3861174d743ea8fe037d73c5c136d03272489261f5884fd2d41fb",
+      "reference": "ghcr.io/theagentcompany/sde-report-unit-test-coverage-to-plane-image@sha256:2ef198e213d3861174d743ea8fe037d73c5c136d03272489261f5884fd2d41fb"
+    },
+    "sde-run-all-unit-test": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-run-all-unit-test-image:1.0.0",
+      "digest": "sha256:4842d01fcfb666c283649a28767d1a30987106a2e6e3c4cfe8c51f07172a246e",
+      "reference": "ghcr.io/theagentcompany/sde-run-all-unit-test-image@sha256:4842d01fcfb666c283649a28767d1a30987106a2e6e3c4cfe8c51f07172a246e"
+    },
+    "sde-run-janusgraph": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-run-janusgraph-image:1.0.0",
+      "digest": "sha256:5c0e0fdb2839f45797c10d6039741090a7f6527dc44b55fa165f7653622481ff",
+      "reference": "ghcr.io/theagentcompany/sde-run-janusgraph-image@sha256:5c0e0fdb2839f45797c10d6039741090a7f6527dc44b55fa165f7653622481ff"
+    },
+    "sde-run-linter-on-openhands": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-run-linter-on-openhands-image:1.0.0",
+      "digest": "sha256:51db8ffeff0523bd64cc54a3fdeb26e6b5e43497eed20e09a3628fc33c5166ed",
+      "reference": "ghcr.io/theagentcompany/sde-run-linter-on-openhands-image@sha256:51db8ffeff0523bd64cc54a3fdeb26e6b5e43497eed20e09a3628fc33c5166ed"
+    },
+    "sde-run-rising-wave-locally": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-run-rising-wave-locally-image:1.0.0",
+      "digest": "sha256:4996f23dad55951c52aeac56685b94a3a85e1790445693b0ad60069568f2d288",
+      "reference": "ghcr.io/theagentcompany/sde-run-rising-wave-locally-image@sha256:4996f23dad55951c52aeac56685b94a3a85e1790445693b0ad60069568f2d288"
+    },
+    "sde-sotopia-create-agent": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-sotopia-create-agent-image:1.0.0",
+      "digest": "sha256:bea8b1820211990e8fa1b3e95ce7003515a77991693f2e5c5736d94a9e31817f",
+      "reference": "ghcr.io/theagentcompany/sde-sotopia-create-agent-image@sha256:bea8b1820211990e8fa1b3e95ce7003515a77991693f2e5c5736d94a9e31817f"
+    },
+    "sde-sotopia-create-agent-wo-repo": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-sotopia-create-agent-wo-repo-image:1.0.0",
+      "digest": "sha256:2e27a211b9eb035c0eeb29f7df1d13bde47f3f4a446825865dfcf2995d8fe777",
+      "reference": "ghcr.io/theagentcompany/sde-sotopia-create-agent-wo-repo-image@sha256:2e27a211b9eb035c0eeb29f7df1d13bde47f3f4a446825865dfcf2995d8fe777"
+    },
+    "sde-sotopia-dev-container": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-sotopia-dev-container-image:1.0.0",
+      "digest": "sha256:e4fcbe8d0439ca60ed71d9c932c25a5eb6ccbee637d087c2568dd17562ee56a8",
+      "reference": "ghcr.io/theagentcompany/sde-sotopia-dev-container-image@sha256:e4fcbe8d0439ca60ed71d9c932c25a5eb6ccbee637d087c2568dd17562ee56a8"
+    },
+    "sde-sotopia-update-ci": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-sotopia-update-ci-image:1.0.0",
+      "digest": "sha256:a3e00081dbe9a9f907c720ffac4968232fa6b73ffd27f1e09db2e890b27030ad",
+      "reference": "ghcr.io/theagentcompany/sde-sotopia-update-ci-image@sha256:a3e00081dbe9a9f907c720ffac4968232fa6b73ffd27f1e09db2e890b27030ad"
+    },
+    "sde-summarize-recent-issues": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-summarize-recent-issues-image:1.0.0",
+      "digest": "sha256:cc25b0466bc1bd163330aaaef0cf6b5dea5b0127d7a27d77127ee11db5d51432",
+      "reference": "ghcr.io/theagentcompany/sde-summarize-recent-issues-image@sha256:cc25b0466bc1bd163330aaaef0cf6b5dea5b0127d7a27d77127ee11db5d51432"
+    },
+    "sde-sync-from-origin-repo": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-sync-from-origin-repo-image:1.0.0",
+      "digest": "sha256:796ce0ad300b70aed25bfda8217ca5504f16171442fd6df7c3a514fb01ad1506",
+      "reference": "ghcr.io/theagentcompany/sde-sync-from-origin-repo-image@sha256:796ce0ad300b70aed25bfda8217ca5504f16171442fd6df7c3a514fb01ad1506"
+    },
+    "sde-troubleshoot-dev-setup": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-troubleshoot-dev-setup-image:1.0.0",
+      "digest": "sha256:f16b4452492a2f716cfe17aa8090f9ab72767ae667b2f5b5dc3233dadbf041f0",
+      "reference": "ghcr.io/theagentcompany/sde-troubleshoot-dev-setup-image@sha256:f16b4452492a2f716cfe17aa8090f9ab72767ae667b2f5b5dc3233dadbf041f0"
+    },
+    "sde-update-dev-document": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-update-dev-document-image:1.0.0",
+      "digest": "sha256:a834174d95fec161bd5b931c560e5dee46ce551b20aa030d2fddba3a086d1c66",
+      "reference": "ghcr.io/theagentcompany/sde-update-dev-document-image@sha256:a834174d95fec161bd5b931c560e5dee46ce551b20aa030d2fddba3a086d1c66"
+    },
+    "sde-update-issue-status-on-plane": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-update-issue-status-on-plane-image:1.0.0",
+      "digest": "sha256:28cf345c557ae39e3bd750fcd2797ad5a4c85ea4761db55504e64a62cd434010",
+      "reference": "ghcr.io/theagentcompany/sde-update-issue-status-on-plane-image@sha256:28cf345c557ae39e3bd750fcd2797ad5a4c85ea4761db55504e64a62cd434010"
+    },
+    "sde-update-readme": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-update-readme-image:1.0.0",
+      "digest": "sha256:37d21e54786b633511717e29f5cdd02e34b5b573c4471727e35de08b3d737aba",
+      "reference": "ghcr.io/theagentcompany/sde-update-readme-image@sha256:37d21e54786b633511717e29f5cdd02e34b5b573c4471727e35de08b3d737aba"
+    },
+    "sde-write-a-unit-test-for-append_file-function": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-write-a-unit-test-for-append_file-function-image:1.0.0",
+      "digest": "sha256:75aa425f4d8b60840d3575639593a5542073c2f3d64149df4e6865569b62974a",
+      "reference": "ghcr.io/theagentcompany/sde-write-a-unit-test-for-append_file-function-image@sha256:75aa425f4d8b60840d3575639593a5542073c2f3d64149df4e6865569b62974a"
+    },
+    "sde-write-a-unit-test-for-scroll_down-function": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-write-a-unit-test-for-scroll_down-function-image:1.0.0",
+      "digest": "sha256:c1dc1ffd9d86b3ffbe86ccd89c20720e372df84d146f5aad38d5bd4acdaeb0be",
+      "reference": "ghcr.io/theagentcompany/sde-write-a-unit-test-for-scroll_down-function-image@sha256:c1dc1ffd9d86b3ffbe86ccd89c20720e372df84d146f5aad38d5bd4acdaeb0be"
+    },
+    "sde-write-a-unit-test-for-search_file-function": {
+      "status": "resolved",
+      "tag": "ghcr.io/theagentcompany/sde-write-a-unit-test-for-search_file-function-image:1.0.0",
+      "digest": "sha256:aacec9dda3294499ea66dcce4103bf0bca6a307b6042224b48c2972af41aa07a",
+      "reference": "ghcr.io/theagentcompany/sde-write-a-unit-test-for-search_file-function-image@sha256:aacec9dda3294499ea66dcce4103bf0bca6a307b6042224b48c2972af41aa07a"
+    }
+  },
+  "status": "ready"
+}
