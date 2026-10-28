@@ -137,3 +137,8 @@ flowchart LR
 - The extracted scalar adapter also handles empty Arrow batches without trying
   to infer a return type from an empty iterator; a native unit test verifies
   that it retains the declared Boolean output type and evaluates no rows.
+
+- Final full `pnpm check` passed again after the temporal refinement: 202 test
+  files, 3,257 passed and 10 skipped, plus successful installed-tarball and MCP
+  checks. The native suite has three passing tests, including the empty-batch
+  regression. Rust formatting and Clippy remain clean.
