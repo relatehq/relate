@@ -7,7 +7,7 @@ import subprocess
 
 IMAGE = "ghcr.io/theagentcompany/servers-api-server@sha256:fc162044d7062323c1fc5699569b1483e134accdc9c12af6816f991a040c9b5c"
 # Upstream uses these fixed names and resets its own compose projects at startup.
-NAMES = {"agency-bench-api", "gitlab", "owncloud", "owncloud-collabora", "rocketchat", "mongodb", "redis-stack"}
+NAMES = {"agency-bench-api", "gitlab", "owncloud", "owncloud-collabora", "rocketchat", "mongodb", "rocketchat-mongodb", "redis-stack", "redis-stack-npc-data-population"}
 PORTS = [2999, 3000, 6379, 8091, 8092, 8929, 8930, 2424, 9980]
 
 
@@ -40,6 +40,8 @@ if __name__ == "__main__":
     path = args.output / "services.json"
     path.write_text(json.dumps(manifest, indent=2))
     upstream = Path(__file__).resolve().parents[3] / "artifacts/upstream/agent-company"
+    if subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=upstream, text=True).strip() != "98b68ef82a47690c316f42fddb05baafaab56851":
+        raise RuntimeError("Unexpected upstream revision")
     compose = upstream / "servers/api-server/docker-compose.yml"
     container = docker("run", "-d", "--name", "agency-bench-api", "--platform", "linux/amd64",
                        "--network", "host", "--env", "DOCKER_DEFAULT_PLATFORM=linux/amd64",
