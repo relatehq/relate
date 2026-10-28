@@ -2,8 +2,8 @@
 
 Runs live STATE-Bench tasks inside the agency benchmark using its existing
 OpenAI Responses provider. The upstream harness retains tool execution,
-simulated users, task state, and grading. This initial adapter is the
-direct-tool baseline and a Relate action adapter are available.
+simulated users, task state, and grading. Both the direct-tool baseline and a
+Relate action adapter are available.
 
 Pinned upstream:
 `microsoft/STATE-Bench@5644b1838d96bc4483da29642d058ecaa6f80f7f`. Install its

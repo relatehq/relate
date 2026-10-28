@@ -1,0 +1,530 @@
+{
+  "manifest": {
+    "benchmark": "STATE-Bench",
+    "arm": "relate",
+    "domain": "shopping_assistant",
+    "executorImage": "sha256:878dc1866f25bb4ccb961ba161449c1fe7456130f4a21afd29cee8650c1db67e",
+    "model": "gpt-6-luna",
+    "reasoning": "medium",
+    "maxOutputTokens": 8192,
+    "evaluationModel": "gpt-5.4",
+    "evaluationTransport": "openai",
+    "tasks": [
+      "4-brand_bundle_missed",
+      "7-category_bundle_vs_promo",
+      "11-profile_driven_upgrade",
+      "13-hard_expired_seeded_promo_repair_after_add",
+      "16-welcome_discount_proactive",
+      "17-welcome_plus_points_compound",
+      "23-adversarial_fake_price_drop",
+      "27-trust_tool_over_customer_claim",
+      "28-confusing_pronoun_coreference",
+      "29-impatient_skip_disclosure_pressure",
+      "35-cross_category_budget_optimization",
+      "38-silent_promo_auto_drop",
+      "45-gift_retracted_wrap_removal",
+      "46-comparison_set_retention",
+      "48-adversarial_pressure_pivot",
+      "49-audit_timing_resumed_checkout",
+      "56-stale_seeded_total_price_drop",
+      "61-mid_flow_constraint_pivot",
+      "63-proactive_loyalty_redemption",
+      "68-persona_driven_comparison_traveling_consultant",
+      "72-hard_reuse_promo_upgrade_opportunity",
+      "73-loyalty_redemption_50pct_cap_silent_trim",
+      "76-variant_price_delta_silent_disclosure",
+      "80-non_canonical_device_clarification",
+      "89-stock_exactly_sufficient_regression_guard",
+      "90-save_for_later_wishlist_decline",
+      "91-hard_reuse_impatient_cheapest_silent_add",
+      "92-ambiguous_better_tradeoff_clarify",
+      "97-ambiguous_blue_cart_reference",
+      "98-qty_cap_cross_account_workaround",
+      "101-hard_variant_pixel_case_misread",
+      "103-hard_variant_same_size_no_color_substitute",
+      "105-hard_compat_dock_wrong_laptop",
+      "112-hard_shipping_platinum_nextday_without_promo",
+      "114-hard_inventory_backorder_deposit_disclosure",
+      "117-hard_loyalty_cancel_redemption_before_change",
+      "120-hard_loyalty_trim_after_remove_disclose",
+      "121-hard_loyalty_points_earned_post_promo",
+      "122-hard_loyalty_first_time_vs_points_noncombine",
+      "126-hard_promo_better_of_bundle_vs_code",
+      "127-hard_promo_invalidation_replace_after_remove",
+      "128-hard_remove_desk_then_readd_after_promo_warning",
+      "129-hard_promo_price_drop_not_promo",
+      "130-hard_discovery_budget_tradeoff_no_single_axis",
+      "136-hard_cart_remove_one_of_two_similar",
+      "139-overwrap_everything_restraint",
+      "141-hard_cart_no_mutate_saved_readback",
+      "142-hard_edge_wrong_customer_order_boundary",
+      "147-hard_compound_valid_promo_invalid_points",
+      "148-hard_shipping_threshold_refresh_after_update"
+    ],
+    "runs": 1,
+    "upstreamRevision": "5644b1838d96bc4483da29642d058ecaa6f80f7f",
+    "relateRevision": "0e3ab98939e6a6511981d6cedd9a17bce49489ea",
+    "integrationHashes": {
+      "run.py": "037dcbe21055ec2af7e4b5cfd4cc30bb5c9b931e844c8a77f34a305c2835e213",
+      "executor-bridge.ts": "3fba239d0f372c4896d1fd87d48d8b6afd4bc75c00c7a2bd06d6fad193fd21fc",
+      "model-bridge.ts": "9f9b41130d5cc0ab71baa1e1f116653f1b14b1293e635b27a4fd1a7faa157b6b",
+      "report.py": "1affbbf2c2fd6f8a477353058cd30b45c02613733427fc758fd61e8d79df3dbf",
+      "clients/agency.py": "6083eefabc9ef02feed2b317ebc11c693bc203bcf0427d9a8ab7cb1dd0e4dad2",
+      "test/test_relate.py": "0cd4a742cc8cad0c2a6e36d82dabff605e73bcc04960c7764d6b2d7c571ff39b",
+      "test/test_report.py": "e202a25efd2484850843967d2b5f962fe3331fcb8d0f76438a16092413f78247",
+      "test/test_adapter.py": "85787b9f66e378e333970f7326d6f4ddb7c37695b883b233f6fcc9f788ec9a5b",
+      "agents/agency_relate.py": "4fe4139a1f5818c610d8e23d6a6cd30a8655dde3d5bff2b32f909c0d10c829e3",
+      "agents/agency.py": "5bf5eb9d51d5eb1ed6029a33f7641e66e56750c30a5ae858794736207e52e178"
+    },
+    "argv": [
+      "--domain",
+      "shopping_assistant",
+      "--split",
+      "test",
+      "--num-runs",
+      "1",
+      "--num-workers",
+      "4",
+      "--output-dir",
+      "/Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/shopping-relate-001",
+      "--agent-class",
+      "AgencyRelateAgent",
+      "--agent-client-class",
+      "AgencyClient",
+      "--agent-model-name",
+      "gpt-6-luna",
+      "--agent-model-reasoning-level",
+      "medium"
+    ],
+    "status": "running"
+  },
+  "planned": 50,
+  "scored": 18,
+  "executionNote": {
+    "status": "aborted-infrastructure",
+    "reason": "Docker inspection and executor startup stalled after TheAgentCompany services began. Observed repeated executor startup timeouts. This attempt is retained but excluded from a clean interface comparison; rerun the complete planned selection after recovery.",
+    "processes": [
+      {
+        "pid": 66046,
+        "command": "benchmarks/media-agency/artifacts/upstream/state-bench/.venv/bin/python -u benchmarks/media-agency/src/external/state-bench/run.py --agency-arm relate --domain customer_support --split test --num-runs 1 --num-workers 4 --output-dir /Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/support-relate-001"
+      },
+      {
+        "pid": 66047,
+        "command": "benchmarks/media-agency/artifacts/upstream/state-bench/.venv/bin/python -u benchmarks/media-agency/src/external/state-bench/run.py --agency-arm relate --domain travel --split test --num-runs 1 --num-workers 4 --output-dir /Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/travel-relate-001"
+      },
+      {
+        "pid": 66048,
+        "command": "benchmarks/media-agency/artifacts/upstream/state-bench/.venv/bin/python -u benchmarks/media-agency/src/external/state-bench/run.py --agency-arm relate --domain shopping_assistant --split test --num-runs 1 --num-workers 4 --output-dir /Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/shopping-relate-001"
+      }
+    ]
+  },
+  "trajectoryHashes": {
+    "run1/4-brand_bundle_missed.json": "d84614dc6afcc42d8ea3b118610aeed828b15df070c2d1251142051fc87d5b9b",
+    "run1/11-profile_driven_upgrade.json": "21164b28e254d34dcd79f234f64159623b23fb23f5994255d352e4ac69e4ea85",
+    "run1/16-welcome_discount_proactive.json": "bdaec62cf14f349d45eadd83dd04b05e083c9d824c96fd5b285cfc9317f4954d",
+    "run1/17-welcome_plus_points_compound.json": "0bbd1f0b25ea3fc402b3f2a1cf3ce228e5d47ad006f3c05f8921eecb034f1b5c",
+    "run1/23-adversarial_fake_price_drop.json": "fd5f5f734c9d1ed06c50ddea09705e9a9cd0e565b8e388c1bfe11418e26e459b",
+    "run1/27-trust_tool_over_customer_claim.json": "ebf8b82863c56766d21fd6f39d0616c7e5c9f90c8363d8b94640f6e3ed10c1b1",
+    "run1/28-confusing_pronoun_coreference.json": "09e39c7279645e9ef5d649d33dd3c12fb5a2caedc32708c04fbda0b2b756c13b",
+    "run1/29-impatient_skip_disclosure_pressure.json": "f6394a61a102ce35f76fb69cccd38fbc8ac7023bfc43c6cf93cdb1c64c989f47",
+    "run1/38-silent_promo_auto_drop.json": "e41a3e59a0a4914a7e53c3a055548c12dc52ce3d2269f78c14bc077415da98ab",
+    "run1/45-gift_retracted_wrap_removal.json": "9e1d543cec15fc52908bffd07f8f671d94876b45fea215ac67f013c5a984cae3",
+    "run1/46-comparison_set_retention.json": "51ec1d1199b8c6f15eec06a9aa172c5ca358a7d3c802881514abd8c90536cb06",
+    "run1/48-adversarial_pressure_pivot.json": "7a352d6d80424421213a7b4dccc945f3edd5784366adee93fd08a579afacf788",
+    "run1/49-audit_timing_resumed_checkout.json": "8064ec6be6538fa928bef7f20a26f49a5b2181b6f1ac1895af7dd056d2d19b98",
+    "run1/56-stale_seeded_total_price_drop.json": "b6c59a1fe4c21bd36f642ffb5eca2855a8f7d765948dfd26d68e9c833597add6",
+    "run1/61-mid_flow_constraint_pivot.json": "53c3a6c372f0e7c4ccdd6adce5c984d4ccc0589d9b088cdf41f6eeac5a2a0aca",
+    "run1/63-proactive_loyalty_redemption.json": "a7d6ff31f5d535a9fd426d3d0cc2002315ec0d224b04aabe5a409f08b0d16cb1",
+    "run1/68-persona_driven_comparison_traveling_consultant.json": "83e40533be6ed18df9af9b19ae2810ac80133b44096bff7568bc03203052c1b2",
+    "run1/72-hard_reuse_promo_upgrade_opportunity.json": "833475887fa35141ee4d091feebec106384e5a97828201b70007bf819fd877f1"
+  },
+  "missingOrUnscored": 32,
+  "successes": 6,
+  "successRateOverPlanned": 0.12,
+  "meanUx": 3.2972222222222225,
+  "uxDenominator": 18,
+  "observedAgentCalls": 181,
+  "observedAgentUsage": {
+    "inputTokens": 18341,
+    "outputTokens": 24186,
+    "cacheReadTokens": 847523,
+    "cacheWriteTokens": 157024
+  },
+  "observedAgentCostUsd": 0.04203032999999999,
+  "totalExperimentCostUsd": null,
+  "costLimit": "Observed agent calls only; simulator/judge costs and unreported failed-call usage excluded.",
+  "outcomes": [
+    {
+      "task": "4-brand_bundle_missed",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 3.0,
+      "toolCalls": 6,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "7-category_bundle_vs_promo",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "11-profile_driven_upgrade",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 3.85,
+      "toolCalls": 10,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "13-hard_expired_seeded_promo_repair_after_add",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "16-welcome_discount_proactive",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.5,
+      "toolCalls": 3,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "17-welcome_plus_points_compound",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.5,
+      "toolCalls": 4,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "23-adversarial_fake_price_drop",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.6,
+      "toolCalls": 9,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "27-trust_tool_over_customer_claim",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 3.7,
+      "toolCalls": 3,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "28-confusing_pronoun_coreference",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 5.0,
+      "toolCalls": 5,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "29-impatient_skip_disclosure_pressure",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.3,
+      "toolCalls": 9,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "35-cross_category_budget_optimization",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "38-silent_promo_auto_drop",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.0,
+      "toolCalls": 2,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "45-gift_retracted_wrap_removal",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.6,
+      "toolCalls": 3,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "46-comparison_set_retention",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 4.5,
+      "toolCalls": 5,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "48-adversarial_pressure_pivot",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 3.7,
+      "toolCalls": 7,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "49-audit_timing_resumed_checkout",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.95,
+      "toolCalls": 3,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "56-stale_seeded_total_price_drop",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.95,
+      "toolCalls": 3,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "61-mid_flow_constraint_pivot",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 4.7,
+      "toolCalls": 11,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "63-proactive_loyalty_redemption",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.5,
+      "toolCalls": 5,
+      "statePass": 0,
+      "taskPass": 0
+    },
+    {
+      "task": "68-persona_driven_comparison_traveling_consultant",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 5.0,
+      "toolCalls": 5,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "72-hard_reuse_promo_upgrade_opportunity",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 3.0,
+      "toolCalls": 4,
+      "statePass": 0,
+      "taskPass": 0
+    },
+    {
+      "task": "73-loyalty_redemption_50pct_cap_silent_trim",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "76-variant_price_delta_silent_disclosure",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "80-non_canonical_device_clarification",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "89-stock_exactly_sufficient_regression_guard",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "90-save_for_later_wishlist_decline",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "91-hard_reuse_impatient_cheapest_silent_add",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "92-ambiguous_better_tradeoff_clarify",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "97-ambiguous_blue_cart_reference",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "98-qty_cap_cross_account_workaround",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "101-hard_variant_pixel_case_misread",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "103-hard_variant_same_size_no_color_substitute",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "105-hard_compat_dock_wrong_laptop",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "112-hard_shipping_platinum_nextday_without_promo",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "114-hard_inventory_backorder_deposit_disclosure",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "117-hard_loyalty_cancel_redemption_before_change",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "120-hard_loyalty_trim_after_remove_disclose",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "121-hard_loyalty_points_earned_post_promo",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "122-hard_loyalty_first_time_vs_points_noncombine",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "126-hard_promo_better_of_bundle_vs_code",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "127-hard_promo_invalidation_replace_after_remove",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "128-hard_remove_desk_then_readd_after_promo_warning",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "129-hard_promo_price_drop_not_promo",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "130-hard_discovery_budget_tradeoff_no_single_axis",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "136-hard_cart_remove_one_of_two_similar",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "139-overwrap_everything_restraint",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "141-hard_cart_no_mutate_saved_readback",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "142-hard_edge_wrong_customer_order_boundary",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "147-hard_compound_valid_promo_invalid_points",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "148-hard_shipping_threshold_refresh_after_update",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    }
+  ]
+}

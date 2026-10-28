@@ -1,5 +1,6 @@
 """Report over the frozen planned denominator, including errors and missing work."""
 import json
+import hashlib
 from pathlib import Path
 import sys
 
@@ -8,11 +9,13 @@ def summarize(directory):
     directory = Path(directory)
     manifest = json.loads((directory / "manifest.json").read_text())
     outcomes = []
+    artifact_hashes = {}
     for run in range(1, manifest["runs"] + 1):
         for task in manifest["tasks"]:
             path = directory / f"run{run}" / f"{task}.json"
             row = {"task": task, "run": run, "status": "missing", "success": False}
             if path.exists():
+                artifact_hashes[str(path.relative_to(directory))] = hashlib.sha256(path.read_bytes()).hexdigest()
                 data = json.loads(path.read_text())
                 scored = data.get("task_completion_pass") in (0, 1)
                 row.update(status="scored" if scored else "unscored",
@@ -37,6 +40,8 @@ def summarize(directory):
     scored = sum(row["status"] == "scored" for row in outcomes)
     ux = [row["ux"] for row in outcomes if row.get("ux") is not None]
     return {"manifest": manifest, "planned": len(outcomes), "scored": scored,
+            "executionNote": json.loads((directory / "execution-note.json").read_text()) if (directory / "execution-note.json").exists() else None,
+            "trajectoryHashes": artifact_hashes,
             "missingOrUnscored": len(outcomes) - scored, "successes": successes,
             "successRateOverPlanned": successes / len(outcomes) if outcomes else None,
             "meanUx": sum(ux) / len(ux) if ux else None, "uxDenominator": len(ux),

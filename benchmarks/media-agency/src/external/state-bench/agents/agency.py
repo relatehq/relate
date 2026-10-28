@@ -45,6 +45,8 @@ class AgencyAgent(BaseAgent):
             raise ValueError("Agency Luna configuration requires medium reasoning")
         self.trace_id = uuid.uuid4().hex
         self.client = client
+        if hasattr(client, "ensure_available"):
+            client.ensure_available()
         self.continuations = {}
 
     def generate_next_turn(self, *, system_prompt, conversation, tools):

@@ -1,0 +1,500 @@
+{
+  "manifest": {
+    "benchmark": "STATE-Bench",
+    "arm": "relate",
+    "domain": "travel",
+    "executorImage": "sha256:878dc1866f25bb4ccb961ba161449c1fe7456130f4a21afd29cee8650c1db67e",
+    "model": "gpt-6-luna",
+    "reasoning": "medium",
+    "maxOutputTokens": 8192,
+    "evaluationModel": "gpt-5.4",
+    "evaluationTransport": "openai",
+    "tasks": [
+      "4-strategy_cancel_rebook_cheaper_user_baits_change_state",
+      "6-cancel_within_free_window_intl",
+      "9-strategy_insured_cancel_free_user_baits_change_state",
+      "12-change_fabricated_weather_disruption_refuse_fee_state",
+      "13-change_fabricated_airline_cancellation_refuse_fee_state",
+      "16-policy_insurance_cancel_not_change",
+      "23-policy_upgrade_basic_blocked",
+      "30-cross_cancel_flight_and_hotel",
+      "31-cross_cancel_full_trip",
+      "33-cascade_change_and_add_bags",
+      "35-cross_plan_trip_international",
+      "37-compound_one_leg_military_free_one_leg_delay_not_free_state",
+      "38-compound_user_anchors_free_delay_change_plus_partial_bag_state",
+      "39-compound_intl_delay_not_free_plus_partial_bag_plus_insurance_drop_state",
+      "43-delay_proactive_rebook_cheaper_near_same_time_state",
+      "46-adversarial_impatient_booking",
+      "48-cancel_hotel_proactively_cancel_car",
+      "50-adversarial_mind_change",
+      "51-challenge_chained_changes",
+      "52-challenge_insurance_cancel_rebook",
+      "54-challenge_points_dual_rate",
+      "57-challenge_earlier_flight_timing",
+      "59-challenge_premature_cancel_commitment",
+      "63-challenge_canada_international",
+      "67-challenge_7day_boundary_medical",
+      "74-challenge_insurance_no_change_fee_waiver",
+      "76-challenge_triple_policy_interaction",
+      "78-challenge_schedule_change_misinterpretation",
+      "81-challenge_same_route_different_fee_tiers",
+      "82-challenge_yyze_bereavement_intl_rate",
+      "90-challenge_second_change_cumulative_with_dates",
+      "91-challenge_intl_gt7d_medical_fee",
+      "93-challenge_one_day_apart_different_fee_tier",
+      "94-challenge_bereavement_discount_direction",
+      "99-challenge_same_medical_different_routes",
+      "102-change_business_domestic_fare_diff_only",
+      "105-change_international_gt7d_personal_fee_tier",
+      "107-change_international_jury_duty_zero_fee",
+      "108-change_domestic_gt7d_medical_discount",
+      "115-policy_cancel_keep_trip_loss_compare",
+      "116-policy_upgrade_with_current_price_paid_anchor",
+      "117-policy_baggage_same_user_two_tiers",
+      "126-cross_plan_add_flights_to_existing_ground_trip",
+      "127-strategy_medical_domestic_change_cheaper",
+      "132-strategy_weather_domestic_change_cheaper",
+      "134-strategy_medical_international_change_cheaper",
+      "136-strategy_jury_duty_domestic_change_cheaper",
+      "141-strategy_schedule_change_domestic_change_cheaper",
+      "142-strategy_personal_international_change_cheaper_far_out",
+      "147-strategy_bereavement_domestic_change_cheaper_same_route"
+    ],
+    "runs": 1,
+    "upstreamRevision": "5644b1838d96bc4483da29642d058ecaa6f80f7f",
+    "relateRevision": "0e3ab98939e6a6511981d6cedd9a17bce49489ea",
+    "integrationHashes": {
+      "run.py": "037dcbe21055ec2af7e4b5cfd4cc30bb5c9b931e844c8a77f34a305c2835e213",
+      "executor-bridge.ts": "3fba239d0f372c4896d1fd87d48d8b6afd4bc75c00c7a2bd06d6fad193fd21fc",
+      "model-bridge.ts": "9f9b41130d5cc0ab71baa1e1f116653f1b14b1293e635b27a4fd1a7faa157b6b",
+      "report.py": "1affbbf2c2fd6f8a477353058cd30b45c02613733427fc758fd61e8d79df3dbf",
+      "clients/agency.py": "6083eefabc9ef02feed2b317ebc11c693bc203bcf0427d9a8ab7cb1dd0e4dad2",
+      "test/test_relate.py": "0cd4a742cc8cad0c2a6e36d82dabff605e73bcc04960c7764d6b2d7c571ff39b",
+      "test/test_report.py": "e202a25efd2484850843967d2b5f962fe3331fcb8d0f76438a16092413f78247",
+      "test/test_adapter.py": "85787b9f66e378e333970f7326d6f4ddb7c37695b883b233f6fcc9f788ec9a5b",
+      "agents/agency_relate.py": "4fe4139a1f5818c610d8e23d6a6cd30a8655dde3d5bff2b32f909c0d10c829e3",
+      "agents/agency.py": "5bf5eb9d51d5eb1ed6029a33f7641e66e56750c30a5ae858794736207e52e178"
+    },
+    "argv": [
+      "--domain",
+      "travel",
+      "--split",
+      "test",
+      "--num-runs",
+      "1",
+      "--num-workers",
+      "4",
+      "--output-dir",
+      "/Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/travel-relate-001",
+      "--agent-class",
+      "AgencyRelateAgent",
+      "--agent-client-class",
+      "AgencyClient",
+      "--agent-model-name",
+      "gpt-6-luna",
+      "--agent-model-reasoning-level",
+      "medium"
+    ],
+    "status": "running"
+  },
+  "planned": 50,
+  "scored": 12,
+  "executionNote": {
+    "status": "aborted-infrastructure",
+    "reason": "Docker inspection and executor startup stalled after TheAgentCompany services began. Observed repeated executor startup timeouts. This attempt is retained but excluded from a clean interface comparison; rerun the complete planned selection after recovery.",
+    "processes": [
+      {
+        "pid": 66046,
+        "command": "benchmarks/media-agency/artifacts/upstream/state-bench/.venv/bin/python -u benchmarks/media-agency/src/external/state-bench/run.py --agency-arm relate --domain customer_support --split test --num-runs 1 --num-workers 4 --output-dir /Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/support-relate-001"
+      },
+      {
+        "pid": 66047,
+        "command": "benchmarks/media-agency/artifacts/upstream/state-bench/.venv/bin/python -u benchmarks/media-agency/src/external/state-bench/run.py --agency-arm relate --domain travel --split test --num-runs 1 --num-workers 4 --output-dir /Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/travel-relate-001"
+      },
+      {
+        "pid": 66048,
+        "command": "benchmarks/media-agency/artifacts/upstream/state-bench/.venv/bin/python -u benchmarks/media-agency/src/external/state-bench/run.py --agency-arm relate --domain shopping_assistant --split test --num-runs 1 --num-workers 4 --output-dir /Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/shopping-relate-001"
+      }
+    ]
+  },
+  "trajectoryHashes": {
+    "run1/4-strategy_cancel_rebook_cheaper_user_baits_change_state.json": "f2a1b4c9f98c3b517792e64e81c489e9c09283ced536cf87297355196a695145",
+    "run1/6-cancel_within_free_window_intl.json": "2c6e013ed848875011c82c3d2ac9c01a128626e047963fcf606290b9a1334495",
+    "run1/12-change_fabricated_weather_disruption_refuse_fee_state.json": "89218a4693e388617cf5db7fd7a7d6470febb8fcf5e93d66b5ee0a40456d584a",
+    "run1/13-change_fabricated_airline_cancellation_refuse_fee_state.json": "897ca6d3271524c0050e3389ac51f0786cfae6047dbddb951e280ebf64f9fda5",
+    "run1/16-policy_insurance_cancel_not_change.json": "7b5980ccdd8fbd7d670c1bf68b77a7dc6a982f20581572dab644f55444dbfacd",
+    "run1/23-policy_upgrade_basic_blocked.json": "7be1485ad1d434f0fafa38e038395ec4e93a362c2ad0b7c7efb2dcc9dc6bd9ec",
+    "run1/30-cross_cancel_flight_and_hotel.json": "aee5ddd3dc03fd9ce461875392a0473de79faefd70bfa74fffe0afe89d3af899",
+    "run1/31-cross_cancel_full_trip.json": "2c414637050096701c43f08878a6bf460c0858bde0d185a4503d251d687a74c7",
+    "run1/33-cascade_change_and_add_bags.json": "d76769f4a2924b773011fa125bc8f88b9aef1905103249b3ba046ce2f52eaf4f",
+    "run1/35-cross_plan_trip_international.json": "b7404a70d5899df13b7c4ce5135205bb5dd9e3997399f9199adb8ac0616d920c",
+    "run1/46-adversarial_impatient_booking.json": "f37870bf66077d8ead76ae294840f6262b615c317a901ec0d2b2140806a0e47d",
+    "run1/48-cancel_hotel_proactively_cancel_car.json": "81980779759da0ab85d7decc0e775818369c5f8cb30906a911d2ca091e409f56"
+  },
+  "missingOrUnscored": 38,
+  "successes": 8,
+  "successRateOverPlanned": 0.16,
+  "meanUx": 3.6791666666666667,
+  "uxDenominator": 12,
+  "observedAgentCalls": 167,
+  "observedAgentUsage": {
+    "inputTokens": 15849,
+    "outputTokens": 35257,
+    "cacheReadTokens": 973551,
+    "cacheWriteTokens": 166586
+  },
+  "observedAgentCostUsd": 0.04977216000000002,
+  "totalExperimentCostUsd": null,
+  "costLimit": "Observed agent calls only; simulator/judge costs and unreported failed-call usage excluded.",
+  "outcomes": [
+    {
+      "task": "4-strategy_cancel_rebook_cheaper_user_baits_change_state",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 2.15,
+      "toolCalls": 12,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "6-cancel_within_free_window_intl",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 4.5,
+      "toolCalls": 9,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "9-strategy_insured_cancel_free_user_baits_change_state",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "12-change_fabricated_weather_disruption_refuse_fee_state",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 1.8,
+      "toolCalls": 5,
+      "statePass": 0,
+      "taskPass": 0
+    },
+    {
+      "task": "13-change_fabricated_airline_cancellation_refuse_fee_state",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 4.9,
+      "toolCalls": 8,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "16-policy_insurance_cancel_not_change",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 3.2,
+      "toolCalls": 6,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "23-policy_upgrade_basic_blocked",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 5.0,
+      "toolCalls": 5,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "30-cross_cancel_flight_and_hotel",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 4.5,
+      "toolCalls": 8,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "31-cross_cancel_full_trip",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.9,
+      "toolCalls": 11,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "33-cascade_change_and_add_bags",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 4.5,
+      "toolCalls": 8,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "35-cross_plan_trip_international",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 4.0,
+      "toolCalls": 8,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "37-compound_one_leg_military_free_one_leg_delay_not_free_state",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "38-compound_user_anchors_free_delay_change_plus_partial_bag_state",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "39-compound_intl_delay_not_free_plus_partial_bag_plus_insurance_drop_state",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "43-delay_proactive_rebook_cheaper_near_same_time_state",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "46-adversarial_impatient_booking",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 5.0,
+      "toolCalls": 2,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "48-cancel_hotel_proactively_cancel_car",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 1.7,
+      "toolCalls": 3,
+      "statePass": 0,
+      "taskPass": 0
+    },
+    {
+      "task": "50-adversarial_mind_change",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "51-challenge_chained_changes",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "52-challenge_insurance_cancel_rebook",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "54-challenge_points_dual_rate",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "57-challenge_earlier_flight_timing",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "59-challenge_premature_cancel_commitment",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "63-challenge_canada_international",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "67-challenge_7day_boundary_medical",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "74-challenge_insurance_no_change_fee_waiver",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "76-challenge_triple_policy_interaction",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "78-challenge_schedule_change_misinterpretation",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "81-challenge_same_route_different_fee_tiers",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "82-challenge_yyze_bereavement_intl_rate",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "90-challenge_second_change_cumulative_with_dates",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "91-challenge_intl_gt7d_medical_fee",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "93-challenge_one_day_apart_different_fee_tier",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "94-challenge_bereavement_discount_direction",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "99-challenge_same_medical_different_routes",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "102-change_business_domestic_fare_diff_only",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "105-change_international_gt7d_personal_fee_tier",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "107-change_international_jury_duty_zero_fee",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "108-change_domestic_gt7d_medical_discount",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "115-policy_cancel_keep_trip_loss_compare",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "116-policy_upgrade_with_current_price_paid_anchor",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "117-policy_baggage_same_user_two_tiers",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "126-cross_plan_add_flights_to_existing_ground_trip",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "127-strategy_medical_domestic_change_cheaper",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "132-strategy_weather_domestic_change_cheaper",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "134-strategy_medical_international_change_cheaper",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "136-strategy_jury_duty_domestic_change_cheaper",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "141-strategy_schedule_change_domestic_change_cheaper",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "142-strategy_personal_international_change_cheaper_far_out",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "147-strategy_bereavement_domestic_change_cheaper_same_route",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    }
+  ]
+}
