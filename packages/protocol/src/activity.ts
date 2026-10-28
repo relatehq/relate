@@ -253,7 +253,11 @@ export interface Change {
   /** The attempt that committed this change; its operation row may not exist. */
   readonly operationId: string;
   readonly parentOperationId?: string;
-  /** Native changes only; independent source changes do not inherit an invocation ID. */
+  /**
+   * The invocation that committed this change: required for native changes,
+   * present on source changes accepted by an action's transaction, and absent
+   * on independent host adoptions and refreshes.
+   */
   readonly invocationId?: string;
   readonly actor: ActivityActor;
   /** Required for source-refresh, absent otherwise; a principal or system actor. */
@@ -304,6 +308,8 @@ export type ObjectProvenance =
       readonly actor: ActivityActor;
       readonly at: string;
       readonly sourceDefinitionId: string;
+      /** The adopting action invocation; absent for host and legacy adoption. */
+      readonly invocationId?: string;
     }
   /** Legacy rows created before activity recording. */
   | { readonly kind: 'unknown' };

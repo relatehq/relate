@@ -75,6 +75,7 @@ function projectBinding(binding: GraphBinding): BindingSnapshot {
       actions[route.definitionId] = {
         ...detail,
         creates: detail.creates.filter((object) => names.has(object.apiName)),
+        adopts: detail.adopts.filter((object) => names.has(object.apiName)),
       };
 
       return true;
@@ -108,6 +109,9 @@ function projectBinding(binding: GraphBinding): BindingSnapshot {
           {
             ...overview.actions[name],
             creates: overview.actions[name]!.creates.filter((target) =>
+              names.has(target),
+            ),
+            adopts: overview.actions[name]!.adopts.filter((target) =>
               names.has(target),
             ),
           },

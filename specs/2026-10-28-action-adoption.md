@@ -1,23 +1,23 @@
 # 2026-10-28: Action adoption
 
-**Status:** agreed 2026-10-28. Nothing is implemented. The public API, local
+**Status:** implemented 2026-10-28 on memory and Postgres. The public API, local
 atomicity rule and the full contract below were agreed after review the same
-day; the integration helpers are deferred. This feature must ship before the
-[media agency benchmark](./2026-10-23-media-agency-benchmark.md) is built,
-because its create-type tasks depend on it.
+day; `waitMs` and the integration helpers remain deferred. This feature must
+ship before the [media agency benchmark](./2026-10-23-media-agency-benchmark.md)
+is built, because its create-type tasks depend on it.
 
-| Part                                                                     | Status                                                                                           |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| `adopts` declaration and `objects.Type.adopt(id)` in handlers            | Agreed 2026-10-28                                                                                |
-| Adoption commits or rolls back with the action's local changes           | Agreed 2026-10-28                                                                                |
-| No exactly-once claim for external writes; recovery is integration code  | Agreed 2026-10-28                                                                                |
-| Commit-time acceptance with a pending-object overlay                     | Agreed 2026-10-28, see [How adoption commits](#how-adoption-commits-with-the-action)             |
-| Same-view rule: a newer identical observation does not abort             | Agreed 2026-10-28, see [Ordering at commit](#ordering-at-commit)                                 |
-| Storage capability, acceptance and conflict validation                   | Agreed 2026-10-28, see [Storage contract](#storage-contract)                                     |
-| Query visibility, failure receipts and invocation provenance             | Agreed 2026-10-28, see [Behavior rules](#behavior-rules)                                         |
-| Waiting for a just-created record to become readable is integration code | Agreed 2026-10-28, see [Records that are not yet fetchable](#records-that-are-not-yet-fetchable) |
-| `waitMs` option and a typed connector absence signal                     | Deferred, see [Deferred](#deferred-typed-absence-and-waitms)                                     |
-| SDK helpers for integration journals and visibility polling              | Deferred, see [Deferred](#deferred-integration-helpers)                                          |
+| Part                                                                     | Status                                                                                                |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `adopts` declaration and `objects.Type.adopt(id)` in handlers            | Implemented 2026-10-28                                                                                |
+| Adoption commits or rolls back with the action's local changes           | Implemented 2026-10-28                                                                                |
+| No exactly-once claim for external writes; recovery is integration code  | Implemented 2026-10-28                                                                                |
+| Commit-time acceptance with a pending-object overlay                     | Implemented 2026-10-28, see [How adoption commits](#how-adoption-commits-with-the-action)             |
+| Same-view rule: a newer identical observation does not abort             | Implemented 2026-10-28, see [Ordering at commit](#ordering-at-commit)                                 |
+| Storage capability, acceptance and conflict validation                   | Implemented 2026-10-28, see [Storage contract](#storage-contract)                                     |
+| Query visibility, failure receipts and invocation provenance             | Implemented 2026-10-28, see [Behavior rules](#behavior-rules)                                         |
+| Waiting for a just-created record to become readable is integration code | Implemented 2026-10-28, see [Records that are not yet fetchable](#records-that-are-not-yet-fetchable) |
+| `waitMs` option and a typed connector absence signal                     | Deferred, see [Deferred](#deferred-typed-absence-and-waitms)                                          |
+| SDK helpers for integration journals and visibility polling              | Deferred, see [Deferred](#deferred-integration-helpers)                                               |
 
 ## The problem
 

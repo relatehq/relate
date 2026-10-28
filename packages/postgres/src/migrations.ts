@@ -264,3 +264,25 @@ ALTER TABLE relate.objects ADD CONSTRAINT objects_resource_alias
   UNIQUE (graph_id, object_type, source_id, connection_id, resource_id,
           partition, identity_kind, provider_account_id, provider_key);
 `;
+
+// Action adoption: invocation provenance on the identity, and source changes
+// that carry the accepting invocation's ID. Host adoption and refresh omit it.
+export const actionAdoptionMigration = `
+ALTER TABLE relate.objects ADD COLUMN adopted_invocation_id text
+  CHECK (adopted_invocation_id IS NULL OR length(btrim(adopted_invocation_id)) > 0);
+ALTER TABLE relate.feed_entries DROP CONSTRAINT feed_entries_check4;
+ALTER TABLE relate.feed_entries ADD CONSTRAINT feed_entries_change_attribution CHECK (
+  kind IN ('invocation-succeeded', 'invocation-failed')
+  OR (source_definition_id IS NULL
+    AND invocation_id IS NOT NULL AND actor_kind IN ('principal', 'system')
+    AND triggered_by_kind IS NULL AND triggered_by_id IS NULL)
+  OR (source_definition_id IS NOT NULL
+    AND ((kind = 'adopted' AND actor_kind IN ('principal', 'system')
+        AND triggered_by_kind IS NULL AND triggered_by_id IS NULL)
+      OR (kind IN ('updated', 'deleted', 'restored')
+        AND actor_kind = 'source' AND actor_id = source_definition_id
+        AND triggered_by_kind IS NOT NULL
+        AND triggered_by_kind IN ('principal', 'system')
+        AND triggered_by_id IS NOT NULL)))
+);
+`;

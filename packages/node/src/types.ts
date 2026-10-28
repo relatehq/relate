@@ -1,4 +1,9 @@
-import type { GraphDefinition, ObjectId, ObjectRegistry } from 'relate';
+import type {
+  GraphDefinition,
+  ObjectId,
+  ObjectRegistry,
+  SourceMembership,
+} from 'relate';
 import type { Consumer } from 'relate/consumer';
 import type {
   ActivityObjectRef,
@@ -50,7 +55,7 @@ export interface Relate<
     adopt<
       O extends Extract<
         G['objects'][keyof G['objects']],
-        { membership: { resource: unknown } }
+        { readonly membership: SourceMembership }
       >,
     >(
       object: O,

@@ -222,6 +222,56 @@ not an independent commit. Adapters must preserve callback errors; rollback
 failures reject the whole transaction. Deadline revocation also guards
 savepoints and prevents late handler activity from committing.
 
+### Transactional adoption
+
+Action adoption commits source membership with the action. A store supports it
+by advertising `NativeStore.capabilities: { actionAdoption: true }`
+synchronously and exposing `NativeTransaction.accept(scope, input)` on every
+transaction. Runtime construction rejects a graph whose actions declare `adopts`
+without the capability; the executor also rejects a transaction that lacks
+`accept` before running an adopting handler.
+
+```ts
+await transaction.accept(scope, {
+  sourceRecordId: 'tt_123',
+  objectId: '9b1d…', // becomes the Relate ID when there is no member yet
+  adopt: true,
+  observation, // present, fetched during the invocation
+  attribution: { ...attempt, changeId, occurredAt, invocationId },
+});
+// → { object, acceptance: 'changed' | 'unchanged' | 'replay', change? }
+```
+
+- The executor calls `accept` once per scoped identity, after the handler and
+  every read finished; only database work follows. `scope` must belong to the
+  transaction's graph and revision. Reject a duplicate identity.
+- Use `decideTransactionalAcceptance(previous, input)` from
+  `@relate/runtime/storage` under the identity's lock. It rejects a committed
+  member with a different ID, conflicting ordering evidence, and a newer
+  committed observation that is not the same view (`state`, `raw`, `values`)
+  with `AdoptionConflict`. A newer observation with the same view keeps the
+  committed one and returns `unchanged` without a change. It never returns
+  `superseded`.
+- Write membership, observation and first-adoption provenance, including the
+  invocation ID, as for host acceptance. `provenance` returns that
+  `invocationId` on `{ kind: 'adopted' }`; host and legacy adoption omit it.
+  Re-adoption never replaces provenance.
+- Return the classified change and do **not** publish it. The executor stages
+  its feed draft, carrying the invocation ID, before the invocation event in the
+  transaction's one batch.
+- Results are conditional on the outer commit. Any later failure rolls back
+  every accepted adoption. An unconfirmed COMMIT stays `NativeCommitUncertain`.
+
+Postgres runs the acceptance SQL on the transaction's connection and holds the
+identity's advisory and row locks until outer commit. The lock order is always
+the graph lock, then record locks; host acceptance never takes the graph lock.
+Memory prepares each acceptance without mutating shared maps and captures the
+identity's mutation generation, which every retained host write advances. In its
+synchronous commit step it rejects any changed generation with
+`AdoptionConflict`, prepares the feed, then publishes source, native and feed
+changes together. The shared `tests/support/adoption-action-contract.ts` suite
+verifies both adapters.
+
 ### Native enumeration
 
 `NativeStore.scan(scope, type, { after?, limit })` and

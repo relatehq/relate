@@ -9,6 +9,7 @@ import {
   AddAccountReview,
   Customer,
   AccountReview,
+  Invoice,
   addAccountReview,
 } from '../../../tests/support/native-action-model.js';
 
@@ -84,6 +85,15 @@ it('validates action capabilities, registration and policy operands after serial
       m.actions![0]!.execute = { role: 'unknown' };
     },
     (m: ReturnType<typeof compile>['manifest']) => {
+      m.actions![0]!.adopts = [AccountReview.id];
+    },
+    (m: ReturnType<typeof compile>['manifest']) => {
+      m.actions![0]!.adopts = [Customer.id, Customer.id];
+    },
+    (m: ReturnType<typeof compile>['manifest']) => {
+      m.actions![0]!.adopts = [];
+    },
+    (m: ReturnType<typeof compile>['manifest']) => {
       m.actions![0]!.input.customer!.references = 'missing';
     },
     (m: ReturnType<typeof compile>['manifest']) => {
@@ -146,4 +156,43 @@ it('keeps a described reference input a reference', () => {
     references: Customer.id,
     description: 'Customer to review.',
   });
+});
+
+it('compiles adoption capabilities only for registered source objects', () => {
+  const Adopt = defineAction({
+    id: 'adopt-customer',
+    input: z.object({ externalId: z.string() }),
+    output: z.object({}),
+    adopts: [Customer],
+  });
+  const compiled = compile({ ...graph, actions: { adopt: Adopt } });
+
+  expect(compiled.manifest.actions![0]).toMatchObject({
+    creates: [],
+    adopts: [Customer.id],
+  });
+  // Actions without adoption keep their manifest shape and revision.
+  expect(compile(graph).manifest.actions![0]).not.toHaveProperty('adopts');
+  expect(AddAccountReview.adopts).toEqual([]);
+  expect(Object.isFrozen(AddAccountReview.adopts)).toBe(true);
+
+  for (const adopts of [[AccountReview], [Invoice]])
+    expect(() =>
+      compile({
+        ...graph,
+        objects: { Customer, AccountReview },
+        actions: {
+          adopt: defineAction({ ...Adopt, adopts: adopts as never }),
+        },
+      }),
+    ).toThrow(
+      expect.objectContaining({
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            code: 'action.invalid-adopts',
+            path: { root: 'graph', segments: ['actions', 'adopt', 'adopts'] },
+          }),
+        ]),
+      }),
+    );
 });

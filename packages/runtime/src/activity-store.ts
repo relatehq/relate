@@ -326,8 +326,9 @@ export function validateFeedDraft(input: unknown): FeedDraft {
 
     if (!nonblank(draft.invocationId) || draft.triggeredBy !== undefined)
       throw new InvalidDraft('native change attribution');
-  } else if (draft.invocationId !== undefined)
-    throw new InvalidDraft('source changes do not inherit an invocation');
+  } else if (draft.invocationId !== undefined && !nonblank(draft.invocationId))
+    // Present exactly when an action's transaction accepted the source change.
+    throw new InvalidDraft('invocationId');
   else if (draft.kind === 'adopted') {
     actor(draft.actor, ['principal', 'system'], 'adoption');
 
@@ -618,6 +619,9 @@ export function sourceChangeDraft(
     operationId: attribution.operationId,
     ...(attribution.parentOperationId !== undefined
       ? { parentOperationId: attribution.parentOperationId }
+      : {}),
+    ...(attribution.invocationId !== undefined
+      ? { invocationId: attribution.invocationId }
       : {}),
     context: structuredClone(attribution.context),
     occurredAt: new Date(attribution.occurredAt).toISOString(),

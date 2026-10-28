@@ -212,12 +212,13 @@ Capture limits default to 1,000 queued operations, 8 MiB queued, 100 per append,
 
 Implemented: authorized reads and graph queries, source-backed references,
 bidirectional traversal with pagination, and synchronous native actions with
-atomic success or declared-failure receipts on memory and Postgres. Not
-implemented: automatic synchronization, delegated credentials, provider-wide
-queries and durable pending execution. Receipt lookup and same-key replay are
-implemented with originating-actor and current-access checks. The activity feed,
-best-effort operation capture and object provenance are implemented on memory
-and Postgres; feed and operation pruning are not.
+atomic success or declared-failure receipts on memory and Postgres, including
+source adoption that commits with the action. Not implemented: automatic
+synchronization, delegated credentials, provider-wide queries and durable
+pending execution. Receipt lookup and same-key replay are implemented with
+originating-actor and current-access checks. The activity feed, best-effort
+operation capture and object provenance are implemented on memory and Postgres;
+feed and operation pruning are not.
 
 ## Further reading
 

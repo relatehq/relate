@@ -69,8 +69,11 @@ export const AddAccountReview = defineAction({
 - **`referenceInput(Customer)`**: accepts a `Customer` object ID. Parsing only
   checks for a non-blank string; the runtime checks that the record exists and
   that the caller can see it when the action runs.
-- **`output`** and **`creates`** are required. Only objects listed in `creates`
-  get a `create` method in the handler, and each must have `nativeMembership()`.
+- **`output`** is required. **`creates`** and **`adopts`** are optional and
+  default to empty lists. Only objects listed in `creates` get a `create` method
+  in the handler, and each must have `nativeMembership()`. Only source objects
+  listed in `adopts` get an `adopt` method; see
+  [Creating platform records and adopting them](#creating-platform-records-and-adopting-them).
 - **`errors`** is optional. Each key is a failure code with a schema for its
   details.
 - **`policy.execute`** is a single-role gate. The actor must also hold the read
@@ -149,6 +152,9 @@ The handler receives:
   Native queries see records created earlier in this invocation. A failed page
   rolls back native writes even if the handler catches the error.
 - `objects.<Name>.create(values)`: for objects in `creates`. Returns `{ id }`.
+- `objects.<Name>.adopt(sourceRecordId)`: for source objects in `adopts`.
+  Registers a platform record as a graph member when the action commits. Returns
+  `{ id }`.
 - `fail(code, details)`: ends the invocation with a declared failure. It rolls
   back even if the handler catches it.
 
@@ -307,3 +313,86 @@ reconcile it. Without either capability, keep the outcome uncertain and block
 blind retries. A local journal cannot close the crash window between provider
 commit and recording its response. The SDK does not provide that journal or an
 external-write transaction coordinator.
+
+### Creating platform records and adopting them
+
+A handler that creates something on a platform, such as a TikTok ad group, can
+turn the new record into a graph object in the same invocation. Declare the
+source objects the action may adopt:
+
+```ts
+// actions/launch-ad-group.ts
+export const LaunchAdGroup = defineAction({
+  id: 'launch-ad-group',
+  input: z.object({ name: z.string(), budget: z.number() }),
+  output: z.object({ adGroupId: referenceInput(TikTokAdGroup) }),
+  adopts: [TikTokAdGroup],
+  errors: { notVisible: z.object({ externalId: z.string() }) },
+  policy: { execute: access.role('media-buyer') },
+});
+```
+
+The handler creates the record (or recovers an earlier attempt's), waits until
+the platform can serve it, then adopts it:
+
+```ts
+// actions/launch-ad-group.server.ts
+export const launchAdGroup = implementAction(
+  graph,
+  LaunchAdGroup,
+  async ({ input, objects, idempotencyId, fail }) => {
+    // Integration code: your journal creates once per idempotencyId and
+    // recovers the platform ID on a retry.
+    const { adgroup_id } = await journal.once(idempotencyId, () =>
+      tiktok.createAdGroup({ name: input.name, budget: input.budget }),
+    );
+
+    // Integration code: platforms often return an ID before their read API
+    // can serve the record. Poll with your own client and declare the outcome.
+    if (!(await tiktok.waitForAdGroup(adgroup_id, { timeoutMs: 5_000 })))
+      return fail('notVisible', { externalId: adgroup_id });
+
+    const { id } = await objects.TikTokAdGroup.adopt(adgroup_id);
+    const group = await objects.TikTokAdGroup.get(id); // sees the pending object
+
+    return { adGroupId: id };
+  },
+);
+```
+
+What `adopt` does:
+
+- It fetches the record once through the object's source binding and checks that
+  the caller can read it. Adoption never grants read access.
+- It returns the object's Relate ID. A record that is already a member keeps its
+  ID; adopting the same record again in one invocation returns the same ID.
+- The new object is pending: `get` and `query` in the same handler see it, and
+  native objects you create may reference it. Other callers see it only after
+  the action commits. Pending field evidence reports `retention: 'unconfirmed'`.
+- Membership commits or rolls back with the action. A thrown error, timeout,
+  invalid output or `fail(code)` leaves no new member behind.
+
+| `adopt` outcome                                   | Result                                   |
+| ------------------------------------------------- | ---------------------------------------- |
+| Record fetched and readable by the caller         | `{ id }`                                 |
+| Caller cannot read it, or it is deleted           | Action rejects with `not-found`          |
+| Platform denies the configured account            | Action rejects with `denied`             |
+| Connector error (including a not-yet-visible 404) | Action rejects with `unavailable`; retry |
+| Invalid ID, or the record fails mapping           | Action rejects with `invalid`            |
+| The record changed or was adopted elsewhere first | Action rejects with `unavailable`; retry |
+
+A failed `adopt` rejects the action even if the handler catches it, and no
+receipt is saved, so the caller can retry with the same idempotency key. The
+retry reruns the handler; your journal must return the record the first attempt
+created instead of creating another one. If a newer, identical copy of the
+record was saved while the action ran, the action still succeeds.
+
+**Keep waits short.** The whole handler, including visibility polling, runs
+while the graph's action lock is held: a handler that polls for five seconds
+blocks every other action in that graph for five seconds. The action deadline
+(`actionTimeoutMs`, at most 60 s) bounds the whole invocation.
+
+Relate guarantees the local side only. If the platform created the record and
+the action then fails, the record stays on the platform; Relate never deletes
+it. Recovery after a lost platform response is the journal's job, using
+documented platform reads.

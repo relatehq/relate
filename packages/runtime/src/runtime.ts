@@ -5,9 +5,11 @@ import type {
   OrdinaryReadInput,
 } from './analytical-reads/index.js';
 import {
+  adoptionOverlay,
   createNativeOperations,
   nativeEvidence,
   createActionExecutor,
+  scanWithPending,
 } from './actions/index.js';
 import type { ActionHandler } from './actions/index.js';
 import type {
@@ -113,6 +115,13 @@ export function createRuntime(options: RuntimeOptions) {
   const store = options.store ?? createMemoryStore(),
     clock = options.clock ?? Date.now;
 
+  // Advertised synchronously, so startup fails before any adopting handler runs.
+  if (
+    manifest.actions?.some((action) => action.adopts?.length) &&
+    store.native?.capabilities?.actionAdoption !== true
+  )
+    throw new Error('Store does not support action adoption');
+
   // A store advertising activity must record feed entries atomically for
   // every write capability it exposes; a best-effort sink cannot claim that.
   if (
@@ -206,6 +215,7 @@ export function createRuntime(options: RuntimeOptions) {
       canonical,
       request,
       execution,
+      transaction,
     );
   }
 
@@ -233,6 +243,8 @@ export function createRuntime(options: RuntimeOptions) {
     scopeFor,
     capture,
     resolve: resolveEvidence,
+    // An action's pending adoptions are visible only to its own transaction.
+    pending: adoptionOverlay,
   });
   const native = createNativeOperations({
     manifest,
@@ -328,6 +340,8 @@ export function createRuntime(options: RuntimeOptions) {
     scopeFor,
     read: readObject,
     cursors: queryCursors,
+    scanSource: (transaction, scope, request, committed) =>
+      scanWithPending(adoptionOverlay(transaction), scope, request, committed),
   });
 
   const ordinaryRead = async (
@@ -449,6 +463,7 @@ export function createRuntime(options: RuntimeOptions) {
     install,
     handlers: options.actionHandlers ?? {},
     validate: native.validate,
+    fetchForAdoption: source.fetchForAdoption,
     read: (
       attempt,
       actor,

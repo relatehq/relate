@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import { canonicalJson } from 'relate/model';
 import type {
   FeedDraft,
   NativeStore,
@@ -13,9 +14,13 @@ import {
   NativeCommitUncertain,
   StorageUnavailable,
 } from '@relate/runtime/storage';
-import { validateFeedDraft } from '@relate/runtime/storage';
+import {
+  decideTransactionalAcceptance,
+  validateFeedDraft,
+} from '@relate/runtime/storage';
 import { storageError, transactionRejected } from './errors.js';
 import { publishFeed } from './activity.js';
+import { lockIdentity, retainObservation } from './acceptance.js';
 
 export function createNativePostgresStore(pool: pg.Pool): NativeStore {
   function invocation(
@@ -103,6 +108,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
   }
 
   return {
+    capabilities: { actionAdoption: true },
     scan: (scope, type, options) => scan(pool, scope, type, options),
     async loadInvocation(scope, actionDefinitionId, idempotencyKey) {
       const result = await pool.query(
@@ -169,6 +175,8 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
       client.on('error', onError);
       const claimed = new Set<string>();
       const staged: FeedDraft[] = [];
+      // Scoped identities accepted by this transaction; each at most once.
+      const adopted = new Set<string>();
       let savepointSequence = 0;
       const keyFor = (action: string, key: string) =>
         JSON.stringify([action, key]);
@@ -200,6 +208,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
               check();
               const name = `native_effects_${++savepointSequence}`;
               const claims = new Set(claimed);
+              const adoptions = new Set(adopted);
               const stagedLength = staged.length;
 
               await client.query(`SAVEPOINT ${name}`);
@@ -219,6 +228,10 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
                 claimed.clear();
 
                 for (const key of claims) claimed.add(key);
+
+                adopted.clear();
+
+                for (const key of adoptions) adopted.add(key);
 
                 staged.length = stagedLength;
 
@@ -245,6 +258,51 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
                   creation.invocationId,
                 ],
               );
+            },
+            async accept(source, input) {
+              check();
+
+              if (
+                source.graphId !== scope.graphId ||
+                source.definitionRevision !== scope.definitionRevision
+              )
+                throw new Error('Adoption scope is outside this transaction');
+
+              const key = canonicalJson([source, input.sourceRecordId]);
+
+              if (adopted.has(key))
+                throw new Error('Duplicate adoption in one transaction');
+
+              adopted.add(key);
+              // Graph lock, then record lock: host acceptance never takes the
+              // graph lock, so the order cannot cycle. Held until outer commit.
+              const previous = await lockIdentity(
+                client,
+                source,
+                input.sourceRecordId,
+              );
+              const decision = decideTransactionalAcceptance(previous, input);
+              const change = decision.transition && {
+                id: input.attribution.changeId,
+                ...decision.transition,
+              };
+
+              if (decision.write)
+                await retainObservation(
+                  client,
+                  source,
+                  previous,
+                  decision.object,
+                  input.attribution,
+                  change,
+                );
+
+              // The executor stages the change; publication happens before COMMIT.
+              return {
+                object: decision.object,
+                acceptance: decision.acceptance,
+                ...(change ? { change } : {}),
+              };
             },
             async appendFeed(drafts) {
               check();

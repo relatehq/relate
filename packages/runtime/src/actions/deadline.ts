@@ -43,6 +43,11 @@ export function createActionDeadline(
           appendFeed: (drafts) => guard(() => transaction.appendFeed!(drafts)),
         }
       : {}),
+    ...(transaction.accept
+      ? {
+          accept: (...args) => guard(() => transaction.accept!(...args)),
+        }
+      : {}),
   };
   const close = () => {
     clearTimeout(timer);

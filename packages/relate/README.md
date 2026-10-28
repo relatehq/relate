@@ -214,6 +214,27 @@ stable definition identities that survive renames. Applications normally pass
 `graph` to `@relate/node`, which compiles it for them; call `compile` directly
 when you need the manifest itself.
 
+### Actions that adopt source records
+
+`defineAction` takes optional `creates` (native objects the handler may create)
+and `adopts` (source objects the handler may bring into the graph). Both default
+to a frozen empty list. A declared target gets `objects.<Name>.adopt(id)` in the
+handler; it returns `{ id }` with the object's branded ID.
+
+```ts
+const Launch = defineAction({
+  id: 'launch-ad-group',
+  input: z.object({ name: z.string() }),
+  output: z.object({ adGroupId: referenceInput(TikTokAdGroup) }),
+  adopts: [TikTokAdGroup],
+});
+```
+
+`SourceMembership` is the membership type of `source(resource)`. Compilation
+rejects unregistered or native objects in `adopts` with `action.invalid-adopts`.
+See the
+[native action contract](../node/NATIVE_ACTIONS.md#adopting-source-records).
+
 ## Diagnostics
 
 Validation failures are structured. `compile(graph)` collects every independent
