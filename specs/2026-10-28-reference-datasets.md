@@ -8,15 +8,15 @@ whose "no joins" rule becomes "no joins except full-key joins to reference
 datasets". The [media agency benchmark](./2026-10-23-media-agency-benchmark.md)
 needs it for currency conversion before its graph is frozen.
 
-| Part                                                              | Status                                        |
-| ----------------------------------------------------------------- | --------------------------------------------- |
-| `key` on `defineDataset`; full-key equality joins only            | Agreed 2026-10-28                             |
-| Missing or duplicate reference rows never silently change a value | Agreed 2026-10-28                             |
-| SQL name `datasets.<Name>`                                        | Proposed                                      |
-| `LEFT JOIN` only; base-only predicates; per-field lookup checks   | Proposed after review                         |
-| [Row arithmetic](./2026-10-28-row-arithmetic.md) (`SUM(a * b)`)   | Proposed prerequisite                         |
-| [Date logical type](./2026-10-28-analytical-dates.md)             | Proposed prerequisite; ISO text fallback open |
-| As-of joins ("latest rate on or before")                          | Deferred                                      |
+| Part                                                              | Status                                      |
+| ----------------------------------------------------------------- | ------------------------------------------- |
+| `key` on `defineDataset`; full-key equality joins only            | Agreed 2026-10-28                           |
+| Missing or duplicate reference rows never silently change a value | Agreed 2026-10-28                           |
+| SQL name `datasets.<Name>`                                        | Proposed                                    |
+| `LEFT JOIN` only; base-only predicates; per-field lookup checks   | Proposed after review                       |
+| [Row arithmetic](./2026-10-28-row-arithmetic.md) (`SUM(a * b)`)   | Proposed prerequisite                       |
+| [Date logical type](./2026-10-28-analytical-dates.md)             | Agreed prerequisite; lands before benchmark |
+| As-of joins ("latest rate on or before")                          | Deferred                                    |
 
 ## The problem
 
@@ -527,18 +527,14 @@ only base columns. Discovery and execution must share these visibility rules.
 
 ## Dates
 
-The main example uses the proposed
+The main example uses the
 [analytical date type](./2026-10-28-analytical-dates.md). Today `z.iso.date()`
 is rejected by `packages/relate/src/compiler/dataset-types.ts:47`. Date support
 is an independent prerequisite, not implicitly delivered by adding reference
 joins. `z.number()` remains the supported spelling for `float64`.
 
-If date support does not land before benchmark freeze, use `z.string()` and
-physical ISO `VARCHAR`/`TEXT` in **both** delivery and FX tables. Validate
-`YYYY-MM-DD` calendar dates in the generator. This fallback also requires
-updating the benchmark DDL and examples together; declaring strings over
-physical `DATE` columns is not supported. The join feature itself does not
-require a date type.
+Date support lands before the benchmark freezes; the ISO-text fallback is
+withdrawn. The join feature itself does not require a date type.
 
 ## Missing days
 
@@ -603,8 +599,7 @@ including identity pairs (`GBP→GBP = 1`).
    [row-arithmetic acceptance criteria](./2026-10-28-row-arithmetic.md#done-when)
    pass. Benchmark examples and oracles use unrounded float64 analytical amounts
    and their declared numeric tolerance, not implicit integer conversion.
-10. The [date proposal](./2026-10-28-analytical-dates.md#done-when) passes, or
-    the benchmark consistently adopts its ISO-text fallback before freeze.
+10. The [date feature](./2026-10-28-analytical-dates.md#done-when) passes.
 11. Update owning package contracts/docs, public dataset docs and the earlier
     analytical spec when implementation lands. Run `pnpm check` (or
     `pnpm test:unit` without a test database, reported as such) and
@@ -614,7 +609,6 @@ including identity pairs (`GBP→GBP = 1`).
 
 | Question                                  | Current proposal                                                                    |
 | ----------------------------------------- | ----------------------------------------------------------------------------------- |
-| Date support before benchmark freeze?     | Prefer the separate date feature; ISO text remains the explicit fallback            |
 | SQL namespace and spelling?               | `datasets.<Name>` and `LEFT JOIN` only; no inner-join alias                         |
 | Reference predicates or chained lookups?  | Defer both; base-only predicates and independent full-key lookups in v1             |
 | Monetary rounding or exact decimal rates? | Separate feature if required; current example returns unrounded float64 minor units |

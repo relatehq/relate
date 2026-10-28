@@ -627,10 +627,8 @@ export const PlanLine = defineObject({
 The delivery association correlates on the plain `platformCampaignId` string,
 not on the `metaCampaign` reference. A reference holds a Relate ID, while
 delivery rows carry the platform's ID. The `date` column depends on the date
-type proposed in [Analytical calendar dates](./2026-10-28-analytical-dates.md).
-If that type does not land, the benchmark stores both delivery and FX dates as
-ISO text and declares `z.string()`, updating its DDL and fixtures together.
-Multiplication inside `SUM` also requires
+type in [Analytical calendar dates](./2026-10-28-analytical-dates.md), which
+lands before the benchmark freezes. Multiplication inside `SUM` also requires
 [row arithmetic](./2026-10-28-row-arithmetic.md).
 
 ### Connectors
@@ -1034,13 +1032,12 @@ and switch later: that would change the graph after the freeze.
 
 ## Open questions
 
-| Question                                                                                                        | Settled by               | Lean                                                                                 |
-| --------------------------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
-| Can the CRM simulator reuse `dev/salesforce` tooling under the boundary policy?                                 | Phase 1, boundary check  | Own stand-in if reuse needs a policy exception                                       |
-| Should the journal/recover helper become an SDK feature?                                                        | After Main results       | Decide from how often `duplicate-write` and `partial-unreported` differ between arms |
-| Include one non-Anthropic model?                                                                                | Before Main              | Optional; the model adapter stays thin so it is cheap to add                         |
-| Where do published results live?                                                                                | Before first publish     | Summaries in `benchmarks/media-agency/results/`, full transcripts as release assets  |
-| Date columns as a `date` type or ISO text? (See [reference datasets](./2026-10-28-reference-datasets.md#dates)) | Reference datasets build | `date` type; ISO text if it does not land before Phase 3                             |
+| Question                                                                        | Settled by              | Lean                                                                                 |
+| ------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
+| Can the CRM simulator reuse `dev/salesforce` tooling under the boundary policy? | Phase 1, boundary check | Own stand-in if reuse needs a policy exception                                       |
+| Should the journal/recover helper become an SDK feature?                        | After Main results      | Decide from how often `duplicate-write` and `partial-unreported` differ between arms |
+| Include one non-Anthropic model?                                                | Before Main             | Optional; the model adapter stays thin so it is cheap to add                         |
+| Where do published results live?                                                | Before first publish    | Summaries in `benchmarks/media-agency/results/`, full transcripts as release assets  |
 
 ## Revision notes
 
