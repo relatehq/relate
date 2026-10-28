@@ -1,0 +1,8 @@
+{
+  "name": "reject-63-select-sum-value-modulo-2-from-self-events",
+  "sql": "SELECT SUM(value % 2) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

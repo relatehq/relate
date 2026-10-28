@@ -9,12 +9,13 @@ import type {
   SqlDataset,
 } from 'relate/analytics';
 import type { AuthorizedDatasetQuery } from 'relate/connectors';
+import { checked } from './checked.js';
 
 export type SelectedDataset = SqlDataset;
 export type SqlitePlan = AnalyticalSqlPlan<string | number | bigint | null>;
 
 const dialect: AnalyticalSqlDialect<string | number | bigint | null> = {
-  bind(value) {
+  bind(value, position) {
     const encoded = encodeAnalyticalValue(value.value, {
       ...value,
       nullable: true,
@@ -35,7 +36,8 @@ const dialect: AnalyticalSqlDialect<string | number | bigint | null> = {
           ? 'REAL'
           : 'INTEGER';
 
-    return { sql: `CAST(? AS ${sqlType})`, value: converted };
+    // Numbered binds let one rendered operand appear several times.
+    return { sql: `CAST(?${position} AS ${sqlType})`, value: converted };
   },
   operand(text, type, comparison) {
     if (comparison && type === 'timestamp') text = `__relate_instant(${text})`;
@@ -64,6 +66,7 @@ const dialect: AnalyticalSqlDialect<string | number | bigint | null> = {
     return value;
   },
   timestampParameters: 0,
+  checked,
 };
 
 export function render(

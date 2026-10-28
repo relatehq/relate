@@ -7,7 +7,7 @@
 | [Floating-point behavior](#floating-point-behavior) and [checked accumulation](#checked-aggregate-accumulation) | Agreed on 2026-10-28                          |
 | [Connector result checks](#connector-result-checks), owned here and extended by reference datasets              | Agreed on 2026-10-28                          |
 | [Backend strategy](#backend-strategy): generated SQL only, no installed or registered helpers                   | Agreed on 2026-10-28; boundary tests required |
-| Implementation                                                                                                  | In progress                                   |
+| Implementation                                                                                                  | Implemented on SQLite, DuckDB and PostgreSQL  |
 
 ## Problem and concepts
 

@@ -45,6 +45,20 @@ export type Predicate =
 
 export type Aggregate = 'count' | 'sum' | 'avg' | 'min' | 'max';
 
+export type ArithmeticOperator = '+' | '-' | '*' | '/';
+
+/** Arithmetic evaluated separately for each eligible row of an aggregate. */
+export type RowExpression<O = Operand, N = { readonly at: SourceSpan }> =
+  O | RowNode<O, N>;
+
+/** `N` carries stage-specific node data: source spans, then resolved types. */
+export type RowNode<O = Operand, N = { readonly at: SourceSpan }> = N & {
+  readonly kind: 'arithmetic';
+  readonly op: ArithmeticOperator;
+  readonly left: RowExpression<O, N>;
+  readonly right: RowExpression<O, N>;
+};
+
 /** A numeric formula over aggregate leaves `A` and scalar operand leaves `O`. */
 export type ScalarExpression<A, O = Operand> =
   ScalarLeaf<A, O> | ScalarNode<A, O>;
@@ -56,7 +70,7 @@ export type ScalarLeaf<A, O = Operand> =
 export type ScalarNode<A, O = Operand> =
   | {
       readonly kind: 'binary';
-      readonly op: '+' | '-' | '*' | '/';
+      readonly op: ArithmeticOperator;
       readonly left: ScalarExpression<A, O>;
       readonly right: ScalarExpression<A, O>;
     }
@@ -76,7 +90,7 @@ export type RelateSqlQuery = { readonly association: Name } & (
 
 export interface SqlAggregate {
   readonly aggregate: Aggregate;
-  readonly argument: Operand | '*';
+  readonly argument: RowExpression | '*';
   readonly distinct: boolean;
   readonly predicate?: Predicate;
   readonly fallback?: LiteralOperand;

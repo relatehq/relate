@@ -181,6 +181,9 @@ function mockBinding(
               rows: query.slots.map((_, slot) => ({
                 slot,
                 values: query.aggregates.map(() => 2n),
+                checks: query.aggregates.map(() => ({
+                  arithmeticFailed: false,
+                })),
               })),
             };
       } finally {
@@ -341,6 +344,7 @@ it('withdraws a logically invalid alias across the full scope while preserving o
     rows: query.slots.map((slot, i) => ({
       slot: i,
       values: [slot.values[0]!.value === 'bad' ? 'wrong' : 2n, 5n],
+      checks: [{ arithmeticFailed: false }, { arithmeticFailed: false }],
     })),
   }));
   const result = await computeFields({
@@ -360,6 +364,44 @@ it('withdraws a logically invalid alias across the full scope while preserving o
   }
 });
 
+it('withdraws only the failed cell on an arithmetic check, never the whole alias', async () => {
+  const mock = mockBinding(async (query) => ({
+    readAt: '2026-10-21T00:00:00.000Z',
+    rows: query.slots.map((slot, i) => {
+      const bad = slot.values[0]!.value === 'bad';
+
+      return {
+        slot: i,
+        // A failed cell's placeholder is null even for a non-null result type.
+        values: [bad ? null : 2n, 5n],
+        checks: [{ arithmeticFailed: bad }, { arithmeticFailed: false }],
+      };
+    }),
+  }));
+  const result = await computeFields({
+    fields: [await field('checked'), await field('sibling')],
+    candidates: [candidate('first'), candidate('bad'), candidate('last')],
+    binding: () => mock.binding,
+    signal: signal(),
+    maxSlots: 1,
+  });
+
+  expect(result.rows.get('bad')).toMatchObject({
+    checked: {
+      status: 'unavailable',
+      reason: 'execution-failed',
+      retryable: false,
+    },
+    sibling: { status: 'available', value: '5' },
+  });
+
+  for (const id of ['first', 'last'])
+    expect(result.rows.get(id)).toMatchObject({
+      checked: { status: 'available', value: '2' },
+      sibling: { status: 'available', value: '5' },
+    });
+});
+
 it('withdraws every alias in a failed statement across earlier and later batches', async () => {
   const mock = mockBinding(async (query) => {
     if (query.slots[0]!.values[0]!.value === 'bad')
@@ -370,7 +412,13 @@ it('withdraws every alias in a failed statement across earlier and later batches
 
     return {
       readAt: '2026-10-21T00:00:00.000Z',
-      rows: [{ slot: 0, values: [1n, 2n] }],
+      rows: [
+        {
+          slot: 0,
+          values: [1n, 2n],
+          checks: [{ arithmeticFailed: false }, { arithmeticFailed: false }],
+        },
+      ],
     };
   });
   const result = await computeFields({
@@ -393,11 +441,58 @@ it('withdraws every alias in a failed statement across earlier and later batches
 });
 
 it.each([
-  { readAt: 'invalid', rows: [{ slot: 0, values: [1n, 2n] }] },
+  {
+    readAt: 'invalid',
+    rows: [
+      {
+        slot: 0,
+        values: [1n, 2n],
+        checks: [{ arithmeticFailed: false }, { arithmeticFailed: false }],
+      },
+    ],
+  },
   { readAt: '2026-10-21T00:00:00.000Z', rows: [] },
-  { readAt: '2026-10-21T00:00:00.000Z', rows: [{ slot: 1, values: [1n, 2n] }] },
-  { readAt: '2026-10-21T00:00:00.000Z', rows: [{ slot: 0, values: [1n] }] },
-  { readAt: '2026-10-21T00:00:00.000Z', rows: [{ slot: 0, values: [1n, {}] }] },
+  {
+    readAt: '2026-10-21T00:00:00.000Z',
+    rows: [
+      {
+        slot: 1,
+        values: [1n, 2n],
+        checks: [{ arithmeticFailed: false }, { arithmeticFailed: false }],
+      },
+    ],
+  },
+  {
+    readAt: '2026-10-21T00:00:00.000Z',
+    rows: [{ slot: 0, values: [1n], checks: [{ arithmeticFailed: false }] }],
+  },
+  {
+    readAt: '2026-10-21T00:00:00.000Z',
+    rows: [
+      {
+        slot: 0,
+        values: [1n, {}],
+        checks: [{ arithmeticFailed: false }, { arithmeticFailed: false }],
+      },
+    ],
+  },
+  { readAt: '2026-10-21T00:00:00.000Z', rows: [{ slot: 0, values: [1n, 2n] }] },
+  {
+    readAt: '2026-10-21T00:00:00.000Z',
+    rows: [
+      { slot: 0, values: [1n, 2n], checks: [{ arithmeticFailed: false }] },
+    ],
+  },
+  {
+    readAt: '2026-10-21T00:00:00.000Z',
+    rows: [
+      {
+        slot: 0,
+        values: [1n, 2n],
+        checks: [{ arithmeticFailed: false }, { arithmeticFailed: 1 }],
+      },
+    ],
+  },
 ])(
   'treats malformed result framing as a statement-wide failure %#',
   async (result) => {
@@ -527,7 +622,7 @@ it('waits for every active statement cleanup on cancellation and does not start 
 
     return {
       readAt: '2026-10-21T00:00:00.000Z',
-      rows: [{ slot: 0, values: [1n] }],
+      rows: [{ slot: 0, values: [1n], checks: [{ arithmeticFailed: false }] }],
     };
   });
   const controller = new AbortController();
@@ -638,7 +733,7 @@ it('snapshots ordinary values and evidence before starting provider work', async
 
     return {
       readAt: '2026-10-21T00:00:00.000Z',
-      rows: [{ slot: 0, values: [1n] }],
+      rows: [{ slot: 0, values: [1n], checks: [{ arithmeticFailed: false }] }],
     };
   });
   const result = await computeFields({

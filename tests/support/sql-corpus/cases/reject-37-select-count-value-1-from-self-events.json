@@ -1,8 +1,0 @@
-{
-  "name": "reject-37-select-count-value-1-from-self-events",
-  "sql": "SELECT COUNT(value + 1) FROM self.events",
-  "expect": {
-    "phase": "parse",
-    "problem": "not-supported"
-  }
-}

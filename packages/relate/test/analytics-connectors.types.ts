@@ -43,11 +43,18 @@ export const portableRows: SlotRow[] = [
   {
     slot: 0,
     values: [1n, 1, '2026-01-01T00:00:00.123456Z', true, null],
+    checks: Array.from({ length: 5 }, () => ({ arithmeticFailed: false })),
   },
 ];
 
-// @ts-expect-error driver Date objects cannot cross the execution boundary
-export const driverRows: SlotRow[] = [{ slot: 0, values: [new Date()] }];
+export const driverRows: SlotRow[] = [
+  {
+    slot: 0,
+    // @ts-expect-error driver Date objects cannot cross the execution boundary
+    values: [new Date()],
+    checks: [{ arithmeticFailed: false }],
+  },
+];
 
 export const physical: PhysicalSchema = {
   columns: {

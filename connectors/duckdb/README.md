@@ -57,9 +57,13 @@ the dataset declaration. Unsupported types are rejected rather than coerced.
 
 Timestamp columns must contain UTC wall-clock values: DuckDB's unzoned types are
 interpreted as UTC. TIMESTAMPTZ, TIMESTAMP_NS, DECIMAL, FLOAT and unsigned
-integers are currently unsupported. Integers remain exact, integer sum overflow
-fails the statement, and microsecond timestamps never pass through JavaScript
-Date. String comparisons use binary collation.
+integers are currently unsupported. Integers remain exact and microsecond
+timestamps never pass through JavaScript Date. String comparisons use binary
+collation. Checked row arithmetic widens integer nodes to `HUGEINT`; integer
+sums accumulate in `HUGEINT`; an out-of-range node or total fails only that
+cell. Double operations never raise and are checked with `isfinite`. Float64
+values bind as round-trip text, because the driver would bind an integral number
+such as `1e308` as `BIGINT`.
 
 ## Execution and lifecycle
 

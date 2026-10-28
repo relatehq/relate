@@ -95,7 +95,11 @@ it.each(
 
       return {
         readAt: '1970-01-01T00:00:00.000Z',
-        rows: plans.get(plan)!.slots.map((_, slot) => ({ slot, values: [7n] })),
+        rows: plans.get(plan)!.slots.map((_, slot) => ({
+          slot,
+          values: [7n],
+          checks: [{ arithmeticFailed: false }],
+        })),
       };
     };
     const runtime = await startApp(
@@ -222,7 +226,11 @@ it('keeps each candidate read time across a scan longer than its freshness bound
   };
   connector.connection.analytics.execute = async (handle) => ({
     readAt: new Date(now).toISOString(),
-    rows: plans.get(handle)!.slots.map((_, slot) => ({ slot, values: [1n] })),
+    rows: plans.get(handle)!.slots.map((_, slot) => ({
+      slot,
+      values: [1n],
+      checks: [{ arithmeticFailed: false }],
+    })),
   });
   const runtime = await startApp(
     defineApp({
@@ -324,9 +332,11 @@ it('reads scanned candidates from their scan and batches revalidation loads', as
   };
   connector.connection.analytics.execute = async (handle) => ({
     readAt: new Date(0).toISOString(),
-    rows: plans
-      .get(handle)!
-      .slots.map((_, slot) => ({ slot, values: [BigInt(slot)] })),
+    rows: plans.get(handle)!.slots.map((_, slot) => ({
+      slot,
+      values: [BigInt(slot)],
+      checks: [{ arithmeticFailed: false }],
+    })),
   });
   const runtime = await startApp(
     defineApp({

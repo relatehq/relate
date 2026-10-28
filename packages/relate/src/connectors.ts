@@ -116,6 +116,8 @@ export type {
   ResolvedScalarExpression,
   ResolvedOperand,
   ResolvedPredicate,
+  ResolvedRowExpression,
+  SlotCheck,
   SlotRow,
 } from './analytics/connectors.js';
 

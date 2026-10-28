@@ -1,5 +1,10 @@
 import { validateAuthorizedDatasetQuery } from './query-validation.js';
-import { foldScalarExpression, scalarLeaves } from './scalar.js';
+import {
+  foldRowExpression,
+  foldScalarExpression,
+  isRowArithmetic,
+  scalarLeaves,
+} from './scalar.js';
 import type {
   AuthorizedDatasetQuery,
   ResolvedAggregate,
@@ -7,7 +12,9 @@ import type {
   ResolvedScalarExpression,
   ResolvedOperand,
   ResolvedPredicate,
+  ResolvedRowExpression,
 } from './query.js';
+import type { Aggregate, ArithmeticOperator } from './sql.js';
 import type { LogicalType } from '@relate/protocol';
 import type { AnalyticalScalar, TypedValue } from './values.js';
 
@@ -110,27 +117,116 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
     ].join(', ')})`;
   });
   const aggregates: string[] = [];
-  const aliases = new Map<ResolvedAggregateLeaf, string>();
+  const leaves = new Map<
+    ResolvedAggregateLeaf,
+    { readonly value: string; readonly failed: readonly string[] }
+  >();
+  const generated = (sql: string) => {
+    const alias = `v${aggregates.length}`;
+
+    aggregates.push(`${sql} AS ${alias}`);
+
+    return `a.${alias}`;
+  };
+  const checked = dialect.checked;
+  // Each node binds its children once, so SQL size stays linear in the expression.
+  const row = (
+    value: ResolvedRowExpression,
+  ): { readonly sql: string; readonly type: CheckedType } =>
+    foldRowExpression<
+      ResolvedOperand,
+      { readonly type: { readonly type: CheckedType } },
+      { readonly sql: string; readonly type: CheckedType }
+    >(
+      value,
+      (leaf) => {
+        const type = leaf.kind === 'value' ? leaf.value.type : leaf.type.type;
+
+        if (type !== 'int32' && type !== 'int64' && type !== 'float64')
+          throw new Error('Invalid authorized analytical query');
+
+        return {
+          sql: checked.operand(operand(leaf), type),
+          type: type === 'float64' ? 'float64' : 'int64',
+        };
+      },
+      (node, left, right) => ({
+        sql: `(SELECT ${checked.node(node.op, { sql: 'z.l', type: left.type }, { sql: 'z.r', type: right.type }, node.type.type)} FROM (SELECT ${left.sql} AS l, ${right.sql} AS r${checked.fence ?? ''}) AS z)`,
+        type: node.type.type,
+      }),
+    );
   const collectLeaf = (
     aggregate: ResolvedAggregateLeaf,
     index: number,
   ): void => {
-    const argument =
-      aggregate.argument === '*'
-        ? '*'
-        : operand(
-            aggregate.argument,
-            ['min', 'max'].includes(aggregate.aggregate) || aggregate.distinct,
-          );
-    const filter = aggregate.predicate
-      ? ` AND ${predicate(aggregate.predicate)}`
-      : '';
-    const alias = `v${aggregates.length}`;
+    const filter = `k.m${index}${
+      aggregate.predicate ? ` AND ${predicate(aggregate.predicate)}` : ''
+    }`;
+    const argument = aggregate.argument;
+    const plainType =
+      argument === '*' || isRowArithmetic(argument)
+        ? undefined
+        : argument.kind === 'value'
+          ? argument.value.type
+          : argument.type.type;
 
-    aliases.set(aggregate, alias);
-    aggregates.push(
-      `${dialect.aggregate(aggregate, argument, `k.m${index}${filter}`)} AS ${alias}`,
-    );
+    const arithmetic = argument !== '*' && isRowArithmetic(argument);
+
+    if (
+      arithmetic ||
+      ((aggregate.aggregate === 'sum' || aggregate.aggregate === 'avg') &&
+        (plainType === 'int32' ||
+          plainType === 'int64' ||
+          plainType === 'float64'))
+    ) {
+      const input: CheckedInput = arithmetic
+        ? { ...row(argument), placeholder: true }
+        : {
+            sql: checked.operand(
+              operand(argument as ResolvedOperand),
+              plainType as 'int32' | 'int64' | 'float64',
+            ),
+            type: plainType === 'float64' ? 'float64' : 'int64',
+            placeholder: false,
+          };
+      // A failed row is a placeholder in the accumulation and a set flag here.
+      const flag = arithmetic
+        ? generated(checked.flag(checked.failed(input.sql, input.type), filter))
+        : undefined;
+      const accumulation = checked.accumulate(
+        aggregate.aggregate,
+        input,
+        filter,
+      );
+      const columns = accumulation.columns.map(generated);
+
+      leaves.set(aggregate, {
+        value: accumulation.value(columns),
+        failed: [
+          ...(flag ? [`COALESCE(${flag}, 0) ${dialect.operator('=')} 1`] : []),
+          ...(accumulation.failed ? [accumulation.failed(columns)] : []),
+        ],
+      });
+
+      return;
+    }
+
+    leaves.set(aggregate, {
+      value: generated(
+        dialect.aggregate(
+          aggregate,
+          argument === '*'
+            ? '*'
+            : operand(
+                argument,
+                ['min', 'max'].includes(aggregate.aggregate) ||
+                  aggregate.distinct,
+              ),
+          filter,
+        ),
+      ),
+      failed: [],
+    });
   };
 
   // Render all aggregate inputs before projection values for positional binds.
@@ -142,7 +238,7 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
       : collectLeaf(value, index),
   );
   const leafProjection = (aggregate: ResolvedAggregateLeaf): string => {
-    let value = `a.${aliases.get(aggregate)!}`;
+    let value = leaves.get(aggregate)!.value;
 
     if (aggregate.aggregate === 'count')
       value = `COALESCE(${value}, ${bind({ type: 'int64', value: 0n })})`;
@@ -181,6 +277,18 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
     (aggregate, index) =>
       `${aggregate.aggregate === 'expression' ? scalar(aggregate.expression) : leafProjection(aggregate)} AS v${index}`,
   );
+  // One check per output: any failed row or accumulation in any of its leaves.
+  const checks = query.aggregates.map((aggregate, index) => {
+    const failed = (
+      aggregate.aggregate === 'expression'
+        ? scalarLeaves(aggregate.expression).flatMap((leaf) =>
+            leaf.kind === 'aggregate' ? leaves.get(leaf.value)!.failed : [],
+          )
+        : leaves.get(aggregate)!.failed
+    ).map((term) => `(${term})`);
+
+    return `${failed.length ? `CASE WHEN ${failed.join(' OR ')} THEN 1 ELSE 0 END` : '0'} AS c${index}`;
+  });
   const correlation = query.correlation
     .map((pair) => {
       const type = query.keys[pair.key]!.type;
@@ -203,7 +311,7 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
       .map(quoteSqlIdentifier)
       .join(
         '.',
-      )} AS d ON ${correlation} GROUP BY k.slot) SELECT k.slot, ${projection.join(', ')} FROM keys AS k LEFT JOIN agg AS a ON a.slot ${dialect.operator('=')} k.slot ORDER BY k.slot`,
+      )} AS d ON ${correlation} GROUP BY k.slot) SELECT k.slot, ${[...projection, ...checks].join(', ')} FROM keys AS k LEFT JOIN agg AS a ON a.slot ${dialect.operator('=')} k.slot ORDER BY k.slot`,
     values,
     slots: slots.length,
     results: query.aggregates.map((aggregate) => ({ ...aggregate.result })),
@@ -216,6 +324,68 @@ export function quoteSqlIdentifier(value: string): string {
     throw new Error('Invalid SQL identifier');
 
   return `"${value.replaceAll('"', '""')}"`;
+}
+
+export type CheckedType = 'int64' | 'float64';
+
+/** One aggregate input row value in the dialect's checked representation. */
+export interface CheckedInput {
+  readonly sql: string;
+  readonly type: CheckedType;
+  /** True for row arithmetic, whose value may be the failure placeholder. */
+  readonly placeholder: boolean;
+}
+
+/**
+ * Transform an input row value with any placeholder treated as null. A plain
+ * operand is repeated inline; row arithmetic is bound once in a subquery.
+ */
+export function checkedValue(
+  input: CheckedInput,
+  failed: CheckedArithmeticDialect['failed'],
+  body: (value: string) => string,
+): string {
+  if (!input.placeholder) return body(input.sql);
+
+  return `(SELECT CASE WHEN ${failed('s.v', input.type)} THEN NULL ELSE ${body('s.v')} END FROM (SELECT ${input.sql} AS v) AS s)`;
+}
+
+/** Final value and failure test over the aliased aggregate columns. */
+export interface CheckedAccumulation {
+  /** Aggregate expressions, each already restricted by the given filter. */
+  readonly columns: readonly string[];
+  value(columns: readonly string[]): string;
+  /** Boolean SQL; true when accumulation or final conversion left the range. */
+  readonly failed?: (columns: readonly string[]) => string;
+}
+
+/**
+ * Checked row arithmetic. A failed node yields an in-band placeholder that no
+ * valid value of its type can take; nodes propagate child placeholders before
+ * nulls, so a failure survives later operations and cancellation.
+ */
+export interface CheckedArithmeticDialect {
+  /** A numeric operand in the dialect's checked representation for its type. */
+  operand(sql: string, type: 'int32' | 'int64' | 'float64'): string;
+  /** One node over bound child columns, each safe to reference repeatedly. */
+  node(
+    op: ArithmeticOperator,
+    left: { readonly sql: string; readonly type: CheckedType },
+    right: { readonly sql: string; readonly type: CheckedType },
+    result: CheckedType,
+  ): string;
+  /** Boolean SQL, true only for the failure placeholder (null for null). */
+  failed(sql: string, type: CheckedType): string;
+  /** An aggregate yielding 1 when the condition held on any filtered row. */
+  flag(condition: string, filter: string): string;
+  /** Checked accumulation; placeholders count as null (see `checkedValue`). */
+  accumulate(
+    aggregate: Aggregate,
+    input: CheckedInput,
+    filter: string,
+  ): CheckedAccumulation;
+  /** Appended to each node's child binding, such as a planning fence. */
+  readonly fence?: string;
 }
 
 /** Dialect-owned syntax; authorization, validation and relational shape stay shared. */
@@ -245,6 +415,7 @@ export interface AnalyticalSqlDialect<
     bind: (value: TypedValue) => string,
   ): string;
   readonly timestampParameters: number;
+  readonly checked: CheckedArithmeticDialect;
 }
 
 /** Count bound values without rendering SQL or encoding scalar values. */
@@ -272,7 +443,13 @@ export function analyticalParameterBudget(
               : operand(leaf.value),
           (_, left, right) => left + right,
         )
-      : (value.argument === '*' ? 0 : operand(value.argument)) +
+      : (value.argument === '*'
+          ? 0
+          : foldRowExpression<
+              ResolvedOperand,
+              { readonly type: { readonly type: CheckedType } },
+              number
+            >(value.argument, operand, (_, left, right) => left + right)) +
         (value.predicate ? predicate(value.predicate) : 0) +
         (value.aggregate === 'count' || value.fallback ? 1 : 0) +
         (value.result.type === 'timestamp' ? dialect.timestampParameters : 0);

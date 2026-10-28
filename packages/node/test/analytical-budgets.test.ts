@@ -134,7 +134,11 @@ async function app(options: {
 
     return {
       readAt: new Date(now).toISOString(),
-      rows: plans.get(plan)!.slots.map((_, slot) => ({ slot, values: [7n] })),
+      rows: plans.get(plan)!.slots.map((_, slot) => ({
+        slot,
+        values: [7n],
+        checks: [{ arithmeticFailed: false }],
+      })),
     };
   };
   const fetch = async (id: string, { signal }: { signal: AbortSignal }) => {

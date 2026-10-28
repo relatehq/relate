@@ -7,6 +7,7 @@ import type {
   Operand,
   Predicate,
   RelateSqlQuery,
+  RowExpression,
 } from 'relate/analytics';
 import { reject, unsupported } from './errors.js';
 import type { SqlSource } from './source.js';
@@ -219,6 +220,40 @@ export function lower(
     return unsupported(at);
   }
 
+  // Parentheses are already structural in the parse tree; precedence is the parser's.
+  function rowExpression(value: unknown): RowExpression {
+    if (value && typeof value === 'object' && 'A_Expr' in value) {
+      const expr = shape(shape(value, ['A_Expr']).A_Expr, [
+        'kind',
+        'name',
+        'lexpr',
+        'rexpr',
+        'location',
+      ]);
+      const names = strings(expr.name);
+      const at = source.span(location(expr));
+
+      if (
+        expr.kind !== 'AEXPR_OP' ||
+        names.length !== 1 ||
+        !['+', '-', '*', '/'].includes(names[0]!) ||
+        expr.lexpr === undefined ||
+        expr.rexpr === undefined
+      )
+        return unsupported(at);
+
+      return {
+        kind: 'arithmetic',
+        op: names[0] as '+' | '-' | '*' | '/',
+        left: rowExpression(expr.lexpr),
+        right: rowExpression(expr.rexpr),
+        at,
+      };
+    }
+
+    return operand(value);
+  }
+
   function predicate(value: unknown): Predicate {
     if (
       value &&
@@ -389,9 +424,15 @@ export function lower(
       call.agg_filter === undefined ? undefined : predicate(call.agg_filter),
     ].filter((value) => value !== undefined);
 
+    const argument = call.agg_star ? '*' : rowExpression(list(call.args)[0]);
+
+    // DISTINCT compares stored values; it never deduplicates computed rows.
+    if (call.agg_distinct && argument !== '*' && argument.kind === 'arithmetic')
+      return unsupported(argument.at);
+
     return {
       aggregate: name as Aggregate,
-      argument: call.agg_star ? '*' : operand(list(call.args)[0]),
+      argument,
       distinct: call.agg_distinct === true,
       ...(filters.length
         ? {

@@ -1,0 +1,40 @@
+{
+  "name": "sum-row-float",
+  "sql": "SELECT SUM(small * ratio) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "sum",
+      "argument": {
+        "kind": "arithmetic",
+        "op": "*",
+        "left": {
+          "kind": "column",
+          "name": "small",
+          "quoted": false
+        },
+        "right": {
+          "kind": "column",
+          "name": "ratio",
+          "quoted": false
+        }
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "float64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": 44,
+      "acme_late": 44,
+      "empty": null,
+      "nulls": null,
+      "wide": 24
+    }
+  }
+}

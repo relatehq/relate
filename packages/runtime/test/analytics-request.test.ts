@@ -140,6 +140,7 @@ function execute(prepared: PreparedCompute) {
           rows: query.slots.map((_, slot) => ({
             slot,
             values: query.aggregates.map(() => 4n),
+            checks: query.aggregates.map(() => ({ arithmeticFailed: false })),
           })),
         };
       },

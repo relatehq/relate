@@ -242,6 +242,38 @@ be readable and available. Declared calculations cannot use named parameters;
 store the elapsed share as an ordinary property to use it in a declaration.
 Joins, subqueries and multiple datasets in one expression are unsupported.
 
+### Arithmetic inside an aggregate
+
+An aggregate argument can combine values from the same row before aggregating:
+
+```sql
+-- Spend in account currency, converting each row by its own rate
+SELECT SUM(spendMicros * rate) FROM self.delivery
+
+-- Average cost per click, per row
+SELECT AVG(spend / clicks) FROM self.delivery WHERE clicks > 0
+
+-- Scale every row by a caller parameter
+SELECT SUM(clicks * $weight) FROM self.delivery
+```
+
+Operands are numeric columns, `self` properties, literals and named parameters,
+combined with `+`, `-`, `*`, `/` and parentheses. Integer `+`, `-` and `*` stay
+exact `int64`. A float operand or `/` makes the node `float64`, so `3 / 2` is
+`1.5`. Spelling types a literal: `2` is an integer, `2.0` and `2e0` are floats.
+A parameter takes the type of the column it is compared with or, failing that,
+of its neighbor in the arithmetic, so `$weight` above is `int64` and
+`{ weight: 0.5 }` is rejected; write `clicks * (1.0 * $weight)` to accept a
+fraction.
+
+Arithmetic is checked for each row and never silently skips one. If any row the
+aggregate includes overflows `int64`, produces an infinite float or divides by
+zero, that field is unavailable with `execution-failed` for that object only;
+other fields and objects are unaffected, and an outer `COALESCE` cannot hide the
+failure. Rows excluded by `WHERE` or `FILTER` are not evaluated. A sum succeeds
+whenever its final total fits, even if a running total would not. Float results
+are approximate binary floating point, not exact decimal money arithmetic.
+
 For a complete runnable application, run `pnpm example:datasets` from the
 repository root. The [example guide](../../../../examples/04-datasets/README.md)
 explains the model and queries; the API reference covers

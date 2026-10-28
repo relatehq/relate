@@ -245,7 +245,13 @@ try {
   const query = { resource, keys: [{ type: { type: 'string' } }], correlation: [{ column: 'customerId', key: 0 }], slots: [{ values: [{ type: 'string', value: '1' }], valid: [true] }], aggregates: [{ aggregate: 'sum', argument: { kind: 'column', column: 'amount', type: { type: 'int64' } }, distinct: false, result: { type: 'int64', nullable: true } }] };
   const timings = [];
   const computed = await local.analytics.execute(local.analytics.plan(query), { signal: new AbortController().signal, timeoutMs: 2000, onTiming: timing => timings.push(timing.stage) });
-  assert.deepEqual(computed.rows, [{ slot: 0, values: [9007199254740995n] }]);
+  assert.deepEqual(computed.rows, [
+    {
+      slot: 0,
+      values: [9007199254740995n],
+      checks: [{ arithmeticFailed: false }],
+    },
+  ]);
   assert.deepEqual(timings, ['connectionStartup', 'execution']);
 } finally { await local.close(); }
 console.log('Installed SQLite connector reads records and executes exact aggregates in its packaged child process.');

@@ -23,19 +23,27 @@ export type {
 } from './analytics/values.js';
 
 export {
+  foldRowExpression,
   foldScalarExpression,
+  isRowArithmetic,
   mapScalarExpression,
+  rowOperands,
   scalarLeaves,
 } from './analytics/scalar.js';
 
 export {
   renderAnalyticalQuery,
   analyticalParameterBudget,
+  checkedValue,
   quoteSqlIdentifier,
 } from './analytics/render.js';
 
 export type {
   AnalyticalSqlDialect,
   AnalyticalSqlPlan,
+  CheckedAccumulation,
+  CheckedArithmeticDialect,
+  CheckedInput,
+  CheckedType,
   SqlDataset,
 } from './analytics/render.js';

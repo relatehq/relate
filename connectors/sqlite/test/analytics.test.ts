@@ -259,9 +259,21 @@ it('keeps correlation and masks outside OR predicates and groups duplicate keys 
   );
 
   expect(result.rows).toEqual([
-    { slot: 0, values: [2n, 0n] },
-    { slot: 1, values: [1n, 2n] },
-    { slot: 2, values: [0n, 0n] },
+    {
+      slot: 0,
+      values: [2n, 0n],
+      checks: [{ arithmeticFailed: false }, { arithmeticFailed: false }],
+    },
+    {
+      slot: 1,
+      values: [1n, 2n],
+      checks: [{ arithmeticFailed: false }, { arithmeticFailed: false }],
+    },
+    {
+      slot: 2,
+      values: [0n, 0n],
+      checks: [{ arithmeticFailed: false }, { arithmeticFailed: false }],
+    },
   ]);
 });
 
@@ -373,7 +385,11 @@ it('reports an exact conservative parameter budget and enforces the actual count
   expect(generated.values.length).toBe(
     budget.fixed + budget.perSlot * input.slots.length,
   );
-  expect(generated.sql.match(/\?/g)).toHaveLength(generated.values.length);
+  // Numbered binds may repeat; every value is bound exactly once.
+  expect(new Set(generated.sql.match(/\?\d+/g))).toHaveProperty(
+    'size',
+    generated.values.length,
+  );
   expect(() =>
     connection.analytics.plan({
       ...input,
@@ -430,23 +446,27 @@ it('rejects foreign and retired resources/plans and isolates keyed source reads'
   ).rejects.toBeInstanceOf(DatasetExecutionError);
 });
 
-it('distinguishes statement overflow and unframeable results from per-value validation', async () => {
+it('checks sum overflow per cell and distinguishes unframeable results from per-value validation', async () => {
   const { db, connection, resource } = fixture();
 
   db.exec(
     "INSERT INTO events(customer_id, amount) VALUES ('overflow', 9223372036854775807), ('overflow', 1)",
   );
   const sum = aggregate('sum', column('amount', 'int64'), 'int64');
+  const count = aggregate('count', '*', 'int64');
 
   await expect(
     connection.analytics.execute(
-      connection.analytics.plan(query(resource, [sum], ['overflow'])),
+      connection.analytics.plan(query(resource, [sum, count], ['overflow'])),
       options(),
     ),
-  ).rejects.toMatchObject({
-    code: 'execution-failed',
-    retryable: false,
-    message: 'Analytical execution failed',
+  ).resolves.toMatchObject({
+    rows: [
+      {
+        values: [null, 2n],
+        checks: [{ arithmeticFailed: true }, { arithmeticFailed: false }],
+      },
+    ],
   });
   db.exec("INSERT INTO events(customer_id, kind) VALUES ('blob', X'01')");
   await expect(
@@ -731,8 +751,8 @@ it('applies every composite correlation pair and preserves NULL-key empty behavi
       )
     ).rows,
   ).toEqual([
-    { slot: 0, values: [1n] },
-    { slot: 1, values: [0n] },
+    { slot: 0, values: [1n], checks: [{ arithmeticFailed: false }] },
+    { slot: 1, values: [0n], checks: [{ arithmeticFailed: false }] },
   ]);
 });
 

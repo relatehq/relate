@@ -73,7 +73,7 @@ function execute(plan: SqlitePlan): DatasetExecution {
   const rows = raw.map((row, slot) => {
     if (
       row.slot !== BigInt(slot) ||
-      Object.keys(row).length !== plan.results.length + 1
+      Object.keys(row).length !== plan.results.length * 2 + 1
     )
       throw new InvalidResult();
 
@@ -108,7 +108,15 @@ function execute(plan: SqlitePlan): DatasetExecution {
       return value as string | number | bigint | boolean | null;
     });
 
-    return { slot, values };
+    const checks = plan.results.map((_, i) => {
+      const check: SQLOutputValue | undefined = row[`c${i}`];
+
+      if (check !== 0n && check !== 1n) throw new InvalidResult();
+
+      return { arithmeticFailed: check === 1n };
+    });
+
+    return { slot, values, checks };
   });
 
   return { rows, readAt };

@@ -75,12 +75,17 @@ unavailable dependencies. The parameter budget includes masks, slots, keys,
 literals and fallbacks, and plans reject more than 65,535 parameters before
 opening a client.
 
-Integer sums cast to `bigint`; overflow fails the statement. Integer averages
-cast to `double precision`. Boolean minimum/maximum use `bool_and`/`bool_or`.
-Result decoding uses per-query text parsers, preserving exact int64 and
-microsecond timestamp values without changing global `pg` parsers. Timestamps
-are formatted in UTC; ISO year zero maps to PostgreSQL 1 BC. Infinity and dates
-outside the portable range remain invalid scalar values for runtime rejection.
+Integer sums accumulate in `numeric`; a total outside `bigint` fails only that
+cell. Integer averages cast to `double precision`. Row arithmetic uses `numeric`
+for integer nodes and guards each float operation exactly, by decoding operands
+with `float8send`, because PostgreSQL raises on float overflow and on a nonzero
+result that rounds to zero. An `OFFSET 0` fence keeps constant operands out of
+plan-time folding. No helper functions are installed. Boolean minimum/maximum
+use `bool_and`/`bool_or`. Result decoding uses per-query text parsers,
+preserving exact int64 and microsecond timestamp values without changing global
+`pg` parsers. Timestamps are formatted in UTC; ISO year zero maps to PostgreSQL
+1 BC. Infinity and dates outside the portable range remain invalid scalar values
+for runtime rejection.
 
 ## Execution and cancellation
 

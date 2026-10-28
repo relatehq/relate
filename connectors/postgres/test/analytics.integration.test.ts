@@ -257,7 +257,7 @@ it('keeps duplicate keys in distinct slots, masks unavailable inputs and contain
   ]);
 });
 
-it('fails integer aggregate overflow and prevents writes from a bound view', async () => {
+it('checks integer aggregate overflow per cell and prevents writes from a bound view', async () => {
   const { connection, resource, db, schema, columns } = await fixture();
 
   await db.query(`INSERT INTO "${schema}".events(customer_id,amount) VALUES ('overflow',9223372036854775807),('overflow',1);
@@ -268,13 +268,23 @@ it('fails integer aggregate overflow and prevents writes from a bound view', asy
       connection.analytics.plan(
         query(
           resource,
-          [aggregate('sum', column('amount', 'int64'), 'int64')],
+          [
+            aggregate('sum', column('amount', 'int64'), 'int64'),
+            aggregate('count', '*', 'int64'),
+          ],
           ['overflow'],
         ),
       ),
       options(),
     ),
-  ).rejects.toMatchObject({ code: 'execution-failed', retryable: false });
+  ).resolves.toMatchObject({
+    rows: [
+      {
+        values: [null, 2n],
+        checks: [{ arithmeticFailed: true }, { arithmeticFailed: false }],
+      },
+    ],
+  });
   const writes = connection
     .table('writes', { schema })
     .bindDataset({ columns });

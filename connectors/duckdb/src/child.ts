@@ -18,10 +18,10 @@ async function execute(plan: DuckDBPlan): Promise<DatasetExecution> {
   if (raw.length !== plan.slots) throw new InvalidResult();
 
   const rows = raw.map((row, slot) => {
-    if (row[0] !== slot || row.length !== plan.results.length + 1)
+    if (row[0] !== slot || row.length !== plan.results.length * 2 + 1)
       throw new InvalidResult();
 
-    const values = row.slice(1).map((value) => {
+    const values = row.slice(1, plan.results.length + 1).map((value) => {
       if (
         value !== null &&
         !['string', 'number', 'bigint', 'boolean'].includes(typeof value)
@@ -31,7 +31,13 @@ async function execute(plan: DuckDBPlan): Promise<DatasetExecution> {
       return value as string | number | bigint | boolean | null;
     });
 
-    return { slot, values };
+    const checks = row.slice(plan.results.length + 1).map((check) => {
+      if (check !== 0 && check !== 1) throw new InvalidResult();
+
+      return { arithmeticFailed: check === 1 };
+    });
+
+    return { slot, values, checks };
   });
 
   return { rows, readAt };

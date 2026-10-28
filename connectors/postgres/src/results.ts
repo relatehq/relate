@@ -14,7 +14,7 @@ export function decode(
   if (raw.length !== plan.slots) throw invalid();
 
   const rows = raw.map((row, slot) => {
-    if (row[0] !== String(slot) || row.length !== plan.results.length + 1)
+    if (row[0] !== String(slot) || row.length !== plan.results.length * 2 + 1)
       throw invalid();
 
     return {
@@ -49,6 +49,13 @@ export function decode(
           return value.slice(0, -2);
 
         return value;
+      }),
+      checks: plan.results.map((_, index) => {
+        const check = row[plan.results.length + index + 1];
+
+        if (check !== '0' && check !== '1') throw invalid();
+
+        return { arithmeticFailed: check === '1' };
       }),
     };
   });

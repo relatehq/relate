@@ -9,6 +9,7 @@ import type {
   SqlDataset,
 } from 'relate/analytics';
 import type { AuthorizedDatasetQuery } from 'relate/connectors';
+import { checked } from './checked.js';
 
 export type SelectedDataset = SqlDataset & { readonly schema: string };
 export type PostgresPlan = AnalyticalSqlPlan<string | number | boolean | null>;
@@ -69,16 +70,9 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
         : inputType === 'boolean' && aggregate.aggregate === 'max'
           ? 'BOOL_OR'
           : aggregate.aggregate.toUpperCase();
-    let sql = `pg_catalog.${name}(${aggregate.distinct ? 'DISTINCT ' : ''}${argument}) FILTER (WHERE ${filter})`;
 
-    // PostgreSQL promotes bigint SUM and integer AVG to numeric; preserve the portable contract.
-    if (aggregate.aggregate === 'sum' && aggregate.result.type === 'int64')
-      sql = `CAST(${sql} AS pg_catalog.int8)`;
-
-    if (aggregate.aggregate === 'avg')
-      sql = `CAST(${sql} AS pg_catalog.float8)`;
-
-    return sql;
+    // Numeric SUM and AVG use checked accumulation.
+    return `pg_catalog.${name}(${aggregate.distinct ? 'DISTINCT ' : ''}${argument}) FILTER (WHERE ${filter})`;
   },
   timestamp(value, precision, bind) {
     const fraction = precision === 3 ? 'MS' : 'US';
@@ -93,6 +87,7 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
     return `CASE WHEN NOT pg_catalog.isfinite(${value}) THEN ${invalid} ELSE pg_catalog.to_char(${value} AT TIME ZONE ${zone}, ${format}) END`;
   },
   timestampParameters: 3,
+  checked,
 };
 
 export function render(

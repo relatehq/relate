@@ -267,7 +267,7 @@ it('describes exact physical types and rejects unsupported coercions', async () 
   expect(unsupported.columns).not.toHaveProperty('missing');
 });
 
-it('fails overflowing integer sums and blocks external reads through views', async () => {
+it('checks integer sum overflow per cell and blocks external reads through views', async () => {
   const { connection } = await fixture();
   const resource = connection
     .table('overflow')
@@ -278,13 +278,23 @@ it('fails overflowing integer sums and blocks external reads through views', asy
       connection.analytics.plan(
         query(
           resource,
-          [aggregate('sum', column('amount', 'int64'), 'int64')],
+          [
+            aggregate('sum', column('amount', 'int64'), 'int64'),
+            aggregate('count', '*', 'int64'),
+          ],
           ['acme'],
         ),
       ),
       options(),
     ),
-  ).rejects.toMatchObject({ code: 'execution-failed' });
+  ).resolves.toMatchObject({
+    rows: [
+      {
+        values: [null, expect.any(BigInt)],
+        checks: [{ arithmeticFailed: true }, { arithmeticFailed: false }],
+      },
+    ],
+  });
   await expect(
     connection.analytics.describe(
       connection
@@ -424,7 +434,7 @@ it('enforces read-only access even if internal SQL attempts a write', async () =
       {
         kind: 'execute',
         plan: {
-          sql: 'SELECT 0::INTEGER, COUNT(*) FROM events',
+          sql: 'SELECT 0::INTEGER, COUNT(*), 0::INTEGER FROM events',
           values: [],
           slots: 1,
           results: [{ type: 'int64', nullable: false }],

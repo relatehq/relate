@@ -32,7 +32,10 @@ function instant(value: unknown): value is string {
   );
 }
 
-/** Frame validation fails the statement; scalar validation withdraws only the affected alias. */
+/**
+ * Frame validation fails the statement; scalar validation withdraws only the
+ * affected alias; an arithmetic check withdraws only that field on that object.
+ */
 export function mergeBatch(input: {
   batch: CalculationBatch;
   result: DatasetExecution;
@@ -57,6 +60,13 @@ export function mergeBatch(input: {
           (value) =>
             value !== null &&
             !['string', 'number', 'boolean', 'bigint'].includes(typeof value),
+        ) ||
+        !Array.isArray(row.checks) ||
+        row.checks.length !== batch.fields.length ||
+        Array.from(row.checks).some(
+          (check) =>
+            typeof (check as { arithmeticFailed?: unknown } | null)
+              ?.arithmeticFailed !== 'boolean',
         ),
     );
 
@@ -76,10 +86,17 @@ export function mergeBatch(input: {
     if (failed.has(field.name)) continue;
 
     const values = new Map<number, ReturnType<typeof encodeAnalyticalValue>>();
+    const failedCells: number[] = [];
 
     try {
       for (const [slot, rowIndex] of batch.rowIndexes.entries()) {
         if (!batch.query.slots[slot]!.valid[column]) continue;
+
+        // Read the check before the placeholder can be encoded as a null.
+        if (result.rows[slot]!.checks[column]!.arithmeticFailed) {
+          failedCells.push(rowIndex);
+          continue;
+        }
 
         values.set(
           rowIndex,
@@ -97,6 +114,12 @@ export function mergeBatch(input: {
       });
       continue;
     }
+
+    invalidate(
+      failedCells.map((rowIndex) => rows[rowIndex]!),
+      [field.name],
+      { status: 'unavailable', reason: 'execution-failed', retryable: false },
+    );
 
     for (const [rowIndex, value] of values) {
       const cell = rows[rowIndex]!.fields[field.name]!;

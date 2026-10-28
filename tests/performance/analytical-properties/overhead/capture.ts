@@ -204,9 +204,11 @@ export function observeResource(original: AnalyticalResource) {
 
         for (const statement of statements) {
           assert(statement.sql && statement.parameters && statement.rows);
+          // Raw frames carry one check column per value after the values.
           statement.rawRows ??= statement.rows.map((row) => [
             row.slot,
             ...row.values,
+            ...row.checks.map((check) => Number(check.arithmeticFailed)),
           ]);
         }
 

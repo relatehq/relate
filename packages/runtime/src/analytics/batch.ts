@@ -1,5 +1,6 @@
 import {
   encodeAnalyticalValue,
+  foldRowExpression,
   mapScalarExpression,
   parseAnalyticalValue,
 } from 'relate/analytics';
@@ -8,6 +9,7 @@ import type {
   AuthorizedDatasetQuery,
   ResolvedOperand,
   ResolvedPredicate,
+  ResolvedRowExpression,
   ResolvedAggregate,
   ResolvedAggregateLeaf,
   TypedValue,
@@ -164,7 +166,18 @@ function remap(
 
   return {
     ...aggregate,
-    argument: aggregate.argument === '*' ? '*' : operand(aggregate.argument),
+    argument:
+      aggregate.argument === '*'
+        ? '*'
+        : foldRowExpression<
+            ResolvedOperand,
+            { readonly type: { readonly type: 'int64' | 'float64' } },
+            ResolvedRowExpression
+          >(aggregate.argument, operand, (node, left, right) => ({
+            ...node,
+            left,
+            right,
+          })),
     ...(aggregate.predicate
       ? { predicate: predicate(aggregate.predicate) }
       : {}),
