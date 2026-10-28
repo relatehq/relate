@@ -102,6 +102,22 @@ option as code or a contract sketch, then give a recommendation. If something is
 still undecided, say so explicitly and show the open shape. Keep prose short;
 let the examples carry the explanation.
 
+When authoring specs, write for a new developer joining the team. Build their
+understanding step by step: start with the problem and context, introduce the
+concepts they need, then explain the feature's behavior, contracts, and
+implementation details. Each section should build on knowledge established
+earlier, so the reader can understand the whole feature without prior team
+context.
+
+- Write one feature per spec. When a feature needs a separate product change
+  first, give that change its own spec and link to it rather than nesting it.
+- Open with a short status table that says, in plain words, what is agreed,
+  proposed, open or implemented. Don't use numbered decision IDs; link to
+  sections instead.
+- Verify every code sketch against the current source, and cite the files and
+  lines it changes. A sketch that calls an API must match that API's real shape,
+  or say that it is proposed.
+
 ## Test ownership and setup
 
 Packages, connectors, apps, and their tests must not depend on `examples/` or
@@ -132,8 +148,10 @@ This repository is the OSS Relate implementation. Do not change the sibling
 task.
 
 Treat exported package source, package contracts, and executable tests as the
-source of truth for implemented behavior. Use the root `README.md` status table
-and public docs to distinguish current product behavior from planned work.
+source of truth for implemented behavior. When researching the codebase, inspect
+source code first; documentation is supplementary context. Use the root
+`README.md` status table and public docs to help distinguish current product
+behavior from planned work, and verify their claims against the source.
 `dev/fixtures` and `relate-internal` may inform a design, but they can contain
 proposals, declaration shims, or historical scenarios. A typechecking fixture is
 not proof of execution, authorization, atomicity, persistence, or durability.

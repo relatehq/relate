@@ -22,7 +22,12 @@ in the pull request.
   includes a reading guide and execution diagrams. Detailed contracts remain
   proposed; not implemented.
 - [2026-10-23: Media agency agent benchmark](./2026-10-23-media-agency-benchmark.md)
-  — systems, arms, tiers and action approach agreed; action adoption with atomic
-  local commits required before the benchmark (2026-10-28). Other detailed
-  contracts proposed; prerequisite and benchmark not implemented. Currency
-  conversion via keyed reference datasets agreed (2026-10-28).
+  — systems, arms, tiers, action approach and currency conversion agreed;
+  harness and task contracts proposed; not implemented. Requires the two
+  2026-10-28 specs below before the graph is frozen.
+- [2026-10-28: Action adoption](./2026-10-28-action-adoption.md) — handlers
+  adopt platform records they create, committing with the action; API agreed,
+  storage strategy proposed; not implemented.
+- [2026-10-28: Reference datasets](./2026-10-28-reference-datasets.md) — keyed
+  datasets joined by full key (for example exchange rates); direction agreed,
+  grammar and result contracts proposed; not implemented.
