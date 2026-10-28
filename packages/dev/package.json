@@ -27,7 +27,7 @@
     "esbuild": "0.28.2",
     "hono": "4.13.13",
     "relate": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "publishConfig": {
     "access": "public"
