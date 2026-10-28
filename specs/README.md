@@ -9,6 +9,13 @@ and are not rendered by the docs site. Exported package source, package
 contracts (`packages/*/CONTRACT.md`) and executable tests remain the source of
 truth for implemented behavior.
 
+Once implemented, specs are historical references: they explain the decisions,
+constraints and tradeoffs at the time, not permanent rules for the product.
+Revisit those decisions as the product evolves and assess new proposals against
+current needs and evidence. A feature deferred or excluded from an earlier spec
+is not a reason to defer or exclude it in a current discussion; any such decision
+needs a current rationale.
+
 Write a spec only for a large feature that takes multiple days of thinking and
 planning. Most features do not need one: agree their design in conversation or
 in the pull request.
