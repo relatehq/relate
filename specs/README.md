@@ -23,11 +23,17 @@ in the pull request.
   proposed; not implemented.
 - [2026-10-23: Media agency agent benchmark](./2026-10-23-media-agency-benchmark.md)
   — systems, arms, tiers, action approach and currency conversion agreed;
-  harness and task contracts proposed; not implemented. Requires the two
-  2026-10-28 specs below before the graph is frozen.
+  harness and task contracts proposed; not implemented. Requires the two feature
+  specs below and their prerequisites before the graph is frozen.
 - [2026-10-28: Action adoption](./2026-10-28-action-adoption.md) — handlers
   adopt platform records they create, committing with the action; API agreed,
   storage strategy proposed; not implemented.
 - [2026-10-28: Reference datasets](./2026-10-28-reference-datasets.md) — keyed
   datasets joined by full key (for example exchange rates); direction agreed,
   grammar and result contracts proposed; not implemented.
+- [2026-10-28: Arithmetic inside aggregate arguments](./2026-10-28-row-arithmetic.md)
+  — proposed prerequisite for reference-dataset currency conversion; checked
+  per-row arithmetic and failure isolation; not implemented.
+- [2026-10-28: Analytical calendar dates](./2026-10-28-analytical-dates.md) —
+  proposed calendar-date type and connector contracts; ISO text remains the
+  explicit benchmark fallback; not implemented.

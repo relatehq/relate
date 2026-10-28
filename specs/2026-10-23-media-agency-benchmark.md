@@ -181,7 +181,11 @@ export interface World {
 The `fx` shape matters for reference datasets. A full-key join needs a row for
 every delivery date and every currency pair, including weekends and `GBP→GBP`;
 otherwise values become `reference-missing`. Rate dates are calendar dates and
-apply to account-local delivery dates of the same date.
+apply to account-local delivery dates of the same date. Converted analytical
+spend is unrounded float64 in minor units and may be fractional, unlike stored
+invoice and budget amounts. Oracles compute the unrounded amount and use the
+existing numeric tolerance; neither per-row nor final integer rounding is
+implicit in the reference join.
 
 ### Seams
 
@@ -600,10 +604,10 @@ export const PlanLine = defineObject({
       id: 'agency.plan-line.spend-through-yesterday-minor',
       access: ordinary,
       description:
-        'Delivered spend in the plan currency at each delivery date’s rate, up to the last warehouse load.',
+        'Approximate delivered spend in plan-currency minor units at each delivery date’s rate, up to the last warehouse load; may be fractional.',
       sql: `SELECT SUM(d.spendMicros * f.rate) / 10000
             FROM self.delivery AS d
-            JOIN datasets.Fx AS f
+            LEFT JOIN datasets.Fx AS f
               ON f.date = d.date AND f.fromCurrency = d.currency AND f.toCurrency = self.currency`,
     }),
   },
@@ -623,8 +627,11 @@ export const PlanLine = defineObject({
 The delivery association correlates on the plain `platformCampaignId` string,
 not on the `metaCampaign` reference. A reference holds a Relate ID, while
 delivery rows carry the platform's ID. The `date` column depends on the date
-type that the reference-datasets spec leaves open. If that type does not land,
-the benchmark stores dates as ISO text and declares `z.string()`.
+type proposed in [Analytical calendar dates](./2026-10-28-analytical-dates.md).
+If that type does not land, the benchmark stores both delivery and FX dates as
+ISO text and declares `z.string()`, updating its DDL and fixtures together.
+Multiplication inside `SUM` also requires
+[row arithmetic](./2026-10-28-row-arithmetic.md).
 
 ### Connectors
 
