@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import time
@@ -15,13 +16,20 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[4]
 UPSTREAM = ROOT / "benchmarks/media-agency/artifacts/upstream/agent-company"
 PIN = "98b68ef82a47690c316f42fddb05baafaab56851"
-ENV_MODEL = "gpt-4o-2024-08-06"
+ENV_MODEL = "openai/gpt-4o-2024-08-06"
 
 
 def command(args, *, timeout=120, env=None, input=None):
     result = subprocess.run(args, input=input, text=True, capture_output=True,
                             timeout=timeout, env=env, cwd=ROOT)
-    return {"exitCode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}
+    stdout, stderr = result.stdout, result.stderr
+    # Upstream's NPC launcher prints its command including the API key. Keep
+    # that trusted initialization output out of retained artifacts verbatim.
+    for key in ("LITELLM_API_KEY", "OPENAI_API_KEY"):
+        secret = (env or {}).get(key)
+        if secret:
+            stdout, stderr = stdout.replace(secret, "[redacted]"), stderr.replace(secret, "[redacted]")
+    return {"exitCode": result.returncode, "stdout": stdout, "stderr": stderr}
 
 
 def checked(args, **kwargs):
@@ -47,6 +55,36 @@ def health(services):
         except Exception:
             checks[service] = False
     return checks
+
+
+def required_services(tasks):
+    """Read the pinned benchmark's simple YAML lists, rejecting unknown forms."""
+    services = set()
+    allowed = {"gitlab", "owncloud", "rocketchat", "plane"}
+    for task in tasks:
+        for line in (UPSTREAM / "workspaces/tasks" / task / "dependencies.yml").read_text().splitlines():
+            line = line.split("#", 1)[0].strip()
+            if not line:
+                continue
+            if not line.startswith("- ") or line[2:] not in allowed:
+                raise ValueError(f"Unknown service dependency in {task}: {line}")
+            services.add(line[2:])
+    return sorted(services)
+
+
+def load_images(path, tasks):
+    data = json.loads(Path(path).read_text())
+    if data.get("upstream") != PIN or data.get("platform") != "linux/amd64":
+        raise ValueError("Image lock does not match the benchmark source/platform")
+    images = {}
+    for task in tasks:
+        row = data.get("images", {}).get(task, {})
+        reference = row.get("reference", "")
+        expected = re.escape(f"ghcr.io/theagentcompany/{task}-image") + r"@sha256:[a-f0-9]{64}"
+        if row.get("status") != "resolved" or not re.fullmatch(expected, reference):
+            raise ValueError(f"Image lock has no resolved original image for {task}")
+        images[task] = reference
+    return images
 
 
 def environment():
@@ -91,23 +129,28 @@ def run_task(task, output, args, env):
     state = {"task": task, "arm": args.arm, "status": "starting"}
     save(directory / "trial.json", state)
     name = "agency-tac-task-" + uuid.uuid4().hex
+    agent_name, grader_name = name + "-agent", name + "-grader"
     bridge = None
-    created = False
+    containers, snapshots = [], []
     messages = [{"role": "user", "content": [{"type": "text", "text": "Complete the task in /instruction/task.md."}]}]
     tool_records = []
     try:
-        image = f"ghcr.io/theagentcompany/{task}-image:1.0.0"
+        image = getattr(args, "images", {}).get(task, f"ghcr.io/theagentcompany/{task}-image:1.0.0")
+        state["requestedImage"] = image
         pull = command(["docker", "pull", "--platform", "linux/amd64", image], timeout=1800)
         save(directory / "pull.json", pull)
         if pull["exitCode"]:
             raise RuntimeError("Task image pull failed; see pull.json")
         digest = checked(["docker", "image", "inspect", image, "--format", "{{.Id}}"])
+        volumes = json.loads(checked(["docker", "image", "inspect", image, "--format", "{{json .Config.Volumes}}"]))
+        if volumes:
+            raise RuntimeError("Task image declares volumes that docker commit cannot snapshot; explicit state transfer is required")
         state["image"] = digest
         state["container"] = name
         checked(["docker", "run", "-d", "--name", name, "--platform", "linux/amd64",
                  "--network", "host", "--security-opt", "no-new-privileges", digest,
                  "sleep", "infinity"])
-        created = True
+        containers.append(name)
         init = command(["docker", "exec", "--env", "LITELLM_API_KEY", "--env", "LITELLM_BASE_URL",
                         "--env", "LITELLM_MODEL", "--env", "SERVER_HOSTNAME=localhost", name,
                         "bash", "/utils/init.sh"], env=env, timeout=900)
@@ -115,17 +158,31 @@ def run_task(task, output, args, env):
         if init["exitCode"]:
             state["quotaExhausted"] = any(term in json.dumps(init) for term in ["credit_balance_exhausted", "insufficient_quota"])
             raise RuntimeError("Task initialization failed; see init.json")
-        checked(["docker", "exec", name, "bash", "-lc",
-                 "useradd -m -u 65532 agencyagent && chown -R agencyagent /workspace "
-                 "&& chmod 700 /utils /npc && chmod -R a+rX /instruction"])
+        # Preserve root permissions required by installation/system tasks. NPC
+        # processes and their API-key environment stay in this trusted container.
+        # The agent gets the initialized filesystem in a separate PID namespace,
+        # with protected directories covered by empty read-only bind mounts.
+        initialized = checked(["docker", "commit", name], timeout=180)
+        snapshots.append(initialized)
+        state["initializedImage"] = initialized
+        hidden = directory / "hidden"
+        hidden.mkdir()
+        checked(["docker", "run", "-d", "--name", agent_name, "--platform", "linux/amd64",
+                 "--network", "host", "--add-host", "the-agent-company.com:127.0.0.1",
+                 "--security-opt", "no-new-privileges", "--env", "PYTHONPATH=",
+                 "--mount", f"type=bind,src={hidden},dst=/utils,readonly",
+                 "--mount", f"type=bind,src={hidden},dst=/npc,readonly", initialized,
+                 "sleep", "infinity"])
+        containers.append(agent_name)
+        state["agentContainer"] = agent_name
         started = time.monotonic()
         state["status"] = "running"
         save(directory / "trial.json", state)
         def shell(arguments):
             if len(tool_records) >= args.max_steps or time.monotonic() - started >= args.task_seconds:
                 raise RuntimeError("Task action/time budget exhausted")
-            result = command(["docker", "exec", "--user", "agencyagent", "--workdir", "/workspace",
-                              "--env", "HOME=/home/agencyagent", "--env", "PYTHONPATH=", name,
+            result = command(["docker", "exec", "--workdir", "/workspace",
+                              "--env", "PYTHONPATH=", agent_name,
                               "timeout", "45s", "bash", "-lc", arguments["command"]], timeout=55)
             tool_records.append({"name": "shell", "arguments": arguments, "result": result})
             save(directory / "tool-records.json", tool_records)
@@ -175,24 +232,48 @@ def run_task(task, output, args, env):
         # Grade partial work too. Neither tool/provider failures nor budget
         # exhaustion remove the task from the planned denominator.
         save(directory / "trajectory.json", {"messages": messages, "toolCalls": tool_records})
-        checked(["docker", "cp", str(directory / "trajectory.json"), name + ":/utils/trajectory.json"])
+        save(directory / "filesystem-diff.json", command(["docker", "diff", agent_name]))
+        final_image = checked(["docker", "commit", agent_name], timeout=180)
+        snapshots.append(final_image)
+        state["finalImage"] = final_image
+        # Bind mounts are excluded from image commits, so the grader gets the
+        # original protected files plus all agent filesystem changes. The agent
+        # cannot see this container's processes, credentials or decrypted code.
+        checked(["docker", "run", "-d", "--name", grader_name, "--platform", "linux/amd64",
+                 "--network", "host", "--add-host", "the-agent-company.com:127.0.0.1",
+                 "--security-opt", "no-new-privileges", "--env", "PYTHONPATH=/utils",
+                 final_image, "sleep", "infinity"])
+        containers.append(grader_name)
+        checked(["docker", "cp", str(directory / "trajectory.json"), grader_name + ":/utils/trajectory.json"])
         evaluation = command(["docker", "exec", "--env", "LITELLM_API_KEY", "--env", "LITELLM_BASE_URL",
-                              "--env", "LITELLM_MODEL", "--env", "DECRYPTION_KEY", name,
+                              "--env", "LITELLM_MODEL", "--env", "DECRYPTION_KEY", grader_name,
                               "python_default", "/utils/eval.py", "--trajectory_path", "/utils/trajectory.json",
                               "--result_path", "/utils/result.json"], env=env, timeout=600)
         save(directory / "evaluation-log.json", evaluation)
         if evaluation["exitCode"]:
             raise RuntimeError("Original evaluator failed; see evaluation-log.json")
-        checked(["docker", "cp", name + ":/utils/result.json", str(directory / "result.json")])
+        checked(["docker", "cp", grader_name + ":/utils/result.json", str(directory / "result.json")])
         state["result"] = json.loads((directory / "result.json").read_text())
         state["status"] = "scored"
     except Exception as error:
         state.update(status="error", error=str(error))
     finally:
         if bridge:
-            bridge.close()
-        if created:
-            state["cleanup"] = command(["docker", "rm", "-f", name], timeout=30)
+            try:
+                bridge.close()
+            except Exception as error:
+                state["executorCleanupError"] = str(error)
+        state["cleanup"] = []
+        for container in reversed(containers):
+            try:
+                state["cleanup"].append({"container": container, **command(["docker", "rm", "-f", container], timeout=30)})
+            except Exception as error:
+                state["cleanup"].append({"container": container, "error": str(error)})
+        for snapshot in reversed(snapshots):
+            try:
+                state["cleanup"].append({"image": snapshot, **command(["docker", "image", "rm", "--no-prune", snapshot], timeout=30)})
+            except Exception as error:
+                state["cleanup"].append({"image": snapshot, "error": str(error)})
         save(directory / "trial.json", state)
     return state
 
@@ -205,6 +286,7 @@ if __name__ == "__main__":
     parser.add_argument("--max-steps", type=int, default=80)
     parser.add_argument("--task-seconds", type=int, default=1800)
     parser.add_argument("--wait-services", type=int, default=3600)
+    parser.add_argument("--image-lock", type=Path, default=HERE / "images-1.0.0.lock.json")
     args = parser.parse_args()
     if checked(["git", "-C", str(UPSTREAM), "rev-parse", "HEAD"]) != PIN:
         raise RuntimeError("Unexpected upstream revision")
@@ -212,6 +294,7 @@ if __name__ == "__main__":
     tasks = args.tasks.split(",") if args.tasks else available
     if len(set(tasks)) != len(tasks) or any(task not in available for task in tasks):
         raise ValueError("Unknown or duplicated task selection")
+    args.images = load_images(args.image_lock, tasks)
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     manifest = {"benchmark": "TheAgentCompany", "upstream": PIN, "arm": args.arm,
@@ -219,6 +302,9 @@ if __name__ == "__main__":
                 "tasks": tasks, "maxSteps": args.max_steps, "taskSeconds": args.task_seconds,
                 "status": "waiting-services", "integrationHashes": {str(p.relative_to(HERE)): hashlib.sha256(p.read_bytes()).hexdigest()
                     for p in HERE.rglob("*") if p.is_file() and p.suffix in {".py", ".ts"}}}
+    manifest["requiredServices"] = required_services(tasks)
+    manifest["imageLockSha256"] = hashlib.sha256(args.image_lock.read_bytes()).hexdigest()
+    manifest["taskImages"] = args.images
     if args.arm == "relate":
         image = checked(["docker", "image", "inspect", os.environ.get("AGENCY_EXECUTOR_IMAGE", "relate-agency:v2-14b8ca0"), "--format", "{{.Id}}"])
         os.environ["AGENCY_EXECUTOR_IMAGE"] = image
@@ -226,7 +312,7 @@ if __name__ == "__main__":
     save(output / "manifest.json", manifest)
     deadline = time.monotonic() + args.wait_services
     while True:
-        checks = health(["gitlab", "owncloud", "rocketchat", "plane"])
+        checks = health(manifest["requiredServices"])
         save(output / "health.json", checks)
         if all(checks.values()):
             break

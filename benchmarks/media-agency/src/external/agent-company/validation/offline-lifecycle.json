@@ -1,0 +1,178 @@
+{
+  "kind": "offline-integration-test",
+  "modelCalls": 0,
+  "upstream": "98b68ef82a47690c316f42fddb05baafaab56851",
+  "sourceHashes": {
+    "run.py": "6f834e7fdc6d82ee3ba9f72b5f4280ee4b15b7b3374df1f8cb17b544ffabe8b1",
+    "services.py": "323caf3c58abb6125b7fd4517e16d9b58ba7366e4353c1b7fafed7d6238063d9",
+    "executor-bridge.ts": "3f58ab91b251499a6be0f50e70e41cca126ffb923f8d7c4ae05e546029ce47cd",
+    "model-bridge.ts": "9f9b41130d5cc0ab71baa1e1f116653f1b14b1293e635b27a4fd1a7faa157b6b",
+    "images.py": "e17b166001d121cc6d0b2e223760ff2dedadf1e7490519e9b90655d1cf6f4261",
+    "report.py": "71c01557fb9b1d0ec02da9c104cc8b5245f70c7a52d643968625687f57de116f",
+    "executor.py": "f1d8b76c4ec450153d542e7f2784827bbfbbba9b6e241b68d96a25c466991968",
+    "test/test_lifecycle.py": "a92fa589d2ac8e0f723a499ff30bfe1d8b7e9f7fc2b2e7a0c06ad97908359b88",
+    "test/test_images.py": "b9d5611b0e19eb70ad039058900e7b4834cc90099706a3acba9203f81cbb7009",
+    "test/test_report.py": "cdbae4aa9561c7b6052f6c134de1ad98f2935ae40b0069bc2f34d5abc1e3b345"
+  },
+  "imageLockSha256": "47aa6cdc01c00c860c867d66c6c3dd735ec77598a59e7529f8a122e70c2eb638",
+  "interpretation": "Integration validation only. Scripted actions deliberately leave the SQL task unsolved. No Luna score or Relate performance claim.",
+  "task": "ds-sql-exercise",
+  "testCount": 6,
+  "testStatus": "passed",
+  "rawArtifactPath": "benchmarks/media-agency/artifacts/agent-company/offline-lifecycle-4_ul4qrd",
+  "arms": {
+    "baseline-tools": {
+      "trial": {
+        "task": "ds-sql-exercise",
+        "arm": "baseline-tools",
+        "status": "scored",
+        "requestedImage": "ghcr.io/theagentcompany/ds-sql-exercise-image@sha256:71e6089255fbd6119c6d6e7bc82d0653bcc5bde2d0b523a399121c1405b0d5d3",
+        "image": "sha256:71e6089255fbd6119c6d6e7bc82d0653bcc5bde2d0b523a399121c1405b0d5d3",
+        "container": "agency-tac-task-3f6a4e8f1bf64976a97458a0c490aeab",
+        "initializedImage": "sha256:e9e0024c27ee9e1b1abcf7a480b73d7e182a04d42fd442f702ae2b866984e22a",
+        "agentContainer": "agency-tac-task-3f6a4e8f1bf64976a97458a0c490aeab-agent",
+        "agentStatus": "finished",
+        "finalImage": "sha256:b55920b29a74d322c95225823155752920020ebfc17c6bca2fdd4d7957e17db1",
+        "result": {
+          "checkpoints": [
+            {
+              "total": 1,
+              "result": 0
+            },
+            {
+              "total": 2,
+              "result": 0
+            },
+            {
+              "total": 3,
+              "result": 0
+            }
+          ],
+          "final_score": {
+            "total": 6,
+            "result": 0
+          }
+        },
+        "cleanup": [
+          {
+            "container": "agency-tac-task-3f6a4e8f1bf64976a97458a0c490aeab-grader",
+            "exitCode": 0,
+            "stdout": "agency-tac-task-3f6a4e8f1bf64976a97458a0c490aeab-grader\n",
+            "stderr": ""
+          },
+          {
+            "container": "agency-tac-task-3f6a4e8f1bf64976a97458a0c490aeab-agent",
+            "exitCode": 0,
+            "stdout": "agency-tac-task-3f6a4e8f1bf64976a97458a0c490aeab-agent\n",
+            "stderr": ""
+          },
+          {
+            "container": "agency-tac-task-3f6a4e8f1bf64976a97458a0c490aeab",
+            "exitCode": 0,
+            "stdout": "agency-tac-task-3f6a4e8f1bf64976a97458a0c490aeab\n",
+            "stderr": ""
+          },
+          {
+            "image": "sha256:b55920b29a74d322c95225823155752920020ebfc17c6bca2fdd4d7957e17db1",
+            "exitCode": 0,
+            "stdout": "Deleted: sha256:b55920b29a74d322c95225823155752920020ebfc17c6bca2fdd4d7957e17db1\n",
+            "stderr": ""
+          },
+          {
+            "image": "sha256:e9e0024c27ee9e1b1abcf7a480b73d7e182a04d42fd442f702ae2b866984e22a",
+            "exitCode": 0,
+            "stdout": "Deleted: sha256:e9e0024c27ee9e1b1abcf7a480b73d7e182a04d42fd442f702ae2b866984e22a\n",
+            "stderr": ""
+          }
+        ]
+      },
+      "artifactHashes": {
+        "trajectory.json": "c3dfa2a5b4a518a89c66a27a62578da3b408ee805c27c4947baf8f4b82ab53ee",
+        "result.json": "2c637b67bf4035c7868b17c07bf31d4f73de9fcd8653ba231d1236c005476e54",
+        "evaluation-log.json": "0f0f753fa391fd6b8399d9f32aee4478c43f42acea0419f3f51758cdaeb597db",
+        "tool-records.json": "c0c81f65cf5ba46ab36eda3fc5f59b43295e2432c2d2529ea7afb6d1833de921",
+        "trial.json": "cd1e8844c49a6a24d2cc734f3d2d677f7deab948e325afa71b942f90f1e47cbe",
+        "pull.json": "fef3276b66cecae95f3d57cde18e4fb33521ef9b556076d6dc03c5c5eafaacad",
+        "init.json": "8e4952e8207af1451fa1758a210fbb40013fa0ae8e536749e84451e1d9c4e6ae",
+        "filesystem-diff.json": "870e16d32b4312483917f1b6f0e5b325b58e80fa6ca0ec9ed1cef03b7002ccca"
+      }
+    },
+    "relate": {
+      "trial": {
+        "task": "ds-sql-exercise",
+        "arm": "relate",
+        "status": "scored",
+        "requestedImage": "ghcr.io/theagentcompany/ds-sql-exercise-image@sha256:71e6089255fbd6119c6d6e7bc82d0653bcc5bde2d0b523a399121c1405b0d5d3",
+        "image": "sha256:71e6089255fbd6119c6d6e7bc82d0653bcc5bde2d0b523a399121c1405b0d5d3",
+        "container": "agency-tac-task-baec4ae6ddbd4360af6afe0a4ebbdd5e",
+        "initializedImage": "sha256:6e45ed10223ef76ae9c55c15ac3317275d742d09680a63b408dcf9b9be45eaf0",
+        "agentContainer": "agency-tac-task-baec4ae6ddbd4360af6afe0a4ebbdd5e-agent",
+        "agentStatus": "finished",
+        "finalImage": "sha256:81c525dc0f1ecb29b4e842aec30f5b699c169fe35179da47e7a354c135b87d22",
+        "result": {
+          "checkpoints": [
+            {
+              "total": 1,
+              "result": 0
+            },
+            {
+              "total": 2,
+              "result": 0
+            },
+            {
+              "total": 3,
+              "result": 0
+            }
+          ],
+          "final_score": {
+            "total": 6,
+            "result": 0
+          }
+        },
+        "cleanup": [
+          {
+            "container": "agency-tac-task-baec4ae6ddbd4360af6afe0a4ebbdd5e-grader",
+            "exitCode": 0,
+            "stdout": "agency-tac-task-baec4ae6ddbd4360af6afe0a4ebbdd5e-grader\n",
+            "stderr": ""
+          },
+          {
+            "container": "agency-tac-task-baec4ae6ddbd4360af6afe0a4ebbdd5e-agent",
+            "exitCode": 0,
+            "stdout": "agency-tac-task-baec4ae6ddbd4360af6afe0a4ebbdd5e-agent\n",
+            "stderr": ""
+          },
+          {
+            "container": "agency-tac-task-baec4ae6ddbd4360af6afe0a4ebbdd5e",
+            "exitCode": 0,
+            "stdout": "agency-tac-task-baec4ae6ddbd4360af6afe0a4ebbdd5e\n",
+            "stderr": ""
+          },
+          {
+            "image": "sha256:81c525dc0f1ecb29b4e842aec30f5b699c169fe35179da47e7a354c135b87d22",
+            "exitCode": 0,
+            "stdout": "Deleted: sha256:81c525dc0f1ecb29b4e842aec30f5b699c169fe35179da47e7a354c135b87d22\n",
+            "stderr": ""
+          },
+          {
+            "image": "sha256:6e45ed10223ef76ae9c55c15ac3317275d742d09680a63b408dcf9b9be45eaf0",
+            "exitCode": 0,
+            "stdout": "Deleted: sha256:6e45ed10223ef76ae9c55c15ac3317275d742d09680a63b408dcf9b9be45eaf0\n",
+            "stderr": ""
+          }
+        ]
+      },
+      "artifactHashes": {
+        "trajectory.json": "f9ac711bc7ba666c0b1d0ec38ffe45ec9887ff9d92434527f68fe34daf85adbc",
+        "result.json": "2c637b67bf4035c7868b17c07bf31d4f73de9fcd8653ba231d1236c005476e54",
+        "evaluation-log.json": "0f0f753fa391fd6b8399d9f32aee4478c43f42acea0419f3f51758cdaeb597db",
+        "tool-records.json": "c0c81f65cf5ba46ab36eda3fc5f59b43295e2432c2d2529ea7afb6d1833de921",
+        "trial.json": "f7d8f9be94acd44b9609232846d052d4ba4a51d631122e7dfb5f7181b3b221ce",
+        "pull.json": "fef3276b66cecae95f3d57cde18e4fb33521ef9b556076d6dc03c5c5eafaacad",
+        "init.json": "8e4952e8207af1451fa1758a210fbb40013fa0ae8e536749e84451e1d9c4e6ae",
+        "filesystem-diff.json": "870e16d32b4312483917f1b6f0e5b325b58e80fa6ca0ec9ed1cef03b7002ccca"
+      }
+    }
+  },
+  "testLogSha256": "65ad4737dde5935901638719b1262f34db7514cc9737a41e06ba3cfb638a211a"
+}
