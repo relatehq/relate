@@ -70,7 +70,7 @@ type: z.enum(['boolean', 'string', 'int32', 'int64', 'float64', 'date']),
 
 `ComputedResultType` gets the existing `nullable` flag automatically. Dataset
 discovery already reports `ComputedResultType`
-(`packages/protocol/src/discovery.ts:139`), so a date column appears in
+(`packages/protocol/src/discovery.ts:140`), so a date column appears in
 discovery as `{ type: 'date', nullable }` without its own discovery shape. The
 ordinary-property `ScalarSchema.format`
 (`packages/protocol/src/discovery.ts:12`) is **not** changed.
