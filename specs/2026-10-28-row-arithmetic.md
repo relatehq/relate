@@ -1,12 +1,13 @@
 # 2026-10-28: Arithmetic inside aggregate arguments
 
-| Part                                                                                                            | Status                                            |
-| --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Row arithmetic for reference-dataset currency conversion                                                        | Agreed prerequisite                               |
-| [Types and parameter inference](#literal-and-parameter-inference)                                               | Agreed on 2026-10-28                              |
-| [Floating-point behavior](#floating-point-behavior) and [checked accumulation](#checked-aggregate-accumulation) | Agreed on 2026-10-28                              |
-| [Backend strategy](#backend-strategy)                                                                           | Implementation direction; boundary tests required |
-| Implementation                                                                                                  | Not implemented                                   |
+| Part                                                                                                            | Status                                        |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Row arithmetic for reference-dataset currency conversion                                                        | Agreed prerequisite                           |
+| [Types and parameter inference](#literal-and-parameter-inference)                                               | Agreed on 2026-10-28                          |
+| [Floating-point behavior](#floating-point-behavior) and [checked accumulation](#checked-aggregate-accumulation) | Agreed on 2026-10-28                          |
+| [Connector result checks](#connector-result-checks), owned here and extended by reference datasets              | Agreed on 2026-10-28                          |
+| [Backend strategy](#backend-strategy): generated SQL only, no installed or registered helpers                   | Agreed on 2026-10-28; boundary tests required |
+| Implementation                                                                                                  | In progress                                   |
 
 ## Problem and concepts
 
@@ -59,12 +60,13 @@ type RowExpression<O> =
 // Resolved plan: argument: RowExpression<ResolvedOperand> | '*'
 ```
 
-Every resolved arithmetic node also carries its inferred logical type and
-nullability. Preserve source spans for operand and operator diagnostics. Plain
-operands retain their existing types; only arithmetic operands must be numeric.
-Nested aggregates, casts, arbitrary functions, row-level `COALESCE`/`NULLIF`,
-and arithmetic predicates remain outside this addition. `COUNT(DISTINCT ...)`
-continues to accept only a plain operand. Parentheses obey ordinary precedence.
+Every resolved arithmetic node also carries its inferred logical type (`int64`
+or `float64`); nullability follows from the operands at execution time. Preserve
+source spans for operand and operator diagnostics. Plain operands retain their
+existing types; only arithmetic operands must be numeric. Nested aggregates,
+casts, arbitrary functions, row-level `COALESCE`/`NULLIF`, and arithmetic
+predicates remain outside this addition. `COUNT(DISTINCT ...)` continues to
+accept only a plain operand. Parentheses obey ordinary precedence.
 
 | Operands                                         | Result and evaluation                                                                       |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
@@ -114,6 +116,7 @@ is an independent expression; omitted `FROM self.delivery AS d` is unchanged.
 | `SUM(d.clicks * (1.0 * $scale))`                | float64        | `{ scale: 0.5 }` works                                                   |
 | `SUM(d.clicks * $scale) + $scale`               | int64          | Outer use promotes the decoded integer to float64                        |
 | `SUM(d.clicks / $scale)`                        | int64          | Division promotes both inputs to float64; the parameter remains int64    |
+| `SUM(d.small * $scale)`                         | int32          | The int32 neighbor types it; `{ scale: 3000000000 }` fails preparation   |
 | `SUM(d.clicks * $scale) WHERE d.rate = $scale`  | float64        | The comparison fixes the parameter; multiplication promotes clicks       |
 | `SUM(d.rate * $scale) WHERE d.small = $scale`   | int32          | Fractional scale fails despite the float64 multiplication result         |
 | `SUM(d.clicks * $scale) + SUM(d.rate * $scale)` | Conflict       | No comparison fixes the type; int64 and float64 row constraints disagree |
@@ -180,6 +183,34 @@ flowchart LR
   null final ratio is visible, whereas silently skipping a bad row inside `SUM`
   changes the numerator.
 
+### Connector result checks
+
+This spec lands first, so it owns the per-cell check shape. Extend `SlotRow`
+(`packages/relate/src/analytics/connectors.ts:33`):
+
+```ts
+export interface SlotRow {
+  readonly slot: number;
+  readonly values: readonly (string | number | bigint | boolean | null)[];
+  /** Exactly one entry per value; all false for an unused/invalid field mask. */
+  readonly checks: readonly { readonly arithmeticFailed: boolean }[];
+}
+```
+
+[Reference datasets](./2026-10-28-reference-datasets.md#batching-and-connector-output)
+later add `referenceMissing` and `referenceDuplicate` to the same entry.
+
+| Failure                                                   | Scope                                                 |
+| --------------------------------------------------------- | ----------------------------------------------------- |
+| Malformed frame, including a missing or non-boolean check | Statement: every field in the batch, `invalid-result` |
+| Valid frame, invalid scalar value                         | Alias: that field on every object, as today           |
+| Valid frame, `arithmeticFailed: true`                     | Cell: that field on that object, `execution-failed`   |
+| Driver error, cancellation, timeout, resource exhaustion  | Statement, as today                                   |
+
+An arithmetic failure never enters `mergeBatch`'s alias-wide `failed` set
+(`packages/runtime/src/analytics/merge.ts:75`). Runtime reads the check before
+encoding the value, so the null placeholder never becomes a visible null.
+
 ### Checked aggregate accumulation
 
 Row-node checks and accumulation checks have different boundaries. Every integer
@@ -187,20 +218,36 @@ row node must fit int64 immediately. An aggregate accumulator may exceed int64
 while combining valid rows; check the final result against its output type. Do
 not make success depend on the backend's row order or partial aggregation.
 
-| Aggregate           | Accumulation and finalization                                                                                                          |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Integer `SUM`       | Accumulate exactly in a wider representation; only the final total must fit int64                                                      |
-| Integer `AVG`       | Accumulate an exact total and count, divide before converting to float64; the total need not fit int64                                 |
-| Float `SUM` / `AVG` | Use overflow-safe widened accumulation of the already-rounded row values; for AVG divide by count before the final float64 range check |
-| `MIN` / `MAX`       | Select among valid non-null values, but retain failures from every eligible row                                                        |
-| `COUNT`             | Count non-null values (or rows for `*`), check the final int64 range, and retain failures even from null placeholders                  |
+| Aggregate           | Accumulation and finalization                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Integer `SUM`       | Accumulate exactly in a wider representation; only the final total must fit int64                                                    |
+| Integer `AVG`       | Accumulate an exact total and count, divide before converting to float64; the total need not fit int64                               |
+| Float `SUM` / `AVG` | Two scaled partial sums of the already-rounded row values (below); for AVG divide each by count before the final float64 range check |
+| `MIN` / `MAX`       | Select among valid non-null values, but retain failures from every eligible row                                                      |
+| `COUNT`             | Count non-null values (or rows for `*`), check the final int64 range, and retain failures even from null placeholders                |
 
 Float aggregates retain approximate numeric results; ordinary last-bit rounding
 variation is allowed. Their range checks must distinguish a genuinely
-out-of-range final result from a temporary accumulator overflow. Use an exact
-wide range check if the approximate accumulator cannot establish that
-distinction. The parity corpus specifies numeric tolerances for approximate
-results and exact agreement for availability, nulls and failure flags.
+out-of-range final result from a temporary accumulator overflow. The parity
+corpus specifies numeric tolerances for approximate results and exact agreement
+for availability, nulls and failure flags.
+
+Float accumulation splits rows at `B = 2^512` into two native sums that cannot
+overflow, then recombines them once with a checked addition:
+
+```sql
+hi = SUM(CASE WHEN abs(x) >= 2^512 THEN x * 2^-512 END)  -- exact scaling; each term < 2^512
+lo = SUM(CASE WHEN abs(x) <  2^512 THEN x END)           -- each term < 2^512
+SUM = checked_add(hi * 2^512, lo)  -- fails when abs(hi) >= 2^512 or the addition overflows
+AVG = checked_add((hi / n) * 2^512, lo / n)
+```
+
+Neither partial sum can overflow below `2^511` rows. Power-of-two scaling is
+exact for these magnitudes, so the only rounding beyond native summation is the
+final recombination. A nonzero `hi` is at least `2^-52`, so its rescaling never
+underflows. The cost is two filtered sums per float leaf instead of one; no
+per-row decoding is needed. `[1e308, 1e308, -1e308]` therefore sums to `1e308`
+on every backend, and `AVG([1e308, 1e308])` is `1e308`.
 
 Every accumulation or final conversion failure sets the same per-cell
 `arithmeticFailed` check. Empty/all-null aggregate behavior and result types
@@ -239,37 +286,65 @@ float operations can throw on overflow or underflow before a post-operation
 finite check runs
 ([PostgreSQL numeric types](https://www.postgresql.org/docs/current/datatype-numeric.html#DATATYPE-FLOAT)).
 
-| Backend    | Row integers                                                            | Float row operations                                                       | Aggregation                                                                                            |
-| ---------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| PostgreSQL | Widen to `numeric`, check each node, then narrow valid results          | Classify range before native execution using the guard below               | Widen integer totals to `numeric`; use guarded widened float accumulation and guarded final conversion |
-| DuckDB     | Widen to `HUGEINT`, check each node, then narrow valid results          | Explicit float64 promotion; detect non-finite values and zero denominators | Widen integer totals; use overflow-safe float accumulation rather than an unguarded native SUM/AVG     |
-| SQLite     | Connector-owned deterministic helpers with BigInt inputs and operations | Connector-owned checked helpers using binary64 operations                  | Connector-owned aggregates with exact BigInt integer state and widened float state                     |
+Every backend uses generated, read-only SQL with no installed, registered or
+caller-visible helpers. Each row node is rendered once as a scalar subquery that
+binds its children once, so SQL size stays linear in the expression:
 
-A widened integer accumulator must accommodate the supported row count.
-`HUGEINT` is sufficient for int64 inputs with a count bounded by int64; check
-the count as well. Widening integers does not solve float accumulation. A float
-implementation may accumulate significands grouped by binary exponent, combining
-those groups in a wider representation before final conversion. Neither a native
-float SUM that overflows early nor casting an already-overflowed result
-satisfies this contract.
+```sql
+(SELECT <checked op over z.l, z.r> FROM (SELECT <left> AS l, <right> AS r) AS z)
+```
+
+A failed node returns an in-band failure placeholder that no valid value can
+take. Every node propagates its children's placeholder before applying null
+propagation, so the failure survives later operations and cancellation. The
+aggregate strips placeholders from its input and ORs a placeholder test into the
+cell's check.
+
+| Backend    | Integer nodes and placeholder                                               | Float nodes and placeholder                                                            | Accumulation                                                                    |
+| ---------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| PostgreSQL | `numeric`, range-checked after each node; `'NaN'::numeric`                  | `float8` behind the exact guard below; `'NaN'::float8` (non-finite inputs also fail)   | Integer `SUM`/`AVG` over `numeric`; float two-bucket with guarded recombination |
+| DuckDB     | `HUGEINT`, range-checked after each node; `2^100`                           | Native `DOUBLE` (never throws), then `isfinite` and zero-denominator checks; `nan`     | Integer `SUM` over `HUGEINT`; float two-bucket                                  |
+| SQLite     | Native `INTEGER`; `typeof(result) = 'integer'` detects overflow; text `'!'` | Native `REAL` with finite-input, zero-denominator and finite-result checks; text `'!'` | Integer `SUM` as exact 32-bit high and low partial sums; float two-bucket       |
+
+SQLite's native integer `SUM` throws on temporary overflow, so integer sums use
+`SUM(x >> 32)` and `SUM(x & 0xFFFFFFFF)`, neither of which can overflow below
+`2^31` rows, then carry the low part into the high part and range-check the
+recombined value. Integer-to-float conversion goes through the backend's native
+correctly rounded `int64 -> float64` conversion, never a two-part
+`HUGEINT -> DOUBLE` cast.
+
+Generated constants are SQL literals whose decimal spelling round-trips to the
+exact power of two or limit; boundary tests confirm each backend parses them
+exactly. Numbered binds (`$n` for PostgreSQL and DuckDB, `?NNN` for SQLite) let
+one rendered operand be referenced several times without another bound value, so
+the parameter budget counts each operand once. SQLite moves from anonymous `?`
+to numbered binds for this.
 
 #### PostgreSQL guard
 
 Use generated read-only SQL, without installing database functions or
 extensions:
 
-1. Decode finite float64 operands to exact signed integer significands and
-   binary exponents using `pg_catalog.float8send` and `pg_catalog.get_byte`.
-   Represent them as integer numerator/denominator pairs in `numeric`. An
-   ordinary float-to-numeric cast or decimal text approximation is not an exact
-   boundary classifier.
-2. Compute the mathematical operation's numerator and denominator with wide
-   integer operations. For division, check zero first. Compare integers by
-   cross-multiplication, avoiding a rounded decimal division in the guard.
-3. Classify against binary64 rounding boundaries, including the halfway point
-   above the largest finite value and half the smallest positive subnormal.
-   Overflow produces a failure; a result rounding to zero produces zero.
-   Preserve nonzero subnormals.
+PostgreSQL raises `value out of range` for float overflow, and for a nonzero
+product or quotient that rounds to zero, even inside a native `SUM`. The guard
+classifies each operation before PostgreSQL evaluates it:
+
+1. Decode finite nonzero float64 operands to exact integer significands `M` and
+   binary exponents `E` (`|x| = M * 2^E`) using `pg_catalog.float8send` and
+   `pg_catalog.get_byte`. An ordinary float-to-numeric cast or decimal text
+   approximation is not an exact boundary classifier.
+2. Multiplication and division compare `Mx * My` or `Mx / My` against the
+   binary64 boundaries by cross-multiplication in `numeric`: overflow at or
+   above the halfway point `(2^54 - 1) * 2^970` above the largest finite value;
+   round to zero at or below `2^-1075`, half the smallest subnormal. Shifts at
+   or beyond 108 bits decide the comparison without computing a power. Overflow
+   produces a failure; a result rounding to zero produces zero. Nonzero
+   subnormals are preserved.
+3. Addition and subtraction cannot round to zero with an error. When either
+   magnitude reaches `2^1022` and the other is at least 1, compute
+   `x * 0.5 + y * 0.5` exactly scaled; the operation overflows exactly when that
+   rounded half reaches `2^1023`. A smaller second operand cannot carry a finite
+   value past the largest finite value.
 4. Put the native float operation only in the safe branch of a generated `CASE`.
    Supply harmless operands to that operation outside its safe branch as an
    additional defense against evaluation during planning. Apply child failures,
@@ -277,8 +352,8 @@ extensions:
 
 This is an implementation algorithm, not an existing helper API. It keeps range
 classification exact while retaining native binary64 rounding for safe results.
-Use the same guarded conversion principle after widened aggregation. Qualify
-built-in functions/operators as the current PostgreSQL dialect does
+The two-bucket recombination uses the same guarded addition. Qualify built-in
+functions/operators as the current PostgreSQL dialect does
 (`connectors/postgres/src/plan.ts:41-79`). Helpers remain generated-plan
 internals, never caller SQL functions.
 
@@ -297,9 +372,9 @@ backend parity and per-cell isolation are release conditions.
 | `packages/relate/src/analytics/sql.ts`, `query.ts`                     | modified | Row-expression types and resolved result metadata                |
 | `packages/sql-parser/src/lower.ts`                                     | modified | Arithmetic arguments and diagnostics                             |
 | `packages/runtime/src/analytics/resolve.ts`, `batch.ts`                | modified | Type inference, authorization traversal and dependency remapping |
-| `packages/relate/src/analytics/render.ts`, `query-validation.ts`       | modified | Checked node rendering and complete parameter budgets            |
-| `packages/relate/src/analytics/connectors.ts`                          | modified | Per-cell checks shared with reference datasets                   |
-| `connectors/duckdb`, `connectors/sqlite`, `connectors/postgres`        | modified | Checked operators/helpers and decoded checks                     |
+| `packages/relate/src/analytics/render.ts`, `query-validation.ts`       | modified | Checked node and accumulation rendering, check columns, budgets  |
+| `packages/relate/src/analytics/connectors.ts`                          | modified | `SlotRow.checks`, later extended by reference datasets           |
+| `connectors/duckdb`, `connectors/sqlite`, `connectors/postgres`        | modified | Dialect node, placeholder and accumulation SQL; decoded checks   |
 | `packages/runtime/src/analytics/merge.ts`                              | modified | Per-cell arithmetic failure handling                             |
 | `tests/support`, `packages/sql-parser/test`                            | modified | Portable accepted/rejected corpus and arithmetic contracts       |
 | Owning package contracts and `apps/docs/content/authoring/datasets.md` | modified | Authoring, approximate numeric results and failure semantics     |
@@ -324,6 +399,8 @@ backend parity and per-cell isolation are release conditions.
 5. Excluded rows and failed reference matches do not introduce arithmetic
    failures. One bad cell leaves unrelated fields and object slots available.
 6. Parameter budgets, authorization footprints, validity masks and backend
-   cancellation still hold. Generated helpers are inaccessible to caller SQL.
-7. Update package/public documentation and run the owning tests, boundary checks
+   cancellation still hold. No helper is installed or registered on any backend.
+7. A float `SUM` or `AVG` over many rows stays within a small constant factor of
+   the native aggregate on each backend (two filtered sums per leaf).
+8. Update package/public documentation and run the owning tests, boundary checks
    and repository validation appropriate to the implementation.

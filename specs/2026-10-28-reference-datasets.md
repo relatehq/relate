@@ -394,7 +394,10 @@ remain distinct when their operands differ. Every field's predicates, validity
 mask and guards remain independent.
 
 Proposed connector result extension
-(`packages/relate/src/analytics/connectors.ts:33`):
+(`packages/relate/src/analytics/connectors.ts:33`). Row arithmetic owns `checks`
+and `arithmeticFailed`
+([connector result checks](./2026-10-28-row-arithmetic.md#connector-result-checks));
+this feature adds the two lookup checks to the same entry:
 
 ```ts
 export interface SlotRow {
@@ -404,7 +407,7 @@ export interface SlotRow {
   readonly checks: readonly {
     readonly referenceMissing: boolean;
     readonly referenceDuplicate: boolean;
-    readonly arithmeticFailed: boolean; // row-arithmetic prerequisite
+    readonly arithmeticFailed: boolean; // owned by row arithmetic
   }[];
 }
 ```
