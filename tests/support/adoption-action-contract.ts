@@ -17,7 +17,7 @@ import {
   referenceInput,
   source,
 } from 'relate';
-import type { ActionContext } from 'relate';
+import type { ActionContext, ObjectId } from 'relate';
 import { compile } from 'relate/compiler';
 import { createRuntime } from '@relate/node';
 import { SourceAccessDenied } from 'relate/connectors';
@@ -1175,6 +1175,270 @@ export function adoptionActionContract(
       ]);
       await relate.close();
     });
+
+    it('recovers a lost external-create response without creating a second record', async () => {
+      // Provider state outlives the action and the integration's journal write.
+      const external = new Map<string, string>();
+      const recovered = new Map<string, string>();
+      let calls = 0;
+      const relate = app(async ({ input, idempotencyId, objects }) => {
+        calls++;
+        let externalId = recovered.get(idempotencyId);
+
+        if (!externalId) {
+          externalId = external.get(idempotencyId);
+
+          if (!externalId) {
+            external.set(
+              idempotencyId,
+              platform.create(input.name, input.budget),
+            );
+            throw new Error(
+              'Provider committed but the create response was lost',
+            );
+          }
+
+          recovered.set(idempotencyId, externalId);
+        }
+
+        const { id } = await objects.AdGroup.adopt(externalId);
+
+        return { groupId: id };
+      });
+
+      try {
+        await expect(
+          relate.as(ana).actions.launch(request()),
+        ).rejects.toMatchObject({ code: 'internal' });
+        expect(await members()).toEqual([]);
+        expect(platform.created).toBe(1);
+        expect(recovered.size).toBe(0);
+
+        const receipt = await relate.as(ana).actions.launch(request());
+
+        expect(receipt.state).toBe('succeeded');
+        expect(await relate.as(ana).actions.launch(request())).toEqual(receipt);
+        expect(calls).toBe(2);
+        expect(platform.created).toBe(1);
+        expect(recovered.size).toBe(1);
+        expect(await members()).toHaveLength(1);
+      } finally {
+        await relate.close();
+      }
+    });
+
+    it('rechecks an expired adoption that is neither returned nor referenced', async () => {
+      const Adopt = defineAction({
+        id: 'adopt-only',
+        input: z.object({}),
+        output: z.object({}),
+        adopts: [AdGroup],
+        policy: { execute: access.role('employee') },
+      });
+      const graph = defineGraph({
+        id: 'unreferenced-adoption',
+        objects: { AdGroup },
+        actions: { adopt: Adopt },
+        access,
+        policies: { AdGroup: policy },
+      });
+      const externalId = platform.create('group', 1);
+      const relate = createRuntime({
+        graph,
+        graphId,
+        store: backing.store,
+        clock: () => now,
+        bindings: [
+          bind(groups, {
+            providerAccountId: 'adv_42',
+            connectionId: 'tiktok',
+            resourceId: 'ad-groups',
+            connector: platform.connector,
+          }),
+        ],
+        actionImplementations: [
+          implementAction(graph, Adopt, async ({ objects }) => {
+            await objects.AdGroup.adopt(externalId);
+            platform.records.get(externalId)!.portfolio = 'south';
+            now += 30_001;
+
+            return {};
+          }),
+        ],
+      });
+
+      try {
+        await expect(
+          relate.as(ana).actions.adopt({ input: {}, idempotencyKey: 'key' }),
+        ).rejects.toMatchObject({ code: 'not-found' });
+        expect(
+          await backing.store.scan(
+            {
+              ...scope(),
+              definitionRevision: compile(graph).definitionRevision,
+            },
+            { limit: 10 },
+          ),
+        ).toEqual({ objects: [], hasMore: false });
+      } finally {
+        await relate.close();
+      }
+    });
+
+    for (const dependency of ['adopted-object', 'native-policy'] as const) {
+      for (const elapsed of [10, 11, -1]) {
+        it(`checks ${dependency} evidence locally after later validation advances the clock by ${elapsed}ms`, async () => {
+          const checks = defineSource({
+            id: 'checks',
+            idField: 'id',
+            schema: z.object({ id: z.string() }),
+          });
+          const Check = defineObject({
+            id: 'check',
+            membership: source(checks),
+            properties: { id: objectId({ id: 'check.id' }) },
+          });
+          const Adopt = defineAction({
+            id: 'adopt-check',
+            input: z.object({}),
+            output: z.object({}),
+            adopts: [AdGroup, Check],
+            creates: [Launch],
+            policy: { execute: access.role('employee') },
+          });
+          const graph = defineGraph({
+            id: 'adoption-validation',
+            objects: { AdGroup, Check, Launch },
+            actions: { adopt: Adopt },
+            access,
+            policies: {
+              AdGroup: {
+                read: {
+                  ...policy.read,
+                  evidenceMaxAgeMs:
+                    dependency === 'adopted-object' ? 10 : 30_000,
+                },
+              },
+              Check: { read: { gate: access.role('employee') } },
+              Launch: {
+                read: {
+                  ...adoptionGraph.policies.Launch.read,
+                  evidenceMaxAgeMs: 10,
+                },
+                create: {
+                  ...adoptionGraph.policies.Launch.create,
+                  evidenceMaxAgeMs: 10,
+                },
+              },
+            },
+          });
+          const initialTime = now;
+          let handlerDone = false;
+          let existingId = '' as ObjectId<typeof AdGroup.id>;
+          const externalId = platform.create('group', 1);
+          const relate = createRuntime({
+            graph,
+            graphId,
+            store: backing.store,
+            clock: () => now,
+            bindings: [
+              bind(groups, {
+                providerAccountId: 'adv_42',
+                connectionId: 'tiktok',
+                resourceId: 'ad-groups',
+                connector: platform.connector,
+              }),
+              bind(checks, {
+                providerAccountId: 'checks',
+                connectionId: 'checks',
+                resourceId: 'checks',
+                connector: {
+                  identify: async () => {
+                    if (handlerDone) now = initialTime + elapsed;
+
+                    return 'checks';
+                  },
+                  fetch: async (id) => ({
+                    providerAccountId: 'checks',
+                    state: 'present' as const,
+                    record: { id },
+                  }),
+                },
+              }),
+            ],
+            actionImplementations: [
+              implementAction(graph, Adopt, async ({ objects }) => {
+                if (dependency === 'adopted-object')
+                  await objects.AdGroup.adopt(externalId);
+                else
+                  await objects.Launch.create({
+                    group: existingId,
+                    note: 'Native policy uses an existing source member',
+                  });
+
+                await objects.Check.adopt('last');
+                handlerDone = true;
+
+                return {};
+              }),
+            ],
+          });
+          const revision = compile(graph).definitionRevision;
+          const checkScope: StorageScope = {
+            graphId,
+            definitionRevision: revision,
+            objectDefinitionId: Check.id,
+            sourceDefinitionId: checks.id,
+            connectionId: 'checks',
+            resourceId: 'checks',
+            providerAccountId: 'checks',
+            partition: 'shared-service',
+          };
+
+          try {
+            if (dependency === 'native-policy')
+              existingId = await relate.host.adopt(AdGroup, externalId);
+
+            const invoke = relate
+              .as(ana)
+              .actions.adopt({ input: {}, idempotencyKey: 'key' });
+
+            if (elapsed === 10)
+              await expect(invoke).resolves.toMatchObject({
+                state: 'succeeded',
+              });
+            else
+              await expect(invoke).rejects.toMatchObject({
+                code: 'unavailable',
+              });
+
+            expect(
+              (await backing.store.scan(checkScope, { limit: 10 })).objects,
+            ).toHaveLength(elapsed === 10 ? 1 : 0);
+            expect(
+              (
+                await backing.store.native!.scan(
+                  { graphId, definitionRevision: revision },
+                  Launch.id,
+                  { limit: 10 },
+                )
+              ).objects,
+            ).toHaveLength(
+              elapsed === 10 && dependency === 'native-policy' ? 1 : 0,
+            );
+            const entries = (
+              await relate.host.activity.feed.read({ limit: 100 })
+            ).entries;
+
+            expect(entries.filter((entry) => entry.invocationId)).toHaveLength(
+              elapsed === 10 ? 3 : 0,
+            );
+          } finally {
+            await relate.close();
+          }
+        });
+      }
+    }
 
     it('rejects startup for adopting graphs without the store capability', async () => {
       const store = backing.store;

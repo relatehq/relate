@@ -1,12 +1,12 @@
 # Function: defineAction()
 
 ```ts
-function defineAction<Id, Input, Output, Creates, Errors>(definition): ActionDefinition<Input, Output, Creates, Errors> & {
+function defineAction<Id, Input, Output, Creates, Errors, Adopts>(definition): ActionDefinition<Input, Output, Creates, Errors, Adopts> & {
   id: Id;
 };
 ```
 
-Defined in: [packages/relate/src/actions.ts:60](https://github.com/relatehq/relate/blob/main/packages/relate/src/actions.ts#L60)
+Defined in: [packages/relate/src/actions.ts:70](https://github.com/relatehq/relate/blob/main/packages/relate/src/actions.ts#L70)
 
 Synchronous native action with optional declared business failures.
 
@@ -17,15 +17,17 @@ Synchronous native action with optional declared business failures.
 | `Id` *extends* `string` | - |
 | `Input` *extends* `ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\> | - |
 | `Output` *extends* `ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\> | - |
-| `Creates` *extends* readonly `NativeObject`[] | - |
+| `Creates` *extends* readonly `NativeObject`[] | readonly \[\] |
 | `Errors` *extends* `Readonly`\<`Record`\<`string`, `ZodType`\<`unknown`, `unknown`, `$ZodTypeInternals`\<`unknown`, `unknown`\>\>\>\> | \{ \} |
+| `Adopts` *extends* readonly `SourceObject`[] | readonly \[\] |
 
 ## Parameters
 
 | Parameter | Type |
 | ------ | ------ |
-| `definition` | \{ `creates`: `Creates`; `description?`: `string`; `errors?`: `Errors`; `id`: `Id`; `input`: `Input`; `output`: `Output`; `policy?`: \{ `execute`: `RoleGate`; \}; \} |
-| `definition.creates` | `Creates` |
+| `definition` | \{ `adopts?`: `Adopts`; `creates?`: `Creates`; `description?`: `string`; `errors?`: `Errors`; `id`: `Id`; `input`: `Input`; `output`: `Output`; `policy?`: \{ `execute`: `RoleGate`; \}; \} |
+| `definition.adopts?` | `Adopts` |
+| `definition.creates?` | `Creates` |
 | `definition.description?` | `string` |
 | `definition.errors?` | `Errors` |
 | `definition.id` | `Id` |
@@ -36,6 +38,6 @@ Synchronous native action with optional declared business failures.
 
 ## Returns
 
-`ActionDefinition`\<`Input`, `Output`, `Creates`, `Errors`\> & \{
+`ActionDefinition`\<`Input`, `Output`, `Creates`, `Errors`, `Adopts`\> & \{
   `id`: `Id`;
 \}

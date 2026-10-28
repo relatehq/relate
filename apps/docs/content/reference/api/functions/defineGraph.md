@@ -4,7 +4,7 @@
 function defineGraph<G>(graph): G;
 ```
 
-Defined in: [packages/relate/src/index.ts:557](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L557)
+Defined in: [packages/relate/src/index.ts:560](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L560)
 
 ## Type Parameters
 

@@ -245,6 +245,11 @@ await transaction.accept(scope, {
 - The executor calls `accept` once per scoped identity, after the handler and
   every read finished; only database work follows. `scope` must belong to the
   transaction's graph and revision. Reject a duplicate identity.
+- Before acceptance, the executor checks that every source observation used for
+  final authorization is still within its evidence age bound. This includes
+  dependencies of native policies and pending adoptions that are not returned.
+  Expired evidence rejects with retryable `unavailable` before taking record
+  locks; this final check performs no source I/O.
 - Use `decideTransactionalAcceptance(previous, input)` from
   `@relate/runtime/storage` under the identity's lock. It rejects a committed
   member with a different ID, conflicting ordering evidence, and a newer

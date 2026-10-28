@@ -46,6 +46,7 @@ export class AdoptionOverlay {
   readonly #locks = new Map<string, Promise<void>>();
   #state: 'open' | 'sealed' | 'revoked' = 'open';
   #conflict: unknown;
+  #validationWindow: { from: number; through: number } | undefined;
 
   constructor(private readonly check: () => void = () => {}) {}
 
@@ -91,6 +92,35 @@ export class AdoptionOverlay {
         entry.version,
       ]),
     );
+  }
+
+  /** Replace the evidence bounds when final validation starts or is repeated. */
+  beginValidation() {
+    this.#validationWindow = { from: -Infinity, through: Infinity };
+  }
+
+  /** Include source-policy dependencies, even when they are not adopted here. */
+  captureEvidence(observedAt: number, maxAgeMs: number) {
+    if (!this.#validationWindow) return;
+
+    this.#validationWindow.from = Math.max(
+      this.#validationWindow.from,
+      observedAt,
+    );
+    this.#validationWindow.through = Math.min(
+      this.#validationWindow.through,
+      observedAt + maxAgeMs,
+    );
+  }
+
+  /** Local check only: later validation I/O must not expire an earlier check. */
+  assertFresh(now: number) {
+    if (
+      this.#validationWindow &&
+      (now < this.#validationWindow.from ||
+        now > this.#validationWindow.through)
+    )
+      throw new AdoptionConflict();
   }
 
   /** Every staged identity's Relate ID and object type. */

@@ -4,7 +4,7 @@
 function defineObject<Id, P, M, D>(definition): DefinedObject<Id, P, M, D>;
 ```
 
-Defined in: [packages/relate/src/index.ts:315](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L315)
+Defined in: [packages/relate/src/index.ts:318](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L318)
 
 ## Type Parameters
 

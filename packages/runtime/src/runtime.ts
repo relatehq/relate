@@ -253,6 +253,8 @@ export function createRuntime(options: RuntimeOptions) {
     clock,
     install,
     resolve: resolveEvidence,
+    captureEvidence: (transaction, observedAt, maxAgeMs) =>
+      adoptionOverlay(transaction)?.captureEvidence(observedAt, maxAgeMs),
   });
 
   async function readObject(

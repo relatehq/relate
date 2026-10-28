@@ -55,6 +55,11 @@ export function createNativeOperations(options: {
   store: ObservationStore;
   clock(): number;
   install(): Promise<void>;
+  captureEvidence?(
+    transaction: NativeTransaction | undefined,
+    observedAt: number,
+    maxAgeMs: number,
+  ): void;
   resolve(
     attempt: OperationScope,
     object: ObjectType,
@@ -78,6 +83,8 @@ export function createNativeOperations(options: {
       manifest,
       principal,
       clock,
+      captureEvidence: (observedAt, maxAgeMs) =>
+        options.captureEvidence?.(transaction, observedAt, maxAgeMs),
       resolve: (object, key, age, canonical = false) =>
         options.resolve(
           attempt,

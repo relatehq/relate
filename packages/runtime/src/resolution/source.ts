@@ -74,6 +74,7 @@ export function classifyAdoptionFailure(
  * storage. Supplied by composition; absent outside action transactions.
  */
 export interface PendingSources {
+  captureEvidence(observedAt: number, maxAgeMs: number): void;
   find(scope: StorageScope, sourceRecordId: string): StoredObject | undefined;
   get(scope: StorageScope, objectId: string): StoredObject | undefined;
   /** The store a refresh of a pending identity reads and accepts into. */
@@ -323,6 +324,8 @@ export function createSourceOperations(options: {
       manifest,
       principal,
       clock,
+      captureEvidence: (observedAt, maxAgeMs) =>
+        pending?.captureEvidence(observedAt, maxAgeMs),
       resolve: (target, key, maxAgeMs, canonical = false) =>
         options.resolve(
           attempt,

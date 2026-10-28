@@ -6,7 +6,7 @@ function source(resource): Readonly<{
 }>;
 ```
 
-Defined in: [packages/relate/src/index.ts:276](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L276)
+Defined in: [packages/relate/src/index.ts:279](https://github.com/relatehq/relate/blob/main/packages/relate/src/index.ts#L279)
 
 ## Parameters
 

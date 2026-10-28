@@ -638,6 +638,7 @@ export function createActionExecutor(options: {
 
             // Recheck after arbitrary implementation awaits and all native writes.
             const validate = async () => {
+              overlay.beginValidation();
               await checkReferences(action.input, input);
 
               for (const record of domain ? [] : created)
@@ -692,6 +693,9 @@ export function createActionExecutor(options: {
             const sourceChanges: FeedDraft[] = [];
 
             if (!domain && overlay.size) {
+              // Observation versions can stay fixed while policy evidence expires.
+              overlay.assertFresh(options.clock());
+
               // Sealed: no further reads or source I/O; record locks only now.
               for (const entry of overlay.seal()) {
                 const attribution = {
