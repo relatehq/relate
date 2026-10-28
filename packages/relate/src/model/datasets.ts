@@ -8,7 +8,7 @@ const gate = z.strictObject({ role: text });
 
 export const datasetTypeSchema = z.union([
   z.strictObject({
-    type: z.enum(['boolean', 'string', 'int32', 'int64', 'float64']),
+    type: z.enum(['boolean', 'string', 'int32', 'int64', 'float64', 'date']),
     nullable: z.boolean(),
   }),
   z.strictObject({

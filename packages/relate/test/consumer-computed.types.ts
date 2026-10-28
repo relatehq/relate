@@ -8,6 +8,7 @@ const decoded = decodeComputed({
     latest: '2026-10-09T10:30:00.000Z',
     exact: '2026-10-09T10:30:00.000001Z',
     flag: false,
+    day: '2024-02-29',
   },
   meta: {
     computed: {
@@ -15,6 +16,7 @@ const decoded = decodeComputed({
       latest: { type: 'timestamp', precision: 3, nullable: true },
       exact: { type: 'timestamp', precision: 6, nullable: false },
       flag: { type: 'boolean', nullable: false },
+      day: { type: 'date', nullable: true },
     },
   },
 } as const);
@@ -23,6 +25,9 @@ const count: bigint | undefined = decoded.count;
 const latest: Date | null | undefined = decoded.latest;
 const exact: string | undefined = decoded.exact;
 const flag: boolean | undefined = decoded.flag;
+const day: string | null | undefined = decoded.day;
+// @ts-expect-error Calendar dates never become Date.
+const shifted: Date | null | undefined = decoded.day;
 // @ts-expect-error Decoded data never guarantees presence.
 const requiredCount: bigint = decoded.count;
 
@@ -43,7 +48,7 @@ const ordinary = decodeComputed({ data: { name: 'Acme' }, meta: {} });
 ordinary.name;
 // @ts-expect-error A page must be decoded record by record.
 decodeComputed({ data: [], meta: { exhausted: true } });
-void [count, latest, exact, flag, requiredCount, rounded];
+void [count, latest, exact, flag, day, shifted, requiredCount, rounded];
 
 // Real consumer metadata must not inherit the protocol's open string index.
 import type { ObjectOperations } from 'relate/consumer';

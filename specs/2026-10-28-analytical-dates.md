@@ -7,7 +7,7 @@
 | [Wire and calendar rules](#wire-values)                                     | Agreed after review 2026-10-28          |
 | [Consumer value type](#consumer-value-type) (`string`, never `Date`)        | Agreed after review 2026-10-28          |
 | [Connector behavior](#connector-behavior), including SQLite `__relate_date` | Agreed after review 2026-10-28          |
-| Implementation                                                              | Not implemented                         |
+| Implementation                                                              | Implemented 2026-10-28                  |
 
 ## Problem
 

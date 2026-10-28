@@ -121,7 +121,7 @@ export function analyticalDiscovery(
       'SELECT <aggregate expression> FROM self.<dataset> [AS alias] [WHERE predicate]',
     aggregates: ['COUNT', 'COUNT DISTINCT', 'SUM', 'AVG', 'MIN', 'MAX'],
     encoding:
-      'int64 results are canonical decimal JSON strings; timestamps are UTC strings with declared precision. Numeric formulas use nullable float64 and return null for division by zero.',
+      'int64 results are canonical decimal JSON strings; timestamps are UTC strings with declared precision; dates are YYYY-MM-DD calendar-date strings with no time or timezone. Numeric formulas use nullable float64 and return null for division by zero.',
     identifiers:
       'Unquoted names match declared names case-insensitively; quoted names match exactly.',
     filters:

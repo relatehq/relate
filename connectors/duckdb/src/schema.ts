@@ -38,7 +38,9 @@ export async function describe(
                   ? [{ type: 'timestamp', precision: 3 }]
                   : databaseType === 'TIMESTAMP'
                     ? [{ type: 'timestamp', precision: 6 }]
-                    : [];
+                    : databaseType === 'DATE'
+                      ? [{ type: 'date' }]
+                      : [];
 
     Object.defineProperty(columns, declared, {
       enumerable: true,

@@ -44,6 +44,9 @@ export function datasetType(schema: z.ZodType): ComputedResultType {
     )
       return { type: 'timestamp', precision: def.precision, nullable };
 
+    if (def.type === 'string' && def.format === 'date')
+      return { type: 'date', nullable };
+
     throw new Error('Unsupported dataset scalar format');
   }
 

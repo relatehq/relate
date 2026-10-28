@@ -9,7 +9,7 @@ import {
   objectId,
 } from 'relate';
 
-/** Physical row order: customerId, n, small, ratio, label, flag, at. */
+/** Physical row order: customerId, n, small, ratio, label, flag, at, day. */
 export interface PropertyRow {
   readonly customerId: string;
   readonly n: bigint | null;
@@ -18,6 +18,7 @@ export interface PropertyRow {
   readonly label: string | null;
   readonly flag: boolean | null;
   readonly at: string | null;
+  readonly day: string | null;
 }
 
 export type PropertyColumn = Exclude<keyof PropertyRow, 'customerId'>;
@@ -29,6 +30,7 @@ export const propertyColumnTypes = {
   label: 'string',
   flag: 'boolean',
   at: 'timestamp',
+  day: 'date',
 } as const satisfies Record<PropertyColumn, string>;
 
 /** Fixed objects; generated rows vary. `other` rows belong to no customer. */
@@ -68,6 +70,7 @@ export function createSqlPropertyGraph() {
         'events.at',
         z.iso.datetime({ offset: true, precision: 6 }).nullable(),
       ),
+      day: column('events.day', z.iso.date().nullable()),
     },
   });
   const Customer = defineObject({

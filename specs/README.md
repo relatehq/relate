@@ -43,5 +43,6 @@ in the pull request.
   arithmetic and failure isolation; implemented on SQLite, DuckDB and
   PostgreSQL.
 - [2026-10-28: Analytical calendar dates](./2026-10-28-analytical-dates.md) —
-  proposed calendar-date type and connector contracts; ISO text remains the
-  explicit benchmark fallback; not implemented.
+  calendar-date logical type for dataset columns and analytical values;
+  implemented on SQLite, DuckDB and PostgreSQL. Reference-dataset date keys
+  follow with that feature.

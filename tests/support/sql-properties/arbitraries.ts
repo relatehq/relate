@@ -30,6 +30,15 @@ const instants = [
   '2026-10-02T00:00:00.000000Z',
   '9999-12-31T23:59:59.999999Z',
 ];
+/** Canonical calendar dates, including ISO year zero and leap days. */
+const dates = [
+  '0000-02-29',
+  '0001-01-01',
+  '2024-02-29',
+  '2026-10-01',
+  '2026-10-02',
+  '9999-12-31',
+];
 const comparisons: Comparison[] = ['=', '<>', '!=', '<', '<=', '>', '>='];
 const columns = Object.keys(propertyColumnTypes) as PropertyColumn[];
 
@@ -91,7 +100,9 @@ function value(column: PropertyColumn): fc.Arbitrary<ValueOperand> {
               }))
             : (type === 'string'
                 ? fc.constantFrom(...strings)
-                : literalInstant
+                : type === 'date'
+                  ? fc.constantFrom(...dates)
+                  : literalInstant
               ).map((v) => ({
                 value: v,
                 literal: `'${v.replaceAll("'", "''")}'`,
@@ -196,4 +207,5 @@ export const propertyRow: fc.Arbitrary<PropertyRow> = fc.record({
   label: fc.option(fc.constantFrom(...strings), { nil: null }),
   flag: fc.option(fc.boolean(), { nil: null }),
   at: fc.option(storedInstant, { nil: null }),
+  day: fc.option(fc.constantFrom(...dates), { nil: null }),
 });

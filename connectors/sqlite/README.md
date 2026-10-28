@@ -149,12 +149,13 @@ return {
 
 `startApp` checks every declared column against `PRAGMA table_info`. INTEGER
 supports boolean, int32 and int64; BOOLEAN declarations use the same portable
-values. TEXT supports strings and canonical UTC millisecond/microsecond
-timestamps; DATETIME and TIMESTAMP declarations support the same canonical text
-representation. REAL supports float64. NUMERIC/DECIMAL and BLOB are unsupported.
-Non-null declarations require `NOT NULL` as reported by SQLite. Inspection
-checks affinity and nullability, without scanning rows, and uses a five-second
-statement deadline after process startup.
+values. TEXT supports strings, canonical UTC millisecond/microsecond timestamps
+and canonical `YYYY-MM-DD` dates; DATE, DATETIME and TIMESTAMP declarations
+support the same canonical text representations. REAL supports float64.
+NUMERIC/DECIMAL and BLOB are unsupported. Non-null declarations require
+`NOT NULL` as reported by SQLite. Inspection checks affinity and nullability,
+without scanning rows, and uses a five-second statement deadline after process
+startup.
 
 The connection's `analytics` capability accepts opaque resources and authorized,
 typed query structures. It never accepts caller SQL text. Planning generates one
@@ -169,7 +170,11 @@ uses SQLite's compensated summation. Integer AVG divides an exact total held in
 32-bit high and low partial sums before converting the quotient and remainder to
 float64. Floating-point results can differ from PostgreSQL in the last digits.
 Correlation uses indexed equality against both canonical timestamp precisions,
-leaving the dataset column unwrapped.
+leaving the dataset column unwrapped. Because a TEXT declaration cannot prove a
+column holds dates, every date value a statement reads (in predicates, MIN/MAX
+or COUNT) passes through a `__relate_date` check. Malformed text such as
+`2026-1-01` fails the statement with `execution-failed` instead of comparing as
+text; canonical dates then order correctly as binary text.
 
 A pool of at most four reusable child processes belongs to each configured
 connection. Every statement opens a fresh read-only database handle and closes

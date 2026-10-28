@@ -23,7 +23,7 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
 
     // ISO year zero is PostgreSQL 1 BC; retain the same instant and precision.
     const converted =
-      value.type === 'timestamp' &&
+      (value.type === 'timestamp' || value.type === 'date') &&
       typeof encoded === 'string' &&
       encoded.startsWith('0000-')
         ? `0001-${encoded.slice(5)} BC`
@@ -35,6 +35,7 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
       int64: 'pg_catalog.int8',
       float64: 'pg_catalog.float8',
       timestamp: 'pg_catalog.timestamptz',
+      date: 'pg_catalog.date',
     }[value.type];
 
     return { sql: `$${position}::${sqlType}`, value: converted };
@@ -87,6 +88,15 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
     return `CASE WHEN NOT pg_catalog.isfinite(${value}) THEN ${invalid} ELSE pg_catalog.to_char(${value} AT TIME ZONE ${zone}, ${format}) END`;
   },
   timestampParameters: 3,
+  date(value, bind) {
+    const invalid = bind({ type: 'string', value: 'invalid-date' });
+    const format = bind({ type: 'string', value: 'YYYY-MM-DDAD' });
+
+    // DATE outlives the timestamp range, so guard before the cast. The explicit
+    // timestamp without time zone keeps to_char from shifting the day.
+    return `CASE WHEN ${value} OPERATOR(pg_catalog.<) '0001-01-01 BC'::pg_catalog.date OR ${value} OPERATOR(pg_catalog.>) '9999-12-31'::pg_catalog.date THEN ${invalid} ELSE pg_catalog.to_char(CAST(${value} AS pg_catalog.timestamp), ${format}) END`;
+  },
+  dateParameters: 2,
   checked,
 };
 

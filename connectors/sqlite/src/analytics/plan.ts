@@ -30,7 +30,9 @@ const dialect: AnalyticalSqlDialect<string | number | bigint | null> = {
             : encoded;
 
     const sqlType =
-      value.type === 'string' || value.type === 'timestamp'
+      value.type === 'string' ||
+      value.type === 'timestamp' ||
+      value.type === 'date'
         ? 'TEXT'
         : value.type === 'float64'
           ? 'REAL'
@@ -42,7 +44,10 @@ const dialect: AnalyticalSqlDialect<string | number | bigint | null> = {
   operand(text, type, comparison) {
     if (comparison && type === 'timestamp') text = `__relate_instant(${text})`;
 
-    return type === 'string' || type === 'timestamp'
+    // Every participating date is checked; malformed text fails the statement.
+    if (type === 'date') text = `__relate_date(${text})`;
+
+    return type === 'string' || type === 'timestamp' || type === 'date'
       ? `(${text} COLLATE BINARY)`
       : text;
   },
@@ -66,6 +71,10 @@ const dialect: AnalyticalSqlDialect<string | number | bigint | null> = {
     return value;
   },
   timestampParameters: 0,
+  date(value) {
+    return value;
+  },
+  dateParameters: 0,
   checked,
 };
 

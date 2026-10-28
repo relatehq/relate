@@ -11,11 +11,11 @@ sqlPropertyBackendContract('SQLite', async () => {
   const database = new DatabaseSync(path);
 
   database.exec(
-    'CREATE TABLE events(customerId TEXT NOT NULL, n INTEGER, small INTEGER, ratio REAL, label TEXT, flag INTEGER, at TEXT)',
+    'CREATE TABLE events(customerId TEXT NOT NULL, n INTEGER, small INTEGER, ratio REAL, label TEXT, flag INTEGER, at TEXT, day TEXT)',
   );
   const connection = sqlite({ connectionId: 'properties', path });
   const insert = database.prepare(
-    'INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
   );
 
   return {
@@ -32,6 +32,7 @@ sqlPropertyBackendContract('SQLite', async () => {
           row.label,
           row.flag === null ? null : Number(row.flag),
           row.at,
+          row.day,
         );
 
       database.exec('COMMIT');

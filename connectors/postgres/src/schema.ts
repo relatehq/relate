@@ -53,7 +53,9 @@ export async function describe(
                 ? [{ type: 'float64' }]
                 : oid === 1184 && (precision === 3 || precision === 6)
                   ? [{ type: 'timestamp', precision }]
-                  : [];
+                  : oid === 1082
+                    ? [{ type: 'date' }]
+                    : [];
 
     Object.defineProperty(columns, declared, {
       enumerable: true,

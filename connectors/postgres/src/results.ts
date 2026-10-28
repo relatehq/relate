@@ -38,15 +38,12 @@ export function decode(
         if (type.type === 'float64')
           return value.trim() === '' ? value : Number(value);
 
-        if (
-          type.type === 'timestamp' &&
-          value.startsWith('0001-') &&
-          value.endsWith('BC')
-        )
+        const era = type.type === 'timestamp' || type.type === 'date';
+
+        if (era && value.startsWith('0001-') && value.endsWith('BC'))
           return `0000-${value.slice(5, -2)}`;
 
-        if (type.type === 'timestamp' && value.endsWith('AD'))
-          return value.slice(0, -2);
+        if (era && value.endsWith('AD')) return value.slice(0, -2);
 
         return value;
       }),

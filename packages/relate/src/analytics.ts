@@ -10,6 +10,7 @@ export type { AnalyticalLimits } from './analytics/limits.js';
 
 export {
   AnalyticalValueError,
+  canonicalDate,
   canonicalTimestamp,
   encodeAnalyticalValue,
   parseAnalyticalValue,

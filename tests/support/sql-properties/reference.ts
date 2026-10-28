@@ -27,7 +27,10 @@ function canonical(micros: bigint): string {
   return `${seconds.slice(0, 19)}.${String(micros % 1_000_000n).padStart(6, '0')}Z`;
 }
 
-/** SQL ordering: strings by UTF-8 bytes (PostgreSQL "C", SQLite BINARY), timestamps by instant. */
+/**
+ * SQL ordering: strings by UTF-8 bytes (PostgreSQL "C", SQLite BINARY),
+ * timestamps by instant. Canonical dates order as plain text.
+ */
 function order(type: string, left: Scalar, right: Scalar): number {
   if (type === 'string')
     return Buffer.compare(

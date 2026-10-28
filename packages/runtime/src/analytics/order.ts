@@ -16,10 +16,19 @@ const compare = (
   right: string | number | boolean | bigint,
 ) => (left < right ? -1 : left > right ? 1 : 0);
 
+/** Result types with a total order, so gt/gte/lt/lte are meaningful. */
+const RANGE_TYPES: ReadonlySet<string> = new Set([
+  'int32',
+  'int64',
+  'float64',
+  'timestamp',
+  'date',
+]);
+
 export function computedFilterOperators(
   type: ComputedResultType,
 ): readonly string[] {
-  return ['int32', 'int64', 'float64', 'timestamp'].includes(type.type)
+  return RANGE_TYPES.has(type.type)
     ? ['eq', 'in', 'gt', 'gte', 'lt', 'lte']
     : ['eq', 'in'];
 }
@@ -93,11 +102,8 @@ export function prepareComputedOrder(input: {
 
       const range = !['eq', 'in'].includes(operator);
 
-      if (
-        range &&
-        !['int32', 'int64', 'float64', 'timestamp'].includes(type.type)
-      )
-        fail(at, 'Range comparisons require a number or timestamp.');
+      if (range && !RANGE_TYPES.has(type.type))
+        fail(at, 'Range comparisons require a number, timestamp or date.');
 
       if (range && raw === null) fail(at, 'Range bounds cannot be null.');
 

@@ -801,12 +801,14 @@ captures and freezes column descriptors and derives `dataset.schema` and the
 `DatasetRow<D>` TypeScript row type from them.
 
 The compiler accepts unrefined `z.boolean()`, `z.string()`, `z.int32()`,
-`z.int64()`, `z.number()` and
-`z.iso.datetime({ offset: true, precision: 3 | 6 })` column schemas, optionally
-wrapped in `.nullable()`. Optional values, coercions, transforms, defaults,
-enum/decimal types and additional refinements are rejected: physical schema
-checks cannot promise their row-level constraints. Int64 row schemas retain
-bigint; datasets do not persist their rows as object JSON.
+`z.int64()`, `z.number()`, `z.iso.datetime({ offset: true, precision: 3 | 6 })`
+and `z.iso.date()` column schemas, optionally wrapped in `.nullable()`.
+`z.iso.date()` compiles to the `date` logical type: canonical `YYYY-MM-DD` text
+with no time or timezone, which `decodeComputed` returns as a string, never
+`Date`. Optional values, coercions, transforms, defaults, enum/decimal types and
+additional refinements are rejected: physical schema checks cannot promise their
+row-level constraints. Int64 row schemas retain bigint; datasets do not persist
+their rows as object JSON.
 
 ```mermaid
 flowchart LR

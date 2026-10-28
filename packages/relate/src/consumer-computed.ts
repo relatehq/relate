@@ -21,6 +21,8 @@ type ValueTypes = {
   int64: bigint;
   float64: number;
   timestamp: Date | string;
+  /** Canonical `YYYY-MM-DD` text; never Date, which would shift by timezone. */
+  date: string;
 };
 
 type DecodedValue<T extends ComputedResultType> =
@@ -57,7 +59,8 @@ function record(value: unknown): value is Record<string, unknown> {
 /**
  * Decode only present fields named by `meta.computed`, without changing the
  * original record or its evidence. Int64 becomes bigint, millisecond timestamps
- * become Date, and microsecond timestamps remain exact canonical UTC strings.
+ * become Date, microsecond timestamps remain exact canonical UTC strings, and
+ * calendar dates remain canonical `YYYY-MM-DD` strings.
  * A not-found result or absent computed metadata returns an empty object.
  * Malformed present values or their metadata throw AnalyticalValueError without
  * input values. Omitted fields are not decoded.

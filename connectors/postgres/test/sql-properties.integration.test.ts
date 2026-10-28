@@ -11,7 +11,7 @@ sqlPropertyBackendContract('PostgreSQL', async () => {
   await database.connect();
   // A locale collation orders 'B' after 'a'; results must still use byte order.
   await database.query(`CREATE SCHEMA "${schema}";
-    CREATE TABLE "${schema}".events("customerId" TEXT NOT NULL, n BIGINT, small INTEGER, ratio DOUBLE PRECISION, label TEXT COLLATE "und-x-icu", flag BOOLEAN, at TIMESTAMPTZ(6));`);
+    CREATE TABLE "${schema}".events("customerId" TEXT NOT NULL, n BIGINT, small INTEGER, ratio DOUBLE PRECISION, label TEXT COLLATE "und-x-icu", flag BOOLEAN, at TIMESTAMPTZ(6), day DATE);`);
   const connection = postgres({
     connectionId: 'properties',
     url: testDatabaseUrl(),
@@ -25,7 +25,7 @@ sqlPropertyBackendContract('PostgreSQL', async () => {
 
       for (const row of rows)
         await database.query(
-          `INSERT INTO "${schema}".events VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          `INSERT INTO "${schema}".events VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
             row.customerId,
             row.n === null ? null : String(row.n),
@@ -34,6 +34,10 @@ sqlPropertyBackendContract('PostgreSQL', async () => {
             row.label,
             row.flag,
             row.at,
+            // PostgreSQL spells ISO year zero as 1 BC.
+            row.day?.startsWith('0000-')
+              ? `0001-${row.day.slice(5)} BC`
+              : row.day,
           ],
         );
 

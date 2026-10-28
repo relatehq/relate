@@ -19,6 +19,7 @@ it.each(['compact', 'full'] as const)(
         small: 12,
         average: 2.5,
         text: 'event',
+        day: '2024-02-29',
       },
       meta: {
         evidence,
@@ -31,6 +32,7 @@ it.each(['compact', 'full'] as const)(
           small: { type: 'int32', nullable: false },
           average: { type: 'float64', nullable: false },
           text: { type: 'string', nullable: false },
+          day: { type: 'date', nullable: true },
           forbidden: { type: 'int64', nullable: false },
           unavailable: { type: 'timestamp', precision: 3, nullable: true },
         },
@@ -52,7 +54,9 @@ it.each(['compact', 'full'] as const)(
       small: 12,
       average: 2.5,
       text: 'event',
+      day: '2024-02-29',
     });
+    expect(fields.day).not.toBeInstanceOf(Date);
     expect(fields).not.toHaveProperty('forbidden');
     expect(fields).not.toHaveProperty('unavailable');
     expect(fields).not.toHaveProperty('name');
