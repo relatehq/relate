@@ -9,6 +9,7 @@ import type {
   SqlDataset,
 } from 'relate/analytics';
 import type { AuthorizedDatasetQuery } from 'relate/connectors';
+import { checked } from './checked.js';
 
 export type SelectedDataset = SqlDataset & { readonly schema: string };
 export type DuckDBPlan = AnalyticalSqlPlan<string | number | boolean | null>;
@@ -29,7 +30,15 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
       timestamp: 'TIMESTAMP',
     }[value.type];
 
-    return { sql: `CAST($${position} AS ${sqlType})`, value: encoded };
+    // The driver binds integral numbers as BIGINT, so 1e308 would not bind;
+    // shortest round-trip text parses back to the same double.
+    return {
+      sql: `CAST($${position} AS ${sqlType})`,
+      value:
+        value.type === 'float64' && encoded !== null
+          ? String(encoded)
+          : encoded,
+    };
   },
   operand(text, type) {
     return type === 'string' ? `(${text} COLLATE "binary")` : text;
@@ -50,15 +59,9 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
         : inputType === 'boolean' && aggregate.aggregate === 'max'
           ? 'BOOL_OR'
           : aggregate.aggregate.toUpperCase();
-    let sql = `"system"."main".${name}(${aggregate.distinct ? 'DISTINCT ' : ''}${argument}) FILTER (WHERE ${filter})`;
 
-    // DuckDB promotes integer SUM to HUGEINT; preserve the portable contract.
-    if (aggregate.aggregate === 'sum' && aggregate.result.type === 'int64')
-      sql = `CAST(${sql} AS BIGINT)`;
-
-    if (aggregate.aggregate === 'avg') sql = `CAST(${sql} AS DOUBLE)`;
-
-    return sql;
+    // Numeric SUM and AVG use checked accumulation.
+    return `"system"."main".${name}(${aggregate.distinct ? 'DISTINCT ' : ''}${argument}) FILTER (WHERE ${filter})`;
   },
   timestamp(value, precision, bind) {
     const fraction = precision === 3 ? '%g' : '%f';
@@ -70,6 +73,7 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
     return `"system"."main".strftime(CAST(${value} AS TIMESTAMP), ${format})`;
   },
   timestampParameters: 1,
+  checked,
 };
 
 export function render(

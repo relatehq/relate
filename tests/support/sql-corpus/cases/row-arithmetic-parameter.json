@@ -1,0 +1,42 @@
+{
+  "name": "row-arithmetic-parameter",
+  "sql": "SELECT SUM(value * $scale) FROM self.events",
+  "parameters": {
+    "scale": 3
+  },
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "sum",
+      "argument": {
+        "kind": "arithmetic",
+        "op": "*",
+        "left": {
+          "kind": "column",
+          "name": "value",
+          "quoted": false
+        },
+        "right": {
+          "kind": "parameter",
+          "name": "scale"
+        }
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": "24",
+      "acme_late": "24",
+      "empty": null,
+      "nulls": null,
+      "wide": "27021597764222985"
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "name": "row-arithmetic-precedence",
+  "sql": "SELECT SUM(value + small * 2 - (value - 1)) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "sum",
+      "argument": {
+        "kind": "arithmetic",
+        "op": "-",
+        "left": {
+          "kind": "arithmetic",
+          "op": "+",
+          "left": {
+            "kind": "column",
+            "name": "value",
+            "quoted": false
+          },
+          "right": {
+            "kind": "arithmetic",
+            "op": "*",
+            "left": {
+              "kind": "column",
+              "name": "small",
+              "quoted": false
+            },
+            "right": {
+              "kind": "literal",
+              "literal": "number",
+              "value": "2"
+            }
+          }
+        },
+        "right": {
+          "kind": "arithmetic",
+          "op": "-",
+          "left": {
+            "kind": "column",
+            "name": "value",
+            "quoted": false
+          },
+          "right": {
+            "kind": "literal",
+            "literal": "number",
+            "value": "1"
+          }
+        }
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": true
+    },
+    "values": {
+      "acme_before": "36",
+      "acme_late": "36",
+      "empty": null,
+      "nulls": null,
+      "wide": "34"
+    }
+  }
+}

@@ -1,5 +1,10 @@
 import type { ComputedResultType, LogicalType } from '@relate/protocol';
-import type { Aggregate, Predicate, ScalarExpression } from './sql.js';
+import type {
+  Aggregate,
+  Predicate,
+  RowExpression,
+  ScalarExpression,
+} from './sql.js';
 import type { TypedValue } from './values.js';
 
 declare const datasetResource: unique symbol;
@@ -23,6 +28,12 @@ export type ResolvedOperand =
     }
   | { readonly kind: 'key'; readonly key: number; readonly type: LogicalType }
   | { readonly kind: 'value'; readonly value: TypedValue };
+
+/** Checked row arithmetic; every node carries its inferred numeric type. */
+export type ResolvedRowExpression = RowExpression<
+  ResolvedOperand,
+  { readonly type: { readonly type: 'int64' | 'float64' } }
+>;
 
 export type ResolvedPredicate =
   | {
@@ -57,7 +68,7 @@ export type ResolvedAggregate =
 
 export interface ResolvedAggregateLeaf {
   readonly aggregate: Aggregate;
-  readonly argument: ResolvedOperand | '*';
+  readonly argument: ResolvedRowExpression | '*';
   readonly distinct: boolean;
   readonly predicate?: ResolvedPredicate;
   readonly fallback?: TypedValue;

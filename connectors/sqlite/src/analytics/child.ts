@@ -66,14 +66,18 @@ function execute(plan: SqlitePlan): DatasetExecution {
   const statement = database!.prepare(plan.sql);
 
   statement.setReadBigInts(true);
-  const raw = statement.all(...plan.values);
+  // Minimum supported Node versions treat ?NNN as named parameters; passing
+  // them positionally fails with "column index out of range" on those versions.
+  const raw = statement.all(
+    Object.fromEntries(plan.values.map((value, i) => [`?${i + 1}`, value])),
+  );
 
   if (raw.length !== plan.slots) throw new InvalidResult();
 
   const rows = raw.map((row, slot) => {
     if (
       row.slot !== BigInt(slot) ||
-      Object.keys(row).length !== plan.results.length + 1
+      Object.keys(row).length !== plan.results.length * 2 + 1
     )
       throw new InvalidResult();
 
@@ -108,7 +112,15 @@ function execute(plan: SqlitePlan): DatasetExecution {
       return value as string | number | bigint | boolean | null;
     });
 
-    return { slot, values };
+    const checks = plan.results.map((_, i) => {
+      const check: SQLOutputValue | undefined = row[`c${i}`];
+
+      if (check !== 0n && check !== 1n) throw new InvalidResult();
+
+      return { arithmeticFailed: check === 1n };
+    });
+
+    return { slot, values, checks };
   });
 
   return { rows, readAt };

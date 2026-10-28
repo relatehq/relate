@@ -165,8 +165,9 @@ placeholders against SQLite's 32,766 limit. Correlation and masks remain outside
 expression predicates; duplicate correlation keys remain separate object slots.
 String comparisons use binary collation. Timestamp comparisons normalize exact
 milliseconds to microseconds, including MIN/MAX and COUNT(DISTINCT). Float64 SUM
-uses SQLite's compensated summation, and integer AVG divides a sum already
-rounded to float64; both can differ from PostgreSQL in the last digits.
+uses SQLite's compensated summation. Integer AVG divides an exact total held in
+32-bit high and low partial sums before converting the quotient and remainder to
+float64. Floating-point results can differ from PostgreSQL in the last digits.
 Correlation uses indexed equality against both canonical timestamp precisions,
 leaving the dataset column unwrapped.
 
@@ -188,10 +189,14 @@ retire the keyed-read worker. Resource and plan handles cannot move between
 connections or be used after retirement.
 
 Integers are read as bigint to preserve int64; int32 and boolean driver values
-are decoded to portable scalars. SQL overflow fails the whole statement. BLOB or
-malformed row framing is `invalid-result`; logical scalar validation remains the
-runtime's per-alias responsibility. Error messages do not include SQL, values or
-driver details. A successful result contains one ordered row per input slot and
+are decoded to portable scalars. SQLite promotes integer overflow to REAL and
+float overflow to infinity without raising, so row arithmetic checks
+`typeof(...)` and finite results; integer sums use 32-bit high and low partial
+sums because native `SUM` raises on temporary overflow. An out-of-range node or
+total fails only that cell. Plans use numbered `?NNN` binds. BLOB or malformed
+row framing is `invalid-result`; logical scalar validation remains the runtime's
+per-alias responsibility. Error messages do not include SQL, values or driver
+details. A successful result contains one ordered row per input slot and
 `readAt` from the actual statement's start.
 
 Optional `execute` timing callbacks report `connectionStartup` and `execution`

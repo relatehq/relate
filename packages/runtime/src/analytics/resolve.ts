@@ -1,9 +1,14 @@
 import {
+  foldRowExpression,
+  isRowArithmetic,
   mapScalarExpression,
   parseAnalyticalValue,
+  rowOperands,
   scalarLeaves,
 } from 'relate/analytics';
 import type {
+  RowExpression,
+  RowNode,
   SqlAggregate,
   LogicalType,
   ComputedResultType,
@@ -18,6 +23,7 @@ import type {
   ResolvedAggregateLeaf,
   ResolvedOperand,
   ResolvedPredicate,
+  ResolvedRowExpression,
   TypedValue,
 } from 'relate/connectors';
 import { AnalyticalPreparationError } from './expression-types.js';
@@ -335,8 +341,17 @@ export function resolveExpression(
     }
   } else leaves.push(query);
 
+  const rowNodes: RowNode[] = [];
+
   for (const leaf of leaves) {
-    if (leaf.argument !== '*') operands.push(leaf.argument);
+    if (leaf.argument !== '*') {
+      operands.push(...rowOperands(leaf.argument));
+      foldRowExpression<Operand, { readonly at: Name['at'] }, void>(
+        leaf.argument,
+        () => undefined,
+        (node) => void rowNodes.push(node),
+      );
+    }
 
     if (leaf.predicate) visit(leaf.predicate);
   }
@@ -423,15 +438,79 @@ export function resolveExpression(
     }
   };
 
-  propagate();
+  // Promotion belongs to an arithmetic node; it never retypes an operand.
+  const numericType = (type: LogicalType | undefined) =>
+    type && ['int32', 'int64', 'float64'].includes(type.type)
+      ? type
+      : undefined;
+  const subtreeType = (value: RowExpression): LogicalType | undefined => {
+    if (!isRowArithmetic(value))
+      return numericType(known(value) ?? intrinsic(value));
 
-  // Formula parameters keep a comparison's type; otherwise they are float64.
+    const left = subtreeType(value.left),
+      right = subtreeType(value.right);
+
+    if (!left || !right) return undefined;
+
+    return value.op === '/' ||
+      left.type === 'float64' ||
+      right.type === 'float64'
+      ? { type: 'float64' }
+      : { type: 'int64' };
+  };
+  // Comparison types are fixed; row neighbors type only what remains.
+  const rowTyped = new Set<string>();
+  const rowPass = (): boolean => {
+    const candidates = new Map<string, LogicalType>();
+
+    for (const node of rowNodes)
+      for (const [child, sibling] of [
+        [node.left, node.right],
+        [node.right, node.left],
+      ] as const) {
+        if (isRowArithmetic(child) || child.kind !== 'parameter') continue;
+
+        if (parameterTypes.has(child.name) && !rowTyped.has(child.name))
+          continue;
+
+        const type = subtreeType(sibling);
+
+        if (!type) continue;
+
+        const previous =
+          candidates.get(child.name) ?? parameterTypes.get(child.name);
+
+        if (previous && !sameLogicalType(previous, type))
+          fail('A parameter is used with conflicting types.', child.at);
+
+        candidates.set(child.name, logical(type));
+      }
+
+    let changed = false;
+
+    for (const [name, type] of candidates)
+      if (!parameterTypes.has(name)) {
+        parameterTypes.set(name, type);
+        rowTyped.add(name);
+        changed = true;
+      }
+
+    return changed;
+  };
+  const settle = () => {
+    do propagate();
+    while (rowPass());
+  };
+
+  settle();
+
+  // Formula parameters keep a comparison or row type; otherwise they are float64.
   for (const value of scalarOperands) {
     if (value.kind === 'parameter' && !parameterTypes.has(value.name))
       assign(value, { type: 'float64' });
   }
 
-  propagate();
+  settle();
 
   const values = new Map<string, TypedValue>();
   const resolve = (
@@ -507,8 +586,39 @@ export function resolveExpression(
       right: resolve(input.right, type),
     };
   };
+  const rowExpression = (value: RowExpression): ResolvedRowExpression => {
+    if (!isRowArithmetic(value)) return resolve(value);
+
+    const operand = (input: RowExpression) => {
+      const resolved = rowExpression(input);
+      const type =
+        resolved.kind === 'value' ? resolved.value.type : resolved.type.type;
+
+      if (!['int32', 'int64', 'float64'].includes(type))
+        fail(
+          'Row arithmetic requires numeric operands.',
+          input.at,
+          'not-supported',
+        );
+
+      return { resolved, float: type === 'float64' };
+    };
+    const left = operand(value.left),
+      right = operand(value.right);
+
+    return {
+      kind: 'arithmetic',
+      op: value.op,
+      left: left.resolved,
+      right: right.resolved,
+      type: {
+        type:
+          value.op === '/' || left.float || right.float ? 'float64' : 'int64',
+      },
+    };
+  };
   const resolveAggregate = (leaf: SqlAggregate): ResolvedAggregateLeaf => {
-    const argument = leaf.argument === '*' ? '*' : resolve(leaf.argument);
+    const argument = leaf.argument === '*' ? '*' : rowExpression(leaf.argument);
     const inputType =
       argument === '*'
         ? undefined

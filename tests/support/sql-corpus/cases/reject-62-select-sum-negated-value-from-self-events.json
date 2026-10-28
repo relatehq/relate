@@ -1,0 +1,8 @@
+{
+  "name": "reject-62-select-sum-negated-value-from-self-events",
+  "sql": "SELECT SUM(-value) FROM self.events",
+  "expect": {
+    "phase": "parse",
+    "problem": "not-supported"
+  }
+}

@@ -68,7 +68,11 @@ it('adds private analytical dependencies after validating the public selection c
 
     return {
       readAt: new Date().toISOString(),
-      rows: plans.get(plan)!.slots.map((_, slot) => ({ slot, values: [7n] })),
+      rows: plans.get(plan)!.slots.map((_, slot) => ({
+        slot,
+        values: [7n],
+        checks: [{ arithmeticFailed: false }],
+      })),
     };
   };
   const runtime = await startApp(

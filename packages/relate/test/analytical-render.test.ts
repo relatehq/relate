@@ -116,6 +116,16 @@ const dialect: AnalyticalSqlDialect = {
     return `format(${sql}, ${bind({ type: 'string', value: 'format' })})`;
   },
   timestampParameters: 1,
+  checked: {
+    operand: (sql) => sql,
+    node: (op, left, right) => `checked(${left.sql} ${op} ${right.sql})`,
+    failed: (sql) => `failed(${sql})`,
+    flag: (condition, filter) => `any(${condition}) FILTER (WHERE ${filter})`,
+    accumulate: (aggregate, input, filter) => ({
+      columns: [`${aggregate}(${input.sql}) FILTER (WHERE ${filter})`],
+      value: ([value]) => value!,
+    }),
+  },
 };
 const resource = { table: 'events', columns: { customer: 'customer_id' } };
 
@@ -333,4 +343,83 @@ it('rejects nested formulas and nonnumeric formula leaves', () => {
     expect(() =>
       renderAnalyticalQuery(query, resource, query.slots, dialect),
     ).toThrow('Invalid authorized analytical query');
+});
+
+it('binds each row operand once and projects one check per output', () => {
+  const query = request();
+  const value = (type: 'int64' | 'float64', number: number) =>
+    ({
+      kind: 'value',
+      value:
+        type === 'int64'
+          ? { type, value: BigInt(number) }
+          : { type, value: number },
+    }) as const;
+  const input: AuthorizedDatasetQuery = {
+    ...query,
+    slots: [{ ...query.slots[0]!, valid: [true, true] }],
+    aggregates: [
+      {
+        aggregate: 'sum',
+        distinct: false,
+        argument: {
+          kind: 'arithmetic',
+          op: '*',
+          type: { type: 'float64' },
+          left: {
+            kind: 'arithmetic',
+            op: '+',
+            type: { type: 'int64' },
+            left: value('int64', 11),
+            right: value('int64', 22),
+          },
+          right: value('float64', 0.5),
+        },
+        result: { type: 'float64', nullable: true },
+      },
+      {
+        aggregate: 'count',
+        distinct: false,
+        argument: '*',
+        result: { type: 'int64', nullable: false },
+      },
+    ],
+  };
+  const budget = analyticalParameterBudget(input, dialect);
+  const plan = renderAnalyticalQuery(input, resource, input.slots, dialect);
+
+  // Three row operands plus COUNT's zero fallback, each bound exactly once.
+  expect(budget).toEqual({ fixed: 4, perSlot: 4 });
+  expect(plan.values).toHaveLength(budget.fixed + budget.perSlot);
+  expect(plan.values.filter((value) => value === '11')).toHaveLength(1);
+  // The checked argument appears in its flag and its accumulation; binds are shared.
+  expect(plan.sql.match(/SELECT \$5 AS l, \$6 AS r/g)).toHaveLength(2);
+  expect(plan.sql).toContain('THEN 1 ELSE 0 END AS c0');
+  expect(plan.sql).toContain('0 AS c1');
+});
+
+it('rejects a row node whose type is not the promotion of its children', () => {
+  const query = request();
+  const input: AuthorizedDatasetQuery = {
+    ...query,
+    slots: [{ ...query.slots[0]!, valid: [true] }],
+    aggregates: [
+      {
+        aggregate: 'sum',
+        distinct: false,
+        argument: {
+          kind: 'arithmetic',
+          op: '/',
+          type: { type: 'int64' },
+          left: { kind: 'value', value: { type: 'int64', value: 1n } },
+          right: { kind: 'value', value: { type: 'int64', value: 2n } },
+        },
+        result: { type: 'int64', nullable: true },
+      },
+    ],
+  };
+
+  expect(() =>
+    renderAnalyticalQuery(input, resource, input.slots, dialect),
+  ).toThrow('Invalid authorized analytical query');
 });

@@ -4,8 +4,9 @@ import type {
   ResolvedScalarExpression,
   ResolvedOperand,
   ResolvedPredicate,
+  ResolvedRowExpression,
 } from './query.js';
-import { foldScalarExpression } from './scalar.js';
+import { foldScalarExpression, isRowArithmetic } from './scalar.js';
 
 function invalid(): never {
   throw new Error('Invalid authorized analytical query');
@@ -116,6 +117,32 @@ export function validateAuthorizedDatasetQuery(
           invalid();
       },
     );
+  // Node types must be the promotion of their children's types.
+  const row = (value: ResolvedRowExpression): 'int64' | 'float64' => {
+    if (typeof value !== 'object' || value === null) invalid();
+
+    if (!isRowArithmetic(value)) {
+      operand(value);
+      const type = value.kind === 'value' ? value.value.type : value.type.type;
+
+      numeric(type);
+
+      return type === 'float64' ? 'float64' : 'int64';
+    }
+
+    if (!['+', '-', '*', '/'].includes(value.op)) invalid();
+
+    const left = row(value.left),
+      right = row(value.right);
+    const type =
+      value.op === '/' || left === 'float64' || right === 'float64'
+        ? 'float64'
+        : 'int64';
+
+    if (value.type?.type !== type) invalid();
+
+    return type;
+  };
   const aggregate = (aggregate: ResolvedAggregate): void => {
     if (aggregate.aggregate === 'expression') {
       if (aggregate.result.type !== 'float64') invalid();
@@ -133,7 +160,13 @@ export function validateAuthorizedDatasetQuery(
     )
       invalid();
 
-    if (aggregate.argument !== '*') operand(aggregate.argument);
+    if (aggregate.argument !== '*') {
+      if (isRowArithmetic(aggregate.argument)) {
+        if (aggregate.distinct) invalid();
+
+        row(aggregate.argument);
+      } else operand(aggregate.argument);
+    }
 
     if (aggregate.predicate) predicate(aggregate.predicate);
   };

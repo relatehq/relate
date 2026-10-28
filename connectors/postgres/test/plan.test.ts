@@ -106,12 +106,45 @@ it('preserves invalid scalar values for alias withdrawal but rejects malformed r
   expect(
     decode(
       plan,
-      [['0', '9007199254740995', 'NaN', '0002-01-01T00:00:00.000000ZBC', 't']],
+      [
+        [
+          '0',
+          '9007199254740995',
+          'NaN',
+          '0002-01-01T00:00:00.000000ZBC',
+          't',
+          '0',
+          '1',
+          '0',
+          '0',
+        ],
+      ],
       readAt,
-    ).rows[0]!.values,
-  ).toEqual([9007199254740995n, NaN, '0002-01-01T00:00:00.000000ZBC', true]);
+    ).rows[0],
+  ).toEqual({
+    slot: 0,
+    values: [9007199254740995n, NaN, '0002-01-01T00:00:00.000000ZBC', true],
+    checks: [false, true, false, false].map((arithmeticFailed) => ({
+      arithmeticFailed,
+    })),
+  });
   expect(() =>
-    decode(plan, [['1', '1', '2', 'infinity', 't']], readAt),
+    decode(
+      plan,
+      [['1', '1', '2', 'infinity', 't', '0', '0', '0', '0']],
+      readAt,
+    ),
+  ).toThrow(/Invalid analytical result/);
+  // A check column is part of the frame, never a scalar to withdraw by alias.
+  expect(() =>
+    decode(
+      plan,
+      [['0', '1', '2', 'infinity', 't', '0', 't', '0', '0']],
+      readAt,
+    ),
+  ).toThrow(/Invalid analytical result/);
+  expect(() =>
+    decode(plan, [['0', '1', '2', 'infinity', 't']], readAt),
   ).toThrow(/Invalid analytical result/);
   expect(() => decode(plan, [], readAt)).toThrow(/Invalid analytical result/);
 });

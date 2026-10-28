@@ -11,6 +11,7 @@ export type {
   DatasetResource,
   PreparedPlan,
   ResolvedOperand,
+  ResolvedRowExpression,
   ResolvedPredicate,
   ResolvedAggregate,
   ResolvedAggregateLeaf,
@@ -34,6 +35,14 @@ export interface SlotRow {
   readonly slot: number;
   /** One losslessly decoded scalar per aggregate. No driver wrappers or Dates. */
   readonly values: readonly (string | number | bigint | boolean | null)[];
+  /** Exactly one entry per value; all false for an unused or invalid field mask. */
+  readonly checks: readonly SlotCheck[];
+}
+
+/** Per-cell execution checks; a failed cell carries a null placeholder value. */
+export interface SlotCheck {
+  /** A row operation or accumulation of this cell's eligible rows left its type's range. */
+  readonly arithmeticFailed: boolean;
 }
 
 export interface DatasetExecution {

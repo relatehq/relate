@@ -1,0 +1,40 @@
+{
+  "name": "count-row-arithmetic",
+  "sql": "SELECT COUNT(value + 1) FROM self.events",
+  "expect": {
+    "phase": "execute",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "count",
+      "argument": {
+        "kind": "arithmetic",
+        "op": "+",
+        "left": {
+          "kind": "column",
+          "name": "value",
+          "quoted": false
+        },
+        "right": {
+          "kind": "literal",
+          "literal": "number",
+          "value": "1"
+        }
+      },
+      "distinct": false
+    },
+    "resultType": {
+      "type": "int64",
+      "nullable": false
+    },
+    "values": {
+      "acme_before": "4",
+      "acme_late": "4",
+      "empty": "0",
+      "nulls": "0",
+      "wide": "2"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "row-arithmetic-ambiguous-parameters",
+  "sql": "SELECT SUM($a * $b) FROM self.events",
+  "parameters": {
+    "a": 1,
+    "b": 2
+  },
+  "expect": {
+    "phase": "resolve",
+    "representation": {
+      "association": {
+        "name": "events",
+        "quoted": false
+      },
+      "aggregate": "sum",
+      "argument": {
+        "kind": "arithmetic",
+        "op": "*",
+        "left": {
+          "kind": "parameter",
+          "name": "a"
+        },
+        "right": {
+          "kind": "parameter",
+          "name": "b"
+        }
+      },
+      "distinct": false
+    },
+    "problem": "invalid-value"
+  }
+}
