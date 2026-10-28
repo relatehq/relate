@@ -6,7 +6,7 @@
   "dependencies": {
     "relate": "workspace:*",
     "@relate/runtime": "workspace:*",
-    "zod": "4.6.5",
+    "zod": "4.6.6",
     "@relate/postgres": "workspace:*",
     "@relate/dev-crm-simulator": "workspace:*",
     "@relate/node": "workspace:*"
