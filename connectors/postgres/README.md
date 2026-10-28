@@ -53,6 +53,7 @@ types must match the physical schema:
 | float64                | `double precision`                            |
 | timestamp, precision 3 | `timestamptz(3)`                              |
 | timestamp, precision 6 | `timestamptz(6)` or unqualified `timestamptz` |
+| date                   | `date`                                        |
 
 Domains over supported base types are accepted. `numeric`, `real`, zone-less
 timestamps and blank-padded `char` are unsupported: local timestamps have no
@@ -84,8 +85,11 @@ plan-time folding. No helper functions are installed. Boolean minimum/maximum
 use `bool_and`/`bool_or`. Result decoding uses per-query text parsers,
 preserving exact int64 and microsecond timestamp values without changing global
 `pg` parsers. Timestamps are formatted in UTC; ISO year zero maps to PostgreSQL
-1 BC. Infinity and dates outside the portable range remain invalid scalar values
-for runtime rejection.
+1 BC for timestamps and dates. Date results are formatted as
+`timestamp without time zone`, so the session timezone never moves the day, and
+are range-checked before that cast because `date` outlives the timestamp range.
+Infinity and values outside the portable range remain invalid scalar values for
+runtime rejection.
 
 ## Execution and cancellation
 

@@ -248,6 +248,8 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
 
     if (aggregate.result.type === 'timestamp')
       value = dialect.timestamp(value, aggregate.result.precision, bind);
+    else if (aggregate.result.type === 'date')
+      value = dialect.date(value, bind);
 
     return value;
   };
@@ -416,13 +418,16 @@ export interface AnalyticalSqlDialect<
     bind: (value: TypedValue) => string,
   ): string;
   readonly timestampParameters: number;
+  /** Render a date result as canonical `YYYY-MM-DD` text. */
+  date(sql: string, bind: (value: TypedValue) => string): string;
+  readonly dateParameters: number;
   readonly checked: CheckedArithmeticDialect;
 }
 
 /** Count bound values without rendering SQL or encoding scalar values. */
 export function analyticalParameterBudget(
   query: Omit<AuthorizedDatasetQuery, 'slots'>,
-  dialect: Pick<AnalyticalSqlDialect, 'timestampParameters'>,
+  dialect: Pick<AnalyticalSqlDialect, 'timestampParameters' | 'dateParameters'>,
 ): { fixed: number; perSlot: number } {
   const operand = (value: ResolvedOperand): number =>
     value.kind === 'value' ? 1 : 0;
@@ -453,7 +458,11 @@ export function analyticalParameterBudget(
             >(value.argument, operand, (_, left, right) => left + right)) +
         (value.predicate ? predicate(value.predicate) : 0) +
         (value.aggregate === 'count' || value.fallback ? 1 : 0) +
-        (value.result.type === 'timestamp' ? dialect.timestampParameters : 0);
+        (value.result.type === 'timestamp'
+          ? dialect.timestampParameters
+          : value.result.type === 'date'
+            ? dialect.dateParameters
+            : 0);
   const fixed = query.aggregates.reduce(
     (sum, value) => sum + aggregate(value),
     0,

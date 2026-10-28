@@ -28,6 +28,7 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
       int64: 'BIGINT',
       float64: 'DOUBLE',
       timestamp: 'TIMESTAMP',
+      date: 'DATE',
     }[value.type];
 
     // The driver binds integral numbers as BIGINT, so 1e308 would not bind;
@@ -73,6 +74,13 @@ const dialect: AnalyticalSqlDialect<string | number | boolean | null> = {
     return `"system"."main".strftime(CAST(${value} AS TIMESTAMP), ${format})`;
   },
   timestampParameters: 1,
+  // Infinity and years beyond 9999 render as non-canonical text and fail decoding.
+  date(value, bind) {
+    const format = bind({ type: 'string', value: '%Y-%m-%d' });
+
+    return `"system"."main".strftime(CAST(${value} AS DATE), ${format})`;
+  },
+  dateParameters: 1,
   checked,
 };
 

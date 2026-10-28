@@ -1,4 +1,4 @@
-import { canonicalTimestamp } from 'relate/analytics';
+import { canonicalDate, canonicalTimestamp } from 'relate/analytics';
 import { Worker } from 'node:worker_threads';
 import { DatabaseSync } from 'node:sqlite';
 import type { SQLOutputValue } from 'node:sqlite';
@@ -45,6 +45,7 @@ function inspect(resource: SelectedDataset): PhysicalSchema {
             { type: 'string' },
             { type: 'timestamp', precision: 3 },
             { type: 'timestamp', precision: 6 },
+            { type: 'date' },
           ]
         : /BLOB/.test(type) || !type
           ? []
@@ -164,6 +165,15 @@ process.on('message', (request: ChildRequest) => {
           ? `${value.slice(0, -1)}000Z`
           : value,
       );
+      // A TEXT check cannot prove dates, so every participating value is checked.
+      // The thrown error is sanitized and reported as execution-failed.
+      database.function('__relate_date', { deterministic: true }, (value) => {
+        if (value === null) return null;
+
+        if (typeof value !== 'string') throw new Error('invalid date');
+
+        return canonicalDate(value);
+      });
       process.send?.({ kind: 'ready' } satisfies ChildResponse);
     } else {
       const value =

@@ -116,6 +116,10 @@ const dialect: AnalyticalSqlDialect = {
     return `format(${sql}, ${bind({ type: 'string', value: 'format' })})`;
   },
   timestampParameters: 1,
+  date(sql, bind) {
+    return `day(${sql}, ${bind({ type: 'string', value: 'day' })})`;
+  },
+  dateParameters: 1,
   checked: {
     operand: (sql) => sql,
     node: (op, left, right) => `checked(${left.sql} ${op} ${right.sql})`,
@@ -131,7 +135,10 @@ const resource = { table: 'events', columns: { customer: 'customer_id' } };
 
 it('counts all bound positions without invoking renderer or scalar encoding hooks', () => {
   const query = request();
-  const budget = analyticalParameterBudget(query, { timestampParameters: 1 });
+  const budget = analyticalParameterBudget(query, {
+    timestampParameters: 1,
+    dateParameters: 1,
+  });
 
   expect(budget).toEqual({ fixed: 7, perSlot: 4 });
   const plan = renderAnalyticalQuery(query, resource, query.slots, dialect);
@@ -139,6 +146,46 @@ it('counts all bound positions without invoking renderer or scalar encoding hook
   expect(plan.values).toHaveLength(budget.fixed + budget.perSlot);
   expect(plan.sql).not.toContain('DROP TABLE');
   expect(plan.sql).toContain('d."customer_id" = k.k0');
+});
+
+it('renders date results through the dialect date hook and counts its parameters', () => {
+  const query: AuthorizedDatasetQuery = {
+    ...request(),
+    aggregates: [
+      {
+        aggregate: 'min',
+        distinct: false,
+        argument: {
+          kind: 'column',
+          column: 'customer',
+          type: { type: 'date' },
+        },
+        predicate: {
+          kind: 'compare',
+          op: '>=',
+          left: { kind: 'column', column: 'customer', type: { type: 'date' } },
+          right: {
+            kind: 'value',
+            value: { type: 'date', value: '2026-10-01' },
+          },
+        },
+        result: { type: 'date', nullable: true },
+      },
+    ],
+    slots: [{ values: [{ type: 'string', value: 'c' }], valid: [true] }],
+  };
+  const budget = analyticalParameterBudget(query, {
+    timestampParameters: 5,
+    dateParameters: 1,
+  });
+  const plan = renderAnalyticalQuery(query, resource, query.slots, dialect);
+
+  expect(budget.fixed).toBe(2);
+  expect(plan.values).toHaveLength(budget.fixed + budget.perSlot);
+  expect(plan.values).toContain('2026-10-01');
+  expect(plan.values).toContain('day');
+  expect(plan.sql).toContain('SELECT k.slot, day(a.v0, $5) AS v0');
+  expect(plan.sql).not.toContain('format(');
 });
 
 it('rejects malformed authorized structures through the common validation path', () => {

@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import {
   AnalyticalValueError,
+  canonicalDate,
   canonicalTimestamp,
   decodeAnalyticalValue,
   encodeAnalyticalValue,
@@ -51,6 +52,74 @@ it.each([
   '9999-12-31T23:59:59-01:00',
 ])('rejects malformed or unrepresentable instant %s', (input) => {
   expect(() => canonicalTimestamp(input, 6)).toThrow(AnalyticalValueError);
+});
+
+it.each(['2024-02-29', '0000-01-01', '0000-02-29', '2000-02-29', '9999-12-31'])(
+  'accepts the canonical calendar date %s unchanged',
+  (input) => {
+    const type = { type: 'date', nullable: true } as const;
+
+    expect(canonicalDate(input)).toBe(input);
+    expect(parseAnalyticalValue(input, { type: 'date' })).toEqual({
+      type: 'date',
+      value: input,
+    });
+    expect(encodeAnalyticalValue(input, type)).toBe(input);
+    expect(decodeAnalyticalValue(input, type)).toBe(input);
+  },
+);
+
+it.each([
+  '2026-02-29',
+  '1900-02-29',
+  '2026-04-31',
+  '2026-00-01',
+  '2026-13-01',
+  '2026-01-00',
+  '2026-1-01',
+  '2026-01-1',
+  '26-01-01',
+  '10000-01-01',
+  '-0001-01-01',
+  '+2026-01-01',
+  ' 2026-01-01',
+  '2026-01-01 ',
+  '2026-01-01T00:00:00Z',
+  '2026-01-01Z',
+  '2026-01-01+01:00',
+  '2026/01/01',
+  'infinity',
+  '-infinity',
+  '',
+])('rejects the non-canonical date %j', (input) => {
+  expect(() => canonicalDate(input)).toThrow(AnalyticalValueError);
+  expect(() => parseAnalyticalValue(input, { type: 'date' })).toThrow(
+    AnalyticalValueError,
+  );
+  expect(() =>
+    decodeAnalyticalValue(input, { type: 'date', nullable: false }),
+  ).toThrow(AnalyticalValueError);
+});
+
+it('keeps dates as text: never Date, never a number, and null only when nullable', () => {
+  expect(() =>
+    encodeAnalyticalValue(new Date('2026-01-01'), {
+      type: 'date',
+      nullable: false,
+    }),
+  ).toThrow(AnalyticalValueError);
+  expect(() => parseAnalyticalValue(20260101, { type: 'date' })).toThrow(
+    AnalyticalValueError,
+  );
+  expect(() => parseAnalyticalValue(null, { type: 'date' })).toThrow(
+    AnalyticalValueError,
+  );
+  expect(decodeAnalyticalValue(null, { type: 'date', nullable: true })).toBe(
+    null,
+  );
+  expect(() =>
+    decodeAnalyticalValue(null, { type: 'date', nullable: false }),
+  ).toThrow(AnalyticalValueError);
 });
 
 it('never truncates microseconds into milliseconds', () => {

@@ -73,7 +73,19 @@ export const scalarCases: readonly {
     input: '2026-10-09T10:30:00.123456Z',
     json: '2026-10-09T10:30:00.123456Z',
   },
-  ...(['boolean', 'string', 'int32', 'int64', 'float64'] as const).map(
+  {
+    name: 'calendar date',
+    result: { type: 'date', nullable: false },
+    input: '2024-02-29',
+    json: '2024-02-29',
+  },
+  {
+    name: 'year-zero date',
+    result: { type: 'date', nullable: true },
+    input: '0000-01-01',
+    json: '0000-01-01',
+  },
+  ...(['boolean', 'string', 'int32', 'int64', 'float64', 'date'] as const).map(
     (type) => ({
       name: `null ${type}`,
       result: { type, nullable: true },

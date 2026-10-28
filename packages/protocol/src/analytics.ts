@@ -2,7 +2,10 @@ import type { Json } from './index.js';
 
 /** Logical scalar types are independent of database driver representations. */
 export type LogicalType =
-  | { readonly type: 'boolean' | 'string' | 'int32' | 'int64' | 'float64' }
+  | {
+      readonly type:
+        'boolean' | 'string' | 'int32' | 'int64' | 'float64' | 'date';
+    }
   | { readonly type: 'timestamp'; readonly precision: 3 | 6 };
 
 /** Result metadata is stable even when a particular value is omitted. */

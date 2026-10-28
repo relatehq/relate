@@ -129,6 +129,7 @@ it('describes declared affinity/nullability and maps physical identifiers withou
       { type: 'string' },
       { type: 'timestamp', precision: 3 },
       { type: 'timestamp', precision: 6 },
+      { type: 'date' },
     ],
     nullable: false,
     databaseType: 'TEXT',

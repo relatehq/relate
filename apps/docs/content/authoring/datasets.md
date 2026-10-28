@@ -274,6 +274,45 @@ failure. Rows excluded by `WHERE` or `FILTER` are not evaluated. A sum succeeds
 whenever its final total fits, even if a running total would not. Float results
 are approximate binary floating point, not exact decimal money arithmetic.
 
+### Calendar dates
+
+Declare a day with no time or timezone, such as a daily delivery date, with
+`z.iso.date()`:
+
+```ts
+date: { id: 'delivery.date', schema: z.iso.date(), access: ordinary },
+settledOn: {
+  id: 'invoice.settledOn',
+  schema: z.iso.date().nullable(),
+  access: ordinary,
+},
+```
+
+```sql
+-- First delivery day in a caller-supplied window
+SELECT MIN(date) FROM self.delivery WHERE date >= $from AND date < $to
+```
+
+```json
+{ "parameters": { "from": "2026-10-01", "to": "2026-11-01" } }
+```
+
+- Values are exactly `YYYY-MM-DD` text, from `0000-01-01` to `9999-12-31`, with
+  real month lengths and leap years. `2026-02-29`, time or timezone suffixes,
+  spaces and `infinity` are rejected rather than moved to another day.
+- `=`, `<>`, `<`, `<=`, `>`, `>=`, `IS NULL`, `MIN`, `MAX` and `COUNT` work on
+  dates. `MIN` and `MAX` return dates. `SUM`, `AVG` and arithmetic such as
+  `date + 1` are rejected.
+- Dates compare only with dates and with date parameters or literals. Comparing
+  a date column with a string or timestamp column is rejected.
+- Computed dates can be filtered with `eq`, `in`, `gt`, `gte`, `lt` and `lte`
+  and used in `orderBy`. `decodeComputed` returns them as canonical strings,
+  never `Date`, so a timezone cannot shift the day.
+- Ordinary object properties have no date type, so a date column cannot be an
+  association key. The storage type does not decide which day a row belongs to;
+  write dates for every table in the same convention, such as account-local
+  days.
+
 For a complete runnable application, run `pnpm example:datasets` from the
 repository root. The [example guide](../../../../examples/04-datasets/README.md)
 explains the model and queries; the API reference covers

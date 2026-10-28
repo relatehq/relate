@@ -9,7 +9,7 @@ const scalar = z.union([
 ]);
 const resultType = z.union([
   z.strictObject({
-    type: z.enum(['string', 'boolean', 'int32', 'int64', 'float64']),
+    type: z.enum(['string', 'boolean', 'int32', 'int64', 'float64', 'date']),
     nullable: z.boolean(),
   }),
   z.strictObject({

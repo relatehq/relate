@@ -105,6 +105,7 @@ const fields = decodeComputed(record);
 | int64                  | `bigint`                                        |
 | timestamp, precision 3 | `Date`                                          |
 | timestamp, precision 6 | Canonical UTC string, preserving all six digits |
+| date                   | Canonical `YYYY-MM-DD` string, never `Date`     |
 | int32, float64         | `number`                                        |
 | string, boolean        | Unchanged scalar                                |
 | SQL null               | `null`                                          |

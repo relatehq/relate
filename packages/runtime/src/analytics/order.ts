@@ -19,7 +19,7 @@ const compare = (
 export function computedFilterOperators(
   type: ComputedResultType,
 ): readonly string[] {
-  return ['int32', 'int64', 'float64', 'timestamp'].includes(type.type)
+  return ['int32', 'int64', 'float64', 'timestamp', 'date'].includes(type.type)
     ? ['eq', 'in', 'gt', 'gte', 'lt', 'lte']
     : ['eq', 'in'];
 }
@@ -95,9 +95,9 @@ export function prepareComputedOrder(input: {
 
       if (
         range &&
-        !['int32', 'int64', 'float64', 'timestamp'].includes(type.type)
+        !['int32', 'int64', 'float64', 'timestamp', 'date'].includes(type.type)
       )
-        fail(at, 'Range comparisons require a number or timestamp.');
+        fail(at, 'Range comparisons require a number, timestamp or date.');
 
       if (range && raw === null) fail(at, 'Range bounds cannot be null.');
 

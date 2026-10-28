@@ -67,6 +67,16 @@ function setup() {
         schema: z.iso.datetime({ offset: true, precision: 6 }),
         access: access.groups.ordinary,
       },
+      day: {
+        id: 'events.day',
+        schema: z.iso.date(),
+        access: access.groups.ordinary,
+      },
+      settledOn: {
+        id: 'events.settledOn',
+        schema: z.iso.date().nullable(),
+        access: access.groups.ordinary,
+      },
     },
   });
   const Customer = defineObject({
@@ -181,6 +191,8 @@ it('derives a row schema from column-owned schemas and preserves exact column me
     amount: { type: 'float64', nullable: false },
     enabled: { type: 'boolean', nullable: false },
     occurredAt: { type: 'timestamp', precision: 6, nullable: false },
+    day: { type: 'date', nullable: false },
+    settledOn: { type: 'date', nullable: true },
   });
   expect(dataset.columns.find((c) => c.name === 'count')).not.toHaveProperty(
     'description',
@@ -436,6 +448,26 @@ it('allows non-unique ordinary keys, object IDs and exact cross-precision instan
   ]);
 });
 
+// Ordinary properties have no date type, so a date column is never a key.
+it.each([
+  ['externalId', 'string'],
+  ['since', 'timestamp'],
+])('rejects a date column correlated with a %s property', (property) => {
+  const input = altered((g) => {
+    g.objects.Customer.properties.since = native(
+      z.iso.datetime({ offset: true, precision: 3 }),
+      { id: 'customer.since' },
+    );
+    g.objects.Customer.datasets.events.on = [{ column: 'day', property }];
+  });
+
+  expect(issues(input)).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ code: 'association.invalid-correlation' }),
+    ]),
+  );
+});
+
 it('rejects references and local wall-clock values as correlation keys', () => {
   const input = altered((g) => {
     g.objects.Customer.properties.link = reference(g.objects.Customer, {
@@ -543,6 +575,9 @@ it.each([
   z.iso.datetime({ offset: true, precision: 4 }),
   z.array(z.string()),
   z.number().default(0),
+  z.iso.date().refine(() => true),
+  z.iso.date().min(10),
+  z.iso.time(),
 ])(
   'rejects unsupported dataset schema %# without silently dropping constraints',
   (schema) => {

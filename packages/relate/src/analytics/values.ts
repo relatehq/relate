@@ -9,6 +9,7 @@ export type TypedValue =
   | { readonly type: 'string'; readonly value: string }
   | { readonly type: 'int32' | 'float64'; readonly value: number }
   | { readonly type: 'int64'; readonly value: bigint }
+  | { readonly type: 'date'; readonly value: string }
   | {
       readonly type: 'timestamp';
       readonly precision: 3 | 6;
@@ -49,6 +50,27 @@ function integer64(value: unknown): bigint {
 
   if (typeof value !== 'bigint' || value < int64Min || value > int64Max)
     invalid();
+
+  return value;
+}
+
+/**
+ * Validate a calendar date as exact `YYYY-MM-DD` text. This is a pure string
+ * check: JavaScript Date would roll invalid days over and shift by timezone.
+ */
+export function canonicalDate(value: string): string {
+  const match =
+    typeof value === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+  if (!match) invalid();
+
+  const year = Number(match[1]),
+    month = Number(match[2]),
+    day = Number(match[3]);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  if (month < 1 || month > 12 || day < 1 || day > days[month - 1]!) invalid();
 
   return value;
 }
@@ -121,9 +143,15 @@ export function encodeAnalyticalValue(
   if (
     !result ||
     typeof result.nullable !== 'boolean' ||
-    !['boolean', 'string', 'int32', 'int64', 'float64', 'timestamp'].includes(
-      result.type,
-    ) ||
+    ![
+      'boolean',
+      'string',
+      'int32',
+      'int64',
+      'float64',
+      'timestamp',
+      'date',
+    ].includes(result.type) ||
     (result.type === 'timestamp' &&
       result.precision !== 3 &&
       result.precision !== 6)
@@ -179,6 +207,11 @@ export function encodeAnalyticalValue(
         invalid();
 
       return value;
+    }
+    case 'date': {
+      if (typeof value !== 'string') invalid();
+
+      return canonicalDate(value);
     }
     default:
       return invalid();
