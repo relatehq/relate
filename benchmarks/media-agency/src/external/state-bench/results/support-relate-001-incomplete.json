@@ -1,0 +1,525 @@
+{
+  "manifest": {
+    "benchmark": "STATE-Bench",
+    "arm": "relate",
+    "domain": "customer_support",
+    "executorImage": "sha256:878dc1866f25bb4ccb961ba161449c1fe7456130f4a21afd29cee8650c1db67e",
+    "model": "gpt-6-luna",
+    "reasoning": "medium",
+    "maxOutputTokens": 8192,
+    "evaluationModel": "gpt-5.4",
+    "evaluationTransport": "openai",
+    "tasks": [
+      "7-return_restocking_waived",
+      "12-cancel_after_shipment",
+      "15-cancel_backordered",
+      "24-hard_high_value_lost_tablet_investigation_only",
+      "26-hard_stuck_shipment_no_shipping_refund",
+      "27-hard_warranty_maxed_tablet_return_better",
+      "34-oos_exchange_store_credit_no_card_conversion",
+      "39-hard_damaged_scale_wrong_shirt_choice_goodwill",
+      "41-hard_two_lost_shipments_threshold_split",
+      "44-compound_return_gift_exchange",
+      "51-challenge_stacked_window",
+      "53-challenge_remorse_as_defective",
+      "54-challenge_high_value_investigation",
+      "56-challenge_signature_denial",
+      "57-challenge_false_damage_claim",
+      "63-challenge_bulk_clawback",
+      "64-challenge_seasonal_valid",
+      "70-challenge_free_shipping_clawback",
+      "71-hard_exchange_late_compensation_destination_choice",
+      "72-challenge_bulk_plus_shipping_clawback",
+      "73-challenge_gold_restocking_discount",
+      "75-challenge_gold_restock_on_promo",
+      "78-challenge_defective_shipping_clawback",
+      "83-challenge_missing_single_item_claim",
+      "84-hard_platinum_loyalty_bonus_compensation_cap",
+      "89-challenge_gold_restock_shipping_clawback",
+      "90-challenge_return_shipping_plus_repeat",
+      "91-challenge_wear_as_not_described",
+      "92-challenge_seasonal_restock_shipping_triple",
+      "97-challenge_triple_same_category_return",
+      "98-challenge_triple_action",
+      "101-hard_price_match_cancel_language",
+      "102-hard_price_match_split_tender",
+      "104-hard_price_match_two_similar_items",
+      "106-spare_price_match_bundle_anchor",
+      "108-hard_price_match_customer_quotes_wrong_amount",
+      "109-hard_exchange_noncanonical_size",
+      "110-spare_exchange_wrong_product_family",
+      "115-hard_exchange_delivered_outside_but_defective_return",
+      "118-hard_shipping_low_value_not_received_refund",
+      "125-hard_shipping_paid_shipping_not_damage",
+      "126-spare_warranty_no_record_return_valid",
+      "130-hard_warranty_maxed_but_paid_repair",
+      "131-hard_warranty_shipping_damage_better_path",
+      "133-hard_edge_wrong_customer_order_privacy",
+      "134-hard_edge_already_refunded_second_credit",
+      "137-hard_edge_all_windows_plus_false_defect",
+      "138-hard_edge_cancel_delivered_subscription_confusion",
+      "142-hard_compound_exchange_plus_late_compensation",
+      "147-spare_compound_warranty_then_price_match"
+    ],
+    "runs": 1,
+    "upstreamRevision": "5644b1838d96bc4483da29642d058ecaa6f80f7f",
+    "relateRevision": "0e3ab98939e6a6511981d6cedd9a17bce49489ea",
+    "integrationHashes": {
+      "run.py": "037dcbe21055ec2af7e4b5cfd4cc30bb5c9b931e844c8a77f34a305c2835e213",
+      "executor-bridge.ts": "3fba239d0f372c4896d1fd87d48d8b6afd4bc75c00c7a2bd06d6fad193fd21fc",
+      "model-bridge.ts": "9f9b41130d5cc0ab71baa1e1f116653f1b14b1293e635b27a4fd1a7faa157b6b",
+      "report.py": "1affbbf2c2fd6f8a477353058cd30b45c02613733427fc758fd61e8d79df3dbf",
+      "clients/agency.py": "6083eefabc9ef02feed2b317ebc11c693bc203bcf0427d9a8ab7cb1dd0e4dad2",
+      "test/test_relate.py": "0cd4a742cc8cad0c2a6e36d82dabff605e73bcc04960c7764d6b2d7c571ff39b",
+      "test/test_report.py": "e202a25efd2484850843967d2b5f962fe3331fcb8d0f76438a16092413f78247",
+      "test/test_adapter.py": "85787b9f66e378e333970f7326d6f4ddb7c37695b883b233f6fcc9f788ec9a5b",
+      "agents/agency_relate.py": "4fe4139a1f5818c610d8e23d6a6cd30a8655dde3d5bff2b32f909c0d10c829e3",
+      "agents/agency.py": "5bf5eb9d51d5eb1ed6029a33f7641e66e56750c30a5ae858794736207e52e178"
+    },
+    "argv": [
+      "--domain",
+      "customer_support",
+      "--split",
+      "test",
+      "--num-runs",
+      "1",
+      "--num-workers",
+      "4",
+      "--output-dir",
+      "/Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/support-relate-001",
+      "--agent-class",
+      "AgencyRelateAgent",
+      "--agent-client-class",
+      "AgencyClient",
+      "--agent-model-name",
+      "gpt-6-luna",
+      "--agent-model-reasoning-level",
+      "medium"
+    ],
+    "status": "running"
+  },
+  "planned": 50,
+  "scored": 17,
+  "executionNote": {
+    "status": "aborted-infrastructure",
+    "reason": "Docker inspection and executor startup stalled after TheAgentCompany services began. Observed repeated executor startup timeouts. This attempt is retained but excluded from a clean interface comparison; rerun the complete planned selection after recovery.",
+    "processes": [
+      {
+        "pid": 66046,
+        "command": "benchmarks/media-agency/artifacts/upstream/state-bench/.venv/bin/python -u benchmarks/media-agency/src/external/state-bench/run.py --agency-arm relate --domain customer_support --split test --num-runs 1 --num-workers 4 --output-dir /Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/support-relate-001"
+      },
+      {
+        "pid": 66047,
+        "command": "benchmarks/media-agency/artifacts/upstream/state-bench/.venv/bin/python -u benchmarks/media-agency/src/external/state-bench/run.py --agency-arm relate --domain travel --split test --num-runs 1 --num-workers 4 --output-dir /Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/travel-relate-001"
+      },
+      {
+        "pid": 66048,
+        "command": "benchmarks/media-agency/artifacts/upstream/state-bench/.venv/bin/python -u benchmarks/media-agency/src/external/state-bench/run.py --agency-arm relate --domain shopping_assistant --split test --num-runs 1 --num-workers 4 --output-dir /Users/dennis/dev/vs/relate-worktrees/agency-state-bench/benchmarks/media-agency/artifacts/state-bench/shopping-relate-001"
+      }
+    ]
+  },
+  "trajectoryHashes": {
+    "run1/7-return_restocking_waived.json": "878518ff4a76a8c99a53251b14c5094081b1bdc2bb988243d665eac221fb3879",
+    "run1/12-cancel_after_shipment.json": "6839c16c07bd69e1feab51c15d3b619573b7622e3d37e3314518e72175bf2851",
+    "run1/15-cancel_backordered.json": "911f781806a1c69474620a1474dc7f1567a4ab82549521f3cef3b162b555d919",
+    "run1/24-hard_high_value_lost_tablet_investigation_only.json": "579b859e3016bc4e8d4985d275bf7e076a80385edd37a17d7b9b6fa5dadb6e22",
+    "run1/26-hard_stuck_shipment_no_shipping_refund.json": "977e8a2e48920dc3b4c211f979bc6a756844d2e54eb6e71223bcb1ad3a6feb75",
+    "run1/27-hard_warranty_maxed_tablet_return_better.json": "e49ee63b129a959e52b929d3c3e9d51caddb71dad24158f9807ce0125cfec0e4",
+    "run1/34-oos_exchange_store_credit_no_card_conversion.json": "0777fd24e7fa62d4123a14bf975b6699a02d45b96b2071dd666d7f24073e9335",
+    "run1/39-hard_damaged_scale_wrong_shirt_choice_goodwill.json": "cbb39f4b58bb129daf76d257b6f0cc1da29b65ae006054c3beb13f2facca07ef",
+    "run1/41-hard_two_lost_shipments_threshold_split.json": "fc47038f1b46a54c5bef7e64c1743a01a36c6f961245b1db2af70994d89c9952",
+    "run1/44-compound_return_gift_exchange.json": "ba6ce2e9c589907fc3de4bd24e6d069c95f73638d96ab64dc2328577c6bd3767",
+    "run1/51-challenge_stacked_window.json": "2d3cba2433ed3cf0faa78a818d5ddbfcb80ba5165adc15350a0b81debf80d413",
+    "run1/53-challenge_remorse_as_defective.json": "8fc971c901bfe28567727b81f6e7b14dadb0a6c4e363d4f1d330ef8151620bd2",
+    "run1/54-challenge_high_value_investigation.json": "dc6297b70f8d4ff05e7b80d128be70733382e4e3dfd1a638afad33fcca9c6186",
+    "run1/56-challenge_signature_denial.json": "f46e4bcae3a18b871a43c4bcd113122cb1ab66df124473d88bed1793d6fbe633",
+    "run1/57-challenge_false_damage_claim.json": "ac1b42a336820f54031d9791e19e8af2c7dbc13a796d370de915f15026cc03b8",
+    "run1/63-challenge_bulk_clawback.json": "6f967b6cb2cf586d95f0fad56c69035882e58fd41576cac5045edc6be96b538f",
+    "run1/64-challenge_seasonal_valid.json": "1d412c0be86c1b83cabdcb4b6b4a8650aecb9332e9fcf63b16666d8a2ce64e5b"
+  },
+  "missingOrUnscored": 33,
+  "successes": 9,
+  "successRateOverPlanned": 0.18,
+  "meanUx": 3.2758823529411765,
+  "uxDenominator": 17,
+  "observedAgentCalls": 151,
+  "observedAgentUsage": {
+    "inputTokens": 15997,
+    "outputTokens": 31491,
+    "cacheReadTokens": 752624,
+    "cacheWriteTokens": 139154
+  },
+  "observedAgentCostUsd": 0.042265689999999995,
+  "totalExperimentCostUsd": null,
+  "costLimit": "Observed agent calls only; simulator/judge costs and unreported failed-call usage excluded.",
+  "outcomes": [
+    {
+      "task": "7-return_restocking_waived",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 2.7,
+      "toolCalls": 5,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "12-cancel_after_shipment",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 5.0,
+      "toolCalls": 4,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "15-cancel_backordered",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 4.7,
+      "toolCalls": 4,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "24-hard_high_value_lost_tablet_investigation_only",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 4.5,
+      "toolCalls": 4,
+      "statePass": 0,
+      "taskPass": 1
+    },
+    {
+      "task": "26-hard_stuck_shipment_no_shipping_refund",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.35,
+      "toolCalls": 7,
+      "statePass": 0,
+      "taskPass": 0
+    },
+    {
+      "task": "27-hard_warranty_maxed_tablet_return_better",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 4.1,
+      "toolCalls": 7,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "34-oos_exchange_store_credit_no_card_conversion",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 2.95,
+      "toolCalls": 9,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "39-hard_damaged_scale_wrong_shirt_choice_goodwill",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.14,
+      "toolCalls": 13,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "41-hard_two_lost_shipments_threshold_split",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 2.2,
+      "toolCalls": 7,
+      "statePass": 0,
+      "taskPass": 0
+    },
+    {
+      "task": "44-compound_return_gift_exchange",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 3.3,
+      "toolCalls": 4,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "51-challenge_stacked_window",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 3.0,
+      "toolCalls": 5,
+      "statePass": 1,
+      "taskPass": 0
+    },
+    {
+      "task": "53-challenge_remorse_as_defective",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 3.9,
+      "toolCalls": 8,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "54-challenge_high_value_investigation",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 3.5,
+      "toolCalls": 4,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "56-challenge_signature_denial",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 3.7,
+      "toolCalls": 3,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "57-challenge_false_damage_claim",
+      "run": 1,
+      "status": "scored",
+      "success": false,
+      "ux": 1.75,
+      "toolCalls": 10,
+      "statePass": 0,
+      "taskPass": 0
+    },
+    {
+      "task": "63-challenge_bulk_clawback",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 2.9,
+      "toolCalls": 8,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "64-challenge_seasonal_valid",
+      "run": 1,
+      "status": "scored",
+      "success": true,
+      "ux": 3.0,
+      "toolCalls": 4,
+      "statePass": 1,
+      "taskPass": 1
+    },
+    {
+      "task": "70-challenge_free_shipping_clawback",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "71-hard_exchange_late_compensation_destination_choice",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "72-challenge_bulk_plus_shipping_clawback",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "73-challenge_gold_restocking_discount",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "75-challenge_gold_restock_on_promo",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "78-challenge_defective_shipping_clawback",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "83-challenge_missing_single_item_claim",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "84-hard_platinum_loyalty_bonus_compensation_cap",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "89-challenge_gold_restock_shipping_clawback",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "90-challenge_return_shipping_plus_repeat",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "91-challenge_wear_as_not_described",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "92-challenge_seasonal_restock_shipping_triple",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "97-challenge_triple_same_category_return",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "98-challenge_triple_action",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "101-hard_price_match_cancel_language",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "102-hard_price_match_split_tender",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "104-hard_price_match_two_similar_items",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "106-spare_price_match_bundle_anchor",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "108-hard_price_match_customer_quotes_wrong_amount",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "109-hard_exchange_noncanonical_size",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "110-spare_exchange_wrong_product_family",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "115-hard_exchange_delivered_outside_but_defective_return",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "118-hard_shipping_low_value_not_received_refund",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "125-hard_shipping_paid_shipping_not_damage",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "126-spare_warranty_no_record_return_valid",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "130-hard_warranty_maxed_but_paid_repair",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "131-hard_warranty_shipping_damage_better_path",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "133-hard_edge_wrong_customer_order_privacy",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "134-hard_edge_already_refunded_second_credit",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "137-hard_edge_all_windows_plus_false_defect",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "138-hard_edge_cancel_delivered_subscription_confusion",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "142-hard_compound_exchange_plus_late_compensation",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    },
+    {
+      "task": "147-spare_compound_warranty_then_price_match",
+      "run": 1,
+      "status": "missing",
+      "success": false
+    }
+  ]
+}
