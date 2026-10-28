@@ -37,3 +37,12 @@ def test_visible_feedback_is_kept_until_reset(monkeypatch, tmp_path):
     assert system.consume_usage_events()[0].total_tokens == 15
     system.reset()
     assert system.messages == []
+
+
+def test_plain_json_action_validated_and_ambiguous_calls_rejected():
+    import pytest
+    assert module.parse_action({"content": [{"type": "text", "text": '{"choice":"B"}'}]}, Action).choice == "B"
+    with pytest.raises(ValueError):
+        module.parse_action({"content": [{"type": "text", "text": 'not JSON'}]}, Action)
+    with pytest.raises(ValueError):
+        module.parse_action({"content": [{"type": "tool_call", "name": "respond", "input": {"choice": "A"}}] * 2}, Action)

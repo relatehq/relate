@@ -9,6 +9,18 @@ from src.registry import register_system
 from src.usage import UsageEvent
 
 
+def parse_action(reply, schema):
+    calls = [b for b in reply["content"] if b["type"] == "tool_call"]
+    if calls:
+        if len(calls) != 1 or calls[0]["name"] != "respond" or calls[0].get("argumentError"):
+            raise ValueError("Expected exactly one valid respond action")
+        return schema.model_validate(calls[0]["input"])
+    texts = [b["text"] for b in reply["content"] if b["type"] == "text"]
+    if len(texts) != 1:
+        raise ValueError("Expected one typed JSON action")
+    return schema.model_validate_json(texts[0])
+
+
 @register_system("agency_luna")
 class AgencyLuna(ContinualLearningSystem):
     supports_baseline = True
@@ -56,10 +68,7 @@ class AgencyLuna(ContinualLearningSystem):
             pricing_source="https://developers.openai.com/api/docs/models/gpt-6-luna", raw_usage=reply.get("raw", {}).get("usage")))
         if reply["stopReason"] != "complete":
             raise RuntimeError(f"Model stopped: {reply['stopReason']}")
-        calls = [b for b in reply["content"] if b["type"] == "tool_call"]
-        if len(calls) != 1 or calls[0]["name"] != "respond" or calls[0].get("argumentError"):
-            raise ValueError("Expected exactly one valid respond action")
-        action = query.response_schema.model_validate(calls[0]["input"])
+        action = parse_action(reply, query.response_schema)
         # Record chosen action as text. The environment supplies the true outcome
         # through observe(); do not fabricate a successful execution result.
         self.messages.append({"role": "assistant", "content": [{"type": "text", "text": action.model_dump_json()}]})
