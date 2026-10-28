@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { implementAction, defineAction, referenceInput } from 'relate';
 import type { ObjectId } from 'relate';
 import {
@@ -75,3 +76,35 @@ implementAction(readOnlyGraph, ReadOnly, async ({ objects }) => {
   return { reviewId: referenceInput(AccountReview).parse('r') };
 });
 void access;
+
+defineAction({
+  ...AddAccountReview,
+  id: 'adopt-native',
+  // @ts-expect-error native objects are created, never adopted
+  adopts: [AccountReview],
+});
+
+// `creates` and `adopts` are both optional.
+const Adopting = defineAction({
+  id: 'adopting',
+  input: z.object({ externalId: z.string() }),
+  output: z.object({ customer: referenceInput(Customer) }),
+  adopts: [Customer],
+});
+const adoptingGraph = { ...graph, actions: { adopting: Adopting } };
+
+implementAction(adoptingGraph, Adopting, async ({ input, objects }) => {
+  const { id } = await objects.Customer.adopt(input.externalId);
+  const customer: ObjectId<typeof Customer.id> = id;
+
+  // @ts-expect-error adopted IDs are branded with their object type
+  const wrong: ObjectId<typeof AccountReview.id> = id;
+
+  // @ts-expect-error undeclared source objects have no adopt capability
+  await objects.Invoice.adopt('in_1');
+  // @ts-expect-error omitted creates grants no create capability
+  await objects.AccountReview.create({ customer, author: 'a', note: 'n' });
+  void wrong;
+
+  return { customer };
+});

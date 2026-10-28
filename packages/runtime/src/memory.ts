@@ -10,6 +10,7 @@ import { createNativeMemoryStore } from './native-memory.js';
 import {
   RetentionError,
   compareObjectIds,
+  decideTransactionalAcceptance,
   sourceChangeDraft,
 } from './storage.js';
 import { startAfter } from './memory-order.js';
@@ -46,9 +47,43 @@ export function createMemoryStore(
   const graphs = new Map<string, string>();
   const scopes = new Map<string, Population>();
   // Adoption provenance lives with the identity, never with activity retention.
-  const adoptions = new Map<string, { actor: OperationActor; at: number }>();
+  const adoptions = new Map<
+    string,
+    { actor: OperationActor; at: number; invocationId?: string }
+  >();
+  // Per-identity mutation generations, advanced by every retained write. A
+  // prepared action adoption commits only if its identity's generation held.
+  const generations = new Map<string, number>();
   let token = 0n;
   const scopeKey = (scope: StorageScope) => canonicalJson(scope);
+  const identityKey = (key: string, sourceRecordId: string) =>
+    canonicalJson([key, sourceRecordId]);
+  const emptyPopulation = (): Population => ({
+    bySource: new Map<string, StoredObject>(),
+    byObject: new Map<string, StoredObject>(),
+    order: [],
+    sorted: true,
+  });
+  /** Synchronously retain one winning observation; first membership records provenance. */
+  const retain = (
+    key: string,
+    population: Population,
+    object: StoredObject,
+    adoption?: { actor: OperationActor; at: number; invocationId?: string },
+  ) => {
+    if (adoption) {
+      adoptions.set(canonicalJson([key, object.objectId]), adoption);
+      population.order.push(object.objectId);
+      population.sorted = false;
+    }
+
+    population.bySource.set(object.sourceRecordId, object);
+    population.byObject.set(object.objectId, object);
+    scopes.set(key, population);
+    const identity = identityKey(key, object.sourceRecordId);
+
+    generations.set(identity, (generations.get(identity) ?? 0) + 1);
+  };
   const activity =
     options.activity === false
       ? undefined
@@ -60,7 +95,53 @@ export function createMemoryStore(
 
   return {
     durability: 'volatile',
-    native: createNativeMemoryStore(installed, activity?.prepareFeed),
+    native: createNativeMemoryStore(installed, activity?.prepareFeed, {
+      // Optimistic: prepare without mutating, then validate the identity's
+      // generation and publish synchronously at the transaction's commit.
+      prepare(scope, input) {
+        if (!installed(scope)) throw new Error('Model is not installed');
+
+        const key = scopeKey(scope);
+        const identity = identityKey(key, input.sourceRecordId);
+        const generation = generations.get(identity) ?? 0;
+        const previous = scopes.get(key)?.bySource.get(input.sourceRecordId);
+        const decision = decideTransactionalAcceptance(
+          previous && structuredClone(previous),
+          input,
+        );
+        const change = decision.transition && {
+          id: input.attribution.changeId,
+          ...decision.transition,
+        };
+        const object = structuredClone(decision.object);
+        const adoption = previous
+          ? undefined
+          : {
+              actor: structuredClone(input.attribution.actor),
+              at: input.attribution.occurredAt,
+              invocationId: input.attribution.invocationId,
+            };
+
+        return {
+          result: {
+            object: structuredClone(object),
+            acceptance: decision.acceptance,
+            ...(change ? { change } : {}),
+          },
+          valid: () =>
+            installed(scope) && (generations.get(identity) ?? 0) === generation,
+          apply: () => {
+            if (decision.write)
+              retain(
+                key,
+                scopes.get(key) ?? emptyPopulation(),
+                object,
+                adoption,
+              );
+          },
+        };
+      },
+    }),
     ...(activity ? { activity: activity.store } : {}),
     async install(graphId, definitionRevision) {
       const installed = graphs.get(graphId);
@@ -108,6 +189,9 @@ export function createMemoryStore(
             actor: structuredClone(adoption.actor),
             at: new Date(adoption.at).toISOString(),
             sourceDefinitionId: scope.sourceDefinitionId,
+            ...(adoption.invocationId !== undefined
+              ? { invocationId: adoption.invocationId }
+              : {}),
           }
         : { kind: 'unknown' };
     },
@@ -157,12 +241,7 @@ export function createMemoryStore(
         });
 
       const key = scopeKey(scope);
-      const population = scopes.get(key) ?? {
-        bySource: new Map<string, StoredObject>(),
-        byObject: new Map<string, StoredObject>(),
-        order: [],
-        sorted: true,
-      };
+      const population = scopes.get(key) ?? emptyPopulation();
       const previous = population.bySource.get(input.sourceRecordId);
 
       if (
@@ -217,18 +296,19 @@ export function createMemoryStore(
         ...(change ? { change } : {}),
       };
 
-      if (!previous) {
-        adoptions.set(canonicalJson([key, object.objectId]), {
-          actor: structuredClone(input.attribution.actor),
-          at: input.attribution.occurredAt,
-        });
-        population.order.push(object.objectId);
-        population.sorted = false;
-      }
+      if (winning)
+        retain(
+          key,
+          population,
+          object,
+          previous
+            ? undefined
+            : {
+                actor: structuredClone(input.attribution.actor),
+                at: input.attribution.occurredAt,
+              },
+        );
 
-      population.bySource.set(input.sourceRecordId, object);
-      population.byObject.set(object.objectId, object);
-      scopes.set(key, population);
       publish();
 
       return result;

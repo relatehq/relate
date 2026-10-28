@@ -57,6 +57,7 @@ export type ModelIssueCode =
   | 'action.invalid-field'
   | 'action.invalid-reference'
   | 'action.invalid-capability'
+  | 'action.invalid-adopts'
   | 'principal.invalid-shape'
   | 'principal.invalid-name'
   | 'principal.unknown-role'

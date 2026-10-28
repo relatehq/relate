@@ -65,6 +65,11 @@ export interface AcceptAttribution {
   readonly context: OperationContext;
   /** Epoch milliseconds; when Relate observed the transition. */
   readonly occurredAt: number;
+  /**
+   * Present exactly when an action's transaction accepts the observation.
+   * Host adoption and independent refreshes omit it.
+   */
+  readonly invocationId?: string;
 }
 
 /** The business-state transition decided under the acceptance lock. */
@@ -229,9 +234,49 @@ export interface NativeTransaction {
    * before COMMIT. Required when the store advertises activity.
    */
   appendFeed?(drafts: readonly FeedDraft[]): Promise<void>;
+  /**
+   * Accept and adopt a source observation as part of this transaction.
+   * Required when the store advertises `capabilities.actionAdoption`.
+   *
+   * Called only by the executor after the handler and all reads finish; no
+   * source I/O follows. With no member, `objectId` becomes the new Relate ID.
+   * Rejects a different committed ID for the identity, or a newer committed
+   * observation that is not the same view, with `AdoptionConflict`; never
+   * returns `superseded`. Results are conditional on outer commit, which may
+   * still conflict. The returned change is staged by the executor; this
+   * method never publishes feed entries itself.
+   */
+  accept?(
+    scope: StorageScope,
+    input: TransactionalAcceptInput,
+  ): Promise<TransactionalAcceptance>;
+}
+
+/** One sealed action adoption, submitted once per scoped identity. */
+export interface TransactionalAcceptInput {
+  readonly sourceRecordId: string;
+  readonly objectId: string;
+  readonly adopt: true;
+  /** A present observation fetched during the invocation. */
+  readonly observation: Observation;
+  readonly attribution: AcceptAttribution & { readonly invocationId: string };
+}
+
+export interface TransactionalAcceptance {
+  readonly object: StoredObject;
+  readonly acceptance: Exclude<Acceptance, 'superseded'>;
+  /** Present exactly when this acceptance changes business state. */
+  readonly change?: AcceptedChange;
+}
+
+/** Synchronously advertised native-store capabilities. */
+export interface NativeCapabilities {
+  /** Every transaction exposes `accept` for commit-time action adoption. */
+  readonly actionAdoption?: true;
 }
 
 export interface NativeStore {
+  readonly capabilities?: NativeCapabilities;
   scan(
     scope: NativeScope,
     objectDefinitionId: string,

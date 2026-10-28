@@ -1,6 +1,6 @@
 import type { ReadExecution } from '../reads/index.js';
 import type { Manifest } from 'relate/model';
-import { ReadError } from '@relate/protocol';
+import { ActionError, ReadError } from '@relate/protocol';
 import type {
   ReadControls,
   FullObjectResult as ReadResult,
@@ -10,6 +10,7 @@ import type {
   UncertainOutcome,
 } from '@relate/protocol';
 import type {
+  Observation,
   ObservationStore,
   StorageScope,
   StoredObject,
@@ -68,6 +69,30 @@ export function classifyAdoptionFailure(
       };
 }
 
+/**
+ * An action invocation's pending source identities, consulted before committed
+ * storage. Supplied by composition; absent outside action transactions.
+ */
+export interface PendingSources {
+  captureEvidence(observedAt: number, maxAgeMs: number): void;
+  find(scope: StorageScope, sourceRecordId: string): StoredObject | undefined;
+  get(scope: StorageScope, objectId: string): StoredObject | undefined;
+  /** The store a refresh of a pending identity reads and accepts into. */
+  store(store: ObservationStore): ObservationStore;
+}
+
+/** Map a failed fetch-and-map of an action adoption to its invocation error. */
+function adoptionError(error: unknown): ActionError {
+  if (error instanceof ActionError) return error;
+
+  if (error instanceof SourceAccessDenied) return new ActionError('denied');
+
+  if (error instanceof InvalidObservation) return new ActionError('invalid');
+
+  // Connector errors, including a not-yet-visible 404, and timeouts are retryable.
+  return new ActionError('unavailable');
+}
+
 /** Source operations receive cross-object evidence resolution from composition. */
 export function createSourceOperations(options: {
   manifest: Manifest;
@@ -88,6 +113,7 @@ export function createSourceOperations(options: {
     request?: ReadControls,
     execution?: ReadExecution,
   ): Promise<AuthorizationEvidence | undefined>;
+  pending?(transaction?: NativeTransaction): PendingSources | undefined;
 }) {
   const { manifest, revision, store, sources, clock, install, scopeFor } =
     options;
@@ -130,6 +156,7 @@ export function createSourceOperations(options: {
     canonical = false,
     request: ReadControls = {},
     execution?: ReadExecution,
+    transaction?: NativeTransaction,
   ) {
     execution?.signal.throwIfAborted();
 
@@ -139,9 +166,15 @@ export function createSourceOperations(options: {
       );
 
     const targetScope = scopeFor(target.id, target.sourceDefinitionId);
-    const retained = canonical
-      ? await store.load(targetScope, key)
-      : await store.resolve(targetScope, key);
+    const pending = options.pending?.(transaction);
+    const staged = canonical
+      ? pending?.get(targetScope, key)
+      : pending?.find(targetScope, key);
+    const retained =
+      staged ??
+      (canonical
+        ? await store.load(targetScope, key)
+        : await store.resolve(targetScope, key));
 
     if (!retained || retained.observation.state !== 'present') return undefined;
 
@@ -149,7 +182,7 @@ export function createSourceOperations(options: {
       return undefined;
 
     const resolved = await refreshObservation({
-      store,
+      store: staged ? pending!.store(store) : store,
       scope: targetScope,
       stored: retained,
       object: target,
@@ -210,10 +243,13 @@ export function createSourceOperations(options: {
 
     const sourceDefinitionId = object.sourceDefinitionId;
     const scope = scopeFor(objectDefinitionId, sourceDefinitionId);
+    const pending = options.pending?.(transaction);
+    // A staged observation wins over committed state and scan snapshots.
+    const staged = pending?.get(scope, objectId);
     let stored: StoredObject | undefined;
 
     try {
-      stored = snapshot ?? (await store.load(scope, objectId));
+      stored = staged ?? snapshot ?? (await store.load(scope, objectId));
     } catch {
       throw new ReadError('unavailable');
     }
@@ -247,7 +283,7 @@ export function createSourceOperations(options: {
         ),
       ) || visible.some((p) => p.origin.kind === 'reference');
     const resolved = await refreshObservation({
-      store,
+      store: staged ? pending!.store(store) : store,
       scope,
       stored,
       object,
@@ -269,12 +305,27 @@ export function createSourceOperations(options: {
 
     if (!resolved) return { status: 'not-found' };
 
-    const { candidate, refresh, retention, ordering, warnings } = resolved;
+    const { candidate, refresh, warnings } = resolved;
+    let { retention, ordering } = resolved;
+
+    // Staged data is not saved until the action commits, whatever the store's durability.
+    if (staged) {
+      retention = 'unconfirmed';
+      ordering = 'unconfirmed';
+
+      for (const warning of [
+        'retention_unconfirmed',
+        'ordering_unconfirmed',
+      ] as const)
+        if (!warnings.includes(warning)) warnings.push(warning);
+    }
 
     const evidence = createAuthorization({
       manifest,
       principal,
       clock,
+      captureEvidence: (observedAt, maxAgeMs) =>
+        pending?.captureEvidence(observedAt, maxAgeMs),
       resolve: (target, key, maxAgeMs, canonical = false) =>
         options.resolve(
           attempt,
@@ -398,8 +449,82 @@ export function createSourceOperations(options: {
     };
   }
 
+  /**
+   * Fetch and map one source record through the object's configured binding,
+   * without retaining it. Shared by host and action adoption.
+   */
+  async function fetchObservation(
+    object: Manifest['objects'][number],
+    sourceRecordId: string,
+    signal?: AbortSignal,
+  ): Promise<Observation> {
+    const sourceDefinitionId = object.sourceDefinitionId!;
+    const binding = sources[sourceDefinitionId]!;
+
+    await install();
+
+    if (
+      !(await accountAllowed(
+        sourceDefinitionId,
+        {},
+        signal && { signal, beforeSourceCall: () => {} },
+      ))
+    )
+      throw new SourceAccessDenied();
+
+    const token = await store.beginFetch(),
+      observedAt = clock();
+    const fetched = await boundedFetch(
+      binding.connector,
+      sourceRecordId,
+      3_000,
+      binding.providerAccountId ?? null,
+      signal,
+    );
+
+    return observation(
+      fetched,
+      manifest.sources.find((s) => s.id === sourceDefinitionId)!,
+      object,
+      sourceRecordId,
+      token,
+      observedAt,
+    );
+  }
+
+  /**
+   * Fetch and map one source record for an action adoption, without retaining
+   * it. The caller stages it; `signal` aborts the fetch at the action deadline.
+   */
+  async function fetchForAdoption(
+    objectDefinitionId: string,
+    sourceRecordId: string,
+    signal?: AbortSignal,
+  ): Promise<{ scope: StorageScope; observation: Observation }> {
+    const object = manifest.objects.find((o) => o.id === objectDefinitionId);
+
+    if (!object?.sourceDefinitionId) throw new ActionError('denied');
+
+    if (typeof sourceRecordId !== 'string' || !sourceRecordId.trim())
+      throw new ActionError('invalid');
+
+    try {
+      const incoming = await fetchObservation(object, sourceRecordId, signal);
+
+      if (incoming.state !== 'present') throw new ActionError('not-found');
+
+      return {
+        scope: scopeFor(objectDefinitionId, object.sourceDefinitionId),
+        observation: incoming,
+      };
+    } catch (error) {
+      throw adoptionError(error);
+    }
+  }
+
   return {
     resolveSourceEvidence,
+    fetchForAdoption,
     /**
      * Trusted host ingestion operation. Ordinary reads cannot establish
      * membership. `scope` supplies the adopting actor.
@@ -418,27 +543,7 @@ export function createSourceOperations(options: {
       )
         throw new InvalidAdoptionTarget();
 
-      await install();
-
-      if (!(await accountAllowed(object.sourceDefinitionId)))
-        throw new SourceAccessDenied();
-
-      const token = await store.beginFetch(),
-        observedAt = clock();
-      const fetched = await boundedFetch(
-        sources[object.sourceDefinitionId]!.connector,
-        sourceRecordId,
-        3_000,
-        sources[object.sourceDefinitionId]!.providerAccountId ?? null,
-      );
-      const incoming = observation(
-        fetched,
-        manifest.sources.find((s) => s.id === object.sourceDefinitionId)!,
-        object,
-        sourceRecordId,
-        token,
-        observedAt,
-      );
+      const incoming = await fetchObservation(object, sourceRecordId);
 
       if (incoming.state === 'deleted')
         throw new Error('Cannot adopt a deleted source record');

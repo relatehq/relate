@@ -320,9 +320,9 @@ await the same action and return its completed output in one tool response.
   portable. Arbitrary refinements, transforms, defaults and nested schemas
   reject at compilation or definition time rather than silently losing their
   behavior.
-- Action object operations expose `get`, `query`, and permitted native `create`.
-  Action-handler traversal, native update/delete, and Task integrity rules
-  remain outside the implemented surface.
+- Action object operations expose `get`, `query`, permitted native `create` and
+  declared source `adopt`. Action-handler traversal, native update/delete, and
+  Task integrity rules remain outside the implemented surface.
 
 ## Verification
 
@@ -347,6 +347,79 @@ cannot start new requests after the invocation ends, and cursors are scoped to
 their original transaction. Source queries still cover adopted graph members
 only and do not imply a source snapshot. See the
 [graph query contract](../runtime/CONTRACT.md#graph-queries).
+
+## Adopting source records
+
+An action that creates a record on a platform can bring it into the graph in the
+same invocation. It declares the source objects it may adopt, and the handler
+calls `adopt` on them:
+
+```ts
+const LaunchAdGroup = defineAction({
+  id: 'launch-ad-group',
+  input: z.object({ name: z.string(), budget: z.number() }),
+  output: z.object({ adGroupId: referenceInput(TikTokAdGroup) }),
+  adopts: [TikTokAdGroup], // `creates` and `adopts` are both optional
+  errors: { notVisible: z.object({ externalId: z.string() }) },
+});
+
+implementAction(
+  graph,
+  LaunchAdGroup,
+  async ({ input, objects, idempotencyId, fail }) => {
+    const { adgroup_id } = await createOrRecoverAdGroup(idempotencyId, input); // integration code
+    if (!(await tiktok.waitForAdGroup(adgroup_id, { timeoutMs: 5_000 })))
+      return fail('notVisible', { externalId: adgroup_id });
+
+    const { id } = await objects.TikTokAdGroup.adopt(adgroup_id); // pending until commit
+    await objects.TikTokAdGroup.get(id); // reads the pending object
+    return { adGroupId: id };
+  },
+);
+```
+
+- `adopts` accepts only registered source objects (`action.invalid-adopts`);
+  `adopt` exists only on declared targets, by type and at runtime (`denied`).
+  `host.adopt` and `adopts` accept the same `SourceMembership` shape.
+- `adopt` fetches once through the object's configured binding, stages the
+  observation in an invocation-local overlay and returns `{ id }`. A new member
+  gets a random Relate ID; an existing member keeps its ID. The first ID is
+  fixed for the invocation: repeated and concurrent calls return it, and a host
+  adoption with another ID aborts with `unavailable`, never substitution.
+- The caller must be able to read the fetched object; adoption never grants read
+  access. Outcomes: unreadable or deleted → `not-found`; provider account denied
+  → `denied`; connector error (including a not-yet-visible 404) or timeout →
+  `unavailable`; invalid ID or failed mapping → `invalid`. A failed `adopt`
+  aborts the invocation even when caught, and saves no receipt.
+- `get`, `query`, reference validation and policy resolution in the same
+  invocation see pending objects; nobody else does until commit. Queries merge
+  pending members into the committed scan in Relate-ID order. Pending reads
+  report `retention: 'unconfirmed'` and `ordering: 'unconfirmed'`, and aged
+  observations refresh into the overlay, never into committed storage.
+- After the handler, final validation rechecks input, output, created records
+  and every pending adoption (present and readable). If a refresh replaced an
+  observation during validation, it validates once more; a view that still moves
+  aborts with `unavailable`. When the invocation adopted at least one record, a
+  final local check also rejects evidence that expired during a later
+  validation, including source dependencies of native policies and adoptions
+  that are not returned or referenced. This check does no source I/O. Then the
+  overlay is sealed and each entry is accepted on the transaction's connection,
+  before the receipt is saved.
+- A newer committed observation with different content, a deletion, or a policy
+  change aborts with retryable `unavailable`. A newer identical observation
+  (same view) commits as `unchanged` with no source feed entry.
+- `fail(code)` discards every pending adoption before receipt authorization.
+  Reads of new pending IDs are pruned from the failed receipt; reference-valued
+  failure details naming a new pending ID reject with `not-found`.
+- New adoptions carry the actor and invocation ID in object provenance and feed;
+  re-adoption keeps the original provenance and records an `updated` change
+  attributed to the invocation when values changed.
+
+Relate's guarantee is local: the platform write stays outside the transaction.
+Keep visibility polls short, because the whole handler runs under the graph
+lock. Recovery after a lost response belongs to the integration's journal; see
+the
+[Actions guide](../../apps/docs/content/runtime/actions.md#creating-platform-records-and-adopting-them).
 
 ## Idempotency ID for external writes
 

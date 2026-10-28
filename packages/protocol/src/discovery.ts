@@ -56,10 +56,11 @@ export interface ObjectOverview {
   readonly traversals: Readonly<Record<string, TraversalOverview>>;
 }
 
-/** Action purpose and the readable object types it declares it creates. */
+/** Action purpose and the readable object types it declares it creates or adopts. */
 export interface ActionOverview {
   readonly description?: string;
   readonly creates: readonly string[];
+  readonly adopts: readonly string[];
 }
 
 /** Read kinds used by option validation and discovery. */
@@ -200,6 +201,8 @@ export interface ActionDescription extends ActionSummary {
   readonly output: readonly ActionFieldDescription[];
   readonly errors: Readonly<Record<string, readonly ActionFieldDescription[]>>;
   readonly creates: readonly ObjectSummary[];
+  /** Source object types this action can bring into the graph. */
+  readonly adopts: readonly ObjectSummary[];
 }
 
 /**

@@ -16,12 +16,17 @@ import type {
 } from '@relate/protocol';
 import { presenting } from '../reads/index.js';
 import {
+  AdoptionConflict,
   NativeCommitUncertain,
   NativeConflict,
   StorageUnavailable,
+  sourceChangeDraft,
 } from '../storage.js';
 import type {
+  FeedDraft,
   NativeRecord,
+  Observation,
+  StorageScope,
   NativeInvocation,
   NativeReceiptRead,
   NativeScope,
@@ -29,10 +34,11 @@ import type {
   ObservationStore,
 } from '../storage.js';
 import type { Principal } from '../authorization/index.js';
-import { invocationFeed } from '../activity/index.js';
+import { invocationFeed, uuidv7 } from '../activity/index.js';
 import type { OperationScope } from '../activity/index.js';
 import { createActionDeadline } from './deadline.js';
 import { actionAllowed } from './available.js';
+import { AdoptionOverlay, bindAdoptionOverlay } from './adoption.js';
 
 type Action = NonNullable<Manifest['actions']>[number];
 
@@ -46,6 +52,8 @@ export interface ActionExecutionContext {
   query(type: string, request?: CollectionReadControls): Promise<PageResult>;
   fail(code: string, details: unknown): never;
   create(type: string, values: unknown): Promise<{ id: string }>;
+  /** Stage a source record as a member; committed only with the action. */
+  adopt(type: string, sourceRecordId: string): Promise<{ id: string }>;
 }
 
 export type ActionHandler = (
@@ -110,6 +118,12 @@ export function createActionExecutor(options: {
     record: NativeRecord,
     transaction: NativeTransaction,
   ): Promise<void>;
+  /** Fetch and map one record through the object's binding, without retaining it. */
+  fetchForAdoption(
+    type: string,
+    sourceRecordId: string,
+    signal?: AbortSignal,
+  ): Promise<{ scope: StorageScope; observation: Observation }>;
 }) {
   const { manifest, store } = options;
 
@@ -211,6 +225,9 @@ export function createActionExecutor(options: {
   function rejection(error: unknown): never {
     if (error instanceof NativeConflict) throw new ActionError('conflict');
 
+    // Retryable: a retry with the same key converges on the committed identity.
+    if (error instanceof AdoptionConflict) throw new ActionError('unavailable');
+
     if (error instanceof NativeCommitUncertain)
       throw new ActionError('uncertain');
 
@@ -254,6 +271,7 @@ export function createActionExecutor(options: {
     const startedAt = options.clock();
 
     let deadline: ReturnType<typeof createActionDeadline> | undefined;
+    let revoke = () => {};
 
     try {
       await options.install();
@@ -265,9 +283,12 @@ export function createActionExecutor(options: {
           if (store.activity && !transaction.appendFeed)
             throw new Error('Activity store lacks atomic native feed staging');
 
+          if (action.adopts?.length && !transaction.accept)
+            throw new Error('Native transaction lacks action adoption');
+
           deadline = createActionDeadline(transaction, options.timeoutMs);
 
-          return deadline.run(async (transaction, check) => {
+          return deadline.run(async (transaction, check, signal) => {
             const existing = await transaction.claim(action.id, key);
 
             if (existing) {
@@ -317,6 +338,12 @@ export function createActionExecutor(options: {
               });
             };
             const created: NativeRecord[] = [];
+            // Pending adoptions, visible only to reads through this transaction
+            // handle. Deadline expiry and closure revoke their staging.
+            const overlay = new AdoptionOverlay(check);
+
+            bindAdoptionOverlay(transaction, overlay);
+            revoke = () => overlay.revoke();
             let accepting = true;
             let failure: unknown;
             let aborted = false;
@@ -538,6 +565,52 @@ export function createActionExecutor(options: {
 
                       return { id: record.objectId };
                     }),
+                  adopt: (type, sourceRecordId) =>
+                    run(async () => {
+                      const object = manifest.objects.find(
+                        (o) => o.id === type,
+                      );
+
+                      if (
+                        !object?.sourceDefinitionId ||
+                        !(action.adopts ?? []).includes(type)
+                      )
+                        throw new ActionError('denied');
+
+                      const { scope, observation } =
+                        await options.fetchForAdoption(
+                          type,
+                          sourceRecordId,
+                          signal,
+                        );
+                      const staged = await overlay.stage(
+                        scope,
+                        sourceRecordId,
+                        observation,
+                        async () => {
+                          try {
+                            return await store.resolve(scope, sourceRecordId);
+                          } catch {
+                            throw new ActionError('unavailable');
+                          }
+                        },
+                      );
+                      // Adoption never grants read access: the caller must be
+                      // able to read the fetched object, or nothing is adopted.
+                      const result = await options.read(
+                        attempt,
+                        actor,
+                        type,
+                        staged.objectId,
+                        { select: [] },
+                        transaction,
+                      );
+
+                      if (result.status !== 'ok')
+                        throw new ActionError('not-found');
+
+                      return { id: staged.objectId };
+                    }),
                 });
 
                 if (!domain) output = parse(action.output, result);
@@ -562,26 +635,107 @@ export function createActionExecutor(options: {
               if (error !== domainSignal) throw error;
             }
 
+            // A declared failure discards every pending adoption before any
+            // post-rollback authorization; reads then see committed storage.
+            const discarded = domain ? overlay.newMembers() : [];
+
+            if (domain) overlay.discard();
+
             // Recheck after arbitrary implementation awaits and all native writes.
-            await checkReferences(action.input, input);
+            const validate = async () => {
+              overlay.beginValidation();
+              await checkReferences(action.input, input);
 
-            for (const record of domain ? [] : created)
-              await options.validate(
-                attempt,
-                actor,
-                manifest.objects.find(
-                  (o) => o.id === record.objectDefinitionId,
-                )!,
-                record,
-                transaction,
-              );
+              for (const record of domain ? [] : created)
+                await options.validate(
+                  attempt,
+                  actor,
+                  manifest.objects.find(
+                    (o) => o.id === record.objectDefinitionId,
+                  )!,
+                  record,
+                  transaction,
+                );
 
-            if (domain)
-              await checkReferences(
-                action.errors![domain.code]!,
-                domain.details as Record<string, Json>,
-              );
-            else await checkReferences(action.output, output);
+              if (domain)
+                await checkReferences(
+                  action.errors![domain.code]!,
+                  domain.details as Record<string, Json>,
+                );
+              else await checkReferences(action.output, output);
+
+              // Adopted members must still be present and readable, whether
+              // or not output or a native record references them.
+              for (const entry of domain ? [] : overlay.members()) {
+                check();
+                const result = await options.read(
+                  attempt,
+                  actor,
+                  entry.objectDefinitionId,
+                  entry.objectId,
+                  { select: [] },
+                  transaction,
+                );
+
+                if (result.status !== 'ok') throw new ActionError('not-found');
+              }
+            };
+            let view = overlay.versions();
+
+            await validate();
+
+            // A refresh during validation may replace an observation an earlier
+            // check relied on. Validate once more against the refreshed view;
+            // a view that still moves cannot be committed as validated.
+            if (overlay.versions() !== view) {
+              view = overlay.versions();
+              await validate();
+
+              if (overlay.versions() !== view)
+                throw new ActionError('unavailable');
+            }
+
+            const sourceChanges: FeedDraft[] = [];
+
+            if (!domain && overlay.size) {
+              // Observation versions can stay fixed while policy evidence expires.
+              overlay.assertFresh(options.clock());
+
+              // Sealed: no further reads or source I/O; record locks only now.
+              for (const entry of overlay.seal()) {
+                const attribution = {
+                  changeId: uuidv7(),
+                  operationId: attempt.id,
+                  ...(attempt.parent
+                    ? { parentOperationId: attempt.parent.id }
+                    : {}),
+                  actor: attempt.actor,
+                  context: attempt.context,
+                  occurredAt: options.clock(),
+                  invocationId,
+                };
+                const accepted = await transaction.accept!(entry.scope, {
+                  sourceRecordId: entry.sourceRecordId,
+                  objectId: entry.objectId,
+                  adopt: true,
+                  observation: entry.observation,
+                  attribution,
+                });
+
+                if (accepted.object.objectId !== entry.objectId)
+                  throw new AdoptionConflict();
+
+                if (accepted.change && store.activity)
+                  sourceChanges.push(
+                    sourceChangeDraft(
+                      entry.scope,
+                      entry.objectId,
+                      attribution,
+                      accepted.change,
+                    ),
+                  );
+              }
+            }
 
             const receipt: ActionReceipt = domain
               ? {
@@ -600,7 +754,7 @@ export function createActionExecutor(options: {
             const retainedReads = domain
               ? reads.filter(
                   (read) =>
-                    !created.some(
+                    ![...created, ...discarded].some(
                       (record) =>
                         record.objectDefinitionId === read.objectDefinitionId &&
                         record.objectId === read.objectId,
@@ -644,6 +798,7 @@ export function createActionExecutor(options: {
                   receipt,
                   completedAt,
                   created,
+                  sourceChanges,
                 }),
               );
             }
@@ -657,6 +812,8 @@ export function createActionExecutor(options: {
     } finally {
       // An adapter can fail while the callback is suspended (for example a dead PG session).
       deadline?.close();
+      // Late continuations cannot stage into a closed invocation.
+      revoke();
     }
   };
 

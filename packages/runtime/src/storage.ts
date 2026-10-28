@@ -46,7 +46,10 @@ export type {
   NativeStore,
   NativeScanOptions,
   NativeScanResult,
+  NativeCapabilities,
   SourceVersion,
+  TransactionalAcceptInput,
+  TransactionalAcceptance,
 } from 'relate/storage';
 
 export class RetentionError extends Error {
@@ -60,9 +63,14 @@ export class RetentionError extends Error {
 }
 
 export {
+  AdoptionConflict,
   compareObservation,
+  decideTransactionalAcceptance,
   OrderingConflict,
+  sameView,
 } from './observations/ordering.js';
+
+export type { TransactionalDecision } from './observations/ordering.js';
 
 export { describeAcceptedChange } from './observations/changes.js';
 

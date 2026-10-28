@@ -9,10 +9,15 @@ export function createActionDeadline(
   const expiresAt = performance.now() + timeoutMs;
   let active = true;
   let interrupt!: () => void;
+  // Aborts source I/O started by the invocation, such as an adoption fetch.
+  const controller = new AbortController();
   const interrupted = new Promise<never>((_, reject) => {
     interrupt = () => {
       active = false;
-      reject(new ActionError('unavailable'));
+      const reason = new ActionError('unavailable');
+
+      controller.abort(reason);
+      reject(reason);
     };
   });
   const timer = setTimeout(interrupt, timeoutMs);
@@ -43,6 +48,11 @@ export function createActionDeadline(
           appendFeed: (drafts) => guard(() => transaction.appendFeed!(drafts)),
         }
       : {}),
+    ...(transaction.accept
+      ? {
+          accept: (...args) => guard(() => transaction.accept!(...args)),
+        }
+      : {}),
   };
   const close = () => {
     clearTimeout(timer);
@@ -55,11 +65,12 @@ export function createActionDeadline(
       operation: (
         transaction: NativeTransaction,
         check: () => void,
+        signal: AbortSignal,
       ) => Promise<T>,
     ): Promise<T> {
       try {
         return await Promise.race([
-          guard(() => operation(guarded, check)),
+          guard(() => operation(guarded, check, controller.signal)),
           interrupted,
         ]);
       } finally {

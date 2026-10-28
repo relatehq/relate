@@ -16,6 +16,8 @@ export function invocationFeed(
     readonly receipt: ActionReceipt;
     readonly completedAt: number;
     readonly created: readonly NativeRecord[];
+    /** Source changes accepted by this invocation's transaction. */
+    readonly sourceChanges?: readonly FeedDraft[];
   },
 ): FeedDraft[] {
   const { receipt } = result;
@@ -29,7 +31,9 @@ export function invocationFeed(
     context: attempt.context,
   };
 
+  // Every business change precedes the invocation event in one batch.
   return [
+    ...(receipt.state === 'failed' ? [] : (result.sourceChanges ?? [])),
     ...(receipt.state === 'failed' ? [] : result.created).map(
       (record): FeedDraft => ({
         ...envelope,

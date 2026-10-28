@@ -895,6 +895,20 @@ export function compile<G extends GraphDefinition>(
             action.id,
           );
 
+        // Only registered source objects can be adopted; native objects are created.
+        if (
+          (action.adopts ?? []).some(
+            (object) =>
+              !objects.includes(object) || !('resource' in object.membership),
+          )
+        )
+          issues.fail(
+            'action.invalid-adopts',
+            `Action ${apiName} may adopt only registered source objects`,
+            at('adopts'),
+            action.id,
+          );
+
         return {
           id: action.id,
           apiName,
@@ -927,6 +941,10 @@ export function compile<G extends GraphDefinition>(
               }
             : {}),
           creates: action.creates.map((o) => o.id).sort(),
+          // Omitted when empty so actions without adoption keep their revision.
+          ...(action.adopts?.length
+            ? { adopts: action.adopts.map((o) => o.id).sort() }
+            : {}),
           ...(action.policy
             ? { execute: { role: action.policy.execute.role } }
             : {}),

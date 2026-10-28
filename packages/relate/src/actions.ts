@@ -12,6 +12,7 @@ import type {
   PropertyNames,
   PropertyValue,
   NativeMembership,
+  SourceMembership,
 } from './index.js';
 import type { RoleGate } from './authorization.js';
 import type {
@@ -30,12 +31,17 @@ export const actionKeys: readonly string[] = Object.freeze([
   'input',
   'output',
   'creates',
+  'adopts',
   'policy',
   'errors',
 ]);
 
 type NativeObject = ObjectDefinition & {
   readonly membership: NativeMembership;
+};
+
+type SourceObject = ObjectDefinition & {
+  readonly membership: SourceMembership;
 };
 
 export interface ActionDefinition<
@@ -45,13 +51,17 @@ export interface ActionDefinition<
   Errors extends Readonly<Record<string, z.ZodType>> = Readonly<
     Record<string, z.ZodType>
   >,
+  Adopts extends readonly SourceObject[] = readonly SourceObject[],
 > {
   readonly id: string;
   /** Explanatory text for people, documentation, and agents. */
   readonly description?: string;
   readonly input: Input;
   readonly output: Output;
+  /** Native objects the handler may create; frozen `[]` when omitted. */
   readonly creates: Creates;
+  /** Source objects the handler may adopt; frozen `[]` when omitted. */
+  readonly adopts: Adopts;
   readonly errors: Errors;
   readonly policy?: { readonly execute: RoleGate };
 }
@@ -61,17 +71,21 @@ export function defineAction<
   const Id extends string,
   Input extends z.ZodType,
   Output extends z.ZodType,
-  const Creates extends readonly NativeObject[],
+  const Creates extends readonly NativeObject[] = readonly [],
   const Errors extends Readonly<Record<string, z.ZodType>> = {},
+  const Adopts extends readonly SourceObject[] = readonly [],
 >(definition: {
   id: Id;
   description?: string;
   input: Input;
   output: Output;
-  creates: Creates;
+  creates?: Creates;
+  adopts?: Adopts;
   errors?: Errors;
   policy?: { readonly execute: RoleGate };
-}): ActionDefinition<Input, Output, Creates, Errors> & { readonly id: Id } {
+}): ActionDefinition<Input, Output, Creates, Errors, Adopts> & {
+  readonly id: Id;
+} {
   const unsupported = Object.keys(definition).filter(
     (key) => !actionKeys.includes(key),
   );
@@ -90,9 +104,12 @@ export function defineAction<
     Object.freeze({
       ...definition,
       errors: Object.freeze({ ...definition.errors }),
-      creates: Object.freeze([...definition.creates]),
+      creates: Object.freeze([...(definition.creates ?? [])]),
+      adopts: Object.freeze([...(definition.adopts ?? [])]),
     }),
-  ) as ActionDefinition<Input, Output, Creates, Errors> & { readonly id: Id };
+  ) as unknown as ActionDefinition<Input, Output, Creates, Errors, Adopts> & {
+    readonly id: Id;
+  };
 }
 
 export type NativeValues<O extends ObjectDefinition> = {
@@ -175,7 +192,19 @@ export interface ActionContext<
             values: NativeValues<G['objects'][K]>,
           ): Promise<{ readonly id: ObjectId<G['objects'][K]['id']> }>;
         }
-      : {});
+      : {}) &
+      (G['objects'][K] extends A['adopts'][number]
+        ? {
+            /**
+             * Register a source record as a member in this invocation. The
+             * returned ID is pending until the action commits; a failed
+             * adoption aborts the invocation, even if caught.
+             */
+            adopt(
+              sourceRecordId: string,
+            ): Promise<{ readonly id: ObjectId<G['objects'][K]['id']> }>;
+          }
+        : {});
   };
 }
 

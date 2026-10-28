@@ -17,6 +17,7 @@ import type {
   ObjectId,
   ObjectRegistry,
   AppBindings,
+  SourceMembership,
 } from 'relate';
 import { createConsumer, createPagedQuery } from 'relate/consumer';
 import type { Consumer } from 'relate/consumer';
@@ -253,6 +254,12 @@ function composeRuntime<
                       context.create(object.id, values),
                   }
                 : {}),
+              ...(implementation.action.adopts?.includes(object as never)
+                ? {
+                    adopt: (sourceRecordId: string) =>
+                      context.adopt(object.id, sourceRecordId),
+                  }
+                : {}),
             }),
           ]),
         ) as never,
@@ -396,7 +403,7 @@ function composeRuntime<
       adopt: <
         O extends Extract<
           G['objects'][keyof G['objects']],
-          { membership: { resource: unknown } }
+          { readonly membership: SourceMembership }
         >,
       >(
         object: O,

@@ -271,7 +271,10 @@ export function nativeMembership(): NativeMembership {
   return Object.freeze({ kind: 'native' });
 }
 
-export type Membership = ReturnType<typeof source> | NativeMembership;
+/** Membership of a source-backed object: records adopted from one resource. */
+export type SourceMembership = ReturnType<typeof source>;
+
+export type Membership = SourceMembership | NativeMembership;
 
 export function source(resource: SourceDefinition) {
   return Object.freeze({ resource });

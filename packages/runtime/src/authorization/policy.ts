@@ -32,6 +32,8 @@ export function createAuthorization(options: {
   manifest: Manifest;
   principal: Principal;
   clock: () => number;
+  /** Record the time bounds of source evidence consumed by this evaluation. */
+  captureEvidence?(observedAt: number, maxAgeMs: number): void;
   resolve(
     object: ObjectType,
     sourceKey: string,
@@ -40,10 +42,19 @@ export function createAuthorization(options: {
   ): Promise<AuthorizationEvidence | undefined>;
 }) {
   const { manifest, principal, clock } = options;
-  const fresh = (stored: StoredObject, maxAgeMs: number) =>
-    stored.observation.state === 'present' &&
-    clock() >= stored.observation.observedAt &&
-    clock() - stored.observation.observedAt <= maxAgeMs;
+  const fresh = (stored: StoredObject, maxAgeMs: number) => {
+    const { observedAt } = stored.observation;
+    const ok =
+      stored.observation.state === 'present' &&
+      clock() >= observedAt &&
+      clock() - observedAt <= maxAgeMs;
+
+    // Only evidence that passed bounds a later decision; a failed check must
+    // not make an otherwise valid invocation's final freshness check fail.
+    if (ok) options.captureEvidence?.(observedAt, maxAgeMs);
+
+    return ok;
+  };
   // Request-local only. A stricter bound refreshes and replaces earlier evidence,
   // so a later denial cannot leave a looser cached permission usable.
   const cache = new Map<

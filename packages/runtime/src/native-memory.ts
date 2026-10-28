@@ -1,3 +1,4 @@
+import { canonicalJson } from 'relate/model';
 import type {
   FeedDraft,
   NativeStore,
@@ -6,19 +7,46 @@ import type {
   NativeCreation,
   NativeInvocation,
   NativeScanOptions,
+  StorageScope,
+  TransactionalAcceptInput,
+  TransactionalAcceptance,
 } from './storage.js';
 import {
+  AdoptionConflict,
   NativeConflict,
   compareObjectIds,
   validateFeedDraft,
 } from './storage.js';
 import { startAfter } from './memory-order.js';
 
-/** Private transaction snapshots; observation refreshes are independently retained. */
+/** A source acceptance decided without mutating retained source state. */
+export interface PreparedAdoption {
+  readonly result: TransactionalAcceptance;
+  /** Whether the identity is unchanged since preparation; never throws. */
+  valid(): boolean;
+  /** Publish the prepared write; synchronous and infallible. */
+  apply(): void;
+}
+
+/** The owning source store's preparation step for transactional adoption. */
+export interface MemorySourceAdoption {
+  prepare(
+    scope: StorageScope,
+    input: TransactionalAcceptInput,
+  ): PreparedAdoption;
+}
+
+/**
+ * Private transaction snapshots; observation refreshes are independently
+ * retained. Action adoptions are prepared privately and published with the
+ * transaction's native writes and feed in one synchronous commit step.
+ */
 export function createNativeMemoryStore(
   installed: (scope: NativeScope) => boolean,
   /** Present when the owning store supports activity; prepares an atomic feed append. */
   prepareFeed?: (graphId: string, drafts: readonly FeedDraft[]) => () => void,
+  /** Present when the owning store supports action adoption. */
+  adoption?: MemorySourceAdoption,
 ): NativeStore {
   const graphs = new Map<
     string,
@@ -79,6 +107,7 @@ export function createNativeMemoryStore(
   }
 
   return {
+    ...(adoption ? { capabilities: { actionAdoption: true as const } } : {}),
     async scan(scope, type, options) {
       if (!installed(scope)) return { objects: [], hasMore: false };
 
@@ -148,6 +177,7 @@ export function createNativeMemoryStore(
         );
         const claimed = new Set<string>();
         const staged: FeedDraft[] = [];
+        const adoptions = new Map<string, PreparedAdoption>();
         const undo: (() => void)[] = [];
         let savepointDepth = 0;
         const recordUndo = (operation: () => void) => {
@@ -206,6 +236,38 @@ export function createNativeMemoryStore(
               state.creations.delete(key);
             });
           },
+          ...(adoption
+            ? {
+                async accept(
+                  source: StorageScope,
+                  input: TransactionalAcceptInput,
+                ) {
+                  check();
+
+                  if (
+                    source.graphId !== scope.graphId ||
+                    source.definitionRevision !== scope.definitionRevision
+                  )
+                    throw new Error(
+                      'Adoption scope is outside this transaction',
+                    );
+
+                  const key = canonicalJson([source, input.sourceRecordId]);
+
+                  if (adoptions.has(key))
+                    throw new Error('Duplicate adoption in one transaction');
+
+                  const prepared = adoption.prepare(source, input);
+
+                  adoptions.set(key, prepared);
+                  recordUndo(() => {
+                    adoptions.delete(key);
+                  });
+
+                  return structuredClone(prepared.result);
+                },
+              }
+            : {}),
           ...(prepareFeed
             ? {
                 async appendFeed(drafts: readonly FeedDraft[]) {
@@ -274,8 +336,17 @@ export function createNativeMemoryStore(
         if (claimed.size) throw new Error('Unfinished native invocation');
 
         const snapshot = structuredClone(result);
+
+        // A host write since preparation invalidates the action's view of
+        // that identity; nothing below has been published yet.
+        for (const prepared of adoptions.values())
+          if (!prepared.valid()) throw new AdoptionConflict();
+
         // Final work before commit: a batch the feed cannot hold rolls back.
         const publish = prepareFeed?.(scope.graphId, staged) ?? (() => {});
+
+        // One synchronous step: no await between validation and publication.
+        for (const prepared of adoptions.values()) prepared.apply();
 
         graphs.set(scope.graphId, state);
         publish();

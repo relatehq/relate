@@ -127,6 +127,7 @@ it('describes only the objects, fields, traversals, and actions available to an 
     addAccountReview: {
       description: 'Record a new assessment of a customer account.',
       creates: ['AccountReview'],
+      adopts: [],
     },
   });
   expect(actions.describeAction('business.add-account-review')).toMatchObject({
@@ -338,6 +339,7 @@ it('omits hidden created types and actions with unreadable input references', ()
   expect(overview.actions.addAccountReview).toEqual({
     description: 'Record a new assessment of a customer account.',
     creates: [],
+    adopts: [],
   });
   expect(
     discovery.describeAction('business.add-account-review')?.creates,
@@ -430,5 +432,5 @@ it('keeps every visible object and action in larger overviews', () => {
     Object.keys(actions).sort(),
   );
   expect(overview.objects.Object119).toEqual({ traversals: {} });
-  expect(overview.actions.action109).toEqual({ creates: [] });
+  expect(overview.actions.action109).toEqual({ creates: [], adopts: [] });
 });

@@ -75,6 +75,16 @@ export function createGraphQuery(options: {
     execution?: ReadExecution,
     snapshot?: StoredObject,
   ): Promise<ReadResult>;
+  /** Merge a transaction's pending source members into one committed scan page. */
+  scanSource?(
+    transaction: NativeTransaction | undefined,
+    scope: StorageScope,
+    request: { after?: string; limit: number },
+    committed: (request: {
+      after?: string;
+      limit: number;
+    }) => Promise<{ objects: readonly StoredObject[]; hasMore: boolean }>,
+  ): Promise<{ objects: readonly StoredObject[]; hasMore: boolean }>;
 }) {
   const { manifest, store, clock } = options;
   const transactions = new WeakMap<NativeTransaction, string>();
@@ -248,7 +258,15 @@ export function createGraphQuery(options: {
       // Candidate reads start from source scan snapshots.
       const batch = await scanMembers(
         source
-          ? (scan) => store.scan(options.scopeFor(type, source), scan)
+          ? (scan) => {
+              const scope = options.scopeFor(type, source);
+              const committed = (request: { after?: string; limit: number }) =>
+                store.scan(scope, request);
+
+              return options.scanSource
+                ? options.scanSource(transaction, scope, scan, committed)
+                : committed(scan);
+            }
           : undefined,
         (scan) =>
           transaction

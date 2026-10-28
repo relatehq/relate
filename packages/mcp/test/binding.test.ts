@@ -40,9 +40,12 @@ it('projects missing details, absent routes, traversals and created types consis
             NoRoute: { traversals: {} },
           },
           actions: {
-            addNote: { creates: ['Note', 'Hidden'] },
-            hiddenAction: { creates: [] },
-            noRoute: { creates: [] },
+            addNote: {
+              creates: ['Note', 'Hidden'],
+              adopts: ['Note', 'Hidden'],
+            },
+            hiddenAction: { creates: [], adopts: [] },
+            noRoute: { creates: [], adopts: [] },
           },
         }),
         describeObject: (id) =>
@@ -72,6 +75,10 @@ it('projects missing details, absent routes, traversals and created types consis
                   note,
                   { ...note, apiName: 'Hidden', definitionId: 'hidden' },
                 ],
+                adopts: [
+                  note,
+                  { ...note, apiName: 'Hidden', definitionId: 'hidden' },
+                ],
               }
             : undefined,
       },
@@ -97,14 +104,15 @@ it('projects missing details, absent routes, traversals and created types consis
       code: `return {
     overview: graph.describe(), objects: Object.keys(graph.objects), actions: Object.keys(graph.actions),
     edges: Object.keys(graph.objects.Note.traverse), detailEdges: graph.objects.Note.describe().traversals,
-    creates: graph.actions.addNote.describe().creates.map(object => object.apiName)
+    creates: graph.actions.addNote.describe().creates.map(object => object.apiName),
+    adopts: graph.actions.addNote.describe().adopts.map(object => object.apiName)
   };`,
     },
   });
   const expected = {
     ...overview,
     objects: { Note: { traversals: {} } },
-    actions: { addNote: { creates: ['Note'] } },
+    actions: { addNote: { creates: ['Note'], adopts: ['Note'] } },
   };
 
   expect(discovered.structuredContent).toMatchObject({ graph: expected });
@@ -117,6 +125,7 @@ it('projects missing details, absent routes, traversals and created types consis
       edges: [],
       detailEdges: [],
       creates: ['Note'],
+      adopts: ['Note'],
     },
   });
 });
