@@ -1,16 +1,17 @@
 # Northlight Media agency benchmark
 
 A private, runnable benchmark comparing raw tools, raw JavaScript and Relate on
-the same fictional agency systems. **No model performance result is published by
-this implementation.** Reference validation checks the harness and task
-solvability; it does not measure an agent.
+the same fictional agency systems. The
+[initial Luna pilot](results/2026-10-28-luna-pilot.md) records 60 paid model
+runs with preliminary scores and explicit grading limitations. Reference
+validation separately checks harness correctness and task solvability.
 
 | Status       | Scope                                                                                                                                                                        |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Implemented  | Seeded S/M/L worlds; five HTTP simulators; SQLite plans/finance; DuckDB warehouse; three arms; reference solutions; grading; provider adapters; resumable artifacts; reports |
 | Runnable     | 66 task variants, including a 20-task pilot, with independent world-derived answers                                                                                          |
 | Deferred     | 14 task variants needing per-date FX joins/reference datasets; present in the catalogue and reports, never counted as passes                                                 |
-| Not run here | Paid pilot, Main/Scale model evaluations, human prompt/parity audit, human review of model-error labels                                                                      |
+| Not run here | Main/Scale model evaluations, human prompt/parity audit, human review of model-error labels                                                                                  |
 
 ## Glossary
 
