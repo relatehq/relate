@@ -1,0 +1,259 @@
+# Northlight Media agency benchmark
+
+A private, runnable benchmark comparing raw tools, raw JavaScript and Relate on
+the same fictional agency systems. **No model performance result is published by
+this implementation.** Reference validation checks the harness and task
+solvability; it does not measure an agent.
+
+| Status       | Scope                                                                                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Implemented  | Seeded S/M/L worlds; five HTTP simulators; SQLite plans/finance; DuckDB warehouse; three arms; reference solutions; grading; Messages API loop; resumable artifacts; reports |
+| Runnable     | 66 task variants, including a 20-task pilot, with independent world-derived answers                                                                                          |
+| Deferred     | 14 task variants needing per-date FX joins/reference datasets; present in the catalogue and reports, never counted as passes                                                 |
+| Not run here | Paid pilot, Main/Scale model evaluations, human prompt/parity audit, human review of model-error labels                                                                      |
+
+## Glossary
+
+- **World:** seeded business truth, such as
+  `generateWorld({ seed: 7, tier: 'S' })`.
+- **Arm:** access given to a solver: `baseline-tools`, `baseline-code`, or
+  `relate`.
+- **Oracle:** expected answer computed from world facts without querying a
+  simulator.
+- **Reference solution:** hand-written code using only the arm's public HTTP/SQL
+  or graph surface.
+- **Mutation:** a committed business change, logged even when its response is
+  lost.
+- **Journal:** benchmark integration code recording unknown external writes so
+  retries recover by reading, instead of creating again.
+- **Deferred:** an intended task whose required reference-dataset feature is
+  deliberately absent.
+- **Manifest:** hashes and configuration identifying exactly what produced a
+  run.
+
+## Run
+
+From the repository root, with dependencies installed and `pnpm build`
+completed:
+
+```sh
+pnpm bench:agency:catalogue
+pnpm bench:agency:generate --tier S --seed 7 --out benchmarks/media-agency/artifacts/world-s7
+
+# Deterministic checks, no API key or model charge:
+pnpm bench:agency:validate --stage pilot --out benchmarks/media-agency/artifacts/pilot-validation
+pnpm bench:agency:validate --stage main --seed 19 --out benchmarks/media-agency/artifacts/heldout-validation
+pnpm bench:agency:report --out benchmarks/media-agency/artifacts/pilot-validation
+
+# Model run: choose a model explicitly; the API key stays in the parent process.
+ANTHROPIC_API_KEY=... pnpm bench:agency:run --stage pilot --model claude-sonnet-5-5 \
+  --pricing /absolute/path/to/pricing.json --out benchmarks/media-agency/artifacts/model-pilot
+
+# A focused run or repeated task family:
+pnpm bench:agency:run --model MODEL_ID --tier M --arm relate \
+  --task 'action.create-*' -k 5 --out benchmarks/media-agency/artifacts/create-evaluation
+```
+
+`--stage pilot` selects 20 tasks; `main` and `scale` select the full catalogue.
+Tier, model, repetition count and seed are explicit configuration, not an
+implicit large paid matrix. Run each desired tier/model/seed in its own
+directory. Main spending still needs the owner's budget decision after a
+measured pilot.
+
+A pricing file contains USD per million tokens:
+
+```json
+{ "input": 2, "output": 10, "cacheRead": 0.1, "cacheWrite": 2.5 }
+```
+
+Supply prices appropriate to the actual model and context size. This is an
+example, not an automatically maintained price list. Without pricing, costs are
+`null`/unknown. Token usage includes separate uncached input, output, cache
+reads and cache writes; all input categories count toward the budget. The
+adapter uses [Messages](https://platform.claude.com/docs/en/api/messages) and
+[automatic prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching),
+with the same settings and tool loop in every arm. Provider failures are
+retained; the adapter does not silently retry a paid request.
+
+Outputs are ignored by Git under `artifacts/`. Each scheduled run gets a JSONL
+transcript and a result JSON, plus a shared `manifest.json`. Resume requires the
+same manifest and only reuses finished records. An interrupted transcript is
+preserved and requires a new output directory, so rerunning never erases an
+attempt. A different source hash, seed, model, price or task selection also
+requires a new directory. No generated database is required in Git: world and
+projections are reproducible from the versioned generator and seed.
+
+## What the three arms receive
+
+| Arm              | Tools                                                     | Execution                                                       |
+| ---------------- | --------------------------------------------------------- | --------------------------------------------------------------- |
+| `baseline-tools` | `http_request`, `sql_query`, `read_docs`, `submit_answer` | Tool calls only                                                 |
+| `baseline-code`  | `execute`, `read_docs`, `submit_answer`                   | Raw `http(system, request)` and `sql(db, text, params)` helpers |
+| `relate`         | `discover`, `execute`, `read_docs`, `submit_answer`       | Actor-bound `graph` consumer                                    |
+
+Both code arms use `@relate/mcp`'s **same** `createDevelopmentExecutor`, with a
+fresh child process, 60-second call limit and 1 MiB output limit. The raw code
+arm bridges HTTP/SQL through two private transport actions; these provide no
+business rules, mapping, pagination, conversion, retry or aggregation helpers.
+The Relate arm uses MCP's discovery/execute shape and executor directly, without
+adding an MCP network transport to measured latency.
+
+**This executor is not a security sandbox.** It removes inherited host
+credentials and starts in a temporary directory, but model code must be treated
+as trusted development code. These runs cannot establish adversarial isolation
+from the host filesystem. Use an isolated disposable machine for model
+evaluations. Reference solutions never inspect the filesystem, world, graders or
+write logs.
+
+Every arm gets the same handbook. Raw arms also get the API/DDL documentation in
+`src/harness/arms.ts`; Relate gets graph discovery. HTTP results truncate at 100
+kB with a marker. SQL tools return up to 2,000 rows with a truncation marker;
+the raw code helper throws on truncation, requiring an aggregate or explicit SQL
+pagination. Int64 SQL values are JSON strings.
+
+```mermaid
+flowchart LR
+  W[Seeded world] --> P[Provider and SQL projections]
+  P --> H[HTTP simulators]
+  P --> D[SQLite and DuckDB]
+  B[Raw arms] --> H
+  B --> D
+  R[Relate graph and handlers] --> H
+  R --> D
+  W --> O[Independent answer oracle]
+  H --> M[Append-only business write log]
+  D --> M
+  O --> G[Grader]
+  M --> G
+  T[Transcript and submission] --> G
+```
+
+## Coverage and temporary dataset decision
+
+| Category       | Variants | Runnable | What they exercise                                                                               |
+| -------------- | -------: | -------: | ------------------------------------------------------------------------------------------------ |
+| Lookup         |       10 |       10 | Campaign IDs, statuses, money units, account currency/timezone                                   |
+| Traversal      |       10 |       10 | CRM client → plan account mapping → platform campaigns; explicit missing plan links              |
+| Aggregation    |       14 |        8 | Account-currency loaded spend over date windows; six client-currency variants deferred           |
+| Reconciliation |       10 |       10 | September invoice drift vs independent delivery totals                                           |
+| Permissions    |       10 |       10 | Fee disclosure, other-team budgets, planner launch refusal                                       |
+| Freshness      |        8 |        8 | Load status and honest partial spend with stale-data caveats                                     |
+| Action         |       10 |       10 | Status, budget, create/read, lost-create-response recovery, finance dispute, brand-safety pauses |
+| Diagnose → act |        8 |        0 | Cross-currency rebalance variants deferred                                                       |
+
+These are parameterized variants of the listed task kinds, not 80 unrelated
+workflows. A separate seed changes target selection and business values. The
+catalogue and its status exist independently of execution, so a failed solution
+cannot shrink the workload denominator.
+
+Reference datasets and dataset joins are **not added to the SDK**. The warehouse
+already has complete per-date FX rows (including weekends and identity pairs)
+for future tasks. Current runnable aggregates explicitly request **account
+currency**. Nothing substitutes preconverted client-currency values for the
+missing join. The deferred catalogue records why those tasks cannot run yet.
+This implements the owner's October 28 exception to the original spec's
+reference-dataset prerequisite.
+
+The generator sizes are 8/40/150 clients, 160/800/3,000 campaigns and
+1,920/16,000/60,000 ads. It emits 90 days of ad facts before applying the TikTok
+load cutoff; campaign facts aggregate from those same rows. These deterministic
+sizes approximate the proposed tiers rather than claiming the original rounded
+counts exactly. World fact rows stream into DuckDB instead of occupying two full
+in-memory copies.
+
+## Integration and grading contracts
+
+The graph uses public package APIs. Platform sources normalize their own vendor
+representation; the shared `account_links` table maps provider account IDs to
+CRM client IDs and is equally available to raw arms. The current SDK has no
+role-dependent OR policy, so `createGraph(principal)` creates one of three fixed
+policy variants: planner reads are team-scoped; activation/finance read all
+clients; commercial fields require finance. The host fixes the principal for the
+run. This is benchmark integration, not a proposed SDK permission feature.
+
+```ts
+await graph.actions.launchAdGroup({
+  input: { campaign: campaignRelateId, name: 'Retargeting', budgetMinor: 5000 },
+  idempotencyKey: 'launch-1',
+});
+// Handler: provider create/recover → objects.TikTokAdGroup.adopt(providerId)
+//          → native MediaChange audit → receipt containing adGroupId.
+```
+
+SQL metrics separately count raw statements, SQLite source fetches and DuckDB
+analytical dispatches. They exclude connection/schema housekeeping. HTTP request
+counts include connector and action-handler calls, including failed attempts.
+
+Initial membership is populated through public `host.adopt()` and timed outside
+agent execution. New source records are adopted **inside the measured action**.
+The write journal lives in SQLite outside the local action transaction. A lost
+create response is recovered by a documented exact-name lookup. An unresolved
+outcome is returned as a failure; it never triggers a blind second create.
+
+Budget rules use cumulative absolute movement against day-start budget,
+including reversals. Google shared budgets are rejected by the integration
+unless the caller performs an explicitly reviewed shared operation (there is no
+such action in this version). Ended/unlinked flights are rejected. Finance
+disputes write a shared finance row in both arms; Relate also makes a native
+audit record, which does not count as extra business success.
+
+Grading checks the answer, required caveats and every committed mutation.
+Creation must produce exactly one correct record and a subsequent read by the
+returned provider identity. A separate integration test verifies that the Relate
+receipt's ID reads the newly adopted object. TTD replacement may not erase
+unrequested fields. Repeated requests, committed mutations and actual state
+transitions are counted separately: a second no-op absolute assignment is not
+mislabelled as a duplicate business effect.
+
+Reports distinguish forbidden writes, missing/duplicate effects, clobbers,
+missing follow-up reads, wrong answers and absent stale caveats.
+Commercial-value exposure in tool output is recorded separately from disclosure
+in assistant text or the final submission. Exact-string leak checks are a lower
+bound, not a semantic privacy proof. The proposed LLM mistake judge/human audit
+is not wired into this initial runner.
+
+## Reproducibility and limits
+
+- Each run gets a new world projection, SQL files, server, runtime, membership,
+  journal and executor process. There is no shared mutation/cache state between
+  arms or repetitions.
+- Manifests hash benchmark and public SDK/connector source plus the lockfile,
+  record the Git revision and Node version, and pin all run configuration.
+- The graph and task catalogue were developed together. The manifest freezes
+  them **for a run**, not before all task design. Reference validation across
+  held-out seeds checks mechanical consistency, not independent task-design
+  validity. Prompt clarity and documentation parity still need human review.
+- The simulators implement the documented subset, not vendor API fidelity.
+  Native error shapes, pagination, units, shared-budget effects and replacement
+  semantics are deliberate; eventual read visibility and every real API edge
+  case are not simulated.
+- Pacing/FX/rebalancing headline results must wait for the deferred tasks. Today
+  spend remains a separate partial source value, and warehouse freshness is
+  exposed through `Load`/`loadedThrough`; a recent connector read does not mean
+  delivery rows are current.
+- The report's cost per success includes failed runs. Unknown costs remain
+  unknown. `pass^k` reports only complete repetition groups and separately
+  counts incomplete groups. Paired bootstrap intervals resample tasks, retaining
+  all repetitions within each task.
+
+## Ownership and validation
+
+| File/directory | Responsibility                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `src/world/`   | Canonical truth, seeded generator, tiers and fact iterators                               |
+| `src/systems/` | Physical databases, HTTP projections, faults, request/mutation logs                       |
+| `src/relate/`  | Graph, connectors, policies, action handlers and external-write journal                   |
+| `src/tasks/`   | Intended catalogue, world oracles, raw/Relate reference programs, deterministic graders   |
+| `src/harness/` | Arm capabilities, docs, model adapter, limits, manifest, transcripts and CLI              |
+| `src/report/`  | Aggregation, paired bootstrap and Markdown/JSON reporting                                 |
+| `test/`        | Determinism, provider contracts, permission/action correctness, budgets and report checks |
+
+```sh
+pnpm exec vitest run --project unit benchmarks/media-agency/test
+pnpm check:boundaries
+pnpm check
+```
+
+The benchmark is a private workspace package. No library imports it; it imports
+only public Relate APIs and owns its test setup. It has no dependency on
+examples, exploratory fixtures, Docker or a database server.

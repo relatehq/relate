@@ -48,7 +48,12 @@
     "bench:overhead:run": "node --import tsx tests/performance/analytical-properties/overhead/run.ts",
     "example:native-objects:walkthrough": "node scripts/examples/run.mjs native-objects --walkthrough",
     "example:persistence:walkthrough": "node scripts/examples/run.mjs persistence --walkthrough",
-    "example:connected-sources:walkthrough": "node scripts/examples/run.mjs connected-sources --walkthrough"
+    "example:connected-sources:walkthrough": "node scripts/examples/run.mjs connected-sources --walkthrough",
+    "bench:agency:generate": "pnpm --filter @relate/benchmark-media-agency cli generate",
+    "bench:agency:run": "pnpm build && pnpm --filter @relate/benchmark-media-agency cli run",
+    "bench:agency:report": "pnpm --filter @relate/benchmark-media-agency cli report",
+    "bench:agency:validate": "pnpm build && pnpm --filter @relate/benchmark-media-agency cli validate",
+    "bench:agency:catalogue": "pnpm --filter @relate/benchmark-media-agency cli catalogue"
   },
   "devDependencies": {
     "@changesets/cli": "3.0.3",

@@ -1,0 +1,18 @@
+{
+  "name": "@relate/benchmark-media-agency",
+  "version": "0.0.0-dev.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cli": "node --import tsx src/harness/cli.ts"
+  },
+  "dependencies": {
+    "@duckdb/node-api": "1.5.6-r.1",
+    "@relate/connector-duckdb": "workspace:*",
+    "@relate/connector-sqlite": "workspace:*",
+    "@relate/mcp": "workspace:*",
+    "@relate/node": "workspace:*",
+    "relate": "workspace:*",
+    "zod": "4.6.5"
+  }
+}

@@ -9,6 +9,7 @@ export default defineConfig({
           exclude: ['**/*.integration.test.ts'],
           include: [
             'packages/*/test/**/*.test.ts',
+            'benchmarks/*/test/**/*.test.ts',
             'connectors/*/test/**/*.test.ts',
             'dev/salesforce/test/**/*.test.ts',
             'apps/*/test/**/*.test.ts',

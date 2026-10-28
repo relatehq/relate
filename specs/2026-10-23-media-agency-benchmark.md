@@ -1,19 +1,23 @@
 # 2026-10-23: Media agency agent benchmark
 
-**Status:** direction agreed on 2026-10-23, revised 2026-10-28. Nothing is
-implemented. Two SDK features must ship first:
-[action adoption](./2026-10-28-action-adoption.md) and
-[reference datasets](./2026-10-28-reference-datasets.md).
+**Status:** initial implementation in
+[`benchmarks/media-agency`](../benchmarks/media-agency/README.md). Action
+adoption and calendar dates have landed. On 2026-10-28 the owner deferred the
+planned dataset expansion: 66 of 80 task variants are runnable; 14
+FX/rebalancing variants are registered but not run. Paid pilot/Main/Scale
+results are not published. The package README records the exact implemented
+scope and validation limits; the remaining sections preserve the broader design
+target.
 
-| Area                                                                      | Status            |
-| ------------------------------------------------------------------------- | ----------------- |
-| Fictional agency, eight systems, public `relate` repo, tiers S/M/L        | Agreed 2026-10-23 |
-| Three arms; baselines get raw `http`/`sql` only                           | Agreed 2026-10-23 |
-| Actions are Relate handlers writing to simulators; same end-state grading | Agreed 2026-10-23 |
-| Plans and finance in SQLite (no Docker or database server)                | Agreed 2026-10-23 |
-| Create-type actions included; action adoption built first                 | Agreed 2026-10-28 |
-| Currency conversion through reference datasets                            | Agreed 2026-10-28 |
-| Simulators, tasks, grading, harness, run plan                             | Proposed          |
+| Area                                                                      | Status                                     |
+| ------------------------------------------------------------------------- | ------------------------------------------ |
+| Fictional agency, eight systems, public `relate` repo, tiers S/M/L        | Agreed 2026-10-23                          |
+| Three arms; baselines get raw `http`/`sql` only                           | Agreed 2026-10-23                          |
+| Actions are Relate handlers writing to simulators; same end-state grading | Agreed 2026-10-23                          |
+| Plans and finance in SQLite (no Docker or database server)                | Agreed 2026-10-23                          |
+| Create-type actions included; action adoption built first                 | Agreed 2026-10-28                          |
+| Currency conversion through reference datasets                            | Agreed 2026-10-28                          |
+| Simulators, tasks, grading, harness, run plan                             | Initial implementation; see package README |
 
 ## Why this benchmark
 
@@ -1026,9 +1030,12 @@ flowchart LR
 | 4     | Pilot run, cost estimate, fixes                                                                              | Pilot report reviewed; Main budget approved                   |
 | 5     | Remaining 60 tasks, tiers M and L, Main and Scale runs, report                                               | Published results and transcripts                             |
 
-Both SDK features must land before Phase 3, because the graph is frozen there.
-There is no fallback where pilot currency tasks run without reference datasets
-and switch later: that would change the graph after the freeze.
+The original plan required both SDK features before Phase 3. The owner's
+2026-10-28 instruction supersedes the reference-dataset prerequisite: register
+FX-dependent tasks as deferred and run account-currency tasks using existing
+APIs. Do not call deferred tasks passed or replace them silently. Current graph
+and task hashes are frozen together per run; this is not a pre-task graph
+freeze. Reference datasets remain a separate future SDK change.
 
 ## Open questions
 

@@ -1,0 +1,255 @@
+{
+  "date": "2026-10-28",
+  "scope": "Deterministic reference validation, not model performance. No paid model runs.",
+  "baseCommit": "f665cf5",
+  "referenceRuns": [
+    {
+      "seed": 7,
+      "tier": "S",
+      "mode": "reference",
+      "sourceRevision": "b008253ed521dfdcf3a72f809b184d275733e034339b041d66d14c6d2dbf4f3a",
+      "manifestId": "403f4be59cab323c7e60541b489afece52082df75e53b7f24da9dcb182974c07",
+      "executedChecks": 198,
+      "passedChecks": 198,
+      "deferredRecords": 42,
+      "summary": [
+        {
+          "group": "baseline-code/S",
+          "runs": 66,
+          "successes": 66,
+          "passAt1": 1,
+          "passAllK": 1,
+          "completeTaskGroups": 66,
+          "incompleteTaskGroups": 0,
+          "deferredTasks": [
+            "diagnose-act.rebalance-8",
+            "diagnose-act.rebalance-7",
+            "diagnose-act.rebalance-5",
+            "aggregation.fx-4",
+            "diagnose-act.rebalance-6",
+            "diagnose-act.rebalance-4",
+            "aggregation.fx-5",
+            "aggregation.fx-2",
+            "diagnose-act.rebalance-3",
+            "aggregation.fx-6",
+            "diagnose-act.rebalance-2",
+            "diagnose-act.rebalance-1",
+            "aggregation.fx-3",
+            "aggregation.fx-1"
+          ],
+          "costPerSuccess": null,
+          "unknownCostRuns": 66,
+          "medianWallMs": 55.895750000010594,
+          "p90WallMs": 70.41379200000665,
+          "mistakesPer100": {}
+        },
+        {
+          "group": "relate/S",
+          "runs": 66,
+          "successes": 66,
+          "passAt1": 1,
+          "passAllK": 1,
+          "completeTaskGroups": 66,
+          "incompleteTaskGroups": 0,
+          "deferredTasks": [
+            "aggregation.fx-3",
+            "diagnose-act.rebalance-3",
+            "diagnose-act.rebalance-5",
+            "diagnose-act.rebalance-4",
+            "aggregation.fx-6",
+            "aggregation.fx-1",
+            "diagnose-act.rebalance-8",
+            "aggregation.fx-2",
+            "aggregation.fx-5",
+            "diagnose-act.rebalance-7",
+            "aggregation.fx-4",
+            "diagnose-act.rebalance-2",
+            "diagnose-act.rebalance-1",
+            "diagnose-act.rebalance-6"
+          ],
+          "costPerSuccess": null,
+          "unknownCostRuns": 66,
+          "medianWallMs": 60.161040999999386,
+          "p90WallMs": 126.72108299999672,
+          "mistakesPer100": {}
+        },
+        {
+          "group": "baseline-tools/S",
+          "runs": 66,
+          "successes": 66,
+          "passAt1": 1,
+          "passAllK": 1,
+          "completeTaskGroups": 66,
+          "incompleteTaskGroups": 0,
+          "deferredTasks": [
+            "aggregation.fx-3",
+            "diagnose-act.rebalance-6",
+            "aggregation.fx-5",
+            "diagnose-act.rebalance-1",
+            "aggregation.fx-1",
+            "diagnose-act.rebalance-2",
+            "diagnose-act.rebalance-4",
+            "diagnose-act.rebalance-3",
+            "diagnose-act.rebalance-5",
+            "aggregation.fx-4",
+            "diagnose-act.rebalance-8",
+            "aggregation.fx-6",
+            "aggregation.fx-2",
+            "diagnose-act.rebalance-7"
+          ],
+          "costPerSuccess": null,
+          "unknownCostRuns": 66,
+          "medianWallMs": 4.992333999980474,
+          "p90WallMs": 12.962375000002794,
+          "mistakesPer100": {}
+        }
+      ]
+    },
+    {
+      "seed": 19,
+      "tier": "S",
+      "mode": "reference",
+      "sourceRevision": "b008253ed521dfdcf3a72f809b184d275733e034339b041d66d14c6d2dbf4f3a",
+      "manifestId": "9a2c2f4d66218da832e14b957312707bbf0a193d8f401374a85455ee08a5fc14",
+      "executedChecks": 198,
+      "passedChecks": 198,
+      "deferredRecords": 42,
+      "summary": [
+        {
+          "group": "baseline-code/S",
+          "runs": 66,
+          "successes": 66,
+          "passAt1": 1,
+          "passAllK": 1,
+          "completeTaskGroups": 66,
+          "incompleteTaskGroups": 0,
+          "deferredTasks": [
+            "diagnose-act.rebalance-6",
+            "aggregation.fx-2",
+            "diagnose-act.rebalance-5",
+            "diagnose-act.rebalance-7",
+            "aggregation.fx-4",
+            "diagnose-act.rebalance-8",
+            "diagnose-act.rebalance-2",
+            "aggregation.fx-5",
+            "aggregation.fx-1",
+            "diagnose-act.rebalance-4",
+            "aggregation.fx-3",
+            "diagnose-act.rebalance-1",
+            "diagnose-act.rebalance-3",
+            "aggregation.fx-6"
+          ],
+          "costPerSuccess": null,
+          "unknownCostRuns": 66,
+          "medianWallMs": 56.12462499999674,
+          "p90WallMs": 69.4706659999938,
+          "mistakesPer100": {}
+        },
+        {
+          "group": "baseline-tools/S",
+          "runs": 66,
+          "successes": 66,
+          "passAt1": 1,
+          "passAllK": 1,
+          "completeTaskGroups": 66,
+          "incompleteTaskGroups": 0,
+          "deferredTasks": [
+            "diagnose-act.rebalance-3",
+            "diagnose-act.rebalance-4",
+            "aggregation.fx-6",
+            "diagnose-act.rebalance-7",
+            "diagnose-act.rebalance-6",
+            "aggregation.fx-5",
+            "diagnose-act.rebalance-2",
+            "aggregation.fx-4",
+            "diagnose-act.rebalance-5",
+            "aggregation.fx-2",
+            "aggregation.fx-1",
+            "aggregation.fx-3",
+            "diagnose-act.rebalance-1",
+            "diagnose-act.rebalance-8"
+          ],
+          "costPerSuccess": null,
+          "unknownCostRuns": 66,
+          "medianWallMs": 5.299208999989787,
+          "p90WallMs": 14.596624999991036,
+          "mistakesPer100": {}
+        },
+        {
+          "group": "relate/S",
+          "runs": 66,
+          "successes": 66,
+          "passAt1": 1,
+          "passAllK": 1,
+          "completeTaskGroups": 66,
+          "incompleteTaskGroups": 0,
+          "deferredTasks": [
+            "aggregation.fx-1",
+            "aggregation.fx-3",
+            "aggregation.fx-5",
+            "diagnose-act.rebalance-1",
+            "diagnose-act.rebalance-7",
+            "diagnose-act.rebalance-6",
+            "diagnose-act.rebalance-5",
+            "diagnose-act.rebalance-2",
+            "diagnose-act.rebalance-8",
+            "diagnose-act.rebalance-3",
+            "aggregation.fx-6",
+            "diagnose-act.rebalance-4",
+            "aggregation.fx-4",
+            "aggregation.fx-2"
+          ],
+          "costPerSuccess": null,
+          "unknownCostRuns": 66,
+          "medianWallMs": 60.22612500000105,
+          "p90WallMs": 129.37874999998894,
+          "mistakesPer100": {}
+        }
+      ]
+    }
+  ],
+  "scaleGeneration": [
+    {
+      "tier": "M",
+      "seed": 19,
+      "clients": 40,
+      "campaigns": 800,
+      "ads": 16000,
+      "counts": {
+        "ads": "1432000",
+        "campaigns": "71600",
+        "fx": "819",
+        "safety": "48000"
+      },
+      "elapsedMs": 2364.89125
+    },
+    {
+      "tier": "L",
+      "seed": 19,
+      "clients": 150,
+      "campaigns": 3000,
+      "ads": 60000,
+      "counts": {
+        "ads": "5370000",
+        "campaigns": "268500",
+        "fx": "819",
+        "safety": "180000"
+      },
+      "elapsedMs": 8841.7
+    }
+  ],
+  "repositoryCheck": {
+    "command": "pnpm check",
+    "passed": 3120,
+    "skipped": 10,
+    "includes": [
+      "format",
+      "lint",
+      "typecheck",
+      "boundaries",
+      "Postgres integration",
+      "packaging"
+    ]
+  },
+  "artifacts": "Raw reference transcripts, results, immutable manifests and failed development attempts are retained locally under artifacts/ (gitignored). Reproduce using the commands in VALIDATION.md."
+}
