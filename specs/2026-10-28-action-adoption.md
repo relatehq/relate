@@ -1,23 +1,23 @@
 # 2026-10-28: Action adoption
 
-**Status:** this spec defines the action-adoption contract. Nothing is
-implemented. The public API and local atomicity rule were agreed on 2026-10-28;
-the spec was reviewed and revised the same day. This feature must ship before
-the [media agency benchmark](./2026-10-23-media-agency-benchmark.md) is built,
+**Status:** agreed 2026-10-28. Nothing is implemented. The public API, local
+atomicity rule and the full contract below were agreed after review the same
+day; the integration helpers are deferred. This feature must ship before the
+[media agency benchmark](./2026-10-23-media-agency-benchmark.md) is built,
 because its create-type tasks depend on it.
 
-| Part                                                                     | Status                                                                               |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `adopts` declaration and `objects.Type.adopt(id)` in handlers            | Agreed 2026-10-28                                                                    |
-| Adoption commits or rolls back with the action's local changes           | Agreed 2026-10-28                                                                    |
-| No exactly-once claim for external writes; recovery is integration code  | Agreed 2026-10-28                                                                    |
-| Commit-time acceptance with a pending-object overlay                     | Defined in [How adoption commits](#how-adoption-commits-with-the-action)             |
-| Same-view rule: a newer identical observation does not abort             | Proposed in [Ordering at commit](#ordering-at-commit)                                |
-| Storage capability, acceptance and conflict validation                   | Defined in [Storage contract](#storage-contract)                                     |
-| Query visibility, failure receipts and invocation provenance             | Defined in [Behavior rules](#behavior-rules)                                         |
-| Waiting for a just-created record to become readable is integration code | Decided in [Records that are not yet fetchable](#records-that-are-not-yet-fetchable) |
-| `waitMs` option and a typed connector absence signal                     | Deferred, see [Deferred](#deferred-typed-absence-and-waitms)                         |
-| SDK helper for integration journals                                      | Open                                                                                 |
+| Part                                                                     | Status                                                                                           |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `adopts` declaration and `objects.Type.adopt(id)` in handlers            | Agreed 2026-10-28                                                                                |
+| Adoption commits or rolls back with the action's local changes           | Agreed 2026-10-28                                                                                |
+| No exactly-once claim for external writes; recovery is integration code  | Agreed 2026-10-28                                                                                |
+| Commit-time acceptance with a pending-object overlay                     | Agreed 2026-10-28, see [How adoption commits](#how-adoption-commits-with-the-action)             |
+| Same-view rule: a newer identical observation does not abort             | Agreed 2026-10-28, see [Ordering at commit](#ordering-at-commit)                                 |
+| Storage capability, acceptance and conflict validation                   | Agreed 2026-10-28, see [Storage contract](#storage-contract)                                     |
+| Query visibility, failure receipts and invocation provenance             | Agreed 2026-10-28, see [Behavior rules](#behavior-rules)                                         |
+| Waiting for a just-created record to become readable is integration code | Agreed 2026-10-28, see [Records that are not yet fetchable](#records-that-are-not-yet-fetchable) |
+| `waitMs` option and a typed connector absence signal                     | Deferred, see [Deferred](#deferred-typed-absence-and-waitms)                                     |
+| SDK helpers for integration journals and visibility polling              | Deferred, see [Deferred](#deferred-integration-helpers)                                          |
 
 ## The problem
 
@@ -410,22 +410,12 @@ business changes before `invocation-succeeded` in the same atomic feed batch.
 
 ## How adoption commits with the action
 
-Adoption commits or rolls back with the action. Use commit-time acceptance
-(option B below). Option A explains the rejected alternative.
-
-**Option A: accept immediately inside the transaction.** `adopt` writes the
-membership on the transaction's connection when called.
-
-- The per-record lock is held from `adopt` until COMMIT, across the handler's
-  later external calls. That breaks "No I/O under this lock".
-- If the handler then reads the same record and the read refreshes it, the
-  refresh runs on a different connection and waits on that lock: a
-  self-deadlock.
-- Host ingestion of that record blocks for as long as the handler runs.
-
-**Option B: commit-time acceptance.** `adopt` fetches and stages the observation
-in memory; the executor accepts all staged adoptions on the transaction's
-connection as the last step before saving the receipt.
+Adoption commits or rolls back with the action through commit-time acceptance.
+`adopt` fetches and stages the observation in memory; the executor accepts all
+staged adoptions on the transaction's connection as the last step before saving
+the receipt. No record lock is held while the handler runs, so the handler's
+later external calls and reads of the same record cannot block host ingestion or
+deadlock on that record.
 
 The helpers below describe the new overlay, not existing APIs. Its per-identity
 critical section does no source I/O; the invocation can still fetch different
@@ -795,6 +785,27 @@ first:
 **Trigger to revisit:** the benchmark's `launchAdGroup` task shows retries
 caused by connector 404s after the integration already confirmed visibility.
 
+## Deferred: integration helpers
+
+v1 ships no SDK helper for external writes. Integrations write their own journal
+and visibility polling, as in [The API](#the-api) and
+[External writes and recovery](#external-writes-and-recovery). Both are needed
+by every create-then-adopt action, so the need is recorded here:
+
+- **Journal helper**, such as
+  `journal.once(idempotencyId, create, { recover })`. Without one, a retry after
+  a lost response or timeout must not call the platform's create again; each
+  integration has to persist the operation outside the action transaction and
+  recover by documented platform reads.
+- **Visibility-poll helper**, such as `waitFor(read, { timeoutMs })`. Platforms
+  often return an ID before their read API serves the record, so each
+  integration writes a short poll loop and a declared `notVisible` failure. The
+  poll runs under the graph lock, so a helper would also enforce short waits.
+
+**Trigger to revisit:** the benchmark's create-type tasks repeat the same
+journal or polling code across integrations, or show duplicate external effects
+or lock-time cost a shared helper would prevent. Decide both helpers together.
+
 ## Files
 
 Implementation ownership:
@@ -889,13 +900,6 @@ journal is the contract under test in item 13; it is not an SDK promise.
     and an empty list otherwise.
 15. `pnpm check` (or `pnpm test:unit` without a test database, reported as
     such), `pnpm check:boundaries` and `pnpm test:packaging`.
-
-## Open questions
-
-| Question                                                         | Lean                                                |
-| ---------------------------------------------------------------- | --------------------------------------------------- |
-| Should the journal pattern become an SDK helper?                 | Decide from benchmark results                       |
-| Should a visibility-poll helper ship next to the journal helper? | Same decision; both are integration code until then |
 
 ## Appendix: research basis (reviewed 2026-10-28)
 
