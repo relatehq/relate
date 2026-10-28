@@ -143,6 +143,7 @@ export async function createArm(
           principal,
           http: env.simulators.http,
           db: env.db,
+          trace: env.trace,
           directory: env.directory,
         })
       : undefined;

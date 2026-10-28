@@ -1,3 +1,4 @@
+import { providerRequest } from './request.js';
 import type { Model, ModelConfig, Block } from './types.js';
 import type { Row } from '../../systems/simulators.js';
 import { json } from '../../world/model.js';
@@ -34,37 +35,35 @@ export function openaiModel(config: ModelConfig, key: string): Model {
         }
       }
 
-      const response = await fetch('https://api.openai.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${key}`,
-          'content-type': 'application/json',
+      const raw = (await providerRequest(
+        'OpenAI',
+        'https://api.openai.com/v1/responses',
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${key}`,
+            'content-type': 'application/json',
+          },
+          body: json({
+            model: config.model,
+            store: false,
+            include: ['reasoning.encrypted_content'],
+            instructions: input.system,
+            input: items,
+            max_output_tokens: config.maxOutputTokens,
+            ...(config.reasoning
+              ? { reasoning: { effort: config.reasoning } }
+              : {}),
+            tools: input.tools.map((tool) => ({
+              type: 'function',
+              ...tool,
+              strict: false,
+            })),
+          }),
+          signal: input.signal,
         },
-        body: json({
-          model: config.model,
-          store: false,
-          include: ['reasoning.encrypted_content'],
-          instructions: input.system,
-          input: items,
-          max_output_tokens: config.maxOutputTokens,
-          ...(config.reasoning
-            ? { reasoning: { effort: config.reasoning } }
-            : {}),
-          tools: input.tools.map((tool) => ({
-            type: 'function',
-            ...tool,
-            strict: false,
-          })),
-        }),
-        signal: input.signal,
-      });
-
-      if (!response.ok)
-        throw new Error(
-          `OpenAI HTTP ${response.status}: ${(await response.text()).slice(0, 2000)}`,
-        );
-
-      const raw = (await response.json()) as {
+        input.trace,
+      )) as {
         output: Row[];
         status: string;
         usage: {

@@ -1,3 +1,4 @@
+import { Trace, telemetryVersion } from './telemetry.js';
 import {
   appendFile,
   mkdir,
@@ -70,6 +71,7 @@ export async function manifest(config: RunConfig) {
   const revision = hash(json(digests));
   const contract = {
     formatVersion: 1,
+    telemetryVersion,
     config,
     budgets: defaultBudgets,
     revision,
@@ -152,8 +154,11 @@ export async function runOne(input: {
       `Interrupted run ${id}; preserve it and use a new output directory`,
     );
 
-  const emit = async (event: Row) =>
-    appendFile(transcriptPath, json(event) + '\n');
+  const trace = new Trace(
+    async (event) => appendFile(transcriptPath, json(event) + '\n'),
+    id,
+  );
+  const emit = trace.emit;
 
   if (input.task.status === 'deferred') {
     const result = {
@@ -172,10 +177,19 @@ export async function runOne(input: {
   let env: Awaited<ReturnType<typeof createEnvironment>> | undefined;
   let arm: Awaited<ReturnType<typeof createArm>> | undefined;
   const started = performance.now();
-  let result: RunResult;
+  let result: RunResult = {
+    id,
+    ...identity,
+    category: input.task.category,
+    status: 'started',
+  };
+  const phase = <T>(name: string, operation: () => T | Promise<T>) =>
+    trace.span('phase', name, {}, operation, true);
 
   try {
-    const world = generateWorld({ tier: input.tier, seed: input.seed }),
+    const world = await phase('world', () =>
+        generateWorld({ tier: input.tier, seed: input.seed }),
+      ),
       task = instantiate(input.task, world);
 
     await emit({
@@ -185,10 +199,14 @@ export async function runOne(input: {
       principal: task.definition.principal,
       faults: task.faults,
     });
-    env = await createEnvironment(world, task.faults);
+    env = await phase('environment-setup', () =>
+      createEnvironment(world, task.faults, trace),
+    );
     const environmentSetupMs = performance.now() - started;
 
-    arm = await createArm(input.arm, input.task.principal, env);
+    arm = await phase('arm-setup', () =>
+      createArm(input.arm, input.task.principal, env!),
+    );
     const setupMs = performance.now() - started;
 
     env.simulators.requests.length = 0;
@@ -205,13 +223,17 @@ export async function runOne(input: {
       transcript = { assistant: '', tools: '' };
 
     if (input.model) {
-      const loop = await agentLoop({
-        model: input.model,
-        arm,
-        system: prompt(input.task.principal),
-        prompt: task.prompt,
-        emit,
-      });
+      const loop = await phase('agent', () =>
+        agentLoop({
+          model: input.model!,
+          arm: arm!,
+          system: prompt(input.task.principal),
+          prompt: task.prompt,
+          emit,
+          trace,
+          ...(input.price ? { price: input.price } : {}),
+        }),
+      );
 
       submission = loop.submission;
       usage = loop.usage;
@@ -236,7 +258,20 @@ export async function runOne(input: {
           ...args: string[]
         ) => (...args: unknown[]) => Promise<unknown>;
         const call = async (name: string, args: Row) => {
-          const value = await arm!.call(name, args);
+          const value = await trace.span(
+            'tool',
+            name,
+            { input: args },
+            async (step) => {
+              const value = await arm!.call(name, args);
+
+              step.result = value;
+              step.outputBytes = Buffer.byteLength(json(value));
+
+              return value;
+            },
+            true,
+          );
 
           transcript.tools += json(value);
           await emit({ type: 'tool', name, input: args, result: value });
@@ -260,7 +295,28 @@ export async function runOne(input: {
           },
         )) as Submission;
       } else {
-        const execution = (await arm.call('execute', { code })) as {
+        const execution = (await trace.span(
+          'tool',
+          'execute',
+          { input: { code } },
+          async (step) => {
+            const value = await arm!.call('execute', { code });
+
+            step.result = value;
+            step.outputBytes = Buffer.byteLength(json(value));
+
+            if (
+              value &&
+              typeof value === 'object' &&
+              'status' in value &&
+              value.status === 'failed'
+            )
+              step.outcome = 'executor-failed';
+
+            return value;
+          },
+          true,
+        )) as {
           status: string;
           result: Submission;
           error: unknown;
@@ -281,15 +337,26 @@ export async function runOne(input: {
     const wallMs = performance.now() - runStart;
 
     // Drain in-flight operations before inspecting end state (timeouts cannot undo a dispatched write).
-    await arm.close();
+    // Persist measured usage even if draining, grading or cleanup fails.
+    Object.assign(result, {
+      setupMs,
+      environmentSetupMs,
+      wallMs,
+      ...usage,
+      ...metrics,
+      ...cost(usage, metrics.usageComplete === false ? undefined : input.price),
+    });
+    await phase('drain', () => arm!.close());
     arm = undefined;
-    const grading = grade(
-      task,
-      submission,
-      env.mutations,
-      env.simulators.requests,
-      world,
-      transcript,
+    const grading = await phase('grading', () =>
+      grade(
+        task,
+        submission,
+        env!.mutations,
+        env!.simulators.requests,
+        world,
+        transcript,
+      ),
     );
 
     if (metrics.stop === 'budget') {
@@ -303,9 +370,7 @@ export async function runOne(input: {
     }
 
     result = {
-      id,
-      ...identity,
-      category: input.task.category,
+      ...result,
       status: 'completed',
       ...grading,
       faultsConfigured: task.faults,
@@ -339,9 +404,7 @@ export async function runOne(input: {
     });
   } catch (error) {
     result = {
-      id,
-      ...identity,
-      category: input.task.category,
+      ...result,
       status: 'failed',
       passed: false,
       mistakes: ['harness-error'],
@@ -357,13 +420,13 @@ export async function runOne(input: {
     const failures: string[] = [];
 
     try {
-      await arm?.close();
+      await phase('arm-cleanup', () => arm?.close());
     } catch (error) {
       failures.push(String(error));
     }
 
     try {
-      await env?.close();
+      await phase('environment-cleanup', () => env?.close());
     } catch (error) {
       failures.push(String(error));
     }
@@ -371,17 +434,22 @@ export async function runOne(input: {
     if (failures.length) {
       await emit({ type: 'cleanup-error', errors: failures });
       result = {
-        id,
-        ...identity,
-        category: input.task.category,
+        ...result,
         status: 'failed',
         passed: false,
-        mistakes: ['cleanup-error'],
+        mistakes: [...(result.mistakes ?? []), 'cleanup-error'],
         errors: failures,
       };
     }
   }
 
+  await emit({
+    type: 'run-end',
+    status: result.status,
+    passed: result.passed,
+    mistakes: result.mistakes,
+  });
+  result.telemetry = trace.summary();
   await writeFile(resultPath, json(result) + '\n', { flag: 'wx' });
 
   return result;

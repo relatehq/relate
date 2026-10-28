@@ -1,3 +1,4 @@
+import { Trace } from './telemetry.js';
 import type { ArmHandle } from './arms.js';
 import type { Submission } from '../tasks/grading.js';
 import { json } from '../world/model.js';
@@ -21,7 +22,11 @@ export async function agentLoop(input: {
   prompt: string;
   emit: (event: Row) => Promise<void>;
   budgets?: typeof defaultBudgets;
+  trace?: Trace;
+  price?: Price;
 }) {
+  const trace = input.trace ?? new Trace(input.emit);
+  const emit = trace.emit;
   const budget = input.budgets ?? defaultBudgets;
   const controller = new AbortController(),
     timer = setTimeout(() => controller.abort(), budget.wallMs);
@@ -46,36 +51,79 @@ export async function agentLoop(input: {
     tools = '';
 
   try {
+    await emit({
+      type: 'agent-start',
+      model: input.model.name,
+      system: input.system,
+      prompt: input.prompt,
+      tools: input.arm.tools,
+      budget,
+    });
+
     for (; turns < budget.turns;) {
       if (controller.signal.aborted) {
         stop = 'budget';
         break;
       }
 
-      const start = performance.now();
+      const modelStep: Row = {
+        turn: turns + 1,
+        model: input.model.name,
+        messageCount: messages.length,
+        contextBytes: Buffer.byteLength(
+          json({ system: input.system, messages, tools: input.arm.tools }),
+        ),
+        costUsd: null,
+        costUsdUncached: null,
+        usageComplete: false,
+      };
 
       usageComplete = false;
-      const reply = await input.model.complete({
-        system: input.system,
-        messages,
-        tools: input.arm.tools,
-        signal: controller.signal,
-      });
+      const reply = await trace
+        .span(
+          'model',
+          input.model.name,
+          modelStep,
+          async (step) => {
+            const response = await input.model.complete({
+              system: input.system,
+              messages,
+              tools: input.arm.tools,
+              signal: controller.signal,
+              trace,
+            });
 
-      modelMs += performance.now() - start;
-      turns++;
-      await input.emit({ type: 'model', reply });
+            turns++;
+            await emit({ type: 'model', turn: turns, reply: response });
 
-      if (
-        !reply.usage ||
-        ![
-          reply.usage.inputTokens,
-          reply.usage.outputTokens,
-          reply.usage.cacheReadTokens,
-          reply.usage.cacheWriteTokens,
-        ].every((n) => Number.isSafeInteger(n) && n >= 0)
-      )
-        throw new Error('Model response has no valid token usage');
+            if (
+              !response.usage ||
+              ![
+                response.usage.inputTokens,
+                response.usage.outputTokens,
+                response.usage.cacheReadTokens,
+                response.usage.cacheWriteTokens,
+              ].every((n) => Number.isSafeInteger(n) && n >= 0)
+            )
+              throw new Error('Model response has no valid token usage');
+
+            Object.assign(step, {
+              usage: response.usage,
+              usageComplete: true,
+              ...cost(response.usage, input.price),
+              stopReason: response.stopReason,
+              responseBytes: Buffer.byteLength(json(response)),
+              outcome:
+                response.stopReason === 'complete' ? 'ok' : response.stopReason,
+            });
+
+            return response;
+          },
+          true,
+        )
+        .finally(() => {
+          modelMs += Number(modelStep.durationMs ?? 0);
+        });
 
       usageComplete = true;
       usage.inputTokens += reply.usage.inputTokens;
@@ -123,30 +171,57 @@ export async function agentLoop(input: {
         }
 
         toolCalls++;
-        const start = performance.now();
+        const toolStep: Row = {
+          modelSpanId: modelStep.spanId,
+          turn: turns,
+          toolCallId: block.id,
+          input: block.input,
+          inputBytes: Buffer.byteLength(json(block.input)),
+        };
         let result: unknown,
           isError = false;
 
         try {
-          if (block.argumentError) throw new Error(block.argumentError);
+          result = await trace.span(
+            'tool',
+            block.name,
+            toolStep,
+            async (step) => {
+              if (block.argumentError) throw new Error(block.argumentError);
 
-          if (block.name === 'submit_answer') {
-            submission = submissionSchema.parse(block.input);
-            submittedThisTurn = true;
-            stop = 'submitted';
-            result = { accepted: true };
-          } else
-            result = await input.arm.call(
-              String(block.name),
-              block.input as Row,
-              controller.signal,
-            );
+              if (block.name === 'submit_answer') {
+                submission = submissionSchema.parse(block.input);
+                submittedThisTurn = true;
+                stop = 'submitted';
+                result = { accepted: true };
+              } else
+                result = await input.arm.call(
+                  String(block.name),
+                  block.input as Row,
+                  controller.signal,
+                );
+
+              step.result = result;
+              step.outputBytes = Buffer.byteLength(json(result));
+
+              if (
+                result &&
+                typeof result === 'object' &&
+                'status' in result &&
+                result.status === 'failed'
+              )
+                step.outcome = 'executor-failed';
+
+              return result;
+            },
+            true,
+          );
         } catch (error) {
           result = { error: String(error) };
           isError = true;
         }
 
-        toolMs += performance.now() - start;
+        toolMs += Number(toolStep.durationMs ?? 0);
         const text = json(result);
 
         bytesReturnedByTools += Buffer.byteLength(text);
@@ -159,8 +234,10 @@ export async function agentLoop(input: {
         };
 
         results.push(response);
-        await input.emit({
+        await emit({
           type: 'tool',
+          turn: turns,
+          toolCallId: block.id,
           name: block.name,
           input: block.input,
           result,
@@ -181,9 +258,18 @@ export async function agentLoop(input: {
     if (!submission && turns >= budget.turns) stop = 'budget';
   } catch (error) {
     stop = controller.signal.aborted ? 'budget' : 'model-error';
-    await input.emit({ type: 'error', error: String(error) });
+    await emit({ type: 'error', error: String(error) });
   } finally {
     clearTimeout(timer);
+    await emit({
+      type: 'agent-end',
+      stop,
+      turns,
+      toolCalls,
+      usage,
+      usageComplete,
+      ...cost(usage, usageComplete ? input.price : undefined),
+    });
   }
 
   return {

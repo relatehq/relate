@@ -118,6 +118,51 @@ it.each(['baseline-tools', 'baseline-code', 'relate'] as const)(
       ),
     ).toHaveLength(1);
     expect(end.mutations).toHaveLength(1);
+    const starts = events.filter((e) => e.type === 'span-start');
+    const spans = events.filter((e) => e.type === 'span-end');
+
+    expect(spans).toHaveLength(starts.length);
+    expect(events.map((e) => e.sequence)).toEqual(
+      events.map((_, index) => index + 1),
+    );
+    const lost = spans.find(
+      (e) =>
+        e.kind === 'http' &&
+        e.attributes.simulatorOutcome === 'timeout-after-commit',
+    );
+
+    expect(lost).toMatchObject({
+      outcome: 'error',
+      attributes: { mutationCount: 1, requestId: end.mutations[0].requestId },
+    });
+    // This catches executor IPC callbacks accidentally retaining the closed setup context.
+    const parent = spans.find((e) => e.spanId === lost.parentSpanId);
+
+    expect(parent.kind).toBe('tool');
+
+    if (arm === 'relate')
+      expect(spans.some((e) => e.kind === 'sql')).toBe(true);
+
+    expect(spans.filter((e) => e.kind === 'phase').map((e) => e.name)).toEqual(
+      expect.arrayContaining([
+        'environment-setup',
+        'arm-setup',
+        'drain',
+        'grading',
+        'environment-cleanup',
+      ]),
+    );
+    expect(result.telemetry).toMatchObject({
+      version: 1,
+      unfinished: [],
+      events: events.length,
+    });
+
+    for (const span of spans) {
+      expect(span.durationMs).toBeGreaterThanOrEqual(0);
+      expect(Number.isFinite(Date.parse(span.startedAt))).toBe(true);
+      expect(Number.isFinite(Date.parse(span.endedAt))).toBe(true);
+    }
   },
   30000,
 );

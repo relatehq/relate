@@ -1,3 +1,4 @@
+import { readTelemetry, renderTelemetry } from '../report/telemetry.js';
 import { parseArgs } from 'node:util';
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
@@ -118,6 +119,7 @@ if (command === 'report') {
   }
 
   const report = {
+    telemetry: await readTelemetry(out),
     mode: config.mode,
     intendedTasks: savedCatalogue.length,
     runnableTasks: savedCatalogue.filter((t) => t.status === 'ready').length,
@@ -145,7 +147,10 @@ if (command === 'report') {
     join(out, 'report.json'),
     JSON.stringify(report, null, 2) + '\n',
   );
-  await writeFile(join(out, 'report.md'), renderReport(report));
+  await writeFile(
+    join(out, 'report.md'),
+    renderReport(report) + renderTelemetry(report.telemetry),
+  );
   console.log(join(out, 'report.md'));
   process.exit(0);
 }

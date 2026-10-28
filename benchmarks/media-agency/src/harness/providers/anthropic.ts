@@ -1,3 +1,4 @@
+import { providerRequest } from './request.js';
 import type { Model, ModelConfig, Block } from './types.js';
 import type { Row } from '../../systems/simulators.js';
 import { json } from '../../world/model.js';
@@ -6,56 +7,54 @@ export function anthropicModel(config: ModelConfig, key: string): Model {
   return {
     name: config.model,
     async complete(input) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
+      const raw = (await providerRequest(
+        'Anthropic',
+        'https://api.anthropic.com/v1/messages',
+        {
+          method: 'POST',
+          headers: {
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: json({
+            model: config.model,
+            max_tokens: config.maxOutputTokens,
+            cache_control: { type: 'ephemeral' },
+            system: input.system,
+            messages: input.messages.map((m) => ({
+              role: m.role,
+              content:
+                m.continuation ??
+                m.content.map((b) => {
+                  if (b.type === 'tool_call')
+                    return {
+                      type: 'tool_use',
+                      id: b.id,
+                      name: b.name,
+                      input: b.input,
+                    };
+
+                  if (b.type === 'tool_result')
+                    return {
+                      type: 'tool_result',
+                      tool_use_id: b.id,
+                      content: b.content,
+                      is_error: b.isError,
+                    };
+
+                  return b;
+                }),
+            })),
+            tools: input.tools.map(({ parameters, ...tool }) => ({
+              ...tool,
+              input_schema: parameters,
+            })),
+          }),
+          signal: input.signal,
         },
-        body: json({
-          model: config.model,
-          max_tokens: config.maxOutputTokens,
-          cache_control: { type: 'ephemeral' },
-          system: input.system,
-          messages: input.messages.map((m) => ({
-            role: m.role,
-            content:
-              m.continuation ??
-              m.content.map((b) => {
-                if (b.type === 'tool_call')
-                  return {
-                    type: 'tool_use',
-                    id: b.id,
-                    name: b.name,
-                    input: b.input,
-                  };
-
-                if (b.type === 'tool_result')
-                  return {
-                    type: 'tool_result',
-                    tool_use_id: b.id,
-                    content: b.content,
-                    is_error: b.isError,
-                  };
-
-                return b;
-              }),
-          })),
-          tools: input.tools.map(({ parameters, ...tool }) => ({
-            ...tool,
-            input_schema: parameters,
-          })),
-        }),
-        signal: input.signal,
-      });
-
-      if (!response.ok)
-        throw new Error(
-          `Anthropic HTTP ${response.status}: ${(await response.text()).slice(0, 2000)}`,
-        );
-
-      const raw = (await response.json()) as {
+        input.trace,
+      )) as {
         content: Row[];
         stop_reason: string;
         usage: {

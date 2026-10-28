@@ -1,3 +1,4 @@
+import type { Row } from '../src/systems/simulators.js';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -50,7 +51,7 @@ it('retains an unknown operation across journal restart and never repeats its cr
 });
 it('counts cache tokens towards budgets and costs, and retains model failures', async () => {
   let calls = 0;
-  const events: unknown[] = [];
+  const events: Row[] = [];
   const model: Model = {
     name: 'scripted',
     async complete() {
@@ -95,7 +96,7 @@ it('counts cache tokens towards budgets and costs, and retains model failures', 
   expect(result.submission).toBeUndefined();
   expect(result.stop).toBe('budget');
   expect(calls).toBe(1);
-  expect(events).toHaveLength(1);
+  expect(events.filter((e) => e.type === 'model')).toHaveLength(1);
   expect(
     cost(result.usage, {
       input: 2,
@@ -195,7 +196,7 @@ it('includes failures in cost and distinguishes deferred/incomplete repetitions'
 });
 
 it('marks usage unknown when a model request loses its response', async () => {
-  const events: unknown[] = [];
+  const events: Row[] = [];
   const model: Model = {
     name: 'lost-response',
     async complete() {
@@ -221,7 +222,20 @@ it('marks usage unknown when a model request loses its response', async () => {
   expect(result.stop).toBe('model-error');
   expect(result.usageComplete).toBe(false);
   expect(result.submission).toBeUndefined();
-  expect(events).toEqual([
-    { type: 'error', error: 'Error: connection lost after request' },
+  expect(events.filter((e) => e.type === 'error')).toEqual([
+    expect.objectContaining({
+      type: 'error',
+      error: 'Error: connection lost after request',
+    }),
   ]);
+  const failed = events.find(
+    (e) => e.type === 'span-end' && e.kind === 'model',
+  )!;
+
+  expect(failed).toMatchObject({
+    outcome: 'error',
+    attributes: { costUsd: null, usageComplete: false },
+  });
+  expect(result.modelMs).toBe(failed.durationMs);
+  expect(result.modelMs).toBeGreaterThan(0);
 });

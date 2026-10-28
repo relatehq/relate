@@ -132,6 +132,15 @@ attempt. A different source hash, seed, model, price or task selection also
 requires a new directory. No generated database is required in Git: world and
 projections are reproducible from the versioned generator and seed.
 
+## Step telemetry
+
+New runs include correlated per-model, tool, HTTP, SQL, connector and lifecycle
+spans with individual durations, outcomes, sizes and parent-process resource
+samples. Model steps record tokens and estimated cost; provider calls retain
+request IDs and transport timing. Reports include latency percentiles and
+unfinished operations. See [telemetry fields and limits](TELEMETRY.md).
+Historical pilot timings remain aggregate-only.
+
 ## What the three arms receive
 
 | Arm              | Tools                                                     | Execution                                                       |

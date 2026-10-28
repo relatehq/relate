@@ -1,3 +1,4 @@
+import type { Trace } from '../telemetry.js';
 import type { ArmHandle } from '../arms.js';
 import type { Row } from '../../systems/simulators.js';
 
@@ -61,5 +62,6 @@ export interface Model {
     messages: Message[];
     tools: ArmHandle['tools'];
     signal: AbortSignal;
+    trace?: Trace;
   }): Promise<ModelReply>;
 }

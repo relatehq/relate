@@ -1,3 +1,5 @@
+import type { Row } from '../src/systems/simulators.js';
+import { cost } from '../src/harness/model.js';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createModel } from '../src/harness/providers/index.js';
 import type { Provider } from '../src/harness/providers/types.js';
@@ -113,14 +115,23 @@ it.each(['openai', 'anthropic'] as Provider[])(
       requests.push(JSON.parse(String(init.body)));
       expect(init.signal).toBeInstanceOf(AbortSignal);
 
-      return Response.json(replies[requests.length - 1]);
+      return Response.json(
+        { ...replies[requests.length - 1], id: `response-${requests.length}` },
+        {
+          headers: {
+            'x-request-id': `request-${requests.length}`,
+            'retry-after': '1',
+            'set-cookie': 'private-cookie',
+          },
+        },
+      );
     });
 
     vi.stubGlobal('fetch', request);
     const call = vi.fn(async () => {
       throw Error('Temporary lookup failure');
     });
-    const events: unknown[] = [];
+    const events: Row[] = [];
     const model = createModel(
       {
         provider,
@@ -135,6 +146,7 @@ it.each(['openai', 'anthropic'] as Provider[])(
       arm: { tools, call } as unknown as ArmHandle,
       system: 'rules',
       prompt: 'task',
+      price: { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
       emit: async (e) => {
         events.push(e);
       },
@@ -154,6 +166,54 @@ it.each(['openai', 'anthropic'] as Provider[])(
       expect.any(AbortSignal),
     );
     expect(JSON.stringify(events)).not.toContain('secret-test');
+    expect(JSON.stringify(events)).not.toContain('private-cookie');
+    const steps = events.filter((e) => e.type === 'span-end');
+    const modelSteps = steps.filter((e) => e.kind === 'model');
+    const providerSteps = steps.filter((e) => e.kind === 'provider');
+    const toolSteps = steps.filter((e) => e.kind === 'tool');
+
+    expect(modelSteps).toHaveLength(2);
+    expect(providerSteps).toHaveLength(2);
+    expect(toolSteps).toHaveLength(2);
+    expect(providerSteps[0]).toMatchObject({
+      parentSpanId: modelSteps[0]!.spanId,
+      attributes: {
+        httpStatus: 200,
+        responseId: 'response-1',
+        responseHeaders: { 'x-request-id': 'request-1', 'retry-after': '1' },
+      },
+    });
+    expect(toolSteps[0]).toMatchObject({
+      outcome: 'error',
+      attributes: {
+        toolCallId: 'call-one',
+        modelSpanId: modelSteps[0]!.spanId,
+      },
+    });
+    expect(toolSteps[1]).toMatchObject({
+      outcome: 'ok',
+      attributes: { toolCallId: 'submit' },
+    });
+    expect(result.modelMs).toBe(
+      modelSteps.reduce((sum, e) => sum + Number(e.durationMs), 0),
+    );
+    expect(result.toolMs).toBe(
+      toolSteps.reduce((sum, e) => sum + Number(e.durationMs), 0),
+    );
+    expect(
+      modelSteps.reduce(
+        (sum, e) => sum + Number((e.attributes as Row).costUsd),
+        0,
+      ),
+    ).toBeCloseTo(
+      cost(result.usage, {
+        input: 2,
+        output: 10,
+        cacheRead: 0.1,
+        cacheWrite: 2.5,
+      }).costUsd!,
+      12,
+    );
 
     if (provider === 'openai') {
       expect(requests[0]).toMatchObject({
@@ -322,11 +382,15 @@ it.each(['openai', 'anthropic'] as Provider[])(
   'retains a %s provider error with unknown usage and no hidden retry',
   async (provider) => {
     const request = vi.fn(
-      async () => new Response('rate limit', { status: 429 }),
+      async () =>
+        new Response('rate limit secret', {
+          status: 429,
+          headers: { 'request-id': 'failure-id', 'retry-after': '2' },
+        }),
     );
 
     vi.stubGlobal('fetch', request);
-    const events: unknown[] = [];
+    const events: Row[] = [];
     const result = await agentLoop({
       model: createModel(
         { provider, model: 'test', maxOutputTokens: 1024 },
@@ -344,5 +408,15 @@ it.each(['openai', 'anthropic'] as Provider[])(
     expect(result.stop).toBe('model-error');
     expect(result.usageComplete).toBe(false);
     expect(JSON.stringify(events)).toContain('429');
+    expect(JSON.stringify(events)).not.toContain('secret');
+    expect(
+      events.find((e) => e.type === 'span-end' && e.kind === 'provider'),
+    ).toMatchObject({
+      outcome: 'error',
+      attributes: {
+        httpStatus: 429,
+        responseHeaders: { 'request-id': 'failure-id', 'retry-after': '2' },
+      },
+    });
   },
 );

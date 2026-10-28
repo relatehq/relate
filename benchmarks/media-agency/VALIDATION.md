@@ -43,3 +43,23 @@ these checks. Raw transcripts/results and the failed development attempts remain
 in the implementation worktree's ignored `artifacts/` directory. They are not
 published model-evaluation evidence. The checked-in generator, reference
 programs and seeds reproduce the checks without an API key.
+
+## Step telemetry validation
+
+The telemetry update passed **40 benchmark tests** and the full `pnpm check`
+(**3,143 tests passed, 10 skipped**, including Postgres and installed-package
+checks). Scripted OpenAI/Anthropic responses verify per-call usage/cost, request
+IDs, header filtering, errors, aborts and timing totals without a paid rerun.
+
+A fresh reference pilot passed **60/60** (20 tasks × three arms, S, seed 7),
+including three observed response-loss faults. Its **63,769 spans** have
+matching starts/ends, valid parent IDs, nonnegative durations, sequential
+events, and exact event/byte accounting. The reporter finds no unfinished spans
+or malformed lines. The original fix-round Luna artifacts read as 60 legacy
+transcripts with no fabricated step timings.
+
+[Telemetry evidence and source revision](results/2026-10-28-telemetry-validation.json)
+records the manifest/report hashes. Raw logs remain under
+`artifacts/telemetry-reference-s7`. These are instrumentation correctness
+checks, not a new model-performance or instrumentation-overhead measurement. See
+[telemetry fields and measurement limits](TELEMETRY.md).

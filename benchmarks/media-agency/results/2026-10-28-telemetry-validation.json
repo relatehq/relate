@@ -1,0 +1,83 @@
+{
+  "manifestId": "3c2ac4377e17e5cd4bf81fb3ccbc199ff96aef9aba3209529d41f86b0cc513ec",
+  "revision": "8f3a8caf1d7974a9d7b897d6bc095e63bc30581dd1bd204a37f9ac846aafd425",
+  "runs": 60,
+  "passed": 60,
+  "instrumentedTranscripts": 60,
+  "legacyTranscripts": 0,
+  "unfinishedSpans": 0,
+  "malformedLines": 0,
+  "spanKinds": {
+    "phase": 420,
+    "http": 56251,
+    "sql": 210,
+    "source-fetch": 6720,
+    "tool": 144,
+    "analytical-dispatch": 24
+  },
+  "events": 127921,
+  "spans": 63769,
+  "transcriptBytes": 136070396,
+  "observedLostResponseFaults": 3,
+  "date": "2026-10-28",
+  "mode": "reference",
+  "scope": "20 pilot tasks x three arms; S; seed 7; no paid model calls",
+  "config": {
+    "tier": "S",
+    "seed": 7,
+    "arms": ["baseline-tools", "baseline-code", "relate"],
+    "model": "reference",
+    "k": 1,
+    "tasks": [
+      "lookup.lookup-1",
+      "lookup.lookup-2",
+      "lookup.lookup-3",
+      "lookup.lookup-4",
+      "traversal.client-campaigns-1",
+      "traversal.plan-lines-1",
+      "aggregation.spend-1",
+      "aggregation.spend-2",
+      "aggregation.spend-3",
+      "reconciliation.reconcile-1",
+      "permissions.refuse-1",
+      "permissions.refuse-6",
+      "permissions.refuse-9",
+      "freshness.load-1",
+      "freshness.load-2",
+      "freshness.spend-2",
+      "action.status-3",
+      "action.budget-1",
+      "action.create-1",
+      "action.create-2"
+    ],
+    "mode": "reference"
+  },
+  "node": "v26.9.0",
+  "artifactDirectory": "benchmarks/media-agency/artifacts/telemetry-reference-s7",
+  "manifestSha256": "63e74166b6d8b4e6336666ee3018ec8b91748a2140798fbaa9eb8937e41b59f9",
+  "reportSha256": "138e8d1a8a97afda8df091372b3a97ca050a6c05974644ad46c65e24c010f1ef",
+  "checks": {
+    "benchmarkTestsPassed": 40,
+    "repositoryTestsPassed": 3143,
+    "repositoryTestsSkipped": 10,
+    "pnpmCheck": "passed",
+    "audit": [
+      "matched span starts and ends",
+      "all parent IDs resolve",
+      "nonnegative durations",
+      "sequential events",
+      "event counts equal result summaries",
+      "UTF-8 transcript byte counts equal result summaries"
+    ],
+    "legacyCompatibility": {
+      "transcripts": 60,
+      "instrumented": 0,
+      "inventedStepTimings": 0
+    }
+  },
+  "limits": [
+    "Reference checks and scripted provider tests; no new paid model evaluation.",
+    "Parent-process resource samples exclude executor and connector children.",
+    "Nested inclusive durations include instrumentation; no latency comparison claim."
+  ]
+}

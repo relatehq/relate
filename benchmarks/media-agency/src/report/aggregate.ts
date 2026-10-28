@@ -51,6 +51,31 @@ export function aggregate(results: RunResult[], k: number) {
       completeTaskGroups: complete.length,
       incompleteTaskGroups: tasks.size - complete.length,
       deferredTasks: [...new Set(deferred.map((r) => r.task))],
+      totalCostUsd: totalCost,
+      knownCostSubtotalUsd: runs.reduce(
+        (sum, r) => sum + (typeof r.costUsd === 'number' ? r.costUsd : 0),
+        0,
+      ),
+      usageIncompleteRuns: runs.filter((r) => r.usageComplete === false).length,
+      tokens: Object.fromEntries(
+        [
+          'inputTokens',
+          'outputTokens',
+          'cacheReadTokens',
+          'cacheWriteTokens',
+        ].map((key) => [
+          key,
+          {
+            knownSubtotal: runs.reduce(
+              (sum, r) => sum + (typeof r[key] === 'number' ? r[key] : 0),
+              0,
+            ),
+            unknownRuns: runs.filter(
+              (r) => typeof r[key] !== 'number' || r.usageComplete === false,
+            ).length,
+          },
+        ]),
+      ),
       costPerSuccess:
         totalCost !== null && successes ? totalCost / successes : null,
       unknownCostRuns: runs.filter((r) => typeof r.costUsd !== 'number').length,

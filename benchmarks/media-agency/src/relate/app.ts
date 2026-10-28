@@ -1,3 +1,5 @@
+import { traced } from '../harness/telemetry.js';
+import type { Trace } from '../harness/telemetry.js';
 import { z } from 'zod';
 import { join } from 'node:path';
 import { bind, defineApp, implementAction } from 'relate';
@@ -8,7 +10,7 @@ import { startApp } from '@relate/node';
 import { sqlite } from '@relate/connector-sqlite';
 import { duckdb } from '@relate/connector-duckdb';
 import type { Principal, Platform } from '../world/model.js';
-import { people, platforms } from '../world/model.js';
+import { json, people, platforms } from '../world/model.js';
 import type { Databases } from '../systems/databases.js';
 import type { Http, Row } from '../systems/simulators.js';
 import {
@@ -57,6 +59,7 @@ export async function createAgencyApp(input: {
   http: Http;
   db: Databases;
   directory: string;
+  trace?: Trace | undefined;
 }) {
   const start = performance.now();
   const { http, db, principal } = input;
@@ -614,10 +617,21 @@ export async function createAgencyApp(input: {
             );
           }
 
+        const analyticalPlans = new WeakMap<
+          ReturnType<typeof warehouse.analytics.plan>,
+          Parameters<typeof warehouse.analytics.plan>[0]
+        >();
         const tracedWarehouse = {
           ...warehouse,
           analytics: {
             ...warehouse.analytics,
+            plan: (query: Parameters<typeof warehouse.analytics.plan>[0]) => {
+              const handle = warehouse.analytics.plan(query);
+
+              analyticalPlans.set(handle, query);
+
+              return handle;
+            },
             execute: (
               ...args: Parameters<typeof warehouse.analytics.execute>
             ) => {
@@ -627,7 +641,22 @@ export async function createAgencyApp(input: {
                 kind: 'analytical-dispatch',
               });
 
-              return warehouse.analytics.execute(...args);
+              return traced(
+                input.trace,
+                'analytical-dispatch',
+                'warehouse',
+                {
+                  query: analyticalPlans.get(args[0]),
+                  timeoutMs: args[1].timeoutMs,
+                },
+                async (step) => {
+                  const result = await warehouse.analytics.execute(...args);
+
+                  step.outputBytes = Buffer.byteLength(json(result));
+
+                  return result;
+                },
+              );
             },
           },
         };
@@ -650,7 +679,21 @@ export async function createAgencyApp(input: {
                   kind: 'source-fetch',
                 });
 
-                return connector.fetch(args[0], args[1]);
+                return traced(
+                  input.trace,
+                  'source-fetch',
+                  binding.resourceId,
+                  { connectionId: binding.connectionId, externalId: args[0] },
+                  async (step) => {
+                    const result = await connector.fetch(args[0], args[1]);
+
+                    step.outputBytes = Buffer.byteLength(
+                      JSON.stringify(result),
+                    );
+
+                    return result;
+                  },
+                );
               },
             },
           } as SourceAppBinding;

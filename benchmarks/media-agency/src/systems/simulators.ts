@@ -1,3 +1,5 @@
+import { traced } from '../harness/telemetry.js';
+import type { Trace } from '../harness/telemetry.js';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
@@ -46,6 +48,7 @@ export async function startSimulators(
   world: World,
   mutations: Mutation[],
   faults: Fault[] = [],
+  trace?: Trace,
 ) {
   const records = new Map<
     string,
@@ -666,38 +669,75 @@ export async function startSimulators(
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   let requestId = 0;
   const http: Http = async (system, request) => {
-    if (![...platforms, 'crm'].includes(system))
-      throw new Error('Unknown system');
+    const id = `http-${++requestId}`;
 
-    if (
-      !request.path.startsWith('/') ||
-      request.path.includes('..') ||
-      request.path.includes('://')
-    )
-      throw new Error('Only relative simulator paths are allowed');
-
-    const url = new URL(`${base}/${system}${request.path}`);
-
-    for (const [key, value] of Object.entries(request.query ?? {}))
-      url.searchParams.set(key, value);
-
-    const response = await fetch(url, {
-      method: request.method ?? 'GET',
-      headers: {
-        authorization: `Bearer ${token}`,
-        'content-type': 'application/json',
-        'x-request-id': `http-${++requestId}`,
+    return traced(
+      trace,
+      'http',
+      system,
+      {
+        system,
+        requestId: id,
+        method: request.method ?? 'GET',
+        path: request.path,
+        query: request.query,
+        requestBody: request.body,
+        requestBytes: Buffer.byteLength(json(request)),
       },
-      ...(request.body === undefined ? {} : { body: json(request.body) }),
-      signal: AbortSignal.timeout(5000),
-      redirect: 'error',
-    });
+      async (step) => {
+        try {
+          if (![...platforms, 'crm'].includes(system))
+            throw new Error('Unknown system');
 
-    return {
-      status: response.status,
-      headers: Object.fromEntries(response.headers),
-      body: await response.json(),
-    };
+          if (
+            !request.path.startsWith('/') ||
+            request.path.includes('..') ||
+            request.path.includes('://')
+          )
+            throw new Error('Only relative simulator paths are allowed');
+
+          const url = new URL(`${base}/${system}${request.path}`);
+
+          for (const [key, value] of Object.entries(request.query ?? {}))
+            url.searchParams.set(key, value);
+
+          const response = await fetch(url, {
+            method: request.method ?? 'GET',
+            headers: {
+              authorization: `Bearer ${token}`,
+              'content-type': 'application/json',
+              'x-request-id': id,
+            },
+            ...(request.body === undefined ? {} : { body: json(request.body) }),
+            signal: AbortSignal.timeout(5000),
+            redirect: 'error',
+          });
+
+          step.httpStatus = response.status;
+          const body = await response.json();
+
+          step.responseBytes = Buffer.byteLength(json(body));
+
+          if (!response.ok) step.outcome = 'http-error';
+
+          return {
+            status: response.status,
+            headers: Object.fromEntries(response.headers),
+            body,
+          };
+        } finally {
+          const record = requests.find((r) => r.requestId === id);
+
+          step.simulatorOutcome = record?.outcome;
+
+          if (record && record.outcome !== 'ok') step.outcome = record.outcome;
+
+          step.mutationCount = mutations.filter(
+            (m) => m.requestId === id,
+          ).length;
+        }
+      },
+    );
   };
 
   return {

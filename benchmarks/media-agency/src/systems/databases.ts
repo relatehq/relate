@@ -1,3 +1,6 @@
+import { json } from '../world/model.js';
+import { traced } from '../harness/telemetry.js';
+import type { Trace } from '../harness/telemetry.js';
 import { DatabaseSync } from 'node:sqlite';
 import type { SQLInputValue } from 'node:sqlite';
 import { join } from 'node:path';
@@ -215,6 +218,7 @@ export type DatabaseName = keyof typeof ddl;
 export async function openDatabases(
   paths: Record<DatabaseName, string>,
   mutations: Mutation[],
+  trace?: Trace,
 ) {
   const plans = new DatabaseSync(paths.plans, { readOnly: true });
   const finance = new DatabaseSync(paths.finance, { readOnly: true });
@@ -239,64 +243,85 @@ export async function openDatabases(
       params: unknown[] = [],
       maxRows?: number,
     ): Promise<Record<string, unknown>[]> {
-      calls.push({ db, sql: text });
+      return traced(
+        trace,
+        'sql',
+        db,
+        { db, sql: text, params, maxRows },
+        async (step) => {
+          const execute = async () => {
+            calls.push({ db, sql: text });
 
-      if (db === 'warehouse') {
-        const result =
-          maxRows === undefined
-            ? await warehouse.runAndReadAll(text, params as DuckDBValue[])
-            : await warehouse.streamAndReadUntil(
-                text,
-                maxRows,
-                params as DuckDBValue[],
+            if (db === 'warehouse') {
+              const result =
+                maxRows === undefined
+                  ? await warehouse.runAndReadAll(text, params as DuckDBValue[])
+                  : await warehouse.streamAndReadUntil(
+                      text,
+                      maxRows,
+                      params as DuckDBValue[],
+                    );
+
+              return result.getRowObjectsJson().slice(0, maxRows);
+            }
+
+            if (db !== 'plans' && db !== 'finance')
+              throw new Error('Unknown database');
+
+            if (
+              db === 'finance' &&
+              /^\s*INSERT\s+INTO\s+disputes\s*\(/i.test(text)
+            ) {
+              const before = new Set(
+                writer
+                  .prepare('SELECT id FROM disputes')
+                  .all()
+                  .map((r) => r.id),
               );
 
-        return result.getRowObjectsJson().slice(0, maxRows);
-      }
+              writer.prepare(text).run(...(params as SQLInputValue[]));
 
-      if (db !== 'plans' && db !== 'finance')
-        throw new Error('Unknown database');
+              for (const row of writer.prepare('SELECT * FROM disputes').all())
+                if (!before.has(row.id))
+                  mutations.push({
+                    seq: mutations.length + 1,
+                    system: 'finance',
+                    entity: 'dispute',
+                    id: String(row.id),
+                    op: 'create',
+                    before: {},
+                    after: row,
+                    requestId: `sql-${calls.length}`,
+                  });
 
-      if (db === 'finance' && /^\s*INSERT\s+INTO\s+disputes\s*\(/i.test(text)) {
-        const before = new Set(
-          writer
-            .prepare('SELECT id FROM disputes')
-            .all()
-            .map((r) => r.id),
-        );
+              return [];
+            }
 
-        writer.prepare(text).run(...(params as SQLInputValue[]));
+            const statement = (db === 'plans' ? plans : finance).prepare(text);
 
-        for (const row of writer.prepare('SELECT * FROM disputes').all())
-          if (!before.has(row.id))
-            mutations.push({
-              seq: mutations.length + 1,
-              system: 'finance',
-              entity: 'dispute',
-              id: String(row.id),
-              op: 'create',
-              before: {},
-              after: row,
-              requestId: `sql-${calls.length}`,
-            });
+            if (maxRows === undefined)
+              return statement.all(...(params as SQLInputValue[]));
 
-        return [];
-      }
+            const rows: Record<string, unknown>[] = [];
 
-      const statement = (db === 'plans' ? plans : finance).prepare(text);
+            for (const row of statement.iterate(
+              ...(params as SQLInputValue[]),
+            )) {
+              rows.push(row);
 
-      if (maxRows === undefined)
-        return statement.all(...(params as SQLInputValue[]));
+              if (rows.length >= maxRows) break;
+            }
 
-      const rows: Record<string, unknown>[] = [];
+            return rows;
+          };
+          const rows = await execute();
 
-      for (const row of statement.iterate(...(params as SQLInputValue[]))) {
-        rows.push(row);
+          step.rowCount = rows.length;
+          step.outputBytes = Buffer.byteLength(json(rows));
 
-        if (rows.length >= maxRows) break;
-      }
-
-      return rows;
+          return rows;
+        },
+      );
     },
     close() {
       plans.close();
