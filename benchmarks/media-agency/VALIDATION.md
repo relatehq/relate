@@ -63,3 +63,13 @@ records the manifest/report hashes. Raw logs remain under
 `artifacts/telemetry-reference-s7`. These are instrumentation correctness
 checks, not a new model-performance or instrumentation-overhead measurement. See
 [telemetry fields and measurement limits](TELEMETRY.md).
+
+## World v2 validation
+
+The hardened world v2 catalogue (53 runnable tasks, none deferred) passed
+**318/318** reference checks across three arms on seeds 7 and 19, with every
+injected fault observed (per seed: 12 lost responses, 9 server errors, 9 rate
+limits). **43 benchmark tests** pass, with typecheck, lint, format and package
+boundaries. The full `pnpm check` was not rerun for this round. Model results
+and the harness defects found by the first v2 pilot are in
+[the v2 pilot report](results/2026-10-28-luna-v2.md).

@@ -1,13 +1,12 @@
 # Northlight Media agency benchmark
 
 A private, runnable benchmark comparing raw tools, raw JavaScript and Relate on
-the same fictional agency systems. The
-[first fix-round pilot](results/2026-10-28-luna-round1.md) records 60 fresh paid
-model runs (57 passed), with all failures and limitations retained. The
-[original pilot](results/2026-10-28-luna-pilot.md) remains available with its
-fault-injection correction. These are small regression pilots, not held-out
-comparison claims. Reference validation separately checks harness correctness
-and task solvability.
+the same fictional agency systems. The v1 catalogue saturated (57/60 in the
+[fix-round pilot](results/2026-10-28-luna-round1.md)). The hardened world v2
+[pilot](results/2026-10-28-luna-v2.md) passes 50–77% per arm on seeds 7 and 19,
+with all failures retained. These are small pilots, not held-out comparison
+claims. Reference validation separately checks harness correctness and task
+solvability.
 
 | Status       | Scope                                                                                                                                                                                    |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
