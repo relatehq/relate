@@ -15,17 +15,7 @@ export function compareObservation(
 ): Acceptance {
   if (!previous) return 'changed';
 
-  const same =
-    canonicalJson({
-      state: previous.state,
-      raw: previous.raw,
-      values: previous.values,
-    }) ===
-    canonicalJson({
-      state: incoming.state,
-      raw: incoming.raw,
-      values: incoming.values,
-    });
+  const same = sameObservationView(previous, incoming);
   const before = previous.version,
     after = incoming.version;
 
@@ -53,4 +43,23 @@ export function compareObservation(
   }
 
   return same ? 'unchanged' : 'changed';
+}
+
+/** Content equivalence used by transactional adoption and ordinary ordering. */
+export function sameObservationView(
+  left: Observation,
+  right: Observation,
+): boolean {
+  return (
+    canonicalJson({
+      state: left.state,
+      raw: left.raw,
+      values: left.values,
+    }) ===
+    canonicalJson({
+      state: right.state,
+      raw: right.raw,
+      values: right.values,
+    })
+  );
 }

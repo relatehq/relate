@@ -1,3 +1,5 @@
+import { actionOverlay } from './actions/index.js';
+import { ActionError } from '@relate/protocol';
 import type { ReadExecution } from './reads/index.js';
 import { createAnalyticalReads } from './analytical-reads/index.js';
 import type {
@@ -113,6 +115,12 @@ export function createRuntime(options: RuntimeOptions) {
   const store = options.store ?? createMemoryStore(),
     clock = options.clock ?? Date.now;
 
+  if (
+    manifest.actions?.some((a) => a.adopts.length) &&
+    store.native?.capabilities?.actionAdoption !== true
+  )
+    throw new Error('Store lacks action adoption capability');
+
   // A store advertising activity must record feed entries atomically for
   // every write capability it exposes; a best-effort sink cannot claim that.
   if (
@@ -206,6 +214,7 @@ export function createRuntime(options: RuntimeOptions) {
       canonical,
       request,
       execution,
+      transaction,
     );
   }
 
@@ -440,6 +449,27 @@ export function createRuntime(options: RuntimeOptions) {
   }
 
   const executor = createActionExecutor({
+    adopt: async (type, id, attempt, transaction) => {
+      try {
+        return await source.adopt(
+          type,
+          id,
+          attempt,
+          actionOverlay(transaction),
+        );
+      } catch (error) {
+        if (error instanceof ActionError) throw error;
+
+        const failure = classifyAdoptionFailure(error);
+
+        throw new ActionError(
+          failure.status === 'rejected' &&
+            (failure.code === 'invalid' || failure.code === 'denied')
+            ? failure.code
+            : 'unavailable',
+        );
+      }
+    },
     query,
     manifest,
     scope: nativeScope,

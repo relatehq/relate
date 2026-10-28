@@ -297,3 +297,26 @@ Source scopes include both `connectionId` and `resourceId`. Rebinding a source
 to another table or API resource on the same connection cannot reuse its
 previous membership, observation, provenance or continuation cursor. Memory and
 Postgres stores enforce the same scope on load, resolve, scan and acceptance.
+
+## Transactional source adoption
+
+`NativeStore.capabilities.actionAdoption` advertises `NativeTransaction.accept`.
+Runtime construction rejects adopting graphs without the capability and checks
+the transaction method before running a handler. Non-adopting graphs can use
+older adapters.
+
+`accept(scope, { sourceRecordId, objectId, adopt: true, observation, attribution })`
+accepts a preassigned ID and requires `attribution.invocationId`. Scope must
+match the transaction's graph and definition revision; the observation must be
+present. Reject duplicate identities, conflicting IDs, ordering conflicts and
+newer different committed observations with `AdoptionConflict`. A newer
+identical state/raw/values view returns `unchanged` with the committed winner.
+Never return successful `superseded` acceptance.
+
+Acceptance returns a classified change for the executor's single atomic feed
+batch. It never publishes independently. Preserve initial adoption provenance on
+re-adoption. Memory prepares source writes and validates every captured identity
+generation after feed preparation, then publishes synchronously with native
+writes. Postgres accepts on the native transaction connection, taking record
+locks only after handler I/O completes. Any failure rolls back all local writes.
+The invocation ID lives on the object independently of feed retention.

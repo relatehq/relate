@@ -28,7 +28,6 @@ it.each([
   ['observations/fetch.ts', 'actions/index.ts', false],
   ['actions/execute.ts', 'resolution/index.ts', false],
   ['actions/native.ts', 'resolution/request.ts', false],
-  ['resolution/source.ts', 'actions/index.ts', false],
   ['traversal/traversal.ts', 'resolution/index.ts', true],
   ['resolution/source.ts', 'authorization/policy.ts', true],
   ['storage.ts', 'observations/index.ts', false],

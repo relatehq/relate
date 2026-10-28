@@ -263,6 +263,8 @@ export function reference<O extends ObjectDefinition, const Id extends string>(
   });
 }
 
+export type SourceMembership = ReturnType<typeof source>;
+
 export interface NativeMembership {
   readonly kind: 'native';
 }

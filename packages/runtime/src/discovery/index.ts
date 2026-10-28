@@ -179,6 +179,9 @@ export function createDiscovery(
           ]),
         ),
         creates: visibleCreates(action).map(summary),
+        adopts: visibleCreates({ ...action, creates: action.adopts }).map(
+          summary,
+        ),
       });
     },
   );

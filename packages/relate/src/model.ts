@@ -190,6 +190,7 @@ export const manifestSchema = z.strictObject({
         output: z.record(text, actionFieldSchema),
         errors: z.record(text, z.record(text, actionFieldSchema)).optional(),
         creates: z.array(text),
+        adopts: z.array(text).default([]),
         execute: roleGate.optional(),
       }),
     )
@@ -1079,6 +1080,17 @@ export function validateManifest(input: unknown): Manifest {
         'action.invalid-capability',
         `Invalid native action capability: action ${action.apiName} creates ${JSON.stringify(action.creates)}`,
         at('creates'),
+        action.id,
+      );
+
+    if (
+      new Set(action.adopts).size !== action.adopts.length ||
+      action.adopts.some((id) => !objectById.get(id)?.sourceDefinitionId)
+    )
+      issues.report(
+        'action.invalid-adopts',
+        `Invalid adoption capability on action ${action.apiName}`,
+        at('adopts'),
         action.id,
       );
 

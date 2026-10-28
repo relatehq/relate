@@ -1,3 +1,4 @@
+import { AdoptionConflict } from './storage.js';
 import { randomUUID } from 'node:crypto';
 import { canonicalJson } from 'relate/model';
 import type { OperationActor } from '@relate/protocol';
@@ -13,7 +14,10 @@ import {
   sourceChangeDraft,
 } from './storage.js';
 import { startAfter } from './memory-order.js';
-import { compareObservation } from './observations/ordering.js';
+import {
+  compareObservation,
+  sameObservationView,
+} from './observations/ordering.js';
 import { describeAcceptedChange } from './observations/changes.js';
 import { createMemoryActivity } from './memory-activity.js';
 import type { MemoryActivityLimits } from './memory-activity.js';
@@ -46,7 +50,11 @@ export function createMemoryStore(
   const graphs = new Map<string, string>();
   const scopes = new Map<string, Population>();
   // Adoption provenance lives with the identity, never with activity retention.
-  const adoptions = new Map<string, { actor: OperationActor; at: number }>();
+  const adoptions = new Map<
+    string,
+    { actor: OperationActor; at: number; invocationId?: string }
+  >();
+  const generations = new Map<string, number>();
   let token = 0n;
   const scopeKey = (scope: StorageScope) => canonicalJson(scope);
   const activity =
@@ -60,7 +68,139 @@ export function createMemoryStore(
 
   return {
     durability: 'volatile',
-    native: createNativeMemoryStore(installed, activity?.prepareFeed),
+    native: createNativeMemoryStore(
+      installed,
+      (nativeScope) => {
+        const prepared: { validate(): void; publish(): void }[] = [];
+        const identities = new Set<string>();
+
+        return {
+          checkpoint() {
+            const length = prepared.length;
+            const previous = new Set(identities);
+
+            return () => {
+              prepared.length = length;
+              identities.clear();
+
+              for (const identity of previous) identities.add(identity);
+            };
+          },
+          async accept(scope, input) {
+            const key = scopeKey(scope);
+            const identity = canonicalJson([key, input.sourceRecordId]);
+
+            if (
+              !installed(scope) ||
+              scope.graphId !== nativeScope.graphId ||
+              scope.definitionRevision !== nativeScope.definitionRevision ||
+              input.observation.state !== 'present' ||
+              identities.has(identity)
+            )
+              throw new AdoptionConflict();
+
+            identities.add(identity);
+            const generation = generations.get(identity);
+            const previous = scopes
+              .get(key)
+              ?.bySource.get(input.sourceRecordId);
+
+            if (previous && previous.objectId !== input.objectId)
+              throw new AdoptionConflict();
+
+            let acceptance: import('./storage.js').Acceptance;
+
+            try {
+              acceptance = compareObservation(
+                previous?.observation,
+                input.observation,
+              );
+            } catch {
+              throw new AdoptionConflict();
+            }
+
+            if (acceptance === 'superseded') {
+              if (
+                !previous ||
+                !sameObservationView(previous.observation, input.observation)
+              )
+                throw new AdoptionConflict();
+
+              acceptance = 'unchanged';
+            }
+
+            const keep =
+              previous &&
+              (compareObservation(previous.observation, input.observation) ===
+                'superseded' ||
+                acceptance === 'replay');
+            const object = structuredClone(
+              keep
+                ? previous
+                : {
+                    objectId: input.objectId,
+                    sourceRecordId: input.sourceRecordId,
+                    observation: input.observation,
+                  },
+            );
+            const transition = keep
+              ? undefined
+              : describeAcceptedChange(
+                  previous?.observation,
+                  input.observation,
+                );
+            const change = transition && {
+              id: input.attribution.changeId,
+              ...transition,
+            };
+            const attribution = structuredClone(input.attribution);
+
+            prepared.push({
+              validate() {
+                if (generations.get(identity) !== generation)
+                  throw new AdoptionConflict();
+              },
+              publish() {
+                generations.set(identity, (generation ?? 0) + 1);
+                const population: Population = scopes.get(key) ?? {
+                  bySource: new Map(),
+                  byObject: new Map(),
+                  order: [],
+                  sorted: true,
+                };
+
+                if (!previous) {
+                  adoptions.set(canonicalJson([key, object.objectId]), {
+                    actor: attribution.actor,
+                    at: attribution.occurredAt,
+                    invocationId: attribution.invocationId,
+                  });
+                  population.order.push(object.objectId);
+                  population.sorted = false;
+                }
+
+                population.bySource.set(object.sourceRecordId, object);
+                population.byObject.set(object.objectId, object);
+                scopes.set(key, population);
+              },
+            });
+
+            return {
+              object: structuredClone(object),
+              acceptance,
+              ...(change ? { change } : {}),
+            };
+          },
+          validate() {
+            for (const p of prepared) p.validate();
+          },
+          publish() {
+            for (const p of prepared) p.publish();
+          },
+        };
+      },
+      activity?.prepareFeed,
+    ),
     ...(activity ? { activity: activity.store } : {}),
     async install(graphId, definitionRevision) {
       const installed = graphs.get(graphId);
@@ -105,6 +245,9 @@ export function createMemoryStore(
       return adoption
         ? {
             kind: 'adopted',
+            ...(adoption.invocationId
+              ? { invocationId: adoption.invocationId }
+              : {}),
             actor: structuredClone(adoption.actor),
             at: new Date(adoption.at).toISOString(),
             sourceDefinitionId: scope.sourceDefinitionId,
@@ -226,6 +369,9 @@ export function createMemoryStore(
         population.sorted = false;
       }
 
+      const identity = canonicalJson([key, input.sourceRecordId]);
+
+      generations.set(identity, (generations.get(identity) ?? 0) + 1);
       population.bySource.set(input.sourceRecordId, object);
       population.byObject.set(object.objectId, object);
       scopes.set(key, population);

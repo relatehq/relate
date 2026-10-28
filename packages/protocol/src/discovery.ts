@@ -200,6 +200,7 @@ export interface ActionDescription extends ActionSummary {
   readonly output: readonly ActionFieldDescription[];
   readonly errors: Readonly<Record<string, readonly ActionFieldDescription[]>>;
   readonly creates: readonly ObjectSummary[];
+  readonly adopts: readonly ObjectSummary[];
 }
 
 /**

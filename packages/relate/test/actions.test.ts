@@ -21,6 +21,7 @@ it('compiles native membership, reference identity, create authorization and act
       apiName: 'addAccountReview',
       description: 'Record a new assessment of a customer account.',
       creates: [AccountReview.id],
+      adopts: [],
       execute: { role: 'account-manager' },
       input: {
         customer: {
@@ -77,6 +78,9 @@ it('does not silently accept unsupported action schemas', () => {
 
 it('validates action capabilities, registration and policy operands after serialization', () => {
   for (const change of [
+    (m: ReturnType<typeof compile>['manifest']) => {
+      m.actions![0]!.adopts = [AccountReview.id];
+    },
     (m: ReturnType<typeof compile>['manifest']) => {
       m.actions![0]!.creates = [Customer.id];
     },
@@ -146,4 +150,24 @@ it('keeps a described reference input a reference', () => {
     references: Customer.id,
     description: 'Customer to review.',
   });
+});
+
+it('defaults capabilities to frozen empty tuples and rejects undeclared adoption targets', () => {
+  const action = defineAction({
+    id: 'read',
+    input: z.object({}),
+    output: z.object({}),
+  });
+
+  expect(action.creates).toEqual([]);
+  expect(action.adopts).toEqual([]);
+  expect(Object.isFrozen(action.adopts)).toBe(true);
+  expect(() =>
+    compile({
+      ...graph,
+      actions: {
+        read: { ...action, adopts: [{ ...Customer, id: 'unregistered' }] },
+      },
+    }),
+  ).toThrow();
 });

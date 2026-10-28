@@ -2,7 +2,9 @@ import { createHash, randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { canonicalJson } from 'relate/model';
 import {
+  AdoptionConflict,
   compareObservation,
+  sameObservationView,
   describeAcceptedChange,
   OrderingConflict,
   RetentionError,
@@ -26,6 +28,7 @@ import {
   applicationIdentityMigration,
   activityMigration,
   resourceIdentityMigration,
+  actionAdoptionMigration,
 } from './migrations.js';
 
 export interface PostgresOptions {
@@ -97,9 +100,140 @@ export function createPostgresStore(
     observation: row.observation,
   });
 
+  async function acceptOn(
+    client: pg.PoolClient,
+    scope: StorageScope,
+    input: Parameters<ObservationStore['accept']>[1],
+    transactional = false,
+  ) {
+    const installed = await client.query(
+      'SELECT 1 FROM relate.graphs WHERE graph_id=$1 AND definition_revision=$2 FOR SHARE',
+      [scope.graphId, scope.definitionRevision],
+    );
+
+    if (!installed.rowCount) throw new Error('Model is not installed');
+
+    // Same alias locks even before its first row exists. No I/O under this lock.
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [
+      canonicalJson([...scopeValues(scope), input.sourceRecordId]),
+    ]);
+    const result = await client.query(
+      `SELECT object_key,provider_key,observation FROM relate.objects
+          WHERE graph_id=$1 AND object_type=$2 AND source_id=$3 AND connection_id=$4 AND resource_id=$7 AND partition=$5 AND provider_account_id=$6 AND identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND provider_key=$8 FOR UPDATE`,
+      [...scopeValues(scope), input.sourceRecordId],
+    );
+    const previous = result.rows[0] ? rowObject(result.rows[0]) : undefined;
+
+    if (
+      (!previous && !input.adopt) ||
+      (input.objectId !== undefined &&
+        (transactional
+          ? previous !== undefined && previous.objectId !== input.objectId
+          : previous?.objectId !== input.objectId))
+    )
+      throw new Error('Membership/alias mismatch');
+
+    let acceptance = compareObservation(
+      previous?.observation,
+      input.observation,
+    );
+
+    if (transactional && acceptance === 'superseded') {
+      if (
+        !previous ||
+        !sameObservationView(previous.observation, input.observation)
+      )
+        throw new AdoptionConflict();
+
+      return { object: previous, acceptance: 'unchanged' as const };
+    }
+
+    let object = previous;
+    let change: AcceptedChange | undefined;
+
+    if (acceptance === 'changed' || acceptance === 'unchanged') {
+      object = {
+        objectId: previous?.objectId ?? input.objectId ?? randomUUID(),
+        sourceRecordId: input.sourceRecordId,
+        observation: input.observation,
+      };
+      const { attribution } = input;
+
+      // First membership writes adoption provenance with the identity.
+      await client.query(
+        `INSERT INTO relate.objects(graph_id,object_type,source_id,connection_id,partition,provider_account_id,resource_id,identity_kind,object_key,provider_key,observation,adopted_by_kind,adopted_by_id,adopted_at,adopted_invocation_id)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $6='' THEN 'application' ELSE 'provider' END,$8,$9,$10::jsonb,$11,$12,$13,$14)
+            ON CONFLICT (graph_id,object_type,object_key) DO UPDATE SET observation=EXCLUDED.observation`,
+        [
+          ...scopeValues(scope),
+          object.objectId,
+          input.sourceRecordId,
+          JSON.stringify(input.observation),
+          attribution.actor.kind,
+          attribution.actor.id,
+          new Date(attribution.occurredAt),
+          attribution.invocationId ?? null,
+        ],
+      );
+      // The shared classifier under this lock decides both the version row
+      // and the feed entry; raw-only changes produce neither.
+      const transition = describeAcceptedChange(
+        previous?.observation,
+        input.observation,
+      );
+
+      if (transition) {
+        change = { id: attribution.changeId, ...transition };
+        await client.query(
+          `INSERT INTO relate.object_versions(graph_id,object_type,object_key,origin,state,values,observed_at,fetch_token,change_id)
+            VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9)`,
+          [
+            scope.graphId,
+            scope.objectDefinitionId,
+            object.objectId,
+            previous ? 'source-refresh' : 'adoption',
+            input.observation.state,
+            JSON.stringify(input.observation.values),
+            new Date(input.observation.observedAt),
+            input.observation.token,
+            change.id,
+          ],
+        );
+
+        // Final work before COMMIT, after every domain write.
+        if (!transactional)
+          await publishFeed(client, scope.graphId, [
+            sourceChangeDraft(scope, object.objectId, attribution, change),
+          ]);
+      }
+    }
+
+    return { object: object!, acceptance, ...(change ? { change } : {}) };
+  }
+
   return {
     durability: 'persistent',
-    native: createNativePostgresStore(nativePool),
+    native: createNativePostgresStore(
+      nativePool,
+      async (client, scope, input) => {
+        try {
+          const result = await acceptOn(client, scope, input, true);
+
+          if (result.acceptance === 'superseded') throw new AdoptionConflict();
+
+          return { ...result, acceptance: result.acceptance };
+        } catch (error) {
+          if (
+            error instanceof OrderingConflict ||
+            (error instanceof Error &&
+              error.message === 'Membership/alias mismatch')
+          )
+            throw new AdoptionConflict();
+
+          throw error;
+        }
+      },
+    ),
     activity: createActivityPostgresStore(pool, activityPool),
     async migrate() {
       const client = await pool.connect();
@@ -121,6 +255,7 @@ export function createPostgresStore(
           applicationIdentityMigration,
           activityMigration,
           resourceIdentityMigration,
+          actionAdoptionMigration,
         ];
         const existing = await client.query<{
           version: number;
@@ -222,7 +357,7 @@ export function createPostgresStore(
     },
     async provenance(scope, objectId) {
       const result = await pool.query(
-        `SELECT o.adopted_by_kind,o.adopted_by_id,o.adopted_at FROM relate.objects o
+        `SELECT o.adopted_by_kind,o.adopted_by_id,o.adopted_at,o.adopted_invocation_id FROM relate.objects o
         JOIN relate.graphs g USING (graph_id)
         WHERE o.graph_id=$1 AND o.object_type=$2 AND o.source_id=$3 AND o.connection_id=$4 AND o.resource_id=$7 AND o.partition=$5 AND o.provider_account_id=$6 AND o.identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND o.object_key=$8 AND g.definition_revision=$9`,
         [...scopeValues(scope), objectId, scope.definitionRevision],
@@ -234,6 +369,9 @@ export function createPostgresStore(
       return row.adopted_by_kind !== null
         ? {
             kind: 'adopted',
+            ...(row.adopted_invocation_id
+              ? { invocationId: row.adopted_invocation_id }
+              : {}),
             actor: { kind: row.adopted_by_kind, id: row.adopted_by_id },
             at: new Date(row.adopted_at).toISOString(),
             sourceDefinitionId: scope.sourceDefinitionId,
@@ -281,97 +419,12 @@ export function createPostgresStore(
 
       try {
         await client.query('BEGIN');
-        const installed = await client.query(
-          'SELECT 1 FROM relate.graphs WHERE graph_id=$1 AND definition_revision=$2 FOR SHARE',
-          [scope.graphId, scope.definitionRevision],
-        );
-
-        if (!installed.rowCount) throw new Error('Model is not installed');
-
-        // Same alias locks even before its first row exists. No I/O under this lock.
-        await client.query(
-          'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
-          [canonicalJson([...scopeValues(scope), input.sourceRecordId])],
-        );
-        const result = await client.query(
-          `SELECT object_key,provider_key,observation FROM relate.objects
-          WHERE graph_id=$1 AND object_type=$2 AND source_id=$3 AND connection_id=$4 AND resource_id=$7 AND partition=$5 AND provider_account_id=$6 AND identity_kind=CASE WHEN $6='' THEN 'application' ELSE 'provider' END AND provider_key=$8 FOR UPDATE`,
-          [...scopeValues(scope), input.sourceRecordId],
-        );
-        const previous = result.rows[0] ? rowObject(result.rows[0]) : undefined;
-
-        if (
-          (!previous && !input.adopt) ||
-          (input.objectId !== undefined &&
-            previous?.objectId !== input.objectId)
-        )
-          throw new Error('Membership/alias mismatch');
-
-        const acceptance = compareObservation(
-          previous?.observation,
-          input.observation,
-        );
-        let object = previous;
-        let change: AcceptedChange | undefined;
-
-        if (acceptance === 'changed' || acceptance === 'unchanged') {
-          object = {
-            objectId: previous?.objectId ?? randomUUID(),
-            sourceRecordId: input.sourceRecordId,
-            observation: input.observation,
-          };
-          const { attribution } = input;
-
-          // First membership writes adoption provenance with the identity.
-          await client.query(
-            `INSERT INTO relate.objects(graph_id,object_type,source_id,connection_id,partition,provider_account_id,resource_id,identity_kind,object_key,provider_key,observation,adopted_by_kind,adopted_by_id,adopted_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,CASE WHEN $6='' THEN 'application' ELSE 'provider' END,$8,$9,$10::jsonb,$11,$12,$13)
-            ON CONFLICT (graph_id,object_type,object_key) DO UPDATE SET observation=EXCLUDED.observation`,
-            [
-              ...scopeValues(scope),
-              object.objectId,
-              input.sourceRecordId,
-              JSON.stringify(input.observation),
-              attribution.actor.kind,
-              attribution.actor.id,
-              new Date(attribution.occurredAt),
-            ],
-          );
-          // The shared classifier under this lock decides both the version row
-          // and the feed entry; raw-only changes produce neither.
-          const transition = describeAcceptedChange(
-            previous?.observation,
-            input.observation,
-          );
-
-          if (transition) {
-            change = { id: attribution.changeId, ...transition };
-            await client.query(
-              `INSERT INTO relate.object_versions(graph_id,object_type,object_key,origin,state,values,observed_at,fetch_token,change_id)
-            VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9)`,
-              [
-                scope.graphId,
-                scope.objectDefinitionId,
-                object.objectId,
-                previous ? 'source-refresh' : 'adoption',
-                input.observation.state,
-                JSON.stringify(input.observation.values),
-                new Date(input.observation.observedAt),
-                input.observation.token,
-                change.id,
-              ],
-            );
-            // Final work before COMMIT, after every domain write.
-            await publishFeed(client, scope.graphId, [
-              sourceChangeDraft(scope, object.objectId, attribution, change),
-            ]);
-          }
-        }
+        const accepted = await acceptOn(client, scope, input);
 
         committing = true;
         await client.query('COMMIT');
 
-        return { object: object!, acceptance, ...(change ? { change } : {}) };
+        return accepted;
       } catch (error) {
         await client.query('ROLLBACK').catch(() => {});
 

@@ -1,3 +1,4 @@
+import { adoptionActionContract } from '../support/adoption-action-contract.js';
 import { constraintActionContract } from '../support/constraint-action-contract.js';
 import { createPostgresStore } from '@relate/postgres';
 import { domainActionContract } from '../support/domain-action-contract.js';
@@ -5,6 +6,7 @@ import { nativeActionContract } from '../support/native-action-contract.js';
 import { testDatabaseUrl } from '../support/database.js';
 
 for (const contract of [
+  adoptionActionContract,
   nativeActionContract,
   domainActionContract,
   constraintActionContract,

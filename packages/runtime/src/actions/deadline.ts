@@ -29,6 +29,9 @@ export function createActionDeadline(
     return result;
   };
   const guarded: NativeTransaction = {
+    ...(transaction.accept
+      ? { accept: (...args) => guard(() => transaction.accept!(...args)) }
+      : {}),
     scan: (...args) => guard(() => transaction.scan(...args)),
     savepoint: (operation) => guard(() => transaction.savepoint(operation)),
     load: (...args) => guard(() => transaction.load(...args)),

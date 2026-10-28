@@ -17,7 +17,13 @@ import { startAfter } from './memory-order.js';
 /** Private transaction snapshots; observation refreshes are independently retained. */
 export function createNativeMemoryStore(
   installed: (scope: NativeScope) => boolean,
-  /** Present when the owning store supports activity; prepares an atomic feed append. */
+  /** Prepare invocation-owned source writes without publishing them. */
+  prepareAdoption?: (scope: NativeScope) => {
+    accept: NonNullable<import('./storage.js').NativeTransaction['accept']>;
+    checkpoint(): () => void;
+    validate(): void;
+    publish(): void;
+  },
   prepareFeed?: (graphId: string, drafts: readonly FeedDraft[]) => () => void,
 ): NativeStore {
   const graphs = new Map<
@@ -79,6 +85,9 @@ export function createNativeMemoryStore(
   }
 
   return {
+    ...(prepareAdoption
+      ? { capabilities: { actionAdoption: true as const } }
+      : {}),
     async scan(scope, type, options) {
       if (!installed(scope)) return { objects: [], hasMore: false };
 
@@ -153,7 +162,19 @@ export function createNativeMemoryStore(
         const recordUndo = (operation: () => void) => {
           if (savepointDepth) undo.push(operation);
         };
+        const adoptions = prepareAdoption?.(scope);
         const result = await operation({
+          ...(adoptions
+            ? {
+                accept: (...args: Parameters<typeof adoptions.accept>) => {
+                  check();
+
+                  recordUndo(adoptions.checkpoint());
+
+                  return adoptions.accept(...args);
+                },
+              }
+            : {}),
           async scan(type, options) {
             check();
 
@@ -277,6 +298,8 @@ export function createNativeMemoryStore(
         // Final work before commit: a batch the feed cannot hold rolls back.
         const publish = prepareFeed?.(scope.graphId, staged) ?? (() => {});
 
+        adoptions?.validate();
+        adoptions?.publish();
         graphs.set(scope.graphId, state);
         publish();
 

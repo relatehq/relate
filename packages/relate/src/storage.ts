@@ -55,6 +55,7 @@ export type Acceptance = 'changed' | 'unchanged' | 'superseded' | 'replay';
  * supports activity; a change is recorded only when it does.
  */
 export interface AcceptAttribution {
+  readonly invocationId?: string;
   /** Preassigned ID of the change this acceptance may record. */
   readonly changeId: string;
   /** The adopt or refresh attempt; its operation row may not exist. */
@@ -200,6 +201,21 @@ export interface NativeScanResult {
 }
 
 export interface NativeTransaction {
+  accept?(
+    scope: StorageScope,
+    input: {
+      sourceRecordId: string;
+      objectId: string;
+      adopt: true;
+      observation: Observation;
+      attribution: AcceptAttribution & { readonly invocationId: string };
+    },
+  ): Promise<{
+    object: StoredObject;
+    acceptance: Exclude<Acceptance, 'superseded'>;
+    change?: AcceptedChange;
+  }>;
+
   /** Includes this transaction's earlier inserts. */
   scan(
     objectDefinitionId: string,
@@ -232,6 +248,7 @@ export interface NativeTransaction {
 }
 
 export interface NativeStore {
+  readonly capabilities?: { readonly actionAdoption?: true };
   scan(
     scope: NativeScope,
     objectDefinitionId: string,

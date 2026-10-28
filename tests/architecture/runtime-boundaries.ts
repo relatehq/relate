@@ -32,9 +32,16 @@ const dependencies: Record<string, readonly string[]> = {
     'activity',
   ],
   actions: ['authorization', 'reads', 'storage', 'activity'],
-  resolution: ['authorization', 'observations', 'reads', 'storage', 'activity'],
+  resolution: [
+    'authorization',
+    'observations',
+    'reads',
+    'storage',
+    'activity',
+    'actions',
+  ],
   traversal: ['authorization', 'reads', 'storage', 'activity'],
-  queries: ['authorization', 'reads', 'storage', 'activity'],
+  queries: ['authorization', 'reads', 'storage', 'activity', 'actions'],
   authorization: ['storage'],
   // Discovery reuses the enforcement gates rather than restating them, and
   // describes read options from the same table request validation uses.

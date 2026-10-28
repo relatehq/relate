@@ -259,3 +259,9 @@ algorithms and storage contracts are allowed.
 Reads default to compact evidence. Pass `evidence: 'full'` for every selected
 field's provenance. See the
 [response reference](../../apps/docs/content/reference/read-responses.md).
+
+Action source adoption uses an invocation-local overlay. Adopting graphs require
+`store.native.capabilities.actionAdoption === true`. Pending reads use ordinary
+authorization and freshness checks; final acceptance runs after reference
+validation, with no source I/O under acceptance locks. See
+[STORE_CONTRACT.md](./STORE_CONTRACT.md) for adapter requirements.

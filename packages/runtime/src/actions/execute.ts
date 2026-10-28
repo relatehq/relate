@@ -1,3 +1,5 @@
+import { AdoptionOverlay, attachAdoption } from './adoption.js';
+import { AdoptionConflict } from '../storage.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { accepts, canonicalJson, isPlainObject } from 'relate/model';
 import type { Manifest } from 'relate/model';
@@ -45,6 +47,7 @@ export interface ActionExecutionContext {
   read(type: string, id: string, request?: ReadControls): Promise<ObjectResult>;
   query(type: string, request?: CollectionReadControls): Promise<PageResult>;
   fail(code: string, details: unknown): never;
+  adopt(type: string, id: string): Promise<{ id: string }>;
   create(type: string, values: unknown): Promise<{ id: string }>;
 }
 
@@ -76,6 +79,12 @@ function parse(shape: Action['input'], value: unknown): Record<string, Json> {
 
 /** Success commits effects; domain failure rolls them back. Both receipts retain the key claim atomically. */
 export function createActionExecutor(options: {
+  adopt(
+    type: string,
+    id: string,
+    attempt: OperationScope,
+    transaction: NativeTransaction,
+  ): Promise<string>;
   manifest: Manifest;
   scope: NativeScope;
   store: ObservationStore;
@@ -209,6 +218,8 @@ export function createActionExecutor(options: {
   }
 
   function rejection(error: unknown): never {
+    if (error instanceof AdoptionConflict) throw new ActionError('unavailable');
+
     if (error instanceof NativeConflict) throw new ActionError('conflict');
 
     if (error instanceof NativeCommitUncertain)
@@ -254,6 +265,7 @@ export function createActionExecutor(options: {
     const startedAt = options.clock();
 
     let deadline: ReturnType<typeof createActionDeadline> | undefined;
+    let activeOverlay: AdoptionOverlay | undefined;
 
     try {
       await options.install();
@@ -264,6 +276,9 @@ export function createActionExecutor(options: {
           // Fail before the handler can cause external effects, not after.
           if (store.activity && !transaction.appendFeed)
             throw new Error('Activity store lacks atomic native feed staging');
+
+          if (action.adopts.length && !transaction.accept)
+            throw new ActionError('unsupported');
 
           deadline = createActionDeadline(transaction, options.timeoutMs);
 
@@ -295,6 +310,10 @@ export function createActionExecutor(options: {
             // not durable; a rejected or rolled-back attempt leaves nothing.
             const invocationId = randomUUID();
 
+            const overlay = new AdoptionOverlay(store, invocationId, check);
+
+            activeOverlay = overlay;
+            attachAdoption(transaction, overlay);
             const reads: NativeReceiptRead[] = [];
             const definitions = new Map(manifest.objects.map((o) => [o.id, o]));
             const recordRead = (
@@ -471,6 +490,33 @@ export function createActionExecutor(options: {
                         return result;
                       }),
                     ),
+                  adopt: (type, id) =>
+                    run(async () => {
+                      if (!action.adopts.includes(type))
+                        throw new ActionError('denied');
+
+                      const objectId = await options.adopt(
+                        type,
+                        id,
+                        attempt,
+                        transaction,
+                      );
+
+                      check();
+                      const result = await options.read(
+                        attempt,
+                        actor,
+                        type,
+                        objectId,
+                        { select: [] },
+                        transaction,
+                      );
+
+                      if (result.status !== 'ok')
+                        throw new ActionError('not-found');
+
+                      return { id: objectId };
+                    }),
                   create: (type, values) =>
                     run(async () => {
                       const object = manifest.objects.find(
@@ -562,6 +608,10 @@ export function createActionExecutor(options: {
               if (error !== domainSignal) throw error;
             }
 
+            const discarded = domain ? overlay.newIds : [];
+
+            if (domain) overlay.discard();
+
             // Recheck after arbitrary implementation awaits and all native writes.
             await checkReferences(action.input, input);
 
@@ -600,7 +650,7 @@ export function createActionExecutor(options: {
             const retainedReads = domain
               ? reads.filter(
                   (read) =>
-                    !created.some(
+                    ![...created, ...discarded].some(
                       (record) =>
                         record.objectDefinitionId === read.objectDefinitionId &&
                         record.objectId === read.objectId,
@@ -635,17 +685,22 @@ export function createActionExecutor(options: {
                 transaction,
               );
 
+            const sourceDrafts = domain
+              ? []
+              : await overlay.commit(transaction);
+
             await transaction.saveInvocation(invocation);
 
             if (store.activity && transaction.appendFeed) {
-              await transaction.appendFeed(
-                invocationFeed(options.scope, attempt, {
+              await transaction.appendFeed([
+                ...sourceDrafts,
+                ...invocationFeed(options.scope, attempt, {
                   actionDefinitionId: action.id,
                   receipt,
                   completedAt,
                   created,
                 }),
-              );
+              ]);
             }
 
             return { receipt, replayed: false };
@@ -656,6 +711,7 @@ export function createActionExecutor(options: {
       return rejection(error);
     } finally {
       // An adapter can fail while the callback is suspended (for example a dead PG session).
+      activeOverlay?.close();
       deadline?.close();
     }
   };

@@ -895,6 +895,19 @@ export function compile<G extends GraphDefinition>(
             action.id,
           );
 
+        if (
+          action.adopts.some(
+            (object) =>
+              !objects.includes(object) || !('resource' in object.membership),
+          )
+        )
+          issues.fail(
+            'action.invalid-adopts',
+            `Invalid adoption capability on action ${apiName}`,
+            at('adopts'),
+            action.id,
+          );
+
         return {
           id: action.id,
           apiName,
@@ -927,6 +940,7 @@ export function compile<G extends GraphDefinition>(
               }
             : {}),
           creates: action.creates.map((o) => o.id).sort(),
+          adopts: action.adopts.map((o) => o.id).sort(),
           ...(action.policy
             ? { execute: { role: action.policy.execute.role } }
             : {}),

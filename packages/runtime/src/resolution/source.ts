@@ -1,6 +1,8 @@
+import { actionOverlay, adoptionStore } from '../actions/index.js';
+import type { AdoptionOverlay } from '../actions/index.js';
 import type { ReadExecution } from '../reads/index.js';
 import type { Manifest } from 'relate/model';
-import { ReadError } from '@relate/protocol';
+import { ActionError, ReadError } from '@relate/protocol';
 import type {
   ReadControls,
   FullObjectResult as ReadResult,
@@ -130,7 +132,10 @@ export function createSourceOperations(options: {
     canonical = false,
     request: ReadControls = {},
     execution?: ReadExecution,
+    transaction?: NativeTransaction,
   ) {
+    const store = adoptionStore(options.store, actionOverlay(transaction));
+
     execution?.signal.throwIfAborted();
 
     if (!target.sourceDefinitionId)
@@ -150,6 +155,9 @@ export function createSourceOperations(options: {
 
     const resolved = await refreshObservation({
       store,
+      pending: Boolean(
+        actionOverlay(transaction)?.find(targetScope, key, canonical),
+      ),
       scope: targetScope,
       stored: retained,
       object: target,
@@ -189,6 +197,8 @@ export function createSourceOperations(options: {
     /** A snapshot of this object from this scope, already read by the caller. */
     snapshot?: StoredObject,
   ): Promise<ReadResult> {
+    const store = adoptionStore(options.store, actionOverlay(transaction));
+
     execution?.signal.throwIfAborted();
     validateReadRequest(
       request,
@@ -213,7 +223,9 @@ export function createSourceOperations(options: {
     let stored: StoredObject | undefined;
 
     try {
-      stored = snapshot ?? (await store.load(scope, objectId));
+      stored = actionOverlay(transaction)?.find(scope, objectId, true)
+        ? await store.load(scope, objectId)
+        : (snapshot ?? (await store.load(scope, objectId)));
     } catch {
       throw new ReadError('unavailable');
     }
@@ -248,6 +260,7 @@ export function createSourceOperations(options: {
       ) || visible.some((p) => p.origin.kind === 'reference');
     const resolved = await refreshObservation({
       store,
+      pending: Boolean(actionOverlay(transaction)?.find(scope, objectId, true)),
       scope,
       stored,
       object,
@@ -408,7 +421,9 @@ export function createSourceOperations(options: {
       objectDefinitionId: string,
       sourceRecordId: string,
       scope: OperationScope,
+      overlay?: AdoptionOverlay,
     ): Promise<string> {
+      const store = adoptionStore(options.store, overlay);
       const object = manifest.objects.find((o) => o.id === objectDefinitionId);
 
       if (
@@ -440,8 +455,11 @@ export function createSourceOperations(options: {
         observedAt,
       );
 
-      if (incoming.state === 'deleted')
-        throw new Error('Cannot adopt a deleted source record');
+      if (incoming.state === 'deleted') {
+        if (overlay) throw new ActionError('not-found');
+
+        throw new InvalidAdoptionTarget();
+      }
 
       return (
         await store.accept(

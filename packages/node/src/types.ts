@@ -50,7 +50,7 @@ export interface Relate<
     adopt<
       O extends Extract<
         G['objects'][keyof G['objects']],
-        { membership: { resource: unknown } }
+        { membership: import('relate').SourceMembership }
       >,
     >(
       object: O,

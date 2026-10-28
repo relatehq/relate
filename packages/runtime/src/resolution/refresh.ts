@@ -11,6 +11,7 @@ import type {
   StoredObject,
 } from '../storage.js';
 import {
+  AdoptionConflict,
   compareObservation,
   describeAcceptedChange,
   OrderingConflict,
@@ -38,6 +39,7 @@ import type {
 /** Shared by projected data and private authorization evidence. */
 export async function refreshObservation(options: {
   store: ObservationStore;
+  pending?: boolean;
   scope: StorageScope;
   stored: StoredObject;
   object: Manifest['objects'][number];
@@ -183,7 +185,11 @@ export async function refreshObservation(options: {
                   : 'superseded',
             );
           } catch (error) {
-            if (error instanceof OrderingConflict) throw error;
+            if (
+              error instanceof OrderingConflict ||
+              error instanceof AdoptionConflict
+            )
+              throw error;
 
             retention =
               error instanceof RetentionError ? error.outcome : 'unconfirmed';
@@ -242,6 +248,8 @@ export async function refreshObservation(options: {
           }
         }
       } catch (error) {
+        if (error instanceof AdoptionConflict) throw error;
+
         if (options.execution?.signal.aborted) {
           settled = { outcome: rejected(error), details: {} };
           options.execution.signal.throwIfAborted();
@@ -295,6 +303,12 @@ export async function refreshObservation(options: {
         describeRefresh({ objectDefinitionId: object.id, objectId }, settled),
       );
     }
+  }
+
+  if (options.pending) {
+    retention = 'unconfirmed';
+    ordering = 'unconfirmed';
+    warnings.push('retention_unconfirmed', 'ordering_unconfirmed');
   }
 
   assertPropertyIds(candidate);

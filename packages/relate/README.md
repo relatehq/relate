@@ -473,3 +473,52 @@ runtime. Object reads execute declared and caller calculations on SQLite and
 PostgreSQL. Traversal and action-bound readers reject calculated selections,
 including defaults, while explicit ordinary-property selections remain
 supported.
+
+## Adopt source records in an action
+
+Declare `adopts: [Customer]` to grant the handler
+`objects.Customer.adopt(sourceRecordId)`. It returns `{ id }`, a typed Relate
+ID. Both `creates` and `adopts` are optional and default to empty lists.
+Adoption requires a registered source object, a verified provider account and an
+observation readable under the caller's policy.
+
+```ts
+const RegisterCustomer = defineAction({
+  id: 'register-customer',
+  input: z.object({ externalId: z.string() }),
+  output: z.object({ customer: referenceInput(Customer) }),
+  adopts: [Customer],
+});
+
+implementAction(graph, RegisterCustomer, async ({ input, objects }) => {
+  const { id } = await objects.Customer.adopt(input.externalId);
+  const customer = await objects.Customer.get(id);
+  return { customer: id };
+});
+```
+
+Pending membership and observations are private to the invocation. Reads,
+queries and native references can use them immediately. Queries merge pending
+and committed members in Relate-ID order; cursors are invocation-scoped live
+keyset cursors. Restart a query to include newly adopted IDs before its cursor.
+Staged source evidence reports unconfirmed retention and ordering.
+
+Membership, observations, native records, provenance, feed changes and the
+receipt commit together. A throw, timeout, invalid output or caught context
+error aborts the invocation. `fail(code, details)` discards staged work and
+saves a failed receipt after reauthorizing surviving dependencies. Error
+references cannot name rolled-back objects. Existing membership keeps its
+original ID and provenance; adopting it stages a fresh observation.
+
+A conflicting host adoption or newer different observation rejects with
+`unavailable`; retry with the same idempotency key. A newer identical view is
+safe and emits no source change. Relate does not automatically rerun handlers.
+
+For external creates, integration code must journal or recover the external
+operation using `idempotencyId`, then poll with its own client until the record
+is readable, before calling `adopt`. A connector failure during adoption aborts
+the invocation even if caught. The external create survives a local rollback;
+Relate promises no cross-system transaction or exactly-once external effect. An
+unresolved external outcome requires recovery, not a blind second create.
+Polling runs under the graph's action lock, blocking other actions in that
+graph: keep waits short and bounded by the action deadline.

@@ -1,3 +1,4 @@
+import { actionOverlay, adoptionStore } from '../actions/index.js';
 import { selectedProperties, selectionIssues } from '../reads/index.js';
 import { mapReads } from '../reads/index.js';
 import type { ReadExecution } from '../reads/index.js';
@@ -248,7 +249,11 @@ export function createGraphQuery(options: {
       // Candidate reads start from source scan snapshots.
       const batch = await scanMembers(
         source
-          ? (scan) => store.scan(options.scopeFor(type, source), scan)
+          ? (scan) =>
+              adoptionStore(store, actionOverlay(transaction)).scan(
+                options.scopeFor(type, source),
+                scan,
+              )
           : undefined,
         (scan) =>
           transaction

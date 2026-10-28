@@ -74,6 +74,7 @@ function projectBinding(binding: GraphBinding): BindingSnapshot {
 
       actions[route.definitionId] = {
         ...detail,
+        adopts: detail.adopts.filter((object) => names.has(object.apiName)),
         creates: detail.creates.filter((object) => names.has(object.apiName)),
       };
 

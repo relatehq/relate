@@ -320,15 +320,16 @@ export function validateFeedDraft(input: unknown): FeedDraft {
   if (draft.kind === 'adopted' && source === undefined)
     throw new InvalidDraft('adopted changes name their source');
 
+  if (draft.invocationId !== undefined && !nonblank(draft.invocationId))
+    throw new InvalidDraft('invocationId');
+
   if (source === undefined) {
     // A native change: committed by an invocation, by its actor.
     actor(draft.actor, ['principal', 'system'], 'native change');
 
     if (!nonblank(draft.invocationId) || draft.triggeredBy !== undefined)
       throw new InvalidDraft('native change attribution');
-  } else if (draft.invocationId !== undefined)
-    throw new InvalidDraft('source changes do not inherit an invocation');
-  else if (draft.kind === 'adopted') {
+  } else if (draft.kind === 'adopted') {
     actor(draft.actor, ['principal', 'system'], 'adoption');
 
     if (draft.triggeredBy !== undefined)
@@ -610,6 +611,9 @@ export function sourceChangeDraft(
   const base = {
     schemaVersion: 1 as const,
     id: attribution.changeId,
+    ...(attribution.invocationId
+      ? { invocationId: attribution.invocationId }
+      : {}),
     graphId: scope.graphId,
     definitionRevision: scope.definitionRevision,
     kind: change.kind,

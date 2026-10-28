@@ -154,6 +154,7 @@ const actionDetail: ActionDescription = {
   output: [],
   errors: {},
   creates: [],
+  adopts: [],
 };
 
 const record = (id: string): ObjectRecord => ({

@@ -1,8 +1,11 @@
 # 2026-10-28: Action adoption
 
-**Status:** agreed 2026-10-28. Nothing is implemented. The public API, local
-atomicity rule and the full contract below were agreed after review the same
-day; the integration helpers are deferred. This feature must ship before the
+**Status:** implementation added 2026-10-28. The public API, local atomicity
+rule and contract below were agreed after review the same day. Shared
+memory/Postgres action tests live in
+`tests/support/adoption-action-contract.ts`; prepared-memory rollback tests live
+in `packages/runtime/test/action-adoption.test.ts`. Integration helpers remain
+deferred. This feature must ship before the
 [media agency benchmark](./2026-10-23-media-agency-benchmark.md) is built,
 because its create-type tasks depend on it.
 

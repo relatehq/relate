@@ -75,3 +75,38 @@ implementAction(readOnlyGraph, ReadOnly, async ({ objects }) => {
   return { reviewId: referenceInput(AccountReview).parse('r') };
 });
 void access;
+
+const Adopt = defineAction({
+  id: 'adopt',
+  input: AddAccountReview.input,
+  output: AddAccountReview.input,
+  adopts: [Customer],
+});
+const adoptionGraph = { ...graph, actions: { adopt: Adopt } };
+
+implementAction(adoptionGraph, Adopt, async ({ input, objects }) => {
+  const { id } = await objects.Customer.adopt('external');
+  const typed: ObjectId<typeof Customer.id> = id;
+
+  // @ts-expect-error adoption does not grant native creation
+  objects.AccountReview.create({});
+  // @ts-expect-error undeclared source object
+  objects.Invoice.adopt('external');
+  // @ts-expect-error IDs retain their object type
+  const wrong: ObjectId<typeof Invoice.id> = typed;
+
+  void wrong;
+
+  return input;
+});
+defineAction({
+  ...Adopt,
+  // @ts-expect-error native membership cannot be adopted
+  adopts: [AccountReview],
+});
+implementAction(graph, AddAccountReview, async ({ input, objects }) => {
+  // @ts-expect-error omitted adopts grants no capability
+  objects.Customer.adopt('external');
+
+  return { reviewId: referenceInput(AccountReview).parse(input.note) };
+});

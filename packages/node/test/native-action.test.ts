@@ -1,9 +1,11 @@
+import { adoptionActionContract } from '../../../tests/support/adoption-action-contract.js';
 import { constraintActionContract } from '../../../tests/support/constraint-action-contract.js';
 import { createMemoryStore } from '@relate/runtime';
 import { domainActionContract } from '../../../tests/support/domain-action-contract.js';
 import { nativeActionContract } from '../../../tests/support/native-action-contract.js';
 
 for (const contract of [
+  adoptionActionContract,
   nativeActionContract,
   domainActionContract,
   constraintActionContract,

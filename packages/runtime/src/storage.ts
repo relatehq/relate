@@ -61,6 +61,7 @@ export class RetentionError extends Error {
 
 export {
   compareObservation,
+  sameObservationView,
   OrderingConflict,
 } from './observations/ordering.js';
 
@@ -212,3 +213,5 @@ export class StorageUnavailable extends Error {
 
 /** A lost COMMIT acknowledgement cannot be described as a confirmed rollback. */
 export class NativeCommitUncertain extends Error {}
+
+export class AdoptionConflict extends Error {}

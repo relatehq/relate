@@ -1,3 +1,4 @@
+import { canonicalJson } from 'relate/model';
 import type pg from 'pg';
 import type {
   FeedDraft,
@@ -9,6 +10,7 @@ import type {
   NativeScanResult,
 } from '@relate/runtime/storage';
 import {
+  AdoptionConflict,
   NativeConflict,
   NativeCommitUncertain,
   StorageUnavailable,
@@ -17,7 +19,17 @@ import { validateFeedDraft } from '@relate/runtime/storage';
 import { storageError, transactionRejected } from './errors.js';
 import { publishFeed } from './activity.js';
 
-export function createNativePostgresStore(pool: pg.Pool): NativeStore {
+export function createNativePostgresStore(
+  pool: pg.Pool,
+  accept?: (
+    client: pg.PoolClient,
+    ...args: Parameters<
+      NonNullable<import('@relate/runtime/storage').NativeTransaction['accept']>
+    >
+  ) => ReturnType<
+    NonNullable<import('@relate/runtime/storage').NativeTransaction['accept']>
+  >,
+): NativeStore {
   function invocation(
     row: pg.QueryResultRow | undefined,
   ): NativeInvocation | undefined {
@@ -103,6 +115,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
   }
 
   return {
+    ...(accept ? { capabilities: { actionAdoption: true as const } } : {}),
     scan: (scope, type, options) => scan(pool, scope, type, options),
     async loadInvocation(scope, actionDefinitionId, idempotencyKey) {
       const result = await pool.query(
@@ -169,6 +182,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
       client.on('error', onError);
       const claimed = new Set<string>();
       const staged: FeedDraft[] = [];
+      const accepted = new Set<string>();
       let savepointSequence = 0;
       const keyFor = (action: string, key: string) =>
         JSON.stringify([action, key]);
@@ -191,6 +205,28 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
         );
         const result = await Promise.race([
           operation({
+            accept: async (targetScope, input) => {
+              check();
+              const identity = canonicalJson([
+                targetScope,
+                input.sourceRecordId,
+              ]);
+
+              if (accepted.has(identity)) throw new AdoptionConflict();
+
+              accepted.add(identity);
+
+              if (
+                targetScope.graphId !== scope.graphId ||
+                targetScope.definitionRevision !== scope.definitionRevision ||
+                input.observation.state !== 'present'
+              )
+                throw new AdoptionConflict();
+
+              if (!accept) throw new AdoptionConflict();
+
+              return accept(client, targetScope, input);
+            },
             async scan(type, options) {
               check();
 
@@ -200,6 +236,7 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
               check();
               const name = `native_effects_${++savepointSequence}`;
               const claims = new Set(claimed);
+              const acceptances = new Set(accepted);
               const stagedLength = staged.length;
 
               await client.query(`SAVEPOINT ${name}`);
@@ -219,6 +256,10 @@ export function createNativePostgresStore(pool: pg.Pool): NativeStore {
                 claimed.clear();
 
                 for (const key of claims) claimed.add(key);
+
+                accepted.clear();
+
+                for (const identity of acceptances) accepted.add(identity);
 
                 staged.length = stagedLength;
 

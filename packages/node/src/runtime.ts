@@ -247,6 +247,9 @@ function composeRuntime<
                 ),
               get: (id: string, request = {}) =>
                 context.read(object.id, id, request),
+              ...(implementation.action.adopts.includes(object as never)
+                ? { adopt: (id: string) => context.adopt(object.id, id) }
+                : {}),
               ...(implementation.action.creates.includes(object as never)
                 ? {
                     create: (values: unknown) =>
@@ -396,7 +399,7 @@ function composeRuntime<
       adopt: <
         O extends Extract<
           G['objects'][keyof G['objects']],
-          { membership: { resource: unknown } }
+          { membership: import('relate').SourceMembership }
         >,
       >(
         object: O,
