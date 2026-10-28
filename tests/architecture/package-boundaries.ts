@@ -10,6 +10,20 @@ export const packagePolicies: Record<
     assets?: readonly string[];
   }
 > = {
+  'benchmarks/media-agency': {
+    imports: [
+      'relate',
+      'relate/compiler',
+      'relate/connectors',
+      '@relate/node',
+      '@relate/mcp',
+      '@relate/connector-sqlite',
+      '@relate/connector-duckdb',
+      '@duckdb/node-api',
+      'zod',
+    ],
+    builtins: true,
+  },
   'connectors/stripe': { imports: ['relate/connectors'] },
   'connectors/salesforce': { imports: ['relate/connectors'] },
   'dev/salesforce': {
