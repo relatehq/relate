@@ -23,7 +23,17 @@ it('serves real SQL date aggregates and paged provider records from the same tru
       world.campaigns.filter((c) => c.platform === platform).length,
     );
 
-  const id = world.campaigns[1]!.id;
+  const tiktokAccounts = new Set(
+    world.accounts
+      .filter((a) => a.loadedThrough === '2026-10-12')
+      .map((a) => a.id),
+  );
+  const id = world.campaigns.find(
+    (c) =>
+      tiktokAccounts.has(c.accountId) &&
+      c.status === 'ACTIVE' &&
+      c.flightEnd === '2026-10-31',
+  )!.id;
   const result = await env.db.sql(
     'warehouse',
     'SELECT SUM(spend_micros)/10000.0 spend, CAST(MAX(date) AS VARCHAR) latest FROM delivery_daily_campaign WHERE platform_campaign_id = ? AND date >= ?::DATE',
@@ -76,7 +86,7 @@ it('loses the create response after commit and grades a blind retry as a duplica
 it('full-object TTD writes clobber omitted fields; repeated absolute writes are distinct from transitions', async () => {
   const world = generateWorld({ seed: 7, tier: 'S' }),
     task = instantiate(
-      catalogue.find((t) => t.id === 'action.status-3')!,
+      catalogue.find((t) => t.id === 'action.status-2')!,
       world,
     ),
     env = await createEnvironment(world);
@@ -108,6 +118,15 @@ it('rejects IDs from a different provider without mutating either system', async
 
   cleanups.push(env.close);
   const foreignId = world.campaigns.find((c) => c.platform === 'meta')!.id;
+
+  expect(
+    (
+      await env.simulators.http('meta', {
+        path: `/v21.0/${world.accounts.find((a) => a.platform === 'meta')!.id}/campaigns`,
+        query: { fields: '*' },
+      })
+    ).status,
+  ).toBe(400);
   const response = await env.simulators.http('ttd', {
     method: 'PUT',
     path: '/v3/campaign',

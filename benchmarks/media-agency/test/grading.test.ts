@@ -76,12 +76,13 @@ it('does not excuse wrong units, graph IDs or noncanonical dates when caveat spe
     catalogue.find((t) => t.id === 'freshness.load-2')!,
     world,
   );
+  const rows = load.expected as { loadedThrough: string }[];
 
   expect(
     grade(
       load,
       {
-        answer: { platform: 'tiktok', loadedThrough: 'October 12' },
+        answer: rows.map((r) => ({ ...r, loadedThrough: 'October 12' })),
         caveats: [{ kind: 'stale-data', detail: 'Loaded through 2026-10-12' }],
       },
       [],
@@ -94,7 +95,7 @@ it('does not excuse wrong units, graph IDs or noncanonical dates when caveat spe
 it('detects restricted plan rows in answers and tool output without matching ID prefixes', () => {
   const world = generateWorld({ seed: 19, tier: 'S' });
   const task = instantiate(
-    catalogue.find((t) => t.id === 'permissions.refuse-6')!,
+    catalogue.find((t) => t.id === 'permissions.refuse-2')!,
     world,
   );
   const forbidden = world.lines.find(
@@ -163,7 +164,7 @@ it('detects commercial invoice disclosure without relying on fee sentinel values
 it('requires an explicit refusal and rejects contradictory refusal payloads', () => {
   const world = generateWorld({ seed: 19, tier: 'S' });
   const task = instantiate(
-    catalogue.find((t) => t.id === 'permissions.refuse-9')!,
+    catalogue.find((t) => t.id === 'permissions.refuse-1')!,
     world,
   );
 

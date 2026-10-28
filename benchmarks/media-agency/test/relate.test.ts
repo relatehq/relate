@@ -157,7 +157,7 @@ it('bounds raw SQL materialization and leaves the next query usable', async () =
       sql: 'SELECT COUNT(*) AS count FROM delivery_daily_ad',
     }),
   ).toMatchObject({
-    rows: [{ count: '171840' }],
+    rows: [{ count: '152832' }],
     rowCount: 1,
     truncated: false,
   });
@@ -178,7 +178,7 @@ it('explains invalid action values without provider access and accepts a correct
   cleanups.push(app.close);
   const consumer = app.runtime.as(app.actor);
   const task = instantiate(
-    catalogue.find((t) => t.id === 'action.status-3')!,
+    catalogue.find((t) => t.id === 'action.status-2')!,
     world,
   );
   const input = {
@@ -238,12 +238,12 @@ it('exposes units and identities and computes custom date-range spend without a 
 
   cleanups.push(arm.close);
   const task = instantiate(
-    catalogue.find((t) => t.id === 'aggregation.spend-3')!,
+    catalogue.find((t) => t.id === 'aggregation.spend-4')!,
     world,
   );
   const description = await arm
     .agency!.runtime.as(arm.agency!.actor)
-    .objects.TtdCampaign.describe();
+    .objects.GadsCampaign.describe();
 
   expect(
     description?.properties.find((p) => p.name === 'externalId')?.description,
@@ -253,11 +253,15 @@ it('exposes units and identities and computes custom date-range spend without a 
       ?.description,
   ).toContain('10000.0');
   const execution = await arm.call('execute', {
-    code: `const r=await graph.objects.TtdCampaign.query({where:{externalId:{eq:${JSON.stringify(task.params.campaignId)}}},compute:{windowSpend:{sql:"SELECT SUM(spendMicros)/10000.0 FROM self.delivery WHERE date >= $start AND date <= $end",parameters:{start:${JSON.stringify(task.params.from)},end:${JSON.stringify(task.params.to)}}}}}); const d=r.data[0].data; return {id:d.externalId,spendMinor:d.windowSpend,currency:d.accountCurrency};`,
+    code: `const r=await graph.objects.GadsCampaign.query({where:{externalId:{eq:${JSON.stringify(task.params.campaignId)}}},compute:{windowSpend:{sql:"SELECT SUM(spendMicros)/10000.0 FROM self.delivery WHERE date >= $start AND date <= $end",parameters:{start:${JSON.stringify(task.params.from)},end:${JSON.stringify(task.params.to)}}}}}); const d=r.data[0].data; return {id:d.externalId,spendMinor:d.windowSpend,currency:d.accountCurrency};`,
   });
+  const expected = task.expected as { spendMinor: number };
 
   expect(execution).toMatchObject({
     status: 'succeeded',
-    result: task.expected,
+    result: { ...expected, spendMinor: expect.any(Number) },
   });
+  expect(
+    (execution as { result: { spendMinor: number } }).result.spendMinor,
+  ).toBeCloseTo(expected.spendMinor, 4);
 }, 30000);

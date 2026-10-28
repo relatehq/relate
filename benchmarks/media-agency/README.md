@@ -11,10 +11,10 @@ and task solvability.
 
 | Status       | Scope                                                                                                                                                                        |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Implemented  | Seeded S/M/L worlds; five HTTP simulators; SQLite plans/finance; DuckDB warehouse; three arms; reference solutions; grading; provider adapters; resumable artifacts; reports |
-| Runnable     | 66 task variants, including a 20-task pilot, with independent world-derived answers                                                                                          |
-| Deferred     | 14 task variants needing per-date FX joins/reference datasets; present in the catalogue and reports, never counted as passes                                                 |
-| Not run here | Main/Scale model evaluations, human prompt/parity audit, human review of model-error labels                                                                                  |
+| Implemented  | Seeded S/M/L worlds (version 2); five HTTP simulators; SQLite plans/finance; DuckDB warehouse; three arms; reference solutions; grading; provider adapters; resumable artifacts; reports |
+| Runnable     | 53 task variants (world v2), including a 22-task pilot, with independent world-derived answers; nothing deferred                                                             |
+| Superseded   | The v1 catalogue (66 runnable + 14 deferred) saturated: 57/60 in the fix-round pilot. Its results stay reproducible from their recorded commits                              |
+| Not run here | Full main/scale model evaluations, human prompt/parity audit, human review of model-error labels                                                                              |
 
 ## Glossary
 
@@ -189,44 +189,57 @@ flowchart LR
   T[Transcript and submission] --> G
 ```
 
-## Coverage and temporary dataset decision
+## Coverage (world v2)
 
-| Category       | Variants | Runnable | What they exercise                                                                               |
-| -------------- | -------: | -------: | ------------------------------------------------------------------------------------------------ |
-| Lookup         |       10 |       10 | Campaign IDs, statuses, money units, account currency/timezone                                   |
-| Traversal      |       10 |       10 | CRM client → plan account mapping → platform campaigns; explicit missing plan links              |
-| Aggregation    |       14 |        8 | Account-currency loaded spend over date windows; six client-currency variants deferred           |
-| Reconciliation |       10 |       10 | September invoice drift vs independent delivery totals                                           |
-| Permissions    |       10 |       10 | Fee disclosure, other-team budgets, planner launch refusal                                       |
-| Freshness      |        8 |        8 | Load status and honest partial spend with stale-data caveats                                     |
-| Action         |       10 |       10 | Status, budget, create/read, lost-create-response recovery, finance dispute, brand-safety pauses |
-| Diagnose → act |        8 |        0 | Cross-currency rebalance variants deferred                                                       |
+The v1 world let every arm shortcut the work: IDs named their platform and
+client, prompts gave the exact ID, every refusal was decidable from the prompt,
+drift only ever hit Meta invoices, and the hard FX/pacing tasks were deferred.
+World v2 removes those shortcuts and runs every task.
 
-These are parameterized variants of the listed task kinds, not 80 unrelated
-workflows. A separate seed changes target selection and business values. The
-catalogue and its status exist independently of execution, so a failed solution
-cannot shrink the workload denominator.
+| Category       | Variants | What they exercise                                                                                                          |
+| -------------- | -------: | --------------------------------------------------------------------------------------------------------------------------- |
+| Lookup         |        6 | Campaign found **by name** across opaque IDs; shared Google budgets; a non-existent well-formed name with a malformed twin |
+| Traversal      |        6 | Client → CRM merge survivor → dashed/act\_ account links → four platforms; explicit missing plan links                     |
+| Aggregation    |       10 | Account-currency spend with **per-account** load cutoffs; client-currency spend by channel converted **per delivery day**  |
+| Reconciliation |        4 | Net invoices (credit notes), noise and near-threshold drift on every platform, merged CRM IDs in finance                    |
+| Permissions    |        8 | Refusals that need data (team in CRM, 25% budget move, shared budget, ended flight); partly permitted requests            |
+| Freshness      |        3 | Per-account `etl_runs`, including one lagging TikTok and one lagging Meta account                                          |
+| Action         |       11 | Status/budget by name (TikTok, TTD full PUT, Google budget object), create + lost response, dispute, bulk pauses with faults |
+| Diagnose → act |        5 | Pacing per plan line (per-day FX, per-account elapsed days); cut the most over-pacing changeable campaign                  |
 
-Reference datasets and dataset joins are **not added to the SDK**. The warehouse
-already has complete per-date FX rows (including weekends and identity pairs)
-for future tasks. Current runnable aggregates explicitly request **account
-currency**. Nothing substitutes preconverted client-currency values for the
-missing join. The deferred catalogue records why those tasks cannot run yet.
-This implements the owner's October 28 exception to the original spec's
-reference-dataset prerequisite.
+World v2 realism, all deterministic from the seed:
+
+| Seam                    | v2 behaviour                                                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Identifiers             | Meta 18-digit, TikTok 19-digit, TTD 7–8 char alphanumeric, Google 11–13 digit; CRM 18-char; no ordinal leakage |
+| Account addressing      | Meta paths need `act_{id}`; Google `account_links` stores `123-456-7890`, the API `1234567890`                 |
+| Ownership               | Campaigns assigned to clients unevenly; three clients have merged CRM duplicates still referenced by links/finance |
+| Status/flights          | ARCHIVED/PAUSED/ended flights on every platform; paused campaigns and ads stop delivering mid-window             |
+| Delivery                | Per-campaign October trend, weekend dip, daily noise, non-integer micros; launches on 6 October                  |
+| FX                      | EUR/USD drift ±5–6% over the window plus ±1.2% daily moves; one-rate conversion fails the 0.01% tolerance       |
+| Invoices                | ±1.8% vendor noise, near-threshold cases at 1.85–2.25%, real drift, 12% with credit notes                         |
+| Brand safety            | High-severity events spread from 1 to 14 October, so the "since 8 October" filter matters                       |
+| Faults                  | Bulk pauses see a 429 (with retry-after), a 500 and a lost response on three different ads                      |
+
+**FX without an SDK join.** Reference datasets are still not implemented in
+Relate. The Relate integration exposes daily rates as an `FxRate` lookup object.
+The Relate arm sums delivery per day (up to 8 date-parameterised expressions per
+query) and multiplies in code. No pre-converted value is substituted, so the
+Relate arm carries the same conversion work and shows the SDK gap honestly.
 
 The generator sizes are 8/40/150 clients, 160/800/3,000 campaigns and
-1,920/16,000/60,000 ads. It emits 90 days of ad facts before applying the TikTok
-load cutoff; campaign facts aggregate from those same rows. These deterministic
-sizes approximate the proposed tiers rather than claiming the original rounded
-counts exactly. World fact rows stream into DuckDB instead of occupying two full
-in-memory copies.
+1,920/16,000/60,000 ads, over 90 days of ad facts. World fact rows stream into
+DuckDB instead of occupying two full in-memory copies.
 
 ## Integration and grading contracts
 
 The graph uses public package APIs. Platform sources normalize their own vendor
 representation; the shared `account_links` table maps provider account IDs to
-CRM client IDs and is equally available to raw arms. The current SDK has no
+CRM client IDs and is equally available to raw arms. The integration resolves
+dashed Google IDs and merged CRM duplicates (`MasterRecordId`) when it binds
+accounts and invoices; raw arms must do the same from the documented fields.
+Load is keyed per platform account. A 429 from a provider is retried once inside
+`changeMedia`; other unknown outcomes are recovered by reading back. The current SDK has no
 role-dependent OR policy, so `createGraph(principal)` creates one of three fixed
 policy variants: planner reads are team-scoped; activation/finance read all
 clients; commercial fields require finance. The host fixes the principal for the
@@ -260,9 +273,16 @@ such action in this version). Ended/unlinked flights are rejected. Finance
 disputes write a shared finance row in both arms; Relate also makes a native
 audit record, which does not count as extra business success.
 
-Grading checks the answer, required caveats and every committed mutation. Caveat
-kinds ignore case and normalize spaces/underscores to hyphens (`stale_data` and
-`stale-data` are equivalent); a nonempty detail is still required. Final IDs
+Grading checks the answer, required caveats and every committed mutation.
+Numbers are exact by default (integer budgets, net invoiced amounts); spend uses
+a 0.01% relative tolerance with a one-minor-unit floor, and pacing ±0.15
+percentage points. Caveat kinds ignore case and normalize spaces/underscores to
+hyphens; clear synonyms are accepted (`stale…`, `permission`/`access`/
+`restricted`, `partial`/`skipped`), and a nonempty detail is still required. A
+partly forbidden request must answer only the permitted part with a
+`permission` caveat; a refusal where an answer is due fails as
+`unneeded-refusal`. Bulk pauses must change exactly the eligible ads and report
+skipped ones with `partial-action`. Final IDs
 remain platform/source IDs, dates remain YYYY-MM-DD, and wrong monetary values
 still fail. Creation must produce exactly one correct record and a subsequent
 read by the returned provider identity. A separate integration test verifies

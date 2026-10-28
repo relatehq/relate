@@ -11,7 +11,10 @@ export const tiers = {
 } as const;
 
 export interface Client {
+  /** Surviving CRM Account Id. */
   id: string;
+  /** Deleted CRM duplicates merged into this client (MasterRecordId = id). */
+  mergedIds: string[];
   code: string;
   name: string;
   team: string;
@@ -20,16 +23,24 @@ export interface Client {
 }
 
 export interface Account {
+  /** Canonical provider ID as the platform API returns it on child records. */
   id: string;
+  /** How plans.account_links stores the ID (Google uses dashed customer IDs). */
+  linkId: string;
   clientId: string;
+  /** CRM Id stored on account_links and invoices; may be a merged duplicate. */
+  linkedSfId: string;
   platform: Platform;
   currency: Currency;
   timezone: string;
+  /** Latest loaded account-local day in the warehouse. */
+  loadedThrough: string;
 }
 
 export interface Campaign {
   id: string;
   accountId: string;
+  clientId: string;
   platform: Platform;
   name: string;
   status: 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
@@ -37,6 +48,12 @@ export interface Campaign {
   budgetId: string;
   flightStart: string;
   flightEnd: string;
+  /** First account-local day with delivery. */
+  launch: string;
+  /** Last account-local day with delivery (status/flight driven). */
+  lastDelivery: string;
+  /** October spend trend: daily factor 1 + trend * (day - Oct 1) / 14. */
+  trend: number;
   missingLink: boolean;
   malformedName: boolean;
 }
@@ -67,14 +84,18 @@ export interface Ad {
   groupId: string;
   campaignId: string;
   status: string;
+  /** First day without delivery when the ad stopped mid-window. */
+  stoppedFrom: string | null;
 }
 
 export interface Delivery {
   adId: string;
   campaignId: string;
+  accountId: string;
   platform: Platform;
   date: string;
   currency: Currency;
+  loadedThrough: string;
   spendMicros: number;
   impressions: number;
   clicks: number;
@@ -83,15 +104,30 @@ export interface Delivery {
 
 export interface Invoice {
   id: string;
+  kind: 'invoice' | 'credit';
+  /** For credit notes: the invoice being credited. */
+  creditFor: string | null;
   campaignId: string;
+  /** Canonical CRM client. */
   clientId: string;
+  /** CRM Id as stored in finance (may be a merged duplicate). */
+  sfAccountId: string;
   amountMinor: number;
   currency: Currency;
   month: string;
 }
 
+export interface SafetyEvent {
+  id: string;
+  adId: string;
+  campaignId: string;
+  severity: 'high' | 'low';
+  category: string;
+  observedAt: string;
+}
+
 export interface World {
-  version: 1;
+  version: 2;
   seed: number;
   tier: Tier;
   now: string;
@@ -102,6 +138,7 @@ export interface World {
   groups: AdGroup[];
   ads: Ad[];
   invoices: Invoice[];
+  safety: SafetyEvent[];
 }
 
 export interface Mutation {

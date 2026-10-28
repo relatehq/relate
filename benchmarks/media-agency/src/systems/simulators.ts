@@ -61,35 +61,34 @@ export async function startSimulators(
   const accounts = new Map(world.accounts.map((a) => [a.id, a]));
 
   for (const c of world.clients)
-    add('crm', 'Account', c.id, {
-      Id: c.id,
-      Name: c.name,
-      Client_Code__c: c.code,
-      Team__c: c.team,
-      CurrencyIsoCode: c.currency,
-      Fee_Pct__c: c.feePct,
-      IsDeleted: false,
-    });
+    for (const [index, id] of [c.id, ...c.mergedIds].entries())
+      add('crm', 'Account', id, {
+        Id: id,
+        Name: c.name,
+        Client_Code__c: c.code,
+        Team__c: c.team,
+        CurrencyIsoCode: c.currency,
+        Fee_Pct__c: c.feePct,
+        IsDeleted: index > 0,
+        MasterRecordId: index > 0 ? c.id : null,
+      });
 
-  const duplicate = world.clients[0]!;
-
-  add('crm', 'Account', '001-merged', {
-    Id: '001-merged',
-    Name: duplicate.name,
-    Client_Code__c: duplicate.code,
-    Team__c: duplicate.team,
-    CurrencyIsoCode: duplicate.currency,
-    Fee_Pct__c: duplicate.feePct,
-    IsDeleted: true,
-  });
-
-  for (const a of world.accounts)
-    add(a.platform, 'account', a.id, {
-      id: a.id,
+  for (const a of world.accounts) {
+    const fields = {
       name: world.clients.find((c) => c.id === a.clientId)!.code,
       currency: a.currency,
       timezone_name: a.timezone,
-    });
+    };
+
+    // Meta account objects are addressed as act_<id>; child records carry the bare ID.
+    if (a.platform === 'meta')
+      add('meta', 'account', `act_${a.id}`, {
+        id: `act_${a.id}`,
+        account_id: a.id,
+        ...fields,
+      });
+    else add(a.platform, 'account', a.id, { id: a.id, ...fields });
+  }
 
   function project(
     system: Platform,
@@ -228,10 +227,15 @@ export async function startSimulators(
     const method = req.method!;
     let body: Row = {};
     let activeRequest: RequestRecord | undefined;
-    const send = (status: number, value: unknown) => {
+    const send = (
+      status: number,
+      value: unknown,
+      headers: Record<string, string> = {},
+    ) => {
       res.writeHead(status, {
         'content-type': 'application/json',
         date: new Date(world.now).toUTCString(),
+        ...headers,
       });
       res.end(json(value));
     };
@@ -311,9 +315,20 @@ export async function startSimulators(
           return;
         }
 
-        return send(fault.kind === 'rate-limit-429' ? 429 : 500, {
-          error: fault.kind,
-        });
+        return fault.kind === 'rate-limit-429'
+          ? send(
+              429,
+              system === 'tiktok'
+                ? { code: 40100, message: 'Too many requests' }
+                : { error: 'rate limited; retry after 1 second' },
+              { 'retry-after': '1' },
+            )
+          : send(
+              500,
+              system === 'tiktok'
+                ? { code: 50000, message: 'Internal error' }
+                : { error: 'internal server error' },
+            );
       }
 
       const mutate = (id: string, after: Row, entity?: string) => {
@@ -350,16 +365,23 @@ export async function startSimulators(
 
           if (!/^SELECT .+ FROM Account(?: WHERE .+)?$/i.test(q))
             throw new Error(
-              'Supported SOQL: SELECT fields FROM Account [WHERE Team__c = ... AND IsDeleted = false]',
+              "Supported SOQL: SELECT fields FROM Account [WHERE Field = 'value' AND IsDeleted = false]",
             );
 
           let rows = list('crm', 'Account');
-          const team = /Team__c\s*=\s*'([^']+)'/i.exec(q)?.[1];
+          const where = /\sWHERE\s+(.+)$/i.exec(q)?.[1] ?? '';
 
-          if (team) rows = rows.filter((r) => r.Team__c === team);
+          for (const [, field, value] of where.matchAll(
+            /(\w+)\s*=\s*'([^']*)'/g,
+          ))
+            rows = rows.filter((r) => String(r[field!]) === value);
 
-          if (/IsDeleted\s*=\s*false/i.test(q))
-            rows = rows.filter((r) => !r.IsDeleted);
+          for (const [, value] of where.matchAll(
+            /IsDeleted\s*=\s*(true|false)/gi,
+          ))
+            rows = rows.filter(
+              (r) => r.IsDeleted === (value!.toLowerCase() === 'true'),
+            );
 
           const offset = Number(
             url.searchParams.get('offset') ??
@@ -431,8 +453,19 @@ export async function startSimulators(
             result = row;
           } else {
             const parent = path.split('/').at(-2)!;
+
+            if (entity !== 'account' && !records.has(parent))
+              return send(400, {
+                error: {
+                  message: `(#803) Some of the aliases you requested do not exist: ${parent}`,
+                  code: 803,
+                },
+              });
+
             const rows = list(system, entity).filter(
-              (r) => entity === 'account' || r.account_id === parent,
+              (r) =>
+                entity === 'account' ||
+                `act_${String(r.account_id)}` === parent,
             );
             const offset = Number(url.searchParams.get('after') ?? 0),
               limit = Math.min(
@@ -616,7 +649,9 @@ export async function startSimulators(
               'GAQL FROM campaign|campaign_budget|ad_group|ad_group_ad required',
             );
 
-          const wantedId = /WHERE\s+\w+\.id\s*=\s*'([^']+)'/i.exec(query)?.[1];
+          const wantedId = /WHERE\s+\w+\.id\s*=\s*'?([^'\s]+)'?/i.exec(
+            query,
+          )?.[1];
           const rows = [...records.entries()]
             .filter(
               ([id, r]) =>

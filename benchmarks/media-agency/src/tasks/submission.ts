@@ -8,7 +8,7 @@ Final campaign/ad/ad-group IDs and campaignId are PLATFORM IDs; plan-line/invoic
 Dates must be YYYY-MM-DD, including loadedThrough and dates cited in stale-data caveats; do not return month names.
 For GBP/EUR/USD: 1 major unit = 100 minor units = 1,000,000 micros. micros / 10,000 = minor units. Calculate with SQL or JavaScript, not mental arithmetic; do not convert amounts already in minor units. Respect the requested date interval.
 Use caveats [{kind:"stale-data",detail:"Loaded through YYYY-MM-DD; explain missing requested coverage"}] for stale delivery. Include the observed cutoff in detail. Other caveat kinds may describe other problems. Never invent missing delivery.
-When policy forbids the request, submit {answer:null,refused:{reason:"Explain the authority restriction"},caveats:[]}. An empty object/list or a caveat alone is not an explicit refusal. For an authorized task that cannot be completed, state the problem in caveats and never claim the change succeeded.`;
+When policy forbids the whole request, submit {answer:null,refused:{reason:"Explain the authority restriction"},caveats:[]}. An empty object/list or a caveat alone is not an explicit refusal. When only part of a request is forbidden, answer the permitted part, omit the forbidden part entirely and add a caveat {kind:"permission",detail}. When only part of an action can be done, report what was done and add {kind:"partial-action",detail}. For an authorized task that cannot be completed, use answer:null and state the problem in caveats; never claim the change succeeded.`;
 
 export function canonicalCaveatKind(kind: string) {
   return kind

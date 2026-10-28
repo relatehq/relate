@@ -36,6 +36,7 @@ export const clients = defineSource({
     CurrencyIsoCode: z.string(),
     Fee_Pct__c: z.number(),
     IsDeleted: z.boolean(),
+    MasterRecordId: z.string().nullable(),
   }),
 });
 
@@ -71,6 +72,8 @@ export const invoices = defineSource({
   idField: 'id',
   schema: z.object({
     id: z.string(),
+    kind: z.string(),
+    credit_for: z.string().nullable(),
     sf_account_id: z.string(),
     campaign_id: z.string(),
     amount_minor: z.number(),
@@ -81,8 +84,24 @@ export const invoices = defineSource({
 
 export const loads = defineSource({
   id: 'warehouse.loads',
-  idField: 'platform',
-  schema: z.object({ platform: z.string(), loaded_through: z.string() }),
+  idField: 'platform_account_id',
+  schema: z.object({
+    platform: z.string(),
+    platform_account_id: z.string(),
+    loaded_through: z.string(),
+  }),
+});
+
+export const rates = defineSource({
+  id: 'warehouse.fx',
+  idField: 'id',
+  schema: z.object({
+    id: z.string(),
+    date: z.string(),
+    from_currency: z.string(),
+    to_currency: z.string(),
+    rate: z.number(),
+  }),
 });
 
 export const Client = defineObject({
@@ -107,7 +126,11 @@ export const Account = defineObject({
   membership: source(accounts),
   properties: {
     id: objectId({ id: 'account.id' }),
-    externalId: from(accounts.fields.id, { id: 'account.external' }),
+    externalId: from(accounts.fields.id, {
+      id: 'account.external',
+      description:
+        'Platform account ID as platform records carry it (Google without dashes, Meta without act_).',
+    }),
     client: reference(Client, {
       id: 'account.client',
       from: accounts.fields.sf_account_id,
@@ -119,7 +142,7 @@ export const Account = defineObject({
 export const Delivery = defineDataset({
   id: 'warehouse.delivery',
   description:
-    'Campaign delivery by account-local calendar date; spendMicros is account-currency millionths, NOT client currency; SUM(spendMicros)/10000.0 gives GBP/EUR/USD minor units. Int64 sums may be decimal strings; convert numerically, never strip digits. TikTok may be stale; inspect loadedThrough or Load.',
+    "Campaign delivery by account-local calendar date; spendMicros is account-currency millionths, NOT client currency; SUM(spendMicros)/10000.0 gives GBP/EUR/USD minor units. Int64 sums may be decimal strings; convert numerically, never strip digits. Coverage is per platform account: inspect Load for the account. Converting to client currency needs each day's FxRate; there is no join, so sum per date and multiply in code.",
   columns: {
     campaignId: {
       id: 'delivery.campaign',
@@ -242,11 +265,11 @@ export function platformObjects<const P extends string>(platform: P) {
         description:
           'Loaded October spend in ACCOUNT currency minor units, already converted from micros. Do not divide again. For other date windows use a compute expression {sql,parameters} over self.delivery with SUM(spendMicros)/10000.0; no FX conversion.',
       }),
-      loadedThrough: computed({
+      lastDeliveryDate: computed({
         id: `${platform}.loaded`,
         sql: 'SELECT MAX(date) FROM self.delivery',
         description:
-          'Latest loaded account-local day as YYYY-MM-DD; this is delivery coverage, not read time.',
+          'Latest day with delivery for THIS campaign (YYYY-MM-DD). Earlier than coverage when the campaign stopped delivering; warehouse coverage is Load.loadedThrough for its account.',
       }),
     },
     datasets: {
@@ -344,7 +367,18 @@ export const VendorInvoice = defineObject({
       id: 'invoice.client',
       from: invoices.fields.sf_account_id,
     }),
-    campaignId: from(invoices.fields.campaign_id, { id: 'invoice.campaign' }),
+    kind: from(invoices.fields.kind, {
+      id: 'invoice.kind',
+      description: 'invoice or credit. Credit notes carry negative amounts.',
+    }),
+    creditFor: from(invoices.fields.credit_for, {
+      id: 'invoice.credit-for',
+      description: 'For credit notes, the source ID of the credited invoice.',
+    }),
+    campaignId: from(invoices.fields.campaign_id, {
+      id: 'invoice.campaign',
+      description: 'Platform campaign ID.',
+    }),
     amountMinor: from(invoices.fields.amount_minor, {
       id: 'invoice.amount',
       access: commercial,
@@ -360,9 +394,33 @@ export const Load = defineObject({
   properties: {
     id: objectId({ id: 'load.id' }),
     platform: from(loads.fields.platform, { id: 'load.platform' }),
+    accountExternalId: from(loads.fields.platform_account_id, {
+      id: 'load.account',
+      description: 'Platform account ID whose delivery this load covers.',
+    }),
     loadedThrough: from(loads.fields.loaded_through, {
       id: 'load.through',
-      description: 'Latest loaded account-local day as YYYY-MM-DD.',
+      description:
+        'Latest loaded account-local day as YYYY-MM-DD for this platform account.',
+    }),
+  },
+});
+
+export const FxRate = defineObject({
+  id: 'agency.fx',
+  membership: source(rates),
+  properties: {
+    id: objectId({ id: 'fx.id' }),
+    date: from(rates.fields.date, {
+      id: 'fx.date',
+      description: 'Delivery date (account-local) this rate applies to.',
+    }),
+    fromCurrency: from(rates.fields.from_currency, { id: 'fx.from' }),
+    toCurrency: from(rates.fields.to_currency, { id: 'fx.to' }),
+    rate: from(rates.fields.rate, {
+      id: 'fx.rate',
+      description:
+        'amount_to = amount_from * rate. Includes identity pairs and weekends.',
     }),
   },
 });
@@ -462,6 +520,7 @@ export function createGraph(principal: Principal) {
       PlanLine,
       VendorInvoice,
       Load,
+      FxRate,
       MediaChange,
       MetaCampaign: meta.Campaign,
       TikTokCampaign: tiktok.Campaign,
@@ -514,6 +573,7 @@ export function createGraph(principal: Principal) {
         groups: { commercial: access.role('finance') },
       },
       Load: { read: read() },
+      FxRate: { read: read() },
       MediaChange: {
         read: {
           gate: access.role('reader'),

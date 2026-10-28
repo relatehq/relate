@@ -31,6 +31,7 @@ import {
   clients,
   createGraph,
   Delivery,
+  FxRate,
   google,
   invoices,
   LaunchAdGroup,
@@ -38,6 +39,7 @@ import {
   Load,
   loads,
   meta,
+  rates,
   PlanLine,
   RecordDispute,
   SiteConversions,
@@ -107,24 +109,48 @@ export async function createAgencyApp(input: {
     }
 
   const clientIds: string[] = [];
+  // Merged CRM duplicates stay referenced by stale plan/finance links; resolve to the survivor.
+  const master = new Map<string, string>();
   let next =
-    '/services/data/v62.0/query?q=SELECT%20Id%20FROM%20Account%20WHERE%20IsDeleted%20%3D%20false';
+    '/services/data/v62.0/query?q=SELECT%20Id,IsDeleted,MasterRecordId%20FROM%20Account';
 
   do {
     const page = await checked(http, 'crm', { path: next });
 
-    clientIds.push(...(page.records as Row[]).map((r) => String(r.Id)));
+    for (const r of page.records as Row[]) {
+      if (!r.IsDeleted) clientIds.push(String(r.Id));
+
+      master.set(String(r.Id), String(r.MasterRecordId ?? r.Id));
+    }
+
     next = String(page.nextRecordsUrl ?? '');
   } while (next);
 
+  const canonicalAccount = (row: Row) =>
+    row.platform === 'google-ads'
+      ? String(row.id).replaceAll('-', '')
+      : String(row.id);
+  const accountRows = new Map(
+    (await db.sql('plans', 'SELECT * FROM account_links')).map((row) => [
+      canonicalAccount(row),
+      {
+        ...row,
+        id: canonicalAccount(row),
+        sf_account_id:
+          master.get(String(row.sf_account_id)) ?? row.sf_account_id,
+      },
+    ]),
+  );
+  const fxIds = (
+    await db.sql(
+      'warehouse',
+      "SELECT strftime(date, '%Y-%m-%d') || ':' || from_currency || ':' || to_currency AS id FROM fx_daily",
+    )
+  ).map((r) => String(r.id));
+
   adoption.unshift(
     { definition: Client, ids: clientIds },
-    {
-      definition: Account,
-      ids: (await db.sql('plans', 'SELECT id FROM account_links')).map((r) =>
-        String(r.id),
-      ),
-    },
+    { definition: Account, ids: [...accountRows.keys()] },
     {
       definition: PlanLine,
       ids: (await db.sql('plans', 'SELECT id FROM plan_lines')).map((r) =>
@@ -137,10 +163,16 @@ export async function createAgencyApp(input: {
         (r) => String(r.id),
       ),
     },
-    { definition: Load, ids: platforms },
+    { definition: Load, ids: [...accountRows.keys()] },
+    { definition: FxRate, ids: fxIds },
   );
   const sourceBinding = (
-    definition: typeof clients | typeof loads,
+    definition:
+      | typeof clients
+      | typeof loads
+      | typeof accounts
+      | typeof invoices
+      | typeof rates,
     fetch: (id: string) => Promise<Row>,
   ) =>
     bind(definition, {
@@ -280,13 +312,15 @@ export async function createAgencyApp(input: {
         const result = await journal.once(
           idempotencyId,
           async () => {
-            await writePlatform(
-              http,
-              change.platform,
-              change.entity,
-              row,
-              change,
-            );
+            const write = () =>
+              writePlatform(http, change.platform, change.entity, row, change);
+
+            // A 429 is a definite non-commit; one bounded retry is safe.
+            await write().catch((error: unknown) => {
+              if ((error as { status?: number }).status === 429) return write();
+
+              throw error;
+            });
 
             return { applied: true };
           },
@@ -489,9 +523,45 @@ export async function createAgencyApp(input: {
         onDispose(() => finance.close());
         onDispose(() => warehouse.close());
         const bindings: Binding[] = [
-          bind(accounts, plans.table('account_links')),
+          sourceBinding(accounts, async (id) => {
+            const row = accountRows.get(id);
+
+            if (!row) throw new Error('Missing account link');
+
+            return row;
+          }),
           bind(lines, plans.table('plan_lines')),
-          bind(invoices, finance.table('vendor_invoices')),
+          sourceBinding(invoices, async (id) => {
+            const row = (
+              await db.sql(
+                'finance',
+                'SELECT * FROM vendor_invoices WHERE id = ?',
+                [id],
+              )
+            )[0];
+
+            if (!row) throw new Error('Missing invoice');
+
+            return {
+              ...row,
+              sf_account_id:
+                master.get(String(row.sf_account_id)) ?? row.sf_account_id,
+            };
+          }),
+          sourceBinding(rates, async (id) => {
+            const [date, from, to] = id.split(':');
+            const row = (
+              await db.sql(
+                'warehouse',
+                "SELECT strftime(date, '%Y-%m-%d') AS date, from_currency, to_currency, rate FROM fx_daily WHERE date = ?::DATE AND from_currency = ? AND to_currency = ?",
+                [date, from, to],
+              )
+            )[0];
+
+            if (!row) throw new Error('Missing rate');
+
+            return { id, ...row, rate: Number(row.rate) };
+          }),
           sourceBinding(clients, (id) =>
             checked(http, 'crm', {
               path: `/services/data/v62.0/sobjects/Account/${id}`,
@@ -500,7 +570,7 @@ export async function createAgencyApp(input: {
           sourceBinding(loads, async (id) => {
             const rows = await db.sql(
               'warehouse',
-              'SELECT platform, CAST(loaded_through AS VARCHAR) loaded_through FROM etl_runs WHERE platform = ?',
+              'SELECT platform, platform_account_id, CAST(loaded_through AS VARCHAR) loaded_through FROM etl_runs WHERE platform_account_id = ?',
               [id],
             );
 

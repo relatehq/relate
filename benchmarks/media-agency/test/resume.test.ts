@@ -15,7 +15,13 @@ it('resumes only the identical manifest and records deferred tasks without execu
   const out = await mkdtemp(join(tmpdir(), 'agency-resume-test-'));
 
   cleanup.push(() => rm(out, { recursive: true, force: true }));
-  const task = catalogue.find((t) => t.status === 'deferred')!;
+  // No catalogued task is deferred today; the runner must still record one without executing it.
+  const task = {
+    ...catalogue[0]!,
+    id: 'test.deferred-1',
+    status: 'deferred' as const,
+    reason: 'reference-datasets: test-only deferred entry',
+  };
   const config: RunConfig = {
     tier: 'S',
     seed: 7,

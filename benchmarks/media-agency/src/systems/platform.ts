@@ -18,7 +18,10 @@ export async function checked(
   const body = object(response.body);
 
   if (response.status >= 400 || (system === 'tiktok' && body.code !== 0))
-    throw new Error(`Provider error: ${JSON.stringify(body)}`);
+    throw Object.assign(new Error(`Provider error: ${JSON.stringify(body)}`), {
+      status:
+        response.status === 200 && body.code === 40100 ? 429 : response.status,
+    });
 
   return body;
 }

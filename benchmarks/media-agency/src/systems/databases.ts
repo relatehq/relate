@@ -22,14 +22,14 @@ CREATE TABLE account_links(id TEXT PRIMARY KEY, sf_account_id TEXT NOT NULL, pla
 CREATE TABLE media_plans(id TEXT PRIMARY KEY, client_code TEXT NOT NULL, quarter TEXT NOT NULL);
 CREATE TABLE plan_lines(id TEXT PRIMARY KEY, plan_id TEXT NOT NULL, client_code TEXT NOT NULL, sf_account_id TEXT NOT NULL, channel TEXT NOT NULL, platform TEXT NOT NULL, budget_minor INTEGER NOT NULL, currency TEXT NOT NULL, flight_start TEXT NOT NULL, flight_end TEXT NOT NULL, platform_campaign_id TEXT);
 CREATE TABLE insertion_orders(id TEXT PRIMARY KEY, plan_line_id TEXT NOT NULL, amount_minor INTEGER NOT NULL);`,
-  finance: `CREATE TABLE vendor_invoices(id TEXT PRIMARY KEY, campaign_id TEXT NOT NULL, sf_account_id TEXT NOT NULL, amount_minor INTEGER NOT NULL, currency TEXT NOT NULL, month TEXT NOT NULL);
+  finance: `CREATE TABLE vendor_invoices(id TEXT PRIMARY KEY, kind TEXT NOT NULL, credit_for TEXT, campaign_id TEXT NOT NULL, sf_account_id TEXT NOT NULL, amount_minor INTEGER NOT NULL, currency TEXT NOT NULL, month TEXT NOT NULL);
 CREATE TABLE vendor_invoice_lines(id TEXT PRIMARY KEY, invoice_id TEXT NOT NULL, amount_minor INTEGER NOT NULL);
 CREATE TABLE client_billings(id TEXT PRIMARY KEY, sf_account_id TEXT NOT NULL, amount_minor INTEGER NOT NULL, currency TEXT NOT NULL);
 CREATE TABLE disputes(id TEXT PRIMARY KEY, invoice_id TEXT NOT NULL, reason TEXT NOT NULL, amount_minor INTEGER NOT NULL);`,
-  warehouse: `CREATE TABLE delivery_daily_ad(ad_id VARCHAR NOT NULL, platform_campaign_id VARCHAR NOT NULL, platform VARCHAR NOT NULL, date DATE NOT NULL, currency VARCHAR NOT NULL, spend_micros BIGINT NOT NULL, impressions BIGINT NOT NULL, clicks BIGINT NOT NULL, platform_conversions BIGINT NOT NULL);
+  warehouse: `CREATE TABLE delivery_daily_ad(ad_id VARCHAR NOT NULL, platform_campaign_id VARCHAR NOT NULL, platform_account_id VARCHAR NOT NULL, platform VARCHAR NOT NULL, date DATE NOT NULL, currency VARCHAR NOT NULL, spend_micros BIGINT NOT NULL, impressions BIGINT NOT NULL, clicks BIGINT NOT NULL, platform_conversions BIGINT NOT NULL);
 CREATE TABLE fx_daily(date DATE NOT NULL, from_currency VARCHAR NOT NULL, to_currency VARCHAR NOT NULL, rate DOUBLE NOT NULL, PRIMARY KEY(date, from_currency, to_currency));
 CREATE TABLE brand_safety_events(id VARCHAR NOT NULL, ad_id VARCHAR NOT NULL, platform_campaign_id VARCHAR NOT NULL, severity VARCHAR NOT NULL, category VARCHAR NOT NULL, observed_at VARCHAR NOT NULL);
-CREATE TABLE etl_runs(platform VARCHAR NOT NULL, loaded_through DATE NOT NULL);`,
+CREATE TABLE etl_runs(platform VARCHAR NOT NULL, platform_account_id VARCHAR NOT NULL, loaded_through DATE NOT NULL);`,
 };
 
 export async function writeDatabases(world: World, directory: string) {
@@ -65,7 +65,7 @@ export async function writeDatabases(world: World, directory: string) {
     for (const a of world.accounts)
       plans
         .prepare('INSERT INTO account_links VALUES (?,?,?)')
-        .run(a.id, a.clientId, a.platform);
+        .run(a.linkId, a.linkedSfId, a.platform);
 
     for (const line of world.lines) {
       const c = world.clients.find((c) => c.id === line.clientId)!;
@@ -92,11 +92,13 @@ export async function writeDatabases(world: World, directory: string) {
 
     for (const i of world.invoices) {
       finance
-        .prepare('INSERT INTO vendor_invoices VALUES (?,?,?,?,?,?)')
+        .prepare('INSERT INTO vendor_invoices VALUES (?,?,?,?,?,?,?,?)')
         .run(
           i.id,
+          i.kind,
+          i.creditFor,
           i.campaignId,
-          i.clientId,
+          i.sfAccountId,
           i.amountMinor,
           i.currency,
           i.month,
@@ -125,6 +127,7 @@ export async function writeDatabases(world: World, directory: string) {
 
       appender.appendVarchar(row.adId);
       appender.appendVarchar(row.campaignId);
+      appender.appendVarchar(row.accountId);
       appender.appendVarchar(row.platform);
       appender.appendDate(
         new DuckDBDateValue(Math.floor(Date.parse(row.date) / 86400000)),
@@ -143,7 +146,7 @@ export async function writeDatabases(world: World, directory: string) {
     }
 
     appender.closeSync();
-    await db.run(`CREATE TABLE delivery_daily_campaign AS SELECT platform_campaign_id, platform, date, currency, CAST(SUM(spend_micros) AS BIGINT) spend_micros, CAST(SUM(impressions) AS BIGINT) impressions, CAST(SUM(clicks) AS BIGINT) clicks, CAST(SUM(platform_conversions) AS BIGINT) platform_conversions FROM delivery_daily_ad GROUP BY ALL;
+    await db.run(`CREATE TABLE delivery_daily_campaign AS SELECT platform_campaign_id, platform_account_id, platform, date, currency, CAST(SUM(spend_micros) AS BIGINT) spend_micros, CAST(SUM(impressions) AS BIGINT) impressions, CAST(SUM(clicks) AS BIGINT) clicks, CAST(SUM(platform_conversions) AS BIGINT) platform_conversions FROM delivery_daily_ad GROUP BY ALL;
 CREATE TABLE site_conversions AS SELECT platform_campaign_id, date, CAST(SUM(platform_conversions) * 0.7 AS BIGINT) conversions, CAST(SUM(platform_conversions) * 3500 AS BIGINT) revenue_minor FROM delivery_daily_ad GROUP BY ALL;`);
 
     for (const [table, columns] of [
@@ -151,6 +154,7 @@ CREATE TABLE site_conversions AS SELECT platform_campaign_id, date, CAST(SUM(pla
         'delivery_daily_campaign',
         [
           'platform_campaign_id',
+          'platform_account_id',
           'platform',
           'date',
           'currency',
@@ -202,9 +206,20 @@ CREATE TABLE site_conversions AS SELECT platform_campaign_id, date, CAST(SUM(pla
     }
 
     events.closeSync();
-    await db.run(
-      "INSERT INTO etl_runs VALUES ('meta', '2026-10-14'), ('tiktok', '2026-10-12'), ('ttd', '2026-10-14'), ('google-ads', '2026-10-14')",
-    );
+    const runs = await db.createAppender('etl_runs');
+
+    for (const account of world.accounts) {
+      runs.appendVarchar(account.platform);
+      runs.appendVarchar(account.id);
+      runs.appendDate(
+        new DuckDBDateValue(
+          Math.floor(Date.parse(account.loadedThrough) / 86400000),
+        ),
+      );
+      runs.endRow();
+    }
+
+    runs.closeSync();
   } finally {
     db.closeSync();
     instance.closeSync();
