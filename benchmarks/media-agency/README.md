@@ -151,11 +151,14 @@ from the host filesystem. Use an isolated disposable machine for model
 evaluations. Reference solutions never inspect the filesystem, world, graders or
 write logs.
 
-Every arm gets the same handbook. Raw arms also get the API/DDL documentation in
-`src/harness/arms.ts`; Relate gets graph discovery. HTTP results truncate at 100
-kB with a marker. SQL tools return up to 2,000 rows with a truncation marker;
-the raw code helper throws on truncation, requiring an aggregate or explicit SQL
-pagination. Int64 SQL values are JSON strings.
+Every arm receives the same handbook and answer contract in its system prompt,
+including permissions, output IDs, ISO dates, refusal shape and micros-to-minor
+conversion. The handbook remains available through `read_docs`. Raw arms also
+get the API/DDL documentation in `src/harness/arms.ts`; Relate gets graph
+discovery. HTTP results truncate at 100 kB with a marker. SQL tools return up to
+2,000 rows with a truncation marker; the raw code helper throws on truncation,
+requiring an aggregate or explicit SQL pagination. Int64 SQL values are JSON
+strings.
 
 ```mermaid
 flowchart LR
@@ -232,6 +235,8 @@ counts include connector and action-handler calls, including failed attempts.
 
 Initial membership is populated through public `host.adopt()` and timed outside
 agent execution. New source records are adopted **inside the measured action**.
+The runner forwards each task's configured faults to the simulator and records
+both configured faults and observed fault outcomes in every completed result.
 The write journal lives in SQLite outside the local action transaction. A lost
 create response is recovered by a documented exact-name lookup. An unresolved
 outcome is returned as a failure; it never triggers a blind second create.
@@ -243,20 +248,25 @@ such action in this version). Ended/unlinked flights are rejected. Finance
 disputes write a shared finance row in both arms; Relate also makes a native
 audit record, which does not count as extra business success.
 
-Grading checks the answer, required caveats and every committed mutation.
-Creation must produce exactly one correct record and a subsequent read by the
-returned provider identity. A separate integration test verifies that the Relate
-receipt's ID reads the newly adopted object. TTD replacement may not erase
-unrequested fields. Repeated requests, committed mutations and actual state
-transitions are counted separately: a second no-op absolute assignment is not
-mislabelled as a duplicate business effect.
+Grading checks the answer, required caveats and every committed mutation. Caveat
+kinds ignore case and normalize spaces/underscores to hyphens (`stale_data` and
+`stale-data` are equivalent); a nonempty detail is still required. Final IDs
+remain platform/source IDs, dates remain YYYY-MM-DD, and wrong monetary values
+still fail. Creation must produce exactly one correct record and a subsequent
+read by the returned provider identity. A separate integration test verifies
+that the Relate receipt's ID reads the newly adopted object. TTD replacement may
+not erase unrequested fields. Repeated requests, committed mutations and actual
+state transitions are counted separately: a second no-op absolute assignment is
+not mislabelled as a duplicate business effect.
 
 Reports distinguish forbidden writes, missing/duplicate effects, clobbers,
 missing follow-up reads, wrong answers and absent stale caveats.
 Commercial-value exposure in tool output is recorded separately from disclosure
-in assistant text or the final submission. Exact-string leak checks are a lower
-bound, not a semantic privacy proof. The proposed LLM mistake judge/human audit
-is not wired into this initial runner.
+in assistant text or the final submission. Whole-token leak checks include
+restricted plan and invoice IDs as well as campaign IDs and commercial sentinel
+values; they avoid ID-prefix matches. They remain a lower bound, not a semantic
+privacy proof. The proposed LLM mistake judge/human audit is not wired into this
+initial runner.
 
 ## Reproducibility and limits
 

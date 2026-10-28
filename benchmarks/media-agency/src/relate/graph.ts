@@ -119,7 +119,7 @@ export const Account = defineObject({
 export const Delivery = defineDataset({
   id: 'warehouse.delivery',
   description:
-    'Campaign delivery by account-local calendar date; spendMicros is account currency, NOT client currency. TikTok may be stale; inspect loadedThrough or Load.',
+    'Campaign delivery by account-local calendar date; spendMicros is account-currency millionths, NOT client currency; SUM(spendMicros)/10000.0 gives GBP/EUR/USD minor units. Int64 sums may be decimal strings; convert numerically, never strip digits. TikTok may be stale; inspect loadedThrough or Load.',
   columns: {
     campaignId: {
       id: 'delivery.campaign',
@@ -128,7 +128,13 @@ export const Delivery = defineDataset({
     },
     date: { id: 'delivery.date', schema: z.iso.date(), access: ordinary },
     currency: { id: 'delivery.currency', schema: z.string(), access: ordinary },
-    spendMicros: { id: 'delivery.spend', schema: z.int64(), access: ordinary },
+    spendMicros: {
+      id: 'delivery.spend',
+      schema: z.int64(),
+      access: ordinary,
+      description:
+        'Account-currency millionths. Divide the sum by 10000.0 for GBP/EUR/USD minor units.',
+    },
     impressions: {
       id: 'delivery.impressions',
       schema: z.int64(),
@@ -199,8 +205,16 @@ export function platformObjects<const P extends string>(platform: P) {
   });
   const ads = defineSource({ id: `${platform}.ads`, idField: 'id', schema });
   const properties = (s: typeof campaigns, prefix: string) => ({
-    id: objectId({ id: `${prefix}.id` }),
-    externalId: from(s.fields.id, { id: `${prefix}.external` }),
+    id: objectId({
+      id: `${prefix}.id`,
+      description:
+        'Internal Relate identity for get/reference arguments. Use externalId for final platform IDs.',
+    }),
+    externalId: from(s.fields.id, {
+      id: `${prefix}.external`,
+      description:
+        'Platform record ID. Use this value for final business IDs and changeMedia.externalId.',
+    }),
     account: reference(Account, {
       id: `${prefix}.account`,
       from: s.fields.account_id,
@@ -226,11 +240,13 @@ export function platformObjects<const P extends string>(platform: P) {
         id: `${platform}.spend`,
         sql: "SELECT SUM(spendMicros) / 10000.0 FROM self.delivery WHERE date >= '2026-10-01'",
         description:
-          'Loaded October spend in ACCOUNT currency minor units; no FX conversion.',
+          'Loaded October spend in ACCOUNT currency minor units, already converted from micros. Do not divide again. For other date windows use a compute expression {sql,parameters} over self.delivery with SUM(spendMicros)/10000.0; no FX conversion.',
       }),
       loadedThrough: computed({
         id: `${platform}.loaded`,
         sql: 'SELECT MAX(date) FROM self.delivery',
+        description:
+          'Latest loaded account-local day as YYYY-MM-DD; this is delivery coverage, not read time.',
       }),
     },
     datasets: {
@@ -293,7 +309,11 @@ export const PlanLine = defineObject({
   membership: source(lines),
   properties: {
     id: objectId({ id: 'line.id' }),
-    externalId: from(lines.fields.id, { id: 'line.external' }),
+    externalId: from(lines.fields.id, {
+      id: 'line.external',
+      description:
+        'Source record ID for final business output; the object id is an internal Relate identity.',
+    }),
     client: reference(Client, {
       id: 'line.client',
       from: lines.fields.sf_account_id,
@@ -315,7 +335,11 @@ export const VendorInvoice = defineObject({
   membership: source(invoices),
   properties: {
     id: objectId({ id: 'invoice.id' }),
-    externalId: from(invoices.fields.id, { id: 'invoice.external' }),
+    externalId: from(invoices.fields.id, {
+      id: 'invoice.external',
+      description:
+        'Source record ID for final business output; the object id is an internal Relate identity.',
+    }),
     client: reference(Client, {
       id: 'invoice.client',
       from: invoices.fields.sf_account_id,
@@ -336,7 +360,10 @@ export const Load = defineObject({
   properties: {
     id: objectId({ id: 'load.id' }),
     platform: from(loads.fields.platform, { id: 'load.platform' }),
-    loadedThrough: from(loads.fields.loaded_through, { id: 'load.through' }),
+    loadedThrough: from(loads.fields.loaded_through, {
+      id: 'load.through',
+      description: 'Latest loaded account-local day as YYYY-MM-DD.',
+    }),
   },
 });
 
@@ -355,7 +382,7 @@ export const MediaChange = defineObject({
 export const ChangeMedia = defineAction({
   id: 'agency.change-media',
   description:
-    'Change campaign/ad status or absolute daily campaign budget. Rejects ended or unlinked plans, shared Google budgets, and planner changes outside 20% of day-start budget.',
+    'Change status or absolute daily budget. platform must be exactly meta, tiktok, ttd, or google-ads (case sensitive); entity must be campaign or ad. externalId is the platform ID, never a Relate ID. Supply exactly one of status (ACTIVE or PAUSED) and budgetMinor (nonnegative integer account-currency minor units; campaign only). Rejects ended/unlinked plans, shared Google budgets, and planner changes outside 20% of day-start budget. A declared rejected error explains invalid input; correct it before a new operation.',
   input: z.object({
     platform: z.string(),
     entity: z.string(),
@@ -375,7 +402,7 @@ export const ChangeMedia = defineAction({
 export const LaunchAdGroup = defineAction({
   id: 'agency.launch-group',
   description:
-    'Create a TikTok ad group, recover lost responses by its unique name, adopt inside the action, and return its Relate ID for a follow-up read. Activation lead only.',
+    'Create a TikTok ad group, recover lost responses by its unique name, adopt inside the action, and return its Relate ID for a follow-up read with TikTokAdGroup.get. The input campaign is a Relate Campaign reference ID. For final business output, read the group externalId and its campaign reference externalId; these are platform IDs. Activation lead only.',
   input: z.object({
     campaign: referenceInput(tiktok.Campaign),
     name: z.string().min(1),

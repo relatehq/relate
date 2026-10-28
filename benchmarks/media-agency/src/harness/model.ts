@@ -1,8 +1,8 @@
-import { z } from 'zod';
 import type { ArmHandle } from './arms.js';
 import type { Submission } from '../tasks/grading.js';
 import { json } from '../world/model.js';
 import type { Row } from '../systems/simulators.js';
+import { submissionSchema } from '../tasks/submission.js';
 
 import type { Usage, Price, Model, Message, Block } from './providers/types.js';
 
@@ -13,19 +13,6 @@ export const defaultBudgets = {
   inputTokens: 3000000,
   wallMs: 15 * 60000,
 };
-
-export const submissionSchema = z
-  .object({
-    answer: z.json(),
-    refused: z
-      .object({ reason: z.string().min(1) })
-      .strict()
-      .optional(),
-    caveats: z.array(
-      z.object({ kind: z.string(), detail: z.string() }).strict(),
-    ),
-  })
-  .strict();
 
 export async function agentLoop(input: {
   model: Model;

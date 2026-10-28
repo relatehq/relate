@@ -76,3 +76,48 @@ it('resumes only the identical manifest and records deferred tasks without execu
       .reason,
   ).toContain('reference-datasets');
 });
+
+it.each(['baseline-tools', 'baseline-code', 'relate'] as const)(
+  'injects and records the lost-response fault through the real runner for %s',
+  async (arm) => {
+    const out = await mkdtemp(join(tmpdir(), 'agency-fault-run-'));
+
+    cleanup.push(() => rm(out, { recursive: true, force: true }));
+    const task = catalogue.find((t) => t.id === 'action.create-2')!;
+    const result = await runOne({
+      task,
+      arm,
+      tier: 'S',
+      seed: 19,
+      repeat: 0,
+      out,
+      manifestId: 'fault-regression',
+    });
+
+    expect(result).toMatchObject({
+      status: 'completed',
+      passed: true,
+      mutations: 1,
+      writeAttempts: 1,
+    });
+    expect(result.faultOutcomes).toEqual([
+      expect.objectContaining({
+        system: 'tiktok',
+        outcome: 'timeout-after-commit',
+      }),
+    ]);
+    const events = (await readFile(join(out, `${result.id}.jsonl`), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    const end = events.find((e) => e.type === 'end-state');
+
+    expect(
+      end.requests.filter(
+        (r: { outcome: string }) => r.outcome === 'timeout-after-commit',
+      ),
+    ).toHaveLength(1);
+    expect(end.mutations).toHaveLength(1);
+  },
+  30000,
+);

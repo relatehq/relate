@@ -164,25 +164,54 @@ export async function createAgencyApp(input: {
         idempotencyId,
         fail,
       }) => {
+        const platform = z
+          .enum(['meta', 'tiktok', 'ttd', 'google-ads'])
+          .safeParse(rawChange.platform);
+
+        if (!platform.success)
+          return fail('rejected', {
+            reason:
+              'platform must be one of: meta, tiktok, ttd, google-ads (case sensitive); no write dispatched',
+          });
+
+        const entity = z.enum(['campaign', 'ad']).safeParse(rawChange.entity);
+
+        if (!entity.success)
+          return fail('rejected', {
+            reason: 'entity must be campaign or ad; no write dispatched',
+          });
+
+        if (
+          (rawChange.status === undefined) ===
+          (rawChange.budgetMinor === undefined)
+        )
+          return fail('rejected', {
+            reason:
+              'Specify exactly one of status or budgetMinor; no write dispatched',
+          });
+
         const change = {
           ...rawChange,
-          platform: z
-            .enum(['meta', 'tiktok', 'ttd', 'google-ads'])
-            .parse(rawChange.platform),
-          entity: z.enum(['campaign', 'ad']).parse(rawChange.entity),
+          platform: platform.data,
+          entity: entity.data,
         };
 
         if (
           change.status !== undefined &&
           !['ACTIVE', 'PAUSED'].includes(change.status)
         )
-          return fail('rejected', { reason: 'Invalid status' });
+          return fail('rejected', {
+            reason: 'status must be ACTIVE or PAUSED; no write dispatched',
+          });
 
         if (
           change.budgetMinor !== undefined &&
           (!Number.isSafeInteger(change.budgetMinor) || change.budgetMinor < 0)
         )
-          return fail('rejected', { reason: 'Invalid budget' });
+          return fail('rejected', {
+            reason:
+              'budgetMinor must be a nonnegative safe integer in account-currency minor units; no write dispatched',
+          });
 
         const apiName = `${platformNames[change.platform]}${change.entity === 'ad' ? 'Ad' : 'Campaign'}`;
         const collection = context[
@@ -222,12 +251,6 @@ export async function createAgencyApp(input: {
 
         if (!plan || String(plan.flight_end) < '2026-10-15')
           return fail('rejected', { reason: 'lineEndedOrUnlinked' });
-
-        if (
-          (change.status === undefined) ===
-          (change.budgetMinor === undefined)
-        )
-          return fail('rejected', { reason: 'Specify exactly one change' });
 
         if (change.budgetMinor !== undefined) {
           if (change.entity !== 'campaign')
@@ -320,7 +343,10 @@ export async function createAgencyApp(input: {
           !Number.isSafeInteger(launch.budgetMinor) ||
           launch.budgetMinor <= 0
         )
-          return fail('rejected', { reason: 'Invalid budget' });
+          return fail('rejected', {
+            reason:
+              'budgetMinor must be a positive safe integer in account-currency minor units; no write dispatched',
+          });
 
         const campaign = await objects.TikTokCampaign.get(launch.campaign, {
           select: ['externalId'],

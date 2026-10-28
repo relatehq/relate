@@ -162,3 +162,102 @@ it('bounds raw SQL materialization and leaves the next query usable', async () =
     truncated: false,
   });
 });
+
+it('explains invalid action values without provider access and accepts a corrected TTD change', async () => {
+  const world = generateWorld({ seed: 19, tier: 'S' }),
+    env = await createEnvironment(world);
+
+  cleanups.push(env.close);
+  const app = await createAgencyApp({
+    principal: 'marco',
+    http: env.simulators.http,
+    db: env.db,
+    directory: env.directory,
+  });
+
+  cleanups.push(app.close);
+  const consumer = app.runtime.as(app.actor);
+  const task = instantiate(
+    catalogue.find((t) => t.id === 'action.status-3')!,
+    world,
+  );
+  const input = {
+    platform: 'ttd',
+    entity: 'campaign',
+    externalId: task.params.campaignId,
+    status: 'PAUSED',
+  };
+  const before = env.simulators.requests.length;
+
+  for (const [index, change] of [
+    { ...input, platform: 'TTD' },
+    { ...input, entity: 'Campaign' },
+    { ...input, status: 'paused' },
+    { ...input, budgetMinor: 100 },
+  ].entries()) {
+    const result = await consumer.actions.changeMedia({
+      input: change,
+      idempotencyKey: `invalid-${index}`,
+    });
+
+    expect(result).toMatchObject({
+      state: 'failed',
+      error: {
+        code: 'rejected',
+        details: { reason: expect.stringContaining('no write dispatched') },
+      },
+    });
+  }
+
+  expect(env.simulators.requests).toHaveLength(before);
+  expect(env.mutations).toHaveLength(0);
+  expect(
+    (await consumer.actions.changeMedia.describe())?.description,
+  ).toContain('ttd');
+  expect(
+    (await consumer.actions.changeMedia({ input, idempotencyKey: 'corrected' }))
+      .state,
+  ).toBe('succeeded');
+  expect(
+    grade(
+      task,
+      { answer: { applied: true }, caveats: [] },
+      env.mutations,
+      env.simulators.requests,
+      world,
+    ).passed,
+  ).toBe(true);
+}, 30000);
+
+it('exposes units and identities and computes custom date-range spend without a tenfold conversion error', async () => {
+  const world = generateWorld({ seed: 19, tier: 'S' }),
+    env = await createEnvironment(world);
+
+  cleanups.push(env.close);
+  const arm = await createArm('relate', 'marco', env);
+
+  cleanups.push(arm.close);
+  const task = instantiate(
+    catalogue.find((t) => t.id === 'aggregation.spend-3')!,
+    world,
+  );
+  const description = await arm
+    .agency!.runtime.as(arm.agency!.actor)
+    .objects.TtdCampaign.describe();
+
+  expect(
+    description?.properties.find((p) => p.name === 'externalId')?.description,
+  ).toContain('Platform record ID');
+  expect(
+    description?.properties.find((p) => p.name === 'spendAccountMinor')
+      ?.description,
+  ).toContain('10000.0');
+  const execution = await arm.call('execute', {
+    code: `const r=await graph.objects.TtdCampaign.query({where:{externalId:{eq:${JSON.stringify(task.params.campaignId)}}},compute:{windowSpend:{sql:"SELECT SUM(spendMicros)/10000.0 FROM self.delivery WHERE date >= $start AND date <= $end",parameters:{start:${JSON.stringify(task.params.from)},end:${JSON.stringify(task.params.to)}}}}}); const d=r.data[0].data; return {id:d.externalId,spendMinor:d.windowSpend,currency:d.accountCurrency};`,
+  });
+
+  expect(execution).toMatchObject({
+    status: 'succeeded',
+    result: task.expected,
+  });
+}, 30000);

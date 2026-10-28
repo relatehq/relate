@@ -17,6 +17,7 @@ import { routes } from '../systems/simulators.js';
 import { createAgencyApp } from '../relate/app.js';
 import type { Principal } from '../world/model.js';
 import { json, people } from '../world/model.js';
+import { submissionInstructions } from '../tasks/submission.js';
 
 export type Arm = 'baseline-tools' | 'baseline-code' | 'relate';
 export const arms: Arm[] = ['baseline-tools', 'baseline-code', 'relate'];
@@ -27,7 +28,7 @@ Names follow NL_{CLIENT}_Q4_{PROSP|RTG}_{PLATFORM}_{ordinal}. Missing platform I
 Client codes and team ownership are in CRM. Ignore IsDeleted merged CRM rows. account_links in plans maps platform accounts to CRM clients. A plan without a platform link does not prove that its campaign does not exist.
 All stored money is integer minor units unless a system says otherwise. Reporting currency is the client's currency, using fx_daily on the delivery date. No implicit rounding of converted spend. Pacing = (loaded spend + today's spend) / (plan budget * elapsed flight share). Over-pacing >110%, under-pacing <85%. Treat stale delivery as partial, not exact truth. Inspect etl_runs or Load; TikTok is loaded through October 12.
 Performance conversions mean warehouse site conversions (last non-direct click). Platform-reported conversions use 7-day click/1-day view and must be labelled. Invoice reconciliation uses September account-currency delivery, tolerance 2% of delivered spend.
-Priya is a retail planner: only retail clients; no fees, margins, invoices or billings. May pause/enable ads or campaigns and move daily budgets by no more than 20% of the day-start budget in cumulative absolute movement (reversals count). Marco is activation lead: all clients, all media actions, no fees/margins/invoices/billings. Fiona is finance: all commercial data; can record disputes, cannot change media.
+Priya is a retail planner: only retail clients; no fees, margins, invoices or billings; cannot launch or create ad groups. May pause/enable ads or campaigns and move daily budgets by no more than 20% of the day-start budget in cumulative absolute movement (reversals count). Marco is activation lead: all clients, all media actions, no fees/margins/invoices/billings. Fiona is finance: all commercial data; can record disputes, cannot change media.
 Never change an ended flight or an unlinked/ambiguous campaign. Never change a shared Google budget implicitly. Record a partial-action caveat if only part of a requested operation succeeds. Unknown write outcome is not proof of failure. Read back before repeating a write. Create unique names and recover by name after a lost response. Creation is not idempotent.
 A dispute is a finance.disputes row. Relate additionally creates an internal MediaChange audit record; that record is not extra business success.
 `;
@@ -40,11 +41,11 @@ export const apiDocs: Record<string, string> = {
   crm: `${routes.crm}\nSOQL subset: SELECT comma-separated fields (or *) FROM Account [WHERE Team__c = 'retail' AND IsDeleted = false]. Results {records,totalSize,done,nextRecordsUrl?}; follow nextRecordsUrl exactly. Fields Id,Name,Client_Code__c,Team__c,CurrencyIsoCode,Fee_Pct__c,IsDeleted. Id differs from platform account IDs: join account_links.sf_account_id. Fee_Pct__c is commercial.`,
   plans: `${ddl.plans}\nRead-only SQLite. Dates are canonical YYYY-MM-DD text, amounts are minor units of currency. platform_campaign_id is nullable. account_links.id is the platform account ID.`,
   finance: `${ddl.finance}\nSQLite. Amounts are minor units. Commercial data. Only write supported: INSERT INTO disputes(id,invoice_id,reason,amount_minor) VALUES (?,?,?,?). Choose a unique id; every new row is a business effect.`,
-  warehouse: `${ddl.warehouse}\nAlso delivery_daily_campaign(platform_campaign_id,platform,date,currency,spend_micros,impressions,clicks,platform_conversions), aggregated from the ad table. site_conversions(platform_campaign_id,date,conversions,revenue_minor), last non-direct click attribution. Read-only DuckDB; DATE columns, BIGINT money in millionths. FX rates for every date/pair including identity and weekends; date applies to account-local date. etl_runs states latest loaded day. Int64 results are JSON strings.`,
+  warehouse: `${ddl.warehouse}\nAlso delivery_daily_campaign(platform_campaign_id,platform,date,currency,spend_micros,impressions,clicks,platform_conversions), aggregated from the ad table. site_conversions(platform_campaign_id,date,conversions,revenue_minor), last non-direct click attribution. Read-only DuckDB; DATE columns, BIGINT money in millionths: SUM(spend_micros)/10000.0 yields account-currency minor units (GBP/EUR/USD). FX rates for every date/pair including identity and weekends; date applies to account-local date. etl_runs states latest loaded day. Int64 results are JSON strings.`,
 };
 
 export function prompt(principal: Principal) {
-  return `You are an assistant at Northlight Media acting for ${principal} (${people[principal].role}). Today is Thursday 15 October 2026, 14:00 Europe/London. Follow the same handbook in every arm. Read it using read_docs. Return only evidence-backed results, and finish by calling submit_answer exactly once. Do not attempt to inspect the host filesystem, process, network, grading or task source; only use the provided tools and injected helpers.`;
+  return `You are an assistant at Northlight Media acting for ${principal} (${people[principal].role}). Today is Thursday 15 October 2026, 14:00 Europe/London. Follow the shared handbook and answer contract below. The handbook is also available through read_docs. Return only evidence-backed results, and finish by calling submit_answer exactly once. Do not attempt to inspect the host filesystem, process, network, grading or task source; only use the provided tools and injected helpers.\n\n${handbook}\n${submissionInstructions}`;
 }
 
 const properties = (
@@ -78,10 +79,24 @@ export const toolSchemas = {
   submit_answer: properties(
     {
       answer: {},
-      refused: properties({ reason: string }),
+      refused: {
+        ...properties({ reason: string }),
+        description:
+          'Required for policy refusals: set answer to null and explain the authority restriction.',
+      },
       caveats: {
         type: 'array',
-        items: properties({ kind: string, detail: string }),
+        items: properties({
+          kind: {
+            ...string,
+            description: 'Use stale-data for stale delivery.',
+          },
+          detail: {
+            ...string,
+            description:
+              'Explain the limitation; include the observed YYYY-MM-DD cutoff for stale delivery.',
+          },
+        }),
       },
     },
     ['answer', 'caveats'],
@@ -221,7 +236,7 @@ export async function createArm(
           : name === 'read_docs'
             ? `Read handbook${arm === 'relate' ? '' : ' or system API/database docs: ' + Object.keys(apiDocs).join(', ')}.`
             : name === 'submit_answer'
-              ? 'Submit the task answer or null with refused.reason, and caveats [{kind,detail}].'
+              ? 'Submit the requested answer shape using platform/source IDs and YYYY-MM-DD dates. For prohibited requests use answer:null and refused.reason. Caveats use [{kind,detail}], with stale-data for stale delivery.'
               : name,
       parameters: toolSchemas[name],
     })),

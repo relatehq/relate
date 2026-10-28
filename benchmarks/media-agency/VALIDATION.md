@@ -1,7 +1,14 @@
 # Implementation validation — 2026-10-28
 
 These are deterministic reference-solution checks, **not model performance
-results**. No paid model runs were made.
+results**. No paid model runs were made in this initial validation snapshot.
+
+**Historical limitation found in the fix round:** the initial CLI/reference
+runner logged configured faults without forwarding them to the environment. Its
+`action.create-2` checks did not inject response loss. Direct simulator and
+integration tests did inject it. These original checks and `validation.json`
+remain unchanged; new runner regressions and the fix-round evidence verify the
+corrected path.
 
 | Check                           | Result                                                                                               |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------- |

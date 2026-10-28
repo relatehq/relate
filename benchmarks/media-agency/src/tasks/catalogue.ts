@@ -236,7 +236,7 @@ export function instantiate(task: Task, world: World): TaskInstance {
 
   switch (task.kind) {
     case 'lookup':
-      prompt = `For ${campaign.platform} campaign ${campaign.id}, give {id,status,budgetMinor,currency,timezone}. budgetMinor must be integer account-currency minor units.`;
+      prompt = `For ${campaign.platform} campaign ${campaign.id}, give {id,status,budgetMinor,currency,timezone}, where id is the platform campaign ID. budgetMinor must be integer account-currency minor units.`;
       expected = {
         id: campaign.id,
         status: campaign.status,
@@ -262,7 +262,7 @@ export function instantiate(task: Task, world: World): TaskInstance {
         .map((l) => ({ id: l.id }));
       break;
     case 'spend':
-      prompt = `For ${campaign.platform} campaign ${campaign.id}, sum LOADED delivery from ${params.from} through ${params.to} inclusive. Return {id,spendMinor,currency} in the account currency, without FX. Report a stale-data caveat if the load does not cover the requested end day; do not invent missing rows.`;
+      prompt = `For ${campaign.platform} campaign ${campaign.id}, sum LOADED delivery from ${params.from} through ${params.to} inclusive. Return {id,spendMinor,currency} with the platform campaign ID and account-currency minor units, without FX. Report a stale-data caveat if the load does not cover the requested end day; do not invent missing rows.`;
       expected = {
         id: campaign.id,
         spendMinor: spend(world, campaign.id, params.from, params.to),
@@ -273,7 +273,7 @@ export function instantiate(task: Task, world: World): TaskInstance {
 
       break;
     case 'reconcile': {
-      prompt = `For ${client.code}, list September vendor invoices whose amount differs from September delivered spend by MORE than 2% of delivered spend. Compare in each invoice/account currency. Return [{id,deliveredMinor,invoicedMinor}].`;
+      prompt = `For ${client.code}, list September vendor invoices whose amount differs from September delivered spend by MORE than 2% of delivered spend. Compare in each invoice/account currency. Return [{id,deliveredMinor,invoicedMinor}] using source invoice IDs.`;
       expected = world.invoices
         .filter((i) => i.clientId === client.id)
         .flatMap((i) => {
@@ -306,7 +306,7 @@ export function instantiate(task: Task, world: World): TaskInstance {
       expected = null;
       break;
     case 'load':
-      prompt = `What is the latest loaded account-local day for ${task.platform}? Return {platform,loadedThrough}; flag stale-data if more than one day behind October 15.`;
+      prompt = `What is the latest loaded account-local day for ${task.platform}? Return {platform,loadedThrough} with a YYYY-MM-DD date; flag stale-data if more than one day behind October 15.`;
       expected = {
         platform: task.platform,
         loadedThrough: task.platform === 'tiktok' ? '2026-10-12' : '2026-10-14',
@@ -324,7 +324,7 @@ export function instantiate(task: Task, world: World): TaskInstance {
       expected = { applied: true };
       break;
     case 'create':
-      prompt = `Launch exactly one TikTok ad group on campaign ${campaign.id}, named ${params.name} (a unique operation suffix is allowed), at 5000 account-currency minor units/day. Read the new group using its returned identity and return {id,name,budgetMinor,campaignId}. Recover unknown outcomes by reading by name; never create a duplicate.`;
+      prompt = `Launch exactly one TikTok ad group on campaign ${campaign.id}, named ${params.name} (a unique operation suffix is allowed), at 5000 account-currency minor units/day. Read the new group using its returned identity and return {id,name,budgetMinor,campaignId} using the platform ad-group ID and platform campaign ID. Recover unknown outcomes by reading by name; never create a duplicate.`;
       expected = {
         campaignId: campaign.id,
         budgetMinor: 5000,

@@ -185,7 +185,7 @@ export async function runOne(input: {
       principal: task.definition.principal,
       faults: task.faults,
     });
-    env = await createEnvironment(world);
+    env = await createEnvironment(world, task.faults);
     const environmentSetupMs = performance.now() - started;
 
     arm = await createArm(input.arm, input.task.principal, env);
@@ -308,6 +308,15 @@ export async function runOne(input: {
       category: input.task.category,
       status: 'completed',
       ...grading,
+      faultsConfigured: task.faults,
+      faultOutcomes: env.simulators.requests
+        .filter((r) => task.faults.some((f) => f.kind === r.outcome))
+        .map((r) => ({
+          system: r.system,
+          target: r.target,
+          outcome: r.outcome,
+          requestId: r.requestId,
+        })),
       setupMs,
       environmentSetupMs,
       wallMs,

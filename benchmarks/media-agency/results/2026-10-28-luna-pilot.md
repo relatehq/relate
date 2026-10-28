@@ -21,6 +21,17 @@ The only host mount was its artifact output directory. The stopped container was
 removed; transcripts and the image identity were retained. The executor remains
 development tooling, not an adversarial sandbox.
 
+## Correction discovered during the first fix round
+
+The original runner logged configured faults but called
+`createEnvironment(world)` without forwarding `task.faults`. Therefore **the
+three `action.create-2` runs did not inject a lost response**, despite the task
+label. They are ordinary creation attempts, not evidence of recovery. Their raw
+results and transcript hashes remain unchanged. The simulator and direct
+integration tests did exercise that fault; the defect was in the runner wiring.
+The fix round passes the faults through and records observed fault outcomes,
+with a runner-level regression for every arm.
+
 ## Frozen scores
 
 | Access path      | Passed | Success rate | Estimated cost | Forbidden-write runs |
