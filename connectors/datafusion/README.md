@@ -185,7 +185,9 @@ row operations detect overflow, integer sums use exact arbitrary-size partial
 state before checking the final int64 range, and averages divide exact integer
 totals before rounding. Float operations retain failures through nulls; scaled
 accumulation avoids avoidable overflow. Results have per-cell failure checks so
-one invalid value cannot corrupt sibling objects or fields.
+one invalid value cannot corrupt sibling objects or fields. Separate typed date
+and timestamp functions preserve source time units across years 0000–9999; they
+avoid the generic formatter's narrowing to nanoseconds.
 
 The shared SQL renderer's optional `checked.nodeBinding: 'inline'` lets
 function-based dialects bind each child once without correlated scalar

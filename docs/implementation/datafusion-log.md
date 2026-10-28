@@ -119,3 +119,21 @@ flowchart LR
   needed the same native artifact preparation as `pnpm check`. Added the
   explicit build to both commands, and used `fileURLToPath` for walkthrough
   paths with spaces. Revalidated the final commands before delivery.
+
+## Stage 5 — wide temporal values
+
+- An additional final audit across years 0000–9999 found a backend limitation
+  outside the existing corpus: DataFusion's generic `to_char` coerced timestamps
+  to nanoseconds and failed with
+  `Arrow error: Arithmetic overflow: Overflow happened on: -62162121599877 * 1000000`.
+- Replaced generic formatting with typed date/millisecond/microsecond functions,
+  preserving source units. Shared the scalar-function adapter in its own module
+  so temporal semantics do not depend on the arithmetic module.
+- Added a regression for dates, both timestamp precisions, wide bound
+  parameters, year zero, year 9999, nulls and empty slots. The focused suite now
+  has 154 passing tests. Re-running full validation against this final
+  refinement.
+
+- The extracted scalar adapter also handles empty Arrow batches without trying
+  to infer a return type from an empty iterator; a native unit test verifies
+  that it retains the declared Boolean output type and evaluates no rows.

@@ -1,7 +1,9 @@
 //! Relate's replaceable DataFusion backend. Only host-generated, typed queries enter here.
 pub mod arithmetic;
+mod functions;
 pub mod providers;
 pub mod stdio;
+mod temporal;
 
 use anyhow::{bail, Result};
 use datafusion::{
@@ -48,6 +50,7 @@ pub async fn open(source: &Source, registry: &ProviderRegistry) -> Result<Sessio
     let ctx =
         SessionContext::new_with_config_rt(SessionConfig::new().with_target_partitions(2), runtime);
     arithmetic::register(&ctx);
+    temporal::register(&ctx);
     let provider = registry.open(&ctx, source).await?;
     ctx.register_table("dataset", provider)?;
     Ok(ctx)

@@ -215,3 +215,95 @@ it('cancels real engine startup and permits a later read', async () => {
     (await connection.analytics.execute(plan, options())).rows[0]!.values,
   ).toEqual([2n]);
 });
+
+it('preserves dates and timestamps across the full portable year range without nanosecond narrowing', async () => {
+  const { writeParquet } = await import('./parquet.js');
+  const directory = await mkdtemp(
+    join(tmpdir(), 'relate-datafusion-temporal-'),
+  );
+
+  cleanups.push(() => rm(directory, { recursive: true, force: true }));
+  const connection = datafusion({ connectionId: 'temporal' });
+
+  cleanups.push(() => connection.close());
+  const path = join(directory, 'temporal.parquet');
+
+  await writeParquet(
+    path,
+    [
+      { name: 'customerId', kind: 'string', nullable: false },
+      { name: 'day', kind: 'date', nullable: true },
+      { name: 'at', kind: 'timestamp3', nullable: true },
+      { name: 'precise', kind: 'timestamp6', nullable: true },
+    ],
+    [
+      [
+        'acme',
+        '0000-02-29',
+        '0000-02-29T00:00:00.123Z',
+        '0000-02-29T00:00:00.123456Z',
+      ],
+      [
+        'acme',
+        '9999-12-31',
+        '9999-12-31T23:59:59.456Z',
+        '9999-12-31T23:59:59.654321Z',
+      ],
+      ['nulls', null, null, null],
+    ],
+  );
+  const resource = connection.parquet(path).bindDataset({
+    columns: {
+      customerId: 'customerId',
+      day: 'day',
+      at: 'at',
+      precise: 'precise',
+    },
+  });
+  const result = await connection.analytics.execute(
+    connection.analytics.plan(
+      query(resource, [
+        aggregate('min', column('day', 'date'), 'date'),
+        aggregate('max', column('day', 'date'), 'date'),
+        aggregate('min', column('at', 'timestamp'), 'timestamp'),
+        aggregate('max', column('precise', 'timestamp', 6), 'timestamp', 6),
+        aggregate('max', column('at', 'timestamp'), 'timestamp'),
+        {
+          ...aggregate(
+            'min',
+            column('precise', 'timestamp', 6),
+            'timestamp',
+            6,
+          ),
+          predicate: {
+            kind: 'compare',
+            op: '>=',
+            left: column('precise', 'timestamp', 6),
+            right: {
+              kind: 'value',
+              value: {
+                type: 'timestamp',
+                precision: 6,
+                value: '0000-02-29T00:00:00.123456Z',
+              },
+            },
+          },
+        },
+      ]),
+    ),
+    options(),
+  );
+
+  expect(result.rows.map((row) => row.values)).toEqual([
+    [
+      '0000-02-29',
+      '9999-12-31',
+      '0000-02-29T00:00:00.123Z',
+      '9999-12-31T23:59:59.654321Z',
+      '9999-12-31T23:59:59.456Z',
+      '0000-02-29T00:00:00.123456Z',
+    ],
+    [null, null, null, null, null, null],
+    [null, null, null, null, null, null],
+  ]);
+});

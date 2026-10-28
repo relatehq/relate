@@ -1,54 +1,18 @@
 //! Checked cells preserve Relate semantics without relying on native overflow behavior.
+use crate::functions::scalar;
 use datafusion::{
     arrow::{
         array::{Array, ArrayRef, StringArray, UInt64Array},
         datatypes::DataType,
     },
     common::{Result, ScalarValue},
-    logical_expr::{create_udaf, create_udf, Accumulator, ColumnarValue, Volatility},
+    logical_expr::{create_udaf, Accumulator, Volatility},
     prelude::SessionContext,
 };
 use num_bigint::BigInt;
 use num_traits::{ToPrimitive, Zero};
 use std::sync::Arc;
 
-fn udf(
-    ctx: &SessionContext,
-    name: &str,
-    types: Vec<DataType>,
-    output: DataType,
-    function: impl Fn(&[ScalarValue]) -> ScalarValue + Send + Sync + 'static,
-) {
-    ctx.register_udf(create_udf(
-        name,
-        types,
-        output,
-        Volatility::Immutable,
-        Arc::new(move |args| {
-            if args.iter().all(|a| matches!(a, ColumnarValue::Scalar(_))) {
-                let values = args
-                    .iter()
-                    .map(|a| match a {
-                        ColumnarValue::Scalar(v) => v.clone(),
-                        _ => unreachable!(),
-                    })
-                    .collect::<Vec<_>>();
-                return Ok(ColumnarValue::Scalar(function(&values)));
-            }
-            let arrays = ColumnarValue::values_to_arrays(args)?;
-            let values = (0..arrays[0].len())
-                .map(|i| {
-                    let row = arrays
-                        .iter()
-                        .map(|a| ScalarValue::try_from_array(a, i))
-                        .collect::<Result<Vec<_>>>()?;
-                    Ok(function(&row))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            Ok(ColumnarValue::Array(ScalarValue::iter_to_array(values)?))
-        }),
-    ));
-}
 fn text(value: &ScalarValue) -> Option<&str> {
     match value {
         ScalarValue::Utf8(v) => v.as_deref(),
@@ -62,21 +26,21 @@ fn number(value: &ScalarValue) -> Option<f64> {
     }
 }
 pub fn register(ctx: &SessionContext) {
-    udf(
+    scalar(
         ctx,
         "relate_ifailed",
         vec![DataType::Utf8],
         DataType::Boolean,
         |v| ScalarValue::Boolean(text(&v[0]).map(|s| s == "!")),
     );
-    udf(
+    scalar(
         ctx,
         "relate_ffailed",
         vec![DataType::Float64],
         DataType::Boolean,
         |v| ScalarValue::Boolean(number(&v[0]).map(|x| !x.is_finite())),
     );
-    udf(
+    scalar(
         ctx,
         "relate_ifloat",
         vec![DataType::Utf8],
@@ -88,7 +52,7 @@ pub fn register(ctx: &SessionContext) {
         },
     );
     for (name, op) in [("add", '+'), ("sub", '-'), ("mul", '*'), ("div", '/')] {
-        udf(
+        scalar(
             ctx,
             &format!("relate_i{name}"),
             vec![DataType::Utf8, DataType::Utf8],
@@ -114,7 +78,7 @@ pub fn register(ctx: &SessionContext) {
                 ScalarValue::Utf8(value)
             },
         );
-        udf(
+        scalar(
             ctx,
             &format!("relate_f{name}"),
             vec![DataType::Float64, DataType::Float64],

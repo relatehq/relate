@@ -151,13 +151,11 @@ const dialect: AnalyticalSqlDialect<string | null> = {
 
     return `${name}(${aggregate.distinct ? 'DISTINCT ' : ''}${argument}) FILTER (WHERE ${filter})`;
   },
-  timestamp(sql, precision, bind) {
-    return `to_char(${sql}, ${bind({ type: 'string', value: `%Y-%m-%dT%H:%M:%S.${precision === 3 ? '%3f' : '%6f'}Z` })})`;
-  },
-  timestampParameters: 1,
-  date: (sql, bind) =>
-    `to_char(${sql}, ${bind({ type: 'string', value: '%Y-%m-%d' })})`,
-  dateParameters: 1,
+  timestamp: (sql, precision) =>
+    `relate_timestamp_${precision === 3 ? 'ms' : 'us'}(${sql})`,
+  timestampParameters: 0,
+  date: (sql) => `relate_date(${sql})`,
+  dateParameters: 0,
   checked,
 };
 
