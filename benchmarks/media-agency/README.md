@@ -9,12 +9,12 @@ fault-injection correction. These are small regression pilots, not held-out
 comparison claims. Reference validation separately checks harness correctness
 and task solvability.
 
-| Status       | Scope                                                                                                                                                                        |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status       | Scope                                                                                                                                                                                    |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Implemented  | Seeded S/M/L worlds (version 2); five HTTP simulators; SQLite plans/finance; DuckDB warehouse; three arms; reference solutions; grading; provider adapters; resumable artifacts; reports |
-| Runnable     | 53 task variants (world v2), including a 22-task pilot, with independent world-derived answers; nothing deferred                                                             |
-| Superseded   | The v1 catalogue (66 runnable + 14 deferred) saturated: 57/60 in the fix-round pilot. Its results stay reproducible from their recorded commits                              |
-| Not run here | Full main/scale model evaluations, human prompt/parity audit, human review of model-error labels                                                                              |
+| Runnable     | 53 task variants (world v2), including a 22-task pilot, with independent world-derived answers; nothing deferred                                                                         |
+| Superseded   | The v1 catalogue (66 runnable + 14 deferred) saturated: 57/60 in the fix-round pilot. Its results stay reproducible from their recorded commits                                          |
+| Not run here | Full main/scale model evaluations, human prompt/parity audit, human review of model-error labels                                                                                         |
 
 ## Glossary
 
@@ -196,30 +196,30 @@ client, prompts gave the exact ID, every refusal was decidable from the prompt,
 drift only ever hit Meta invoices, and the hard FX/pacing tasks were deferred.
 World v2 removes those shortcuts and runs every task.
 
-| Category       | Variants | What they exercise                                                                                                          |
-| -------------- | -------: | --------------------------------------------------------------------------------------------------------------------------- |
-| Lookup         |        6 | Campaign found **by name** across opaque IDs; shared Google budgets; a non-existent well-formed name with a malformed twin |
-| Traversal      |        6 | Client → CRM merge survivor → dashed/act\_ account links → four platforms; explicit missing plan links                     |
-| Aggregation    |       10 | Account-currency spend with **per-account** load cutoffs; client-currency spend by channel converted **per delivery day**  |
-| Reconciliation |        4 | Net invoices (credit notes), noise and near-threshold drift on every platform, merged CRM IDs in finance                    |
-| Permissions    |        8 | Refusals that need data (team in CRM, 25% budget move, shared budget, ended flight); partly permitted requests            |
-| Freshness      |        3 | Per-account `etl_runs`, including one lagging TikTok and one lagging Meta account                                          |
+| Category       | Variants | What they exercise                                                                                                           |
+| -------------- | -------: | ---------------------------------------------------------------------------------------------------------------------------- |
+| Lookup         |        6 | Campaign found **by name** across opaque IDs; shared Google budgets; a non-existent well-formed name with a malformed twin   |
+| Traversal      |        6 | Client → CRM merge survivor → dashed/act\_ account links → four platforms; explicit missing plan links                       |
+| Aggregation    |       10 | Account-currency spend with **per-account** load cutoffs; client-currency spend by channel converted **per delivery day**    |
+| Reconciliation |        4 | Net invoices (credit notes), noise and near-threshold drift on every platform, merged CRM IDs in finance                     |
+| Permissions    |        8 | Refusals that need data (team in CRM, 25% budget move, shared budget, ended flight); partly permitted requests               |
+| Freshness      |        3 | Per-account `etl_runs`, including one lagging TikTok and one lagging Meta account                                            |
 | Action         |       11 | Status/budget by name (TikTok, TTD full PUT, Google budget object), create + lost response, dispute, bulk pauses with faults |
-| Diagnose → act |        5 | Pacing per plan line (per-day FX, per-account elapsed days); cut the most over-pacing changeable campaign                  |
+| Diagnose → act |        5 | Pacing per plan line (per-day FX, per-account elapsed days); cut the most over-pacing changeable campaign                    |
 
 World v2 realism, all deterministic from the seed:
 
-| Seam                    | v2 behaviour                                                                                                     |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Identifiers             | Meta 18-digit, TikTok 19-digit, TTD 7–8 char alphanumeric, Google 11–13 digit; CRM 18-char; no ordinal leakage |
-| Account addressing      | Meta paths need `act_{id}`; Google `account_links` stores `123-456-7890`, the API `1234567890`                 |
-| Ownership               | Campaigns assigned to clients unevenly; three clients have merged CRM duplicates still referenced by links/finance |
-| Status/flights          | ARCHIVED/PAUSED/ended flights on every platform; paused campaigns and ads stop delivering mid-window             |
-| Delivery                | Per-campaign October trend, weekend dip, daily noise, non-integer micros; launches on 6 October                  |
-| FX                      | EUR/USD drift ±5–6% over the window plus ±1.2% daily moves; one-rate conversion fails the 0.01% tolerance       |
-| Invoices                | ±1.8% vendor noise, near-threshold cases at 1.85–2.25%, real drift, 12% with credit notes                         |
-| Brand safety            | High-severity events spread from 1 to 14 October, so the "since 8 October" filter matters                       |
-| Faults                  | Bulk pauses see a 429 (with retry-after), a 500 and a lost response on three different ads                      |
+| Seam               | v2 behaviour                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Identifiers        | Meta 18-digit, TikTok 19-digit, TTD 7–8 char alphanumeric, Google 11–13 digit; CRM 18-char; no ordinal leakage     |
+| Account addressing | Meta paths need `act_{id}`; Google `account_links` stores `123-456-7890`, the API `1234567890`                     |
+| Ownership          | Campaigns assigned to clients unevenly; three clients have merged CRM duplicates still referenced by links/finance |
+| Status/flights     | ARCHIVED/PAUSED/ended flights on every platform; paused campaigns and ads stop delivering mid-window               |
+| Delivery           | Per-campaign October trend, weekend dip, daily noise, non-integer micros; launches on 6 October                    |
+| FX                 | EUR/USD drift ±5–6% over the window plus ±1.2% daily moves; one-rate conversion fails the 0.01% tolerance          |
+| Invoices           | ±1.8% vendor noise, near-threshold cases at 1.85–2.25%, real drift, 12% with credit notes                          |
+| Brand safety       | High-severity events spread from 1 to 14 October, so the "since 8 October" filter matters                          |
+| Faults             | Bulk pauses see a 429 (with retry-after), a 500 and a lost response on three different ads                         |
 
 **FX without an SDK join.** Reference datasets are still not implemented in
 Relate. The Relate integration exposes daily rates as an `FxRate` lookup object.
@@ -239,11 +239,12 @@ CRM client IDs and is equally available to raw arms. The integration resolves
 dashed Google IDs and merged CRM duplicates (`MasterRecordId`) when it binds
 accounts and invoices; raw arms must do the same from the documented fields.
 Load is keyed per platform account. A 429 from a provider is retried once inside
-`changeMedia`; other unknown outcomes are recovered by reading back. The current SDK has no
-role-dependent OR policy, so `createGraph(principal)` creates one of three fixed
-policy variants: planner reads are team-scoped; activation/finance read all
-clients; commercial fields require finance. The host fixes the principal for the
-run. This is benchmark integration, not a proposed SDK permission feature.
+`changeMedia`; other unknown outcomes are recovered by reading back. The current
+SDK has no role-dependent OR policy, so `createGraph(principal)` creates one of
+three fixed policy variants: planner reads are team-scoped; activation/finance
+read all clients; commercial fields require finance. The host fixes the
+principal for the run. This is benchmark integration, not a proposed SDK
+permission feature.
 
 ```ts
 await graph.actions.launchAdGroup({
@@ -279,17 +280,17 @@ a 0.01% relative tolerance with a one-minor-unit floor, and pacing ±0.15
 percentage points. Caveat kinds ignore case and normalize spaces/underscores to
 hyphens; clear synonyms are accepted (`stale…`, `permission`/`access`/
 `restricted`, `partial`/`skipped`), and a nonempty detail is still required. A
-partly forbidden request must answer only the permitted part with a
-`permission` caveat; a refusal where an answer is due fails as
-`unneeded-refusal`. Bulk pauses must change exactly the eligible ads and report
-skipped ones with `partial-action`. Final IDs
-remain platform/source IDs, dates remain YYYY-MM-DD, and wrong monetary values
-still fail. Creation must produce exactly one correct record and a subsequent
-read by the returned provider identity. A separate integration test verifies
-that the Relate receipt's ID reads the newly adopted object. TTD replacement may
-not erase unrequested fields. Repeated requests, committed mutations and actual
-state transitions are counted separately: a second no-op absolute assignment is
-not mislabelled as a duplicate business effect.
+partly forbidden request must answer only the permitted part with a `permission`
+caveat; a refusal where an answer is due fails as `unneeded-refusal`. Bulk
+pauses must change exactly the eligible ads and report skipped ones with
+`partial-action`. Final IDs remain platform/source IDs, dates remain YYYY-MM-DD,
+and wrong monetary values still fail. Creation must produce exactly one correct
+record and a subsequent read by the returned provider identity. A separate
+integration test verifies that the Relate receipt's ID reads the newly adopted
+object. TTD replacement may not erase unrequested fields. Repeated requests,
+committed mutations and actual state transitions are counted separately: a
+second no-op absolute assignment is not mislabelled as a duplicate business
+effect.
 
 Reports distinguish forbidden writes, missing/duplicate effects, clobbers,
 missing follow-up reads, wrong answers and absent stale caveats.

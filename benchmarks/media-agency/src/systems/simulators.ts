@@ -331,6 +331,19 @@ export async function startSimulators(
             );
       }
 
+      // Providers validate enumerated values; nothing invalid is silently stored.
+      const statusValue =
+        body.status ?? body.operation_status ?? body.Status ?? update.status;
+
+      if (
+        write &&
+        statusValue !== undefined &&
+        !['ACTIVE', 'PAUSED', 'ARCHIVED'].includes(String(statusValue))
+      )
+        throw new Error(
+          `Invalid status ${JSON.stringify(statusValue)}; use ACTIVE or PAUSED`,
+        );
+
       const mutate = (id: string, after: Row, entity?: string) => {
         const previous = records.get(id);
 
@@ -606,6 +619,14 @@ export async function startSimulators(
         }
       } else if (system === 'google-ads') {
         const customer = path.split('/')[3];
+
+        if (
+          !path.endsWith('listAccessibleCustomers') &&
+          records.get(customer ?? '')?.entity !== 'account'
+        )
+          throw new Error(
+            `INVALID_CUSTOMER_ID: ${customer}; use a 10-digit ID from listAccessibleCustomers`,
+          );
 
         if (path.endsWith('listAccessibleCustomers'))
           result = {

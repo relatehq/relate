@@ -201,3 +201,38 @@ it('requires an explicit refusal and rejects contradictory refusal payloads', ()
     }).success,
   ).toBe(false);
 });
+
+it('accepts a declined handbook-rule action without writes but still requires refusal for authority limits', () => {
+  const world = generateWorld({ seed: 7, tier: 'S' });
+  const declined = {
+    answer: null,
+    caveats: [{ kind: 'shared-budget', detail: 'Shared budget; not changed.' }],
+  };
+
+  for (const id of ['permissions.refuse-5', 'permissions.refuse-6'])
+    expect(
+      grade(
+        instantiate(
+          catalogue.find((t) => t.id === id)!,
+          world,
+        ),
+        declined,
+        [],
+        [],
+        world,
+      ).passed,
+    ).toBe(true);
+
+  expect(
+    grade(
+      instantiate(
+        catalogue.find((t) => t.id === 'permissions.refuse-2')!,
+        world,
+      ),
+      declined,
+      [],
+      [],
+      world,
+    ).mistakes,
+  ).toContain('permission-refusal');
+});

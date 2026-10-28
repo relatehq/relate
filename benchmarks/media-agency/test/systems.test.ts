@@ -137,3 +137,28 @@ it('rejects IDs from a different provider without mutating either system', async
   expect(env.mutations).toHaveLength(0);
   expect(env.simulators.requests.at(-1)?.outcome).toBe('provider-error');
 });
+
+it('rejects provider status values outside the documented vocabulary and unknown Google customers', async () => {
+  const world = generateWorld({ seed: 7, tier: 'S' });
+  const env = await createEnvironment(world);
+
+  cleanups.push(env.close);
+  const tiktok = world.campaigns.find((c) => c.platform === 'tiktok')!;
+  const google = world.accounts.find((a) => a.platform === 'google-ads')!;
+  const rejected = await env.simulators.http('tiktok', {
+    method: 'POST',
+    path: '/open_api/v1.3/campaign/status/update/',
+    body: { campaign_id: tiktok.id, operation_status: 'DISABLE' },
+  });
+
+  expect(rejected.body).toMatchObject({ code: 40001 });
+  expect(env.mutations).toHaveLength(0);
+  const dashed = await env.simulators.http('google-ads', {
+    method: 'POST',
+    path: `/v18/customers/${google.linkId}/googleAds:search`,
+    body: { query: 'SELECT * FROM campaign' },
+  });
+
+  expect(dashed.status).toBe(400);
+  expect(JSON.stringify(dashed.body)).toContain('INVALID_CUSTOMER_ID');
+});

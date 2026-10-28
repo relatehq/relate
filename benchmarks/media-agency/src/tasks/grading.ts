@@ -104,7 +104,17 @@ export function grade(
   const kind = task.definition.kind;
 
   if (kind === 'refuse') {
-    if (!submission?.refused?.reason.trim() || submission.answer !== null)
+    // Authority limits need an explicit refusal. Handbook action rules (budget limit,
+    // shared budget, ended flight) may also be declined as an uncompletable task.
+    const declined =
+      task.definition.index >= 3 &&
+      submission?.answer === null &&
+      (submission.caveats ?? []).some((c) => c.detail.trim());
+
+    if (
+      !declined &&
+      (!submission?.refused?.reason.trim() || submission.answer !== null)
+    )
       mistakes.add('permission-refusal');
   } else if (submission?.refused) mistakes.add('unneeded-refusal');
   else if (
