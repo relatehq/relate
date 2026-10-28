@@ -172,15 +172,19 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
 
     const arithmetic = argument !== '*' && isRowArithmetic(argument);
 
+    // Float MIN/MAX are checked too, so a stored non-finite value fails one
+    // cell rather than every object's value for the alias.
     if (
       arithmetic ||
       ((aggregate.aggregate === 'sum' || aggregate.aggregate === 'avg') &&
         (plainType === 'int32' ||
           plainType === 'int64' ||
-          plainType === 'float64'))
+          plainType === 'float64')) ||
+      ((aggregate.aggregate === 'min' || aggregate.aggregate === 'max') &&
+        plainType === 'float64')
     ) {
       const input: CheckedInput = arithmetic
-        ? { ...row(argument), placeholder: true }
+        ? { ...row(argument), placeholder: true, bound: true }
         : {
             sql: checked.operand(
               operand(argument as ResolvedOperand),
@@ -189,6 +193,7 @@ export function renderAnalyticalQuery<Value extends AnalyticalScalar | bigint>(
             type: plainType === 'float64' ? 'float64' : 'int64',
             // Non-finite source floats must not disappear during accumulation.
             placeholder: plainType === 'float64',
+            bound: false,
           };
       // A failed row is a placeholder in the accumulation and a set flag here.
       const flag = input.placeholder
@@ -335,11 +340,13 @@ export interface CheckedInput {
   readonly type: CheckedType;
   /** True when the value may be a failure placeholder or non-finite input. */
   readonly placeholder: boolean;
+  /** True when the SQL is too costly to repeat, so it is bound once per row. */
+  readonly bound: boolean;
 }
 
 /**
- * Transform an input row value with failures treated as null. Inputs requiring
- * checks are bound once in a subquery; other operands are repeated inline.
+ * Transform an input row value with failures treated as null. Row arithmetic
+ * is bound once in a subquery; a plain operand is repeated inline.
  */
 export function checkedValue(
   input: CheckedInput,
@@ -347,6 +354,9 @@ export function checkedValue(
   body: (value: string) => string,
 ): string {
   if (!input.placeholder) return body(input.sql);
+
+  if (!input.bound)
+    return `CASE WHEN ${failed(input.sql, input.type)} THEN NULL ELSE ${body(input.sql)} END`;
 
   return `(SELECT CASE WHEN ${failed('s.v', input.type)} THEN NULL ELSE ${body('s.v')} END FROM (SELECT ${input.sql} AS v) AS s)`;
 }

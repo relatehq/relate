@@ -676,10 +676,11 @@ by `WHERE`, `FILTER` or a validity mask contribute nothing. Accumulators are
 wider than the result: integer `SUM` succeeds when only the final total fits
 int64, so `[MAX, 1, -1]` sums to `MAX` in any order; float64 `SUM` and `AVG`
 fail only when the final result is out of range, so `[1e308, 1e308, -1e308]`
-sums to `1e308`. The same checks apply to plain `SUM(x)` and `AVG(x)`. This
-checked arithmetic is approximate binary64, not exact decimal or monetary
-arithmetic. Arithmetic between aggregate results keeps its formula contract,
-including null for division by zero.
+sums to `1e308`. The same checks apply to plain `SUM(x)` and `AVG(x)`, and a
+stored infinite or NaN float fails only that cell in `SUM`, `AVG`, `MIN` and
+`MAX`. This checked arithmetic is approximate binary64, not exact decimal or
+monetary arithmetic. Arithmetic between aggregate results keeps its formula
+contract, including null for division by zero.
 
 Scalar formulas over one dataset support `+`, `-`, `*`, `/`, `NULLIF`,
 `COALESCE`, and per-aggregate `FILTER (WHERE predicate)`. Numeric formula leaves

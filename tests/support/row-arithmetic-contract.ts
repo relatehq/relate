@@ -569,6 +569,8 @@ export function rowArithmeticContract(
           row: sql('SUM(x + y)'),
           plain: sql('SUM(x)'),
           average: sql('AVG(x)'),
+          minimum: sql('MIN(x)'),
+          maximum: sql('MAX(x)'),
           healthy: sql('COUNT(*)'),
         },
       );
@@ -577,12 +579,16 @@ export function rowArithmeticContract(
         row: failed,
         plain: failed,
         average: failed,
+        minimum: failed,
+        maximum: failed,
         healthy: { value: '2' },
       });
       expect(result.fine).toEqual({
         row: { value: 5 },
         plain: { value: 2 },
         average: { value: 2 },
+        minimum: { value: 2 },
+        maximum: { value: 2 },
         healthy: { value: '1' },
       });
     });

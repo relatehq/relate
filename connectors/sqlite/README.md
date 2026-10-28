@@ -192,12 +192,14 @@ Integers are read as bigint to preserve int64; int32 and boolean driver values
 are decoded to portable scalars. SQLite promotes integer overflow to REAL and
 float overflow to infinity without raising, so row arithmetic checks
 `typeof(...)` and finite results; integer sums use 32-bit high and low partial
-sums because native `SUM` raises on temporary overflow. An out-of-range node or
-total fails only that cell. Plans use numbered `?NNN` binds. BLOB or malformed
-row framing is `invalid-result`; logical scalar validation remains the runtime's
-per-alias responsibility. Error messages do not include SQL, values or driver
-details. A successful result contains one ordered row per input slot and
-`readAt` from the actual statement's start.
+sums because native `SUM` raises on temporary overflow. Each partial sum is
+exact below 2^31 rows per object; beyond that SQLite raises and the whole
+statement fails rather than one cell. An out-of-range node or total fails only
+that cell. Plans use numbered `?NNN` binds. BLOB or malformed row framing is
+`invalid-result`; logical scalar validation remains the runtime's per-alias
+responsibility. Error messages do not include SQL, values or driver details. A
+successful result contains one ordered row per input slot and `readAt` from the
+actual statement's start.
 
 Optional `execute` timing callbacks report `connectionStartup` and `execution`
 once per entered phase, including errors and cancellation. They use monotonic

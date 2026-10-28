@@ -39,8 +39,9 @@ in the pull request.
   datasets joined by full key (for example exchange rates); direction agreed,
   grammar and result contracts proposed; not implemented.
 - [2026-10-28: Arithmetic inside aggregate arguments](./2026-10-28-row-arithmetic.md)
-  — proposed prerequisite for reference-dataset currency conversion; checked
-  per-row arithmetic and failure isolation; not implemented.
+  — prerequisite for reference-dataset currency conversion; checked per-row
+  arithmetic and failure isolation; implemented on SQLite, DuckDB and
+  PostgreSQL.
 - [2026-10-28: Analytical calendar dates](./2026-10-28-analytical-dates.md) —
   proposed calendar-date type and connector contracts; ISO text remains the
   explicit benchmark fallback; not implemented.

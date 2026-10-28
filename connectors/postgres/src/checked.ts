@@ -25,8 +25,11 @@ const int64Max = numeric('9223372036854775807');
 const inInt64 = (value: string) =>
   `(${op('>=', value, int64Min)} AND ${op('<=', value, int64Max)})`;
 const toFloat = (value: string) => `CAST(${value} AS pg_catalog.float8)`;
+// NaN is never <= the largest finite value, so this also matches placeholders.
 const failed = (value: string, type: CheckedType) =>
-  op('=', value, type === 'float64' ? floatNaN : numericNaN);
+  type === 'float64'
+    ? `NOT ${op('<=', abs(value), max)}`
+    : op('=', value, numericNaN);
 
 /** Byte `i` of an 8-byte big-endian float8send value. */
 const byte = (bytes: string, i: number) =>
