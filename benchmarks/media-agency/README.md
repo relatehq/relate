@@ -2,9 +2,12 @@
 
 A private, runnable benchmark comparing raw tools, raw JavaScript and Relate on
 the same fictional agency systems. The
-[initial Luna pilot](results/2026-10-28-luna-pilot.md) records 60 paid model
-runs with preliminary scores and explicit grading limitations. Reference
-validation separately checks harness correctness and task solvability.
+[first fix-round pilot](results/2026-10-28-luna-round1.md) records 60 fresh paid
+model runs (57 passed), with all failures and limitations retained. The
+[original pilot](results/2026-10-28-luna-pilot.md) remains available with its
+fault-injection correction. These are small regression pilots, not held-out
+comparison claims. Reference validation separately checks harness correctness
+and task solvability.
 
 | Status       | Scope                                                                                                                                                                        |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

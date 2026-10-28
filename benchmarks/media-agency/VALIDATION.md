@@ -8,7 +8,10 @@ runner logged configured faults without forwarding them to the environment. Its
 `action.create-2` checks did not inject response loss. Direct simulator and
 integration tests did inject it. These original checks and `validation.json`
 remain unchanged; new runner regressions and the fix-round evidence verify the
-corrected path.
+corrected path. See the
+[first fix-round report](results/2026-10-28-luna-round1.md) for the new 396/396
+reference checks, six observed faults, 35 benchmark tests and full repository
+validation.
 
 | Check                           | Result                                                                                               |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
