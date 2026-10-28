@@ -30,7 +30,7 @@
   "dependencies": {
     "hono": "4.13.13",
     "relate": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@base-ui/react": "1.8.0",

@@ -9,7 +9,7 @@
     "@modelcontextprotocol/server": "2.3.1",
     "@relate/protocol": "workspace:*",
     "relate": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "publishConfig": {
     "access": "public"
