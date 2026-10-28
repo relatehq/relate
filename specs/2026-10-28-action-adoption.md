@@ -1,21 +1,23 @@
 # 2026-10-28: Action adoption
 
 **Status:** this spec defines the action-adoption contract. Nothing is
-implemented. The public API and local atomicity rule were agreed on 2026-10-28.
-This feature must ship before the
-[media agency benchmark](./2026-10-23-media-agency-benchmark.md) is built,
+implemented. The public API and local atomicity rule were agreed on 2026-10-28;
+the spec was reviewed and revised the same day. This feature must ship before
+the [media agency benchmark](./2026-10-23-media-agency-benchmark.md) is built,
 because its create-type tasks depend on it.
 
-| Part                                                               | Status            |
-| ------------------------------------------------------------------ | ----------------- |
-| `adopts` declaration and `objects.Type.adopt(id)` in handlers      | Agreed 2026-10-28 |
-| Adoption commits or rolls back with the action's local changes     | Agreed 2026-10-28 |
-| No exactly-once claim for external writes; recovery is integration | Agreed 2026-10-28 |
-| Commit-time acceptance with a pending-object overlay               | Defined below     |
-| Storage capability, acceptance and conflict validation             | Defined below     |
-| `waitMs` and a typed connector absence signal                      | Defined below     |
-| Query visibility, failure receipts and invocation provenance       | Defined below     |
-| SDK helper for integration journals                                | Open              |
+| Part                                                                     | Status                                                                               |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `adopts` declaration and `objects.Type.adopt(id)` in handlers            | Agreed 2026-10-28                                                                    |
+| Adoption commits or rolls back with the action's local changes           | Agreed 2026-10-28                                                                    |
+| No exactly-once claim for external writes; recovery is integration code  | Agreed 2026-10-28                                                                    |
+| Commit-time acceptance with a pending-object overlay                     | Defined in [How adoption commits](#how-adoption-commits-with-the-action)             |
+| Same-view rule: a newer identical observation does not abort             | Proposed in [Ordering at commit](#ordering-at-commit)                                |
+| Storage capability, acceptance and conflict validation                   | Defined in [Storage contract](#storage-contract)                                     |
+| Query visibility, failure receipts and invocation provenance             | Defined in [Behavior rules](#behavior-rules)                                         |
+| Waiting for a just-created record to become readable is integration code | Decided in [Records that are not yet fetchable](#records-that-are-not-yet-fetchable) |
+| `waitMs` option and a typed connector absence signal                     | Deferred, see [Deferred](#deferred-typed-absence-and-waitms)                         |
+| SDK helper for integration journals                                      | Open                                                                                 |
 
 ## The problem
 
@@ -62,22 +64,23 @@ Read these in order; each builds on the previous ones.
 | **Source object**       | An object whose data lives in an external system and is fetched through a connector.                                                      | `TikTokAdGroup`, `membership: source(adGroups)`                                |
 | **Native object**       | An object whose data Relate stores itself, created only by actions.                                                                       | `MediaChange`, `membership: native()`                                          |
 | **Membership**          | The set of records that belong to an object type in this graph. A source record is not a member until it is adopted.                      | `tt_123` exists in TikTok but is not yet a `TikTokAdGroup`                     |
-| **Relate ID**           | The stable ID Relate assigns to a member, distinct from the platform's own ID.                                                            | `0193…-…` for platform record `tt_123`                                         |
+| **Relate ID**           | The stable ID Relate assigns to a member, distinct from the platform's own ID. A random UUID (v4), so IDs carry no time order.            | `9b1d…-…` for platform record `tt_123`                                         |
 | **Source identity**     | One external record in a graph/object/source scope, connection, resource, account and partition. Adoption reuses this full key.           | `(graph, AdGroup, source, connection, resource, account, partition, 'tt_123')` |
 | **Provider account**    | The external account a source binding is verified against. A record from another account is a different identity.                         | TikTok advertiser `adv_42`                                                     |
 | **Observation**         | One fetched copy of a source record: raw fields, mapped values, fetch time and an ordering token.                                         | `tt_123` at budget `500`, token `918`                                          |
 | **Acceptance**          | Storing an observation if it is newer than the stored one. Adoption is acceptance that also creates membership.                           | `store.accept(scope, { adopt: true, observation })`                            |
 | **Adoption**            | Registering a source record as a member, assigning (or reusing) its Relate ID, and retaining its first observation.                       | `host.adopt(TikTokAdGroup, 'tt_123') → id`                                     |
 | **Native transaction**  | The database transaction an action runs in. Native writes, the receipt and feed entries commit together or not at all.                    | `store.native.transaction(scope, …)`                                           |
+| **Graph lock**          | Postgres serializes all native transactions of one graph. While one action runs, every other action in that graph waits.                  | `pg_advisory_xact_lock(['native', graphId])`                                   |
 | **Receipt**             | The saved result of one action invocation, keyed by the caller's idempotency key; replays return it.                                      | `{ state: 'succeeded', output: { adGroupId } }`                                |
-| **Feed**                | The durable, ordered list of business changes (created, adopted, updated…), written atomically with the change.                           | `{ kind: 'adopted', object: TikTokAdGroup/0193… }`                             |
+| **Feed**                | The durable, ordered list of business changes (created, adopted, updated…), written atomically with the change.                           | `{ kind: 'adopted', object: TikTokAdGroup/9b1d… }`                             |
 | **Idempotency ID**      | A stable ID for one logical action call, derived from the caller's key. Handlers pass it to external systems or journals.                 | `ctx.idempotencyId`                                                            |
 | **External write**      | A call from a handler to a platform API. It is outside every Relate transaction.                                                          | `POST /adgroup/create/`                                                        |
 | **Integration journal** | Application code that records external operations by idempotency ID so a retry can find what an earlier attempt did. Not part of the SDK. | `journal.once(idempotencyId, create, { recover })`                             |
 | **Pending object**      | An object adopted during a running action that is not yet committed. Visible only inside that invocation.                                 | `adopt('tt_123')` returns an ID usable until the action ends                   |
 | **Overlay**             | The invocation's pending objects and observations, consulted before committed storage. It also holds staged updates to existing members.  | `get(id)` reads the staged budget before commit                                |
 | **Acceptance conflict** | The identity or observation used by the action can no longer be committed as validated; the action must retry.                            | A host refresh has already stored a newer deletion                             |
-| **Temporary absence**   | A connector cannot currently find a record but has no affirmative deletion evidence. It is distinct from permission denial.               | A create returned an ID that its read API does not yet serve                   |
+| **Same view**           | A committed observation that is newer than the staged one but has identical state, raw fields and mapped values. It is not a conflict.    | Consumer refresh at token `920` saw the same budget `500`                      |
 
 ## How actions work today
 
@@ -105,7 +108,9 @@ Key facts from the source:
   calls it makes (`packages/runtime/src/actions/execute.ts:261`).
 - Postgres takes a graph-wide lock for the whole transaction
   (`['native', graphId]`, `packages/postgres/src/native.ts:190`), so actions in
-  one graph run one at a time.
+  one graph run one at a time. **Every second a handler spends waiting on a
+  platform is a second no other action in that graph can start.** The memory
+  store serializes the same way (`packages/runtime/src/native-memory.ts:124`).
 - Reads of source objects inside a handler use the committed source store, not
   the transaction. A refresh during the handler commits immediately on another
   connection (`packages/runtime/src/resolution/refresh.ts:155`,
@@ -114,7 +119,9 @@ Key facts from the source:
 - Source acceptance holds a per-record lock and promises "No I/O under this
   lock" (`packages/postgres/src/index.ts:291`).
 - Any failed operation, even one the handler catches, aborts the invocation
-  (`run()` in `execute.ts`).
+  (`run()` in `execute.ts:326`). Only calls that go through the context (`get`,
+  `query`, `create`, and now `adopt`) are wrapped this way; the handler's own
+  platform calls are not.
 - A declared failure (`fail(code)`) rolls back a savepoint and saves a failed
   receipt. A thrown error or timeout rolls back everything and saves no receipt,
   so the key stays unclaimed and a retry runs the handler again.
@@ -132,9 +139,11 @@ const LaunchAdGroup = defineAction({
     budget: z.number(),
   }),
   output: z.object({ adGroupId: referenceInput(TikTokAdGroup) }),
-  creates: [],
-  adopts: [TikTokAdGroup], // NEW, optional, defaults to []
-  errors: { notFound: z.object({}) },
+  adopts: [TikTokAdGroup], // NEW. Optional; `creates` becomes optional too.
+  errors: {
+    notFound: z.object({}),
+    notVisible: z.object({ externalId: z.string() }),
+  },
 });
 
 implementAction(
@@ -153,10 +162,14 @@ implementAction(
       budget: input.budget,
     });
 
+    // Integration code: TikTok serves a new ID before its read API can return
+    // the record. Poll with the integration's own client; this is not a context
+    // call, so a failed attempt can be caught and turned into a declared failure.
+    if (!(await tiktok.waitForAdGroup(adgroup_id, { timeoutMs: 5_000 })))
+      return fail('notVisible', { externalId: adgroup_id });
+
     // NEW: register tt_… as a TikTokAdGroup in this action's transaction.
-    const { id } = await objects.TikTokAdGroup.adopt(adgroup_id, {
-      waitMs: 5_000,
-    });
+    const { id } = await objects.TikTokAdGroup.adopt(adgroup_id);
 
     const group = await objects.TikTokAdGroup.get(id); // reads the pending object
     return { adGroupId: id };
@@ -167,32 +180,46 @@ implementAction(
 Types:
 
 ```ts
-// packages/relate/src/actions.ts (sketch)
-type SourceObject = ObjectDefinition & {
-  readonly membership: ReturnType<typeof source>;
-};
+// packages/relate/src/index.ts — new, next to NativeMembership (line 266)
+export type SourceMembership = ReturnType<typeof source>;
 
-export interface ActionDefinition<…, Adopts extends readonly SourceObject[] = readonly SourceObject[]> {
-  readonly creates: Creates;
-  readonly adopts: Adopts; // frozen [] when omitted
+// packages/relate/src/actions.ts (sketch)
+type NativeObject = ObjectDefinition & { readonly membership: NativeMembership };
+type SourceObject = ObjectDefinition & { readonly membership: SourceMembership };
+
+export interface ActionDefinition<
+  …,
+  Creates extends readonly NativeObject[] = readonly NativeObject[],
+  …,
+  Adopts extends readonly SourceObject[] = readonly SourceObject[],
+> {
+  readonly creates: Creates; // frozen [] when omitted
+  readonly adopts: Adopts;   // frozen [] when omitted
 }
 
 // Added to ActionContext.objects[K] only when G['objects'][K] extends A['adopts'][number]:
 adopt(
   sourceRecordId: string,
-  options?: { readonly waitMs?: number },
 ): Promise<{ readonly id: ObjectId<G['objects'][K]['id']> }>;
 ```
 
-`adopt` returns `{ id }`, like native `create()`. `host.adopt()` keeps returning
-a bare ID. `defineAction` infers the exact readonly `adopts` tuple; when omitted
-its inferred type is `readonly []`, so omission does not grant every source
-object an `adopt` method. The broad interface default above is for generic
-constraints, like the existing `Creates` default.
+- `adopt` returns `{ id }`, like native `create()`. `host.adopt()` keeps
+  returning a bare ID.
+- `creates` and `adopts` are both optional in `defineAction` and both default to
+  a frozen empty tuple. Today `creates` is required (`actions.ts:60`); making it
+  optional is a small authoring change that keeps the two declarations
+  symmetric. `defineAction` infers the exact readonly tuple, so omitting
+  `adopts` grants no object an `adopt` method. The broad interface defaults
+  exist for generic constraints only.
+- `actionKeys` (`actions.ts:28`) gains `'adopts'`; otherwise `defineAction`
+  rejects the option with `action.invalid-shape`.
+- `SourceMembership` replaces the ad-hoc `{ membership: { resource: unknown } }`
+  shape that `host.adopt` uses today (`packages/node/src/runtime.ts:397`), so
+  both entry points constrain adoption targets the same way.
 
 ## Behavior rules
 
-**Declaration**
+### Declaration
 
 - `adopts` accepts only registered source objects; `creates` stays native-only.
   Both are checked at compile time (`packages/relate/src/compiler.ts:890`) and
@@ -202,9 +229,10 @@ constraints, like the existing `Creates` default.
   runtime (`ActionError('denied')`, as for undeclared `create`).
 - Discovery lists `adopts` next to `creates` on `ActionDescription`
   (`packages/protocol/src/discovery.ts:198`), so agents know what an action can
-  bring into the graph.
+  bring into the graph. The HTTP, client and MCP surfaces pass the field through
+  wherever they re-validate or re-serialize descriptions.
 
-**Identity**
+### Identity
 
 - Adoption uses the object's configured source binding. It cannot choose a
   different connection, resource or provider account.
@@ -225,7 +253,7 @@ constraints, like the existing `Creates` default.
   older response cannot replace a newer staged observation. Conflicting ordering
   evidence aborts the invocation; it is not silently overwritten.
 
-**Authorization**
+### Authorization
 
 - The action's execute policy and the binding's provider-account check apply
   first.
@@ -237,7 +265,7 @@ constraints, like the existing `Creates` default.
   current provider-account verification and policy evidence bounds. Adoption
   does not authorize related objects or fields implicitly.
 
-**Reads inside the handler**
+### Reads inside the handler
 
 - `get`, `query`, native-reference validation and policy dependency resolution
   see pending objects through the same invocation-local overlay.
@@ -249,9 +277,9 @@ constraints, like the existing `Creates` default.
   independently committing `ObservationStore.accept` for a staged identity.
   Fetches allocate their own tokens and retain their actual fetch-start times.
 - Failed refreshes follow ordinary stale-data controls, but cannot authorize
-  with expired evidence. Explicit provider denial, confirmed deletion or
-  temporary absence cannot fall back to a previously readable observation.
-  Adoption itself requires a present, readable fetch and has no stale fallback.
+  with expired evidence. Explicit provider denial or confirmed deletion cannot
+  fall back to a previously readable observation. Adoption itself requires a
+  present, readable fetch and has no stale fallback.
 - Full evidence for staged source fields reports retention and ordering as
   `unconfirmed`, with the existing corresponding warnings, until commit. The
   backing store's durability is not a promise that staged data has been saved.
@@ -273,8 +301,11 @@ scope before filtering or projecting:
 2. Deduplicate by scoped source identity and Relate ID. Conflicting IDs for one
    identity abort with `unavailable`; never expose both versions.
 3. Preserve the existing bytewise Relate-ID ordering, scan bounds, authorization
-   and page-size rules. Apply `after` to the merged candidate stream; do not
-   append pending records after a full committed page or count duplicates twice.
+   and page-size rules. Because Relate IDs are random, a pending ID can fall
+   anywhere in that order, so this is a true sorted merge of the committed page
+   and the sorted pending list, never an append. Apply `after` to the merged
+   candidate stream; do not append pending records after a full committed page
+   or count duplicates twice.
 4. Keep cursors invocation-scoped, as today
    (`packages/runtime/src/queries/cursors.ts:31`). These are live keyset pages,
    not a snapshot: records adopted between pages at or before `after` are not
@@ -288,69 +319,57 @@ const groups = objects.TikTokAdGroup.query();
 // Enumerating groups includes id if it matches and remains authorized.
 ```
 
-**Records that are not yet fetchable**
+### Records that are not yet fetchable
 
-Platforms often return an ID before the record can be read. Because any failed
-operation aborts the invocation, the handler cannot catch a not-found and try
-again. `waitMs` retries only a typed temporary-absence signal within `adopt`;
-intermediate absence does not escape through the executor's abort-on-error
-wrapper.
+Platforms often return an ID before the record can be read. `adopt` fetches
+through the object's connector once; if the connector cannot return the record,
+the adoption fails and, like every failed context call, aborts the invocation.
 
-The connector contract currently has only `present`, `deleted` and thrown errors
-(`packages/relate/src/connectors.ts:20`). Add the following exported error
-without changing the stored `Observation` states:
+**Waiting for visibility is integration code, not an `adopt` option.** The
+handler's own platform client is outside the executor's abort-on-error wrapper,
+so it may poll, catch and decide:
 
 ```ts
-// packages/relate/src/connectors.ts — new contract
-export class SourceNotFound extends Error {
-  constructor(readonly providerAccountId?: string) {
-    super('Source record is not currently available');
-    this.name = 'SourceNotFound';
-  }
-}
+// Integration code, before adopt. Any client and any retry policy.
+const visible = await tiktok.waitForAdGroup(adgroup_id, { timeoutMs: 5_000 });
+if (!visible) return fail('notVisible', { externalId: adgroup_id });
+const { id } = await objects.TikTokAdGroup.adopt(adgroup_id);
 ```
 
-- A connector throws `SourceNotFound` only for authenticated absence without
-  affirmative deletion evidence. An ambiguous 404 that may mean denial must not
-  be translated into retryable absence. `deleted` remains affirmative deletion
-  evidence and is terminal for adoption.
-- Provider connectors include the verified account; application-owned connectors
-  omit it. `boundedFetch` validates this error's account evidence just as it
-  validates successful results
-  (`packages/runtime/src/observations/fetch.ts:29`). Missing or mismatched
-  provider evidence is denial, never retryable absence.
-- Outside action adoption, `SourceNotFound` is non-retrying: ordinary reads
-  return `not-found` without stale fallback or a retained tombstone; host
-  adoption rejects without membership and records a `not-found` outcome. A later
-  read can fetch again. Existing authoritative `deleted` results keep their
-  meaning; connectors must not relabel deletion merely to enable waiting.
-- `waitMs` is a finite non-negative integer, default `0`. Zero means one initial
-  fetch with no retries. A positive value bounds the visibility-fetch phase from
-  adoption entry, including account checks, the initial fetch and backoff. After
-  a present record is fetched, policy/dependency validation is bounded by the
-  remaining action deadline, not this visibility budget.
-- Each source call in that loop is bounded by the minimum of 3 seconds,
-  remaining positive wait budget, and remaining action time. Waits and fetches
-  receive the action cancellation signal. With zero, omit the wait-budget bound
-  for the initial attempt. Exhausting the action deadline always returns
-  `unavailable`.
-- Retry only `SourceNotFound`, with backoff of 100, 200, 400, then at most 500
-  ms, capped by the remaining budget. Exhausting the positive wait budget after
-  confirmed absence returns `not-found`. A fetch or account check that times out
-  without an absence response returns `unavailable`. Denial, malformed records
-  and generic connector failures are never retried by this loop.
+Why this instead of a `waitMs` option on `adopt`:
 
-| `adopt` outcome                            | Effect on the invocation                 |
-| ------------------------------------------ | ---------------------------------------- |
-| Record fetched and readable by the caller  | Returns `{ id }`                         |
-| Still not found after `waitMs` (default 0) | Aborts with `ActionError('not-found')`   |
-| Caller cannot read it                      | Aborts with `ActionError('not-found')`   |
-| Source denies the provider account         | Aborts with `ActionError('denied')`      |
-| Source unavailable / deadline reached      | Aborts with `ActionError('unavailable')` |
-| Record is deleted at the source            | Aborts with `ActionError('not-found')`   |
-| Invalid ID, wait option or mapped record   | Aborts with `ActionError('invalid')`     |
+| Concern                                         | Integration polling                         | `waitMs` on `adopt` (rejected for v1)                                  |
+| ----------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------- |
+| Who must classify "not yet visible" vs "denied" | The integration, which knows its platform   | Every connector, through a new typed error                             |
+| Works with existing connectors                  | Yes                                         | No: a generic 404 error is never retried                               |
+| Author can declare the outcome                  | Yes: `fail('notVisible', …)` with a receipt | No: `adopt` aborts with an untyped `not-found`, no receipt             |
+| Caller can tell "retry later" from "bad input"  | Yes, by declared error code                 | No: same `not-found` code as a missing input reference                 |
+| Changes read semantics of existing members      | No                                          | Yes: a typed absence would have to decide stale fallback for all reads |
 
-**Provenance**
+If the connector still cannot fetch the record after the integration saw it (for
+example a different replica), `adopt` surfaces the connector failure as
+`unavailable`. The key stays unclaimed, the caller retries, and the journal
+recovers the external record. The deferred `waitMs` design is kept in
+[Deferred](#deferred-typed-absence-and-waitms) in case the benchmark shows this
+retry is too common.
+
+**Cost of waiting.** The whole handler, polling included, runs under the graph
+lock. Keep visibility polls short, and say so in the public docs. A handler that
+polls for five seconds blocks every other action in that graph for five seconds.
+The action deadline (`actionTimeoutMs`, at most 60 s) still bounds the whole
+invocation.
+
+| `adopt` outcome                                    | Effect on the invocation                 |
+| -------------------------------------------------- | ---------------------------------------- |
+| Record fetched and readable by the caller          | Returns `{ id }`                         |
+| Caller cannot read it                              | Aborts with `ActionError('not-found')`   |
+| Record is deleted at the source                    | Aborts with `ActionError('not-found')`   |
+| Source denies the provider account                 | Aborts with `ActionError('denied')`      |
+| Connector error (including a not-yet-visible 404)  | Aborts with `ActionError('unavailable')` |
+| Fetch timeout or action deadline reached           | Aborts with `ActionError('unavailable')` |
+| Invalid source ID, or fetched record fails mapping | Aborts with `ActionError('invalid')`     |
+
+### Provenance
 
 - A new adoption is attributed to the action's actor and invocation ID, like a
   native `created` record.
@@ -366,13 +385,28 @@ existing source columns are in `packages/postgres/src/migrations.ts:114`; the
 reader is in `packages/postgres/src/index.ts:223`.
 
 All source changes accepted by the action carry its invocation ID in the feed.
-Extend the shared source-change draft helper to accept and copy that optional
-attribution field; the transactional acceptance input requires it, while host
-attribution omits it. Preserve the existing actor/triggered-by distinction for
-adoption versus later source updates. Use the acceptance classifier's actual
-kind (`adopted`, `updated`, `restored`, etc.); re-adoption is not always a new
-`adopted` event. No change means no source change entry. Emit all business
-changes before `invocation-succeeded` in the same atomic feed batch.
+Two existing rules forbid this today and must change together:
+
+```ts
+// packages/protocol/src/activity.ts:256, today
+/** Native changes only; independent source changes do not inherit an invocation ID. */
+readonly invocationId?: string;
+
+// packages/runtime/src/activity-store.ts:329, today — runs in both adapters before publish
+else if (draft.invocationId !== undefined)
+  throw new InvalidDraft('source changes do not inherit an invocation');
+```
+
+New rule: a source change carries `invocationId` exactly when an action's
+transaction accepted it; independent host adoptions and refreshes still omit it.
+`validateFeedDraft` allows the field on `adopted`, `updated`, `deleted` and
+`restored` drafts that name a source, and `sourceChangeDraft`
+(`activity-store.ts:604`) copies it from an optional attribution field. The
+transactional acceptance input requires that field; host attribution omits it.
+Preserve the existing actor/triggered-by distinction for adoption versus later
+source updates. Use the acceptance classifier's actual kind; re-adoption is not
+always a new `adopted` event. No change means no source change entry. Emit all
+business changes before `invocation-succeeded` in the same atomic feed batch.
 
 ## How adoption commits with the action
 
@@ -398,12 +432,12 @@ critical section does no source I/O; the invocation can still fetch different
 records concurrently.
 
 ```ts
-adopt: async (sourceRecordId, { waitMs = 0 } = {}) => {
+adopt: async (sourceRecordId) => {
   const key = overlayKey(scope, sourceRecordId); // full StorageScope + source ID
-  const observation = await fetchWithWait(sourceRecordId, waitMs);
+  const observation = await fetchAndMap(sourceRecordId); // one bounded fetch
   const entry = await overlay.withIdentity(key, async () => {
     const staged = overlay.find(key);
-    const existing = await store.resolve(scope, sourceRecordId);
+    const existing = await store.resolve(scope, sourceRecordId); // DB lookup, no source I/O
     if (staged && existing && existing.objectId !== staged.objectId)
       throw new AdoptionConflict();
     // mergeOrdered keeps the first ID and orders incoming/committed/staged
@@ -437,6 +471,7 @@ sequenceDiagram
   participant T as Native transaction
   H->>P: create or recover ad group
   P-->>H: tt_123
+  H->>P: poll until readable (integration code)
   H->>X: adopt('tt_123')
   X->>P: fetch through source binding (no record locks held)
   X-->>H: pending ID (overlay)
@@ -453,23 +488,47 @@ sequenceDiagram
   is no cycle.
 - On a declared failure or any abort, staged adoptions are discarded. Nothing
   reached storage.
-- **Race:** host ingestion may adopt the same record between `adopt` and commit.
-  At commit the store finds a member with a different ID. The executor aborts
-  with retryable `ActionError('unavailable')`, and nothing commits. A retry with
-  the same key reruns the handler. The journal recovers the external record, and
-  `adopt` now returns the committed ID. The overlay cannot rewrite the pending
-  ID because native records and output may already use it.
-- **Ordering:** the staged observation keeps the token from its fetch. If
-  acceptance finds a newer committed observation, it throws `AdoptionConflict`
-  and the whole action rolls back with retryable `unavailable`. This applies
-  even if the newer observation appears readable or has the same mapped values.
-  There is no successful `superseded` result on this transactional path: the
-  action validated a different view. In particular, a newer deletion or policy
-  change cannot produce a successful receipt referencing the old view.
-- This is a conservative conflict rule for staged identities, not serializable
-  isolation over every external read. Host adoption and ordinary refresh keep
-  their existing supersession behavior. The executor never automatically reruns
-  a handler; the caller retries with the same key and integration journal.
+- **Identity race:** host ingestion may adopt the same record between `adopt`
+  and commit. At commit the store finds a member with a different ID. The
+  executor aborts with retryable `ActionError('unavailable')`, and nothing
+  commits. A retry with the same key reruns the handler. The journal recovers
+  the external record, and `adopt` now returns the committed ID. The overlay
+  cannot rewrite the pending ID because native records and output may already
+  use it.
+
+### Ordering at commit
+
+The staged observation keeps the token from its fetch. At acceptance the store
+compares it with whatever is committed now:
+
+| Committed observation at commit time                                 | Result                                                             |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| None, or older than the staged one                                   | Accept the staged observation (`changed` / `unchanged` / `replay`) |
+| Newer, but the **same view** (identical `state`, `raw`, `values`)    | Keep the committed one; report `unchanged`; no feed entry          |
+| Newer with different values, a deletion, or a policy-relevant change | `AdoptionConflict` → whole action rolls back with `unavailable`    |
+| Conflicting ordering evidence (`OrderingConflict`)                   | `AdoptionConflict` → whole action rolls back with `unavailable`    |
+
+The same-view row is the one deliberate relaxation. Without it, re-adopting an
+existing member that consumers read with `refresh` or a short `maxAgeMs` would
+abort whenever any read landed during the handler's platform calls, and each
+retry would re-run those calls through the journal: a retry storm on busy
+records. A newer observation with identical content is the view the action
+validated, so committing it is safe.
+
+```ts
+// inside transaction.accept, after compareObservation(previous.observation, staged) === 'superseded'
+const sameView = (o: Observation) =>
+  canonicalJson({ state: o.state, raw: o.raw, values: o.values });
+if (sameView(previous.observation) !== sameView(staged))
+  throw new AdoptionConflict();
+return { object: previous, acceptance: 'unchanged' }; // committed winner, no change entry
+```
+
+There is never a successful `superseded` result on this transactional path, and
+a newer deletion or policy change can never produce a successful receipt
+referencing the old view. Host adoption and ordinary refresh keep their existing
+supersession behavior. The executor never automatically reruns a handler; the
+caller retries with the same key and integration journal.
 
 ## Storage contract
 
@@ -493,7 +552,8 @@ export interface NativeTransaction {
    * Called only by the executor after the handler and all reads finish; no
    * I/O follows except other DB work in this transaction.
    * With no member, `objectId` becomes the new Relate ID.
-   * Reject mismatched IDs or a superseded observation with AdoptionConflict.
+   * Reject mismatched IDs, or a newer committed observation that is not the
+   * same view, with AdoptionConflict.
    * Results are conditional on outer transaction success; commit may conflict.
    * Return a classified change; the executor stages its feed draft exactly once.
    * This method must not independently publish a feed batch.
@@ -535,10 +595,9 @@ before any external effect. Both `createRuntime` and `startRuntime` use this
 check in shared composition.
 
 The guarded transaction in `packages/runtime/src/actions/deadline.ts:31` must
-forward `accept` through the same pre/post-operation checks as `insert`. The
-deadline also supplies a cancellation signal and remaining time to fetches and
-waits. Timeout, savepoint rollback and transaction closure revoke all staging
-handles; late continuations cannot mutate the overlay or store.
+forward `accept` through the same pre/post-operation checks as `insert`.
+Timeout, savepoint rollback and transaction closure revoke all staging handles;
+late continuations cannot mutate the overlay or store.
 
 **Memory store.** Observations and native records are separate maps today
 (`packages/runtime/src/memory.ts:63`). Acceptance uses optimistic validation:
@@ -578,7 +637,7 @@ outcome, rather than being mislabeled as a known conflict or rollback.
 ## Runtime changes
 
 The existing executor drains registered operations and rolls back the handler
-savepoint for a declared failure (`execute.ts:536-563`). Extend that boundary to
+savepoint for a declared failure (`execute.ts:548-556`). Extend that boundary to
 the overlay. The following finalization sketch uses new overlay helpers; keep
 the existing error-detail parsing, deadline checks and receipt construction.
 
@@ -616,8 +675,8 @@ await appendBusinessChangesThenInvocationEvent(); // one staged batch
   for both source keys and canonical IDs. `source.read` also loads from that
   overlay before its direct store lookup (`resolution/source.ts:217`). Query
   candidate snapshots cannot bypass newer staged observations.
-- The adopt fetch, waits and authorization reuse
-  `createSourceOperations().adopt` logic, split so fetch-and-map can run without
+- The adopt fetch and authorization reuse `createSourceOperations().adopt` logic
+  (`resolution/source.ts:407`), split so fetch-and-map can run without
   accepting. `host.adopt()` keeps its current self-committing path.
 - Pending reads refresh into the overlay. Reads of identities never staged by
   this invocation keep their existing independently retained refresh behavior.
@@ -661,13 +720,15 @@ creation filtering at `packages/runtime/src/actions/execute.ts:598`:
 | Handler throws, times out, returns invalid output                    | Transactional work rolls back; no receipt; staged adoptions discarded. Independent refreshes of unstaged members remain.  |
 | Handler calls `fail(code)`                                           | Failed receipt saved after overlay cleanup and dependency reauthorization; references to new pending IDs reject.          |
 | Record was already a member                                          | Membership and provenance are untouched by any rollback; on success only a newer observation is accepted.                 |
+| Fetched record fails property mapping                                | `adopt` aborts with `invalid`; nothing is staged.                                                                         |
 | Host adopts the same record during the action                        | Commit aborts with retryable `unavailable`; retry converges on the committed ID.                                          |
-| A newer observation supersedes the staged one                        | Abort with `unavailable`, including newer deletion or policy changes; no successful receipt based on the old view.        |
+| A newer identical observation is committed before acceptance         | Same view: the committed observation wins, `unchanged`, no source feed entry; the action succeeds.                        |
+| A newer different observation supersedes the staged one              | Abort with `unavailable`, including newer deletion or policy changes; no successful receipt based on the old view.        |
 | Host changes a memory acceptance's captured generation before commit | Abort with `unavailable`; no partial source/native writes or stale feed classification.                                   |
 | Outer COMMIT acknowledgement is lost                                 | Existing `uncertain` outcome; recover the receipt with the same key, do not assume rollback.                              |
 | External create succeeded, local work failed                         | External record remains. Relate never deletes it or claims cross-system rollback.                                         |
 | External create result unknown (lost response)                       | Integration journal recovers by documented platform reads, or reports an unresolved outcome. Never a blind second create. |
-| Record not yet fetchable                                             | `waitMs` retries, then `not-found`; no premature success.                                                                 |
+| Record not yet fetchable when `adopt` runs                           | Connector error → `unavailable`, no receipt, retry. Integration polling before `adopt` is the normal way to avoid this.   |
 
 ## External writes and recovery
 
@@ -682,9 +743,12 @@ The SDK guarantees the local side only:
   saved the response". Recovery must look the record up with documented platform
   reads (for example by a name that embeds the idempotency ID). When that fails,
   report the outcome as unresolved.
+- Visibility polling after a create is integration code for the same reason:
+  only the integration knows which platform read confirms the record.
 
 Docs (`apps/docs/content/runtime/actions.md`, "External writes and idempotency
-IDs") gain a create-then-adopt section showing this pattern.
+IDs") gain a create-then-adopt section showing journal, polling and `adopt`
+together, including the graph-lock cost of waiting inside a handler.
 
 ## Compatibility with future sync
 
@@ -697,39 +761,78 @@ Adoption and future sync must share identity and acceptance rules:
   acceptance step that commit-time acceptance introduces. Automatic discovery
   and sync are out of scope here.
 
+## Deferred: typed absence and `waitMs`
+
+An earlier draft gave `adopt` a `waitMs` option that retried a new connector
+error, `SourceNotFound`, meaning "authenticated absence without deletion
+evidence". It was removed from v1 for the reasons in
+[Records that are not yet fetchable](#records-that-are-not-yet-fetchable). The
+shape is recorded here so it can be revived without redesign:
+
+```ts
+// packages/relate/src/connectors.ts — deferred
+type SourceData =
+  | { state: 'present'; record: Record<string, Json>; version?: SourceVersion }
+  | { state: 'deleted'; version?: SourceVersion }
+  | { state: 'absent' }; // not visible yet; not deletion evidence. Rejected by observation().
+
+// handler context — deferred
+adopt(sourceRecordId: string, options?: { readonly waitMs?: number }): Promise<{ id }>;
+```
+
+If revived, prefer the `state: 'absent'` result over a thrown error class: it
+travels the same account-evidence path as `present` and `deleted` through
+`boundedFetch` (`packages/runtime/src/observations/fetch.ts:29`), so no
+validation branch for error objects is needed. Open points that must be settled
+first:
+
+- What an ordinary read of an existing member does on `absent`: stale fallback
+  with a warning (consistent with "not deletion evidence") or `not-found`.
+- Which error code an exhausted wait returns. `not-found` collides with "missing
+  input reference" and reads as terminal; `unavailable` is retryable.
+- A connector-by-connector rule for telling absence from denial on a 404.
+
+**Trigger to revisit:** the benchmark's `launchAdGroup` task shows retries
+caused by connector 404s after the integration already confirmed visibility.
+
 ## Files
 
 Implementation ownership:
 
-| File                                                                                                  | Change   | Why                                                                                             |
-| ----------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------- |
-| `packages/relate/src/actions.ts`                                                                      | modified | `adopts` on definitions; `adopt()` on handler context types                                     |
-| `packages/relate/src/compiler.ts`, `src/model.ts`                                                     | modified | Validate and compile `adopts`; manifest field                                                   |
-| `packages/relate/src/storage.ts`                                                                      | modified | Synchronous capability advertisement; transactional acceptance input/result contracts           |
-| `packages/relate/src/connectors.ts`                                                                   | modified | Typed, account-scoped `SourceNotFound` signal                                                   |
-| `packages/node/src/runtime.ts`                                                                        | modified | Bind declared `adopt`; share startup capability checks across both constructors                 |
-| `packages/runtime/src/actions/execute.ts`                                                             | modified | Pending overlay, commit-time acceptance, feed staging, conflict mapping                         |
-| `packages/runtime/src/actions/adoption.ts`                                                            | new      | Invocation-owned overlay, scoped identity serialization, ordered staging and bounded retry loop |
-| `packages/runtime/src/actions/deadline.ts`                                                            | modified | Forward guarded `accept`; cancel retries and late staging                                       |
-| `packages/runtime/src/storage.ts`                                                                     | modified | Export `AdoptionConflict` alongside existing adapter errors                                     |
-| `packages/runtime/src/resolution/source.ts`, `src/resolution/refresh.ts`, `src/observations/fetch.ts` | modified | Split fetch/map from retention; verify typed absence; refresh pending observations locally      |
-| `packages/runtime/src/runtime.ts`, `src/queries/query.ts`                                             | modified | Overlay-aware reads, policy resolution and merged source scans                                  |
-| `packages/runtime/src/native-memory.ts`, `src/memory.ts`                                              | modified | Prepare acceptance, validate generations, publish atomically; retain invocation provenance      |
-| `packages/postgres/src/native.ts`, `src/index.ts`, `src/migrations.ts`                                | modified | Transactional acceptance without separate feed publication; provenance column and reader        |
-| `packages/runtime/src/activity-store.ts`, `src/activity/feed.ts`                                      | modified | Attach action invocation to source changes; order all business changes before the receipt event |
-| `packages/runtime/src/discovery/index.ts`, `packages/protocol/src/discovery.ts`                       | modified | `adopts` in `ActionDescription`                                                                 |
-| `packages/protocol/src/activity.ts`                                                                   | modified | Optional invocation ID on adopted-object provenance                                             |
-| `tests/support/adoption-action-contract.ts`                                                           | new      | Shared memory/Postgres acceptance suite with a test-owned fake platform                         |
-| `packages/relate/README.md`, `packages/runtime/README.md`, `packages/runtime/STORE_CONTRACT.md`       | modified | Public authoring, connector absence, runtime and adapter contracts                              |
-| `apps/docs/content/runtime/actions.md`                                                                | modified | Adopting created records, read/query behavior, failure receipts and recovery limits             |
+| File                                                                                            | Change   | Why                                                                                                        |
+| ----------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `packages/relate/src/index.ts`                                                                  | modified | Export `SourceMembership` next to `NativeMembership`                                                       |
+| `packages/relate/src/actions.ts`                                                                | modified | `adopts` on definitions, both capability lists optional, `'adopts'` in `actionKeys`; `adopt()` on context  |
+| `packages/relate/src/compiler.ts`, `src/model.ts`                                               | modified | Validate and compile `adopts`; manifest field                                                              |
+| `packages/relate/src/storage.ts`                                                                | modified | Synchronous capability advertisement; transactional acceptance input/result contracts                      |
+| `packages/node/src/runtime.ts`                                                                  | modified | Bind declared `adopt`; constrain `host.adopt` with `SourceMembership`; share startup capability checks     |
+| `packages/runtime/src/actions/execute.ts`                                                       | modified | Pending overlay, commit-time acceptance, feed staging, conflict mapping                                    |
+| `packages/runtime/src/actions/adoption.ts`                                                      | new      | Invocation-owned overlay, scoped identity serialization, ordered staging                                   |
+| `packages/runtime/src/actions/deadline.ts`                                                      | modified | Forward guarded `accept`; revoke late staging                                                              |
+| `packages/runtime/src/storage.ts`                                                               | modified | Export `AdoptionConflict` alongside existing adapter errors                                                |
+| `packages/runtime/src/resolution/source.ts`, `src/resolution/refresh.ts`                        | modified | Split fetch/map from retention; refresh pending observations locally                                       |
+| `packages/runtime/src/runtime.ts`, `src/queries/query.ts`                                       | modified | Overlay-aware reads, policy resolution and sorted-merge source scans                                       |
+| `packages/runtime/src/observations/ordering.ts`                                                 | modified | Shared same-view comparison used by both adapters' transactional acceptance                                |
+| `packages/runtime/src/native-memory.ts`, `src/memory.ts`                                        | modified | Prepare acceptance, validate generations, publish atomically; retain invocation provenance                 |
+| `packages/postgres/src/native.ts`, `src/index.ts`, `src/migrations.ts`                          | modified | Transactional acceptance without separate feed publication; provenance column and reader                   |
+| `packages/runtime/src/activity-store.ts`, `src/activity/feed.ts`                                | modified | Allow `invocationId` on source-change drafts; copy it in `sourceChangeDraft`; order changes before receipt |
+| `packages/runtime/src/discovery/index.ts`, `packages/protocol/src/discovery.ts`                 | modified | `adopts` in `ActionDescription`                                                                            |
+| `packages/http`, `packages/client`, `packages/mcp` (description passthrough only)               | modified | Carry `adopts` wherever descriptions are re-validated or re-serialized                                     |
+| `packages/protocol/src/activity.ts`                                                             | modified | Optional invocation ID on adopted-object provenance; corrected `Change.invocationId` comment               |
+| `tests/support/adoption-action-contract.ts`                                                     | new      | Shared memory/Postgres acceptance suite with a test-owned fake platform and journal                        |
+| `packages/relate/README.md`, `packages/runtime/README.md`, `packages/runtime/STORE_CONTRACT.md` | modified | Public authoring, runtime and adapter contracts                                                            |
+| `apps/docs/content/runtime/actions.md`                                                          | modified | Create, poll, adopt; read/query behavior; failure receipts; recovery limits; graph-lock cost of waiting    |
 
 ## Done when
 
 Tested through the public application path on memory and Postgres. Package tests
-use a test-owned fake platform and journal, never benchmark code.
+use a test-owned fake platform and journal, never benchmark code. The fake
+journal is the contract under test in item 13; it is not an SDK promise.
 
 1. Declaration: undeclared targets, native targets in `adopts`, source targets
-   in `creates` and branded ID types are rejected or checked.
+   in `creates`, omitted `creates`/`adopts`, and branded ID types are rejected
+   or checked. `host.adopt` and `adopts` accept the same `SourceMembership`
+   shape.
 2. Create externally → adopt → read and reference within the handler → typed ID
    readable after commit when source state and authorization remain unchanged.
 3. Rollback on throw, `fail`, invalid output, timeout and a caught adoption
@@ -739,56 +842,60 @@ use a test-owned fake platform and journal, never benchmark code.
    key across types/accounts stays isolated; reverse fetch completion preserves
    the newer observation and rejects conflicting ordering evidence.
 5. Principal and provider-account isolation; unreadable records fail as
-   `not-found` without leaking IDs or data.
+   `not-found` without leaking IDs or data. A record that fails mapping fails as
+   `invalid`.
 6. Adopt → await beyond `maxAgeMs` or policy evidence age → read/output
    validation refreshes into the overlay. Explicit refresh works. Expired
-   evidence, denial, temporary absence and deletion never authorize stale
-   values; rollback retains none of those staged observations.
+   evidence, denial and deletion never authorize stale values; rollback retains
+   none of those staged observations.
 7. Query-after-adopt includes pending members; re-adoption can change predicate
    matches. Test ordering, deduplication, scan bounds, page boundaries and
-   invocation-scoped cursors, including adoption between pages and a restarted
-   query. Committed scan snapshots cannot override staged values.
+   invocation-scoped cursors, including a pending ID that sorts before, inside
+   and after a committed page, adoption between pages and a restarted query.
+   Committed scan snapshots cannot override staged values.
 8. Adopt → get → fail saves a failed receipt that survives lookup, replay and
    Postgres restart. Reads of new pending IDs are pruned; dependencies on
    existing members are retained and reauthorized. New pending IDs in reference
    error details reject without a saved receipt. Test host adoption racing with
    rollback and a native creation that referenced the discarded adoption.
-9. A newer committed observation, including deletion and policy changes, causes
-   acceptance conflict and full rollback. Retry with the same key converges
-   without rerunning a journaled external effect. No successful `superseded`
-   acceptance is returned by the transaction.
+9. A newer committed observation with different values, a deletion or a policy
+   change causes acceptance conflict and full rollback. A newer committed
+   observation with identical content succeeds as `unchanged` with no source
+   feed entry. Retry with the same key converges without rerunning a journaled
+   external effect. No successful `superseded` acceptance is returned by the
+   transaction.
 10. Memory: inject host writes after `accept` resolves but before commit; reject
     generation mismatches with no source/native/provenance/feed mutation. Also
     fail the second of multiple adoptions and feed preparation after acceptance;
     verify that all earlier prepared writes roll back. Postgres: verify host
     contention, outer rollback and exactly one atomic feed publication.
-11. Test zero/positive/invalid `waitMs`, typed absence followed by visibility,
-    budget exhaustion, terminal deletion, account mismatch, generic failure,
-    cancellation during backoff/fetch and a connector resolving after timeout.
-    Verify ordinary reads and host adoption handle typed absence without
-    retries, stale disclosure or tombstone creation.
-12. Missing capability advertisement rejects startup for adopting graphs on both
+11. Missing capability advertisement rejects startup for adopting graphs on both
     constructors; inconsistent transaction methods reject before handler
     execution. The guarded transaction forwards `accept` and revokes it after
     timeout/closure. Non-adopting graphs keep working with existing adapters.
-13. Action adoption persists invocation provenance independently of activity
+12. Action adoption persists invocation provenance independently of activity
     retention, including after restart. Host/legacy provenance omits it;
     re-adoption preserves it. Feed kinds reflect actual accepted transitions,
-    include the invocation ID and precede the invocation event; no-op acceptance
-    emits no source change. Staged reads report unconfirmed evidence.
-14. Lost create response, delayed visibility and retry after restart produce no
-    duplicate business effects or false success under the test integration's
-    journal/recovery contract; unresolved external outcomes remain unresolved. A
-    lost local COMMIT acknowledgement returns `uncertain` and is recovered by
-    receipt replay rather than assumed rollback.
+    include the invocation ID, pass `validateFeedDraft` in both adapters and
+    precede the invocation event; no-op acceptance emits no source change.
+    Staged reads report unconfirmed evidence.
+13. Lost create response, delayed visibility handled by integration polling, and
+    retry after restart produce no duplicate business effects or false success
+    under the test integration's journal/recovery contract; unresolved external
+    outcomes remain unresolved. A connector 404 at `adopt` time surfaces as
+    `unavailable` with no receipt. A lost local COMMIT acknowledgement returns
+    `uncertain` and is recovered by receipt replay rather than assumed rollback.
+14. Discovery over HTTP, client and MCP shows `adopts` for an adopting action
+    and an empty list otherwise.
 15. `pnpm check` (or `pnpm test:unit` without a test database, reported as
     such), `pnpm check:boundaries` and `pnpm test:packaging`.
 
 ## Open questions
 
-| Question                                         | Lean                          |
-| ------------------------------------------------ | ----------------------------- |
-| Should the journal pattern become an SDK helper? | Decide from benchmark results |
+| Question                                                         | Lean                                                |
+| ---------------------------------------------------------------- | --------------------------------------------------- |
+| Should the journal pattern become an SDK helper?                 | Decide from benchmark results                       |
+| Should a visibility-poll helper ship next to the journal helper? | Same decision; both are integration code until then |
 
 ## Appendix: research basis (reviewed 2026-10-28)
 

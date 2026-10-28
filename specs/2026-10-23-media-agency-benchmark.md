@@ -651,14 +651,14 @@ Multiplication inside `SUM` also requires
 Actions are Relate action handlers that call the simulators directly. End state
 is graded from the mutation logs exactly as for the baselines.
 
-| Action                 | Input                                             | Simulator call                                                    | Business failures                                      |
-| ---------------------- | ------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------ |
-| `setCampaignStatus`    | platform campaign, `ACTIVE`/`PAUSED`              | Meta `POST /{id}`, TikTok `status/update`, TTD `PUT`, GAds mutate | `lineEnded`, `notFound`                                |
-| `setAdStatus`          | platform ad(s), status                            | Same, ad level                                                    | `lineEnded`                                            |
-| `setCampaignBudget`    | platform campaign, absolute budget minor          | Budget write (GAds: `campaignBudgets:mutate`)                     | `exceedsDailyChangeLimit`, `sharedBudget`, `lineEnded` |
-| `shiftBudget`          | from campaign, to campaign, amount minor          | Two budget writes                                                 | as above; `partialApplied`                             |
-| `launchAdGroup`        | TikTok campaign, name, budget in account currency | Create TikTok ad group, then adopt it in the handler              | `notFound`, `lineEnded`, `notActivationLead`           |
-| `recordInvoiceDispute` | vendor invoice, reason, amount                    | — (native only)                                                   | `notFinance`                                           |
+| Action                 | Input                                             | Simulator call                                                    | Business failures                                          |
+| ---------------------- | ------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------- |
+| `setCampaignStatus`    | platform campaign, `ACTIVE`/`PAUSED`              | Meta `POST /{id}`, TikTok `status/update`, TTD `PUT`, GAds mutate | `lineEnded`, `notFound`                                    |
+| `setAdStatus`          | platform ad(s), status                            | Same, ad level                                                    | `lineEnded`                                                |
+| `setCampaignBudget`    | platform campaign, absolute budget minor          | Budget write (GAds: `campaignBudgets:mutate`)                     | `exceedsDailyChangeLimit`, `sharedBudget`, `lineEnded`     |
+| `shiftBudget`          | from campaign, to campaign, amount minor          | Two budget writes                                                 | as above; `partialApplied`                                 |
+| `launchAdGroup`        | TikTok campaign, name, budget in account currency | Create TikTok ad group, poll until readable, then adopt it        | `notFound`, `lineEnded`, `notActivationLead`, `notVisible` |
+| `recordInvoiceDispute` | vendor invoice, reason, amount                    | — (native only)                                                   | `notFinance`                                               |
 
 Budget change, as it will be written:
 
@@ -748,9 +748,15 @@ export const launchAdGroup = implementAction(
     if (created.outcome === 'unresolved')
       throw new Error('Ad group creation outcome unknown'); // reported, never re-created
 
-    const { id } = await objects.TikTokAdGroup.adopt(created.value.adgroup_id, {
-      waitMs: 5_000,
-    });
+    // TikTok serves the new ID before its read API returns the record. Poll with
+    // the integration client (not a context call, so a miss can be declared).
+    if (
+      !(await tiktokApi.waitForAdGroup(created.value.adgroup_id, {
+        timeoutMs: 5_000,
+      }))
+    )
+      return fail('notVisible', { externalId: created.value.adgroup_id });
+    const { id } = await objects.TikTokAdGroup.adopt(created.value.adgroup_id);
     await objects.MediaChange.create({
       actorId: actor.id,
       kind: 'launch',
