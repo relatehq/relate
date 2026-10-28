@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 
 // Use a fresh emulator process and a free loopback port for every walkthrough.
@@ -75,7 +76,11 @@ try {
   console.log(`Local S3 ready at ${endpoint}`);
   demo = spawn(
     process.execPath,
-    ['--import', 'tsx', new URL('./src/index.ts', import.meta.url).pathname],
+    [
+      '--import',
+      'tsx',
+      fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+    ],
     { stdio: 'inherit', env: { ...process.env, RELATE_S3_ENDPOINT: endpoint } },
   );
   const code = await new Promise((resolve, reject) => {

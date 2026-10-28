@@ -139,14 +139,16 @@ Rust also rejects DDL, DML, COPY and session-changing statements before
 execution.
 
 One process owns one statement and one catalog. Startup and execution have
-separate deadlines; the execution deadline includes teardown. Abort, timeout and
-connection retirement kill the process and wait for close before settling. There
-are at most four active processes per connection, an 8 MiB request limit, a 16
-MiB response limit, and a 256 MiB DataFusion memory-pool budget per process.
-Spilling is disabled so forced cancellation cannot leave spill files behind. The
-pool is **not** an operating-system RSS limit; source buffers and result
-serialization can allocate outside it. Relate additionally owns request budgets
-and per-connection statement queues.
+separate deadlines; the execution deadline includes teardown. Parent loss also
+terminates native work through a held-open input pipe. On success, Node closes
+that pipe after the response to release the native input reader. Abort, timeout
+and connection retirement kill the process and wait for close before settling.
+There are at most four active processes per connection, an 8 MiB request limit,
+a 16 MiB response limit, and a 256 MiB DataFusion memory-pool budget per
+process. Spilling is disabled so forced cancellation cannot leave spill files
+behind. The pool is **not** an operating-system RSS limit; source buffers and
+result serialization can allocate outside it. Relate additionally owns request
+budgets and per-connection statement queues.
 
 `readAt` is the connector observation when startup completes. It is neither an
 S3 version nor a snapshot guarantee. Metadata inspection and execution can see
@@ -199,16 +201,12 @@ DataFusion `TableProvider`:
 
 ```rust
 #[async_trait]
-impl ProviderFactory for EventsFactory {
+pub trait ProviderFactory: Send + Sync {
     async fn open(
         &self,
         context: &SessionContext,
         options: &serde_json::Value,
-    ) -> anyhow::Result<Arc<dyn TableProvider>> {
-        // Validate host options; return your provider.
-        // The complete runnable implementation is in the linked example.
-        todo!()
-    }
+    ) -> anyhow::Result<Arc<dyn TableProvider>>;
 }
 ```
 

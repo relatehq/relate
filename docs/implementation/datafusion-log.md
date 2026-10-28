@@ -88,3 +88,34 @@ flowchart LR
   compiles the packed custom-provider binary and executes the installed adapter.
 - CI builds the native backend and runs the local S3 walkthrough; no branch has
   been pushed and no PR/CI run has been triggered during implementation.
+
+## Stage 4 — final review and verification
+
+- Reviewed source selection, typed rendering, exact result decoding, process
+  ownership, native mutation rejection, package contents and diagram claims.
+- Corrected the public connection guide to show `bind(Events, resource)` rather
+  than implying DataFusion has a `.table()` method. Replaced a placeholder
+  provider implementation sketch with the actual factory contract.
+- `pnpm check` passed: development policy, formatting, lint, typecheck,
+  boundaries, native build/tests, 202 TypeScript test files (3,256 tests passed;
+  10 capability-specific tests skipped), and installed package/MCP smoke tests.
+  The isolated worktree Postgres test database was used.
+- `pnpm docs:check` passed: built docs and validated 52 registered pages, links,
+  anchors and repository targets.
+- `pnpm exec dotenvx run -f .env -- pnpm test:onboarding` passed all 15 checks,
+  including the Postgres example. Running without `.env` earlier passed 13 and
+  skipped its two database checks; the complete rerun supersedes that result.
+- `pnpm example:datafusion` passed through its documented one-command entry
+  point and left no Moto process behind.
+- `cargo fmt --manifest-path connectors/datafusion/engine/Cargo.toml --check`
+  and
+  `cargo clippy --locked --manifest-path connectors/datafusion/engine/Cargo.toml --all-targets -- -D warnings`
+  passed.
+- No production performance or AWS compatibility claim is inferred from the
+  local proof. The PR documents process overhead, source-build distribution,
+  explicit credentials and the absence of global federation/snapshot semantics.
+
+- Final entry-point review found that direct `pnpm test` / `pnpm test:unit`
+  needed the same native artifact preparation as `pnpm check`. Added the
+  explicit build to both commands, and used `fileURLToPath` for walkthrough
+  paths with spaces. Revalidated the final commands before delivery.

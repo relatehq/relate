@@ -269,21 +269,26 @@ for a complete example.
 
 ## Status
 
-| Works today                                                                     | Not yet                                       |
-| ------------------------------------------------------------------------------- | --------------------------------------------- |
-| TypeScript authoring, compiler and diagnostics                                  | Direct source queries and sync from sources   |
-| Objects backed by one source; references across sources                         | One object enriched from several sources      |
-| Graph queries and to-many traversals with scalar and timestamp filters          | Ordinary-property sorting and indexed filters |
-| Dataset calculations, computed filters/order and exact result types             | Graph-wide aggregates                         |
-| Two-way relationship traversal                                                  | Standalone HTTP consumer API                  |
-| Role gates, claim filters, field-level access                                   | Writing back to source systems                |
-| Per-field evidence and freshness bounds                                         | Migrating between model revisions             |
-| Relate-owned objects, idempotent actions and receipts                           | Published npm packages                        |
-| In-memory and Postgres stores                                                   | Work lineage graph of agent reads and actions |
-| SQLite, PostgreSQL/DuckDB analytics, Stripe and read-only Salesforce connectors | Cloud MCP clients (ChatGPT) for `relate dev`  |
-| MCP discovery and JS execution (stdio / Streamable HTTP)                        |                                               |
-| `relate dev` model inspector, `/mcp` and activity log                           |                                               |
-| Activity feed, operation history and object provenance (host APIs)              |                                               |
+| Works today                                                                                | Not yet                                       |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| TypeScript authoring, compiler and diagnostics                                             | Direct source queries and sync from sources   |
+| Objects backed by one source; references across sources                                    | One object enriched from several sources      |
+| Graph queries and to-many traversals with scalar and timestamp filters                     | Ordinary-property sorting and indexed filters |
+| Dataset calculations, computed filters/order and exact result types                        | Graph-wide aggregates                         |
+| Two-way relationship traversal                                                             | Standalone HTTP consumer API                  |
+| Role gates, claim filters, field-level access                                              | Writing back to source systems                |
+| Per-field evidence and freshness bounds                                                    | Migrating between model revisions             |
+| Relate-owned objects, idempotent actions and receipts                                      | Published npm packages                        |
+| In-memory and Postgres stores                                                              | Work lineage graph of agent reads and actions |
+| SQLite, PostgreSQL/DuckDB/DataFusion analytics, Stripe and read-only Salesforce connectors | Cloud MCP clients (ChatGPT) for `relate dev`  |
+| MCP discovery and JS execution (stdio / Streamable HTTP)                                   |                                               |
+| `relate dev` model inspector, `/mcp` and activity log                                      |                                               |
+| Activity feed, operation history and object provenance (host APIs)                         |                                               |
+
+The opt-in [DataFusion backend](connectors/datafusion/README.md) executes
+calculations over local or S3 Parquet and accepts custom Rust table providers.
+Run `pnpm example:datafusion` for a local S3 walkthrough combining DataFusion
+and SQLite calculations on one campaign object.
 
 Relate runs embedded in a Node application and exposes actor-bound graph access
 through two MCP tools: `discover` and `execute`. Both stdio and Streamable HTTP

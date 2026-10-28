@@ -126,8 +126,10 @@ databases do not accumulate.
 The opt-in DataFusion connector includes Rust source, pinned DataFusion 54.1.0
 and a Cargo lockfile. Use Rust 1.92 or later. `pnpm build` builds TypeScript;
 `pnpm build:datafusion` explicitly builds the native engine and provider
-examples. `pnpm check` builds and tests the native engine before running all
-repository tests. To iterate: `pnpm test:datafusion`.
+examples. `pnpm test` and `pnpm test:unit` build those native artifacts too, so
+a fresh checkout can run the suites directly. `pnpm check` builds and tests the
+native engine before running all repository tests. To iterate:
+`pnpm test:datafusion`.
 `cargo fmt --manifest-path connectors/datafusion/engine/Cargo.toml --check`
 checks Rust formatting.
 
