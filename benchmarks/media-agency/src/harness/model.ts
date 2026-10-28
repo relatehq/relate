@@ -4,80 +4,9 @@ import type { Submission } from '../tasks/grading.js';
 import { json } from '../world/model.js';
 import type { Row } from '../systems/simulators.js';
 
-export interface Usage {
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadTokens: number;
-  cacheWriteTokens: number;
-}
+import type { Usage, Price, Model, Message, Block } from './providers/types.js';
 
-export interface Price {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-}
-
-export interface ModelReply {
-  content: Row[];
-  usage: {
-    input_tokens: number;
-    output_tokens: number;
-    cache_read_input_tokens?: number;
-    cache_creation_input_tokens?: number;
-  };
-  stop_reason?: string;
-}
-
-export interface Message {
-  role: 'user' | 'assistant';
-  content: Row[];
-}
-
-export interface Model {
-  name: string;
-  complete(input: {
-    system: string;
-    messages: Message[];
-    tools: ArmHandle['tools'];
-    signal: AbortSignal;
-  }): Promise<ModelReply>;
-}
-
-/** Thin Messages API adapter. No hidden retries; errors retain the attempted run. */
-export function anthropicModel(name: string, key: string): Model {
-  if (!key) throw new Error('ANTHROPIC_API_KEY is required for model runs');
-
-  return {
-    name,
-    async complete(input) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: json({
-          model: name,
-          max_tokens: 8192,
-          cache_control: { type: 'ephemeral' },
-          system: input.system,
-          messages: input.messages,
-          tools: input.tools,
-        }),
-        signal: input.signal,
-      });
-
-      if (!response.ok)
-        throw new Error(
-          `Messages API HTTP ${response.status}: ${(await response.text()).slice(0, 2000)}`,
-        );
-
-      return (await response.json()) as ModelReply;
-    },
-  };
-}
+export type { Usage, Price, Model } from './providers/types.js';
 
 export const defaultBudgets = {
   turns: 40,
@@ -151,24 +80,33 @@ export async function agentLoop(input: {
       await input.emit({ type: 'model', reply });
 
       if (
-        !Number.isSafeInteger(reply.usage?.input_tokens) ||
-        !Number.isSafeInteger(reply.usage?.output_tokens) ||
-        reply.usage.input_tokens < 0 ||
-        reply.usage.output_tokens < 0 ||
+        !reply.usage ||
         ![
-          reply.usage.cache_read_input_tokens ?? 0,
-          reply.usage.cache_creation_input_tokens ?? 0,
+          reply.usage.inputTokens,
+          reply.usage.outputTokens,
+          reply.usage.cacheReadTokens,
+          reply.usage.cacheWriteTokens,
         ].every((n) => Number.isSafeInteger(n) && n >= 0)
       )
-        throw new Error('Model response has no token usage');
+        throw new Error('Model response has no valid token usage');
 
       usageComplete = true;
-      usage.inputTokens += reply.usage.input_tokens;
-      usage.outputTokens += reply.usage.output_tokens;
-      usage.cacheReadTokens += reply.usage.cache_read_input_tokens ?? 0;
-      usage.cacheWriteTokens += reply.usage.cache_creation_input_tokens ?? 0;
+      usage.inputTokens += reply.usage.inputTokens;
+      usage.outputTokens += reply.usage.outputTokens;
+      usage.cacheReadTokens += reply.usage.cacheReadTokens;
+      usage.cacheWriteTokens += reply.usage.cacheWriteTokens;
       assistant += json(reply.content) + '\n';
-      messages.push({ role: 'assistant', content: reply.content });
+      messages.push({
+        role: 'assistant',
+        content: reply.content,
+        ...(reply.continuation ? { continuation: reply.continuation } : {}),
+      });
+
+      if (reply.stopReason !== 'complete') {
+        stop =
+          reply.stopReason === 'limit' ? 'model-output-limit' : 'model-error';
+        break;
+      }
 
       if (
         controller.signal.aborted ||
@@ -179,7 +117,7 @@ export async function agentLoop(input: {
         break;
       }
 
-      const results: Row[] = [];
+      const results: Block[] = [];
       let submittedThisTurn = false;
 
       for (const block of reply.content) {
@@ -189,7 +127,7 @@ export async function agentLoop(input: {
           break;
         }
 
-        if (block.type !== 'tool_use') continue;
+        if (block.type !== 'tool_call') continue;
 
         if (submittedThisTurn) {
           submission = undefined;
@@ -203,6 +141,8 @@ export async function agentLoop(input: {
           isError = false;
 
         try {
+          if (block.argumentError) throw new Error(block.argumentError);
+
           if (block.name === 'submit_answer') {
             submission = submissionSchema.parse(block.input);
             submittedThisTurn = true;
@@ -224,11 +164,11 @@ export async function agentLoop(input: {
 
         bytesReturnedByTools += Buffer.byteLength(text);
         tools += text + '\n';
-        const response = {
+        const response: Block = {
           type: 'tool_result',
-          tool_use_id: block.id,
+          id: block.id,
           content: text,
-          is_error: isError,
+          isError,
         };
 
         results.push(response);

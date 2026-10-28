@@ -7,7 +7,7 @@ solvability; it does not measure an agent.
 
 | Status       | Scope                                                                                                                                                                        |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Implemented  | Seeded S/M/L worlds; five HTTP simulators; SQLite plans/finance; DuckDB warehouse; three arms; reference solutions; grading; Messages API loop; resumable artifacts; reports |
+| Implemented  | Seeded S/M/L worlds; five HTTP simulators; SQLite plans/finance; DuckDB warehouse; three arms; reference solutions; grading; provider adapters; resumable artifacts; reports |
 | Runnable     | 66 task variants, including a 20-task pilot, with independent world-derived answers                                                                                          |
 | Deferred     | 14 task variants needing per-date FX joins/reference datasets; present in the catalogue and reports, never counted as passes                                                 |
 | Not run here | Paid pilot, Main/Scale model evaluations, human prompt/parity audit, human review of model-error labels                                                                      |
@@ -46,8 +46,13 @@ pnpm bench:agency:validate --stage main --seed 19 --out benchmarks/media-agency/
 pnpm bench:agency:report --out benchmarks/media-agency/artifacts/pilot-validation
 
 # Model run: choose a model explicitly; the API key stays in the parent process.
-ANTHROPIC_API_KEY=... pnpm bench:agency:run --stage pilot --model claude-sonnet-5-5 \
+OPENAI_API_KEY=... pnpm bench:agency:run --stage pilot \
+  --provider openai --model gpt-6-luna --reasoning low \
   --pricing /absolute/path/to/pricing.json --out benchmarks/media-agency/artifacts/model-pilot
+
+# Anthropic uses its own key and accepts any Messages-compatible model ID:
+ANTHROPIC_API_KEY=... pnpm bench:agency:run --provider anthropic --model claude-haiku-5-5 \
+  --out benchmarks/media-agency/artifacts/anthropic-pilot
 
 # A focused run or repeated task family:
 pnpm bench:agency:run --model MODEL_ID --tier M --arm relate \
@@ -70,10 +75,50 @@ Supply prices appropriate to the actual model and context size. This is an
 example, not an automatically maintained price list. Without pricing, costs are
 `null`/unknown. Token usage includes separate uncached input, output, cache
 reads and cache writes; all input categories count toward the budget. The
-adapter uses [Messages](https://platform.claude.com/docs/en/api/messages) and
-[automatic prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching),
-with the same settings and tool loop in every arm. Provider failures are
-retained; the adapter does not silently retry a paid request.
+adapters use
+[Anthropic Messages](https://platform.claude.com/docs/en/api/messages) and
+[OpenAI Responses](https://developers.openai.com/api/docs/guides/function-calling).
+The default provider is `anthropic` for compatibility with the original command.
+`--provider openai` reads `OPENAI_API_KEY`; `anthropic` reads
+`ANTHROPIC_API_KEY`. Keys stay outside manifests and transcripts. The CLI does
+not automatically load `.env`; use your environment loader when needed.
+
+`--max-output-tokens` defaults to 8192 for both providers. OpenAI optionally
+accepts `--reasoning none|low|medium|high|xhigh|max`; omit it for the model's
+default. Unsupported provider/options combinations fail before a run. Model
+availability and supported reasoning levels remain the provider's decision:
+there is no model-name substitution, fallback, or hidden paid retry.
+
+The shared loop consumes neutral text, tool-call and tool-result blocks plus
+four disjoint token categories. Adapters retain original responses and opaque
+continuation items, including OpenAI encrypted reasoning and Anthropic thinking
+signatures. OpenAI uses `store: false`, replays the full local conversation, and
+sets tool `strict: false` to preserve the same optional-argument schemas as the
+other provider. It subtracts cache reads/writes from total input, and output
+usage includes reasoning tokens. Anthropic uses automatic prompt caching.
+Output-limit responses retain usage but never dispatch partial tool calls.
+
+```mermaid
+flowchart LR
+  CLI[Provider + model + options] --> Factory[Provider factory]
+  Factory --> A[Anthropic Messages adapter]
+  Factory --> O[OpenAI Responses adapter]
+  A --> Loop[Shared agent loop]
+  O --> Loop
+  Loop --> Arms[Same three benchmark access paths]
+  CLI --> Manifest[Immutable run manifest]
+  Loop --> Evidence[Raw responses + normalized usage + tool results]
+```
+
+`src/harness/providers/types.ts` owns the provider-neutral contract;
+`providers/index.ts` validates configuration and selects an adapter. Add a new
+provider there with its own translation and contract tests, without changing arm
+implementations or grading. Provider, model, reasoning and output limit are
+pinned in `manifest.config.modelConfig`; changing any requires a new output
+directory. Raw API failures remain in transcripts; unknown usage keeps costs
+unknown. Prices are user-supplied estimates, not billing reconciliation. A flat
+pricing file is only appropriate while requests stay within the selected model's
+context-price tier.
 
 Outputs are ignored by Git under `artifacts/`. Each scheduled run gets a JSONL
 transcript and a result JSON, plus a shared `manifest.json`. Resume requires the

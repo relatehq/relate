@@ -16,7 +16,7 @@ import type { RunConfig } from './run.js';
 import { generateWorld } from '../world/generator.js';
 import { writeDatabases } from '../systems/databases.js';
 import { json } from '../world/model.js';
-import { anthropicModel } from './model.js';
+import { createModel, modelConfigSchema } from './providers/index.js';
 import type { Price } from './model.js';
 import { aggregate, paired, renderReport } from '../report/aggregate.js';
 
@@ -28,6 +28,9 @@ const { positionals, values } = parseArgs({
     arm: { type: 'string', default: 'all' },
     stage: { type: 'string', default: 'pilot' },
     model: { type: 'string' },
+    provider: { type: 'string', default: 'anthropic' },
+    reasoning: { type: 'string' },
+    'max-output-tokens': { type: 'string', default: '8192' },
     task: { type: 'string' },
     k: { type: 'string', short: 'k', default: '1' },
     out: { type: 'string' },
@@ -39,7 +42,7 @@ const command = positionals[0];
 
 if (values.help || !command) {
   console.log(
-    'Commands: catalogue, generate, validate, run, report. Options: --tier S|M|L --seed 7 --arm all|baseline-tools|baseline-code|relate --stage pilot|main|scale --task category.* -k 1 --model MODEL --pricing JSON_FILE --out DIRECTORY. validate uses reference solutions without model calls. run requires --model and ANTHROPIC_API_KEY. Report reads the immutable manifest.',
+    'Commands: catalogue, generate, validate, run, report. Options: --tier S|M|L --seed 7 --arm all|baseline-tools|baseline-code|relate --stage pilot|main|scale --task category.* -k 1 --provider anthropic|openai --model MODEL --reasoning low --max-output-tokens 8192 --pricing JSON_FILE --out DIRECTORY. validate uses reference solutions without model calls. run requires --model and the provider API key (ANTHROPIC_API_KEY or OPENAI_API_KEY). Report reads the immutable manifest.',
   );
   process.exit(0);
 }
@@ -199,13 +202,19 @@ const tasks = catalogue.filter((t) =>
 
 if (!tasks.length) throw new Error('No matching tasks');
 
-const model =
-  command === 'run'
-    ? anthropicModel(values.model ?? '', process.env.ANTHROPIC_API_KEY ?? '')
-    : undefined;
-
 if (command === 'run' && !values.model)
   throw new Error('Pass an explicit --model identifier');
+
+const modelConfig =
+  command === 'run'
+    ? modelConfigSchema.parse({
+        provider: values.provider,
+        model: values.model,
+        maxOutputTokens: Number(values['max-output-tokens']),
+        ...(values.reasoning ? { reasoning: values.reasoning } : {}),
+      })
+    : undefined;
+const model = modelConfig ? createModel(modelConfig) : undefined;
 
 const price: Price | undefined = values.pricing
   ? z
@@ -223,6 +232,7 @@ const config: RunConfig = {
   seed,
   arms: selectedArms,
   model: model?.name ?? 'reference',
+  ...(modelConfig ? { modelConfig } : {}),
   k,
   tasks: tasks.map((t) => t.id),
   mode: model ? 'model' : 'reference',

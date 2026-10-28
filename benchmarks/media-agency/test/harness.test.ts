@@ -57,19 +57,20 @@ it('counts cache tokens towards budgets and costs, and retains model failures', 
       calls++;
 
       return {
+        stopReason: 'complete',
         content: [
           {
-            type: 'tool_use',
+            type: 'tool_call',
             id: 'one',
             name: 'submit_answer',
             input: { answer: { ok: true }, caveats: [] },
           },
         ],
         usage: {
-          input_tokens: 2,
-          output_tokens: 3,
-          cache_read_input_tokens: 100,
-          cache_creation_input_tokens: 4,
+          inputTokens: 2,
+          outputTokens: 3,
+          cacheReadTokens: 100,
+          cacheWriteTokens: 4,
         },
       };
     },
@@ -111,21 +112,27 @@ it('never executes a mutation after submit_answer', async () => {
     name: 'scripted',
     async complete() {
       return {
+        stopReason: 'complete',
         content: [
           {
-            type: 'tool_use',
+            type: 'tool_call',
             id: 'submit',
             name: 'submit_answer',
             input: { answer: {}, caveats: [] },
           },
           {
-            type: 'tool_use',
+            type: 'tool_call',
             id: 'write',
             name: 'execute',
             input: { code: 'write' },
           },
         ],
-        usage: { input_tokens: 1, output_tokens: 1 },
+        usage: {
+          inputTokens: 1,
+          outputTokens: 1,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+        },
       };
     },
   };

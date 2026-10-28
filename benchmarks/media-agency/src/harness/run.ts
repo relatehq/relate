@@ -23,6 +23,7 @@ import type { Submission } from '../tasks/grading.js';
 import { referenceCode } from '../tasks/references.js';
 import { agentLoop, cost, defaultBudgets } from './model.js';
 import type { Model, Price, Usage } from './model.js';
+import type { ModelConfig } from './providers/types.js';
 import type { Row } from '../systems/simulators.js';
 
 export const benchmarkRoot = resolve(
@@ -39,6 +40,7 @@ export interface RunConfig {
   seed: number;
   arms: Arm[];
   model: string;
+  modelConfig?: ModelConfig;
   k: number;
   tasks: string[];
   mode: 'reference' | 'model';

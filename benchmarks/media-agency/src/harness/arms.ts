@@ -223,7 +223,7 @@ export async function createArm(
             : name === 'submit_answer'
               ? 'Submit the task answer or null with refused.reason, and caveats [{kind,detail}].'
               : name,
-      input_schema: toolSchemas[name],
+      parameters: toolSchemas[name],
     })),
     async call(
       name: string,

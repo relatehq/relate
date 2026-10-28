@@ -34,6 +34,20 @@ it('resumes only the identical manifest and records deferred tasks without execu
   await expect(
     prepareRun(out, { ...config, model: 'different' }),
   ).rejects.toThrow('Resume refused');
+
+  for (const modelConfig of [
+    {
+      provider: 'openai' as const,
+      model: 'test',
+      maxOutputTokens: 8192,
+      reasoning: 'low' as const,
+    },
+    { provider: 'anthropic' as const, model: 'test', maxOutputTokens: 8192 },
+  ])
+    await expect(prepareRun(out, { ...config, modelConfig })).rejects.toThrow(
+      'Resume refused',
+    );
+
   const result = await runOne({
     task,
     arm: 'relate',
