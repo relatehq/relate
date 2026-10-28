@@ -84,6 +84,17 @@ if (
   if (process.exitCode === 0) {
     // Node's optional env file preserves exported variables and needs no wrapper process.
     const envArgs = ['--env-file-if-exists=.env'];
+    // Workspace dev packages such as the CRM simulator export TypeScript, which
+    // the forked app process imports directly. Node strips types by default from
+    // 22.18; the oldest supported 22.x needs the flag, inherited through NODE_OPTIONS.
+    const env = process.features.typescript
+      ? process.env
+      : {
+          ...process.env,
+          NODE_OPTIONS: [process.env.NODE_OPTIONS, '--experimental-strip-types']
+            .filter(Boolean)
+            .join(' '),
+        };
 
     process.exitCode = await runCommand(
       process.execPath,
@@ -105,6 +116,7 @@ if (
       ],
       {
         cwd: root,
+        env,
       },
     );
   }
